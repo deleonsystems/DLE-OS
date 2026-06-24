@@ -1202,7 +1202,9 @@ body {
       font-weight: 700;
     }
 
-    .job-action-buttons button {
+    .job-action-buttons button,
+    .work-order-status-actions button,
+    .work-order-split-row button {
       width: 100%;
       margin: 0;
       border: 1px solid rgba(130, 170, 210, 0.38);
@@ -1214,12 +1216,16 @@ body {
       cursor: pointer;
     }
 
-    .job-action-buttons button:not(:disabled):hover {
+    .job-action-buttons button:not(:disabled):hover,
+    .work-order-status-actions button:not(:disabled):hover,
+    .work-order-split-row button:not(:disabled):hover {
       border-color: rgba(47,140,255,.75);
       background: rgba(47,140,255,.18);
     }
 
-    .job-action-buttons button:disabled {
+    .job-action-buttons button:disabled,
+    .work-order-status-actions button:disabled,
+    .work-order-split-row button:disabled {
       opacity: .48;
       cursor: not-allowed;
     }
@@ -1269,24 +1275,65 @@ body {
       line-height: 1.05;
     }
 
-    .work-order-subtitle {
-      margin: 8px 0 0;
-      color: #d7dee8;
-      font-size: 14px;
-    }
-
-    .work-order-summary-grid {
+    .work-order-summary-layout {
       display: grid;
-      grid-template-columns: repeat(5, minmax(120px, 1fr));
-      gap: 10px;
+      grid-template-columns: minmax(360px, 1.45fr) minmax(280px, .9fr);
+      gap: 12px;
       margin-bottom: 14px;
     }
 
     .work-order-summary-item,
+    .work-order-summary-group,
     .work-order-card {
       border: 1px solid rgba(130, 170, 210, 0.22);
       border-radius: 14px;
       background: rgba(4, 10, 18, .48);
+    }
+
+    .work-order-summary-group {
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .work-order-summary-group.build-info {
+      border-color: rgba(46, 143, 255, .42);
+      background: rgba(8, 24, 42, .72);
+    }
+
+    .work-order-summary-group.reference-info,
+    .work-order-summary-group.workflow-info {
+      background: rgba(4, 10, 18, .36);
+    }
+
+    .work-order-summary-group.workflow-info {
+      grid-column: 1 / -1;
+      border-color: rgba(46, 143, 255, .34);
+      background: rgba(8, 24, 42, .62);
+    }
+
+    .summary-group-label {
+      color: #8bbcff;
+      font-size: 11px;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      margin-bottom: 9px;
+    }
+
+    .build-info-grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.4fr) minmax(100px, .6fr) minmax(120px, .7fr);
+      gap: 10px;
+    }
+
+    .reference-info-grid,
+    .workflow-info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .workflow-info-grid {
+      grid-template-columns: repeat(3, minmax(150px, 1fr));
     }
 
     .work-order-summary-item {
@@ -1312,6 +1359,25 @@ body {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .work-order-summary-item.build-primary {
+      background: rgba(11, 34, 58, .78);
+      border-color: rgba(102, 166, 255, .34);
+      min-height: 76px;
+    }
+
+    .work-order-summary-item.build-primary span {
+      font-size: 25px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .work-order-summary-item.reference span,
+    .work-order-summary-item.workflow span {
+      color: #d8e1ec;
+      font-size: 14px;
+      font-weight: 650;
     }
 
     .work-order-layout {
@@ -1342,6 +1408,99 @@ body {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
+    }
+
+    .department-activity-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .department-activity-panel {
+      border: 1px solid rgba(130, 170, 210, 0.22);
+      border-radius: 12px;
+      background: rgba(4, 10, 18, .42);
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .department-activity-panel h4 {
+      margin: 0 0 10px;
+      color: #f4f7fb;
+      font-size: 15px;
+    }
+
+    .department-activity-list {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .department-activity-row {
+      display: grid;
+      grid-template-columns: minmax(110px, .85fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: baseline;
+      color: #d8e1ec;
+      font-size: 13px;
+    }
+
+    .department-activity-row strong {
+      color: #8bbcff;
+      font-size: 11px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .department-activity-note {
+      border-top: 1px solid rgba(130, 170, 210, 0.18);
+      padding-top: 10px;
+      color: #aab8c8;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .work-order-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .work-order-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(4, 10, 18, .55);
+    }
+
+    .work-order-table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .work-order-table th,
+    .work-order-table td {
+      padding: 10px 11px;
+      border-bottom: 1px solid rgba(130, 170, 210, 0.16);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    .work-order-table th {
+      color: #8bbcff;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      background: rgba(6, 13, 22, .98);
+      white-space: nowrap;
+    }
+
+    .work-order-status-actions {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 9px;
+      margin-top: 12px;
     }
 
     .status-box {
@@ -1399,6 +1558,13 @@ body {
       background: rgba(11, 22, 36, .42);
     }
 
+    .work-order-split-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+    }
+
 /* =====================================================
    END 008 - WORK ORDER DASHBOARD MODULE
 ===================================================== */
@@ -1444,8 +1610,13 @@ body {
       .job-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .work-order-header,
       .work-order-layout,
-      .status-grid { grid-template-columns: 1fr; }
-      .work-order-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .status-grid,
+      .department-activity-grid { grid-template-columns: 1fr; }
+      .work-order-summary-layout,
+      .build-info-grid,
+      .reference-info-grid { grid-template-columns: 1fr; }
+      .work-order-status-actions,
+      .work-order-split-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -1861,90 +2032,237 @@ BOM Viewer</h2>
       <div>
         <div class="work-order-kicker">Production Execution</div>
         <h2 class="work-order-title">WORK ORDER: <span id="woDashWorkOrder">UNKNOWN</span></h2>
-        <p class="work-order-subtitle">Work Order Dashboard - production workflow placeholder</p>
       </div>
 
       <button class="secondary-btn" onclick="go('orderDashboard')">Back to Order Dashboard</button>
     </div>
 
-    <div class="work-order-summary-grid">
-      <div class="work-order-summary-item">
-        <strong>Assembly</strong>
-        <span id="woDashAssembly">UNKNOWN</span>
-      </div>
-      <div class="work-order-summary-item">
-        <strong>Revision</strong>
-        <span id="woDashRevision">Unknown</span>
-      </div>
-      <div class="work-order-summary-item">
-        <strong>Customer</strong>
-        <span id="woDashCustomer">N/A</span>
-      </div>
-      <div class="work-order-summary-item">
-        <strong>PO Number</strong>
-        <span id="woDashPo">N/A</span>
-      </div>
-      <div class="work-order-summary-item">
-        <strong>Quantity</strong>
-        <span id="woDashQuantity">0</span>
-      </div>
-    </div>
-
-    <div class="work-order-layout">
-      <div class="work-order-column">
-        <section class="work-order-card" aria-label="Current Status">
-          <h3>Current Status</h3>
-          <div class="status-grid">
-            <div class="status-box">
-              <strong class="work-order-card-label">Current Department</strong>
-              <span id="woDashDepartment">NEW</span>
-            </div>
-            <div class="status-box">
-              <strong class="work-order-card-label">Current Status</strong>
-              <span id="woDashStatus">PENDING</span>
-            </div>
-            <div class="status-box">
-              <strong class="work-order-card-label">Last Updated</strong>
-              <span id="woDashLastUpdated">Not recorded</span>
-            </div>
-            <div class="status-box">
-              <strong class="work-order-card-label">Updated By</strong>
-              <span id="woDashUpdatedBy">DLE-OS Prototype</span>
+    <div class="work-order-stack">
+      <section class="work-order-card" aria-label="Work Order Summary">
+        <h3>Work Order Summary</h3>
+        <div class="work-order-summary-layout">
+          <div class="work-order-summary-group build-info">
+            <div class="summary-group-label">Build Information</div>
+            <div class="build-info-grid">
+              <div class="work-order-summary-item build-primary">
+                <strong>Assembly Number</strong>
+                <span id="woDashAssembly">UNKNOWN</span>
+              </div>
+              <div class="work-order-summary-item build-primary">
+                <strong>Revision</strong>
+                <span id="woDashRevision">Unknown</span>
+              </div>
+              <div class="work-order-summary-item build-primary">
+                <strong>Quantity</strong>
+                <span id="woDashQuantity">0</span>
+              </div>
             </div>
           </div>
-        </section>
 
-        <section class="work-order-card" aria-label="Workflow Timeline">
-          <h3>Workflow Timeline</h3>
-          <div id="workOrderTimeline" class="workflow-timeline"></div>
-        </section>
-
-        <section class="work-order-card" aria-label="Production Notes">
-          <h3>Production Notes</h3>
-          <div class="notes-empty">No notes available.</div>
-        </section>
-      </div>
-
-      <div class="work-order-column">
-        <section class="work-order-card" aria-label="Documents">
-          <h3>Documents</h3>
-          <div class="job-action-buttons">
-            <button onclick="openWorkOrderAssemblyDashboard()">Open Assembly Dashboard</button>
-            <button onclick="placeholderWorkOrderAction('View BOM')">View BOM</button>
-            <button onclick="placeholderWorkOrderAction('View Drawings')">View Drawings</button>
-            <button onclick="placeholderWorkOrderAction('View Traveler')">View Traveler</button>
+          <div class="work-order-summary-group reference-info">
+            <div class="summary-group-label">Reference Information</div>
+            <div class="reference-info-grid">
+              <div class="work-order-summary-item reference">
+                <strong>Customer</strong>
+                <span id="woDashCustomer">N/A</span>
+              </div>
+              <div class="work-order-summary-item reference">
+                <strong>Customer PO Number</strong>
+                <span id="woDashPo">N/A</span>
+              </div>
+              <div class="work-order-summary-item reference">
+                <strong>Sales Order Number</strong>
+                <span id="woDashSalesOrder">N/A</span>
+              </div>
+            </div>
           </div>
-        </section>
 
-        <section class="work-order-card" aria-label="Work Order Actions">
-          <h3>Work Order Actions</h3>
-          <div class="job-action-buttons">
-            <button onclick="placeholderWorkOrderAction('Update Status')">Update Status</button>
-            <button onclick="placeholderWorkOrderAction('Add Production Note')">Add Production Note</button>
-            <button onclick="placeholderWorkOrderAction('Place On Hold')">Place On Hold</button>
-            <button onclick="placeholderWorkOrderAction('Mark Complete')">Mark Complete</button>
+          <div class="work-order-summary-group workflow-info">
+            <div class="summary-group-label">Workflow Status</div>
+            <div class="workflow-info-grid">
+              <div class="work-order-summary-item workflow">
+                <strong>Material Status</strong>
+                <span>Pending Review</span>
+              </div>
+              <div class="work-order-summary-item workflow">
+                <strong>Production Status</strong>
+                <span id="woDashStatus">PENDING</span>
+              </div>
+              <div class="work-order-summary-item workflow">
+                <strong>Shipping Status</strong>
+                <span>Not Ready</span>
+              </div>
+            </div>
           </div>
-        </section>
+        </div>
+      </section>
+
+      <section class="work-order-card" aria-label="Shipment Schedule">
+        <h3>Shipment Schedule</h3>
+        <div class="work-order-table-wrap">
+          <table class="work-order-table">
+            <thead>
+              <tr>
+                <th>Release</th>
+                <th>Quantity</th>
+                <th>Due Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="workOrderDemandRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="work-order-card" aria-label="Department Activity">
+        <h3>Department Activity</h3>
+        <div class="department-activity-grid">
+          <div class="department-activity-panel">
+            <h4>Production Activity</h4>
+            <div class="department-activity-list">
+              <div class="department-activity-row">
+                <strong>Current Operator</strong>
+                <span>Not assigned</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Current Work Center</strong>
+                <span>Not started</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Last Activity</strong>
+                <span>No activity recorded</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Start Time</strong>
+                <span>Not recorded</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Stop Time</strong>
+                <span>Not recorded</span>
+              </div>
+            </div>
+            <div class="department-activity-note">Future data supplied by Production Terminal</div>
+          </div>
+
+          <div class="department-activity-panel">
+            <h4>Quality Activity</h4>
+            <div class="department-activity-list">
+              <div class="department-activity-row">
+                <strong>Inspection Status</strong>
+                <span>Pending</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Inspector</strong>
+                <span>Not assigned</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Last Inspection</strong>
+                <span>Not recorded</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Quality Hold</strong>
+                <span>No active hold</span>
+              </div>
+            </div>
+            <div class="department-activity-note">Future data supplied by Quality Terminal</div>
+          </div>
+
+          <div class="department-activity-panel">
+            <h4>Material Activity</h4>
+            <div class="department-activity-list">
+              <div class="department-activity-row">
+                <strong>Material Status</strong>
+                <span>Pending review</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Kit Status</strong>
+                <span>Not kitted</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Open Shortages</strong>
+                <span>None recorded</span>
+              </div>
+              <div class="department-activity-row">
+                <strong>Last Part Due</strong>
+                <span>Not scheduled</span>
+              </div>
+            </div>
+            <div class="department-activity-note">Future data supplied by Material Terminal</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="work-order-card" aria-label="Work Order Status">
+        <h3>Work Order Status</h3>
+        <div class="status-grid">
+          <div class="status-box">
+            <strong class="work-order-card-label">Current Department</strong>
+            <span id="woDashDepartment">NEW</span>
+          </div>
+          <div class="status-box">
+            <strong class="work-order-card-label">Current Status</strong>
+            <span id="woStatusDisplay">PENDING</span>
+          </div>
+          <div class="status-box">
+            <strong class="work-order-card-label">Last Updated</strong>
+            <span id="woDashLastUpdated">Not recorded</span>
+          </div>
+          <div class="status-box">
+            <strong class="work-order-card-label">Updated By</strong>
+            <span id="woDashUpdatedBy">DLE-OS Prototype</span>
+          </div>
+        </div>
+        <div class="work-order-status-actions">
+          <button onclick="placeholderWorkOrderAction('Release')">Release</button>
+          <button onclick="placeholderWorkOrderAction('Start Production')">Start Production</button>
+          <button onclick="placeholderWorkOrderAction('Hold')">Hold</button>
+          <button onclick="placeholderWorkOrderAction('Resume')">Resume</button>
+          <button onclick="placeholderWorkOrderAction('Complete')">Complete</button>
+        </div>
+      </section>
+
+      <section class="work-order-card" aria-label="Work Order Splits">
+        <h3>Work Order Splits</h3>
+        <div class="work-order-split-row">
+          <div class="notes-empty">No splits defined.</div>
+          <button onclick="placeholderWorkOrderAction('Create Split')">Create Split</button>
+        </div>
+      </section>
+
+      <div class="work-order-layout">
+        <div class="work-order-column">
+          <section class="work-order-card" aria-label="Workflow Timeline">
+            <h3>Workflow Timeline</h3>
+            <div id="workOrderTimeline" class="workflow-timeline"></div>
+          </section>
+
+          <section class="work-order-card" aria-label="Production Notes">
+            <h3>Production Notes</h3>
+            <div class="notes-empty">No notes available.</div>
+          </section>
+        </div>
+
+        <div class="work-order-column">
+          <section class="work-order-card" aria-label="Documents">
+            <h3>Documents</h3>
+            <div class="job-action-buttons">
+              <button onclick="openWorkOrderAssemblyDashboard()">Open Assembly Dashboard</button>
+              <button onclick="placeholderWorkOrderAction('View BOM')">View BOM</button>
+              <button onclick="placeholderWorkOrderAction('View Drawings')">View Drawings</button>
+              <button onclick="placeholderWorkOrderAction('View Traveler')">View Traveler</button>
+            </div>
+          </section>
+
+          <section class="work-order-card" aria-label="Work Order Actions">
+            <h3>Work Order Actions</h3>
+            <div class="job-action-buttons">
+              <button onclick="placeholderWorkOrderAction('Update Status')">Update Status</button>
+              <button onclick="placeholderWorkOrderAction('Add Production Note')">Add Production Note</button>
+              <button onclick="placeholderWorkOrderAction('Place On Hold')">Place On Hold</button>
+              <button onclick="placeholderWorkOrderAction('Mark Complete')">Mark Complete</button>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   </div>
@@ -3350,6 +3668,7 @@ function buildWorkOrderDashboardContext(order, workOrder) {
         revision: workOrder.revision || 'Unknown',
         customer: order.customer || 'Parker',
         po: order.po || '4551292410',
+        salesOrder: order.salesOrder || '0011948',
         quantity: workOrder.quantity || '40',
         department: 'NEW',
         status: 'PENDING',
@@ -3361,16 +3680,68 @@ function buildWorkOrderDashboardContext(order, workOrder) {
 function renderWorkOrderDashboard(workOrder) {
 
     setText('woDashWorkOrder', workOrder.workOrder);
-    setText('woDashAssembly', workOrder.assembly);
-    setText('woDashRevision', workOrder.revision);
     setText('woDashCustomer', workOrder.customer);
     setText('woDashPo', workOrder.po);
+    setText('woDashSalesOrder', workOrder.salesOrder);
+    setText('woDashAssembly', workOrder.assembly);
+    setText('woDashRevision', workOrder.revision);
     setText('woDashQuantity', workOrder.quantity);
     setText('woDashDepartment', workOrder.department);
     setText('woDashStatus', workOrder.status);
+    setText('woStatusDisplay', workOrder.status);
     setText('woDashLastUpdated', workOrder.lastUpdated);
     setText('woDashUpdatedBy', workOrder.updatedBy);
+    renderWorkOrderDemand(workOrder);
     renderWorkOrderTimeline();
+}
+
+function renderWorkOrderDemand(workOrder) {
+
+    const rows =
+        getPlaceholderWorkOrderDemand(workOrder)
+            .sort((a, b) => new Date(a.sortDate) - new Date(b.sortDate));
+
+    const tbody =
+        document.getElementById('workOrderDemandRows');
+
+    if (!tbody) return;
+
+    tbody.innerHTML =
+        rows.map(row => `
+          <tr>
+            <td>${escapeHtml(row.release)}</td>
+            <td>${escapeHtml(row.quantity)}</td>
+            <td>${escapeHtml(row.dueDate)}</td>
+            <td><span class="job-status-pill">${escapeHtml(row.status)}</span></td>
+          </tr>
+        `).join('');
+}
+
+function getPlaceholderWorkOrderDemand(workOrder) {
+
+    return [
+        {
+            release: 'Release 1',
+            quantity: '25',
+            dueDate: '07/15/26',
+            sortDate: '2026-07-15',
+            status: 'Open'
+        },
+        {
+            release: 'Release 2',
+            quantity: '50',
+            dueDate: '08/01/26',
+            sortDate: '2026-08-01',
+            status: 'Open'
+        },
+        {
+            release: 'Release 3',
+            quantity: '25',
+            dueDate: '08/15/26',
+            sortDate: '2026-08-15',
+            status: 'Open'
+        }
+    ];
 }
 
 function renderWorkOrderTimeline() {
