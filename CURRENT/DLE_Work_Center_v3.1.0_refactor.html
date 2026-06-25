@@ -29,6 +29,7 @@ CSS SECTIONS
 008 - ORDER DASHBOARD MODULE
 009 - WORK ORDER DASHBOARD MODULE
 010 - RFQ PROCESSING MODULE
+011 - BOM EXTRACTION MODULE
 
 HTML SECTIONS
 
@@ -46,6 +47,7 @@ HTML SECTIONS
 108A - CAPTURE FORM
 108B - CAPTURE SAVED
 109 - RFQ PROCESSING
+110 - BOM EXTRACTION
 
 JAVASCRIPT SECTIONS
 
@@ -58,7 +60,8 @@ JAVASCRIPT SECTIONS
 206A - WORK ORDER DASHBOARD
 207 - DOCUMENT INTAKE
 208 - RFQ PROCESSING
-209 - INITIALIZATION
+209 - BOM EXTRACTION
+210 - INITIALIZATION
 
 FUTURE MODULE BOUNDARIES
 
@@ -106,6 +109,11 @@ RFQ Processing Module:
 - hidden workflow module
 - launched by Document Intake Commit RFQ
 - primary drawing, BOM, and supporting document classification
+
+BOM Extraction Module:
+- manufacturing-focused BOM review workspace
+- launched after RFQ Processing
+- original drawing and DLE Standard BOM comparison
 
 EXTRACTION NOTE
 
@@ -2356,8 +2364,815 @@ body {
       white-space: nowrap;
     }
 
+    .rfq-processing-status-message {
+      margin-top: 16px;
+      border: 1px solid rgba(251, 191, 36, 0.28);
+      background: rgba(251, 191, 36, 0.1);
+      color: #fde68a;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-weight: 700;
+      white-space: pre-line;
+    }
+
 /* =====================================================
    END 010 - RFQ PROCESSING MODULE
+===================================================== */
+
+/* =====================================================
+   011 - BOM EXTRACTION MODULE
+===================================================== */
+
+    #bomExtraction {
+      width: calc(100vw - 44px);
+      margin-left: calc(50% - 50vw + 22px);
+    }
+
+    .bom-extraction-panel {
+      background: rgba(9, 18, 30, 0.86);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 22px 60px rgba(0, 0, 0, .34);
+    }
+
+    .bom-extraction-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(130, 170, 210, 0.2);
+      margin-bottom: 18px;
+    }
+
+    .bom-extraction-kicker {
+      color: #8bbcff;
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .bom-extraction-meta {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .bom-extraction-meta-item,
+    .bom-extraction-card {
+      background: rgba(13, 25, 40, 0.82);
+      border: 1px solid rgba(130, 170, 210, 0.22);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .bom-extraction-meta-item strong {
+      display: block;
+      color: #9fb0c4;
+      font-size: .74rem;
+      margin-bottom: 5px;
+    }
+
+    .bom-extraction-meta-item span {
+      color: #f4f7fb;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .bom-extraction-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(360px, 2fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .bom-extraction-card h3 {
+      margin: 0 0 10px;
+    }
+
+    .bom-pdf-placeholder {
+      min-height: 560px;
+      border: 1px dashed rgba(130, 170, 210, 0.34);
+      border-radius: 12px;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        rgba(4, 9, 16, 0.36);
+      background-size: 28px 28px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 28px;
+      color: #aeb9c8;
+    }
+
+    .engineering-viewer-toolbar,
+    .engineering-viewer-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .engineering-viewer-toolbar {
+      justify-content: space-between;
+    }
+
+    .engineering-viewer-controls,
+    .engineering-viewer-page-status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .engineering-viewer-page-status {
+      color: #c7d2e2;
+      font-weight: 800;
+    }
+
+    .engineering-viewer-tools button,
+    .engineering-viewer-toolbar button {
+      padding: 9px 11px;
+    }
+
+    .engineering-viewer-tools button:disabled,
+    .engineering-viewer-toolbar button:disabled {
+      opacity: .48;
+      cursor: not-allowed;
+    }
+
+    .engineering-pdf-frame-shell {
+      min-height: 620px;
+      max-height: 72vh;
+      overflow: auto;
+      border: 1px solid rgba(130, 170, 210, 0.24);
+      border-radius: 12px;
+      background: rgba(4, 9, 16, 0.44);
+      cursor: grab;
+      position: relative;
+    }
+
+    .engineering-pdf-frame-shell.panning {
+      cursor: grabbing;
+    }
+
+    .engineering-pdf-frame-shell.region-selection-active {
+      cursor: crosshair;
+    }
+
+    .engineering-pdf-frame-wrap {
+      transform-origin: top left;
+      transition: width .16s ease, transform .16s ease;
+      min-height: 620px;
+      position: relative;
+    }
+
+    .engineering-pdf-pages {
+      background: #111827;
+      width: 100%;
+      min-height: 620px;
+    }
+
+    .engineering-pdf-page {
+      display: block;
+      width: 100%;
+      background: #fff;
+    }
+
+    .engineering-pdf-frame {
+      width: 100%;
+      height: 100%;
+      min-height: 620px;
+      border: 0;
+      display: block;
+      background: #111827;
+      pointer-events: none;
+    }
+
+    .bom-region-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .bom-region-selection,
+    .bom-region-draft {
+      position: absolute;
+      border: 2px solid rgba(47, 140, 255, 0.95);
+      background: rgba(47, 140, 255, 0.2);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+      pointer-events: auto;
+    }
+
+    .bom-region-selection.selected {
+      border-color: rgba(74, 222, 128, 0.95);
+      background: rgba(74, 222, 128, 0.18);
+    }
+
+    .bom-region-label {
+      position: absolute;
+      left: -2px;
+      top: -28px;
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: rgba(47, 140, 255, 0.95);
+      color: #f4f7fb;
+      font-size: .76rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .bom-region-selection.selected .bom-region-label {
+      background: rgba(34, 197, 94, 0.95);
+    }
+
+    .bom-pdf-placeholder strong {
+      display: block;
+      color: #f4f7fb;
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+    }
+
+    .bom-source-documents {
+      margin-top: 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .bom-source-document-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid rgba(130, 170, 210, 0.16);
+      border-radius: 10px;
+      padding: 9px 10px;
+      background: rgba(4, 9, 16, 0.28);
+    }
+
+    .bom-source-document-row span {
+      color: #9fb0c4;
+      font-size: .84rem;
+    }
+
+    .bom-region-panel {
+      margin-top: 14px;
+      border: 1px solid rgba(130, 170, 210, 0.18);
+      background: rgba(4, 9, 16, 0.28);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .bom-region-panel h3 {
+      margin: 0 0 8px;
+    }
+
+    .bom-region-list {
+      display: grid;
+      gap: 8px;
+      margin: 10px 0;
+    }
+
+    .bom-region-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid rgba(130, 170, 210, 0.16);
+      border-radius: 10px;
+      padding: 9px 10px;
+      background: rgba(13, 25, 40, 0.62);
+      cursor: pointer;
+    }
+
+    .bom-region-row.selected {
+      border-color: rgba(74, 222, 128, 0.42);
+      background: rgba(74, 222, 128, 0.1);
+    }
+
+    .bom-region-row strong {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+
+    .bom-region-row span {
+      color: #9fb0c4;
+      font-size: .84rem;
+    }
+
+    .bom-region-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .bom-standard-table-wrap {
+      overflow-x: auto;
+      border: 1px solid rgba(130, 170, 210, 0.18);
+      border-radius: 12px;
+    }
+
+    .bom-standard-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 620px;
+      background: rgba(4, 9, 16, 0.32);
+    }
+
+    .bom-standard-table th,
+    .bom-standard-table td {
+      border-bottom: 1px solid rgba(130, 170, 210, 0.14);
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .bom-standard-table th {
+      color: #bfdbfe;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      background: rgba(47, 140, 255, 0.08);
+    }
+
+    .bom-placeholder-cell {
+      color: #738092;
+    }
+
+    .ocr-review-workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(360px, .9fr);
+      gap: 14px;
+      align-items: start;
+      margin-top: 14px;
+    }
+
+    .bom-region-preview-panel,
+    .ocr-input-panel,
+    .ocr-review-panel {
+      margin-top: 14px;
+      border: 1px solid rgba(130, 170, 210, 0.18);
+      background: rgba(4, 9, 16, 0.28);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .ocr-review-workspace .bom-region-preview-panel,
+    .ocr-review-workspace .ocr-review-panel {
+      margin-top: 0;
+    }
+
+    .bom-region-preview-panel h3,
+    .ocr-input-panel h3,
+    .ocr-review-panel h3 {
+      margin: 0 0 8px;
+    }
+
+    .bom-region-preview-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    .bom-adjust-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #c7d2e2;
+      font-size: .84rem;
+      font-weight: 700;
+    }
+
+    .bom-adjust-control input {
+      width: 110px;
+      margin: 0;
+    }
+
+    .bom-region-preview-viewport {
+      position: relative;
+      min-height: 260px;
+      max-height: 480px;
+      overflow: auto;
+      border: 1px solid rgba(130, 170, 210, 0.24);
+      border-radius: 12px;
+      background: rgba(4, 9, 16, 0.48);
+      display: grid;
+      place-items: center;
+      color: #9fb0c4;
+      text-align: center;
+      padding: 14px;
+    }
+
+    .bom-region-crop-frame {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(47, 140, 255, 0.36);
+      border-radius: 10px;
+      background: #111827;
+      transform-origin: center;
+    }
+
+    .bom-region-crop-inner {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform-origin: top left;
+    }
+
+    .bom-region-crop-inner iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      pointer-events: none;
+      background: #111827;
+    }
+
+    .bom-region-crop-image {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: fill;
+      background: #fff;
+    }
+
+    .manual-table-assist-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid rgba(130, 170, 210, 0.16);
+      border-radius: 10px;
+      background: rgba(13, 25, 40, 0.52);
+    }
+
+    .manual-table-assist-toolbar button.active {
+      border-color: rgba(96, 165, 250, 0.84);
+      background: rgba(47, 140, 255, 0.22);
+      color: #f4f7fb;
+    }
+
+    .manual-table-assist-status {
+      color: #9fb0c4;
+      font-size: .8rem;
+      font-weight: 700;
+    }
+
+    .manual-table-guide-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .bom-region-crop-frame.manual-assist-active {
+      cursor: crosshair;
+    }
+
+    .manual-table-guide {
+      position: absolute;
+      pointer-events: auto;
+      background: rgba(96, 165, 250, 0.72);
+      box-shadow: 0 0 0 1px rgba(4, 9, 16, 0.28);
+    }
+
+    .manual-table-guide.row-guide {
+      left: 0;
+      width: 100%;
+      height: 2px;
+      transform: translateY(-1px);
+      cursor: ns-resize;
+    }
+
+    .manual-table-guide.column-guide {
+      top: 0;
+      height: 100%;
+      width: 2px;
+      transform: translateX(-1px);
+      cursor: ew-resize;
+    }
+
+    .manual-table-guide.selected {
+      background: rgba(34, 197, 94, 0.86);
+    }
+
+    .manual-table-guide.accepted {
+      background: rgba(34, 197, 94, 0.92);
+      box-shadow: 0 0 0 2px rgba(187, 247, 208, 0.28);
+    }
+
+    .manual-table-guide.locked {
+      pointer-events: none;
+    }
+
+    .manual-table-guide.locked.row-guide {
+      height: 3px;
+    }
+
+    .manual-table-guide.locked.column-guide {
+      width: 3px;
+    }
+
+    .manual-guide-delete {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border: 1px solid rgba(248, 113, 113, 0.72);
+      border-radius: 999px;
+      padding: 0;
+      background: rgba(127, 29, 29, 0.88);
+      color: #fee2e2;
+      font-size: .72rem;
+      line-height: 16px;
+      text-align: center;
+    }
+
+    .row-guide .manual-guide-delete {
+      right: 6px;
+      top: -9px;
+    }
+
+    .column-guide .manual-guide-delete {
+      top: 6px;
+      left: -8px;
+    }
+
+    .manual-ocr-cell-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .manual-ocr-cell {
+      position: absolute;
+      border: 1px solid rgba(250, 204, 21, 0.78);
+      background: rgba(250, 204, 21, 0.08);
+      color: #fef3c7;
+      font-size: .68rem;
+      font-weight: 900;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding: 2px 4px;
+    }
+
+    .table-detection-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0;
+    }
+
+    .table-detection-toolbar button:disabled {
+      opacity: .48;
+      cursor: not-allowed;
+    }
+
+    .table-detection-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .table-boundary-overlay {
+      position: absolute;
+      border: 2px solid rgba(251, 146, 60, 0.95);
+      background: rgba(251, 146, 60, 0.08);
+    }
+
+    .table-header-overlay {
+      position: absolute;
+      border: 1px solid rgba(251, 146, 60, 0.9);
+      background: rgba(251, 146, 60, 0.22);
+    }
+
+    .table-column-line,
+    .table-row-line {
+      position: absolute;
+      background: rgba(59, 130, 246, 0.95);
+    }
+
+    .table-row-line {
+      background: rgba(34, 197, 94, 0.95);
+    }
+
+    .table-column-line {
+      width: 2px;
+      top: 0;
+      bottom: 0;
+    }
+
+    .table-row-line {
+      height: 2px;
+      left: 0;
+      right: 0;
+    }
+
+    .table-detection-summary {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .table-detection-summary-item {
+      border: 1px solid rgba(130, 170, 210, 0.16);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(13, 25, 40, 0.62);
+    }
+
+    .table-detection-summary-item strong {
+      display: block;
+      color: #9fb0c4;
+      font-size: .72rem;
+      margin-bottom: 4px;
+    }
+
+    .ocr-input-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .ocr-input-item {
+      border: 1px solid rgba(130, 170, 210, 0.16);
+      border-radius: 10px;
+      padding: 9px 10px;
+      background: rgba(13, 25, 40, 0.62);
+    }
+
+    .ocr-input-item strong {
+      display: block;
+      color: #9fb0c4;
+      font-size: .74rem;
+      margin-bottom: 4px;
+    }
+
+    .ocr-review-table-wrap {
+      max-height: 520px;
+      overflow: auto;
+      border-radius: 10px;
+      border: 1px solid rgba(130, 170, 210, 0.18);
+      background: rgba(4, 9, 16, 0.3);
+    }
+
+    .ocr-review-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .84rem;
+      color: #d9e5f2;
+    }
+
+    .ocr-review-table th,
+    .ocr-review-table td {
+      border-bottom: 1px solid rgba(130, 170, 210, 0.12);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .ocr-review-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      color: #bfdbfe;
+      font-size: .76rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      background: rgba(13, 25, 40, 0.96);
+    }
+
+    .ocr-review-table tbody tr:nth-child(odd) {
+      background: rgba(13, 25, 40, 0.44);
+    }
+
+    .ocr-review-table tbody tr:nth-child(even) {
+      background: rgba(4, 9, 16, 0.28);
+    }
+
+    .ocr-review-table tbody tr:hover {
+      background: rgba(47, 140, 255, 0.16);
+      cursor: pointer;
+    }
+
+    .ocr-review-table tbody tr.selected {
+      background: rgba(47, 140, 255, 0.28);
+      box-shadow: inset 3px 0 0 rgba(96, 165, 250, 0.95);
+    }
+
+    .ocr-review-raw-cell {
+      color: #9fb0c4;
+      background: rgba(255, 255, 255, 0.03);
+      white-space: pre-wrap;
+    }
+
+    .ocr-review-cleaned-cell {
+      min-width: 180px;
+      color: #f4f7fb;
+      background: rgba(34, 197, 94, 0.06);
+      outline: none;
+      white-space: pre-wrap;
+    }
+
+    .ocr-review-cleaned-cell:focus {
+      box-shadow: inset 0 0 0 2px rgba(96, 165, 250, 0.56);
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .ocr-review-status-cell {
+      width: 70px;
+      color: #86efac;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .ocr-review-cell-grid {
+      display: grid;
+      gap: 3px;
+      min-width: 220px;
+    }
+
+    .ocr-review-cell {
+      min-height: 28px;
+      border: 1px solid rgba(130, 170, 210, 0.14);
+      border-radius: 6px;
+      padding: 5px 7px;
+      white-space: pre-wrap;
+    }
+
+    .ocr-review-raw-cell .ocr-review-cell {
+      background: rgba(255, 255, 255, 0.03);
+      color: #9fb0c4;
+    }
+
+    .ocr-review-cleaned-cell .ocr-review-cell {
+      background: rgba(34, 197, 94, 0.06);
+      color: #f4f7fb;
+      outline: none;
+    }
+
+    .ocr-review-cleaned-cell .ocr-review-cell:focus {
+      box-shadow: inset 0 0 0 2px rgba(96, 165, 250, 0.56);
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .ocr-review-empty {
+      min-height: 120px;
+      display: grid;
+      place-items: center;
+      color: #9fb0c4;
+      border: 1px dashed rgba(130, 170, 210, 0.24);
+      border-radius: 10px;
+      background: rgba(4, 9, 16, 0.3);
+    }
+
+    .bom-crop-debug {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .bom-crop-debug-item {
+      border: 1px solid rgba(130, 170, 210, 0.16);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(13, 25, 40, 0.62);
+    }
+
+    .bom-crop-debug-item strong {
+      display: block;
+      color: #9fb0c4;
+      font-size: .72rem;
+      margin-bottom: 4px;
+    }
+
+    .bom-crop-debug-item span {
+      display: block;
+      overflow-wrap: anywhere;
+      white-space: pre-line;
+    }
+
+    .bom-extraction-status {
+      margin-top: 16px;
+      border: 1px solid rgba(74, 222, 128, 0.22);
+      background: rgba(74, 222, 128, 0.08);
+      color: #c7f9d8;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-weight: 700;
+    }
+
+/* =====================================================
+   END 011 - BOM EXTRACTION MODULE
 ===================================================== */
 
 /* =====================================================
@@ -2391,7 +3206,8 @@ body {
       #openOrders,
       #orderDashboard,
       #workOrderDashboard,
-      #rfqProcessing { width: 100%; margin-left: 0; }
+      #rfqProcessing,
+      #bomExtraction { width: 100%; margin-left: 0; }
       .open-orders-header,
       .open-orders-toolbar { grid-template-columns: 1fr; }
       .open-orders-status { white-space: normal; }
@@ -2404,6 +3220,11 @@ body {
       .rfq-processing-control-row,
       .rfq-processing-doc-row { grid-template-columns: 1fr; }
       .rfq-processing-checkbox { white-space: normal; }
+      .bom-extraction-header,
+      .bom-extraction-meta,
+      .bom-extraction-layout,
+      .ocr-review-workspace,
+      .bom-source-document-row { grid-template-columns: 1fr; }
       .work-order-header,
       .work-order-layout,
       .status-grid,
@@ -2423,6 +3244,8 @@ body {
       .work-order-split-row { grid-template-columns: 1fr; }
     }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 
@@ -3674,6 +4497,8 @@ BOM Viewer</h2>
           </section>
         </div>
 
+        <div id="rfqProcessingStatusMessage" class="rfq-processing-status-message hidden"></div>
+
         <div class="button-row">
           <button class="secondary-btn" type="button" onclick="go('documentIntake')">Return to Document Intake</button>
           <button class="primary" type="button" onclick="openRfqQueuePlaceholder()">Open RFQ Queue</button>
@@ -3683,6 +4508,132 @@ BOM Viewer</h2>
 
 <!-- =====================================================
    END 109 - RFQ PROCESSING
+===================================================== -->
+
+<!-- =====================================================
+   110 - BOM EXTRACTION
+===================================================== -->
+
+    <section id="bomExtraction" class="screen">
+      <div class="bom-extraction-panel">
+        <div class="bom-extraction-header">
+          <div>
+            <div class="bom-extraction-kicker">Engineering Workstation</div>
+            <h1>BOM Extraction</h1>
+            <p class="subtitle">Compare the customer's original drawing with the standardized DLE BOM before the RFQ enters quotation.</p>
+          </div>
+          <span class="small-icon">BE</span>
+        </div>
+
+        <div id="bomExtractionMeta" class="bom-extraction-meta"></div>
+
+        <div class="bom-extraction-layout">
+          <section class="bom-extraction-card">
+            <h3>Engineering Drawing Viewer</h3>
+            <div class="engineering-viewer-tools" aria-label="Future extraction tools">
+              <button id="selectBomRegionToolBtn" type="button" onclick="toggleBomRegionSelectionTool()">Select BOM Region</button>
+              <button type="button" disabled>Select Title Block</button>
+              <button type="button" disabled>Select Revision Block</button>
+              <button type="button" disabled>Select Configuration Table</button>
+              <button type="button" disabled>Select Notes</button>
+              <button type="button" onclick="clearBomRegions()">Clear Selections</button>
+            </div>
+            <div class="engineering-viewer-toolbar" aria-label="PDF viewer controls">
+              <div class="engineering-viewer-controls">
+                <button type="button" onclick="zoomEngineeringDrawingIn()">Zoom In</button>
+                <button type="button" onclick="zoomEngineeringDrawingOut()">Zoom Out</button>
+                <button type="button" onclick="fitEngineeringDrawingWidth()">Fit Width</button>
+                <button type="button" onclick="fitEngineeringDrawingPage()">Fit Page</button>
+              </div>
+              <div id="engineeringViewerPageStatus" class="engineering-viewer-page-status">Page 1 of 1</div>
+            </div>
+            <div id="bomExtractionPdfPreview" class="engineering-pdf-frame-shell"></div>
+            <div>
+              <h3>Source Documents</h3>
+              <div id="bomExtractionSourceDocuments" class="bom-source-documents"></div>
+            </div>
+            <div class="bom-region-panel">
+              <h3>Selected BOM Regions</h3>
+              <div id="bomRegionList" class="bom-region-list"></div>
+              <div class="bom-region-actions">
+                <button type="button" onclick="deleteSelectedBomRegion()">Delete Selected Region</button>
+                <button type="button" onclick="clearBomRegions()">Clear All Regions</button>
+                <button type="button" onclick="saveBomRegions()">Save Selections</button>
+              </div>
+            </div>
+            <div class="ocr-input-panel">
+              <h3>OCR Input</h3>
+              <div id="ocrInputDetails" class="ocr-input-grid"></div>
+            </div>
+            <div class="ocr-review-workspace">
+              <div class="bom-region-preview-panel">
+                <h3>BOM Region Preview</h3>
+                <div class="bom-region-preview-controls">
+                  <button type="button" onclick="zoomBomRegionPreviewIn()">Zoom In</button>
+                  <button type="button" onclick="zoomBomRegionPreviewOut()">Zoom Out</button>
+                  <button type="button" onclick="rotateBomRegionPreviewLeft()">Rotate Left</button>
+                  <button type="button" onclick="rotateBomRegionPreviewRight()">Rotate Right</button>
+                  <label class="bom-adjust-control">Brightness
+                    <input id="bomRegionPreviewBrightness" type="range" min="60" max="150" value="100" oninput="setBomRegionPreviewBrightness(this.value)" />
+                  </label>
+                  <label class="bom-adjust-control">Contrast
+                    <input id="bomRegionPreviewContrast" type="range" min="60" max="160" value="100" oninput="setBomRegionPreviewContrast(this.value)" />
+                  </label>
+                  <button type="button" onclick="resetBomRegionPreviewImage()">Reset Image</button>
+                </div>
+                <div class="manual-table-assist-toolbar">
+                  <button id="manualTableAssistBtn" type="button" onclick="toggleManualTableAssist()">Manual Table Assist</button>
+                  <button id="manualAddRowBtn" type="button" onclick="setManualGuideMode('row')" disabled>Add Row</button>
+                  <button id="manualAddColumnBtn" type="button" onclick="setManualGuideMode('column')" disabled>Add Column</button>
+                  <button type="button" onclick="deleteSelectedManualGuide()">Delete Guide</button>
+                  <button id="manualEditGuidesBtn" type="button" onclick="editManualGuides()" disabled>Edit Guides</button>
+                  <button type="button" onclick="acceptManualGuides()">Accept Guides</button>
+                  <button id="manualCellBoundaryBtn" type="button" onclick="toggleManualCellBoundaries()" disabled>Show OCR Cell Boundaries</button>
+                  <span id="manualTableAssistStatus" class="manual-table-assist-status">Manual guides not active.</span>
+                </div>
+                <div id="bomRegionPreviewViewport" class="bom-region-preview-viewport">Select a BOM Region to generate the OCR input preview.</div>
+                <div id="bomCropDebug" class="bom-crop-debug"></div>
+              </div>
+              <div class="ocr-review-panel">
+                <h3>OCR Review Table</h3>
+                <div id="ocrReviewWorkspace" class="ocr-review-table-wrap">
+                  <div class="ocr-review-empty">Run OCR to populate the review table.</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="bom-extraction-card">
+            <h3>DLE Standard BOM</h3>
+            <div class="bom-standard-table-wrap">
+              <table class="bom-standard-table">
+                <thead>
+                  <tr>
+                    <th>Find No.</th>
+                    <th>Part Number</th>
+                    <th>Description</th>
+                    <th>Qty Used</th>
+                    <th>Reference Designator</th>
+                  </tr>
+                </thead>
+                <tbody id="bomExtractionTableBody"></tbody>
+              </table>
+            </div>
+            <div id="bomExtractionStatus" class="bom-extraction-status"></div>
+          </section>
+        </div>
+
+        <div class="button-row">
+          <button type="button" onclick="runBomRegionOcr()">Run OCR</button>
+          <button type="button" onclick="startBomManualEntry()">Manual Entry</button>
+          <button class="primary" type="button" disabled>Accept BOM</button>
+          <button class="secondary-btn" type="button" onclick="go('rfqProcessing')">Back to RFQ Processing</button>
+        </div>
+      </div>
+    </section>
+
+<!-- =====================================================
+   END 110 - BOM EXTRACTION
 ===================================================== -->
   </main>
 
@@ -5178,6 +6129,25 @@ let documentIntakeState = {
   internalImportType: ""
 };
 
+let uploadedDocumentRegistry = {};
+
+function registerUploadedDocument(file) {
+  if (!file || !file.name) return null;
+
+  if (uploadedDocumentRegistry[file.name]?.objectUrl) {
+    URL.revokeObjectURL(uploadedDocumentRegistry[file.name].objectUrl);
+  }
+
+  uploadedDocumentRegistry[file.name] = {
+    file,
+    objectUrl: URL.createObjectURL(file),
+    type: file.type || "",
+    size: file.size || 0
+  };
+
+  return uploadedDocumentRegistry[file.name];
+}
+
 function initDocumentIntake() {
   const dropZone = document.getElementById('documentDropZone');
   const fileInput = document.getElementById('documentFileInput');
@@ -5460,6 +6430,7 @@ function addRfqPackageFiles(fileList) {
   if (!incomingFiles.length) return;
 
   incomingFiles.forEach(file => {
+    registerUploadedDocument(file);
     documentIntakeState.rfqPackageFiles.push(file.name);
   });
 
@@ -6005,6 +6976,7 @@ function addRfqAssemblyFiles(assemblyId, fileList) {
   if (!assembly || !incomingFiles.length) return;
 
   incomingFiles.forEach(file => {
+    registerUploadedDocument(file);
     assembly.files.push(file.name);
   });
 
@@ -7148,6 +8120,7 @@ function renderRfqSupportingDocuments() {
 
 function openRfqQueuePlaceholder() {
   const errors = [];
+  const statusMessage = document.getElementById('rfqProcessingStatusMessage');
 
   if (!currentRFQ.documents?.primaryAssemblyDrawing) {
     errors.push("- Select a Primary Assembly Drawing.");
@@ -7158,13 +8131,22 @@ function openRfqQueuePlaceholder() {
   }
 
   if (errors.length) {
-    window.alert("Please complete RFQ Processing before opening the RFQ queue:\n\n" + errors.join("\n"));
+    if (statusMessage) {
+      statusMessage.textContent = "Complete these RFQ Processing items before continuing:\n\n" + errors.join("\n");
+      statusMessage.classList.remove('hidden');
+    }
     return;
+  }
+
+  if (statusMessage) {
+    statusMessage.textContent = "";
+    statusMessage.classList.add('hidden');
   }
 
   currentRFQ.status = "Ready for Open RFQ Queue";
   renderRfqProcessingSummary();
-  window.alert("RFQ package validated for the Open RFQ Queue.\n\nQueue routing, folder creation, quotation handoff, and database updates will be implemented in a future phase.");
+  prepareBomExtractionWorkspace(currentRFQ);
+  go('bomExtraction');
 }
 
 /* =====================================================
@@ -7172,11 +8154,1751 @@ function openRfqQueuePlaceholder() {
 ===================================================== */
 
 /* =====================================================
-   209 - INITIALIZATION
+   209 - BOM EXTRACTION
 ===================================================== */
 
+let bomExtractionState = {
+  rfq: null,
+  status: "Ready for manual BOM review.",
+  drawingFileName: "",
+  pdfObjectUrl: "",
+  zoom: 1,
+  fitMode: "width",
+  currentPage: 1,
+  totalPages: 1,
+  isPanning: false,
+  panStartX: 0,
+  panStartY: 0,
+  panScrollLeft: 0,
+  panScrollTop: 0,
+  regionSelectionMode: false,
+  isDrawingRegion: false,
+  activeRegionId: null,
+  nextRegionId: 1,
+  bomRegions: [],
+  draftRegion: null,
+  standardBomRows: [],
+  cropPreview: null,
+  previewControls: {
+    zoom: 1,
+    rotation: 0,
+    brightness: 100,
+    contrast: 100
+  },
+  ocrInput: null,
+  rawOcrOutput: "No OCR results available.",
+  ocrReviewRows: [],
+  selectedOcrReviewRowId: null,
+  cropDebug: null,
+  tableDetection: null,
+  pdfPageMetrics: [],
+  cropJobId: 0,
+  manualTableAssistEnabled: false,
+  manualGuideMode: null,
+  manualGuides: {
+    rows: [],
+    columns: []
+  },
+  selectedManualGuide: null,
+  draggingManualGuide: null,
+  nextManualGuideId: 1,
+  acceptedManualGrid: null,
+  manualGuidesLocked: false,
+  showManualCellBoundaries: false
+};
+
+function prepareBomExtractionWorkspace(sourceRFQ = null) {
+  bomExtractionState.rfq = sourceRFQ || currentRFQ;
+  bomExtractionState.status = "Ready for manual BOM review. Extraction automation is reserved for a future phase.";
+  bomExtractionState.zoom = 1;
+  bomExtractionState.fitMode = "width";
+  bomExtractionState.currentPage = 1;
+  bomExtractionState.totalPages = 1;
+  bomExtractionState.drawingFileName = bomExtractionState.rfq?.documents?.primaryAssemblyDrawing || "";
+  bomExtractionState.pdfObjectUrl = getUploadedDocumentObjectUrl(bomExtractionState.drawingFileName);
+  bomExtractionState.regionSelectionMode = false;
+  bomExtractionState.isDrawingRegion = false;
+  bomExtractionState.activeRegionId = null;
+  bomExtractionState.nextRegionId = 1;
+  bomExtractionState.bomRegions = [];
+  bomExtractionState.draftRegion = null;
+  bomExtractionState.standardBomRows = [];
+  bomExtractionState.cropPreview = null;
+  bomExtractionState.previewControls = {
+    zoom: 1,
+    rotation: 0,
+    brightness: 100,
+    contrast: 100
+  };
+  bomExtractionState.ocrInput = null;
+  bomExtractionState.rawOcrOutput = "No OCR results available.";
+  bomExtractionState.ocrReviewRows = [];
+  bomExtractionState.selectedOcrReviewRowId = null;
+  bomExtractionState.cropDebug = null;
+  bomExtractionState.tableDetection = null;
+  bomExtractionState.pdfPageMetrics = [];
+  bomExtractionState.cropJobId = 0;
+  resetManualTableAssistState();
+  renderBomExtractionWorkspace();
+  updateBomExtractionPdfPageCount();
+}
+
+function renderBomExtractionWorkspace() {
+  renderBomExtractionMeta();
+  renderBomExtractionPdfPreview();
+  renderBomExtractionSourceDocuments();
+  renderBomRegionList();
+  renderBomRegionPreview();
+  renderTableDetectionSummary();
+  renderBomCropDebug();
+  renderOcrInputPanel();
+  renderOcrReviewTable();
+  renderBomExtractionTable();
+  renderBomExtractionStatus();
+}
+
+function getBomExtractionSummary() {
+  const rfq = bomExtractionState.rfq || currentRFQ || {};
+  const metadata = rfq.metadata || {};
+  const documents = rfq.documents || {};
+  const firstLine = metadata.rfqLines?.[0] || {};
+
+  return {
+    customer: metadata.customer || "Not provided",
+    rfqNumber: metadata.customerReference || "Not provided",
+    assemblyNumber: firstLine.assemblyNumber || "Not provided",
+    assemblyRevision: firstLine.revision || "Not provided",
+    drawingNumber: "Not identified",
+    drawingRevision: "Not identified",
+    primaryDrawing: documents.primaryAssemblyDrawing || "No primary drawing selected",
+    uploadedDocuments: documents.allUploadedDocuments || []
+  };
+}
+
+function renderBomExtractionMeta() {
+  const container = document.getElementById('bomExtractionMeta');
+  if (!container) return;
+
+  const summary = getBomExtractionSummary();
+  const items = [
+    ["Customer", summary.customer],
+    ["RFQ Number", summary.rfqNumber],
+    ["Assembly Number", summary.assemblyNumber],
+    ["Assembly Revision", summary.assemblyRevision],
+    ["Drawing Number", summary.drawingNumber],
+    ["Drawing Revision", summary.drawingRevision]
+  ];
+
+  container.innerHTML = items.map(([label, value]) => `
+    <div class="bom-extraction-meta-item">
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(value)}</span>
+    </div>
+  `).join('');
+}
+
+function renderBomExtractionPdfPreview() {
+  const preview = document.getElementById('bomExtractionPdfPreview');
+  if (!preview) return;
+
+  const summary = getBomExtractionSummary();
+  const isPdf = summary.primaryDrawing.toLowerCase().endsWith('.pdf');
+
+  if (!bomExtractionState.pdfObjectUrl || !isPdf) {
+    preview.classList.add('bom-pdf-placeholder');
+    preview.classList.remove('region-selection-active');
+    preview.innerHTML = `
+    <div>
+      <strong>PDF Viewer</strong>
+      <div>${escapeHtml(summary.primaryDrawing)}</div>
+      <p class="subtitle">Select a PDF as the Primary Assembly Drawing in RFQ Processing to display it here.</p>
+    </div>
+  `;
+    updateEngineeringViewerPageStatus();
+    return;
+  }
+
+  preview.classList.remove('bom-pdf-placeholder');
+  preview.classList.toggle('region-selection-active', bomExtractionState.regionSelectionMode);
+  const widthPercent = Math.max(100, Math.round(bomExtractionState.zoom * 100));
+  const frameHeight = Math.max(620, Math.round(760 * bomExtractionState.totalPages * Math.max(0.85, bomExtractionState.zoom)));
+
+  preview.innerHTML = `
+    <div id="engineeringPdfFrameWrap" class="engineering-pdf-frame-wrap" style="width:${widthPercent}%; height:${frameHeight}px;">
+      <div id="engineeringPdfPages" class="engineering-pdf-pages">Loading engineering drawing...</div>
+      <div id="bomRegionOverlayLayer" class="bom-region-layer"></div>
+    </div>
+  `;
+
+  renderEngineeringPdfCanvasPages();
+  setupEngineeringDrawingPan();
+  renderBomRegionOverlays();
+  updateBomRegionToolButton();
+  updateEngineeringViewerPageStatus();
+}
+
+function configureDocumentProcessingLibraries() {
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+}
+
+async function renderEngineeringPdfCanvasPages() {
+  const container = document.getElementById('engineeringPdfPages');
+  const wrap = document.getElementById('engineeringPdfFrameWrap');
+  const fileEntry = uploadedDocumentRegistry[bomExtractionState.drawingFileName];
+  if (!container || !wrap || !fileEntry?.file || !window.pdfjsLib) return;
+
+  const renderToken = bomExtractionState.drawingFileName + ":" + bomExtractionState.zoom + ":" + Date.now();
+  bomExtractionState.pdfRenderToken = renderToken;
+  container.textContent = "Loading engineering drawing...";
+
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: await fileEntry.file.arrayBuffer() }).promise;
+    if (bomExtractionState.pdfRenderToken !== renderToken) return;
+
+    bomExtractionState.totalPages = pdf.numPages || 1;
+    const targetWidth = Math.max(480, wrap.clientWidth || wrap.offsetWidth || 900);
+    const fragment = document.createDocumentFragment();
+    const metrics = [];
+    let currentTop = 0;
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      if (bomExtractionState.pdfRenderToken !== renderToken) return;
+
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scale = targetWidth / Math.max(1, baseViewport.width);
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.className = "engineering-pdf-page";
+      canvas.dataset.pageNumber = String(pageNumber);
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      canvas.style.height = canvas.height + "px";
+
+      await page.render({ canvasContext: context, viewport }).promise;
+      if (bomExtractionState.pdfRenderToken !== renderToken) return;
+
+      metrics.push({
+        pageNumber,
+        top: currentTop,
+        height: canvas.height,
+        width: canvas.width
+      });
+      currentTop += canvas.height;
+      fragment.appendChild(canvas);
+    }
+
+    container.innerHTML = "";
+    container.appendChild(fragment);
+    wrap.style.height = Math.max(620, currentTop) + "px";
+    bomExtractionState.pdfPageMetrics = metrics;
+    updateEngineeringViewerPageStatus();
+    renderBomRegionOverlays();
+  } catch (error) {
+    container.textContent = "Unable to render engineering drawing PDF.";
+    bomExtractionState.status = "PDF rendering failed. Confirm the selected drawing is a valid PDF.";
+    renderBomExtractionStatus();
+  }
+}
+
+function renderBomExtractionSourceDocuments() {
+  const container = document.getElementById('bomExtractionSourceDocuments');
+  if (!container) return;
+
+  const documents = getBomExtractionSummary().uploadedDocuments;
+  if (!documents.length) {
+    container.innerHTML = '<p class="empty-queue">No source documents loaded.</p>';
+    return;
+  }
+
+  container.innerHTML = documents.map(documentRecord => `
+    <div class="bom-source-document-row">
+      <strong>${escapeHtml(documentRecord.fileName)}</strong>
+      <span>${escapeHtml(documentRecord.source)}</span>
+    </div>
+  `).join('');
+}
+
+function renderBomExtractionTable() {
+  const body = document.getElementById('bomExtractionTableBody');
+  if (!body) return;
+
+  const rows = Array.from({ length: 8 }, (_, index) => index + 1);
+  body.innerHTML = rows.map(rowNumber => `
+    <tr>
+      <td class="bom-placeholder-cell">&nbsp;</td>
+      <td class="bom-placeholder-cell">&nbsp;</td>
+      <td class="bom-placeholder-cell">&nbsp;</td>
+      <td class="bom-placeholder-cell">&nbsp;</td>
+      <td class="bom-placeholder-cell">&nbsp;</td>
+    </tr>
+  `).join('');
+}
+
+function renderBomExtractionStatus() {
+  const status = document.getElementById('bomExtractionStatus');
+  if (!status) return;
+  status.textContent = bomExtractionState.status;
+}
+
+function startBomManualEntry() {
+  bomExtractionState.status = "Manual entry workspace selected. Editable BOM entry will be implemented in a future phase.";
+  renderBomExtractionStatus();
+}
+
+function toggleBomRegionSelectionTool() {
+  bomExtractionState.regionSelectionMode = !bomExtractionState.regionSelectionMode;
+  bomExtractionState.isDrawingRegion = false;
+  bomExtractionState.draftRegion = null;
+  const shell = document.getElementById('bomExtractionPdfPreview');
+  if (shell) {
+    shell.classList.toggle('region-selection-active', bomExtractionState.regionSelectionMode);
+  }
+  updateBomRegionToolButton();
+  renderBomRegionOverlays();
+}
+
+function updateBomRegionToolButton() {
+  const button = document.getElementById('selectBomRegionToolBtn');
+  if (!button) return;
+  button.textContent = bomExtractionState.regionSelectionMode ? "Selecting BOM Region" : "Select BOM Region";
+}
+
+function beginBomRegionSelection(event, shell) {
+  if (event.button !== 0) return;
+  const wrap = document.getElementById('engineeringPdfFrameWrap');
+  if (!wrap) return;
+
+  const point = getBomRegionPoint(event, wrap);
+  bomExtractionState.isDrawingRegion = true;
+  bomExtractionState.draftRegion = {
+    startX: point.x,
+    startY: point.y,
+    x: point.x,
+    y: point.y,
+    width: 0,
+    height: 0,
+    pageNumber: getBomRegionPageNumber(point.y, wrap)
+  };
+  if (shell) shell.classList.add('region-selection-active');
+  renderBomRegionOverlays();
+  event.preventDefault();
+}
+
+function updateBomRegionSelection(event) {
+  const wrap = document.getElementById('engineeringPdfFrameWrap');
+  const draft = bomExtractionState.draftRegion;
+  if (!wrap || !draft) return;
+
+  const point = getBomRegionPoint(event, wrap);
+  draft.x = Math.min(draft.startX, point.x);
+  draft.y = Math.min(draft.startY, point.y);
+  draft.width = Math.abs(point.x - draft.startX);
+  draft.height = Math.abs(point.y - draft.startY);
+  draft.pageNumber = getBomRegionPageNumber(draft.y, wrap);
+  renderBomRegionOverlays();
+}
+
+function finishBomRegionSelection(event) {
+  if (!bomExtractionState.isDrawingRegion) return;
+  updateBomRegionSelection(event);
+
+  const draft = bomExtractionState.draftRegion;
+  if (draft && draft.width >= 8 && draft.height >= 8) {
+    const wrap = document.getElementById('engineeringPdfFrameWrap');
+    const wrapWidth = Math.max(1, wrap?.offsetWidth || 1);
+    const wrapHeight = Math.max(1, wrap?.offsetHeight || 1);
+    const regionId = bomExtractionState.nextRegionId++;
+    const region = {
+      id: regionId,
+      label: "BOM Region " + regionId,
+      pageNumber: draft.pageNumber,
+      x: Number(((draft.x / wrapWidth) * 100).toFixed(2)),
+      y: Number(((draft.y / wrapHeight) * 100).toFixed(2)),
+      width: Number(((draft.width / wrapWidth) * 100).toFixed(2)),
+      height: Number(((draft.height / wrapHeight) * 100).toFixed(2)),
+      surfaceWidth: wrapWidth,
+      surfaceHeight: wrapHeight
+    };
+    bomExtractionState.bomRegions.push(region);
+    bomExtractionState.activeRegionId = regionId;
+    bomExtractionState.status = region.label + " saved for future BOM extraction.";
+    clearBomExtractionResults();
+    prepareBomRegionForOcr(regionId);
+  }
+
+  bomExtractionState.isDrawingRegion = false;
+  bomExtractionState.draftRegion = null;
+  renderBomRegionOverlays();
+  renderBomRegionList();
+  renderBomExtractionStatus();
+}
+
+function getBomRegionPoint(event, wrap) {
+  const rect = wrap.getBoundingClientRect();
+  const x = Math.max(0, Math.min(wrap.offsetWidth, event.clientX - rect.left));
+  const y = Math.max(0, Math.min(wrap.offsetHeight, event.clientY - rect.top));
+  return { x, y };
+}
+
+function getBomRegionPageNumber(y, wrap) {
+  const pageMetric = bomExtractionState.pdfPageMetrics.find(metric => (
+    y >= metric.top && y <= metric.top + metric.height
+  ));
+  if (pageMetric) return pageMetric.pageNumber;
+
+  const pageHeight = wrap.offsetHeight / Math.max(1, bomExtractionState.totalPages);
+  return Math.min(
+    bomExtractionState.totalPages,
+    Math.max(1, Math.floor(y / Math.max(1, pageHeight)) + 1)
+  );
+}
+
+function renderBomRegionOverlays() {
+  const layer = document.getElementById('bomRegionOverlayLayer');
+  if (!layer) return;
+
+  const regions = bomExtractionState.bomRegions.map(region => buildBomRegionOverlay(region, region.id === bomExtractionState.activeRegionId));
+  if (bomExtractionState.draftRegion) {
+    regions.push(buildBomRegionOverlay({
+      label: "BOM Region " + bomExtractionState.nextRegionId,
+      x: bomExtractionState.draftRegion.x,
+      y: bomExtractionState.draftRegion.y,
+      width: bomExtractionState.draftRegion.width,
+      height: bomExtractionState.draftRegion.height
+    }, false, true));
+  }
+
+  layer.innerHTML = regions.join('');
+}
+
+function buildBomRegionOverlay(region, isSelected = false, isDraft = false) {
+  const className = isDraft ? "bom-region-draft" : "bom-region-selection" + (isSelected ? " selected" : "");
+  const clickHandler = isDraft ? "" : ' onclick="selectBomRegion(' + region.id + ')" onmousedown="event.stopPropagation()"';
+  const left = isDraft ? region.x + "px" : region.x + "%";
+  const top = isDraft ? region.y + "px" : region.y + "%";
+  const width = isDraft ? region.width + "px" : region.width + "%";
+  const height = isDraft ? region.height + "px" : region.height + "%";
+  return `
+    <div class="${className}"${clickHandler} style="left:${left}; top:${top}; width:${width}; height:${height};">
+      <span class="bom-region-label">${escapeHtml(region.label)}</span>
+    </div>
+  `;
+}
+
+function renderBomRegionList() {
+  const container = document.getElementById('bomRegionList');
+  if (!container) return;
+
+  if (!bomExtractionState.bomRegions.length) {
+    container.innerHTML = '<p class="empty-queue">No BOM regions selected yet.</p>';
+    return;
+  }
+
+  container.innerHTML = bomExtractionState.bomRegions.map(region => `
+    <div class="bom-region-row${region.id === bomExtractionState.activeRegionId ? " selected" : ""}" onclick="selectBomRegion(${region.id})">
+      <div>
+        <strong>${escapeHtml(region.label)} - Page ${region.pageNumber}</strong>
+        <span>X ${region.x}%, Y ${region.y}%, W ${region.width}%, H ${region.height}%</span>
+      </div>
+      <button type="button" onclick="event.stopPropagation(); deleteBomRegion(${region.id})">Delete</button>
+    </div>
+  `).join('');
+}
+
+function selectBomRegion(regionId) {
+  bomExtractionState.activeRegionId = Number(regionId);
+  scrollToBomRegion(regionId);
+  prepareBomRegionForOcr(regionId);
+  renderBomRegionOverlays();
+  renderBomRegionList();
+}
+
+function scrollToBomRegion(regionId) {
+  const region = bomExtractionState.bomRegions.find(item => item.id === Number(regionId));
+  const shell = document.getElementById('bomExtractionPdfPreview');
+  const wrap = document.getElementById('engineeringPdfFrameWrap');
+  if (!region || !shell || !wrap) return;
+  shell.scrollTop = Math.max(0, ((region.y / 100) * wrap.offsetHeight) - 80);
+  shell.scrollLeft = Math.max(0, ((region.x / 100) * wrap.offsetWidth) - 80);
+  bomExtractionState.currentPage = region.pageNumber;
+  updateEngineeringViewerPageStatus();
+}
+
+function deleteBomRegion(regionId) {
+  bomExtractionState.bomRegions = bomExtractionState.bomRegions.filter(region => region.id !== Number(regionId));
+  if (bomExtractionState.activeRegionId === Number(regionId)) {
+    bomExtractionState.activeRegionId = bomExtractionState.bomRegions[0]?.id || null;
+  }
+  bomExtractionState.status = "BOM region deleted.";
+  clearBomExtractionResults();
+  prepareBomRegionForOcr(bomExtractionState.activeRegionId);
+  renderBomRegionOverlays();
+  renderBomRegionList();
+  renderBomExtractionStatus();
+}
+
+function deleteSelectedBomRegion() {
+  if (!bomExtractionState.activeRegionId) return;
+  deleteBomRegion(bomExtractionState.activeRegionId);
+}
+
+function clearBomRegions() {
+  bomExtractionState.bomRegions = [];
+  bomExtractionState.activeRegionId = null;
+  bomExtractionState.draftRegion = null;
+  bomExtractionState.status = "All BOM region selections cleared.";
+  clearBomExtractionResults();
+  prepareBomRegionForOcr(null);
+  renderBomRegionOverlays();
+  renderBomRegionList();
+  renderBomExtractionStatus();
+}
+
+function saveBomRegions() {
+  bomExtractionState.status = bomExtractionState.bomRegions.length
+    ? bomExtractionState.bomRegions.length + " BOM region selection(s) saved for future extraction."
+    : "No BOM regions selected yet.";
+  renderBomExtractionStatus();
+}
+
+function clearBomExtractionResults() {
+  bomExtractionState.standardBomRows = [];
+  renderBomExtractionTable();
+}
+
+const BomExtractionPipeline = {
+  createRegionCrop(region) {
+    if (!region || !bomExtractionState.pdfObjectUrl) return null;
+
+    const surface = getBomDrawingSurfaceInfo();
+    const totalPages = Math.max(1, bomExtractionState.totalPages);
+    const viewerCoordinates = {
+      x: Math.round((region.x / 100) * surface.width),
+      y: Math.round((region.y / 100) * surface.height),
+      width: Math.round((region.width / 100) * surface.width),
+      height: Math.round((region.height / 100) * surface.height)
+    };
+    const pageMetric = bomExtractionState.pdfPageMetrics.find(metric => metric.pageNumber === region.pageNumber);
+    const pageTop = pageMetric ? pageMetric.top : ((region.pageNumber - 1) * (surface.height / totalPages));
+    const pageHeight = pageMetric ? pageMetric.height : (surface.height / totalPages);
+    const pageYPercent = ((viewerCoordinates.y - pageTop) / Math.max(1, pageHeight)) * 100;
+    const pageRegionHeightPercent = (viewerCoordinates.height / Math.max(1, pageHeight)) * 100;
+    const clampedPageYPercent = Math.max(0, Math.min(100, pageYPercent));
+    const clampedPageHeightPercent = Math.max(0.1, Math.min(100 - clampedPageYPercent, pageRegionHeightPercent));
+    const pdfCoordinates = {
+      page: region.pageNumber,
+      xPercent: Number(region.x.toFixed(2)),
+      yPercent: Number(clampedPageYPercent.toFixed(2)),
+      widthPercent: Number(region.width.toFixed(2)),
+      heightPercent: Number(clampedPageHeightPercent.toFixed(2))
+    };
+    const canvasCoordinates = {
+      x: viewerCoordinates.x,
+      y: viewerCoordinates.y,
+      width: viewerCoordinates.width,
+      height: viewerCoordinates.height
+    };
+    const cropCoordinates = {
+      x: viewerCoordinates.x,
+      y: viewerCoordinates.y,
+      width: viewerCoordinates.width,
+      height: viewerCoordinates.height
+    };
+
+    if (cropCoordinates.width <= 0 || cropCoordinates.height <= 0) return null;
+
+    const crop = {
+      stage: "Region Crop Generator",
+      regionId: region.id,
+      label: region.label,
+      sourcePage: region.pageNumber,
+      sourcePdfUrl: bomExtractionState.pdfObjectUrl,
+      xPercent: region.x,
+      yPercent: region.y,
+      pageYPercent: Number(clampedPageYPercent.toFixed(2)),
+      widthPercent: region.width,
+      heightPercent: region.height,
+      pageHeightPercent: Number(clampedPageHeightPercent.toFixed(2)),
+      imageWidth: Math.max(1, cropCoordinates.width),
+      imageHeight: Math.max(1, cropCoordinates.height),
+      surfaceWidth: surface.width,
+      surfaceHeight: surface.height,
+      viewerCoordinates,
+      pdfCoordinates,
+      canvasCoordinates,
+      cropCoordinates,
+      status: "Success"
+    };
+
+    return crop;
+  },
+  async generateRegionImage(crop) {
+    const fileEntry = uploadedDocumentRegistry[bomExtractionState.drawingFileName];
+    if (!crop || !fileEntry?.file || !window.pdfjsLib) {
+      throw new Error("PDF crop source is not available.");
+    }
+
+    const pdf = await pdfjsLib.getDocument({ data: await fileEntry.file.arrayBuffer() }).promise;
+    const page = await pdf.getPage(crop.sourcePage);
+    const viewport = page.getViewport({ scale: 2 });
+    const pageCanvas = document.createElement('canvas');
+    const pageContext = pageCanvas.getContext('2d');
+    pageCanvas.width = Math.round(viewport.width);
+    pageCanvas.height = Math.round(viewport.height);
+    await page.render({ canvasContext: pageContext, viewport }).promise;
+
+    const rawX = (crop.pdfCoordinates.xPercent / 100) * pageCanvas.width;
+    const rawY = (crop.pdfCoordinates.yPercent / 100) * pageCanvas.height;
+    const rawWidth = (crop.pdfCoordinates.widthPercent / 100) * pageCanvas.width;
+    const rawHeight = (crop.pdfCoordinates.heightPercent / 100) * pageCanvas.height;
+    const sx = Math.max(0, Math.min(pageCanvas.width - 1, Math.round(rawX)));
+    const sy = Math.max(0, Math.min(pageCanvas.height - 1, Math.round(rawY)));
+    const sw = Math.max(1, Math.min(pageCanvas.width - sx, Math.round(rawWidth)));
+    const sh = Math.max(1, Math.min(pageCanvas.height - sy, Math.round(rawHeight)));
+    const cropCanvas = document.createElement('canvas');
+    const cropContext = cropCanvas.getContext('2d');
+    cropCanvas.width = sw;
+    cropCanvas.height = sh;
+    cropContext.drawImage(pageCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    return {
+      ...crop,
+      imageWidth: sw,
+      imageHeight: sh,
+      imageDataUrl: cropCanvas.toDataURL('image/png'),
+      canvasCoordinates: {
+        pageCanvasWidth: pageCanvas.width,
+        pageCanvasHeight: pageCanvas.height,
+        sourceX: sx,
+        sourceY: sy,
+        sourceWidth: sw,
+        sourceHeight: sh
+      },
+      cropCoordinates: {
+        x: 0,
+        y: 0,
+        width: sw,
+        height: sh
+      },
+      status: "Success"
+    };
+  },
+  createOcrInput(crop) {
+    if (!crop) return null;
+
+    return {
+      stage: "OCR Input",
+      selectedRegion: crop.label,
+      page: crop.sourcePage,
+      imageSize: crop.imageWidth + " x " + crop.imageHeight,
+      status: "Ready for OCR",
+      crop
+    };
+  },
+  createRawOcrOutput() {
+    return {
+      stage: "Raw OCR Results",
+      text: "No OCR results available."
+    };
+  },
+  createBomInterpretationPlaceholder() {
+    return {
+      stage: "BOM Interpretation",
+      status: "Future"
+    };
+  }
+};
+
+const TableDetectionEngine = {
+  detect(crop) {
+    if (!crop || crop.imageWidth < 80 || crop.imageHeight < 60) {
+      return {
+        tableDetected: false,
+        rowsDetected: 0,
+        columnsDetected: 0,
+        headerDetected: false,
+        detectionStatus: "Review Needed",
+        tableBoundary: null,
+        headerBoundary: null,
+        rowCoordinates: [],
+        columnCoordinates: [],
+        cells: []
+      };
+    }
+
+    const boundary = {
+      xPercent: 2,
+      yPercent: 4,
+      widthPercent: 96,
+      heightPercent: 92
+    };
+    const estimatedRowHeight = 34;
+    const rowsDetected = Math.max(2, Math.min(28, Math.round(crop.imageHeight / estimatedRowHeight)));
+    const columnsDetected = 5;
+    const headerHeightPercent = Math.min(18, Math.max(8, 100 / rowsDetected));
+    const rowCoordinates = [];
+    const columnCoordinates = [0, 14, 42, 72, 84, 100];
+
+    for (let index = 0; index <= rowsDetected; index++) {
+      rowCoordinates.push(Number((index * (100 / rowsDetected)).toFixed(2)));
+    }
+
+    return {
+      tableDetected: true,
+      rowsDetected,
+      columnsDetected,
+      headerDetected: true,
+      detectionStatus: rowsDetected >= 2 && columnsDetected >= 2 ? "Success" : "Review Needed",
+      tableBoundary: boundary,
+      headerBoundary: {
+        xPercent: boundary.xPercent,
+        yPercent: boundary.yPercent,
+        widthPercent: boundary.widthPercent,
+        heightPercent: headerHeightPercent
+      },
+      rowCoordinates,
+      columnCoordinates,
+      cells: buildDetectedTableCells(rowsDetected, columnsDetected)
+    };
+  }
+};
+
+function buildDetectedTableCells(rowCount, columnCount) {
+  const cells = [];
+
+  for (let row = 1; row <= rowCount; row++) {
+    for (let column = 1; column <= columnCount; column++) {
+      cells.push({ row, column });
+    }
+  }
+
+  return cells;
+}
+
+function prepareBomRegionForOcr(regionId) {
+  const region = bomExtractionState.bomRegions.find(item => item.id === Number(regionId));
+  if (!region) {
+    bomExtractionState.cropPreview = null;
+    bomExtractionState.ocrInput = null;
+    bomExtractionState.rawOcrOutput = "No OCR results available.";
+    bomExtractionState.ocrReviewRows = [];
+    bomExtractionState.selectedOcrReviewRowId = null;
+    bomExtractionState.cropDebug = null;
+    bomExtractionState.tableDetection = null;
+    resetManualTableAssistState();
+    renderBomRegionPreview();
+    renderTableDetectionSummary();
+    renderBomCropDebug();
+    renderOcrInputPanel();
+    renderOcrReviewTable();
+    return;
+  }
+
+  const crop = BomExtractionPipeline.createRegionCrop(region);
+  const cropJobId = ++bomExtractionState.cropJobId;
+  bomExtractionState.cropPreview = crop;
+  bomExtractionState.ocrInput = BomExtractionPipeline.createOcrInput(crop);
+  bomExtractionState.rawOcrOutput = BomExtractionPipeline.createRawOcrOutput().text;
+  bomExtractionState.ocrReviewRows = [];
+  bomExtractionState.selectedOcrReviewRowId = null;
+  bomExtractionState.cropDebug = buildBomCropDebug(region, crop);
+  bomExtractionState.tableDetection = null;
+  resetManualTableAssistState();
+  bomExtractionState.status = crop ? "Generating cropped BOM preview..." : "Unable to generate cropped BOM preview.";
+  renderBomRegionPreview();
+  renderTableDetectionSummary();
+  renderBomCropDebug();
+  renderOcrInputPanel();
+  renderOcrReviewTable();
+  renderBomExtractionStatus();
+
+  if (!crop) return;
+
+  BomExtractionPipeline.generateRegionImage(crop)
+    .then(generatedCrop => {
+      if (bomExtractionState.cropJobId !== cropJobId || bomExtractionState.activeRegionId !== generatedCrop.regionId) return;
+      bomExtractionState.cropPreview = generatedCrop;
+      bomExtractionState.ocrInput = BomExtractionPipeline.createOcrInput(generatedCrop);
+      bomExtractionState.cropDebug = buildBomCropDebug(region, generatedCrop);
+      bomExtractionState.tableDetection = TableDetectionEngine.detect(generatedCrop);
+      bomExtractionState.status = "Cropped BOM image ready for OCR.";
+      renderBomRegionPreview();
+      renderTableDetectionSummary();
+      renderBomCropDebug();
+      renderOcrInputPanel();
+      renderBomExtractionStatus();
+    })
+    .catch(() => {
+      if (bomExtractionState.cropJobId !== cropJobId) return;
+      bomExtractionState.cropPreview = { ...crop, status: "Failed" };
+      bomExtractionState.ocrInput = BomExtractionPipeline.createOcrInput(bomExtractionState.cropPreview);
+      bomExtractionState.cropDebug = buildBomCropDebug(region, bomExtractionState.cropPreview);
+      bomExtractionState.tableDetection = null;
+      bomExtractionState.status = "Unable to generate cropped BOM preview.";
+      renderBomRegionPreview();
+      renderTableDetectionSummary();
+      renderBomCropDebug();
+      renderOcrInputPanel();
+      renderBomExtractionStatus();
+    });
+}
+
+function getBomDrawingSurfaceInfo() {
+  const wrap = document.getElementById('engineeringPdfFrameWrap');
+  const activeRegion = bomExtractionState.bomRegions.find(region => region.id === bomExtractionState.activeRegionId);
+
+  return {
+    width: activeRegion?.surfaceWidth || wrap?.offsetWidth || 1000,
+    height: activeRegion?.surfaceHeight || wrap?.offsetHeight || 1000
+  };
+}
+
+function renderBomRegionPreview() {
+  const container = document.getElementById('bomRegionPreviewViewport');
+  if (!container) return;
+
+  const crop = bomExtractionState.cropPreview;
+  if (!crop) {
+    container.innerHTML = bomExtractionState.activeRegionId
+      ? "Unable to generate cropped BOM preview."
+      : "Select a BOM Region to generate the OCR input preview.";
+    syncBomRegionPreviewControls();
+    syncManualTableAssistControls();
+    return;
+  }
+
+  if (crop.status === "Failed") {
+    container.innerHTML = "Unable to generate cropped BOM preview.";
+    syncBomRegionPreviewControls();
+    syncManualTableAssistControls();
+    return;
+  }
+
+  if (!crop.imageDataUrl) {
+    container.innerHTML = "Generating cropped BOM preview...";
+    syncBomRegionPreviewControls();
+    syncManualTableAssistControls();
+    return;
+  }
+
+  const controls = bomExtractionState.previewControls;
+  const frameWidth = Math.min(900, Math.max(260, crop.imageWidth * controls.zoom));
+  const frameHeight = Math.min(520, Math.max(180, crop.imageHeight * controls.zoom));
+
+  container.innerHTML = `
+    <div class="bom-region-crop-frame${bomExtractionState.manualTableAssistEnabled ? ' manual-assist-active' : ''}" style="width:${frameWidth}px; height:${frameHeight}px; transform:rotate(${controls.rotation}deg); filter:brightness(${controls.brightness}%) contrast(${controls.contrast}%);" onclick="handleManualGuidePlacement(event)">
+      <img class="bom-region-crop-image" alt="${escapeHtml(crop.label)} OCR Input Preview" src="${escapeHtml(crop.imageDataUrl)}">
+      ${buildTableDetectionOverlay()}
+      ${buildManualGuideOverlay()}
+      ${buildManualOcrCellOverlay()}
+    </div>
+  `;
+
+  syncBomRegionPreviewControls();
+  syncManualTableAssistControls();
+}
+
+function buildTableDetectionOverlay() {
+  return "";
+
+  const detection = bomExtractionState.tableDetection;
+  if (!detection?.tableDetected || !detection.tableBoundary) return "";
+
+  const boundary = detection.tableBoundary;
+  const parts = [
+    `<div class="table-boundary-overlay" style="left:${boundary.xPercent}%; top:${boundary.yPercent}%; width:${boundary.widthPercent}%; height:${boundary.heightPercent}%;"></div>`
+  ];
+
+  if (detection.headerDetected && detection.headerBoundary) {
+    const header = detection.headerBoundary;
+    parts.push(`<div class="table-header-overlay" style="left:${header.xPercent}%; top:${header.yPercent}%; width:${header.widthPercent}%; height:${header.heightPercent}%;"></div>`);
+  }
+
+  detection.columnCoordinates.forEach(columnPercent => {
+    const left = boundary.xPercent + (columnPercent / 100) * boundary.widthPercent;
+    parts.push(`<span class="table-column-line" style="left:${left}%;"></span>`);
+  });
+
+  detection.rowCoordinates.forEach(rowPercent => {
+    const top = boundary.yPercent + (rowPercent / 100) * boundary.heightPercent;
+    parts.push(`<span class="table-row-line" style="top:${top}%;"></span>`);
+  });
+
+  return `<div class="table-detection-layer">${parts.join('')}</div>`;
+}
+
+function resetManualTableAssistState() {
+  bomExtractionState.manualTableAssistEnabled = false;
+  bomExtractionState.manualGuideMode = null;
+  bomExtractionState.manualGuides = {
+    rows: [],
+    columns: []
+  };
+  bomExtractionState.selectedManualGuide = null;
+  bomExtractionState.draggingManualGuide = null;
+  bomExtractionState.nextManualGuideId = 1;
+  bomExtractionState.acceptedManualGrid = null;
+  bomExtractionState.manualGuidesLocked = false;
+  bomExtractionState.showManualCellBoundaries = false;
+}
+
+function toggleManualTableAssist() {
+  if (!bomExtractionState.cropPreview?.imageDataUrl) {
+    bomExtractionState.status = "Select a BOM Region before starting Manual Table Assist.";
+    renderBomExtractionStatus();
+    return;
+  }
+
+  bomExtractionState.manualTableAssistEnabled = !bomExtractionState.manualTableAssistEnabled;
+  bomExtractionState.manualGuideMode = null;
+  bomExtractionState.status = bomExtractionState.manualTableAssistEnabled
+    ? "Manual Table Assist enabled. Choose Add Row or Add Column, then click the cropped image."
+    : "Manual Table Assist disabled.";
+  renderBomRegionPreview();
+  renderBomExtractionStatus();
+}
+
+function setManualGuideMode(mode) {
+  if (!bomExtractionState.manualTableAssistEnabled || bomExtractionState.manualGuidesLocked) return;
+  bomExtractionState.manualGuideMode = bomExtractionState.manualGuideMode === mode ? null : mode;
+  bomExtractionState.status = bomExtractionState.manualGuideMode
+    ? "Click the cropped image to place a " + bomExtractionState.manualGuideMode + " guide."
+    : "Manual Table Assist enabled.";
+  syncManualTableAssistControls();
+  renderBomExtractionStatus();
+}
+
+function buildManualGuideOverlay() {
+  const hasGuides = bomExtractionState.manualGuides.rows.length || bomExtractionState.manualGuides.columns.length;
+  if (!bomExtractionState.manualTableAssistEnabled && !hasGuides) return "";
+
+  const rowGuides = bomExtractionState.manualGuides.rows.map(guide => buildManualGuideLine("row", guide));
+  const columnGuides = bomExtractionState.manualGuides.columns.map(guide => buildManualGuideLine("column", guide));
+  return `<div class="manual-table-guide-layer">${rowGuides.concat(columnGuides).join('')}</div>`;
+}
+
+function buildManualGuideLine(type, guide) {
+  const isSelected = bomExtractionState.selectedManualGuide?.type === type && bomExtractionState.selectedManualGuide?.id === guide.id;
+  const isAccepted = !!bomExtractionState.acceptedManualGrid;
+  const isLocked = !!bomExtractionState.manualGuidesLocked;
+  const handlers = isLocked
+    ? ""
+    : ` onmousedown="startManualGuideDrag(event, '${type}', ${guide.id})" onclick="selectManualGuide(event, '${type}', ${guide.id})"`;
+  const deleteButton = isLocked
+    ? ""
+    : `<button class="manual-guide-delete" type="button" onclick="deleteManualGuide(event, '${type}', ${guide.id})">x</button>`;
+  const positionStyle = type === "row" ? "top:" + guide.percent + "%;" : "left:" + guide.percent + "%;";
+  return `
+    <div class="manual-table-guide ${type}-guide${isSelected ? ' selected' : ''}${isAccepted ? ' accepted' : ''}${isLocked ? ' locked' : ''}" style="${positionStyle}"${handlers}>
+      ${deleteButton}
+    </div>
+  `;
+}
+
+function handleManualGuidePlacement(event) {
+  if (!bomExtractionState.manualTableAssistEnabled || bomExtractionState.manualGuidesLocked || !bomExtractionState.manualGuideMode) return;
+  if (event.target.closest('.manual-table-guide')) return;
+
+  const point = getManualGuidePoint(event);
+  if (!point) return;
+
+  const type = bomExtractionState.manualGuideMode;
+  const guide = {
+    id: bomExtractionState.nextManualGuideId++,
+    percent: type === "row" ? point.yPercent : point.xPercent
+  };
+
+  if (type === "row") {
+    bomExtractionState.manualGuides.rows.push(guide);
+    bomExtractionState.manualGuides.rows.sort((a, b) => a.percent - b.percent);
+  } else {
+    bomExtractionState.manualGuides.columns.push(guide);
+    bomExtractionState.manualGuides.columns.sort((a, b) => a.percent - b.percent);
+  }
+
+  bomExtractionState.acceptedManualGrid = null;
+  bomExtractionState.manualGuidesLocked = false;
+  bomExtractionState.showManualCellBoundaries = false;
+  bomExtractionState.selectedManualGuide = { type, id: guide.id };
+  bomExtractionState.status = type === "row" ? "Row guide added." : "Column guide added.";
+  renderBomRegionPreview();
+  renderBomExtractionStatus();
+}
+
+function getManualGuidePoint(event) {
+  const frame = event.currentTarget?.classList?.contains('bom-region-crop-frame')
+    ? event.currentTarget
+    : document.querySelector('.bom-region-crop-frame');
+  if (!frame) return null;
+
+  const rect = frame.getBoundingClientRect();
+  const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+  const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+  return {
+    xPercent: Number(((x / Math.max(1, rect.width)) * 100).toFixed(2)),
+    yPercent: Number(((y / Math.max(1, rect.height)) * 100).toFixed(2))
+  };
+}
+
+function selectManualGuide(event, type, guideId) {
+  event.stopPropagation();
+  bomExtractionState.selectedManualGuide = { type, id: Number(guideId) };
+  renderBomRegionPreview();
+}
+
+function startManualGuideDrag(event, type, guideId) {
+  event.stopPropagation();
+  event.preventDefault();
+  bomExtractionState.selectedManualGuide = { type, id: Number(guideId) };
+  bomExtractionState.draggingManualGuide = { type, id: Number(guideId) };
+  document.addEventListener('mousemove', dragManualGuide);
+  document.addEventListener('mouseup', stopManualGuideDrag);
+}
+
+function dragManualGuide(event) {
+  const dragging = bomExtractionState.draggingManualGuide;
+  if (!dragging) return;
+
+  const frame = document.querySelector('.bom-region-crop-frame');
+  if (!frame) return;
+
+  const rect = frame.getBoundingClientRect();
+  const percent = dragging.type === "row"
+    ? Number((((Math.max(0, Math.min(rect.height, event.clientY - rect.top))) / Math.max(1, rect.height)) * 100).toFixed(2))
+    : Number((((Math.max(0, Math.min(rect.width, event.clientX - rect.left))) / Math.max(1, rect.width)) * 100).toFixed(2));
+  const list = dragging.type === "row" ? bomExtractionState.manualGuides.rows : bomExtractionState.manualGuides.columns;
+  const guide = list.find(item => item.id === dragging.id);
+  if (!guide) return;
+
+  guide.percent = percent;
+  list.sort((a, b) => a.percent - b.percent);
+  bomExtractionState.acceptedManualGrid = null;
+  bomExtractionState.manualGuidesLocked = false;
+  bomExtractionState.showManualCellBoundaries = false;
+  renderBomRegionPreview();
+}
+
+function stopManualGuideDrag() {
+  bomExtractionState.draggingManualGuide = null;
+  document.removeEventListener('mousemove', dragManualGuide);
+  document.removeEventListener('mouseup', stopManualGuideDrag);
+}
+
+function deleteManualGuide(event, type, guideId) {
+  event.stopPropagation();
+  const key = type === "row" ? "rows" : "columns";
+  bomExtractionState.manualGuides[key] = bomExtractionState.manualGuides[key].filter(guide => guide.id !== Number(guideId));
+  if (bomExtractionState.selectedManualGuide?.type === type && bomExtractionState.selectedManualGuide?.id === Number(guideId)) {
+    bomExtractionState.selectedManualGuide = null;
+  }
+  bomExtractionState.acceptedManualGrid = null;
+  bomExtractionState.manualGuidesLocked = false;
+  bomExtractionState.showManualCellBoundaries = false;
+  bomExtractionState.status = "Manual guide deleted.";
+  renderBomRegionPreview();
+  renderBomExtractionStatus();
+}
+
+function deleteSelectedManualGuide() {
+  const selected = bomExtractionState.selectedManualGuide;
+  if (!selected) {
+    bomExtractionState.status = "Select a manual guide before deleting.";
+    renderBomExtractionStatus();
+    return;
+  }
+  deleteManualGuide({ stopPropagation() {} }, selected.type, selected.id);
+}
+
+function acceptManualGuides() {
+  if (!bomExtractionState.cropPreview?.imageDataUrl) {
+    bomExtractionState.status = "Select a BOM Region before accepting manual guides.";
+    renderBomExtractionStatus();
+    return;
+  }
+
+  if (!bomExtractionState.manualGuides.rows.length && !bomExtractionState.manualGuides.columns.length) {
+    bomExtractionState.status = "Add at least one row or column guide before accepting manual guides.";
+    renderBomExtractionStatus();
+    return;
+  }
+
+  bomExtractionState.acceptedManualGrid = generateManualCellGrid();
+  bomExtractionState.manualGuidesLocked = true;
+  bomExtractionState.manualGuideMode = null;
+  bomExtractionState.selectedManualGuide = null;
+  const cellCount = bomExtractionState.acceptedManualGrid.cells.length;
+  bomExtractionState.status = "Table guides accepted. Ready for OCR. " + cellCount + " OCR cell region(s) generated.";
+  renderBomRegionPreview();
+  syncManualTableAssistControls();
+  renderBomExtractionStatus();
+}
+
+function editManualGuides() {
+  if (!bomExtractionState.acceptedManualGrid) return;
+  bomExtractionState.manualGuidesLocked = false;
+  bomExtractionState.acceptedManualGrid = null;
+  bomExtractionState.showManualCellBoundaries = false;
+  bomExtractionState.status = "Guide editing enabled. Accept guides again before cell OCR.";
+  renderBomRegionPreview();
+  renderBomExtractionStatus();
+}
+
+function toggleManualCellBoundaries() {
+  if (!bomExtractionState.acceptedManualGrid) return;
+  bomExtractionState.showManualCellBoundaries = !bomExtractionState.showManualCellBoundaries;
+  renderBomRegionPreview();
+}
+
+function generateManualCellGrid() {
+  const rowBreaks = [0]
+    .concat(bomExtractionState.manualGuides.rows.map(guide => guide.percent).sort((a, b) => a - b))
+    .concat(100);
+  const columnBreaks = [0]
+    .concat(bomExtractionState.manualGuides.columns.map(guide => guide.percent).sort((a, b) => a - b))
+    .concat(100);
+  const rows = [];
+  const columns = [];
+  const cells = [];
+
+  for (let index = 0; index < rowBreaks.length - 1; index++) {
+    rows.push({ index: index + 1, topPercent: rowBreaks[index], bottomPercent: rowBreaks[index + 1] });
+  }
+
+  for (let index = 0; index < columnBreaks.length - 1; index++) {
+    columns.push({ index: index + 1, leftPercent: columnBreaks[index], rightPercent: columnBreaks[index + 1] });
+  }
+
+  rows.forEach(row => {
+    columns.forEach(column => {
+      cells.push({
+        row: row.index,
+        column: column.index,
+        xPercent: column.leftPercent,
+        yPercent: row.topPercent,
+        widthPercent: column.rightPercent - column.leftPercent,
+        heightPercent: row.bottomPercent - row.topPercent
+      });
+    });
+  });
+
+  return { rows, columns, cells };
+}
+
+function buildManualOcrCellOverlay() {
+  const grid = bomExtractionState.acceptedManualGrid;
+  if (!bomExtractionState.showManualCellBoundaries || !grid?.cells?.length) return "";
+
+  return `
+    <div class="manual-ocr-cell-layer">
+      ${grid.cells.map((cell, index) => `
+        <div class="manual-ocr-cell" style="left:${cell.xPercent}%; top:${cell.yPercent}%; width:${cell.widthPercent}%; height:${cell.heightPercent}%;">${index + 1}</div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function syncManualTableAssistControls() {
+  const assistButton = document.getElementById('manualTableAssistBtn');
+  const addRowButton = document.getElementById('manualAddRowBtn');
+  const addColumnButton = document.getElementById('manualAddColumnBtn');
+  const editGuidesButton = document.getElementById('manualEditGuidesBtn');
+  const cellBoundaryButton = document.getElementById('manualCellBoundaryBtn');
+  const status = document.getElementById('manualTableAssistStatus');
+  const enabled = !!bomExtractionState.manualTableAssistEnabled;
+  const locked = !!bomExtractionState.manualGuidesLocked;
+  const rowCount = bomExtractionState.manualGuides.rows.length;
+  const columnCount = bomExtractionState.manualGuides.columns.length;
+
+  if (assistButton) assistButton.classList.toggle('active', enabled);
+  if (addRowButton) {
+    addRowButton.disabled = !enabled || locked;
+    addRowButton.classList.toggle('active', bomExtractionState.manualGuideMode === "row");
+  }
+  if (addColumnButton) {
+    addColumnButton.disabled = !enabled || locked;
+    addColumnButton.classList.toggle('active', bomExtractionState.manualGuideMode === "column");
+  }
+  if (editGuidesButton) editGuidesButton.disabled = !bomExtractionState.acceptedManualGrid;
+  if (cellBoundaryButton) {
+    cellBoundaryButton.disabled = !bomExtractionState.acceptedManualGrid;
+    cellBoundaryButton.classList.toggle('active', bomExtractionState.showManualCellBoundaries);
+    cellBoundaryButton.textContent = bomExtractionState.showManualCellBoundaries ? "Hide OCR Cell Boundaries" : "Show OCR Cell Boundaries";
+  }
+  if (status) {
+    const accepted = bomExtractionState.acceptedManualGrid ? " Accepted and locked." : "";
+    status.textContent = enabled
+      ? "Rows: " + rowCount + " | Columns: " + columnCount + "." + accepted
+      : "Manual guides not active.";
+  }
+}
+
+function renderTableDetectionSummary() {
+  const container = document.getElementById('tableDetectionSummary');
+  if (!container) return;
+
+  const detection = bomExtractionState.tableDetection;
+  if (!detection) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const items = [
+    ["Table Detected", detection.tableDetected ? "Yes" : "No"],
+    ["Rows Detected", detection.rowsDetected],
+    ["Columns Detected", detection.columnsDetected],
+    ["Header Row", detection.headerDetected ? "Detected" : "Not Detected"],
+    ["Detection Status", detection.detectionStatus]
+  ];
+
+  container.innerHTML = items.map(([label, value]) => `
+    <div class="table-detection-summary-item">
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(value)}</span>
+    </div>
+  `).join('');
+}
+
+function buildBomCropDebug(region, crop) {
+  if (!crop) {
+    return {
+      viewerCoordinates: "Unavailable",
+      pdfCoordinates: "Unavailable",
+      canvasCoordinates: "Unavailable",
+      cropCoordinates: "Unavailable",
+      cropStatus: "Failed"
+    };
+  }
+
+  return {
+    region: region?.label || "None",
+    page: region?.pageNumber || "Not selected",
+    viewerCoordinates: formatCoordinateBlock(crop.viewerCoordinates),
+    pdfCoordinates: formatCoordinateBlock(crop.pdfCoordinates),
+    canvasCoordinates: formatCoordinateBlock(crop.canvasCoordinates),
+    cropCoordinates: formatCoordinateBlock(crop.cropCoordinates),
+    cropStatus: crop.status || "Success"
+  };
+}
+
+function renderBomCropDebug() {
+  const container = document.getElementById('bomCropDebug');
+  if (!container) return;
+
+  const debug = bomExtractionState.cropDebug;
+  if (!debug) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const items = [
+    ["Region", debug.region],
+    ["Page", debug.page],
+    ["Viewer Coordinates", debug.viewerCoordinates],
+    ["PDF Coordinates", debug.pdfCoordinates],
+    ["Canvas Coordinates", debug.canvasCoordinates],
+    ["Crop Coordinates", debug.cropCoordinates],
+    ["Crop Status", debug.cropStatus]
+  ];
+
+  container.innerHTML = items.map(([label, value]) => `
+    <div class="bom-crop-debug-item">
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(value)}</span>
+    </div>
+  `).join('');
+}
+
+function formatCoordinateBlock(coordinates) {
+  if (!coordinates || coordinates === "Unavailable") return "Unavailable";
+
+  return Object.entries(coordinates)
+    .map(([key, value]) => key + ": " + value)
+    .join("\n");
+}
+
+function renderOcrInputPanel() {
+  const container = document.getElementById('ocrInputDetails');
+  if (!container) return;
+
+  const input = bomExtractionState.ocrInput;
+  const details = input
+    ? [
+        ["Selected Region", input.selectedRegion],
+        ["Page", input.page],
+        ["Image Size", input.imageSize],
+        ["Status", input.status]
+      ]
+    : [
+        ["Selected Region", "None"],
+        ["Page", "Not selected"],
+        ["Image Size", "Not available"],
+        ["Status", "Waiting for BOM Region"]
+      ];
+
+  container.innerHTML = details.map(([label, value]) => `
+    <div class="ocr-input-item">
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(value)}</span>
+    </div>
+  `).join('');
+}
+
+function buildOcrReviewRows(rawText) {
+  return String(rawText || "")
+    .split(/\r?\n/)
+    .map((line, index) => ({
+      id: index + 1,
+      raw: line,
+      cleaned: line,
+      status: "ready"
+    }));
+}
+
+function renderOcrReviewTable() {
+  const container = document.getElementById('ocrReviewWorkspace');
+  if (!container) return;
+
+  const rows = bomExtractionState.ocrReviewRows || [];
+  if (!rows.length) {
+    container.innerHTML = '<div class="ocr-review-empty">Run OCR to populate the review table.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="ocr-review-table">
+      <thead>
+        <tr>
+          <th>Raw OCR</th>
+          <th>Cleaned</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(row => `
+          <tr data-ocr-review-row-id="${row.id}" class="${row.id === bomExtractionState.selectedOcrReviewRowId ? 'selected' : ''}" onclick="setSelectedOcrReviewRow(${row.id})">
+            <td class="ocr-review-raw-cell">${buildOcrReviewRawCell(row)}</td>
+            <td class="ocr-review-cleaned-cell">${buildOcrReviewCleanedCell(row)}</td>
+            <td class="ocr-review-status-cell">&#10003;</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function buildOcrReviewRawCell(row) {
+  if (!Array.isArray(row.sourceCells)) return escapeHtml(row.raw);
+  return `
+    <div class="ocr-review-cell-grid" style="grid-template-columns:repeat(${Math.max(1, row.sourceCells.length)}, minmax(90px, 1fr));">
+      ${row.sourceCells.map(value => `<div class="ocr-review-cell">${escapeHtml(value || "")}</div>`).join('')}
+    </div>
+  `;
+}
+
+function buildOcrReviewCleanedCell(row) {
+  if (!Array.isArray(row.cleanedCells)) {
+    return `<div contenteditable="true" oninput="updateOcrReviewCleaned(${row.id}, this.textContent)" onclick="setSelectedOcrReviewRow(${row.id}); event.stopPropagation()" onfocus="setSelectedOcrReviewRow(${row.id})">${escapeHtml(row.cleaned)}</div>`;
+  }
+
+  return `
+    <div class="ocr-review-cell-grid" style="grid-template-columns:repeat(${Math.max(1, row.cleanedCells.length)}, minmax(90px, 1fr));">
+      ${row.cleanedCells.map((value, index) => `
+        <div class="ocr-review-cell" contenteditable="true" oninput="updateOcrReviewCleanedCell(${row.id}, ${index}, this.textContent)" onclick="setSelectedOcrReviewRow(${row.id}); event.stopPropagation()" onfocus="setSelectedOcrReviewRow(${row.id})">${escapeHtml(value || "")}</div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function setSelectedOcrReviewRow(rowId) {
+  bomExtractionState.selectedOcrReviewRowId = Number(rowId);
+  document.querySelectorAll('[data-ocr-review-row-id]').forEach(row => {
+    row.classList.toggle('selected', Number(row.dataset.ocrReviewRowId) === bomExtractionState.selectedOcrReviewRowId);
+  });
+}
+
+function updateOcrReviewCleaned(rowId, value) {
+  const row = bomExtractionState.ocrReviewRows.find(item => item.id === Number(rowId));
+  if (!row) return;
+  row.cleaned = value;
+}
+
+function updateOcrReviewCleanedCell(rowId, cellIndex, value) {
+  const row = bomExtractionState.ocrReviewRows.find(item => item.id === Number(rowId));
+  if (!row || !Array.isArray(row.cleanedCells)) return;
+  row.cleanedCells[cellIndex] = value;
+  row.cleaned = row.cleanedCells.map(cell => cell || "").join("\t");
+}
+
+function loadImageFromDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
+}
+
+async function cropManualCellImage(crop, cell) {
+  const image = await loadImageFromDataUrl(crop.imageDataUrl);
+  const sourceX = Math.max(0, Math.round((cell.xPercent / 100) * image.naturalWidth));
+  const sourceY = Math.max(0, Math.round((cell.yPercent / 100) * image.naturalHeight));
+  const sourceWidth = Math.max(1, Math.min(image.naturalWidth - sourceX, Math.round((cell.widthPercent / 100) * image.naturalWidth)));
+  const sourceHeight = Math.max(1, Math.min(image.naturalHeight - sourceY, Math.round((cell.heightPercent / 100) * image.naturalHeight)));
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  canvas.width = sourceWidth;
+  canvas.height = sourceHeight;
+  context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight);
+  return canvas.toDataURL('image/png');
+}
+
+async function runManualCellGridOcr(crop) {
+  const grid = bomExtractionState.acceptedManualGrid;
+  if (!grid?.cells?.length) return false;
+
+  bomExtractionState.rawOcrOutput = "Running manual cell OCR...";
+  bomExtractionState.ocrReviewRows = [];
+  bomExtractionState.selectedOcrReviewRowId = null;
+  bomExtractionState.status = "Running OCR on " + grid.cells.length + " manually defined cell(s).";
+  renderOcrReviewTable();
+  renderBomExtractionStatus();
+
+  const rowMap = new Map();
+
+  for (let index = 0; index < grid.cells.length; index++) {
+    const cell = grid.cells[index];
+    bomExtractionState.status = "OCR cell " + (index + 1) + " of " + grid.cells.length + ".";
+    renderBomExtractionStatus();
+
+    const cellImage = await cropManualCellImage(crop, cell);
+    const result = await Tesseract.recognize(cellImage, "eng");
+    const text = result?.data?.text || "";
+    if (!rowMap.has(cell.row)) rowMap.set(cell.row, []);
+    rowMap.get(cell.row)[cell.column - 1] = text.trim();
+  }
+
+  const reviewRows = Array.from(rowMap.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([rowNumber, cells], index) => {
+      const raw = cells.map(value => value || "").join("\t");
+      return {
+        id: index + 1,
+        raw,
+        cleaned: raw,
+        status: "ready",
+        sourceRow: rowNumber,
+        sourceCells: cells,
+        cleanedCells: [...cells]
+      };
+    });
+
+  bomExtractionState.rawOcrOutput = reviewRows.map(row => row.raw).join("\n");
+  bomExtractionState.ocrReviewRows = reviewRows;
+  bomExtractionState.selectedOcrReviewRowId = reviewRows[0]?.id || null;
+  bomExtractionState.status = "Manual cell OCR complete. Reconstructed rows are ready for review.";
+  renderOcrReviewTable();
+  renderBomExtractionStatus();
+  return true;
+}
+
+async function runBomRegionOcr() {
+  const crop = bomExtractionState.cropPreview;
+  if (!crop?.imageDataUrl) {
+    bomExtractionState.rawOcrOutput = "No cropped BOM image is ready for OCR.";
+    bomExtractionState.ocrReviewRows = [];
+    bomExtractionState.selectedOcrReviewRowId = null;
+    bomExtractionState.status = "Select a BOM Region and wait for the cropped preview before running OCR.";
+    renderOcrReviewTable();
+    renderBomExtractionStatus();
+    return;
+  }
+
+  if (!window.Tesseract?.recognize) {
+    bomExtractionState.rawOcrOutput = "OCR library is not loaded. Check network access for Tesseract.js.";
+    bomExtractionState.ocrReviewRows = [];
+    bomExtractionState.selectedOcrReviewRowId = null;
+    bomExtractionState.status = "OCR library unavailable.";
+    renderOcrReviewTable();
+    renderBomExtractionStatus();
+    return;
+  }
+
+  if (bomExtractionState.acceptedManualGrid?.cells?.length) {
+    try {
+      await runManualCellGridOcr(crop);
+    } catch (error) {
+      bomExtractionState.rawOcrOutput = "Manual cell OCR failed. No text was returned.";
+      bomExtractionState.ocrReviewRows = [];
+      bomExtractionState.selectedOcrReviewRowId = null;
+      bomExtractionState.status = "Manual cell OCR failed while reading the accepted guide grid.";
+      renderOcrReviewTable();
+      renderBomExtractionStatus();
+    }
+    return;
+  }
+
+  bomExtractionState.rawOcrOutput = "Running OCR...";
+  bomExtractionState.ocrReviewRows = [];
+  bomExtractionState.selectedOcrReviewRowId = null;
+  bomExtractionState.status = "Running OCR on " + crop.label + ".";
+  renderOcrReviewTable();
+  renderBomExtractionStatus();
+
+  try {
+    const result = await Tesseract.recognize(crop.imageDataUrl, "eng", {
+      logger(message) {
+        if (!message?.status) return;
+        const progress = typeof message.progress === "number"
+          ? " " + Math.round(message.progress * 100) + "%"
+          : "";
+        bomExtractionState.status = "OCR: " + message.status + progress;
+        renderBomExtractionStatus();
+      }
+    });
+    const rawText = result?.data?.text || "";
+    bomExtractionState.rawOcrOutput = rawText.trim() || "OCR completed, but no text was returned.";
+    bomExtractionState.ocrReviewRows = rawText ? buildOcrReviewRows(rawText) : [];
+    bomExtractionState.selectedOcrReviewRowId = bomExtractionState.ocrReviewRows[0]?.id || null;
+    bomExtractionState.status = "OCR complete. Raw OCR results are displayed.";
+  } catch (error) {
+    bomExtractionState.rawOcrOutput = "OCR failed. No text was returned.";
+    bomExtractionState.ocrReviewRows = [];
+    bomExtractionState.selectedOcrReviewRowId = null;
+    bomExtractionState.status = "OCR failed while reading the selected BOM Region.";
+  }
+
+  renderOcrReviewTable();
+  renderBomExtractionStatus();
+}
+
+function zoomBomRegionPreviewIn() {
+  bomExtractionState.previewControls.zoom = Math.min(3, Number((bomExtractionState.previewControls.zoom + 0.15).toFixed(2)));
+  renderBomRegionPreview();
+}
+
+function zoomBomRegionPreviewOut() {
+  bomExtractionState.previewControls.zoom = Math.max(0.5, Number((bomExtractionState.previewControls.zoom - 0.15).toFixed(2)));
+  renderBomRegionPreview();
+}
+
+function rotateBomRegionPreviewLeft() {
+  bomExtractionState.previewControls.rotation = (bomExtractionState.previewControls.rotation - 90) % 360;
+  renderBomRegionPreview();
+}
+
+function rotateBomRegionPreviewRight() {
+  bomExtractionState.previewControls.rotation = (bomExtractionState.previewControls.rotation + 90) % 360;
+  renderBomRegionPreview();
+}
+
+function setBomRegionPreviewBrightness(value) {
+  bomExtractionState.previewControls.brightness = Number(value);
+  renderBomRegionPreview();
+}
+
+function setBomRegionPreviewContrast(value) {
+  bomExtractionState.previewControls.contrast = Number(value);
+  renderBomRegionPreview();
+}
+
+function resetBomRegionPreviewImage() {
+  bomExtractionState.previewControls = {
+    zoom: 1,
+    rotation: 0,
+    brightness: 100,
+    contrast: 100
+  };
+  renderBomRegionPreview();
+}
+
+function syncBomRegionPreviewControls() {
+  const brightness = document.getElementById('bomRegionPreviewBrightness');
+  const contrast = document.getElementById('bomRegionPreviewContrast');
+  if (brightness) brightness.value = bomExtractionState.previewControls.brightness;
+  if (contrast) contrast.value = bomExtractionState.previewControls.contrast;
+}
+
+function getUploadedDocumentObjectUrl(fileName) {
+  return uploadedDocumentRegistry[fileName]?.objectUrl || "";
+}
+
+function getPdfViewerZoomFragment() {
+  if (bomExtractionState.fitMode === "page") return "page-fit";
+  if (bomExtractionState.fitMode === "width") return "page-width";
+  return String(Math.round(bomExtractionState.zoom * 100));
+}
+
+function zoomEngineeringDrawingIn() {
+  bomExtractionState.fitMode = "custom";
+  bomExtractionState.zoom = Math.min(2.5, Number((bomExtractionState.zoom + 0.15).toFixed(2)));
+  renderBomExtractionPdfPreview();
+}
+
+function zoomEngineeringDrawingOut() {
+  bomExtractionState.fitMode = "custom";
+  bomExtractionState.zoom = Math.max(0.55, Number((bomExtractionState.zoom - 0.15).toFixed(2)));
+  renderBomExtractionPdfPreview();
+}
+
+function fitEngineeringDrawingWidth() {
+  bomExtractionState.fitMode = "width";
+  bomExtractionState.zoom = 1;
+  renderBomExtractionPdfPreview();
+}
+
+function fitEngineeringDrawingPage() {
+  bomExtractionState.fitMode = "page";
+  bomExtractionState.zoom = 0.85;
+  renderBomExtractionPdfPreview();
+}
+
+function setupEngineeringDrawingPan() {
+  const shell = document.getElementById('bomExtractionPdfPreview');
+  if (!shell) return;
+
+  shell.onmousedown = event => {
+    if (bomExtractionState.regionSelectionMode) {
+      beginBomRegionSelection(event, shell);
+      return;
+    }
+
+    if (event.button !== 0 || bomExtractionState.zoom <= 1) return;
+    bomExtractionState.isPanning = true;
+    bomExtractionState.panStartX = event.pageX;
+    bomExtractionState.panStartY = event.pageY;
+    bomExtractionState.panScrollLeft = shell.scrollLeft;
+    bomExtractionState.panScrollTop = shell.scrollTop;
+    shell.classList.add('panning');
+    event.preventDefault();
+  };
+
+  shell.onmousemove = event => {
+    if (bomExtractionState.isDrawingRegion) {
+      updateBomRegionSelection(event);
+      return;
+    }
+
+    if (!bomExtractionState.isPanning) return;
+    shell.scrollLeft = bomExtractionState.panScrollLeft - (event.pageX - bomExtractionState.panStartX);
+    shell.scrollTop = bomExtractionState.panScrollTop - (event.pageY - bomExtractionState.panStartY);
+    updateEngineeringViewerPageFromScroll(shell);
+  };
+
+  shell.onmouseup = event => {
+    if (bomExtractionState.isDrawingRegion) {
+      finishBomRegionSelection(event);
+      return;
+    }
+    stopEngineeringDrawingPan(shell);
+  };
+  shell.onmouseleave = event => {
+    if (bomExtractionState.isDrawingRegion) {
+      finishBomRegionSelection(event);
+      return;
+    }
+    stopEngineeringDrawingPan(shell);
+  };
+  shell.onscroll = () => updateEngineeringViewerPageFromScroll(shell);
+}
+
+function stopEngineeringDrawingPan(shell) {
+  bomExtractionState.isPanning = false;
+  if (shell) shell.classList.remove('panning');
+}
+
+function updateEngineeringViewerPageFromScroll(shell) {
+  if (!shell || bomExtractionState.totalPages <= 1) {
+    updateEngineeringViewerPageStatus();
+    return;
+  }
+
+  const midpoint = shell.scrollTop + (shell.clientHeight / 2);
+  const visiblePage = bomExtractionState.pdfPageMetrics.find(metric => (
+    midpoint >= metric.top && midpoint <= metric.top + metric.height
+  ));
+  if (visiblePage) {
+    bomExtractionState.currentPage = visiblePage.pageNumber;
+    updateEngineeringViewerPageStatus();
+    return;
+  }
+
+  const scrollableHeight = shell.scrollHeight - shell.clientHeight;
+  if (scrollableHeight <= 0) {
+    bomExtractionState.currentPage = 1;
+  } else {
+    const scrollRatio = shell.scrollTop / scrollableHeight;
+    bomExtractionState.currentPage = Math.min(
+      bomExtractionState.totalPages,
+      Math.max(1, Math.round(scrollRatio * (bomExtractionState.totalPages - 1)) + 1)
+    );
+  }
+
+  updateEngineeringViewerPageStatus();
+}
+
+function updateEngineeringViewerPageStatus() {
+  const status = document.getElementById('engineeringViewerPageStatus');
+  if (!status) return;
+  status.textContent = 'Page ' + bomExtractionState.currentPage + ' of ' + bomExtractionState.totalPages;
+}
+
+function updateBomExtractionPdfPageCount() {
+  const fileName = bomExtractionState.drawingFileName;
+  const entry = uploadedDocumentRegistry[fileName];
+  if (!entry?.file || !fileName.toLowerCase().endsWith('.pdf')) {
+    bomExtractionState.currentPage = 1;
+    bomExtractionState.totalPages = 1;
+    updateEngineeringViewerPageStatus();
+    return;
+  }
+
+  countPdfPagesForViewer(entry.file).then(pageCount => {
+    if (bomExtractionState.drawingFileName !== fileName) return;
+    bomExtractionState.totalPages = pageCount;
+    bomExtractionState.currentPage = Math.min(bomExtractionState.currentPage, pageCount);
+    renderBomExtractionPdfPreview();
+    updateEngineeringViewerPageStatus();
+  });
+}
+
+function countPdfPagesForViewer(file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const bytes = new Uint8Array(reader.result || []);
+      let pdfText = "";
+      const chunkSize = 32768;
+
+      for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        pdfText += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+      }
+
+      const pageMatches = pdfText.match(/\/Type\s*\/Page\b/g);
+      resolve(Math.max(1, pageMatches ? pageMatches.length : 1));
+    };
+
+    reader.onerror = () => resolve(1);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/* =====================================================
+   END 209 - BOM EXTRACTION
+===================================================== */
+
+/* =====================================================
+   210 - INITIALIZATION
+===================================================== */
+
+configureDocumentProcessingLibraries();
 initDocumentIntake();
 syncAssemblyInfoToBomUi();
+prepareBomExtractionWorkspace();
 updateBackButton();
 
   </script>
