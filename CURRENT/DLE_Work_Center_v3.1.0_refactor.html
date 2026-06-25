@@ -1028,7 +1028,9 @@ body {
 
     .rfq-workspace,
     .order-workspace,
-    .tech-revision-workspace {
+    .tech-revision-workspace,
+    .quality-issue-workspace,
+    .internal-data-import-workspace {
       display: grid;
       gap: 16px;
       margin-top: 18px;
@@ -1045,7 +1047,10 @@ body {
     .tech-revision-package-step,
     .tech-revision-line-workspace,
     .tech-revision-primary-actions,
-    .tech-revision-review-panel-shell {
+    .tech-revision-review-panel-shell,
+    .quality-intake-section,
+    .quality-issue-actions,
+    .internal-import-section {
       background: linear-gradient(145deg, rgba(14, 27, 43, .92), rgba(8, 15, 25, .90));
       border: 1px solid var(--border);
       border-radius: 18px;
@@ -1058,6 +1063,8 @@ body {
     .document-intake-layout.rfq-workflow-active .document-intake-welcome,
     .document-intake-layout.order-workflow-active .document-intake-welcome,
     .document-intake-layout.tech-revision-workflow-active .document-intake-welcome,
+    .document-intake-layout.quality-issue-workflow-active .document-intake-welcome,
+    .document-intake-layout.internal-data-import-workflow-active .document-intake-welcome,
     .document-intake-layout.rfq-workflow-active .intake-conversation {
       display: none;
     }
@@ -1354,10 +1361,63 @@ body {
     .order-package-step p,
     .order-line-workspace p,
     .tech-revision-package-step p,
-    .tech-revision-line-workspace p {
+    .tech-revision-line-workspace p,
+    .quality-intake-section p,
+    .internal-import-section p {
       color: #d7dee8;
       line-height: 1.45;
       margin: 0 0 14px;
+    }
+
+    .quality-intake-section h3,
+    .internal-import-section h3 {
+      margin: 0 0 12px;
+      color: var(--blue);
+    }
+
+    .internal-import-selector {
+      max-width: 360px;
+    }
+
+    .internal-import-workspace {
+      display: grid;
+      gap: 16px;
+    }
+
+    .quality-intake-grid,
+    .quality-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .quality-intake-grid .wide-field,
+    .quality-summary-grid .wide-field {
+      grid-column: 1 / -1;
+    }
+
+    .quality-summary-grid div {
+      border: 1px solid rgba(130, 170, 210, .16);
+      background: rgba(4, 10, 18, .42);
+      border-radius: 12px;
+      padding: 11px 12px;
+      color: #d7dee8;
+    }
+
+    .quality-summary-grid strong {
+      display: block;
+      color: #8bbcff;
+      font-size: 11px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .quality-issue-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     .rfq-assembly-toolbar,
@@ -2195,7 +2255,9 @@ body {
       .document-workspace-header { grid-template-columns: 1fr; display: grid; }
       .rfq-field-grid,
       .order-field-grid,
-      .tech-revision-field-grid { grid-template-columns: 1fr; }
+      .tech-revision-field-grid,
+      .quality-intake-grid,
+      .quality-summary-grid { grid-template-columns: 1fr; }
       .work-order-summary-layout,
       .build-info-grid,
       .reference-info-grid { grid-template-columns: 1fr; }
@@ -2233,26 +2295,26 @@ body {
 
     <section id="home" class="screen active">
       <div class="hero-grid">
+        <div class="module-card active-card" onclick="go('documentIntake')">
+          <div class="icon-circle">DI</div>
+          <h1>Document Intake</h1>
+          <p>Convert files into DLE-OS data.</p>
+        </div>
         <div class="module-card active-card" onclick="go('findAssembly')">
           <div class="icon-circle">FA</div>
           <h1>Find Assembly</h1>
           <p>Search by Customer PO, DLE Work Order, Sales Order, or Part Number.</p>
         </div>
+        <div class="module-card active-card" onclick="go('openOrders')">
+          <div class="icon-circle">OO</div>
+          <h1>Open Orders</h1>
+          <p>Load ERP exports and monitor production activity.</p>
+          <div class="future">Future</div>
+        </div>
         <div class="module-card disabled">
           <div class="icon-circle">TR</div>
           <h1>Training</h1>
           <div class="future">Future</div>
-        </div>
-<div class="module-card active-card" onclick="go('openOrders')">
-  <div class="icon-circle">OO</div>
-  <h1>Open Orders</h1>
-  <p>Load ERP exports and monitor production activity.</p>
-  <div class="future">Future</div>
-</div>
-        <div class="module-card active-card" onclick="go('documentIntake')">
-          <div class="icon-circle">DI</div>
-          <h1>Document Intake</h1>
-          <p>Convert files into DLE-OS data.</p>
         </div>
       </div>
     </section>
@@ -2876,9 +2938,7 @@ BOM Viewer</h2>
                 <option value="New Customer Order">New Customer Order</option>
                 <option value="Technical Data Revision">Technical Data Revision</option>
                 <option value="Customer Quality Issue">Customer Quality Issue</option>
-                <option value="Customer Request">Customer Request</option>
-                <option value="Internal Document">Internal Document</option>
-                <option value="Other">Other</option>
+                <option value="Internal Data Import">Internal Data Import</option>
               </select>
             </div>
           </div>
@@ -3069,6 +3129,201 @@ BOM Viewer</h2>
                 <button class="primary" type="button" onclick="commitTechRevisionPlaceholder()">Commit Revision</button>
               </div>
             </div>
+          </div>
+
+          <div id="qualityIssueWorkspace" class="quality-issue-workspace hidden">
+            <section class="quality-intake-section">
+              <h3>Customer Information</h3>
+              <div class="quality-intake-grid">
+                <div>
+                  <label>Customer (required)</label>
+                  <input id="qualityCustomer" placeholder="Customer name" />
+                </div>
+                <div>
+                  <label>Customer Contact</label>
+                  <input id="qualityCustomerContact" placeholder="Contact name" />
+                </div>
+                <div>
+                  <label>Contact Email</label>
+                  <input id="qualityContactEmail" type="email" placeholder="name@example.com" />
+                </div>
+                <div>
+                  <label>Contact Phone</label>
+                  <input id="qualityContactPhone" placeholder="Phone number" />
+                </div>
+              </div>
+            </section>
+
+            <section class="quality-intake-section">
+              <h3>Complaint Information</h3>
+              <div class="quality-intake-grid">
+                <div>
+                  <label>Subject</label>
+                  <input id="qualitySubject" placeholder="Short complaint subject" />
+                </div>
+                <div>
+                  <label>Date Received</label>
+                  <input id="qualityDateReceived" type="date" />
+                </div>
+                <div class="wide-field">
+                  <label>Complaint Description</label>
+                  <textarea id="qualityComplaintDescription" rows="7" placeholder="Manual notes from a phone call or complaint summary."></textarea>
+                </div>
+                <div class="wide-field">
+                  <label>Original Customer Email</label>
+                  <textarea id="qualityOriginalEmail" rows="7" placeholder="Paste the original customer email or communication here."></textarea>
+                </div>
+              </div>
+            </section>
+
+            <section class="quality-intake-section">
+              <h3>Shipment Identification</h3>
+              <p>These fields identify which shipment the complaint references. No database search or verification happens in this prototype.</p>
+              <div class="quality-intake-grid">
+                <div>
+                  <label>Customer Purchase Order</label>
+                  <input id="qualityCustomerPo" placeholder="Customer PO" />
+                </div>
+                <div>
+                  <label>DLE Sales Order (optional placeholder)</label>
+                  <input id="qualitySalesOrder" placeholder="DLE sales order" />
+                </div>
+                <div>
+                  <label>Assembly / Part Number</label>
+                  <input id="qualityAssemblyPart" placeholder="Assembly or part number" />
+                </div>
+                <div>
+                  <label>Revision (optional)</label>
+                  <input id="qualityRevision" placeholder="Revision" />
+                </div>
+                <div>
+                  <label>Quantity Affected</label>
+                  <input id="qualityQuantityAffected" placeholder="Quantity" />
+                </div>
+                <div>
+                  <label>Lot Number (optional)</label>
+                  <input id="qualityLotNumber" placeholder="Lot number" />
+                </div>
+                <div class="wide-field">
+                  <label>Serial Numbers</label>
+                  <textarea id="qualitySerialNumbers" rows="5" placeholder="Enter one or more serial numbers."></textarea>
+                </div>
+              </div>
+            </section>
+
+            <section class="quality-intake-section">
+              <h3>Attachments</h3>
+              <p>Images, PDFs, Excel files, customer documents, videos, or other supporting complaint files.</p>
+              <div id="qualityAttachmentDropZone" class="document-drop-zone" tabindex="0" role="button" aria-label="Upload customer quality issue attachments">
+                <div>
+                  <strong>Drop customer quality issue attachments here</strong>
+                  <span>or click to select images, PDFs, Excel files, customer documents, videos, or ZIP files.</span>
+                </div>
+              </div>
+              <input id="qualityAttachmentFileInput" class="document-file-input" type="file" multiple accept=".jpg,.jpeg,.png,.pdf,.xls,.xlsx,.doc,.docx,.mp4,.mov,.avi,.txt,.zip">
+              <div id="qualityAttachmentFileList" class="file-queue-list"></div>
+            </section>
+
+            <section class="quality-intake-section">
+              <h3>Intake Summary</h3>
+              <div class="quality-summary-grid">
+                <div><strong>Intake Type</strong><span>Customer Quality Issue</span></div>
+                <div><strong>Received By</strong><span>Placeholder User</span></div>
+                <div><strong>Date / Time Received</strong><span id="qualityReceivedDateTime">Not started</span></div>
+                <div><strong>Intake Status</strong><span>New</span></div>
+              </div>
+            </section>
+
+            <div class="quality-issue-actions">
+              <button class="secondary-btn" type="button" onclick="saveQualityIssueDraft()">Save Draft</button>
+              <button class="primary" type="button" onclick="commitQualityIssueIntake()">Commit Intake</button>
+              <button class="secondary-btn" type="button" onclick="cancelQualityIssueIntake()">Cancel</button>
+            </div>
+          </div>
+
+          <div id="internalDataImportWorkspace" class="internal-data-import-workspace hidden">
+            <section class="internal-import-section">
+              <h3>Internal Data Import</h3>
+              <p>Centralized import testing area for internal operational data. Phase 1 supports BOM and Open Order Report imports only.</p>
+              <div class="internal-import-selector">
+                <label for="internalImportTypeSelect">Import Type</label>
+                <select id="internalImportTypeSelect" onchange="selectInternalImportType(this.value)">
+                  <option value="">Select import type...</option>
+                  <option value="BOM">BOM</option>
+                  <option value="Open Order Report">Open Order Report</option>
+                </select>
+              </div>
+            </section>
+
+            <section id="internalBomImportWorkspace" class="internal-import-workspace hidden">
+              <div class="internal-import-section">
+                <h3>BOM Import</h3>
+                <p class="subtitle">Choose an exported BOM file, parse it, review the temporary results, then commit the import into DLE-OS.</p>
+
+                <div class="open-orders-toolbar">
+                  <div class="open-orders-actions">
+                    <input type="file" id="internalBomFile" accept=".txt,.tsv,.csv">
+                    <button onclick="parseInternalBomImport()">Load / Parse</button>
+                    <button class="primary" onclick="commitInternalBomImport()">Commit Import</button>
+                    <button class="secondary-btn" onclick="cancelInternalBomImport()">Cancel</button>
+                  </div>
+
+                  <div id="internalBomImportStatus" class="open-orders-status">Select a BOM export to begin.</div>
+                </div>
+
+                <div id="internalBomImportSummary" class="bom-summary-grid">
+                  <div class="bom-stat"><strong>Assembly Number</strong><span id="internalBomReviewAssembly">Pending</span></div>
+                  <div class="bom-stat"><strong>Drawing Number</strong><span id="internalBomReviewDrawing">Pending</span></div>
+                  <div class="bom-stat"><strong>Revision</strong><span id="internalBomReviewRevision">Pending</span></div>
+                  <div class="bom-stat"><strong>Total BOM Items</strong><span id="internalBomReviewItems">0</span></div>
+                  <div class="bom-stat"><strong>Parsing Status</strong><span id="internalBomReviewStatus">Waiting</span></div>
+                </div>
+
+                <div id="internalBomReviewTable" class="bom-table-wrap">
+                  <table class="bom-table">
+                    <thead>
+                      <tr>
+                        <th>Seq</th>
+                        <th>Item Number</th>
+                        <th>Part Number</th>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>UOM</th>
+                        <th>Record Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td colspan="7" class="bom-muted">Parsed BOM rows will appear here for temporary review.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <section id="internalOpenOrdersImportWorkspace" class="internal-import-workspace hidden">
+              <div class="internal-import-section">
+                <h3>Open Order Report Import</h3>
+                <p class="subtitle">Copied from the current Open Orders parser for centralized import testing. Original Open Orders module remains unchanged.</p>
+                <div class="open-orders-toolbar">
+                  <div class="open-orders-actions">
+                    <input type="file" id="internalOpenOrdersFile">
+                    <button onclick="loadInternalOpenOrders()">Load Open Orders</button>
+                  </div>
+
+                  <div id="internalOpenOrdersStatus" class="open-orders-status"></div>
+
+                  <input
+                    type="text"
+                    id="internalOpenOrdersSearch"
+                    class="open-orders-search"
+                    placeholder="Search... use ; to narrow results"
+                    onkeyup="filterInternalOpenOrders()">
+                </div>
+                <div id="internalOpenOrdersTable" class="open-orders-table-wrap"></div>
+              </div>
+            </section>
           </div>
 
         </div>
@@ -4698,7 +4953,9 @@ let documentIntakeState = {
   techRevisionPackageFiles: [],
   techRevisionLines: [],
   nextTechRevisionLineId: 1,
-  techRevisionReviewOpen: false
+  techRevisionReviewOpen: false,
+  qualityIssueFiles: [],
+  internalImportType: ""
 };
 
 function initDocumentIntake() {
@@ -4710,6 +4967,8 @@ function initDocumentIntake() {
   const orderPackageFileInput = document.getElementById('orderPackageFileInput');
   const techRevisionPackageDropZone = document.getElementById('techRevisionPackageDropZone');
   const techRevisionPackageFileInput = document.getElementById('techRevisionPackageFileInput');
+  const qualityAttachmentDropZone = document.getElementById('qualityAttachmentDropZone');
+  const qualityAttachmentFileInput = document.getElementById('qualityAttachmentFileInput');
 
   if (dropZone && fileInput) {
     dropZone.addEventListener('click', () => fileInput.click());
@@ -4747,6 +5006,7 @@ function initDocumentIntake() {
   setupDocumentDropZone(rfqPackageDropZone, rfqPackageFileInput, addRfqPackageFiles);
   setupDocumentDropZone(orderPackageDropZone, orderPackageFileInput, addOrderPackageFiles);
   setupDocumentDropZone(techRevisionPackageDropZone, techRevisionPackageFileInput, addTechRevisionPackageFiles);
+  setupDocumentDropZone(qualityAttachmentDropZone, qualityAttachmentFileInput, addQualityIssueFiles);
   resetDocumentIntakeState();
 }
 
@@ -4815,6 +5075,8 @@ function selectIntakeCategoryByValue(category) {
   documentIntakeState.techRevisionLines = [];
   documentIntakeState.nextTechRevisionLineId = 1;
   documentIntakeState.techRevisionReviewOpen = false;
+  documentIntakeState.qualityIssueFiles = [];
+  documentIntakeState.internalImportType = "";
   clearDocumentIntakeForm();
 
   document
@@ -4851,7 +5113,9 @@ function resetDocumentIntakeState() {
     techRevisionPackageFiles: [],
     techRevisionLines: [],
     nextTechRevisionLineId: 1,
-    techRevisionReviewOpen: false
+    techRevisionReviewOpen: false,
+    qualityIssueFiles: [],
+    internalImportType: ""
   };
 
   document
@@ -4860,6 +5124,9 @@ function resetDocumentIntakeState() {
 
   const intakeTypeSelect = document.getElementById('intakeTypeSelect');
   if (intakeTypeSelect) intakeTypeSelect.value = "";
+
+  const internalImportTypeSelect = document.getElementById('internalImportTypeSelect');
+  if (internalImportTypeSelect) internalImportTypeSelect.value = "";
 
   clearDocumentIntakeForm();
   renderDocumentIntakeState();
@@ -4886,9 +5153,30 @@ function clearDocumentIntakeForm() {
     if (field) field.value = "";
   });
 
+  [
+    'qualityCustomer',
+    'qualityCustomerContact',
+    'qualityContactEmail',
+    'qualityContactPhone',
+    'qualitySubject',
+    'qualityComplaintDescription',
+    'qualityOriginalEmail',
+    'qualityCustomerPo',
+    'qualitySalesOrder',
+    'qualityAssemblyPart',
+    'qualityRevision',
+    'qualityQuantityAffected',
+    'qualitySerialNumbers',
+    'qualityLotNumber'
+  ].forEach(id => {
+    const field = document.getElementById(id);
+    if (field) field.value = "";
+  });
+
   setRfqDefaultDates();
   setOrderDefaultDates();
   setTechRevisionDefaultDates();
+  setQualityIssueDefaultDates();
 }
 
 function setRfqDefaultDates() {
@@ -4918,6 +5206,15 @@ function setTechRevisionDefaultDates() {
   const today = new Date();
 
   if (receivedDate) receivedDate.value = formatDateInputValue(today);
+}
+
+function setQualityIssueDefaultDates() {
+  const dateReceived = document.getElementById('qualityDateReceived');
+  const receivedDateTime = document.getElementById('qualityReceivedDateTime');
+  const now = new Date();
+
+  if (dateReceived) dateReceived.value = formatDateInputValue(now);
+  if (receivedDateTime) receivedDateTime.textContent = now.toLocaleString();
 }
 
 function continueIntakeToDocuments() {
@@ -5026,6 +5323,17 @@ function addTechRevisionLine() {
   renderDocumentIntakeState();
 }
 
+function addQualityIssueFiles(fileList) {
+  const incomingFiles = Array.from(fileList || []);
+  if (!incomingFiles.length) return;
+
+  incomingFiles.forEach(file => {
+    documentIntakeState.qualityIssueFiles.push(file.name);
+  });
+
+  renderDocumentIntakeState();
+}
+
 function openRfqReview() {
   documentIntakeState.rfqReviewOpen = true;
   renderDocumentIntakeState();
@@ -5066,6 +5374,394 @@ function backToTechRevisionEdit() {
 
 function commitTechRevisionPlaceholder() {
   window.alert("Technical Revision Workspace successfully created.\n\nReady for Technical Review.");
+}
+
+function saveQualityIssueDraft() {
+  window.alert("Customer Quality Issue draft saved for this prototype.");
+}
+
+function commitQualityIssueIntake() {
+  const customer = document.getElementById('qualityCustomer')?.value.trim();
+
+  if (!customer) {
+    window.alert("Customer is required before committing this intake.");
+    const customerField = document.getElementById('qualityCustomer');
+    if (customerField) customerField.focus();
+    return;
+  }
+
+  window.alert("Customer Quality Issue intake successfully committed.\n\nReady for future Customer Quality workspace handoff.");
+}
+
+function cancelQualityIssueIntake() {
+  resetDocumentIntakeState();
+}
+
+function selectInternalImportType(importType) {
+  documentIntakeState.internalImportType = importType;
+  renderDocumentIntakeState();
+}
+
+let currentInternalParsedBom = null;
+let currentInternalBomImportRecords = [];
+let currentInternalBomMetadata = null;
+let internalOpenOrdersRows = [];
+
+function getAssemblyNumberFromBomFilename(fileName) {
+  return (fileName || '')
+    .replace(/\.[^/.]+$/, '')
+    .replace(/^BOM[-_\s]*/i, '')
+    .trim() || "Review required";
+}
+
+function parseBomHeaderMetadata(text) {
+  const headerLine = (text || '')
+    .split('\n')
+    .find(line => /DRAW#/i.test(line)) || "";
+
+  const drawingMatch = headerLine.match(/DRAW#\s*=\s*([A-Z0-9-]+)/i);
+  const revisionMatch = headerLine.match(/\bREV\s+([A-Z0-9-]+)/i);
+
+  return {
+    drawingNumber: drawingMatch ? drawingMatch[1].trim() : "Review required",
+    revision: revisionMatch ? revisionMatch[1].trim() : "Review required"
+  };
+}
+
+function classifyBomImportRecord(record) {
+  const text = [
+    record.partNumber,
+    record.description,
+    record.synonym,
+    record.text
+  ].filter(Boolean).join(' ').toUpperCase();
+
+  if (text.includes('DO NOT POPULATE') || text.includes('DNP') || text.includes('DO NOT INSTALL')) return "DNP";
+  if (text.includes('ALT') || text.includes('ALTERNATE')) return "Alternate";
+  if (text.includes('SUBASSEMBLY') || text.includes('SUB-ASSY') || text.includes('SUB ASSY')) return "Subassembly";
+  if (record.kind === "note") return "Note";
+  return "Component";
+}
+
+function buildBomImportRecords(text) {
+  const parsed = parseBomText(text);
+  const records = [];
+
+  parsed.items.forEach(item => {
+    const componentRecord = {
+      seq: item.item,
+      itemNumber: item.item,
+      partNumber: item.partNumber,
+      description: item.description,
+      quantity: item.qty,
+      uom: item.uom,
+      synonym: item.synonym,
+      kind: "component"
+    };
+
+    componentRecord.recordType = classifyBomImportRecord(componentRecord);
+    records.push(componentRecord);
+
+    item.messages.forEach(message => {
+      const noteRecord = {
+        seq: message.seq,
+        itemNumber: item.item,
+        partNumber: "",
+        description: message.text,
+        quantity: "",
+        uom: "",
+        text: message.text,
+        kind: "note"
+      };
+
+      noteRecord.recordType = classifyBomImportRecord(noteRecord);
+      records.push(noteRecord);
+    });
+  });
+
+  parsed.messages
+    .filter(message => !records.some(record => record.kind === "note" && record.seq === message.seq && record.description === message.text))
+    .forEach(message => {
+      const noteRecord = {
+        seq: message.seq,
+        itemNumber: "",
+        partNumber: "",
+        description: message.text,
+        quantity: "",
+        uom: "",
+        text: message.text,
+        kind: "note"
+      };
+
+      noteRecord.recordType = classifyBomImportRecord(noteRecord);
+      records.push(noteRecord);
+    });
+
+  return {
+    parsed,
+    records,
+    warnings: parsed.items.length ? [] : ["No component records were parsed."]
+  };
+}
+
+function renderInternalBomImportReview(importResult, metadata = {}) {
+  const tableWrap = document.getElementById('internalBomReviewTable');
+  if (!tableWrap) return;
+
+  const parsed = importResult.parsed;
+  const records = importResult.records;
+  const warnings = importResult.warnings || [];
+
+  setText('internalBomReviewAssembly', metadata.assemblyNumber || "Review required");
+  setText('internalBomReviewDrawing', metadata.drawingNumber || "Review required");
+  setText('internalBomReviewRevision', metadata.revision || "Review required");
+  setText('internalBomReviewItems', String(parsed.items.length));
+  setText('internalBomReviewStatus', warnings.length ? warnings.join('; ') : 'Parsed Successfully');
+
+  if (!records.length) {
+    tableWrap.innerHTML = `
+      <table class="bom-table">
+        <thead>
+          <tr>
+            <th>Seq</th><th>Item Number</th><th>Part Number</th><th>Description</th><th>Quantity</th><th>UOM</th><th>Record Type</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="7" class="bom-muted">No BOM records were parsed.</td></tr></tbody>
+      </table>`;
+    return;
+  }
+
+  const rows = records.map(record => `
+      <tr>
+        <td class="num">${escapeHtml(record.seq)}</td>
+        <td class="num">${escapeHtml(record.itemNumber)}</td>
+        <td class="part-number">${escapeHtml(record.partNumber)}</td>
+        <td>${escapeHtml(record.description)}</td>
+        <td class="num">${escapeHtml(record.quantity)}</td>
+        <td>${escapeHtml(record.uom)}</td>
+        <td>${escapeHtml(record.recordType)}</td>
+      </tr>`).join('');
+
+  tableWrap.innerHTML = `
+    <table class="bom-table">
+      <thead>
+        <tr>
+          <th>Seq</th>
+          <th>Item Number</th>
+          <th>Part Number</th>
+          <th>Description</th>
+          <th>Quantity</th>
+          <th>UOM</th>
+          <th>Record Type</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function parseInternalBomImport() {
+  const fileInput = document.getElementById('internalBomFile');
+  const status = document.getElementById('internalBomImportStatus');
+
+  if (!fileInput || !status) return;
+
+  const file = fileInput.files[0];
+
+  if (!file) {
+    status.textContent = 'Please select a BOM export.';
+    return;
+  }
+
+  try {
+    status.textContent = 'Parsing: ' + file.name;
+    const text = await file.text();
+    const importResult = buildBomImportRecords(text);
+    const metadata = {
+      assemblyNumber: getAssemblyNumberFromBomFilename(file.name),
+      ...parseBomHeaderMetadata(text)
+    };
+
+    currentInternalParsedBom = importResult.parsed;
+    currentInternalBomImportRecords = importResult.records;
+    currentInternalBomMetadata = metadata;
+    renderInternalBomImportReview(importResult, metadata);
+
+    status.textContent =
+      'Loaded: ' + file.name +
+      ' | Characters: ' + text.length +
+      ' | BOM Items: ' + importResult.parsed.items.length +
+      ' | Review Records: ' + importResult.records.length;
+
+  } catch (error) {
+    status.textContent = 'Parse error: ' + error;
+    console.error(error);
+  }
+}
+
+function commitInternalBomImport() {
+  if (!currentInternalParsedBom) {
+    window.alert("Parse a BOM file before committing this import.");
+    return;
+  }
+
+  window.alert("BOM import committed to DLE-OS staging.\n\nOperational BOM viewing remains in the BOM Viewer.");
+}
+
+function cancelInternalBomImport() {
+  const fileInput = document.getElementById('internalBomFile');
+  if (fileInput) fileInput.value = "";
+
+  currentInternalParsedBom = null;
+  currentInternalBomImportRecords = [];
+  currentInternalBomMetadata = null;
+  setText('internalBomImportStatus', 'Select a BOM export to begin.');
+  setText('internalBomReviewAssembly', 'Pending');
+  setText('internalBomReviewDrawing', 'Pending');
+  setText('internalBomReviewRevision', 'Pending');
+  setText('internalBomReviewItems', '0');
+  setText('internalBomReviewStatus', 'Waiting');
+
+  const tableWrap = document.getElementById('internalBomReviewTable');
+  if (tableWrap) {
+    tableWrap.innerHTML = `
+      <table class="bom-table">
+        <thead>
+          <tr>
+            <th>Seq</th>
+            <th>Item Number</th>
+            <th>Part Number</th>
+            <th>Description</th>
+            <th>Quantity</th>
+            <th>UOM</th>
+            <th>Record Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="7" class="bom-muted">Parsed BOM rows will appear here for temporary review.</td>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+}
+
+async function loadInternalOpenOrders() {
+  const fileInput = document.getElementById('internalOpenOrdersFile');
+  const status = document.getElementById('internalOpenOrdersStatus');
+  const table = document.getElementById('internalOpenOrdersTable');
+
+  if (!fileInput || !status || !table) return;
+
+  const file = fileInput.files[0];
+
+  if (!file) {
+    status.textContent = 'Please select an Open Orders export.';
+    return;
+  }
+
+  const text = await file.text();
+  const lines = text.split('\n');
+
+  status.textContent =
+    'Loaded: ' + file.name +
+    ' | Characters: ' + text.length +
+    ' | Rows: ' + lines.length;
+
+  internalOpenOrdersRows = lines
+    .slice(1)
+    .map(row => row.split('\t'))
+    .filter(cols => cols.some(value => (value || '').trim()));
+
+  let html = `
+<table class="open-orders-table">
+<tr>
+    <th>Ord Dt</th>
+    <th>Cust #</th>
+    <th>Cust Name</th>
+    <th>P/O</th>
+    <th>Sls Ord#</th>
+    <th>Seq Ln</th>
+    <th>WorkOrd</th>
+    <th>WO Qty</th>
+    <th>Qty Shp'd</th>
+    <th>Qty Open</th>
+    <th>Item#</th>
+    <th>Description</th>
+    <th>Ship Dt</th>
+    <th>Price</th>
+    <th>Ext Price</th>
+</tr>
+`;
+
+  for (let i = 0; i < internalOpenOrdersRows.length; i++) {
+    const cols = internalOpenOrdersRows[i];
+
+    html += `
+<tr class="${i % 2 === 0 ? 'rowEven' : 'rowOdd'} clickable-open-order" onclick="openJobDashboardFromInternalOpenOrder(${i})" title="Open Order Dashboard">
+    <td>${escapeHtml(cols[0] || '')}</td>
+    <td>${escapeHtml(cols[1] || '')}</td>
+    <td class="nowrap">
+    ${escapeHtml(cols[2] || '')}
+</td>
+    <td>${escapeHtml(cols[3] || '')}</td>
+    <td>${escapeHtml(cols[4] || '')}</td>
+    <td>${escapeHtml(cols[5] || '')}</td>
+    <td>${escapeHtml(cols[6] || '')}</td>
+    <td>${escapeHtml(cols[7] || '')}</td>
+    <td>${escapeHtml(cols[8] || '')}</td>
+    <td>${escapeHtml(cols[9] || '')}</td>
+    <td>${escapeHtml(cols[10] || '')}</td>
+    <td class="nowrap">
+    ${escapeHtml(cols[11] || '')}
+</td>
+    <td>${escapeHtml(cols[12] || '')}</td>
+    <td>${escapeHtml(cols[13] || '')}</td>
+    <td>${escapeHtml(cols[14] || '')}</td>
+</tr>
+`;
+  }
+
+  html += '</table>';
+  table.innerHTML = html;
+}
+
+function filterInternalOpenOrders() {
+  const input = document.getElementById('internalOpenOrdersSearch');
+  if (!input) return;
+
+  const filters =
+    input.value
+      .split(';')
+      .map(segment => segment.trim().toUpperCase())
+      .filter(segment => segment);
+
+  const table = document.querySelector('#internalOpenOrdersTable table');
+  if (!table) return;
+
+  const rows = table.getElementsByTagName('tr');
+
+  for (let i = 1; i < rows.length; i++) {
+    const rowText = rows[i].textContent.toUpperCase();
+
+    rows[i].style.display =
+      filters.every(filter => rowText.includes(filter))
+      ? ''
+      : 'none';
+  }
+}
+
+function openJobDashboardFromInternalOpenOrder(index) {
+  const cols = internalOpenOrdersRows[index];
+
+  if (!cols) return;
+
+  currentJobDashboardOrder = buildJobDashboardOrder(cols);
+  selectedJobDashboardRow = null;
+  selectedJobDashboardIndexes = new Set();
+  lastSelectedJobDashboardIndex = null;
+
+  renderJobDashboard(currentJobDashboardOrder);
+  go('orderDashboard');
 }
 
 function updateRfqAssemblyField(assemblyId, fieldName, value) {
@@ -5215,12 +5911,22 @@ function isTechRevisionIntake() {
   return documentIntakeState.selectedCategory === "Technical Data Revision";
 }
 
+function isQualityIssueIntake() {
+  return documentIntakeState.selectedCategory === "Customer Quality Issue";
+}
+
+function isInternalDataImportIntake() {
+  return documentIntakeState.selectedCategory === "Internal Data Import";
+}
+
 function renderDocumentIntakeState() {
   const hasCategory = !!documentIntakeState.selectedCategory;
   const hasFiles = documentIntakeState.files.length > 0;
   const rfqMode = isRfqIntake();
   const orderMode = isOrderIntake();
   const techRevisionMode = isTechRevisionIntake();
+  const qualityIssueMode = isQualityIssueIntake();
+  const internalDataImportMode = isInternalDataImportIntake();
   const rfqReviewOpen = rfqMode && documentIntakeState.rfqReviewOpen;
   const orderReviewOpen = orderMode && documentIntakeState.orderReviewOpen;
   const techRevisionReviewOpen = techRevisionMode && documentIntakeState.techRevisionReviewOpen;
@@ -5230,12 +5936,14 @@ function renderDocumentIntakeState() {
     layout.classList.toggle('rfq-workflow-active', rfqMode);
     layout.classList.toggle('order-workflow-active', orderMode);
     layout.classList.toggle('tech-revision-workflow-active', techRevisionMode);
+    layout.classList.toggle('quality-issue-workflow-active', qualityIssueMode);
+    layout.classList.toggle('internal-data-import-workflow-active', internalDataImportMode);
   }
 
   setDocumentIntakeHidden('intakeSelectionPanel', true);
-  setDocumentIntakeHidden('currentIntakeSummary', !hasCategory || rfqMode || orderMode || techRevisionMode);
-  setDocumentIntakeHidden('documentWorkspaceCard', rfqMode || orderMode || techRevisionMode);
-  setDocumentIntakeHidden('rfqHeaderActions', !rfqMode && !orderMode && !techRevisionMode);
+  setDocumentIntakeHidden('currentIntakeSummary', !hasCategory || rfqMode || orderMode || techRevisionMode || qualityIssueMode || internalDataImportMode);
+  setDocumentIntakeHidden('documentWorkspaceCard', rfqMode || orderMode || techRevisionMode || qualityIssueMode || internalDataImportMode);
+  setDocumentIntakeHidden('rfqHeaderActions', !rfqMode && !orderMode && !techRevisionMode && !qualityIssueMode && !internalDataImportMode);
   setDocumentIntakeHidden('rfqWorkspace', !rfqMode);
   setDocumentIntakeHidden('rfqPackageStep', !rfqMode || rfqReviewOpen);
   setDocumentIntakeHidden('rfqAssemblyWorkspace', !rfqMode || rfqReviewOpen);
@@ -5251,10 +5959,14 @@ function renderDocumentIntakeState() {
   setDocumentIntakeHidden('techRevisionLineWorkspace', !techRevisionMode || techRevisionReviewOpen);
   setDocumentIntakeHidden('techRevisionReviewCommitStep', !techRevisionReviewOpen);
   setDocumentIntakeHidden('techRevisionPrimaryActions', !techRevisionMode || techRevisionReviewOpen);
+  setDocumentIntakeHidden('qualityIssueWorkspace', !qualityIssueMode);
+  setDocumentIntakeHidden('internalDataImportWorkspace', !internalDataImportMode);
+  setDocumentIntakeHidden('internalBomImportWorkspace', !internalDataImportMode || documentIntakeState.internalImportType !== "BOM");
+  setDocumentIntakeHidden('internalOpenOrdersImportWorkspace', !internalDataImportMode || documentIntakeState.internalImportType !== "Open Order Report");
   setDocumentIntakeHidden('intakeWorkspacePrompt', hasCategory);
-  setDocumentIntakeHidden('sourceInformationStep', rfqMode || orderMode || techRevisionMode || !hasCategory || documentIntakeState.sourceComplete);
-  setDocumentIntakeHidden('documentsReceivedStep', rfqMode || orderMode || techRevisionMode || !documentIntakeState.sourceComplete);
-  setDocumentIntakeHidden('intakeReviewStep', rfqMode || orderMode || techRevisionMode || !hasFiles);
+  setDocumentIntakeHidden('sourceInformationStep', rfqMode || orderMode || techRevisionMode || qualityIssueMode || internalDataImportMode || !hasCategory || documentIntakeState.sourceComplete);
+  setDocumentIntakeHidden('documentsReceivedStep', rfqMode || orderMode || techRevisionMode || qualityIssueMode || internalDataImportMode || !documentIntakeState.sourceComplete);
+  setDocumentIntakeHidden('intakeReviewStep', rfqMode || orderMode || techRevisionMode || qualityIssueMode || internalDataImportMode || !hasFiles);
 
   const currentType = document.getElementById('currentIntakeType');
   if (currentType) {
@@ -5273,6 +5985,7 @@ function renderDocumentIntakeState() {
   renderTechRevisionPackageFileList();
   renderTechRevisionLineCards();
   renderTechRevisionReviewContent();
+  renderQualityIssueFileList();
   renderIntakeReviewSummary();
 }
 
@@ -5410,6 +6123,23 @@ function renderTechRevisionLineCards() {
   list.innerHTML = documentIntakeState.techRevisionLines
     .map(revisionLine => buildTechRevisionLineCard(revisionLine))
     .join('');
+}
+
+function renderQualityIssueFileList() {
+  const list = document.getElementById('qualityAttachmentFileList');
+  if (!list) return;
+
+  if (!documentIntakeState.qualityIssueFiles.length) {
+    list.innerHTML = '<p class="empty-queue">No attachments queued yet.</p>';
+    return;
+  }
+
+  list.innerHTML =
+    '<ul>' +
+    documentIntakeState.qualityIssueFiles
+      .map(fileName => '<li>' + escapeHtml(fileName) + '</li>')
+      .join('') +
+    '</ul>';
 }
 
 function renderRfqReviewContent() {
