@@ -28,6 +28,7 @@ CSS SECTIONS
 007 - DOCUMENT INTAKE MODULE
 008 - ORDER DASHBOARD MODULE
 009 - WORK ORDER DASHBOARD MODULE
+010 - RFQ PROCESSING MODULE
 
 HTML SECTIONS
 
@@ -44,6 +45,7 @@ HTML SECTIONS
 108 - CAPTURE
 108A - CAPTURE FORM
 108B - CAPTURE SAVED
+109 - RFQ PROCESSING
 
 JAVASCRIPT SECTIONS
 
@@ -55,7 +57,8 @@ JAVASCRIPT SECTIONS
 206 - ORDER DASHBOARD
 206A - WORK ORDER DASHBOARD
 207 - DOCUMENT INTAKE
-208 - INITIALIZATION
+208 - RFQ PROCESSING
+209 - INITIALIZATION
 
 FUTURE MODULE BOUNDARIES
 
@@ -98,6 +101,11 @@ Capture Module:
 - capture type routing
 - capture form
 - saved-path confirmation
+
+RFQ Processing Module:
+- hidden workflow module
+- launched by Document Intake Commit RFQ
+- primary drawing, BOM, and supporting document classification
 
 EXTRACTION NOTE
 
@@ -2208,6 +2216,151 @@ body {
 ===================================================== */
 
 /* =====================================================
+   010 - RFQ PROCESSING MODULE
+===================================================== */
+
+    #rfqProcessing {
+      width: calc(100vw - 44px);
+      margin-left: calc(50% - 50vw + 22px);
+    }
+
+    .rfq-processing-panel {
+      background: rgba(9, 18, 30, 0.86);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 22px 60px rgba(0, 0, 0, .34);
+    }
+
+    .rfq-processing-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(130, 170, 210, 0.2);
+      margin-bottom: 18px;
+    }
+
+    .rfq-processing-header h1 {
+      margin: 4px 0 8px;
+    }
+
+    .rfq-processing-kicker {
+      color: #8bbcff;
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .rfq-processing-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .rfq-processing-summary-card,
+    .rfq-processing-step {
+      background: rgba(13, 25, 40, 0.82);
+      border: 1px solid rgba(130, 170, 210, 0.22);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .rfq-processing-summary-card strong {
+      display: block;
+      color: #9fb0c4;
+      font-size: .78rem;
+      margin-bottom: 6px;
+    }
+
+    .rfq-processing-summary-card span {
+      color: #f4f7fb;
+      font-weight: 800;
+    }
+
+    .rfq-processing-step-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .rfq-processing-step h3 {
+      margin: 0 0 8px;
+    }
+
+    .rfq-processing-step p {
+      margin: 0 0 14px;
+      color: #aab6c4;
+    }
+
+    .rfq-processing-control-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .rfq-processing-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #dce6f2;
+      font-weight: 700;
+      white-space: nowrap;
+      padding-bottom: 12px;
+    }
+
+    .rfq-processing-checkbox input {
+      width: auto;
+      margin: 0;
+    }
+
+    .rfq-supporting-documents {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .rfq-processing-doc-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, .9fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid rgba(130, 170, 210, 0.18);
+      background: rgba(4, 9, 16, 0.34);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .rfq-processing-doc-row strong,
+    .rfq-processing-doc-row span {
+      overflow-wrap: anywhere;
+    }
+
+    .rfq-processing-doc-row span {
+      color: #9fb0c4;
+      font-size: .88rem;
+    }
+
+    .rfq-processing-badge {
+      border: 1px solid rgba(74, 222, 128, 0.28);
+      background: rgba(74, 222, 128, 0.1);
+      color: #b8f7cf;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: .76rem;
+      font-weight: 800;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+/* =====================================================
+   END 010 - RFQ PROCESSING MODULE
+===================================================== */
+
+/* =====================================================
    SHARED FOOTER + RESPONSIVE RULES
 ===================================================== */
 
@@ -2237,7 +2390,8 @@ body {
       .panel-intro { border-right: 0; border-bottom: 1px solid var(--border); padding-right: 0; padding-bottom: 18px; }
       #openOrders,
       #orderDashboard,
-      #workOrderDashboard { width: 100%; margin-left: 0; }
+      #workOrderDashboard,
+      #rfqProcessing { width: 100%; margin-left: 0; }
       .open-orders-header,
       .open-orders-toolbar { grid-template-columns: 1fr; }
       .open-orders-status { white-space: normal; }
@@ -2246,6 +2400,10 @@ body {
       .job-dashboard-layout { grid-template-columns: 1fr; }
       .job-dashboard-header { display: grid; }
       .job-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .rfq-processing-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .rfq-processing-control-row,
+      .rfq-processing-doc-row { grid-template-columns: 1fr; }
+      .rfq-processing-checkbox { white-space: normal; }
       .work-order-header,
       .work-order-layout,
       .status-grid,
@@ -3464,6 +3622,68 @@ BOM Viewer</h2>
         </div>
       </div>
     </section>
+
+<!-- =====================================================
+   109 - RFQ PROCESSING
+===================================================== -->
+
+    <section id="rfqProcessing" class="screen">
+      <div class="rfq-processing-panel">
+        <div class="rfq-processing-header">
+          <div>
+            <div class="rfq-processing-kicker">Hidden Workflow Module</div>
+            <h1>RFQ Processing</h1>
+            <p class="subtitle">Classify the core RFQ documents before opening the RFQ queue. This module is launched only after Document Intake commits an RFQ package.</p>
+          </div>
+          <span class="small-icon">RP</span>
+        </div>
+
+        <div id="rfqProcessingSummary" class="rfq-processing-summary"></div>
+
+        <div class="rfq-processing-step-grid">
+          <section class="rfq-processing-step">
+            <h3>Step 1 - Identify the Primary Assembly Drawing</h3>
+            <p>Select one uploaded file to become the official assembly drawing for this RFQ package.</p>
+            <label for="rfqPrimaryDrawingSelect">Primary Assembly Drawing</label>
+            <select id="rfqPrimaryDrawingSelect" onchange="updateRfqProcessingDocumentSelection('primaryAssemblyDrawing', this.value)">
+              <option value="">Select uploaded file...</option>
+            </select>
+          </section>
+
+          <section class="rfq-processing-step">
+            <h3>Step 2 - Identify the Primary BOM</h3>
+            <p>Select a separate BOM file, or mark the BOM as embedded within the assembly drawing.</p>
+            <div class="rfq-processing-control-row">
+              <div>
+                <label for="rfqPrimaryBomSelect">Primary BOM</label>
+                <select id="rfqPrimaryBomSelect" onchange="updateRfqProcessingDocumentSelection('primaryBom', this.value)">
+                  <option value="">Select uploaded file...</option>
+                </select>
+              </div>
+              <label class="rfq-processing-checkbox">
+                <input id="rfqBomEmbeddedFlag" type="checkbox" onchange="toggleRfqBomEmbedded(this.checked)" />
+                BOM is embedded within the Assembly Drawing
+              </label>
+            </div>
+          </section>
+
+          <section class="rfq-processing-step">
+            <h3>Step 3 - Supporting Technical Documents</h3>
+            <p>All remaining uploaded files are automatically classified as supporting technical documents for this phase.</p>
+            <div id="rfqSupportingDocumentsList" class="rfq-supporting-documents"></div>
+          </section>
+        </div>
+
+        <div class="button-row">
+          <button class="secondary-btn" type="button" onclick="go('documentIntake')">Return to Document Intake</button>
+          <button class="primary" type="button" onclick="openRfqQueuePlaceholder()">Open RFQ Queue</button>
+        </div>
+      </div>
+    </section>
+
+<!-- =====================================================
+   END 109 - RFQ PROCESSING
+===================================================== -->
   </main>
 
   <footer>DLE Work Center - Prototype &nbsp; | &nbsp; Version 3.1.0 &nbsp; | &nbsp; Internal Use Only</footer>
@@ -5345,7 +5565,16 @@ function backToRfqEdit() {
 }
 
 function commitRfqPlaceholder() {
-  window.alert("DLE-OS successfully validated the RFQ package. Folder creation and database integration will be added in a future version.");
+  const validation = validateRfqForProcessing();
+
+  if (!validation.valid) {
+    window.alert("Please complete the RFQ package before processing:\n\n" + validation.errors.join("\n"));
+    return;
+  }
+
+  currentRFQ = buildCurrentRfqPackage();
+  renderRfqProcessingModule();
+  go('rfqProcessing');
 }
 
 function openOrderReview() {
@@ -6656,7 +6885,294 @@ function renderIntakeReviewSummary() {
 ===================================================== */
 
 /* =====================================================
-   208 - INITIALIZATION
+   208 - RFQ PROCESSING
+===================================================== */
+
+let currentRFQ = {
+  metadata: {},
+  documents: {
+    allUploadedDocuments: [],
+    primaryAssemblyDrawing: "",
+    primaryBom: "",
+    bomEmbedded: false,
+    supportingTechnicalDocuments: []
+  },
+  status: "Not Started"
+};
+
+function validateRfqForProcessing() {
+  const errors = [];
+  const customer = document.getElementById('rfqCustomer')?.value.trim();
+  const receivedDate = document.getElementById('rfqReceivedDate')?.value;
+  const responseDate = document.getElementById('rfqResponseDate')?.value;
+  const allDocuments = getRfqUploadedDocuments();
+
+  if (!customer) {
+    errors.push("- Customer is required.");
+  }
+
+  if (!receivedDate) {
+    errors.push("- Received Date is required.");
+  }
+
+  if (!responseDate) {
+    errors.push("- Requested Response Date is required.");
+  }
+
+  if (!documentIntakeState.rfqPackageFiles.length) {
+    errors.push("- Initial RFQ Email is required.");
+  }
+
+  if (!documentIntakeState.rfqAssemblies.length) {
+    errors.push("- At least one RFQ Line is required.");
+  }
+
+  documentIntakeState.rfqAssemblies.forEach((assembly, index) => {
+    if (!assembly.assemblyNumber.trim()) {
+      errors.push("- RFQ Line " + (index + 1) + " requires an Assembly Number.");
+    }
+  });
+
+  if (!allDocuments.length) {
+    errors.push("- At least one uploaded RFQ document is required.");
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+function buildCurrentRfqPackage() {
+  const allUploadedDocuments = getRfqUploadedDocuments();
+
+  return {
+    metadata: {
+      customer: document.getElementById('rfqCustomer')?.value.trim() || "",
+      receivedDate: document.getElementById('rfqReceivedDate')?.value || "",
+      requestedResponseDate: document.getElementById('rfqResponseDate')?.value || "",
+      customerReference: document.getElementById('rfqCustomerReference')?.value.trim() || "",
+      generalNotes: document.getElementById('rfqGeneralNotes')?.value.trim() || "",
+      rfqLines: documentIntakeState.rfqAssemblies.map((assembly, index) => ({
+        lineNumber: index + 1,
+        assemblyNumber: assembly.assemblyNumber,
+        revision: assembly.revision,
+        requestedQuantities: assembly.quantity,
+        notes: assembly.notes,
+        documents: assembly.files.map(fileName => ({
+          fileName,
+          source: "RFQ Line " + (index + 1)
+        }))
+      }))
+    },
+    documents: {
+      allUploadedDocuments,
+      primaryAssemblyDrawing: "",
+      primaryBom: "",
+      bomEmbedded: false,
+      supportingTechnicalDocuments: allUploadedDocuments.map(documentRecord => ({
+        ...documentRecord,
+        classification: "Supporting Technical Documents"
+      }))
+    },
+    status: "RFQ Processing Started",
+    createdAt: new Date().toISOString()
+  };
+}
+
+function getRfqUploadedDocuments() {
+  const documents = [];
+
+  documentIntakeState.rfqPackageFiles.forEach(fileName => {
+    documents.push({
+      fileName,
+      source: "Initial RFQ Email"
+    });
+  });
+
+  documentIntakeState.rfqAssemblies.forEach((assembly, assemblyIndex) => {
+    const assemblyLabel = assembly.assemblyNumber || "Assembly TBD";
+    assembly.files.forEach(fileName => {
+      documents.push({
+        fileName,
+        source: "RFQ Line " + (assemblyIndex + 1) + " - " + assemblyLabel
+      });
+    });
+  });
+
+  return documents;
+}
+
+function renderRfqProcessingModule() {
+  renderRfqProcessingSummary();
+  renderRfqProcessingDocumentOptions();
+  syncRfqProcessingControls();
+  refreshRfqSupportingDocuments();
+}
+
+function renderRfqProcessingSummary() {
+  const container = document.getElementById('rfqProcessingSummary');
+  if (!container) return;
+
+  const metadata = currentRFQ.metadata || {};
+  const documents = currentRFQ.documents?.allUploadedDocuments || [];
+
+  container.innerHTML = `
+    <div class="rfq-processing-summary-card">
+      <strong>Customer</strong>
+      <span>${escapeHtml(metadata.customer || "Not provided")}</span>
+    </div>
+    <div class="rfq-processing-summary-card">
+      <strong>RFQ Lines</strong>
+      <span>${metadata.rfqLines?.length || 0}</span>
+    </div>
+    <div class="rfq-processing-summary-card">
+      <strong>Uploaded Documents</strong>
+      <span>${documents.length}</span>
+    </div>
+    <div class="rfq-processing-summary-card">
+      <strong>Status</strong>
+      <span>${escapeHtml(currentRFQ.status || "Not Started")}</span>
+    </div>
+  `;
+}
+
+function renderRfqProcessingDocumentOptions() {
+  const documents = currentRFQ.documents?.allUploadedDocuments || [];
+  const drawingSelect = document.getElementById('rfqPrimaryDrawingSelect');
+  const bomSelect = document.getElementById('rfqPrimaryBomSelect');
+
+  if (drawingSelect) {
+    drawingSelect.innerHTML = buildRfqProcessingFileOptions(documents, currentRFQ.documents.primaryAssemblyDrawing);
+  }
+
+  if (bomSelect) {
+    bomSelect.innerHTML = buildRfqProcessingFileOptions(documents, currentRFQ.documents.primaryBom);
+  }
+}
+
+function buildRfqProcessingFileOptions(documents, selectedFileName) {
+  const options = ['<option value="">Select uploaded file...</option>'];
+
+  documents.forEach(documentRecord => {
+    const selected = documentRecord.fileName === selectedFileName ? " selected" : "";
+    options.push(
+      '<option value="' + escapeHtml(documentRecord.fileName) + '"' + selected + '>' +
+      escapeHtml(documentRecord.fileName + " - " + documentRecord.source) +
+      '</option>'
+    );
+  });
+
+  return options.join('');
+}
+
+function syncRfqProcessingControls() {
+  const bomEmbedded = !!currentRFQ.documents?.bomEmbedded;
+  const checkbox = document.getElementById('rfqBomEmbeddedFlag');
+  const bomSelect = document.getElementById('rfqPrimaryBomSelect');
+
+  if (checkbox) {
+    checkbox.checked = bomEmbedded;
+  }
+
+  if (bomSelect) {
+    bomSelect.disabled = bomEmbedded;
+    if (bomEmbedded) {
+      bomSelect.value = "";
+    }
+  }
+}
+
+function updateRfqProcessingDocumentSelection(fieldName, fileName) {
+  if (!currentRFQ.documents) return;
+  currentRFQ.documents[fieldName] = fileName;
+  currentRFQ.status = "RFQ Documents In Review";
+  refreshRfqSupportingDocuments();
+  renderRfqProcessingSummary();
+}
+
+function toggleRfqBomEmbedded(isEmbedded) {
+  if (!currentRFQ.documents) return;
+  currentRFQ.documents.bomEmbedded = isEmbedded;
+
+  if (isEmbedded) {
+    currentRFQ.documents.primaryBom = "";
+  }
+
+  currentRFQ.status = "RFQ Documents In Review";
+  syncRfqProcessingControls();
+  refreshRfqSupportingDocuments();
+  renderRfqProcessingSummary();
+}
+
+function refreshRfqSupportingDocuments() {
+  if (!currentRFQ.documents) return;
+
+  const excludedFiles = new Set();
+  if (currentRFQ.documents.primaryAssemblyDrawing) {
+    excludedFiles.add(currentRFQ.documents.primaryAssemblyDrawing);
+  }
+  if (currentRFQ.documents.primaryBom) {
+    excludedFiles.add(currentRFQ.documents.primaryBom);
+  }
+
+  currentRFQ.documents.supportingTechnicalDocuments = (currentRFQ.documents.allUploadedDocuments || [])
+    .filter(documentRecord => !excludedFiles.has(documentRecord.fileName))
+    .map(documentRecord => ({
+      ...documentRecord,
+      classification: "Supporting Technical Documents"
+    }));
+
+  renderRfqSupportingDocuments();
+}
+
+function renderRfqSupportingDocuments() {
+  const container = document.getElementById('rfqSupportingDocumentsList');
+  if (!container) return;
+
+  const supportingDocuments = currentRFQ.documents?.supportingTechnicalDocuments || [];
+
+  if (!supportingDocuments.length) {
+    container.innerHTML = '<p class="empty-queue">No supporting technical documents remain after the primary selections.</p>';
+    return;
+  }
+
+  container.innerHTML = supportingDocuments.map(documentRecord => `
+    <div class="rfq-processing-doc-row">
+      <strong>${escapeHtml(documentRecord.fileName)}</strong>
+      <span>${escapeHtml(documentRecord.source)}</span>
+      <span class="rfq-processing-badge">${escapeHtml(documentRecord.classification)}</span>
+    </div>
+  `).join('');
+}
+
+function openRfqQueuePlaceholder() {
+  const errors = [];
+
+  if (!currentRFQ.documents?.primaryAssemblyDrawing) {
+    errors.push("- Select a Primary Assembly Drawing.");
+  }
+
+  if (!currentRFQ.documents?.bomEmbedded && !currentRFQ.documents?.primaryBom) {
+    errors.push("- Select a Primary BOM or mark the BOM as embedded within the Assembly Drawing.");
+  }
+
+  if (errors.length) {
+    window.alert("Please complete RFQ Processing before opening the RFQ queue:\n\n" + errors.join("\n"));
+    return;
+  }
+
+  currentRFQ.status = "Ready for Open RFQ Queue";
+  renderRfqProcessingSummary();
+  window.alert("RFQ package validated for the Open RFQ Queue.\n\nQueue routing, folder creation, quotation handoff, and database updates will be implemented in a future phase.");
+}
+
+/* =====================================================
+   END 208 - RFQ PROCESSING
+===================================================== */
+
+/* =====================================================
+   209 - INITIALIZATION
 ===================================================== */
 
 initDocumentIntake();
