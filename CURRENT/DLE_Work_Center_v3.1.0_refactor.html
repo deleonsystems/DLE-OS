@@ -2443,10 +2443,11 @@ body {
     }
 
     .bom-extraction-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 3fr) minmax(360px, 2fr);
-      gap: 16px;
-      align-items: stretch;
+      display: block;
+    }
+
+    .bom-standard-panel-temporary-hidden {
+      display: none;
     }
 
     .bom-extraction-card h3 {
@@ -2706,7 +2707,7 @@ body {
 
     .ocr-review-workspace {
       display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(360px, .9fr);
+      grid-template-columns: minmax(520px, 1fr) minmax(620px, 1.35fr);
       gap: 14px;
       align-items: start;
       margin-top: 14px;
@@ -2923,6 +2924,11 @@ body {
       padding: 2px 4px;
     }
 
+    .manual-ocr-cell.selected-source-cell {
+      border: 2px solid rgba(34, 197, 94, 0.95);
+      background: rgba(34, 197, 94, 0.16);
+    }
+
     .table-detection-toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -3024,6 +3030,137 @@ body {
       background: rgba(4, 9, 16, 0.3);
     }
 
+    .ocr-cell-preview-panel {
+      border: 1px solid rgba(130, 170, 210, 0.18);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: rgba(13, 25, 40, 0.52);
+    }
+
+    .ocr-cell-preview-panel h4 {
+      margin: 0 0 8px;
+      color: #bfdbfe;
+      font-size: .96rem;
+    }
+
+    .ocr-cell-preview-viewport {
+      min-height: 420px;
+      max-height: 58vh;
+      overflow: auto;
+      display: grid;
+      place-items: center;
+      border: 1px dashed rgba(130, 170, 210, 0.24);
+      border-radius: 8px;
+      background: rgba(4, 9, 16, 0.36);
+      color: #9fb0c4;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .ocr-cell-preview-image {
+      width: min(100%, 980px);
+      max-width: none;
+      transform-origin: center;
+      background: #fff;
+      image-rendering: auto;
+    }
+
+    .ocr-review-progress {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .ocr-review-progress-item {
+      border: 1px solid rgba(130, 170, 210, 0.16);
+      border-radius: 8px;
+      padding: 8px;
+      background: rgba(4, 9, 16, 0.32);
+    }
+
+    .ocr-review-progress-item strong {
+      display: block;
+      color: #9fb0c4;
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .ocr-review-progress-item span {
+      color: #f4f7fb;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .ocr-column-management {
+      border: 1px solid rgba(130, 170, 210, 0.18);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: rgba(4, 9, 16, 0.28);
+    }
+
+    .ocr-column-management h4 {
+      margin: 0 0 8px;
+      color: #bfdbfe;
+      font-size: .88rem;
+    }
+
+    .ocr-column-management-grid {
+      display: grid;
+      gap: 8px;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    .ocr-column-control-row {
+      display: grid;
+      grid-template-columns: minmax(90px, .7fr) minmax(150px, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid rgba(130, 170, 210, 0.14);
+      border-radius: 8px;
+      padding: 8px;
+      background: rgba(13, 25, 40, 0.58);
+    }
+
+    .ocr-column-control-row.hidden-column {
+      opacity: .55;
+    }
+
+    .ocr-column-control-row.deleted-column {
+      display: none;
+    }
+
+    .ocr-column-control-row strong {
+      color: #d9e5f2;
+      font-size: .78rem;
+    }
+
+    .ocr-column-control-row select {
+      width: 100%;
+      min-width: 0;
+      border-radius: 8px;
+      border: 1px solid rgba(130, 170, 210, 0.24);
+      background: rgba(4, 9, 16, 0.78);
+      color: #f4f7fb;
+      padding: 7px 8px;
+    }
+
+    .ocr-column-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .ocr-column-actions button {
+      padding: 6px 8px;
+      font-size: .72rem;
+    }
+
     .ocr-review-table {
       width: 100%;
       border-collapse: collapse;
@@ -3066,6 +3203,27 @@ body {
     .ocr-review-table tbody tr.selected {
       background: rgba(47, 140, 255, 0.28);
       box-shadow: inset 3px 0 0 rgba(96, 165, 250, 0.95);
+    }
+
+    .ocr-review-table tbody tr.accepted {
+      background: rgba(34, 197, 94, 0.12);
+    }
+
+    .ocr-review-table tbody tr.excluded {
+      opacity: .55;
+      background: rgba(100, 116, 139, 0.18);
+      text-decoration: line-through;
+    }
+
+    .ocr-review-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .ocr-review-actions button {
+      padding: 6px 8px;
+      font-size: .72rem;
     }
 
     .ocr-review-raw-cell {
@@ -3122,6 +3280,12 @@ body {
     .ocr-review-cleaned-cell .ocr-review-cell:focus {
       box-shadow: inset 0 0 0 2px rgba(96, 165, 250, 0.56);
       background: rgba(34, 197, 94, 0.1);
+    }
+
+    .ocr-review-cell.locked {
+      background: rgba(34, 197, 94, 0.08);
+      color: #c7d2e2;
+      cursor: not-allowed;
     }
 
     .ocr-review-empty {
@@ -4592,18 +4756,25 @@ BOM Viewer</h2>
                   <span id="manualTableAssistStatus" class="manual-table-assist-status">Manual guides not active.</span>
                 </div>
                 <div id="bomRegionPreviewViewport" class="bom-region-preview-viewport">Select a BOM Region to generate the OCR input preview.</div>
+                <div id="ocrColumnManagement" class="ocr-column-management"></div>
                 <div id="bomCropDebug" class="bom-crop-debug"></div>
               </div>
               <div class="ocr-review-panel">
                 <h3>OCR Review Table</h3>
+                <div class="ocr-cell-preview-panel">
+                  <h4>Selected Cell Preview</h4>
+                  <div id="ocrCellPreviewViewport" class="ocr-cell-preview-viewport">Select an editable OCR cell to preview its source image.</div>
+                </div>
+                <div id="ocrReviewProgress" class="ocr-review-progress"></div>
                 <div id="ocrReviewWorkspace" class="ocr-review-table-wrap">
                   <div class="ocr-review-empty">Run OCR to populate the review table.</div>
                 </div>
+                <div id="bomExtractionStatus" class="bom-extraction-status"></div>
               </div>
             </div>
           </section>
 
-          <section class="bom-extraction-card">
+          <section class="bom-extraction-card bom-standard-panel-temporary-hidden">
             <h3>DLE Standard BOM</h3>
             <div class="bom-standard-table-wrap">
               <table class="bom-standard-table">
@@ -4619,14 +4790,13 @@ BOM Viewer</h2>
                 <tbody id="bomExtractionTableBody"></tbody>
               </table>
             </div>
-            <div id="bomExtractionStatus" class="bom-extraction-status"></div>
           </section>
         </div>
 
         <div class="button-row">
           <button type="button" onclick="runBomRegionOcr()">Run OCR</button>
           <button type="button" onclick="startBomManualEntry()">Manual Entry</button>
-          <button class="primary" type="button" disabled>Accept BOM</button>
+          <button class="primary" type="button" onclick="commitDleBomFromOcr()">Commit DLE BOM</button>
           <button class="secondary-btn" type="button" onclick="go('rfqProcessing')">Back to RFQ Processing</button>
         </div>
       </div>
@@ -8189,6 +8359,10 @@ let bomExtractionState = {
   rawOcrOutput: "No OCR results available.",
   ocrReviewRows: [],
   selectedOcrReviewRowId: null,
+  selectedOcrReviewCell: null,
+  ocrCellPreview: null,
+  committedDleBomRows: [],
+  ocrColumnDefinitions: [],
   cropDebug: null,
   tableDetection: null,
   pdfPageMetrics: [],
@@ -8234,6 +8408,10 @@ function prepareBomExtractionWorkspace(sourceRFQ = null) {
   bomExtractionState.rawOcrOutput = "No OCR results available.";
   bomExtractionState.ocrReviewRows = [];
   bomExtractionState.selectedOcrReviewRowId = null;
+  bomExtractionState.selectedOcrReviewCell = null;
+  bomExtractionState.ocrCellPreview = null;
+  bomExtractionState.committedDleBomRows = [];
+  bomExtractionState.ocrColumnDefinitions = [];
   bomExtractionState.cropDebug = null;
   bomExtractionState.tableDetection = null;
   bomExtractionState.pdfPageMetrics = [];
@@ -8252,6 +8430,9 @@ function renderBomExtractionWorkspace() {
   renderTableDetectionSummary();
   renderBomCropDebug();
   renderOcrInputPanel();
+  renderOcrCellPreview();
+  renderOcrReviewProgress();
+  renderOcrColumnManagement();
   renderOcrReviewTable();
   renderBomExtractionTable();
   renderBomExtractionStatus();
@@ -9290,15 +9471,32 @@ function generateManualCellGrid() {
 
 function buildManualOcrCellOverlay() {
   const grid = bomExtractionState.acceptedManualGrid;
-  if (!bomExtractionState.showManualCellBoundaries || !grid?.cells?.length) return "";
+  const selectedRegion = getSelectedOcrSourceRegion();
+  if (!grid?.cells?.length) {
+    if (!selectedRegion) return "";
+    return `
+      <div class="manual-ocr-cell-layer">
+        <div class="manual-ocr-cell selected-source-cell" style="left:${selectedRegion.xPercent}%; top:${selectedRegion.yPercent}%; width:${selectedRegion.widthPercent}%; height:${selectedRegion.heightPercent}%;"></div>
+      </div>
+    `;
+  }
+  if (!bomExtractionState.showManualCellBoundaries && !selectedRegion) return "";
 
   return `
     <div class="manual-ocr-cell-layer">
       ${grid.cells.map((cell, index) => `
-        <div class="manual-ocr-cell" style="left:${cell.xPercent}%; top:${cell.yPercent}%; width:${cell.widthPercent}%; height:${cell.heightPercent}%;">${index + 1}</div>
+        <div class="manual-ocr-cell${isSameManualCellRegion(cell, selectedRegion) ? ' selected-source-cell' : ''}" style="left:${cell.xPercent}%; top:${cell.yPercent}%; width:${cell.widthPercent}%; height:${cell.heightPercent}%;">${bomExtractionState.showManualCellBoundaries ? index + 1 : ""}</div>
       `).join('')}
     </div>
   `;
+}
+
+function isSameManualCellRegion(cell, selectedRegion) {
+  if (!cell || !selectedRegion) return false;
+  return cell.row === selectedRegion.row
+    && cell.column === selectedRegion.column
+    && cell.xPercent === selectedRegion.xPercent
+    && cell.yPercent === selectedRegion.yPercent;
 }
 
 function syncManualTableAssistControls() {
@@ -9447,15 +9645,75 @@ function renderOcrInputPanel() {
   `).join('');
 }
 
-function buildOcrReviewRows(rawText) {
-  return String(rawText || "")
-    .split(/\r?\n/)
-    .map((line, index) => ({
-      id: index + 1,
-      raw: line,
-      cleaned: line,
-      status: "ready"
-    }));
+function buildOcrReviewRows(rawText, ocrData = null) {
+  const sourceLines = Array.isArray(ocrData?.lines) && ocrData.lines.length
+    ? ocrData.lines.map(line => ({
+        text: line.text || "",
+        region: convertTesseractBboxToManualRegion(line.bbox)
+      }))
+    : String(rawText || "").split(/\r?\n/).map(line => ({ text: line, region: null }));
+
+  return sourceLines.map((line, index) => ({
+    id: index + 1,
+    raw: line.text,
+    cleaned: line.text,
+    status: "pending",
+    edited: false,
+    sourceRegion: line.region
+  }));
+}
+
+const OCR_COLUMN_ASSIGNMENTS = [
+  "Find Number",
+  "Part Number",
+  "Description",
+  "Quantity Per",
+  "Reference Designators",
+  "Notes",
+  "Manufacturer",
+  "Manufacturer Part Number",
+  "Revision",
+  "Ignore"
+];
+
+function initializeOcrColumnDefinitions(columnCount) {
+  const safeColumnCount = Math.max(1, Number(columnCount) || 1);
+  bomExtractionState.ocrColumnDefinitions = Array.from({ length: safeColumnCount }, (_, index) => ({
+    id: index + 1,
+    label: "Column " + (index + 1),
+    assignment: "Ignore",
+    hidden: false,
+    deleted: false,
+    order: index
+  }));
+  renderOcrColumnManagement();
+}
+
+function getActiveOcrColumns() {
+  return (bomExtractionState.ocrColumnDefinitions || [])
+    .filter(column => !column.deleted)
+    .sort((a, b) => a.order - b.order);
+}
+
+function getVisibleOcrColumns() {
+  return getActiveOcrColumns().filter(column => !column.hidden);
+}
+
+function convertTesseractBboxToManualRegion(bbox) {
+  const crop = bomExtractionState.cropPreview;
+  if (!bbox || !crop?.imageWidth || !crop?.imageHeight) return null;
+  const x0 = Number(bbox.x0 ?? bbox.left ?? 0);
+  const y0 = Number(bbox.y0 ?? bbox.top ?? 0);
+  const x1 = Number(bbox.x1 ?? (x0 + (bbox.width || 0)));
+  const y1 = Number(bbox.y1 ?? (y0 + (bbox.height || 0)));
+  return {
+    row: null,
+    column: null,
+    xPercent: Number(((x0 / crop.imageWidth) * 100).toFixed(2)),
+    yPercent: Number(((y0 / crop.imageHeight) * 100).toFixed(2)),
+    widthPercent: Number((((x1 - x0) / crop.imageWidth) * 100).toFixed(2)),
+    heightPercent: Number((((y1 - y0) / crop.imageHeight) * 100).toFixed(2))
+  };
 }
 
 function renderOcrReviewTable() {
@@ -9465,6 +9723,9 @@ function renderOcrReviewTable() {
   const rows = bomExtractionState.ocrReviewRows || [];
   if (!rows.length) {
     container.innerHTML = '<div class="ocr-review-empty">Run OCR to populate the review table.</div>';
+    renderOcrReviewProgress();
+    renderOcrCellPreview();
+    renderOcrColumnManagement();
     return;
   }
 
@@ -9475,39 +9736,76 @@ function renderOcrReviewTable() {
           <th>Raw OCR</th>
           <th>Cleaned</th>
           <th>Status</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         ${rows.map(row => `
-          <tr data-ocr-review-row-id="${row.id}" class="${row.id === bomExtractionState.selectedOcrReviewRowId ? 'selected' : ''}" onclick="setSelectedOcrReviewRow(${row.id})">
+          <tr data-ocr-review-row-id="${row.id}" class="${getOcrReviewRowClass(row)}" onclick="setSelectedOcrReviewRow(${row.id})">
             <td class="ocr-review-raw-cell">${buildOcrReviewRawCell(row)}</td>
             <td class="ocr-review-cleaned-cell">${buildOcrReviewCleanedCell(row)}</td>
-            <td class="ocr-review-status-cell">&#10003;</td>
+            <td class="ocr-review-status-cell">${getOcrReviewStatusLabel(row)}</td>
+            <td class="ocr-review-actions">${buildOcrReviewActions(row)}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
+  renderOcrReviewProgress();
+  renderOcrCellPreview();
+}
+
+function getOcrReviewRowClass(row) {
+  return [
+    row.id === bomExtractionState.selectedOcrReviewRowId ? 'selected' : '',
+    row.status === 'accepted' ? 'accepted' : '',
+    row.status === 'excluded' ? 'excluded' : ''
+  ].filter(Boolean).join(' ');
+}
+
+function getOcrReviewStatusLabel(row) {
+  if (row.status === "accepted") return "Accepted";
+  if (row.status === "excluded") return "Excluded";
+  if (row.edited) return "Edited";
+  return "Pending";
+}
+
+function buildOcrReviewActions(row) {
+  if (row.status === "accepted") {
+    return `<button type="button" onclick="reopenOcrReviewRow(event, ${row.id})">Reopen</button>`;
+  }
+  if (row.status === "excluded") {
+    return `<button type="button" onclick="undoExcludeOcrReviewRow(event, ${row.id})">Undo</button>`;
+  }
+  return `
+    <button type="button" onclick="acceptOcrReviewRow(event, ${row.id})">Accept Row</button>
+    <button type="button" onclick="excludeOcrReviewRow(event, ${row.id})">Exclude Row</button>
+  `;
 }
 
 function buildOcrReviewRawCell(row) {
   if (!Array.isArray(row.sourceCells)) return escapeHtml(row.raw);
+  const columns = getVisibleOcrColumns();
   return `
-    <div class="ocr-review-cell-grid" style="grid-template-columns:repeat(${Math.max(1, row.sourceCells.length)}, minmax(90px, 1fr));">
-      ${row.sourceCells.map(value => `<div class="ocr-review-cell">${escapeHtml(value || "")}</div>`).join('')}
+    <div class="ocr-review-cell-grid" style="grid-template-columns:repeat(${Math.max(1, columns.length)}, minmax(120px, 1fr));">
+      ${columns.map(column => `<div class="ocr-review-cell">${escapeHtml(row.sourceCells[column.id - 1] || "")}</div>`).join('')}
     </div>
   `;
 }
 
 function buildOcrReviewCleanedCell(row) {
+  const locked = row.status === "accepted" || row.status === "excluded";
+  const editable = locked ? "false" : "true";
+  const lockedClass = locked ? " locked" : "";
   if (!Array.isArray(row.cleanedCells)) {
-    return `<div contenteditable="true" oninput="updateOcrReviewCleaned(${row.id}, this.textContent)" onclick="setSelectedOcrReviewRow(${row.id}); event.stopPropagation()" onfocus="setSelectedOcrReviewRow(${row.id})">${escapeHtml(row.cleaned)}</div>`;
+    return `<div class="ocr-review-cell${lockedClass}" contenteditable="${editable}" oninput="updateOcrReviewCleaned(${row.id}, this.textContent)" onclick="selectOcrReviewCell(event, ${row.id}, null)" onfocus="selectOcrReviewCell(event, ${row.id}, null)">${escapeHtml(row.cleaned)}</div>`;
   }
 
+  const columns = getVisibleOcrColumns();
   return `
-    <div class="ocr-review-cell-grid" style="grid-template-columns:repeat(${Math.max(1, row.cleanedCells.length)}, minmax(90px, 1fr));">
-      ${row.cleanedCells.map((value, index) => `
-        <div class="ocr-review-cell" contenteditable="true" oninput="updateOcrReviewCleanedCell(${row.id}, ${index}, this.textContent)" onclick="setSelectedOcrReviewRow(${row.id}); event.stopPropagation()" onfocus="setSelectedOcrReviewRow(${row.id})">${escapeHtml(value || "")}</div>
+    <div class="ocr-review-cell-grid" style="grid-template-columns:repeat(${Math.max(1, columns.length)}, minmax(120px, 1fr));">
+      ${columns.map(column => `
+        <div class="ocr-review-cell${lockedClass}" contenteditable="${editable}" oninput="updateOcrReviewCleanedCell(${row.id}, ${column.id - 1}, this.textContent)" onclick="selectOcrReviewCell(event, ${row.id}, ${column.id - 1})" onfocus="selectOcrReviewCell(event, ${row.id}, ${column.id - 1})">${escapeHtml(row.cleanedCells[column.id - 1] || "")}</div>
       `).join('')}
     </div>
   `;
@@ -9520,10 +9818,24 @@ function setSelectedOcrReviewRow(rowId) {
   });
 }
 
+function selectOcrReviewCell(event, rowId, cellIndex) {
+  event.stopPropagation();
+  setSelectedOcrReviewRow(rowId);
+  bomExtractionState.selectedOcrReviewCell = {
+    rowId: Number(rowId),
+    cellIndex: cellIndex === null ? null : Number(cellIndex)
+  };
+  updateOcrCellPreview();
+  renderBomRegionPreview();
+}
+
 function updateOcrReviewCleaned(rowId, value) {
   const row = bomExtractionState.ocrReviewRows.find(item => item.id === Number(rowId));
   if (!row) return;
   row.cleaned = value;
+  row.edited = row.cleaned !== row.raw;
+  if (row.status === "accepted") row.status = "pending";
+  renderOcrReviewProgress();
 }
 
 function updateOcrReviewCleanedCell(rowId, cellIndex, value) {
@@ -9531,6 +9843,227 @@ function updateOcrReviewCleanedCell(rowId, cellIndex, value) {
   if (!row || !Array.isArray(row.cleanedCells)) return;
   row.cleanedCells[cellIndex] = value;
   row.cleaned = row.cleanedCells.map(cell => cell || "").join("\t");
+  row.edited = row.cleaned !== row.raw;
+  if (row.status === "accepted") row.status = "pending";
+  renderOcrReviewProgress();
+}
+
+function acceptOcrReviewRow(event, rowId) {
+  event.stopPropagation();
+  const row = bomExtractionState.ocrReviewRows.find(item => item.id === Number(rowId));
+  if (!row) return;
+  row.status = "accepted";
+  renderOcrReviewTable();
+}
+
+function excludeOcrReviewRow(event, rowId) {
+  event.stopPropagation();
+  const row = bomExtractionState.ocrReviewRows.find(item => item.id === Number(rowId));
+  if (!row) return;
+  row.status = "excluded";
+  renderOcrReviewTable();
+}
+
+function reopenOcrReviewRow(event, rowId) {
+  event.stopPropagation();
+  const row = bomExtractionState.ocrReviewRows.find(item => item.id === Number(rowId));
+  if (!row) return;
+  row.status = "pending";
+  renderOcrReviewTable();
+}
+
+function undoExcludeOcrReviewRow(event, rowId) {
+  event.stopPropagation();
+  const row = bomExtractionState.ocrReviewRows.find(item => item.id === Number(rowId));
+  if (!row) return;
+  row.status = "pending";
+  renderOcrReviewTable();
+}
+
+function getOcrReviewStats() {
+  const rows = bomExtractionState.ocrReviewRows || [];
+  return {
+    remaining: rows.filter(row => row.status !== "accepted" && row.status !== "excluded").length,
+    accepted: rows.filter(row => row.status === "accepted").length,
+    edited: rows.filter(row => row.edited && row.status !== "excluded").length,
+    excluded: rows.filter(row => row.status === "excluded").length
+  };
+}
+
+function renderOcrReviewProgress() {
+  const container = document.getElementById('ocrReviewProgress');
+  if (!container) return;
+  const stats = getOcrReviewStats();
+  container.innerHTML = [
+    ["Remaining", stats.remaining],
+    ["Accepted", stats.accepted],
+    ["Edited", stats.edited],
+    ["Excluded", stats.excluded]
+  ].map(([label, value]) => `
+    <div class="ocr-review-progress-item">
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(value)}</span>
+    </div>
+  `).join('');
+}
+
+function renderOcrColumnManagement() {
+  const container = document.getElementById('ocrColumnManagement');
+  if (!container) return;
+  const columns = getActiveOcrColumns();
+
+  if (!columns.length) {
+    container.innerHTML = `
+      <h4>Column Cleanup</h4>
+      <div class="ocr-review-empty">Run guided OCR to enable column cleanup and mapping.</div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <h4>Column Cleanup and Mapping</h4>
+    <div class="ocr-column-management-grid">
+      ${columns.map(column => `
+        <div class="ocr-column-control-row${column.hidden ? ' hidden-column' : ''}">
+          <strong>${escapeHtml(column.label)}${column.hidden ? " (Hidden)" : ""}</strong>
+          <select onchange="setOcrColumnAssignment(${column.id}, this.value)">
+            ${OCR_COLUMN_ASSIGNMENTS.map(option => `<option value="${escapeHtml(option)}"${column.assignment === option ? " selected" : ""}>${escapeHtml(option)}</option>`).join('')}
+          </select>
+          <div class="ocr-column-actions">
+            <button type="button" onclick="moveOcrColumn(${column.id}, -1)">Left</button>
+            <button type="button" onclick="moveOcrColumn(${column.id}, 1)">Right</button>
+            <button type="button" onclick="toggleOcrColumnVisibility(${column.id})">${column.hidden ? "Show" : "Hide"}</button>
+            <button type="button" onclick="deleteOcrColumn(${column.id})">Delete</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function setOcrColumnAssignment(columnId, assignment) {
+  const column = bomExtractionState.ocrColumnDefinitions.find(item => item.id === Number(columnId));
+  if (!column) return;
+  column.assignment = assignment;
+}
+
+function toggleOcrColumnVisibility(columnId) {
+  const column = bomExtractionState.ocrColumnDefinitions.find(item => item.id === Number(columnId));
+  if (!column) return;
+  column.hidden = !column.hidden;
+  renderOcrColumnManagement();
+  renderOcrReviewTable();
+}
+
+function deleteOcrColumn(columnId) {
+  const column = bomExtractionState.ocrColumnDefinitions.find(item => item.id === Number(columnId));
+  if (!column) return;
+  column.deleted = true;
+  column.hidden = true;
+  renderOcrColumnManagement();
+  renderOcrReviewTable();
+}
+
+function moveOcrColumn(columnId, direction) {
+  const columns = getActiveOcrColumns();
+  const currentIndex = columns.findIndex(column => column.id === Number(columnId));
+  const targetIndex = currentIndex + Number(direction);
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= columns.length) return;
+
+  const currentOrder = columns[currentIndex].order;
+  columns[currentIndex].order = columns[targetIndex].order;
+  columns[targetIndex].order = currentOrder;
+  renderOcrColumnManagement();
+  renderOcrReviewTable();
+}
+
+function commitDleBomFromOcr() {
+  const rows = (bomExtractionState.ocrReviewRows || []).filter(row => row.status === "accepted");
+  bomExtractionState.committedDleBomRows = rows.map(row => ({
+    cleaned: row.cleaned,
+    cells: Array.isArray(row.cleanedCells) ? getActiveOcrColumns()
+      .filter(column => !column.hidden && column.assignment !== "Ignore")
+      .map(column => ({
+        assignment: column.assignment,
+        value: row.cleanedCells[column.id - 1] || ""
+      })) : [{ assignment: "Unmapped", value: row.cleaned }],
+    sourceRow: row.sourceRow || row.id
+  }));
+  bomExtractionState.status = rows.length
+    ? "Committed " + rows.length + " accepted OCR row(s) to the DLE BOM staging area. Excluded rows were ignored."
+    : "No accepted OCR rows are available to commit.";
+  renderBomExtractionStatus();
+}
+
+function getSelectedOcrSourceRegion() {
+  const selected = bomExtractionState.selectedOcrReviewCell;
+  if (!selected) return null;
+  const row = bomExtractionState.ocrReviewRows.find(item => item.id === selected.rowId);
+  if (!row) return null;
+  if (Array.isArray(row.sourceCellRegions) && selected.cellIndex !== null) {
+    return row.sourceCellRegions[selected.cellIndex] || null;
+  }
+  return row.sourceRegion || null;
+}
+
+async function updateOcrCellPreview() {
+  const region = getSelectedOcrSourceRegion();
+  if (!region || !bomExtractionState.cropPreview?.imageDataUrl) {
+    bomExtractionState.ocrCellPreview = null;
+    renderOcrCellPreview();
+    return;
+  }
+
+  bomExtractionState.ocrCellPreview = {
+    status: "Loading",
+    label: "Row " + bomExtractionState.selectedOcrReviewCell.rowId + (bomExtractionState.selectedOcrReviewCell.cellIndex !== null ? ", Cell " + (bomExtractionState.selectedOcrReviewCell.cellIndex + 1) : "")
+  };
+  renderOcrCellPreview();
+
+  try {
+    const imageDataUrl = await cropManualCellImage(bomExtractionState.cropPreview, region);
+    bomExtractionState.ocrCellPreview = {
+      status: "Ready",
+      label: bomExtractionState.ocrCellPreview.label,
+      imageDataUrl
+    };
+  } catch (error) {
+    bomExtractionState.ocrCellPreview = {
+      status: "Failed",
+      label: "Unable to preview selected OCR cell."
+    };
+  }
+
+  renderOcrCellPreview();
+}
+
+function renderOcrCellPreview() {
+  const container = document.getElementById('ocrCellPreviewViewport');
+  if (!container) return;
+  const preview = bomExtractionState.ocrCellPreview;
+  const controls = bomExtractionState.previewControls;
+
+  if (!preview) {
+    container.innerHTML = "Select an editable OCR cell to preview its source image.";
+    return;
+  }
+
+  if (preview.status === "Loading") {
+    container.innerHTML = "Loading selected OCR cell preview...";
+    return;
+  }
+
+  if (preview.status === "Failed" || !preview.imageDataUrl) {
+    container.innerHTML = escapeHtml(preview.label || "Unable to preview selected OCR cell.");
+    return;
+  }
+
+  container.innerHTML = `
+    <div>
+      <div class="manual-table-assist-status">${escapeHtml(preview.label)}</div>
+      <img class="ocr-cell-preview-image" alt="${escapeHtml(preview.label)}" src="${escapeHtml(preview.imageDataUrl)}" style="transform:rotate(${controls.rotation}deg) scale(${Math.max(1.8, controls.zoom * 2.2)}); filter:brightness(${controls.brightness}%) contrast(${controls.contrast}%);">
+    </div>
+  `;
 }
 
 function loadImageFromDataUrl(dataUrl) {
@@ -9562,7 +10095,10 @@ async function runManualCellGridOcr(crop) {
 
   bomExtractionState.rawOcrOutput = "Running manual cell OCR...";
   bomExtractionState.ocrReviewRows = [];
+  bomExtractionState.ocrColumnDefinitions = [];
   bomExtractionState.selectedOcrReviewRowId = null;
+  bomExtractionState.selectedOcrReviewCell = null;
+  bomExtractionState.ocrCellPreview = null;
   bomExtractionState.status = "Running OCR on " + grid.cells.length + " manually defined cell(s).";
   renderOcrReviewTable();
   renderBomExtractionStatus();
@@ -9577,28 +10113,35 @@ async function runManualCellGridOcr(crop) {
     const cellImage = await cropManualCellImage(crop, cell);
     const result = await Tesseract.recognize(cellImage, "eng");
     const text = result?.data?.text || "";
-    if (!rowMap.has(cell.row)) rowMap.set(cell.row, []);
-    rowMap.get(cell.row)[cell.column - 1] = text.trim();
+    if (!rowMap.has(cell.row)) rowMap.set(cell.row, { text: [], regions: [] });
+    rowMap.get(cell.row).text[cell.column - 1] = text.trim();
+    rowMap.get(cell.row).regions[cell.column - 1] = cell;
   }
 
   const reviewRows = Array.from(rowMap.entries())
     .sort((a, b) => a[0] - b[0])
-    .map(([rowNumber, cells], index) => {
+    .map(([rowNumber, rowData], index) => {
+      const cells = rowData.text;
       const raw = cells.map(value => value || "").join("\t");
       return {
         id: index + 1,
         raw,
         cleaned: raw,
-        status: "ready",
+        status: "pending",
+        edited: false,
         sourceRow: rowNumber,
         sourceCells: cells,
-        cleanedCells: [...cells]
+        cleanedCells: [...cells],
+        sourceCellRegions: rowData.regions
       };
     });
 
   bomExtractionState.rawOcrOutput = reviewRows.map(row => row.raw).join("\n");
   bomExtractionState.ocrReviewRows = reviewRows;
+  initializeOcrColumnDefinitions(grid.columns.length);
   bomExtractionState.selectedOcrReviewRowId = reviewRows[0]?.id || null;
+  bomExtractionState.selectedOcrReviewCell = null;
+  bomExtractionState.ocrCellPreview = null;
   bomExtractionState.status = "Manual cell OCR complete. Reconstructed rows are ready for review.";
   renderOcrReviewTable();
   renderBomExtractionStatus();
@@ -9610,7 +10153,10 @@ async function runBomRegionOcr() {
   if (!crop?.imageDataUrl) {
     bomExtractionState.rawOcrOutput = "No cropped BOM image is ready for OCR.";
     bomExtractionState.ocrReviewRows = [];
+    bomExtractionState.ocrColumnDefinitions = [];
     bomExtractionState.selectedOcrReviewRowId = null;
+    bomExtractionState.selectedOcrReviewCell = null;
+    bomExtractionState.ocrCellPreview = null;
     bomExtractionState.status = "Select a BOM Region and wait for the cropped preview before running OCR.";
     renderOcrReviewTable();
     renderBomExtractionStatus();
@@ -9620,7 +10166,10 @@ async function runBomRegionOcr() {
   if (!window.Tesseract?.recognize) {
     bomExtractionState.rawOcrOutput = "OCR library is not loaded. Check network access for Tesseract.js.";
     bomExtractionState.ocrReviewRows = [];
+    bomExtractionState.ocrColumnDefinitions = [];
     bomExtractionState.selectedOcrReviewRowId = null;
+    bomExtractionState.selectedOcrReviewCell = null;
+    bomExtractionState.ocrCellPreview = null;
     bomExtractionState.status = "OCR library unavailable.";
     renderOcrReviewTable();
     renderBomExtractionStatus();
@@ -9633,7 +10182,10 @@ async function runBomRegionOcr() {
     } catch (error) {
       bomExtractionState.rawOcrOutput = "Manual cell OCR failed. No text was returned.";
       bomExtractionState.ocrReviewRows = [];
+      bomExtractionState.ocrColumnDefinitions = [];
       bomExtractionState.selectedOcrReviewRowId = null;
+      bomExtractionState.selectedOcrReviewCell = null;
+      bomExtractionState.ocrCellPreview = null;
       bomExtractionState.status = "Manual cell OCR failed while reading the accepted guide grid.";
       renderOcrReviewTable();
       renderBomExtractionStatus();
@@ -9643,7 +10195,10 @@ async function runBomRegionOcr() {
 
   bomExtractionState.rawOcrOutput = "Running OCR...";
   bomExtractionState.ocrReviewRows = [];
+  bomExtractionState.ocrColumnDefinitions = [];
   bomExtractionState.selectedOcrReviewRowId = null;
+  bomExtractionState.selectedOcrReviewCell = null;
+  bomExtractionState.ocrCellPreview = null;
   bomExtractionState.status = "Running OCR on " + crop.label + ".";
   renderOcrReviewTable();
   renderBomExtractionStatus();
@@ -9661,13 +10216,23 @@ async function runBomRegionOcr() {
     });
     const rawText = result?.data?.text || "";
     bomExtractionState.rawOcrOutput = rawText.trim() || "OCR completed, but no text was returned.";
-    bomExtractionState.ocrReviewRows = rawText ? buildOcrReviewRows(rawText) : [];
+    bomExtractionState.ocrReviewRows = rawText ? buildOcrReviewRows(rawText, result?.data) : [];
+    initializeOcrColumnDefinitions(1);
+    if (bomExtractionState.ocrColumnDefinitions[0]) {
+      bomExtractionState.ocrColumnDefinitions[0].label = "OCR Text";
+      bomExtractionState.ocrColumnDefinitions[0].assignment = "Description";
+    }
     bomExtractionState.selectedOcrReviewRowId = bomExtractionState.ocrReviewRows[0]?.id || null;
+    bomExtractionState.selectedOcrReviewCell = null;
+    bomExtractionState.ocrCellPreview = null;
     bomExtractionState.status = "OCR complete. Raw OCR results are displayed.";
   } catch (error) {
     bomExtractionState.rawOcrOutput = "OCR failed. No text was returned.";
     bomExtractionState.ocrReviewRows = [];
+    bomExtractionState.ocrColumnDefinitions = [];
     bomExtractionState.selectedOcrReviewRowId = null;
+    bomExtractionState.selectedOcrReviewCell = null;
+    bomExtractionState.ocrCellPreview = null;
     bomExtractionState.status = "OCR failed while reading the selected BOM Region.";
   }
 
@@ -9678,31 +10243,37 @@ async function runBomRegionOcr() {
 function zoomBomRegionPreviewIn() {
   bomExtractionState.previewControls.zoom = Math.min(3, Number((bomExtractionState.previewControls.zoom + 0.15).toFixed(2)));
   renderBomRegionPreview();
+  renderOcrCellPreview();
 }
 
 function zoomBomRegionPreviewOut() {
   bomExtractionState.previewControls.zoom = Math.max(0.5, Number((bomExtractionState.previewControls.zoom - 0.15).toFixed(2)));
   renderBomRegionPreview();
+  renderOcrCellPreview();
 }
 
 function rotateBomRegionPreviewLeft() {
   bomExtractionState.previewControls.rotation = (bomExtractionState.previewControls.rotation - 90) % 360;
   renderBomRegionPreview();
+  renderOcrCellPreview();
 }
 
 function rotateBomRegionPreviewRight() {
   bomExtractionState.previewControls.rotation = (bomExtractionState.previewControls.rotation + 90) % 360;
   renderBomRegionPreview();
+  renderOcrCellPreview();
 }
 
 function setBomRegionPreviewBrightness(value) {
   bomExtractionState.previewControls.brightness = Number(value);
   renderBomRegionPreview();
+  renderOcrCellPreview();
 }
 
 function setBomRegionPreviewContrast(value) {
   bomExtractionState.previewControls.contrast = Number(value);
   renderBomRegionPreview();
+  renderOcrCellPreview();
 }
 
 function resetBomRegionPreviewImage() {
@@ -9713,6 +10284,7 @@ function resetBomRegionPreviewImage() {
     contrast: 100
   };
   renderBomRegionPreview();
+  renderOcrCellPreview();
 }
 
 function syncBomRegionPreviewControls() {
