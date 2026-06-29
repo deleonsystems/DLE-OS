@@ -32,6 +32,7 @@ CSS SECTIONS
 011 - BOM EXTRACTION MODULE
 012 - WORKBENCH MODULE
 013 - DLE BOM MODULE
+014 - REPORTS & COMMUNICATIONS MODULE
 
 HTML SECTIONS
 
@@ -52,6 +53,7 @@ HTML SECTIONS
 110 - BOM EXTRACTION
 111 - WORKBENCH
 112 - DLE BOM
+113 - REPORTS & COMMUNICATIONS
 
 JAVASCRIPT SECTIONS
 
@@ -67,7 +69,8 @@ JAVASCRIPT SECTIONS
 209 - BOM EXTRACTION
 210 - WORKBENCH
 211 - DLE BOM
-212 - INITIALIZATION
+212 - REPORTS & COMMUNICATIONS
+213 - INITIALIZATION
 
 FUTURE MODULE BOUNDARIES
 
@@ -130,6 +133,11 @@ DLE BOM Module:
 - draft standardized BOM object
 - editable engineering review grid
 - future controlled BOM record foundation
+
+Reports & Communications Module:
+- operational report template hub
+- print-friendly production communication reports
+- selected Open Orders handoff
 
 EXTRACTION NOTE
 
@@ -990,6 +998,40 @@ body {
 
     .clickable-open-order {
       cursor: pointer;
+    }
+
+    .open-order-report-select {
+      width: 34px;
+      text-align: center;
+    }
+
+    .open-order-report-checkbox {
+      width: 17px;
+      height: 17px;
+      cursor: pointer;
+      accent-color: var(--blue);
+    }
+
+    .open-order-report-row-selected {
+      box-shadow: inset 3px 0 0 rgba(74, 222, 128, 0.92);
+    }
+
+    .open-order-report-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin: 12px 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(130, 170, 210, 0.18);
+      border-radius: 12px;
+      background: rgba(4, 9, 16, 0.32);
+    }
+
+    .open-order-report-count {
+      color: #c7d2e2;
+      font-weight: 800;
     }
 
 /* =====================================================
@@ -3613,6 +3655,230 @@ body {
 ===================================================== */
 
 /* =====================================================
+   014 - REPORTS & COMMUNICATIONS MODULE
+===================================================== */
+
+    #reportsCommunications {
+      width: calc(100vw - 44px);
+      margin-left: calc(50% - 50vw + 22px);
+    }
+
+    .reports-layout {
+      display: grid;
+      grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .reports-card {
+      border: 1px solid rgba(130, 170, 210, 0.22);
+      border-radius: 14px;
+      padding: 14px;
+      background: rgba(13, 25, 40, 0.82);
+    }
+
+    .report-template-button {
+      width: 100%;
+      margin: 8px 0 0;
+      text-align: left;
+    }
+
+    .report-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    .report-options label {
+      margin: 0;
+      min-width: 220px;
+    }
+
+    .report-options select {
+      margin-top: 6px;
+    }
+
+    .report-print-surface {
+      border: 1px solid rgba(130, 170, 210, 0.22);
+      border-radius: 14px;
+      padding: 18px;
+      background: #f8fafc;
+      color: #111827;
+    }
+
+    .report-print-document {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .report-print-document > thead > tr > td,
+    .report-print-document > tbody > tr > td {
+      padding: 0;
+      border: 0;
+    }
+
+    .report-print-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 2px solid #111827;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+
+    .report-header-meta {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 4px 16px;
+      align-content: start;
+      font-size: 12px;
+    }
+
+    .report-print-header h2 {
+      margin: 0;
+      color: #111827;
+    }
+
+    .report-print-header p {
+      margin: 4px 0 0;
+      color: #374151;
+    }
+
+    .report-page-number {
+      font-weight: 900;
+    }
+
+    .report-page-number::after {
+      content: "Page 1 of 1";
+    }
+
+    .report-group {
+      break-inside: avoid;
+      page-break-inside: avoid;
+      margin-bottom: 22px;
+    }
+
+    .report-group h3 {
+      margin: 0 0 8px;
+      padding: 7px 9px;
+      background: #dbeafe;
+      color: #111827;
+      border: 1px solid #93c5fd;
+    }
+
+    .work-order-status-report-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 11px;
+      color: #111827;
+    }
+
+    .work-order-status-report-table th,
+    .work-order-status-report-table td {
+      border: 1px solid #9ca3af;
+      padding: 7px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .work-order-status-report-table th {
+      background: #e5e7eb;
+      font-weight: 900;
+    }
+
+    .work-order-status-report-table .report-notes-cell {
+      height: 42px;
+    }
+
+    .report-section-notes {
+      margin-top: 10px;
+      border: 1px solid #9ca3af;
+      min-height: 72px;
+      padding: 8px;
+      color: #374151;
+      background: #fff;
+    }
+
+    .report-empty {
+      color: #9fb0c4;
+      border: 1px dashed rgba(130, 170, 210, 0.28);
+      border-radius: 12px;
+      padding: 18px;
+      background: rgba(4, 9, 16, 0.26);
+    }
+
+    @media print {
+      @page {
+        size: letter landscape;
+        margin: .35in;
+      }
+
+      body.reports-printing * { visibility: hidden; }
+      body.reports-printing #reportPrintSurface,
+      body.reports-printing #reportPrintSurface * { visibility: visible; }
+      body.reports-printing #reportPrintSurface {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        background: #fff;
+        color: #000;
+      }
+
+      body.reports-printing,
+      body.reports-printing html {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+      }
+
+      body.reports-printing main {
+        position: static;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      body.reports-printing .report-print-document {
+        display: table;
+      }
+
+      body.reports-printing .report-print-document thead {
+        display: table-header-group;
+      }
+
+      body.reports-printing .report-print-document tbody {
+        display: table-row-group;
+      }
+
+      body.reports-printing .report-print-header {
+        break-after: avoid;
+        page-break-after: avoid;
+        margin: 0 0 12px;
+        padding-bottom: 8px;
+      }
+
+      body.reports-printing .report-page-number::after {
+        content: "Page " counter(page) " of " counter(pages);
+      }
+
+      body.reports-printing .report-group:first-child {
+        break-before: avoid;
+        page-break-before: avoid;
+      }
+    }
+
+/* =====================================================
+   END 014 - REPORTS & COMMUNICATIONS MODULE
+===================================================== */
+
+/* =====================================================
    SHARED FOOTER + RESPONSIVE RULES
 ===================================================== */
 
@@ -3654,6 +3920,7 @@ body {
       .job-dashboard-layout { grid-template-columns: 1fr; }
       .job-dashboard-header { display: grid; }
       .job-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .reports-layout { grid-template-columns: 1fr; }
       .rfq-processing-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .rfq-processing-control-row,
       .rfq-processing-doc-row { grid-template-columns: 1fr; }
@@ -3700,7 +3967,7 @@ body {
     <div class="divider"></div>
       <div class="title-wrap">
         <div class="app-title">DLE Work Center - Prototype</div>
-      <div class="app-subtitle">Version 3.1.0 test concept: Open Orders | Order Dashboard | Work Order Dashboard | Assembly Dashboard | Document Intake | Workbench</div>
+      <div class="app-subtitle">Version 3.1.0 test concept: Open Orders | Order Dashboard | Work Order Dashboard | Assembly Dashboard | Document Intake | Reports & Communications | Workbench</div>
     </div>
     <div class="top-pills">
       <div class="pill">Part: <span id="partPill">Not Selected</span></div>
@@ -3731,6 +3998,11 @@ body {
           <h1>Open Orders</h1>
           <p>Load ERP exports and monitor production activity.</p>
           <div class="future">Future</div>
+        </div>
+        <div class="module-card active-card" onclick="go('reportsCommunications')">
+          <div class="icon-circle">RC</div>
+          <h1>Reports & Communications</h1>
+          <p>Generate production-ready reports for paper workflow support.</p>
         </div>
         <div class="module-card active-card" onclick="go('workbench')">
           <div class="icon-circle">WB</div>
@@ -3962,12 +4234,70 @@ BOM Viewer</h2>
       </div>
     </div>
 
+    <div class="open-order-report-controls">
+      <div>
+        <strong>Report Selection</strong>
+        <div id="openOrderReportSelectionCount" class="open-order-report-count">0 rows selected for reports.</div>
+      </div>
+      <div class="open-orders-actions">
+        <button type="button" onclick="generateOpenOrdersReport()">Generate Report</button>
+        <button type="button" onclick="clearOpenOrderReportSelection()">Clear Report Selection</button>
+      </div>
+    </div>
+
     <div id="openOrdersTable" class="open-orders-table-wrap"></div>
   </div>
 </section>
 
 <!-- =====================================================
    END 105 - OPEN ORDERS
+===================================================== -->
+
+<!-- =====================================================
+   113 - REPORTS & COMMUNICATIONS
+===================================================== -->
+
+<section id="reportsCommunications" class="screen">
+  <div class="open-orders-panel">
+    <div class="module-header">
+      <div>
+        <div class="module-eyebrow">Operational Communication Reports</div>
+        <h2>Reports & Communications</h2>
+        <p class="module-subtitle">Format selected operational information into readable reports for production floor communication.</p>
+      </div>
+    </div>
+
+    <div class="reports-layout">
+      <aside class="reports-card">
+        <h3>Report Templates</h3>
+        <p class="module-subtitle">More templates will be added as DLE-OS communication workflows mature.</p>
+        <button class="report-template-button" type="button" onclick="openWorkOrderStatusInquiryReport()">Work Order Status Inquiry</button>
+      </aside>
+
+      <section class="reports-card">
+        <div class="report-options">
+          <label>Grouping
+            <select id="workOrderStatusGrouping" onchange="renderWorkOrderStatusInquiryReport()">
+              <option value="customer">Group by Customer</option>
+              <option value="dueDate">Group by Due Date</option>
+              <option value="salesOrder">Group by Sales Order</option>
+              <option value="none">No Grouping</option>
+            </select>
+          </label>
+          <button type="button" onclick="printCurrentReport()">Print Report</button>
+          <button type="button" onclick="go('openOrders')">Back to Open Orders</button>
+        </div>
+
+        <div id="reportsWorkspace">
+          <div class="report-empty">Select rows in Open Orders, then choose Generate Report.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+   END 113 - REPORTS & COMMUNICATIONS
 ===================================================== -->
 
 <!-- =====================================================
@@ -5970,6 +6300,7 @@ async function parseBomTest() {
 ===================================================== */
 
 let openOrdersRows = [];
+let selectedOpenOrderReportRows = new Set();
 
 async function loadOpenOrders() {
 
@@ -6003,10 +6334,12 @@ openOrdersRows = lines
     .slice(1)
     .map(row => row.split('\t'))
     .filter(cols => cols.some(value => (value || '').trim()));
+selectedOpenOrderReportRows = new Set();
 
 let html = `
 <table class="open-orders-table">
 <tr>
+    <th class="open-order-report-select">Report</th>
     <th>Ord Dt</th>
     <th>Cust #</th>
     <th>Cust Name</th>
@@ -6028,9 +6361,14 @@ let html = `
 for (let i = 0; i < openOrdersRows.length; i++) {
 
     const cols = openOrdersRows[i];
+    const checked = selectedOpenOrderReportRows.has(i) ? ' checked' : '';
+    const selectedClass = selectedOpenOrderReportRows.has(i) ? ' open-order-report-row-selected' : '';
 
    html += `
-<tr class="${i % 2 === 0 ? 'rowEven' : 'rowOdd'} clickable-open-order" onclick="openJobDashboardFromOpenOrder(${i})" title="Open Order Dashboard">
+<tr class="${i % 2 === 0 ? 'rowEven' : 'rowOdd'} clickable-open-order${selectedClass}" data-open-order-index="${i}" onclick="openJobDashboardFromOpenOrder(${i})" title="Open Order Dashboard">
+    <td class="open-order-report-select">
+      <input class="open-order-report-checkbox" type="checkbox"${checked} onclick="toggleOpenOrderReportSelection(event, ${i})" title="Select for report">
+    </td>
     <td>${escapeHtml(cols[0] || '')}</td>
     <td>${escapeHtml(cols[1] || '')}</td>
     <td class="nowrap">
@@ -6057,6 +6395,7 @@ for (let i = 0; i < openOrdersRows.length; i++) {
 html += '</table>';
 
 document.getElementById('openOrdersTable').innerHTML = html;
+updateOpenOrderReportSelectionCount();
   }
 function filterOpenOrders() {
 
@@ -6089,8 +6428,207 @@ function filterOpenOrders() {
     }
 }
 
+function toggleOpenOrderReportSelection(event, index) {
+    event.stopPropagation();
+
+    if (event.target.checked) {
+        selectedOpenOrderReportRows.add(index);
+    } else {
+        selectedOpenOrderReportRows.delete(index);
+    }
+
+    const row = document.querySelector('[data-open-order-index="' + index + '"]');
+    if (row) {
+        row.classList.toggle('open-order-report-row-selected', selectedOpenOrderReportRows.has(index));
+    }
+
+    updateOpenOrderReportSelectionCount();
+}
+
+function updateOpenOrderReportSelectionCount() {
+    const countEl = document.getElementById('openOrderReportSelectionCount');
+    if (!countEl) return;
+    const count = selectedOpenOrderReportRows.size;
+    countEl.textContent = count + (count === 1 ? ' row selected for reports.' : ' rows selected for reports.');
+}
+
+function clearOpenOrderReportSelection() {
+    selectedOpenOrderReportRows = new Set();
+    document.querySelectorAll('.open-order-report-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    document.querySelectorAll('[data-open-order-index]').forEach(row => {
+        row.classList.remove('open-order-report-row-selected');
+    });
+    updateOpenOrderReportSelectionCount();
+}
+
+function generateOpenOrdersReport() {
+    const selectedRecords = Array
+        .from(selectedOpenOrderReportRows)
+        .sort((a, b) => a - b)
+        .map(index => buildWorkOrderStatusReportRecord(openOrdersRows[index], index))
+        .filter(Boolean);
+
+    reportsCommunicationsState.currentReport = {
+        type: 'workOrderStatusInquiry',
+        title: 'Work Order Status Inquiry',
+        source: 'Open Orders',
+        created: new Date().toLocaleString(),
+        records: selectedRecords
+    };
+
+    go('reportsCommunications');
+    openWorkOrderStatusInquiryReport();
+}
+
 /* =====================================================
    END 205 - OPEN ORDERS
+===================================================== */
+
+/* =====================================================
+   212 - REPORTS & COMMUNICATIONS
+===================================================== */
+
+const reportsCommunicationsState = {
+    currentReport: null
+};
+
+function openWorkOrderStatusInquiryReport() {
+    renderWorkOrderStatusInquiryReport();
+}
+
+function buildWorkOrderStatusReportRecord(cols, index) {
+    if (!cols) return null;
+    return {
+        sourceIndex: index,
+        dueDate: normalizeOrderValue(cols[12] || cols[0]),
+        customer: normalizeOrderValue(cols[2]),
+        partNumber: normalizeOrderValue(cols[10], 'UNKNOWN'),
+        description: normalizeOrderValue(cols[11], ''),
+        workOrder: formatImportedWorkOrder(cols[6]),
+        openQuantity: normalizeOrderValue(cols[9] || cols[7], '0'),
+        salesOrder: normalizeOrderValue(cols[4]),
+        customerPo: normalizeOrderValue(cols[3])
+    };
+}
+
+function renderWorkOrderStatusInquiryReport() {
+    const workspace = document.getElementById('reportsWorkspace');
+    if (!workspace) return;
+
+    const report = reportsCommunicationsState.currentReport;
+    if (!report || report.type !== 'workOrderStatusInquiry' || !report.records.length) {
+        workspace.innerHTML = '<div class="report-empty">No Open Orders rows have been selected for this report.</div>';
+        return;
+    }
+
+    const grouping = document.getElementById('workOrderStatusGrouping')?.value || 'customer';
+    const groups = groupWorkOrderStatusRecords(report.records, grouping);
+
+    workspace.innerHTML = `
+      <div id="reportPrintSurface" class="report-print-surface">
+        <table class="report-print-document">
+          <thead>
+            <tr>
+              <td>
+                <div class="report-print-header">
+                  <div>
+                    <h2>Work Order Status Inquiry</h2>
+                    <p>Production floor communication report</p>
+                  </div>
+                  <div class="report-header-meta">
+                    <strong>Created:</strong><span>${escapeHtml(report.created)}</span>
+                    <strong>Records:</strong><span>${report.records.length}</span>
+                    <strong>Page:</strong><span class="report-page-number"></span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            ${groups.map(group => `
+              <tr>
+                <td>${buildWorkOrderStatusReportGroup(group)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+}
+
+function groupWorkOrderStatusRecords(records, grouping) {
+    if (grouping === 'none') {
+        return [{ label: 'Selected Work Orders', records }];
+    }
+
+    const labels = {
+        customer: 'Customer',
+        dueDate: 'Due Date',
+        salesOrder: 'Sales Order'
+    };
+    const field = grouping === 'dueDate' ? 'dueDate' : grouping === 'salesOrder' ? 'salesOrder' : 'customer';
+    const groups = new Map();
+
+    records.forEach(record => {
+        const key = record[field] || 'Not Specified';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(record);
+    });
+
+    return Array
+        .from(groups.entries())
+        .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+        .map(([key, groupRecords]) => ({
+            label: labels[grouping] + ': ' + key,
+            records: groupRecords
+        }));
+}
+
+function buildWorkOrderStatusReportGroup(group) {
+    return `
+      <section class="report-group">
+        <h3>${escapeHtml(group.label)}</h3>
+        <table class="work-order-status-report-table">
+          <thead>
+            <tr>
+              <th style="width: 11%;">Due Date</th>
+              <th style="width: 13%;">Sales Order</th>
+              <th style="width: 13%;">Work Order</th>
+              <th style="width: 15%;">Part Number</th>
+              <th style="width: 27%;">Description</th>
+              <th style="width: 8%;">Qty Open</th>
+              <th style="width: 13%;">Production Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${group.records.map(record => `
+              <tr>
+                <td>${escapeHtml(record.dueDate)}</td>
+                <td>${escapeHtml(record.salesOrder)}</td>
+                <td>${escapeHtml(record.workOrder)}</td>
+                <td>${escapeHtml(record.partNumber)}</td>
+                <td>${escapeHtml(record.description)}</td>
+                <td>${escapeHtml(record.openQuantity)}</td>
+                <td class="report-notes-cell"></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="report-section-notes">General production comments:</div>
+      </section>
+    `;
+}
+
+function printCurrentReport() {
+    document.body.classList.add('reports-printing');
+    window.print();
+    setTimeout(() => document.body.classList.remove('reports-printing'), 500);
+}
+
+/* =====================================================
+   END 212 - REPORTS & COMMUNICATIONS
 ===================================================== */
 
 /* =====================================================
@@ -11894,7 +12432,7 @@ function returnFromDleBomToWorkbench() {
 ===================================================== */
 
 /* =====================================================
-   212 - INITIALIZATION
+   213 - INITIALIZATION
 ===================================================== */
 
 configureDocumentProcessingLibraries();
@@ -11902,6 +12440,7 @@ initDocumentIntake();
 syncAssemblyInfoToBomUi();
 prepareBomExtractionWorkspace();
 renderBomWorkbenchStatus();
+updateOpenOrderReportSelectionCount();
 updateBackButton();
 
   </script>
