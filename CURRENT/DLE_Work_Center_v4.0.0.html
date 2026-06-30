@@ -4570,7 +4570,7 @@ BOM Viewer</h2>
 
     <div class="master-data-toolbar">
       <input id="dleMasterDataFileInput" type="file" accept=".json,application/json" onchange="openDleMasterDataFile(this.files)" hidden>
-      <button type="button" onclick="document.getElementById('dleMasterDataFileInput').click()">Open DLE Master Data</button>
+      <button type="button" onclick="browseDleMasterDataFile()">Open DLE Master Data</button>
       <input
         id="dleMasterDataSearch"
         class="master-data-search"
@@ -6612,6 +6612,14 @@ let dleMasterData = {
     records: []
 };
 
+const dleMasterDataFileState = {
+    data: null,
+    fileHandle: null,
+    fileName: '',
+    lastModified: '',
+    writable: false
+};
+
 async function loadOpenOrders() {
 
     const fileInput =
@@ -6811,6 +6819,7 @@ async function createDleMasterData() {
         },
         records: openOrdersRows.map((cols, index) => buildDleMasterDataRecord(cols, index, created))
     };
+    clearDleMasterDataFileState();
 
     let saveResult = 'Not saved.';
     try {
@@ -6881,6 +6890,12 @@ async function saveDleMasterDataFile(data, createdAt) {
             const writable = await handle.createWritable();
             await writable.write(json);
             await writable.close();
+            setCurrentDleMasterDataFile(dleMasterData, {
+                fileHandle: handle,
+                fileName: handle.name || fileName,
+                lastModified: new Date().toLocaleString(),
+                writable: true
+            });
             return handle.name || fileName;
         } catch (error) {
             if (error?.name === 'AbortError') return 'Save cancelled by user.';
@@ -6897,6 +6912,12 @@ async function saveDleMasterDataFile(data, createdAt) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+    setCurrentDleMasterDataFile(dleMasterData, {
+        fileHandle: null,
+        fileName,
+        lastModified: new Date().toLocaleString(),
+        writable: false
+    });
     return fileName + ' (downloaded by browser)';
 }
 
@@ -7039,6 +7060,7 @@ function openWorkOrderStatusInquiryReport() {
 function buildWorkOrderStatusReportRecord(cols, index) {
     if (!cols) return null;
     return {
+        masterDataRecordId: buildDleMasterDataRecordId(cols, index),
         sourceIndex: index,
         dueDate: normalizeOrderValue(cols[12] || cols[0]),
         customer: normalizeOrderValue(cols[2]),
@@ -7192,9 +7214,35 @@ function syncCurrentInquiryReportStatus(inquiry) {
     reportsCommunicationsState.currentReport.records = inquiry.records;
 }
 
-function completeActiveInquiry(inquiryId) {
+async function completeActiveInquiry(inquiryId) {
     const inquiry = getActiveInquiryById(inquiryId);
     if (!inquiry) return;
+
+    const workspace = document.getElementById('reportsWorkspace');
+    const updates = inquiry.records.map(record => ({
+        recordKey: record.masterDataRecordId,
+        dleFields: {
+            productionNotes: record.productionNotes || ''
+        }
+    }));
+
+    try {
+        const result = await updateDleMasterDataRecordsDleFields(updates);
+        inquiry.masterDataWriteResult = {
+            updatedRecords: result.updatedRecords,
+            completedAt: new Date().toLocaleString()
+        };
+    } catch (error) {
+        if (workspace) {
+            workspace.insertAdjacentHTML('afterbegin', `
+              <div class="report-empty">
+                Complete Inquiry could not update DLE Master Data. ${escapeHtml(error.message || error)}
+              </div>
+            `);
+        }
+        return;
+    }
+
     inquiry.status = 'Completed';
     reportsCommunicationsState.completedInquiries.push(inquiry);
     reportsCommunicationsState.activeInquiries = reportsCommunicationsState.activeInquiries
@@ -7202,9 +7250,8 @@ function completeActiveInquiry(inquiryId) {
     reportsCommunicationsState.selectedInquiryId = null;
     reportsCommunicationsState.currentReport = null;
     renderActiveInquiryList();
-    const workspace = document.getElementById('reportsWorkspace');
     if (workspace) {
-        workspace.innerHTML = '<div class="report-empty">Inquiry completed and removed from the Active Inquiry Queue.</div>';
+        workspace.innerHTML = `<div class="report-empty">Inquiry completed and removed from the Active Inquiry Queue. ${inquiry.masterDataWriteResult.updatedRecords} Master Data record(s) updated.</div>`;
     }
 }
 
@@ -13058,10 +13105,37 @@ const dleMasterDataGridColumns = [
   { key: 'productionNotes', label: 'Production Notes' }
 ];
 
+async function browseDleMasterDataFile() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        multiple: false,
+        types: [{
+          description: 'DLE Master Data JSON',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+      const file = await handle.getFile();
+      await loadDleMasterDataFromFile(file, handle);
+      return;
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        setDleMasterDataStatus(`Unable to open DLE Master Data JSON: ${error.message}`);
+      }
+      return;
+    }
+  }
+
+  document.getElementById('dleMasterDataFileInput')?.click();
+}
+
 function openDleMasterDataFile(fileList) {
   const file = fileList?.[0];
   if (!file) return;
+  loadDleMasterDataFromFile(file, null);
+}
 
+function loadDleMasterDataFromFile(file, fileHandle = null) {
   const reader = new FileReader();
   reader.onload = event => {
     try {
@@ -13072,12 +13146,12 @@ function openDleMasterDataFile(fileList) {
           ? parsed
           : [];
 
-      dleMasterDataViewerState.fileName = file.name;
-      dleMasterDataViewerState.lastModified = file.lastModified
-        ? new Date(file.lastModified).toLocaleString()
-        : 'Not available';
-      dleMasterDataViewerState.data = parsed;
-      dleMasterDataViewerState.records = records;
+      setCurrentDleMasterDataFile(parsed, {
+        fileHandle,
+        fileName: file.name,
+        lastModified: file.lastModified ? new Date(file.lastModified).toLocaleString() : 'Not available',
+        writable: !!fileHandle
+      });
       dleMasterDataViewerState.sortField = '';
       dleMasterDataViewerState.sortDirection = 'asc';
       dleMasterDataViewerState.selectedFilteredIndex = records.length ? 0 : -1;
@@ -13088,7 +13162,8 @@ function openDleMasterDataFile(fileList) {
 
       applyDleMasterDataFilterAndSort();
       renderDleMasterDataViewer();
-      setDleMasterDataStatus(`${records.length} records loaded from ${file.name}.`);
+      const writableMessage = fileHandle ? 'Writable file handle active.' : 'Loaded read-only through browser file input.';
+      setDleMasterDataStatus(`${records.length} records loaded from ${file.name}. ${writableMessage}`);
     } catch (error) {
       resetDleMasterDataViewer();
       setDleMasterDataStatus(`Unable to read DLE Master Data JSON: ${error.message}`);
@@ -13101,7 +13176,107 @@ function openDleMasterDataFile(fileList) {
   reader.readAsText(file);
 }
 
+function setCurrentDleMasterDataFile(data, options = {}) {
+  const records = Array.isArray(data?.records)
+    ? data.records
+    : Array.isArray(data)
+      ? data
+      : [];
+
+  dleMasterDataFileState.data = data;
+  dleMasterDataFileState.fileHandle = options.fileHandle || null;
+  dleMasterDataFileState.fileName = options.fileName || '';
+  dleMasterDataFileState.lastModified = options.lastModified || '';
+  dleMasterDataFileState.writable = !!options.writable;
+
+  dleMasterData = data;
+  dleMasterDataViewerState.fileName = dleMasterDataFileState.fileName;
+  dleMasterDataViewerState.lastModified = dleMasterDataFileState.lastModified || 'Not available';
+  dleMasterDataViewerState.data = data;
+  dleMasterDataViewerState.records = records;
+}
+
+function clearDleMasterDataFileState() {
+  dleMasterDataFileState.data = null;
+  dleMasterDataFileState.fileHandle = null;
+  dleMasterDataFileState.fileName = '';
+  dleMasterDataFileState.lastModified = '';
+  dleMasterDataFileState.writable = false;
+}
+
+async function updateDleMasterDataRecordDleFields(recordKey, dleFields) {
+  const result = await updateDleMasterDataRecordsDleFields([{ recordKey, dleFields }]);
+  return result.updatedRecords;
+}
+
+async function updateDleMasterDataRecordsDleFields(updates) {
+  if (!dleMasterDataFileState.data || !Array.isArray(dleMasterDataFileState.data.records)) {
+    throw new Error('No DLE Master Data JSON file is currently loaded.');
+  }
+
+  if (!dleMasterDataFileState.fileHandle || !dleMasterDataFileState.writable) {
+    throw new Error('The currently loaded DLE Master Data file is not writable. Open it with the DLE Master Data Viewer before completing the inquiry.');
+  }
+
+  const recordsByKey = new Map(
+    dleMasterDataFileState.data.records.map(record => [record.id || record.recordKey, record])
+  );
+  const allowedDleFields = getDleMasterDataOwnedFields();
+  let updatedRecords = 0;
+  const missingKeys = [];
+
+  updates.forEach(update => {
+    const recordKey = update.recordKey;
+    const record = recordsByKey.get(recordKey);
+    if (!record) {
+      missingKeys.push(recordKey);
+      return;
+    }
+
+    record.dle = record.dle || {};
+    Object.entries(update.dleFields || {}).forEach(([field, value]) => {
+      if (allowedDleFields.has(field)) {
+        record.dle[field] = value;
+      }
+    });
+    updatedRecords += 1;
+  });
+
+  if (missingKeys.length) {
+    throw new Error('Master Data record not found for key(s): ' + missingKeys.join(', '));
+  }
+
+  await writeCurrentDleMasterDataFile();
+  refreshDleMasterDataViewerAfterWrite();
+  return { updatedRecords };
+}
+
+function getDleMasterDataOwnedFields() {
+  const ownedFields = dleMasterDataFileState.data?.ownershipModel?.dleOwned;
+  return new Set(Array.isArray(ownedFields) && ownedFields.length ? ownedFields : ['productionNotes']);
+}
+
+async function writeCurrentDleMasterDataFile() {
+  const writable = await dleMasterDataFileState.fileHandle.createWritable();
+  await writable.write(JSON.stringify(dleMasterDataFileState.data, null, 2));
+  await writable.close();
+
+  dleMasterDataFileState.lastModified = new Date().toLocaleString();
+  dleMasterDataViewerState.lastModified = dleMasterDataFileState.lastModified;
+}
+
+function refreshDleMasterDataViewerAfterWrite() {
+  if (!dleMasterDataViewerState.data) return;
+  dleMasterDataViewerState.records = dleMasterDataFileState.data.records || [];
+  applyDleMasterDataFilterAndSort();
+  if (dleMasterDataViewerState.selectedFilteredIndex >= dleMasterDataViewerState.filteredRecords.length) {
+    dleMasterDataViewerState.selectedFilteredIndex = dleMasterDataViewerState.filteredRecords.length ? 0 : -1;
+  }
+  renderDleMasterDataViewer();
+}
+
 function resetDleMasterDataViewer() {
+  clearDleMasterDataFileState();
   dleMasterDataViewerState.fileName = '';
   dleMasterDataViewerState.lastModified = '';
   dleMasterDataViewerState.data = null;
