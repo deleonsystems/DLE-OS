@@ -34,6 +34,7 @@ CSS SECTIONS
 013 - DLE BOM MODULE
 014 - REPORTS & COMMUNICATIONS MODULE
 015 - DLE MASTER DATA VIEWER MODULE
+016 - SYSTEM CENTER MODULE
 
 HTML SECTIONS
 
@@ -55,7 +56,7 @@ HTML SECTIONS
 111 - WORKBENCH
 112 - DLE BOM
 113 - REPORTS & COMMUNICATIONS
-114 - DLE MASTER DATA VIEWER
+114 - SYSTEM CENTER
 
 JAVASCRIPT SECTIONS
 
@@ -97,7 +98,7 @@ Order Dashboard Module:
 
 Work Order Dashboard Module:
 - work order execution view
-- production notes
+- production status
 - workflow status
 - shipping / production actions
 - future navigation into Assembly Dashboard
@@ -142,8 +143,13 @@ Reports & Communications Module:
 - print-friendly production communication reports
 - selected Open Orders handoff
 
+System Center Module:
+- future administrative home for data management and system utilities
+- Master Data Viewer utility
+- placeholder sections for future system tools
+
 DLE Master Data Viewer Module:
-- developer verification view for DLE Master Data JSON files
+- developer verification utility inside System Center Master Data
 - read-only grid, search, sorting, and record detail inspection
 
 EXTRACTION NOTE
@@ -3731,7 +3737,7 @@ body {
       margin: 0 0 14px;
     }
 
-    .production-note-input {
+    .production-status-input {
       width: 100%;
       min-height: 56px;
       resize: vertical;
@@ -3943,9 +3949,75 @@ body {
    015 - DLE MASTER DATA VIEWER MODULE
 ===================================================== */
 
-    #dleMasterDataViewer {
-      width: min(1320px, calc(100% - 40px));
-      margin-left: 20px;
+    .master-data-viewer-panel {
+      margin-top: 18px;
+    }
+
+    .master-data-dashboard-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(220px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .master-data-dashboard-action {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.04);
+      padding: 16px;
+    }
+
+    .master-data-dashboard-action h4 {
+      margin: 0 0 8px;
+      color: var(--text);
+      font-size: .98rem;
+    }
+
+    .master-data-dashboard-action p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .master-data-viewer-panel[hidden] {
+      display: none !important;
+    }
+
+    .master-data-dashboard-status {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .master-data-status-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(5,12,22,.42);
+      padding: 13px;
+    }
+
+    .master-data-status-item span {
+      display: block;
+      color: var(--muted);
+      font-size: .76rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: 6px;
+    }
+
+    .master-data-status-item strong {
+      display: block;
+      color: var(--text);
+      font-size: .95rem;
+      word-break: break-word;
+    }
+
+    .master-data-viewer-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: start;
     }
 
     .master-data-toolbar {
@@ -4113,8 +4185,191 @@ body {
       background: rgba(255,255,255,.03);
     }
 
+    .system-center-master-data-section,
+    .system-center-erp-section,
+    .system-center-reconciliation-section {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.04);
+      padding: 18px;
+    }
+
+    .system-center-master-data-section h3,
+    .system-center-erp-section h3,
+    .system-center-reconciliation-section h3 {
+      margin: 0 0 8px;
+      color: var(--text);
+    }
+
+    .system-center-master-data-section p,
+    .system-center-erp-section p,
+    .system-center-reconciliation-section p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .erp-import-actions {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto auto;
+      gap: 12px;
+      align-items: center;
+      margin-top: 18px;
+    }
+
+    .erp-import-actions input[type="file"] {
+      min-width: 0;
+      color: var(--muted);
+    }
+
+    .erp-import-message {
+      margin-top: 12px;
+    }
+
+    .reconciliation-summary-panel {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(5,12,22,.42);
+      padding: 16px;
+    }
+
+    .reconciliation-summary-panel[hidden] {
+      display: none !important;
+    }
+
+    .reconciliation-investigation-workspace {
+      margin-top: 18px;
+    }
+
+    .reconciliation-investigation-list {
+      display: grid;
+      gap: 12px;
+      max-height: 620px;
+      overflow-y: auto;
+      padding-right: 6px;
+    }
+
+    .reconciliation-investigation-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.035);
+      padding: 15px;
+    }
+
+    .reconciliation-investigation-title,
+    .reconciliation-value-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .reconciliation-investigation-title {
+      margin-bottom: 12px;
+    }
+
+    .reconciliation-investigation-title strong {
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .reconciliation-investigation-title span {
+      justify-self: end;
+      color: #9fb4ca;
+      font-weight: 700;
+      font-size: .82rem;
+    }
+
+    .reconciliation-investigation-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .reconciliation-investigation-grid div,
+    .reconciliation-value-compare div {
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 8px;
+      background: rgba(5,12,22,.42);
+      padding: 10px;
+      min-width: 0;
+    }
+
+    .reconciliation-investigation-grid span,
+    .reconciliation-value-compare span {
+      display: block;
+      color: var(--muted);
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: 6px;
+    }
+
+    .reconciliation-investigation-grid strong,
+    .reconciliation-value-compare strong {
+      display: block;
+      color: var(--text);
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
 /* =====================================================
    END 015 - DLE MASTER DATA VIEWER MODULE
+===================================================== */
+
+/* =====================================================
+   016 - SYSTEM CENTER MODULE
+===================================================== */
+
+    #systemCenter {
+      width: min(1200px, calc(100% - 40px));
+      margin-left: 20px;
+    }
+
+    .system-center-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 22px;
+    }
+
+    .system-center-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.04);
+      padding: 18px;
+      min-height: 150px;
+    }
+
+    .system-center-card h3 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      color: var(--text);
+    }
+
+    .system-center-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .system-center-status {
+      display: inline-flex;
+      margin-top: 18px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.16);
+      color: #9fb4ca;
+      background: rgba(255,255,255,.04);
+      font-size: .82rem;
+      font-weight: 700;
+    }
+
+/* =====================================================
+   END 016 - SYSTEM CENTER MODULE
 ===================================================== */
 
 /* =====================================================
@@ -4151,7 +4406,7 @@ body {
       #rfqProcessing,
       #bomExtraction,
       #dleBom,
-      #dleMasterDataViewer { width: 100%; margin-left: 0; }
+      #systemCenter { width: 100%; margin-left: 0; }
       .open-orders-header,
       .open-orders-toolbar { grid-template-columns: 1fr; }
       .open-orders-status { white-space: normal; }
@@ -4176,10 +4431,17 @@ body {
       .department-activity-grid,
       .workbench-tool-grid,
       .workbench-flow,
+      .master-data-dashboard-actions,
+      .erp-import-actions,
       .master-data-toolbar,
       .master-data-summary,
       .master-data-layout,
-      .master-data-field-grid { grid-template-columns: 1fr; }
+      .master-data-field-grid,
+      .system-center-grid,
+      .reconciliation-investigation-title,
+      .reconciliation-investigation-grid,
+      .reconciliation-value-compare { grid-template-columns: 1fr; }
+      .reconciliation-investigation-title span { justify-self: start; }
       #documentIntake { width: 100%; margin-left: 0; }
       .document-intake-layout,
       .document-workspace-header { grid-template-columns: 1fr; display: grid; }
@@ -4211,7 +4473,7 @@ body {
     <div class="divider"></div>
       <div class="title-wrap">
         <div class="app-title">DLE Work Center</div>
-      <div class="app-subtitle">Version 4.0.0 baseline: Open Orders | Order Dashboard | Work Order Dashboard | Assembly Dashboard | Document Intake | Reports & Communications | Workbench | DLE Master Data Viewer</div>
+      <div class="app-subtitle">Version 4.0.0 baseline: Open Orders | Order Dashboard | Work Order Dashboard | Assembly Dashboard | Document Intake | Reports & Communications | Workbench | System Center</div>
     </div>
     <div class="top-pills">
       <div class="pill">Part: <span id="partPill">Not Selected</span></div>
@@ -4253,10 +4515,10 @@ body {
           <h1>Workbench</h1>
           <p>Develop and operate manufacturing intelligence tools.</p>
         </div>
-        <div class="module-card active-card" onclick="go('dleMasterDataViewer')">
-          <div class="icon-circle">MD</div>
-          <h1>DLE Master Data Viewer</h1>
-          <p>Inspect DLE-owned operational data during development.</p>
+        <div class="module-card active-card" onclick="go('systemCenter')">
+          <div class="icon-circle">SC</div>
+          <h1>System Center</h1>
+          <p>Future home for system utilities, data management, and diagnostics.</p>
         </div>
         <div class="module-card disabled">
           <div class="icon-circle">TR</div>
@@ -4467,13 +4729,7 @@ BOM Viewer</h2>
       </div>
 
       <div class="open-orders-toolbar">
-        <div class="open-orders-actions">
-          <input type="file" id="openOrdersFile">
-          <button onclick="loadOpenOrders()">Load Open Orders</button>
-          <button type="button" onclick="createDleMasterData()">Create DLE Master Data</button>
-        </div>
-
-        <div id="openOrdersStatus" class="open-orders-status"></div>
+        <div id="openOrdersStatus" class="open-orders-status">Load DLE Master Data from System Center to view Open Orders.</div>
 
         <input
           type="text"
@@ -4555,54 +4811,155 @@ BOM Viewer</h2>
 ===================================================== -->
 
 <!-- =====================================================
-   114 - DLE MASTER DATA VIEWER
+   114 - SYSTEM CENTER
 ===================================================== -->
 
-<section id="dleMasterDataViewer" class="screen">
+<section id="systemCenter" class="screen">
   <div class="open-orders-panel">
     <div class="module-header">
       <div>
-        <div class="module-eyebrow">Developer Verification Tool</div>
-        <h2>DLE Master Data Viewer</h2>
-        <p class="module-subtitle">Open a DLE Master Data JSON file and inspect ERP-owned and DLE-owned fields without editing the source file.</p>
+        <div class="module-eyebrow">System Administration</div>
+        <h2>System Center</h2>
+        <p class="module-subtitle">Permanent home for future DLE-OS data management, diagnostics, and administrative utilities.</p>
       </div>
     </div>
 
-    <div class="master-data-toolbar">
-      <input id="dleMasterDataFileInput" type="file" accept=".json,application/json" onchange="openDleMasterDataFile(this.files)" hidden>
-      <button type="button" onclick="browseDleMasterDataFile()">Open DLE Master Data</button>
-      <input
-        id="dleMasterDataSearch"
-        class="master-data-search"
-        type="text"
-        placeholder="Search Customer, Sales Order, Work Order, Part Number, or Description"
-        oninput="filterDleMasterDataViewer()">
-      <div id="dleMasterDataStatus" class="open-orders-status">No DLE Master Data file loaded.</div>
-    </div>
+    <section class="system-center-master-data-section">
+      <h3>Master Data</h3>
+      <p>Control point for Master Data loading, status, and future management utilities.</p>
 
-    <div id="dleMasterDataSummary" class="master-data-summary"></div>
+      <div id="masterDataDashboardStatus" class="master-data-dashboard-status"></div>
 
-    <div class="master-data-layout">
-      <div id="dleMasterDataGrid" class="master-data-table-wrap">
-        <div class="master-data-empty">Open a DLE Master Data JSON file to inspect records.</div>
+      <div class="master-data-dashboard-actions">
+        <section class="master-data-dashboard-action">
+          <h4>Load Master Data</h4>
+          <p>Select the active DLE Master Data JSON file for this session.</p>
+          <button type="button" onclick="browseDleMasterDataFile()">Load Master Data</button>
+        </section>
+
+        <section class="master-data-dashboard-action">
+          <h4>Open Master Data Viewer</h4>
+          <p>Inspect the currently available Master Data in a dedicated viewer workspace.</p>
+          <button type="button" onclick="openMasterDataViewerWorkspace()">Open Master Data Viewer</button>
+        </section>
       </div>
 
-      <aside class="master-data-detail-card">
-        <div class="master-data-nav">
-          <button type="button" onclick="goDleMasterDataRecord(-1)">Previous</button>
-          <div id="dleMasterDataPosition" class="master-data-position">Record 0 of 0</div>
-          <button type="button" onclick="goDleMasterDataRecord(1)">Next</button>
+      <div id="dleMasterDataViewer" class="master-data-viewer-panel" hidden>
+        <div class="module-header master-data-viewer-header">
+          <div>
+            <div class="module-eyebrow">Developer Verification Tool</div>
+            <h2>DLE Master Data Viewer</h2>
+            <p class="module-subtitle">Open a DLE Master Data JSON file and inspect ERP-owned and DLE-owned fields without editing the source file.</p>
+          </div>
+          <button type="button" onclick="collapseMasterDataViewerWorkspace()">Collapse Viewer</button>
         </div>
-        <div id="dleMasterDataDetail">
-          <div class="master-data-empty">Select a record to inspect its full structure.</div>
+
+        <div class="master-data-toolbar">
+          <input id="dleMasterDataFileInput" type="file" accept=".json,application/json" onchange="openDleMasterDataFile(this.files)" hidden>
+          <button type="button" onclick="browseDleMasterDataFile()">Open DLE Master Data</button>
+          <input
+            id="dleMasterDataSearch"
+            class="master-data-search"
+            type="text"
+            placeholder="Search Customer, Sales Order, Work Order, Part Number, or Description"
+            oninput="filterDleMasterDataViewer()">
+          <div id="dleMasterDataStatus" class="open-orders-status">No DLE Master Data file loaded.</div>
         </div>
-      </aside>
+
+        <div id="dleMasterDataSummary" class="master-data-summary"></div>
+
+        <div class="master-data-layout">
+          <div id="dleMasterDataGrid" class="master-data-table-wrap">
+            <div class="master-data-empty">Open a DLE Master Data JSON file to inspect records.</div>
+          </div>
+
+          <aside class="master-data-detail-card">
+            <div class="master-data-nav">
+              <button type="button" onclick="goDleMasterDataRecord(-1)">Previous</button>
+              <div id="dleMasterDataPosition" class="master-data-position">Record 0 of 0</div>
+              <button type="button" onclick="goDleMasterDataRecord(1)">Next</button>
+            </div>
+            <div id="dleMasterDataDetail">
+              <div class="master-data-empty">Select a record to inspect its full structure.</div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="system-center-erp-section">
+      <h3>ERP Data Import</h3>
+      <p>Permanent intake point for VPro5 ERP exports entering DLE-OS.</p>
+
+      <div id="erpImportDashboardStatus" class="master-data-dashboard-status"></div>
+
+      <div class="erp-import-actions">
+        <input type="file" id="systemErpOpenOrdersFile">
+        <button type="button" onclick="loadSystemCenterOpenOrders()">Load Open Orders Export</button>
+        <button type="button" onclick="createDleMasterDataFromErpImport()">Create DLE Master Data</button>
+      </div>
+
+      <div id="systemErpImportStatus" class="open-orders-status erp-import-message">No ERP export loaded.</div>
+    </section>
+
+    <section class="system-center-reconciliation-section">
+      <h3>Reconciliation</h3>
+      <p>Permanent workspace for comparing ERP snapshots against DLE Master Data in future phases.</p>
+
+      <div id="reconciliationDashboardStatus" class="master-data-dashboard-status"></div>
+
+      <div class="master-data-dashboard-actions">
+        <section class="master-data-dashboard-action">
+          <h4>Reconcile Master Data</h4>
+          <p>Compare the loaded ERP snapshot against the loaded DLE Master Data.</p>
+          <button type="button" onclick="startMasterDataReconciliation()">Reconcile Master Data</button>
+        </section>
+
+        <section class="master-data-dashboard-action">
+          <h4>Reconciliation Summary</h4>
+          <p>Reserved location for future reconciliation results, exceptions, and review reports.</p>
+          <button type="button" onclick="toggleReconciliationSummary()">Open Summary</button>
+        </section>
+
+        <section class="master-data-dashboard-action">
+          <h4>Approve ERP Updates</h4>
+          <p>Apply approved ERP-owned field updates while preserving DLE-owned information.</p>
+          <button type="button" onclick="approveReconciliationErpUpdates()">Approve ERP Updates</button>
+        </section>
+      </div>
+
+      <div id="reconciliationActionStatus" class="open-orders-status erp-import-message">Reconciliation engine under development.</div>
+
+      <div id="reconciliationSummaryPanel" class="reconciliation-summary-panel" hidden>
+        <h4>Reconciliation Summary</h4>
+        <p>No reconciliation has been performed. Future summaries will show new records, updated ERP fields, preserved DLE-owned fields, and records requiring review.</p>
+      </div>
+    </section>
+
+    <div class="system-center-grid">
+      <section class="system-center-card">
+        <h3>System Status</h3>
+        <p>Coming Soon</p>
+        <div class="system-center-status">Placeholder</div>
+      </section>
+
+      <section class="system-center-card">
+        <h3>Utilities</h3>
+        <p>Coming Soon</p>
+        <div class="system-center-status">Placeholder</div>
+      </section>
+
+      <section class="system-center-card">
+        <h3>Developer Console</h3>
+        <p>Coming Soon</p>
+        <div class="system-center-status">Placeholder</div>
+      </section>
     </div>
   </div>
 </section>
 
 <!-- =====================================================
-   END 114 - DLE MASTER DATA VIEWER
+   END 114 - SYSTEM CENTER
 ===================================================== -->
 
 <!-- =====================================================
@@ -4934,8 +5291,8 @@ BOM Viewer</h2>
             <div id="workOrderTimeline" class="workflow-timeline"></div>
           </section>
 
-          <section class="work-order-card" aria-label="Production Notes">
-            <h3>Production Notes</h3>
+          <section class="work-order-card" aria-label="Production Status">
+            <h3>Production Status</h3>
             <div class="notes-empty">No notes available.</div>
           </section>
         </div>
@@ -4955,7 +5312,7 @@ BOM Viewer</h2>
             <h3>Work Order Actions</h3>
             <div class="job-action-buttons">
               <button onclick="placeholderWorkOrderAction('Update Status')">Update Status</button>
-              <button onclick="placeholderWorkOrderAction('Add Production Note')">Add Production Note</button>
+              <button onclick="placeholderWorkOrderAction('Add Production Status')">Add Production Status</button>
               <button onclick="placeholderWorkOrderAction('Place On Hold')">Place On Hold</button>
               <button onclick="placeholderWorkOrderAction('Mark Complete')">Mark Complete</button>
             </div>
@@ -6605,7 +6962,21 @@ async function parseBomTest() {
 ===================================================== */
 
 let openOrdersRows = [];
+let erpImportedOpenOrdersRows = [];
 let selectedOpenOrderReportRows = new Set();
+const erpImportState = {
+    status: 'Not Loaded',
+    sourceFile: 'Not available',
+    recordsImported: 0,
+    lastImported: 'Not available',
+    characters: 0,
+    rawRows: 0
+};
+const reconciliationState = {
+    lastReconciliation: 'Not available',
+    currentState: 'Not Ready',
+    latestSummary: null
+};
 let dleMasterData = {
     created: null,
     source: null,
@@ -6620,41 +6991,55 @@ const dleMasterDataFileState = {
     writable: false
 };
 
-async function loadOpenOrders() {
+async function loadSystemCenterOpenOrders() {
+    await loadOpenOrdersFromFileInput('systemErpOpenOrdersFile');
+}
 
-    const fileInput =
-        document.getElementById('openOrdersFile');
-
-    const status =
-        document.getElementById('openOrdersStatus');
-
-    const table =
-        document.getElementById('openOrdersTable');
-
-    const file = fileInput.files[0];
+async function loadOpenOrdersFromFileInput(fileInputId) {
+    const fileInput = document.getElementById(fileInputId);
+    const file = fileInput?.files?.[0];
 
     if (!file) {
-        status.textContent =
-            'Please select an Open Orders export.';
+        setSystemErpImportStatus('Please select an Open Orders export.');
         return;
     }
 
-const text = await file.text();
+    const text = await file.text();
+    const lines = text.split('\n');
+    const importedAt = new Date().toLocaleString();
 
-const lines = text.split('\n');
+    erpImportedOpenOrdersRows = parseOpenOrdersExportText(text);
+    erpImportState.status = 'Loaded';
+    erpImportState.sourceFile = file.name;
+    erpImportState.recordsImported = erpImportedOpenOrdersRows.length;
+    erpImportState.lastImported = importedAt;
+    erpImportState.characters = text.length;
+    erpImportState.rawRows = lines.length;
+    clearReconciliationAnalysis('ERP snapshot changed. Run reconciliation again before approving updates.');
 
-status.textContent =
-    'Loaded: ' + file.name +
-    ' | Characters: ' + text.length +
-    ' | Rows: ' + lines.length;
+    renderErpImportDashboardStatus();
+    renderReconciliationDashboardStatus();
 
-openOrdersRows = lines
-    .slice(1)
-    .map(row => row.split('\t'))
-    .filter(cols => cols.some(value => (value || '').trim()));
-selectedOpenOrderReportRows = new Set();
+    setSystemErpImportStatus(
+        'Loaded: ' + file.name +
+        ' | Characters: ' + text.length +
+        ' | Rows: ' + lines.length
+    );
+}
 
-let html = `
+function parseOpenOrdersExportText(text) {
+    return text
+        .split('\n')
+        .slice(1)
+        .map(row => row.split('\t'))
+        .filter(cols => cols.some(value => (value || '').trim()));
+}
+
+function renderOpenOrdersTable() {
+    const table = document.getElementById('openOrdersTable');
+    if (!table) return;
+
+    let html = `
 <table class="open-orders-table">
 <tr>
     <th class="open-order-report-select">Report</th>
@@ -6671,18 +7056,18 @@ let html = `
     <th>Item#</th>
     <th>Description</th>
     <th>Ship Dt</th>
+    <th>Production Status</th>
     <th>Price</th>
     <th>Ext Price</th>
 </tr>
 `;
 
-for (let i = 0; i < openOrdersRows.length; i++) {
+    for (let i = 0; i < openOrdersRows.length; i++) {
+        const cols = openOrdersRows[i];
+        const checked = selectedOpenOrderReportRows.has(i) ? ' checked' : '';
+        const selectedClass = selectedOpenOrderReportRows.has(i) ? ' open-order-report-row-selected' : '';
 
-    const cols = openOrdersRows[i];
-    const checked = selectedOpenOrderReportRows.has(i) ? ' checked' : '';
-    const selectedClass = selectedOpenOrderReportRows.has(i) ? ' open-order-report-row-selected' : '';
-
-   html += `
+        html += `
 <tr class="${i % 2 === 0 ? 'rowEven' : 'rowOdd'} clickable-open-order${selectedClass}" data-open-order-index="${i}" onclick="openJobDashboardFromOpenOrder(${i})" title="Open Order Dashboard">
     <td class="open-order-report-select">
       <input class="open-order-report-checkbox" type="checkbox"${checked} onclick="toggleOpenOrderReportSelection(event, ${i})" title="Select for report">
@@ -6704,17 +7089,633 @@ for (let i = 0; i < openOrdersRows.length; i++) {
     ${escapeHtml(cols[11] || '')}
 </td>
     <td>${escapeHtml(cols[12] || '')}</td>
+    <td>${escapeHtml(cols[15] || '')}</td>
     <td>${escapeHtml(cols[13] || '')}</td>
     <td>${escapeHtml(cols[14] || '')}</td>
 </tr>
 `;
+    }
+
+    html += '</table>';
+    table.innerHTML = html;
 }
 
-html += '</table>';
+function refreshOpenOrdersFromMasterData() {
+    const records = Array.isArray(dleMasterDataFileState.data?.records)
+        ? dleMasterDataFileState.data.records
+        : [];
 
-document.getElementById('openOrdersTable').innerHTML = html;
-updateOpenOrderReportSelectionCount();
-  }
+    openOrdersRows = records.map(convertMasterDataRecordToOpenOrderRow);
+    selectedOpenOrderReportRows = new Set();
+    renderOpenOrdersTable();
+    updateOpenOrderReportSelectionCount();
+
+    if (records.length) {
+        setOpenOrdersStatus(records.length + ' Open Orders records loaded from DLE Master Data.');
+    } else {
+        setOpenOrdersStatus('No Open Orders records are available in the currently loaded DLE Master Data.');
+    }
+}
+
+function convertMasterDataRecordToOpenOrderRow(record) {
+    const vpro5 = record?.vpro5 || {};
+    return [
+        vpro5.orderDate || '',
+        vpro5.customerNumber || '',
+        vpro5.customer || '',
+        vpro5.customerPo || '',
+        vpro5.salesOrder || '',
+        vpro5.sequenceLine || '',
+        vpro5.workOrder || '',
+        vpro5.workOrderQuantity || '',
+        vpro5.quantityShipped || '',
+        vpro5.qtyOpen || '',
+        vpro5.partNumber || '',
+        vpro5.description || '',
+        vpro5.dueDate || '',
+        vpro5.price || '',
+        vpro5.extendedPrice || '',
+        record?.dle?.productionStatus || ''
+    ];
+}
+
+function setSystemErpImportStatus(message) {
+    const systemStatus = document.getElementById('systemErpImportStatus');
+    if (systemStatus) systemStatus.textContent = message;
+}
+
+function setOpenOrdersStatus(message) {
+    const openOrdersStatus = document.getElementById('openOrdersStatus');
+    if (openOrdersStatus) openOrdersStatus.textContent = message;
+}
+
+function renderErpImportDashboardStatus() {
+    const container = document.getElementById('erpImportDashboardStatus');
+    if (!container) return;
+
+    const items = [
+        ['Import Status', erpImportState.status],
+        ['Source File', erpImportState.sourceFile],
+        ['Records Imported', String(erpImportState.recordsImported)],
+        ['Last Imported', erpImportState.lastImported]
+    ];
+
+    container.innerHTML = items.map(([label, value]) => `
+      <div class="master-data-status-item">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+      </div>
+    `).join('');
+}
+
+function renderReconciliationDashboardStatus() {
+    const container = document.getElementById('reconciliationDashboardStatus');
+    if (!container) return;
+
+    const masterDataLoaded = !!dleMasterDataFileState.data;
+    const erpSnapshotLoaded = erpImportState.status === 'Loaded';
+    reconciliationState.currentState = masterDataLoaded && erpSnapshotLoaded ? 'Ready' : 'Not Ready';
+
+    const items = [
+        ['Master Data Status', masterDataLoaded ? 'Loaded' : 'Not Loaded'],
+        ['ERP Snapshot Status', erpSnapshotLoaded ? 'Loaded' : 'Not Loaded'],
+        ['Last Reconciliation', reconciliationState.lastReconciliation],
+        ['Current State', reconciliationState.currentState]
+    ];
+
+    container.innerHTML = items.map(([label, value]) => `
+      <div class="master-data-status-item">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+      </div>
+    `).join('');
+}
+
+function setReconciliationActionStatus(message) {
+    const status = document.getElementById('reconciliationActionStatus');
+    if (status) status.textContent = message;
+}
+
+function startMasterDataReconciliation() {
+    const summaryPanel = document.getElementById('reconciliationSummaryPanel');
+    if (!dleMasterDataFileState.data) {
+        setReconciliationActionStatus('Load DLE Master Data before running reconciliation analysis.');
+        return;
+    }
+    if (!erpImportedOpenOrdersRows.length) {
+        setReconciliationActionStatus('Load an ERP Open Orders snapshot before running reconciliation analysis.');
+        return;
+    }
+
+    const summary = analyzeMasterDataReconciliation();
+    reconciliationState.latestSummary = summary;
+    reconciliationState.lastReconciliation = summary.analysisDate;
+    renderReconciliationDashboardStatus();
+    renderReconciliationSummary(summary);
+    setReconciliationActionStatus('Reconciliation analysis complete. No Master Data records were modified.');
+
+    if (summaryPanel) {
+        summaryPanel.hidden = false;
+    }
+    const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
+    if (button) button.textContent = 'Collapse Summary';
+}
+
+function toggleReconciliationSummary() {
+    const panel = document.getElementById('reconciliationSummaryPanel');
+    if (!panel) return;
+
+    const shouldOpen = panel.hidden;
+    panel.hidden = !shouldOpen;
+
+    const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
+    if (button) button.textContent = shouldOpen ? 'Collapse Summary' : 'Open Summary';
+}
+
+async function approveReconciliationErpUpdates() {
+    if (!dleMasterDataFileState.data || !Array.isArray(dleMasterDataFileState.data.records)) {
+        setReconciliationActionStatus('Load DLE Master Data before approving ERP updates.');
+        return;
+    }
+    if (!dleMasterDataFileState.fileHandle || !dleMasterDataFileState.writable) {
+        setReconciliationActionStatus('The loaded DLE Master Data file is read-only. Open it from System Center > Master Data before approving ERP updates.');
+        return;
+    }
+    if (!erpImportedOpenOrdersRows.length) {
+        setReconciliationActionStatus('Load an ERP Open Orders snapshot before approving ERP updates.');
+        return;
+    }
+
+    if (!reconciliationState.latestSummary) {
+        setReconciliationActionStatus('Run reconciliation analysis and review the summary before approving ERP updates.');
+        return;
+    }
+
+    const currentSummary = reconciliationState.latestSummary;
+    const hasApprovedUpdates = currentSummary.newErpRecords.length
+        || currentSummary.erpFieldDifferences.length
+        || currentSummary.missingErpOwnedFields.length;
+    if (!hasApprovedUpdates) {
+        setReconciliationActionStatus('No ERP-owned updates are available to approve.');
+        return;
+    }
+
+    try {
+        const result = applyApprovedErpUpdatesToMasterData();
+        await writeCurrentDleMasterDataFile();
+        refreshDleMasterDataViewerAfterWrite();
+        refreshOpenOrdersFromMasterData();
+
+        const verificationSummary = analyzeMasterDataReconciliation();
+        reconciliationState.latestSummary = verificationSummary;
+        reconciliationState.lastReconciliation = verificationSummary.analysisDate;
+        renderReconciliationDashboardStatus();
+        renderReconciliationSummary(verificationSummary);
+
+        const summaryPanel = document.getElementById('reconciliationSummaryPanel');
+        if (summaryPanel) summaryPanel.hidden = false;
+        const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
+        if (button) button.textContent = 'Collapse Summary';
+
+        setReconciliationActionStatus([
+            'Approved ERP updates applied.',
+            result.updatedRecords + ' existing record(s) updated.',
+            result.createdRecords + ' new ERP record(s) added.',
+            'DLE-owned fields were preserved. Reconciliation was rerun automatically.'
+        ].join(' '));
+    } catch (error) {
+        setReconciliationActionStatus('Unable to apply approved ERP updates: ' + (error?.message || error));
+    }
+}
+
+function clearReconciliationAnalysis(message) {
+    reconciliationState.latestSummary = null;
+    const panel = document.getElementById('reconciliationSummaryPanel');
+    if (panel) {
+        panel.innerHTML = `
+          <h4>Reconciliation Summary</h4>
+          <p>${escapeHtml(message || 'Run reconciliation to generate a current summary.')}</p>
+        `;
+        panel.hidden = true;
+    }
+    const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
+    if (button) button.textContent = 'Open Summary';
+}
+
+function applyApprovedErpUpdatesToMasterData() {
+    const records = dleMasterDataFileState.data.records;
+    const erpRecords = erpImportedOpenOrdersRows.map((cols, index) => buildDleMasterDataRecord(cols, index, erpImportState.lastImported || new Date().toLocaleString()));
+    const erpOwnedFields = getDleMasterDataVpro5OwnedFields();
+    const masterByKey = buildReconciliationRecordMap(records, getMasterRecordKeyForRecord);
+    let updatedRecords = 0;
+    let createdRecords = 0;
+
+    erpRecords.forEach(erpRecord => {
+        const recordKey = erpRecord.id;
+        const masterRecord = masterByKey.get(recordKey);
+
+        if (!masterRecord) {
+            records.push(erpRecord);
+            createdRecords += 1;
+            return;
+        }
+
+        masterRecord.vpro5 = masterRecord.vpro5 || {};
+        let recordChanged = false;
+        erpOwnedFields.forEach(field => {
+            const nextValue = erpRecord.vpro5?.[field] ?? '';
+            if (normalizeReconciliationValue(masterRecord.vpro5[field]) !== normalizeReconciliationValue(nextValue)) {
+                masterRecord.vpro5[field] = nextValue;
+                recordChanged = true;
+            }
+        });
+
+        if (recordChanged) {
+            updatedRecords += 1;
+        }
+    });
+
+    dleMasterDataFileState.data.recordCount = records.length;
+    return { updatedRecords, createdRecords };
+}
+
+function analyzeMasterDataReconciliation() {
+    const analysisDate = new Date().toLocaleString();
+    const masterRecords = Array.isArray(dleMasterDataFileState.data?.records)
+        ? dleMasterDataFileState.data.records
+        : [];
+    const erpRecords = erpImportedOpenOrdersRows.map((cols, index) => buildDleMasterDataRecord(cols, index, erpImportState.lastImported || analysisDate));
+    const erpOwnedFields = getDleMasterDataVpro5OwnedFields();
+    const masterByKey = buildReconciliationRecordMap(masterRecords, getMasterRecordKeyForRecord);
+    const erpByKey = buildReconciliationRecordMap(erpRecords, record => record.id);
+    const matchingRecords = [];
+    const newErpRecords = [];
+    const recordsMissingFromErp = [];
+    const erpFieldDifferences = [];
+    const missingErpOwnedFields = [];
+
+    erpByKey.forEach((erpRecord, recordKey) => {
+        const masterRecord = masterByKey.get(recordKey);
+        if (!masterRecord) {
+            newErpRecords.push(buildReconciliationRecordSummary(erpRecord, recordKey));
+            return;
+        }
+
+        const missingFields = erpOwnedFields.filter(field => !Object.prototype.hasOwnProperty.call(masterRecord.vpro5 || {}, field));
+        if (missingFields.length) {
+            missingErpOwnedFields.push({
+                recordKey,
+                record: buildReconciliationRecordSummary(masterRecord, recordKey),
+                fields: missingFields
+            });
+        }
+
+        const fieldDifferences = erpOwnedFields
+            .filter(field => Object.prototype.hasOwnProperty.call(masterRecord.vpro5 || {}, field))
+            .map(field => ({
+                field,
+                masterValue: normalizeReconciliationValue(masterRecord.vpro5?.[field]),
+                erpValue: normalizeReconciliationValue(erpRecord.vpro5?.[field])
+            }))
+            .filter(item => item.masterValue !== item.erpValue);
+
+        if (fieldDifferences.length) {
+            erpFieldDifferences.push({
+                recordKey,
+                record: buildReconciliationRecordSummary(masterRecord, recordKey),
+                differences: fieldDifferences
+            });
+            return;
+        }
+
+        if (!missingFields.length) {
+            matchingRecords.push(buildReconciliationRecordSummary(masterRecord, recordKey));
+        }
+    });
+
+    masterByKey.forEach((masterRecord, recordKey) => {
+        if (!erpByKey.has(recordKey)) {
+            recordsMissingFromErp.push(buildReconciliationRecordSummary(masterRecord, recordKey));
+        }
+    });
+
+    const overallStatus = newErpRecords.length || recordsMissingFromErp.length || erpFieldDifferences.length || missingErpOwnedFields.length
+        ? 'Review Needed'
+        : 'No Differences Found';
+
+    return {
+        analysisDate,
+        masterRecordCount: masterRecords.length,
+        erpSnapshotRecordCount: erpRecords.length,
+        matchingRecords,
+        newErpRecords,
+        recordsMissingFromErp,
+        erpFieldDifferences,
+        missingErpOwnedFields,
+        overallStatus
+    };
+}
+
+function buildReconciliationRecordMap(records, getKey) {
+    const map = new Map();
+    records.forEach(record => {
+        const recordKey = getKey(record);
+        if (recordKey) map.set(recordKey, record);
+    });
+    return map;
+}
+
+function buildRecordKeyFromVpro5(vpro5) {
+    return buildMasterRecordKey(vpro5?.customerNumber, vpro5?.salesOrder, vpro5?.sequenceLine);
+}
+
+function getDleMasterDataVpro5OwnedFields() {
+    const ownedFields = dleMasterDataFileState.data?.ownershipModel?.vpro5Owned;
+    return Array.isArray(ownedFields) && ownedFields.length
+        ? ownedFields
+        : [
+            'orderDate',
+            'customerNumber',
+            'customer',
+            'customerPo',
+            'salesOrder',
+            'sequenceLine',
+            'workOrder',
+            'workOrderQuantity',
+            'quantityShipped',
+            'qtyOpen',
+            'partNumber',
+            'description',
+            'dueDate',
+            'price',
+            'extendedPrice'
+        ];
+}
+
+function normalizeReconciliationValue(value) {
+    return String(value ?? '').trim();
+}
+
+function buildReconciliationRecordSummary(record, recordKey) {
+    const vpro5 = record?.vpro5 || {};
+    return {
+        recordKey,
+        customer: vpro5.customer || '',
+        salesOrder: vpro5.salesOrder || '',
+        sequenceLine: vpro5.sequenceLine || '',
+        workOrder: vpro5.workOrder || '',
+        partNumber: vpro5.partNumber || ''
+    };
+}
+
+function renderReconciliationSummary(summary) {
+    const panel = document.getElementById('reconciliationSummaryPanel');
+    if (!panel) return;
+
+    panel.innerHTML = `
+      <h4>Reconciliation Summary</h4>
+      <p>Read-only summary of the current reconciliation analysis. Master Data changes occur only through Approve ERP Updates.</p>
+      <div class="master-data-dashboard-status">
+        ${reconciliationSummaryCard('Master Data Records', summary.masterRecordCount)}
+        ${reconciliationSummaryCard('ERP Snapshot Records', summary.erpSnapshotRecordCount)}
+        ${reconciliationSummaryCard('Matching Records', summary.matchingRecords.length)}
+        ${reconciliationSummaryCard('New ERP Records', summary.newErpRecords.length)}
+        ${reconciliationSummaryCard('Records Missing from ERP', summary.recordsMissingFromErp.length)}
+        ${reconciliationSummaryCard('ERP-Owned Field Differences', summary.erpFieldDifferences.length)}
+        ${reconciliationSummaryCard('Missing ERP-Owned Fields', summary.missingErpOwnedFields.length)}
+        ${reconciliationSummaryCard('Overall Status', summary.overallStatus)}
+      </div>
+      ${renderReconciliationList('New ERP Records', summary.newErpRecords)}
+      ${renderReconciliationList('Records Missing from ERP', summary.recordsMissingFromErp)}
+      ${renderReconciliationDifferences(summary.erpFieldDifferences)}
+      ${renderMissingErpFieldList(summary.missingErpOwnedFields)}
+      ${renderReconciliationInvestigation(summary)}
+    `;
+}
+
+function reconciliationSummaryCard(label, value) {
+    return `
+      <div class="master-data-status-item">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(String(value))}</strong>
+      </div>
+    `;
+}
+
+function renderReconciliationList(title, records) {
+    const rows = records.slice(0, 25).map(record => `
+      <tr>
+        <td>${escapeHtml(record.recordKey)}</td>
+        <td>${escapeHtml(record.customer)}</td>
+        <td>${escapeHtml(record.salesOrder)}</td>
+        <td>${escapeHtml(record.sequenceLine)}</td>
+        <td>${escapeHtml(record.workOrder)}</td>
+        <td>${escapeHtml(record.partNumber)}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <section class="master-data-detail-section">
+        <h3>${escapeHtml(title)} (${records.length})</h3>
+        ${records.length ? `
+          <div class="master-data-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record Key</th>
+                  <th>Customer</th>
+                  <th>Sales Order</th>
+                  <th>Seq Line</th>
+                  <th>Work Order</th>
+                  <th>Part Number</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${records.length > 25 ? `<p>Showing first 25 of ${records.length} records.</p>` : ''}
+        ` : '<p>No records in this category.</p>'}
+      </section>
+    `;
+}
+
+function renderReconciliationDifferences(items) {
+    const rows = items.slice(0, 25).map(item => `
+      <tr>
+        <td>${escapeHtml(item.recordKey)}</td>
+        <td>${escapeHtml(item.record.customer)}</td>
+        <td>${escapeHtml(item.record.partNumber)}</td>
+        <td>${escapeHtml(item.differences.map(diff => formatMasterDataLabel(diff.field)).join(', '))}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <section class="master-data-detail-section">
+        <h3>ERP-Owned Field Differences (${items.length})</h3>
+        ${items.length ? `
+          <div class="master-data-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record Key</th>
+                  <th>Customer</th>
+                  <th>Part Number</th>
+                  <th>Fields Changed</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${items.length > 25 ? `<p>Showing first 25 of ${items.length} records.</p>` : ''}
+        ` : '<p>No ERP-owned field differences found.</p>'}
+      </section>
+    `;
+}
+
+function renderMissingErpFieldList(items) {
+    const rows = items.slice(0, 25).map(item => `
+      <tr>
+        <td>${escapeHtml(item.recordKey)}</td>
+        <td>${escapeHtml(item.record.customer)}</td>
+        <td>${escapeHtml(item.record.partNumber)}</td>
+        <td>${escapeHtml(item.fields.map(formatMasterDataLabel).join(', '))}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <section class="master-data-detail-section">
+        <h3>Missing ERP-Owned Fields in Master Data (${items.length})</h3>
+        ${items.length ? `
+          <div class="master-data-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record Key</th>
+                  <th>Customer</th>
+                  <th>Part Number</th>
+                  <th>Missing Fields</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${items.length > 25 ? `<p>Showing first 25 of ${items.length} records.</p>` : ''}
+        ` : '<p>No missing ERP-owned fields found.</p>'}
+      </section>
+    `;
+}
+
+function renderReconciliationInvestigation(summary) {
+    const investigationRecords = buildReconciliationInvestigationRecords(summary);
+    const records = investigationRecords.map((item, index) => `
+      <article class="reconciliation-investigation-card">
+        <div class="reconciliation-investigation-title">
+          <strong>Difference ${index + 1}</strong>
+          <span>${escapeHtml(item.category)}</span>
+        </div>
+        <div class="reconciliation-investigation-grid">
+          <div>
+            <span>Sales Order</span>
+            <strong>${escapeHtml(item.salesOrder)}</strong>
+          </div>
+          <div>
+            <span>Sequence Line</span>
+            <strong>${escapeHtml(item.sequenceLine)}</strong>
+          </div>
+          <div>
+            <span>Work Order</span>
+            <strong>${escapeHtml(item.workOrder || 'Not assigned')}</strong>
+          </div>
+          <div>
+            <span>Customer</span>
+            <strong>${escapeHtml(item.customer || 'Not available')}</strong>
+          </div>
+          <div>
+            <span>Field Name</span>
+            <strong>${escapeHtml(item.fieldName)}</strong>
+          </div>
+        </div>
+        <div class="reconciliation-value-compare">
+          <div>
+            <span>Master Data Value</span>
+            <strong>${escapeHtml(item.masterValue)}</strong>
+          </div>
+          <div>
+            <span>ERP Snapshot Value</span>
+            <strong>${escapeHtml(item.erpValue)}</strong>
+          </div>
+        </div>
+      </article>
+    `).join('');
+
+    return `
+      <section class="master-data-detail-section reconciliation-investigation-workspace">
+        <h3>Difference Investigation (${investigationRecords.length})</h3>
+        <p>Read-only explanation of every detected reconciliation difference. No Master Data records are modified from this workspace.</p>
+        <div class="reconciliation-investigation-list">
+          ${records || '<div class="master-data-empty">No detected differences to investigate.</div>'}
+        </div>
+      </section>
+    `;
+}
+
+function buildReconciliationInvestigationRecords(summary) {
+    const fieldDifferences = summary.erpFieldDifferences.flatMap(item =>
+        item.differences.map(diff => ({
+            category: 'ERP-Owned Field Difference',
+            salesOrder: item.record.salesOrder,
+            sequenceLine: item.record.sequenceLine,
+            workOrder: item.record.workOrder,
+            customer: item.record.customer,
+            fieldName: formatMasterDataLabel(diff.field),
+            masterValue: diff.masterValue || '[blank]',
+            erpValue: diff.erpValue || '[blank]'
+        }))
+    );
+
+    const missingFields = summary.missingErpOwnedFields.flatMap(item =>
+        item.fields.map(field => ({
+            category: 'Missing ERP-Owned Field',
+            salesOrder: item.record.salesOrder,
+            sequenceLine: item.record.sequenceLine,
+            workOrder: item.record.workOrder,
+            customer: item.record.customer,
+            fieldName: formatMasterDataLabel(field),
+            masterValue: '[field missing]',
+            erpValue: '[field expected]'
+        }))
+    );
+
+    const newRecords = summary.newErpRecords.map(record => ({
+        category: 'New ERP Record',
+        salesOrder: record.salesOrder,
+        sequenceLine: record.sequenceLine,
+        workOrder: record.workOrder,
+        customer: record.customer,
+        fieldName: 'Record',
+        masterValue: '[record not found]',
+        erpValue: record.recordKey
+    }));
+
+    const missingRecords = summary.recordsMissingFromErp.map(record => ({
+        category: 'Record Missing from ERP',
+        salesOrder: record.salesOrder,
+        sequenceLine: record.sequenceLine,
+        workOrder: record.workOrder,
+        customer: record.customer,
+        fieldName: 'Record',
+        masterValue: record.recordKey,
+        erpValue: '[record not found]'
+    }));
+
+    return [
+        ...fieldDifferences,
+        ...missingFields,
+        ...newRecords,
+        ...missingRecords
+    ];
+}
+
 function filterOpenOrders() {
 
     const input =
@@ -6782,10 +7783,8 @@ function clearOpenOrderReportSelection() {
 }
 
 async function createDleMasterData() {
-    const status = document.getElementById('openOrdersStatus');
-
-    if (!openOrdersRows.length) {
-        if (status) status.textContent = 'Load an Open Orders export before creating DLE Master Data.';
+    if (!erpImportedOpenOrdersRows.length) {
+        setSystemErpImportStatus('Load an Open Orders export before creating DLE Master Data.');
         return;
     }
 
@@ -6794,11 +7793,13 @@ async function createDleMasterData() {
     dleMasterData = {
         schema: 'DLE_MASTER_DATA_V1',
         created,
-        uniqueKey: 'Sales Order + Sequence Line',
+        uniqueKey: 'Customer Number + Sales Order + Sequence Line',
         source: 'VPro5 Open Orders Export',
-        recordCount: openOrdersRows.length,
+        recordCount: erpImportedOpenOrdersRows.length,
         ownershipModel: {
             vpro5Owned: [
+                'orderDate',
+                'customerNumber',
                 'customer',
                 'customerPo',
                 'salesOrder',
@@ -6814,10 +7815,10 @@ async function createDleMasterData() {
                 'extendedPrice'
             ],
             dleOwned: [
-                'productionNotes'
+                'productionStatus'
             ]
         },
-        records: openOrdersRows.map((cols, index) => buildDleMasterDataRecord(cols, index, created))
+        records: erpImportedOpenOrdersRows.map((cols, index) => buildDleMasterDataRecord(cols, index, created))
     };
     clearDleMasterDataFileState();
 
@@ -6828,14 +7829,17 @@ async function createDleMasterData() {
         saveResult = 'Save failed: ' + (error?.message || error);
     }
 
-    if (status) {
-        status.textContent = [
-            'DLE Master Data successfully created.',
-            dleMasterData.records.length + ' work order records initialized.',
-            'Unique Key: Sales Order + Sequence Line',
-            'Saved to: ' + saveResult
-        ].join(' ');
-    }
+    setSystemErpImportStatus([
+        'DLE Master Data successfully created.',
+        dleMasterData.records.length + ' work order records initialized.',
+        'Unique Key: Customer Number + Sales Order + Sequence Line',
+        'Saved to: ' + saveResult
+    ].join(' '));
+    renderMasterDataDashboardStatus();
+}
+
+async function createDleMasterDataFromErpImport() {
+    await createDleMasterData();
 }
 
 function buildDleMasterDataRecord(cols, index, importedAt) {
@@ -6843,6 +7847,8 @@ function buildDleMasterDataRecord(cols, index, importedAt) {
         id: buildDleMasterDataRecordId(cols, index),
         sourceIndex: index,
         vpro5: {
+            orderDate: normalizeOrderValue(cols[0]),
+            customerNumber: normalizeOrderValue(cols[1]),
             customer: normalizeOrderValue(cols[2]),
             customerPo: normalizeOrderValue(cols[3]),
             salesOrder: normalizeOrderValue(cols[4]),
@@ -6858,7 +7864,7 @@ function buildDleMasterDataRecord(cols, index, importedAt) {
             extendedPrice: normalizeOrderValue(cols[14], '0')
         },
         dle: {
-            productionNotes: ''
+            productionStatus: ''
         },
         sync: {
             sourceSystem: 'VPro5',
@@ -6869,9 +7875,7 @@ function buildDleMasterDataRecord(cols, index, importedAt) {
 }
 
 function buildDleMasterDataRecordId(cols, index) {
-    const salesOrder = normalizeOrderValue(cols[4], 'SO');
-    const line = normalizeOrderValue(cols[5], String(index + 1));
-    return [salesOrder, line].join('|');
+    return buildMasterRecordKeyFromOpenOrderRow(cols, index);
 }
 
 async function saveDleMasterDataFile(data, createdAt) {
@@ -6982,7 +7986,7 @@ function createWorkOrderStatusInquiry(records) {
         status: 'Created',
         records: records.map(record => ({
             ...record,
-            productionNotes: record.productionNotes || ''
+            productionStatus: record.productionStatus || ''
         }))
     };
 
@@ -7069,7 +8073,8 @@ function buildWorkOrderStatusReportRecord(cols, index) {
         workOrder: formatImportedWorkOrder(cols[6]),
         openQuantity: normalizeOrderValue(cols[9] || cols[7], '0'),
         salesOrder: normalizeOrderValue(cols[4]),
-        customerPo: normalizeOrderValue(cols[3])
+        customerPo: normalizeOrderValue(cols[3]),
+        productionStatus: normalizeOrderValue(cols[15], '')
     };
 }
 
@@ -7091,7 +8096,7 @@ function renderWorkOrderStatusInquiryReport() {
       ${isInquiryDetail ? `
         <div class="inquiry-detail-actions">
           <button type="button" onclick="completeActiveInquiry('${escapeHtml(report.inquiryId)}')">Complete Inquiry</button>
-          <span class="open-order-report-count">Enter handwritten production responses in the Production Notes column.</span>
+          <span class="open-order-report-count">Enter handwritten production responses in the Production Status column.</span>
         </div>
       ` : ''}
       <div id="reportPrintSurface" class="report-print-surface">
@@ -7155,7 +8160,7 @@ function groupWorkOrderStatusRecords(records, grouping) {
         }));
 }
 
-function buildWorkOrderStatusReportGroup(group, editableNotes = false, inquiryId = '') {
+function buildWorkOrderStatusReportGroup(group, editableStatus = false, inquiryId = '') {
     return `
       <section class="report-group">
         <h3>${escapeHtml(group.label)}</h3>
@@ -7168,7 +8173,7 @@ function buildWorkOrderStatusReportGroup(group, editableNotes = false, inquiryId
               <th style="width: 15%;">Part Number</th>
               <th style="width: 27%;">Description</th>
               <th style="width: 8%;">Qty Open</th>
-              <th style="width: 13%;">Production Notes</th>
+              <th style="width: 13%;">Production Status</th>
             </tr>
           </thead>
           <tbody>
@@ -7180,7 +8185,7 @@ function buildWorkOrderStatusReportGroup(group, editableNotes = false, inquiryId
                 <td>${escapeHtml(record.partNumber)}</td>
                 <td>${escapeHtml(record.description)}</td>
                 <td>${escapeHtml(record.openQuantity)}</td>
-                <td class="report-notes-cell">${buildProductionNotesCell(record, editableNotes, inquiryId)}</td>
+                <td class="report-notes-cell">${buildProductionStatusCell(record, editableStatus, inquiryId)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -7190,17 +8195,17 @@ function buildWorkOrderStatusReportGroup(group, editableNotes = false, inquiryId
     `;
 }
 
-function buildProductionNotesCell(record, editableNotes, inquiryId) {
-    if (!editableNotes) return '';
-    return `<textarea class="production-note-input" oninput="updateActiveInquiryProductionNote('${escapeHtml(inquiryId)}', ${record.sourceIndex}, this.value)">${escapeHtml(record.productionNotes || '')}</textarea>`;
+function buildProductionStatusCell(record, editableStatus, inquiryId) {
+    if (!editableStatus) return '';
+    return `<textarea class="production-status-input" oninput="updateActiveInquiryProductionStatus('${escapeHtml(inquiryId)}', ${record.sourceIndex}, this.value)">${escapeHtml(record.productionStatus || '')}</textarea>`;
 }
 
-function updateActiveInquiryProductionNote(inquiryId, sourceIndex, value) {
+function updateActiveInquiryProductionStatus(inquiryId, sourceIndex, value) {
     const inquiry = getActiveInquiryById(inquiryId);
     if (!inquiry) return;
     const record = inquiry.records.find(item => item.sourceIndex === Number(sourceIndex));
     if (!record) return;
-    record.productionNotes = value;
+    record.productionStatus = value;
     if (inquiry.status === 'Created' || inquiry.status === 'Issued') {
         inquiry.status = 'Returned';
         syncCurrentInquiryReportStatus(inquiry);
@@ -7222,7 +8227,7 @@ async function completeActiveInquiry(inquiryId) {
     const updates = inquiry.records.map(record => ({
         recordKey: record.masterDataRecordId,
         dleFields: {
-            productionNotes: record.productionNotes || ''
+            productionStatus: record.productionStatus || ''
         }
     }));
 
@@ -7630,6 +8635,26 @@ function normalizeOrderValue(value, fallback = 'N/A') {
         String(value || '').trim();
 
     return normalized || fallback;
+}
+
+function buildMasterRecordKey(customerNumber, salesOrder, sequenceLine) {
+    return [
+        normalizeOrderValue(customerNumber, 'UNKNOWN_CUSTOMER'),
+        normalizeOrderValue(salesOrder, 'SO'),
+        normalizeOrderValue(sequenceLine, 'LINE')
+    ].join('|');
+}
+
+function buildMasterRecordKeyFromOpenOrderRow(cols, index = 0) {
+    return buildMasterRecordKey(cols?.[1], cols?.[4], cols?.[5] || String(index + 1));
+}
+
+function getMasterRecordKeyForRecord(record) {
+    const vpro5 = record?.vpro5 || {};
+    if (vpro5.customerNumber || vpro5.salesOrder || vpro5.sequenceLine) {
+        return buildRecordKeyFromVpro5(vpro5);
+    }
+    return record?.id || record?.recordKey || '';
 }
 
 function formatImportedWorkOrder(value) {
@@ -13102,8 +14127,22 @@ const dleMasterDataGridColumns = [
   { key: 'description', label: 'Description' },
   { key: 'dueDate', label: 'Due Date' },
   { key: 'qtyOpen', label: 'Quantity Open' },
-  { key: 'productionNotes', label: 'Production Notes' }
+  { key: 'productionStatus', label: 'Production Status' }
 ];
+
+function openMasterDataViewerWorkspace() {
+  const viewer = document.getElementById('dleMasterDataViewer');
+  if (!viewer) return;
+  viewer.hidden = false;
+  renderDleMasterDataViewer();
+  viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function collapseMasterDataViewerWorkspace() {
+  const viewer = document.getElementById('dleMasterDataViewer');
+  if (!viewer) return;
+  viewer.hidden = true;
+}
 
 async function browseDleMasterDataFile() {
   if (window.showOpenFilePicker) {
@@ -13177,6 +14216,8 @@ function loadDleMasterDataFromFile(file, fileHandle = null) {
 }
 
 function setCurrentDleMasterDataFile(data, options = {}) {
+  ensureDleMasterDataErpFields(data);
+  ensureDleMasterDataOperationalFields(data);
   const records = Array.isArray(data?.records)
     ? data.records
     : Array.isArray(data)
@@ -13194,6 +14235,73 @@ function setCurrentDleMasterDataFile(data, options = {}) {
   dleMasterDataViewerState.lastModified = dleMasterDataFileState.lastModified || 'Not available';
   dleMasterDataViewerState.data = data;
   dleMasterDataViewerState.records = records;
+  clearReconciliationAnalysis('Master Data changed. Run reconciliation again before approving updates.');
+  renderMasterDataDashboardStatus();
+  renderReconciliationDashboardStatus();
+  refreshOpenOrdersFromMasterData();
+}
+
+function ensureDleMasterDataErpFields(data) {
+  const records = Array.isArray(data?.records)
+    ? data.records
+    : Array.isArray(data)
+      ? data
+      : [];
+
+  records.forEach(record => {
+    record.vpro5 = record.vpro5 || {};
+    if (!Object.prototype.hasOwnProperty.call(record.vpro5, 'orderDate')) {
+      record.vpro5.orderDate = '';
+    }
+    if (!Object.prototype.hasOwnProperty.call(record.vpro5, 'customerNumber')) {
+      record.vpro5.customerNumber = '';
+    }
+    record.id = buildRecordKeyFromVpro5(record.vpro5);
+  });
+
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    data.uniqueKey = 'Customer Number + Sales Order + Sequence Line';
+  }
+
+  if (data?.ownershipModel) {
+    const vpro5Owned = Array.isArray(data.ownershipModel.vpro5Owned)
+      ? data.ownershipModel.vpro5Owned
+      : [];
+    ['orderDate', 'customerNumber'].forEach(field => {
+      if (!vpro5Owned.includes(field)) {
+        vpro5Owned.push(field);
+      }
+    });
+    data.ownershipModel.vpro5Owned = vpro5Owned;
+  }
+}
+
+function ensureDleMasterDataOperationalFields(data) {
+  const records = Array.isArray(data?.records)
+    ? data.records
+    : Array.isArray(data)
+      ? data
+      : [];
+
+  records.forEach(record => {
+    record.dle = record.dle || {};
+    const hasProductionStatus = Object.prototype.hasOwnProperty.call(record.dle, 'productionStatus');
+    if (!hasProductionStatus) {
+      record.dle.productionStatus = record.dle.productionNotes || '';
+    }
+    delete record.dle.productionNotes;
+  });
+
+  if (data?.ownershipModel) {
+    const dleOwned = Array.isArray(data.ownershipModel.dleOwned)
+      ? data.ownershipModel.dleOwned.filter(field => field !== 'productionNotes')
+      : [];
+    if (!dleOwned.includes('productionStatus')) {
+      data.ownershipModel.dleOwned = [...dleOwned, 'productionStatus'];
+    } else {
+      data.ownershipModel.dleOwned = dleOwned;
+    }
+  }
 }
 
 function clearDleMasterDataFileState() {
@@ -13202,6 +14310,10 @@ function clearDleMasterDataFileState() {
   dleMasterDataFileState.fileName = '';
   dleMasterDataFileState.lastModified = '';
   dleMasterDataFileState.writable = false;
+  clearReconciliationAnalysis('No current reconciliation summary is available.');
+  renderMasterDataDashboardStatus();
+  renderReconciliationDashboardStatus();
+  refreshOpenOrdersFromMasterData();
 }
 
 async function updateDleMasterDataRecordDleFields(recordKey, dleFields) {
@@ -13215,11 +14327,11 @@ async function updateDleMasterDataRecordsDleFields(updates) {
   }
 
   if (!dleMasterDataFileState.fileHandle || !dleMasterDataFileState.writable) {
-    throw new Error('The currently loaded DLE Master Data file is not writable. Open it with the DLE Master Data Viewer before completing the inquiry.');
+    throw new Error('The currently loaded DLE Master Data file is not writable. Open it from System Center > Master Data before completing the inquiry.');
   }
 
   const recordsByKey = new Map(
-    dleMasterDataFileState.data.records.map(record => [record.id || record.recordKey, record])
+    dleMasterDataFileState.data.records.map(record => [getMasterRecordKeyForRecord(record), record])
   );
   const allowedDleFields = getDleMasterDataOwnedFields();
   let updatedRecords = 0;
@@ -13253,7 +14365,7 @@ async function updateDleMasterDataRecordsDleFields(updates) {
 
 function getDleMasterDataOwnedFields() {
   const ownedFields = dleMasterDataFileState.data?.ownershipModel?.dleOwned;
-  return new Set(Array.isArray(ownedFields) && ownedFields.length ? ownedFields : ['productionNotes']);
+  return new Set(Array.isArray(ownedFields) && ownedFields.length ? ownedFields : ['productionStatus']);
 }
 
 async function writeCurrentDleMasterDataFile() {
@@ -13263,6 +14375,7 @@ async function writeCurrentDleMasterDataFile() {
 
   dleMasterDataFileState.lastModified = new Date().toLocaleString();
   dleMasterDataViewerState.lastModified = dleMasterDataFileState.lastModified;
+  renderMasterDataDashboardStatus();
 }
 
 function refreshDleMasterDataViewerAfterWrite() {
@@ -13338,6 +14451,30 @@ function renderDleMasterDataViewer() {
   renderDleMasterDataSummary();
   renderDleMasterDataGrid();
   renderDleMasterDataDetail();
+}
+
+function renderMasterDataDashboardStatus() {
+  const container = document.getElementById('masterDataDashboardStatus');
+  if (!container) return;
+
+  const records = Array.isArray(dleMasterDataFileState.data?.records)
+    ? dleMasterDataFileState.data.records
+    : [];
+  const isLoaded = !!dleMasterDataFileState.data;
+
+  const items = [
+    ['Status', isLoaded ? 'Loaded' : 'Not Loaded'],
+    ['Source File', dleMasterDataFileState.fileName || 'Not available'],
+    ['Record Count', isLoaded ? String(records.length) : '0'],
+    ['Last Loaded', dleMasterDataFileState.lastModified || 'Not available']
+  ];
+
+  container.innerHTML = items.map(([label, value]) => `
+    <div class="master-data-status-item">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `).join('');
 }
 
 function renderDleMasterDataSummary() {
@@ -13430,7 +14567,7 @@ function renderDleMasterDataDetail() {
   position.textContent = `Record ${index + 1} of ${records.length}`;
 
   const syncInfo = {
-    recordKey: record.id || record.recordKey || '',
+    recordKey: getMasterRecordKeyForRecord(record),
     importDate: record.sync?.importedAt || dleMasterDataViewerState.data?.created || '',
     importStatus: record.sync?.status || record.importStatus || 'Unknown',
     sourceSystem: record.sync?.sourceSystem || 'VPro5',
@@ -13494,7 +14631,7 @@ function getDleMasterDataField(record, field) {
     description: vpro5.description,
     dueDate: vpro5.dueDate,
     qtyOpen: vpro5.qtyOpen,
-    productionNotes: dle.productionNotes
+    productionStatus: dle.productionStatus
   };
   return formatMasterDataValue(fieldMap[field]);
 }
@@ -13539,6 +14676,9 @@ prepareBomExtractionWorkspace();
 renderBomWorkbenchStatus();
 updateOpenOrderReportSelectionCount();
 renderActiveInquiryList();
+renderMasterDataDashboardStatus();
+renderErpImportDashboardStatus();
+renderReconciliationDashboardStatus();
 renderDleMasterDataViewer();
 updateBackButton();
 

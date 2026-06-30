@@ -18,10 +18,12 @@
       "dueDate",
       "qtyOpen",
       "price",
-      "extendedPrice"
+      "extendedPrice",
+      "orderDate",
+      "customerNumber"
     ],
     "dleOwned": [
-      "productionNotes"
+      "productionStatus"
     ]
   },
   "records": [
@@ -41,10 +43,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/15/23",
         "price": "3400.00",
-        "extendedPrice": "3400.00"
+        "extendedPrice": "3400.00",
+        "orderDate": "03/17/23",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -68,10 +72,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/15/23",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "03/17/23",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -95,10 +101,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/15/23",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "03/17/23",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -122,10 +130,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/15/23",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "03/17/23",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -149,10 +159,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/15/23",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "03/17/23",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -176,10 +188,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/15/23",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "03/17/23",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -203,10 +217,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/15/23",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "03/17/23",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -230,10 +246,12 @@
         "description": "ISOLATION SWITCH ASSY",
         "dueDate": "10/16/24",
         "price": "1150.00",
-        "extendedPrice": "2300.00"
+        "extendedPrice": "2300.00",
+        "orderDate": "02/16/24",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -257,10 +275,12 @@
         "description": "CCA, RH, PROGRAMMED",
         "dueDate": "01/27/25",
         "price": "439.33",
-        "extendedPrice": "2196.65"
+        "extendedPrice": "2196.65",
+        "orderDate": "01/27/25",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -284,10 +304,12 @@
         "description": "CCA, RH, PROGRAMMED",
         "dueDate": "11/10/25",
         "price": "439.33",
-        "extendedPrice": "2196.65"
+        "extendedPrice": "2196.65",
+        "orderDate": "08/21/25",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -311,10 +333,12 @@
         "description": "POWERBOARD SMT ASSY",
         "dueDate": "11/12/25",
         "price": "425.62",
-        "extendedPrice": "425.62"
+        "extendedPrice": "425.62",
+        "orderDate": "09/08/25",
+        "customerNumber": "001082"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -338,10 +362,12 @@
         "description": "CCA, LH, PROGRAMMED",
         "dueDate": "12/10/25",
         "price": "439.33",
-        "extendedPrice": "878.66"
+        "extendedPrice": "878.66",
+        "orderDate": "08/21/25",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -365,10 +391,12 @@
         "description": "POWER CABLE ASSY C-13CE",
         "dueDate": "01/02/26",
         "price": "713.30",
-        "extendedPrice": "2853.20"
+        "extendedPrice": "2853.20",
+        "orderDate": "01/17/24",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -392,10 +420,12 @@
         "description": "CCA, RH, PROGRAMMED",
         "dueDate": "01/23/26",
         "price": "439.33",
-        "extendedPrice": "2196.65"
+        "extendedPrice": "2196.65",
+        "orderDate": "12/09/25",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -419,10 +449,12 @@
         "description": "CCA, LH, PROGRAMMED",
         "dueDate": "02/04/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "02/04/26",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -446,10 +478,12 @@
         "description": "CCA, RH, PROGRAMMED",
         "dueDate": "02/04/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "02/04/26",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -473,10 +507,12 @@
         "description": "CONTROLLER BOARD",
         "dueDate": "02/17/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "02/17/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -500,10 +536,12 @@
         "description": "CONTROLLER BOARD",
         "dueDate": "02/17/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "02/17/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -527,10 +565,12 @@
         "description": "CONTROLLER BOARD",
         "dueDate": "02/17/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "02/17/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -554,10 +594,12 @@
         "description": "CONTROLLER BOARD",
         "dueDate": "02/17/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "02/17/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -581,10 +623,12 @@
         "description": "CCA, LH, PROGRAMMED",
         "dueDate": "02/21/26",
         "price": "439.33",
-        "extendedPrice": "439.33"
+        "extendedPrice": "439.33",
+        "orderDate": "02/05/26",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -608,10 +652,12 @@
         "description": "CCA, RH, PROGRAMMED",
         "dueDate": "03/01/26",
         "price": "439.33",
-        "extendedPrice": "439.33"
+        "extendedPrice": "439.33",
+        "orderDate": "02/05/26",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -635,10 +681,12 @@
         "description": "FLASHER HEAD MODULE ASSY",
         "dueDate": "03/12/26",
         "price": "301.87",
-        "extendedPrice": "301.87"
+        "extendedPrice": "301.87",
+        "orderDate": "12/16/25",
+        "customerNumber": "001057"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -662,10 +710,12 @@
         "description": "PRINTED CIRCUIT BOARD ASSY LED",
         "dueDate": "03/19/26",
         "price": "85.35",
-        "extendedPrice": "170.70"
+        "extendedPrice": "170.70",
+        "orderDate": "",
+        "customerNumber": ""
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -689,10 +739,12 @@
         "description": "HARNESS ASSEMBLY",
         "dueDate": "03/31/26",
         "price": "500.00",
-        "extendedPrice": "15500.00"
+        "extendedPrice": "15500.00",
+        "orderDate": "03/31/26",
+        "customerNumber": "001021"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -716,10 +768,12 @@
         "description": "CIRCUIT BOARD ASSY",
         "dueDate": "04/01/26",
         "price": "46.45",
-        "extendedPrice": "2740.55"
+        "extendedPrice": "2740.55",
+        "orderDate": "10/15/25",
+        "customerNumber": "001037"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -743,10 +797,12 @@
         "description": "POWER SUPPLY PCB ASSY (SIDE)",
         "dueDate": "04/15/26",
         "price": "35.00",
-        "extendedPrice": "3500.00"
+        "extendedPrice": "3500.00",
+        "orderDate": "11/19/25",
+        "customerNumber": "839287"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -770,10 +826,12 @@
         "description": "CABLE ASSY",
         "dueDate": "04/17/26",
         "price": "472.80",
-        "extendedPrice": "47280.00"
+        "extendedPrice": "47280.00",
+        "orderDate": "10/27/25",
+        "customerNumber": "001061"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -797,10 +855,12 @@
         "description": "ISOLATION SWITCH ASSY",
         "dueDate": "04/23/26",
         "price": "1237.85",
-        "extendedPrice": "12378.50"
+        "extendedPrice": "12378.50",
+        "orderDate": "01/19/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -824,10 +884,12 @@
         "description": "CONTROLLER BOARD",
         "dueDate": "05/12/26",
         "price": "933.50",
-        "extendedPrice": "51342.50"
+        "extendedPrice": "51342.50",
+        "orderDate": "02/02/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -851,10 +913,12 @@
         "description": "ISOLATION SWITCH ASSY",
         "dueDate": "05/13/26",
         "price": "1237.85",
-        "extendedPrice": "24757.00"
+        "extendedPrice": "24757.00",
+        "orderDate": "01/19/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -878,10 +942,12 @@
         "description": "ONE TOUCH PCB ASSY",
         "dueDate": "05/15/26",
         "price": "34.43",
-        "extendedPrice": "3443.00"
+        "extendedPrice": "3443.00",
+        "orderDate": "11/19/25",
+        "customerNumber": "839287"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -905,10 +971,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "05/20/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "05/20/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -932,10 +1000,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "05/20/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "05/20/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -959,10 +1029,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "05/20/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "05/20/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -986,10 +1058,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "05/20/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "05/20/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1013,10 +1087,12 @@
         "description": "CCA, RH, PROGRAMMED",
         "dueDate": "05/24/26",
         "price": "439.33",
-        "extendedPrice": "1317.99"
+        "extendedPrice": "1317.99",
+        "orderDate": "04/01/26",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1040,10 +1116,12 @@
         "description": "POWER SUPPLY PCB ASSY (SIDE)",
         "dueDate": "06/01/26",
         "price": "35.00",
-        "extendedPrice": "3500.00"
+        "extendedPrice": "3500.00",
+        "orderDate": "11/19/25",
+        "customerNumber": "839287"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1067,10 +1145,12 @@
         "description": "FLASHER HEAD MODULE ASSY",
         "dueDate": "06/02/26",
         "price": "304.25",
-        "extendedPrice": "15212.50"
+        "extendedPrice": "15212.50",
+        "orderDate": "03/24/26",
+        "customerNumber": "001057"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1094,10 +1174,12 @@
         "description": "SMOKE DETECTOR DUAL, 8930",
         "dueDate": "06/03/26",
         "price": "478.34",
-        "extendedPrice": "8131.78"
+        "extendedPrice": "8131.78",
+        "orderDate": "04/06/26",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1121,10 +1203,12 @@
         "description": "SMOKE DETECTOR SINGLE, 8930",
         "dueDate": "06/03/26",
         "price": "364.80",
-        "extendedPrice": "14592.00"
+        "extendedPrice": "14592.00",
+        "orderDate": "05/19/26",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1148,10 +1232,12 @@
         "description": "ISOLATION SWITCH ASSY",
         "dueDate": "06/09/26",
         "price": "1237.85",
-        "extendedPrice": "24757.00"
+        "extendedPrice": "24757.00",
+        "orderDate": "01/19/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1175,10 +1261,12 @@
         "description": "CONNECTOR HARNESS ASSY",
         "dueDate": "06/15/26",
         "price": "108.39",
-        "extendedPrice": "10838.75"
+        "extendedPrice": "10838.75",
+        "orderDate": "",
+        "customerNumber": ""
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1202,10 +1290,12 @@
         "description": "CCA, ARINC-429 I/F,CCD",
         "dueDate": "06/15/26",
         "price": "443.18",
-        "extendedPrice": "3988.62"
+        "extendedPrice": "3988.62",
+        "orderDate": "06/03/26",
+        "customerNumber": "549250"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1229,10 +1319,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/16/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "06/16/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1256,10 +1348,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/16/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "06/16/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1283,10 +1377,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/16/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "06/16/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1310,10 +1406,12 @@
         "description": "PANEL ASSEMBLY",
         "dueDate": "06/16/26",
         "price": "0.00",
-        "extendedPrice": "0.00"
+        "extendedPrice": "0.00",
+        "orderDate": "06/16/26",
+        "customerNumber": "578350"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1337,10 +1435,12 @@
         "description": "PCBA-644",
         "dueDate": "06/17/26",
         "price": "82.04",
-        "extendedPrice": "820.40"
+        "extendedPrice": "820.40",
+        "orderDate": "03/17/26",
+        "customerNumber": "001082"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1364,10 +1464,12 @@
         "description": "CCA, ALARM CARD SEMI 3 CH PCBA",
         "dueDate": "06/18/26",
         "price": "147.00",
-        "extendedPrice": "147.00"
+        "extendedPrice": "147.00",
+        "orderDate": "04/30/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1391,10 +1493,12 @@
         "description": "CCA, ALARM CARD SEMI 3 CH PCBA",
         "dueDate": "06/18/26",
         "price": "147.00",
-        "extendedPrice": "147.00"
+        "extendedPrice": "147.00",
+        "orderDate": "04/30/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1418,10 +1522,12 @@
         "description": "CCA, ALARM CARD SEMI 3 CH PCBA",
         "dueDate": "06/18/26",
         "price": "147.00",
-        "extendedPrice": "147.00"
+        "extendedPrice": "147.00",
+        "orderDate": "04/30/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1445,10 +1551,12 @@
         "description": "CCA, ALARM CARD SEMI 3 CH PCBA",
         "dueDate": "06/18/26",
         "price": "147.00",
-        "extendedPrice": "147.00"
+        "extendedPrice": "147.00",
+        "orderDate": "04/30/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1472,10 +1580,12 @@
         "description": "CCA, ALARM CARD SEMI 3 CH PCBA",
         "dueDate": "06/18/26",
         "price": "147.00",
-        "extendedPrice": "147.00"
+        "extendedPrice": "147.00",
+        "orderDate": "04/30/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1499,10 +1609,12 @@
         "description": "CCA, ALARM CARD SEMI 3 CH PCBA",
         "dueDate": "06/18/26",
         "price": "147.00",
-        "extendedPrice": "147.00"
+        "extendedPrice": "147.00",
+        "orderDate": "04/30/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1526,10 +1638,12 @@
         "description": "TRIGGER CONTROL BOARD",
         "dueDate": "07/01/26",
         "price": "143.55",
-        "extendedPrice": "1435.50"
+        "extendedPrice": "1435.50",
+        "orderDate": "07/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete1"
+        "productionStatus": "complete1"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1553,10 +1667,12 @@
         "description": "MASTER CARD",
         "dueDate": "07/01/26",
         "price": "129.74",
-        "extendedPrice": "648.70"
+        "extendedPrice": "648.70",
+        "orderDate": "10/21/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete2"
+        "productionStatus": "complete2"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1580,10 +1696,12 @@
         "description": "ALARM CARD",
         "dueDate": "07/01/26",
         "price": "114.17",
-        "extendedPrice": "570.85"
+        "extendedPrice": "570.85",
+        "orderDate": "10/31/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete3"
+        "productionStatus": "complete3"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1607,10 +1725,12 @@
         "description": "MASTER CARD",
         "dueDate": "07/01/26",
         "price": "128.84",
-        "extendedPrice": "1288.40"
+        "extendedPrice": "1288.40",
+        "orderDate": "11/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete4"
+        "productionStatus": "complete4"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1634,10 +1754,12 @@
         "description": "ALARM CARD",
         "dueDate": "07/01/26",
         "price": "82.55",
-        "extendedPrice": "825.50"
+        "extendedPrice": "825.50",
+        "orderDate": "11/20/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete5"
+        "productionStatus": "complete5"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1661,10 +1783,12 @@
         "description": "CCA ALARM CARD BCN-LS LED 120V",
         "dueDate": "07/01/26",
         "price": "105.93",
-        "extendedPrice": "529.65"
+        "extendedPrice": "529.65",
+        "orderDate": "01/27/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete6"
+        "productionStatus": "complete6"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1688,10 +1812,12 @@
         "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
         "dueDate": "07/01/26",
         "price": "72.94",
-        "extendedPrice": "145.88"
+        "extendedPrice": "145.88",
+        "orderDate": "05/07/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete7"
+        "productionStatus": "complete7"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1715,10 +1841,12 @@
         "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
         "dueDate": "07/01/26",
         "price": "72.94",
-        "extendedPrice": "218.82"
+        "extendedPrice": "218.82",
+        "orderDate": "05/07/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete8"
+        "productionStatus": "complete8"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1742,10 +1870,12 @@
         "description": "ALARM BCN-LED 120V",
         "dueDate": "07/01/26",
         "price": "132.79",
-        "extendedPrice": "1327.90"
+        "extendedPrice": "1327.90",
+        "orderDate": "05/07/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete9"
+        "productionStatus": "complete9"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1769,10 +1899,12 @@
         "description": "ALARM BCN-LED 120V",
         "dueDate": "07/01/26",
         "price": "132.79",
-        "extendedPrice": "1327.90"
+        "extendedPrice": "1327.90",
+        "orderDate": "05/07/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete10"
+        "productionStatus": "complete10"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1796,10 +1928,12 @@
         "description": "PHOTOCELL PCB ASSY",
         "dueDate": "07/06/26",
         "price": "19.21",
-        "extendedPrice": "1921.00"
+        "extendedPrice": "1921.00",
+        "orderDate": "04/23/26",
+        "customerNumber": "001077"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1823,10 +1957,12 @@
         "description": "ASSY 1 POWER SUPPLY",
         "dueDate": "07/08/26",
         "price": "207.09",
-        "extendedPrice": "1035.45"
+        "extendedPrice": "1035.45",
+        "orderDate": "07/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": "complete11"
+        "productionStatus": "complete11"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1850,10 +1986,12 @@
         "description": "ISOLATION SWITCH ASSY",
         "dueDate": "07/08/26",
         "price": "1237.85",
-        "extendedPrice": "24757.00"
+        "extendedPrice": "24757.00",
+        "orderDate": "01/19/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1877,10 +2015,12 @@
         "description": "SMOKE DETECTOR SINGLE, 8930",
         "dueDate": "07/08/26",
         "price": "364.80",
-        "extendedPrice": "18240.00"
+        "extendedPrice": "18240.00",
+        "orderDate": "05/19/26",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1904,10 +2044,12 @@
         "description": "FILTER AND RECTIFIER ASSEMBLY",
         "dueDate": "07/10/26",
         "price": "61.85",
-        "extendedPrice": "12370.00"
+        "extendedPrice": "12370.00",
+        "orderDate": "01/14/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1931,10 +2073,12 @@
         "description": "PCBA-644",
         "dueDate": "07/15/26",
         "price": "82.04",
-        "extendedPrice": "820.40"
+        "extendedPrice": "820.40",
+        "orderDate": "03/17/26",
+        "customerNumber": "001082"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1958,10 +2102,12 @@
         "description": "SWITCH HARNESS ASSY",
         "dueDate": "07/15/26",
         "price": "54.44",
-        "extendedPrice": "6805.00"
+        "extendedPrice": "6805.00",
+        "orderDate": "02/21/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1985,10 +2131,12 @@
         "description": "POWER SUPPLY PCB ASSY (SIDE)",
         "dueDate": "07/15/26",
         "price": "35.00",
-        "extendedPrice": "3500.00"
+        "extendedPrice": "3500.00",
+        "orderDate": "11/19/25",
+        "customerNumber": "839287"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2012,10 +2160,12 @@
         "description": "CCA, PLUG, MOTOR",
         "dueDate": "07/17/26",
         "price": "376.67",
-        "extendedPrice": "3766.70"
+        "extendedPrice": "3766.70",
+        "orderDate": "06/09/26",
+        "customerNumber": "001061"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2039,10 +2189,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "07/22/26",
         "price": "21.31",
-        "extendedPrice": "2131.00"
+        "extendedPrice": "2131.00",
+        "orderDate": "10/13/25",
+        "customerNumber": "001037"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2066,10 +2218,12 @@
         "description": "PCBA AUTO PRESS.CAL.",
         "dueDate": "07/24/26",
         "price": "1094.98",
-        "extendedPrice": "21899.60"
+        "extendedPrice": "21899.60",
+        "orderDate": "06/05/26",
+        "customerNumber": "001238"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2093,10 +2247,12 @@
         "description": "CONTROLLER COVER ASSY",
         "dueDate": "07/29/26",
         "price": "4142.31",
-        "extendedPrice": "41423.10"
+        "extendedPrice": "41423.10",
+        "orderDate": "03/04/26",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2120,10 +2276,12 @@
         "description": "MASTER CARD",
         "dueDate": "08/03/26",
         "price": "128.84",
-        "extendedPrice": "1288.40"
+        "extendedPrice": "1288.40",
+        "orderDate": "11/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2147,10 +2305,12 @@
         "description": "PLATE,INTERFACE PCB BARE BOARD",
         "dueDate": "08/05/26",
         "price": "20.05",
-        "extendedPrice": "2005.00"
+        "extendedPrice": "2005.00",
+        "orderDate": "06/10/26",
+        "customerNumber": "001037"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2174,10 +2334,12 @@
         "description": "PRINTED CIRCUIT ASSEMBLY OP20",
         "dueDate": "08/07/26",
         "price": "495.75",
-        "extendedPrice": "4957.50"
+        "extendedPrice": "4957.50",
+        "orderDate": "06/04/25",
+        "customerNumber": "001037"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2201,10 +2363,12 @@
         "description": "MASTER CARD",
         "dueDate": "08/10/26",
         "price": "131.57",
-        "extendedPrice": "657.85"
+        "extendedPrice": "657.85",
+        "orderDate": "04/13/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2228,10 +2392,12 @@
         "description": "PCBA-644",
         "dueDate": "08/12/26",
         "price": "82.04",
-        "extendedPrice": "820.40"
+        "extendedPrice": "820.40",
+        "orderDate": "03/17/26",
+        "customerNumber": "001082"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2255,10 +2421,12 @@
         "description": "ISOLATION SWITCH ASSY",
         "dueDate": "08/12/26",
         "price": "1237.85",
-        "extendedPrice": "24757.00"
+        "extendedPrice": "24757.00",
+        "orderDate": "01/19/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2282,10 +2450,12 @@
         "description": "ASSY 1 POWER SUPPLY",
         "dueDate": "09/01/26",
         "price": "207.09",
-        "extendedPrice": "1035.45"
+        "extendedPrice": "1035.45",
+        "orderDate": "07/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2309,10 +2479,12 @@
         "description": "ALARM CARD",
         "dueDate": "09/01/26",
         "price": "114.17",
-        "extendedPrice": "570.85"
+        "extendedPrice": "570.85",
+        "orderDate": "10/31/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2336,10 +2508,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "09/01/26",
         "price": "31.00",
-        "extendedPrice": "310.00"
+        "extendedPrice": "310.00",
+        "orderDate": "03/05/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2363,10 +2537,12 @@
         "description": "ALARM BCN-LED 120V",
         "dueDate": "09/01/26",
         "price": "132.79",
-        "extendedPrice": "1327.90"
+        "extendedPrice": "1327.90",
+        "orderDate": "05/07/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2390,10 +2566,12 @@
         "description": "ISOLATION SWITCH ASSY",
         "dueDate": "09/15/26",
         "price": "1237.85",
-        "extendedPrice": "37135.50"
+        "extendedPrice": "37135.50",
+        "orderDate": "01/19/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2417,10 +2595,12 @@
         "description": "ASSY 1 POWER SUPPLY",
         "dueDate": "10/01/26",
         "price": "207.09",
-        "extendedPrice": "1035.45"
+        "extendedPrice": "1035.45",
+        "orderDate": "07/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2444,10 +2624,12 @@
         "description": "MASTER CARD",
         "dueDate": "10/01/26",
         "price": "128.84",
-        "extendedPrice": "1288.40"
+        "extendedPrice": "1288.40",
+        "orderDate": "11/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2471,10 +2653,12 @@
         "description": "SMOKE DETECTOR SINGLE, 8930",
         "dueDate": "10/07/26",
         "price": "364.80",
-        "extendedPrice": "18240.00"
+        "extendedPrice": "18240.00",
+        "orderDate": "05/19/26",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2498,10 +2682,12 @@
         "description": "FILTER AND RECTIFIER ASSEMBLY",
         "dueDate": "10/09/26",
         "price": "61.85",
-        "extendedPrice": "12370.00"
+        "extendedPrice": "12370.00",
+        "orderDate": "01/14/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2525,10 +2711,12 @@
         "description": "PC BD ASSY CONTROL FALCON 2000",
         "dueDate": "10/09/26",
         "price": "1490.00",
-        "extendedPrice": "17880.00"
+        "extendedPrice": "17880.00",
+        "orderDate": "03/27/26",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2552,10 +2740,12 @@
         "description": "PC BD ASSY CONTROL FALCON 2000",
         "dueDate": "10/09/26",
         "price": "1490.00",
-        "extendedPrice": "16390.00"
+        "extendedPrice": "16390.00",
+        "orderDate": "03/27/26",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2579,10 +2769,12 @@
         "description": "MASTER CARD",
         "dueDate": "10/12/26",
         "price": "131.57",
-        "extendedPrice": "657.85"
+        "extendedPrice": "657.85",
+        "orderDate": "04/13/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2606,10 +2798,12 @@
         "description": "CAPACITOR TUBE ASSEMBLY",
         "dueDate": "10/15/26",
         "price": "430.13",
-        "extendedPrice": "21506.50"
+        "extendedPrice": "21506.50",
+        "orderDate": "10/30/25",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2633,10 +2827,12 @@
         "description": "SWITCH HARNESS ASSY",
         "dueDate": "10/15/26",
         "price": "54.44",
-        "extendedPrice": "6805.00"
+        "extendedPrice": "6805.00",
+        "orderDate": "02/21/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2660,10 +2856,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "10/21/26",
         "price": "21.31",
-        "extendedPrice": "2131.00"
+        "extendedPrice": "2131.00",
+        "orderDate": "10/13/25",
+        "customerNumber": "001037"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2687,10 +2885,12 @@
         "description": "PRINTED CIRCUIT ASSEMBLY OP20",
         "dueDate": "10/23/26",
         "price": "495.75",
-        "extendedPrice": "4957.50"
+        "extendedPrice": "4957.50",
+        "orderDate": "06/04/25",
+        "customerNumber": "001037"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2714,10 +2914,12 @@
         "description": "ASSY 1 POWER SUPPLY",
         "dueDate": "11/02/26",
         "price": "207.09",
-        "extendedPrice": "1035.45"
+        "extendedPrice": "1035.45",
+        "orderDate": "07/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2741,10 +2943,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "11/02/26",
         "price": "31.00",
-        "extendedPrice": "310.00"
+        "extendedPrice": "310.00",
+        "orderDate": "03/05/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2768,10 +2972,12 @@
         "description": "ALARM BCN-LED 120V",
         "dueDate": "11/02/26",
         "price": "132.79",
-        "extendedPrice": "1327.90"
+        "extendedPrice": "1327.90",
+        "orderDate": "05/07/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2795,10 +3001,12 @@
         "description": "SMOKE DETECTOR SINGLE, 8930",
         "dueDate": "11/04/26",
         "price": "364.80",
-        "extendedPrice": "18240.00"
+        "extendedPrice": "18240.00",
+        "orderDate": "05/19/26",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2822,10 +3030,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "11/09/26",
         "price": "21.31",
-        "extendedPrice": "2131.00"
+        "extendedPrice": "2131.00",
+        "orderDate": "10/13/25",
+        "customerNumber": "001037"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2849,10 +3059,12 @@
         "description": "ASSY 1 POWER SUPPLY",
         "dueDate": "12/01/26",
         "price": "207.09",
-        "extendedPrice": "1035.45"
+        "extendedPrice": "1035.45",
+        "orderDate": "07/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2876,10 +3088,12 @@
         "description": "MASTER CARD",
         "dueDate": "12/01/26",
         "price": "128.84",
-        "extendedPrice": "1288.40"
+        "extendedPrice": "1288.40",
+        "orderDate": "11/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2903,10 +3117,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "12/01/26",
         "price": "31.00",
-        "extendedPrice": "310.00"
+        "extendedPrice": "310.00",
+        "orderDate": "03/05/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2930,10 +3146,12 @@
         "description": "SMOKE DETECTOR SINGLE, 8930",
         "dueDate": "12/09/26",
         "price": "364.80",
-        "extendedPrice": "16051.20"
+        "extendedPrice": "16051.20",
+        "orderDate": "05/19/26",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2957,10 +3175,12 @@
         "description": "MASTER CARD",
         "dueDate": "12/14/26",
         "price": "131.57",
-        "extendedPrice": "657.85"
+        "extendedPrice": "657.85",
+        "orderDate": "04/13/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2984,10 +3204,12 @@
         "description": "PRINTED CIRCUIT ASSEMBLY OP20",
         "dueDate": "12/21/26",
         "price": "495.75",
-        "extendedPrice": "21813.00"
+        "extendedPrice": "21813.00",
+        "orderDate": "06/04/25",
+        "customerNumber": "001037"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3011,10 +3233,12 @@
         "description": "PCBA SMOKE DET MICRO602 (DUAL)",
         "dueDate": "12/31/26",
         "price": "402.80",
-        "extendedPrice": "30210.00"
+        "extendedPrice": "30210.00",
+        "orderDate": "09/27/23",
+        "customerNumber": "565650"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3038,10 +3262,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "01/04/27",
         "price": "21.31",
-        "extendedPrice": "2131.00"
+        "extendedPrice": "2131.00",
+        "orderDate": "10/13/25",
+        "customerNumber": "001037"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3065,10 +3291,12 @@
         "description": "MASTER CARD",
         "dueDate": "01/04/27",
         "price": "128.84",
-        "extendedPrice": "1288.40"
+        "extendedPrice": "1288.40",
+        "orderDate": "11/07/25",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3092,10 +3320,12 @@
         "description": "ALARM BCN-LED 120V",
         "dueDate": "01/04/27",
         "price": "132.79",
-        "extendedPrice": "1327.90"
+        "extendedPrice": "1327.90",
+        "orderDate": "05/07/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3119,10 +3349,12 @@
         "description": "FILTER AND RECTIFIER ASSEMBLY",
         "dueDate": "01/14/27",
         "price": "61.85",
-        "extendedPrice": "12370.00"
+        "extendedPrice": "12370.00",
+        "orderDate": "01/14/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3146,10 +3378,12 @@
         "description": "CONNECTOR HARNESS ASSY",
         "dueDate": "01/15/27",
         "price": "108.39",
-        "extendedPrice": "10838.75"
+        "extendedPrice": "10838.75",
+        "orderDate": "",
+        "customerNumber": ""
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3173,10 +3407,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "02/01/27",
         "price": "31.00",
-        "extendedPrice": "310.00"
+        "extendedPrice": "310.00",
+        "orderDate": "03/05/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3200,10 +3436,12 @@
         "description": "MASTER CARD",
         "dueDate": "02/08/27",
         "price": "131.57",
-        "extendedPrice": "657.85"
+        "extendedPrice": "657.85",
+        "orderDate": "04/13/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3227,10 +3465,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "03/01/27",
         "price": "31.00",
-        "extendedPrice": "310.00"
+        "extendedPrice": "310.00",
+        "orderDate": "03/05/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3254,10 +3494,12 @@
         "description": "PCB ASSEMBLY",
         "dueDate": "04/01/27",
         "price": "31.00",
-        "extendedPrice": "310.00"
+        "extendedPrice": "310.00",
+        "orderDate": "03/05/26",
+        "customerNumber": "001148"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3281,10 +3523,12 @@
         "description": "WIRING HARNESS ASSY MOTOR",
         "dueDate": "05/19/27",
         "price": "22.58",
-        "extendedPrice": "1693.50"
+        "extendedPrice": "1693.50",
+        "orderDate": "02/25/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3308,10 +3552,12 @@
         "description": "CONNECTOR HARNESS ASSY",
         "dueDate": "07/15/27",
         "price": "108.39",
-        "extendedPrice": "5419.38"
+        "extendedPrice": "5419.38",
+        "orderDate": "05/11/26",
+        "customerNumber": "001165"
       },
       "dle": {
-        "productionNotes": ""
+        "productionStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
