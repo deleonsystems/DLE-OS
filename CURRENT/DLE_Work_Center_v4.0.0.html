@@ -45,6 +45,7 @@ HTML SECTIONS
 103B - ASSEMBLY DASHBOARD
 104 - BOM VIEWER
 105 - OPEN ORDERS
+105A - SHIPMENT PREVIEW
 106 - ORDER DASHBOARD
 106A - WORK ORDER DASHBOARD
 107 - DOCUMENT INTAKE
@@ -65,6 +66,7 @@ JAVASCRIPT SECTIONS
 203 - CAPTURE
 204 - BOM PARSER + LABEL GENERATOR
 205 - OPEN ORDERS
+205A - SHIPMENT PREVIEW
 206 - ORDER DASHBOARD
 206A - WORK ORDER DASHBOARD
 207 - DOCUMENT INTAKE
@@ -937,6 +939,216 @@ body {
       font-size: 14px;
       cursor: pointer;
       white-space: nowrap;
+    }
+
+    .open-order-shipment-controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      margin: 12px 0;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.035);
+    }
+
+    .open-order-shipment-row-selected {
+      outline: 2px solid rgba(39, 174, 96, .65);
+      outline-offset: -2px;
+      background: rgba(39, 174, 96, .12) !important;
+    }
+
+    .open-order-ship-qty-input {
+      width: 88px;
+      min-width: 76px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 8px;
+      background: #0b1624;
+      color: white;
+      padding: 7px 8px;
+      font-size: 13px;
+    }
+
+    .open-order-ship-qty-input:disabled {
+      opacity: .42;
+      cursor: not-allowed;
+    }
+
+    .shipment-os-info {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.04);
+      padding: 16px;
+      margin: 16px 0;
+    }
+
+    .shipment-os-info h3 {
+      margin: 0 0 12px;
+      color: var(--text);
+    }
+
+    .shipment-preview-message {
+      margin-top: 12px;
+    }
+
+    .request-to-ship-form {
+      background: #fff;
+      color: #111;
+      border: 0;
+      padding: 18px 22px 12px;
+      margin-top: 16px;
+      font-family: Arial, Helvetica, sans-serif;
+      box-shadow: 0 10px 24px rgba(0,0,0,.28);
+    }
+
+    .request-to-ship-title {
+      display: grid;
+      grid-template-columns: 1.625in 1fr 1.625in;
+      align-items: start;
+      margin-bottom: 22px;
+    }
+
+    .request-to-ship-logo {
+      width: 1.625in;
+      height: .625in;
+      object-fit: contain;
+      object-position: left top;
+      display: block;
+    }
+
+    .request-to-ship-title h3 {
+      margin: 0;
+      color: #111;
+      font-size: 18px;
+      letter-spacing: .02em;
+      text-align: center;
+      font-weight: 700;
+      align-self: center;
+    }
+
+    .request-to-ship-header-row {
+      display: grid;
+      grid-template-columns: 11.855fr 28.426fr 8.711fr 17fr 11.711fr 11.285fr;
+      align-items: center;
+      min-height: 30px;
+      color: #111;
+      font-size: 14px;
+    }
+
+    .request-to-ship-header-row .request-label {
+      text-align: right;
+      padding-right: 8px;
+      white-space: nowrap;
+    }
+
+    .request-to-ship-header-row .request-entry {
+      min-height: 22px;
+      border-bottom: 1px solid #111;
+      padding: 2px 6px;
+    }
+
+    .request-to-ship-header-row .request-entry.merge-two {
+      grid-column: span 2;
+    }
+
+    .request-to-ship-header-spacer {
+      height: 22px;
+    }
+
+    .request-to-ship-table {
+      width: 100%;
+      border-collapse: collapse;
+      color: #111;
+      font-size: 13px;
+      table-layout: fixed;
+    }
+
+    .request-to-ship-table th,
+    .request-to-ship-table td {
+      border: 1px solid #111;
+      padding: 6px 7px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .request-to-ship-table th {
+      background: #0070c0;
+      color: #fff;
+      font-weight: 700;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .request-to-ship-table td {
+      height: 28px;
+    }
+
+    .request-to-ship-footer {
+      margin-top: 8px;
+      color: #111;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .shipment-preview-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    @media print {
+      @page {
+        size: letter portrait;
+        margin: .45in;
+      }
+
+      body.request-to-ship-printing {
+        background: #fff !important;
+        color: #111 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      body.request-to-ship-printing > *:not(#shipmentPreview) {
+        display: none !important;
+      }
+
+      body.request-to-ship-printing #shipmentPreview,
+      body.request-to-ship-printing #shipmentPreview.screen {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      body.request-to-ship-printing #shipmentPreview .open-orders-panel {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+      }
+
+      body.request-to-ship-printing #shipmentPreview .module-header,
+      body.request-to-ship-printing #shipmentPreview .shipment-preview-message,
+      body.request-to-ship-printing #shipmentPreview .shipment-os-info,
+      body.request-to-ship-printing #shipmentPreview .shipment-preview-actions {
+        display: none !important;
+      }
+
+      body.request-to-ship-printing .request-to-ship-form {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        page-break-inside: avoid;
+      }
     }
 
     .open-orders-search {
@@ -4408,7 +4620,11 @@ body {
       #dleBom,
       #systemCenter { width: 100%; margin-left: 0; }
       .open-orders-header,
-      .open-orders-toolbar { grid-template-columns: 1fr; }
+      .open-orders-toolbar,
+      .open-order-shipment-controls,
+      .request-to-ship-title,
+      .request-to-ship-header-row { grid-template-columns: 1fr; }
+      .shipment-preview-actions { justify-content: stretch; flex-direction: column; }
       .open-orders-status { white-space: normal; }
       .open-orders-actions input[type="file"] { width: 100%; min-width: 0; }
       .job-dashboard-header,
@@ -4751,12 +4967,59 @@ BOM Viewer</h2>
       </div>
     </div>
 
+    <div class="open-order-shipment-controls">
+      <div>
+        <strong>Shipment Preparation</strong>
+        <div id="openOrderShipmentSelectionCount" class="open-order-report-count">0 rows selected for shipment.</div>
+      </div>
+      <div class="open-orders-actions">
+        <button type="button" onclick="selectAllOpenOrderShipmentRows()">Select All</button>
+        <button type="button" onclick="clearOpenOrderShipmentSelection()">Clear Selection</button>
+        <button type="button" onclick="createOpenOrderShipmentPreparation()">Create Shipment</button>
+      </div>
+    </div>
+
     <div id="openOrdersTable" class="open-orders-table-wrap"></div>
   </div>
 </section>
 
 <!-- =====================================================
    END 105 - OPEN ORDERS
+===================================================== -->
+
+<!-- =====================================================
+   105A - SHIPMENT PREVIEW
+===================================================== -->
+
+<section id="shipmentPreview" class="screen">
+  <div class="open-orders-panel">
+    <div class="module-header">
+      <div>
+        <div class="module-eyebrow">Digital Controlled Form</div>
+        <h2>Request to Ship</h2>
+        <p class="module-subtitle">Digital version of the controlled Request to Ship form for shipment review.</p>
+      </div>
+      <button type="button" class="secondary-btn" onclick="cancelShipmentPreview()">Cancel</button>
+    </div>
+
+    <div id="shipmentPreviewValidation" class="open-orders-status shipment-preview-message">No shipment is currently prepared.</div>
+
+    <section class="shipment-os-info">
+      <h3>DLE-OS Shipment</h3>
+      <div id="shipmentPreviewSummary" class="master-data-dashboard-status"></div>
+    </section>
+
+    <div id="shipmentPreviewLines"></div>
+
+    <div class="shipment-preview-actions">
+      <button type="button" onclick="confirmShipmentPreview()">Confirm Shipment</button>
+      <button type="button" class="secondary-btn" onclick="cancelShipmentPreview()">Cancel</button>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+   END 105A - SHIPMENT PREVIEW
 ===================================================== -->
 
 <!-- =====================================================
@@ -6964,6 +7227,9 @@ async function parseBomTest() {
 let openOrdersRows = [];
 let erpImportedOpenOrdersRows = [];
 let selectedOpenOrderReportRows = new Set();
+let selectedOpenOrderShipmentRows = new Set();
+let openOrderShipmentQuantities = {};
+let openOrderShipmentPreparation = null;
 const erpImportState = {
     status: 'Not Loaded',
     sourceFile: 'Not available',
@@ -7042,6 +7308,8 @@ function renderOpenOrdersTable() {
     let html = `
 <table class="open-orders-table">
 <tr>
+    <th class="open-order-report-select">Ship</th>
+    <th>Ship Qty</th>
     <th class="open-order-report-select">Report</th>
     <th>Ord Dt</th>
     <th>Cust #</th>
@@ -7065,10 +7333,22 @@ function renderOpenOrdersTable() {
     for (let i = 0; i < openOrdersRows.length; i++) {
         const cols = openOrdersRows[i];
         const checked = selectedOpenOrderReportRows.has(i) ? ' checked' : '';
-        const selectedClass = selectedOpenOrderReportRows.has(i) ? ' open-order-report-row-selected' : '';
+        const shipmentChecked = selectedOpenOrderShipmentRows.has(i) ? ' checked' : '';
+        const shipQty = getOpenOrderShipmentQuantity(i);
+        const maxShipQty = parseOpenOrderQuantity(cols[9]);
+        const selectedClass = [
+            selectedOpenOrderReportRows.has(i) ? 'open-order-report-row-selected' : '',
+            selectedOpenOrderShipmentRows.has(i) ? 'open-order-shipment-row-selected' : ''
+        ].filter(Boolean).join(' ');
 
         html += `
-<tr class="${i % 2 === 0 ? 'rowEven' : 'rowOdd'} clickable-open-order${selectedClass}" data-open-order-index="${i}" onclick="openJobDashboardFromOpenOrder(${i})" title="Open Order Dashboard">
+<tr class="${i % 2 === 0 ? 'rowEven' : 'rowOdd'} clickable-open-order${selectedClass ? ' ' + selectedClass : ''}" data-open-order-index="${i}" onclick="openJobDashboardFromOpenOrder(${i})" title="Open Order Dashboard">
+    <td class="open-order-report-select">
+      <input class="open-order-shipment-checkbox" type="checkbox"${shipmentChecked} onclick="toggleOpenOrderShipmentSelection(event, ${i})" title="Select for shipment">
+    </td>
+    <td>
+      <input class="open-order-ship-qty-input" type="number" min="0" max="${escapeHtml(String(maxShipQty))}" step="any" value="${escapeHtml(String(shipQty))}" ${selectedOpenOrderShipmentRows.has(i) ? '' : 'disabled'} onclick="event.stopPropagation()" oninput="updateOpenOrderShipmentQuantity(event, ${i})" title="Ship Quantity">
+    </td>
     <td class="open-order-report-select">
       <input class="open-order-report-checkbox" type="checkbox"${checked} onclick="toggleOpenOrderReportSelection(event, ${i})" title="Select for report">
     </td>
@@ -7107,8 +7387,12 @@ function refreshOpenOrdersFromMasterData() {
 
     openOrdersRows = records.map(convertMasterDataRecordToOpenOrderRow);
     selectedOpenOrderReportRows = new Set();
+    selectedOpenOrderShipmentRows = new Set();
+    openOrderShipmentQuantities = {};
+    openOrderShipmentPreparation = null;
     renderOpenOrdersTable();
     updateOpenOrderReportSelectionCount();
+    updateOpenOrderShipmentSelectionCount();
 
     if (records.length) {
         setOpenOrdersStatus(records.length + ' Open Orders records loaded from DLE Master Data.');
@@ -7780,6 +8064,314 @@ function clearOpenOrderReportSelection() {
         row.classList.remove('open-order-report-row-selected');
     });
     updateOpenOrderReportSelectionCount();
+}
+
+function toggleOpenOrderShipmentSelection(event, index) {
+    event.stopPropagation();
+
+    if (event.target.checked) {
+        selectedOpenOrderShipmentRows.add(index);
+        openOrderShipmentQuantities[index] = getOpenOrderShipmentQuantity(index);
+    } else {
+        selectedOpenOrderShipmentRows.delete(index);
+    }
+
+    renderOpenOrdersTable();
+    updateOpenOrderShipmentSelectionCount();
+}
+
+function updateOpenOrderShipmentQuantity(event, index) {
+    event.stopPropagation();
+    const cols = openOrdersRows[index] || [];
+    const maxQty = parseOpenOrderQuantity(cols[9]);
+    const enteredQty = parseOpenOrderQuantity(event.target.value);
+    const clampedQty = Math.min(Math.max(enteredQty, 0), maxQty);
+
+    openOrderShipmentQuantities[index] = clampedQty;
+    if (String(event.target.value) !== String(clampedQty)) {
+        event.target.value = clampedQty;
+    }
+    openOrderShipmentPreparation = null;
+    updateOpenOrderShipmentSelectionCount();
+}
+
+function selectAllOpenOrderShipmentRows() {
+    openOrdersRows.forEach((cols, index) => {
+        selectedOpenOrderShipmentRows.add(index);
+        openOrderShipmentQuantities[index] = getOpenOrderShipmentQuantity(index);
+    });
+    renderOpenOrdersTable();
+    updateOpenOrderShipmentSelectionCount();
+}
+
+function clearOpenOrderShipmentSelection() {
+    selectedOpenOrderShipmentRows = new Set();
+    openOrderShipmentQuantities = {};
+    openOrderShipmentPreparation = null;
+    renderOpenOrdersTable();
+    updateOpenOrderShipmentSelectionCount();
+}
+
+function updateOpenOrderShipmentSelectionCount(message = '') {
+    const countEl = document.getElementById('openOrderShipmentSelectionCount');
+    if (!countEl) return;
+    const count = selectedOpenOrderShipmentRows.size;
+    const suffix = message ? ' ' + message : '';
+    countEl.textContent = count + (count === 1 ? ' row selected for shipment.' : ' rows selected for shipment.') + suffix;
+}
+
+function getOpenOrderShipmentQuantity(index) {
+    const cols = openOrdersRows[index] || [];
+    const maxQty = parseOpenOrderQuantity(cols[9]);
+    const existing = openOrderShipmentQuantities[index];
+    if (existing !== undefined && existing !== '') {
+        return Math.min(Math.max(parseOpenOrderQuantity(existing), 0), maxQty);
+    }
+    return maxQty;
+}
+
+function parseOpenOrderQuantity(value) {
+    const parsed = Number(String(value ?? '').replace(/,/g, '').trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function createOpenOrderShipmentPreparation() {
+    const result = buildOpenOrderShipmentPreparation();
+    if (!result.valid) {
+        openOrderShipmentPreparation = null;
+        updateOpenOrderShipmentSelectionCount(result.message);
+        return;
+    }
+
+    openOrderShipmentPreparation = result;
+    updateOpenOrderShipmentSelectionCount(
+        'Shipment preparation validated: ' + result.lines.length + ' line(s), ' + result.totalShipQuantity + ' total unit(s).'
+    );
+    renderShipmentPreview(result);
+    go('shipmentPreview');
+}
+
+function buildOpenOrderShipmentPreparation() {
+    const lines = [];
+    const errors = [];
+
+    selectedOpenOrderShipmentRows.forEach(index => {
+        const cols = openOrdersRows[index] || [];
+        const openQty = parseOpenOrderQuantity(cols[9]);
+        const shipQty = getOpenOrderShipmentQuantity(index);
+
+        if (shipQty <= 0) {
+            errors.push('Ship Qty must be greater than 0 for Sales Order ' + normalizeOrderValue(cols[4], 'Unknown') + ', line ' + normalizeOrderValue(cols[5], 'Unknown') + '.');
+        }
+        if (shipQty > openQty) {
+            errors.push('Ship Qty cannot exceed Open Qty for Sales Order ' + normalizeOrderValue(cols[4], 'Unknown') + ', line ' + normalizeOrderValue(cols[5], 'Unknown') + '.');
+        }
+
+        lines.push({
+            masterRecordKey: buildMasterRecordKeyFromOpenOrderRow(cols, index),
+            rowIndex: index,
+            customerNumber: normalizeOrderValue(cols[1], ''),
+            customer: normalizeOrderValue(cols[2], ''),
+            salesOrder: normalizeOrderValue(cols[4], ''),
+            sequenceLine: normalizeOrderValue(cols[5], ''),
+            workOrder: normalizeOrderValue(cols[6], ''),
+            partNumber: normalizeOrderValue(cols[10], ''),
+            description: normalizeOrderValue(cols[11], ''),
+            openQuantity: openQty,
+            shipQuantity: shipQty,
+            remainingOpenQuantity: Math.max(openQty - shipQty, 0)
+        });
+    });
+
+    if (!lines.length) {
+        return {
+            valid: false,
+            message: 'Select at least one Open Order line before creating a shipment.'
+        };
+    }
+
+    if (errors.length) {
+        return {
+            valid: false,
+            message: errors[0],
+            errors,
+            lines
+        };
+    }
+
+    return {
+        valid: true,
+        lines,
+        totalShipQuantity: lines.reduce((total, line) => total + line.shipQuantity, 0)
+    };
+}
+
+function renderShipmentPreview(preparation = openOrderShipmentPreparation) {
+    const summaryEl = document.getElementById('shipmentPreviewSummary');
+    const linesEl = document.getElementById('shipmentPreviewLines');
+    const validationEl = document.getElementById('shipmentPreviewValidation');
+    if (!summaryEl || !linesEl || !validationEl) return;
+
+    if (!preparation || !preparation.valid) {
+        validationEl.textContent = 'No valid shipment preparation is available. Return to Open Orders and select shipment lines.';
+        summaryEl.innerHTML = '';
+        linesEl.innerHTML = '<div class="master-data-empty">No shipment lines prepared.</div>';
+        return;
+    }
+
+    const validation = validateShipmentPreparation(preparation);
+    validationEl.textContent = validation.valid
+        ? 'Shipment preview ready. Review all lines before confirmation.'
+        : validation.errors[0];
+
+    const uniqueCustomers = Array.from(new Set(preparation.lines.map(line => line.customerNumber).filter(Boolean)));
+    const uniqueSalesOrders = Array.from(new Set(preparation.lines.map(line => line.salesOrder).filter(Boolean)));
+
+    summaryEl.innerHTML = [
+        reconciliationSummaryCard('Status', 'Draft'),
+        reconciliationSummaryCard('Lines Selected', preparation.lines.length),
+        reconciliationSummaryCard('Total Units Shipping', preparation.totalShipQuantity),
+        reconciliationSummaryCard('Customer', uniqueCustomers.length === 1 ? uniqueCustomers[0] : uniqueCustomers.length + ' Customers'),
+        reconciliationSummaryCard('Sales Order', uniqueSalesOrders.length === 1 ? uniqueSalesOrders[0] : uniqueSalesOrders.length + ' Sales Orders'),
+        reconciliationSummaryCard('Transaction ID', 'To Be Generated During Confirmation')
+    ].join('');
+
+    linesEl.innerHTML = buildDigitalRequestToShipForm(preparation, uniqueCustomers, uniqueSalesOrders);
+}
+
+function buildDigitalRequestToShipForm(preparation, uniqueCustomers, uniqueSalesOrders) {
+    const firstLine = preparation.lines[0] || {};
+    const customerName = uniqueCustomers.length === 1 ? firstLine.customer : '';
+    const salesOrder = uniqueSalesOrders.length === 1 ? uniqueSalesOrders[0] : '';
+    const requestDate = new Date().toLocaleDateString();
+    const visibleRows = buildRequestToShipRows(preparation.lines, 10);
+
+    return `
+      <section class="request-to-ship-form" aria-label="Digital Request to Ship">
+        <div class="request-to-ship-title">
+          <img class="request-to-ship-logo" src="ASSETS/LOGOS/DLE_Logo.JPG" alt="De Leon Enterprises">
+          <h3>REQUEST TO SHIP</h3>
+          <div></div>
+        </div>
+
+        <div class="request-to-ship-header-row">
+          <div></div>
+          <div></div>
+          <div></div>
+          <div class="request-label">INVOICE:</div>
+          <div class="request-entry merge-two">YES&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO</div>
+        </div>
+
+        <div class="request-to-ship-header-row">
+          <div class="request-label">DATE:</div>
+          <div class="request-entry">${escapeHtml(requestDate)}</div>
+          <div></div>
+          <div class="request-label">REQUESTOR:</div>
+          <div class="request-entry merge-two"></div>
+        </div>
+
+        <div class="request-to-ship-header-row">
+          <div class="request-label">CUSTOMER:</div>
+          <div class="request-entry">${escapeHtml(customerName)}</div>
+          <div></div>
+          <div class="request-label">S/O NUMBER:</div>
+          <div class="request-entry merge-two">${escapeHtml(salesOrder)}</div>
+        </div>
+
+        <div class="request-to-ship-header-spacer"></div>
+
+        <table class="request-to-ship-table">
+          <colgroup>
+            <col style="width: 11.855%;">
+            <col style="width: 28.426%;">
+            <col style="width: 8.711%;">
+            <col style="width: 17%;">
+            <col style="width: 11.711%;">
+            <col style="width: 11.285%;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>QTY</th>
+              <th>ITEM / ASSEMBLY NO.</th>
+              <th>REV#</th>
+              <th>SERIAL NUMBER</th>
+              <th>CERT.</th>
+              <th>ROUTING</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${visibleRows.map(line => `
+              <tr>
+                <td>${escapeHtml(line.shipQuantity || '')}</td>
+                <td>${escapeHtml(line.itemAssemblyNumber)}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="request-to-ship-footer">QF-7.5.5.1&nbsp;&nbsp;Rev. A</div>
+      </section>
+    `;
+}
+
+function buildRequestToShipRows(lines, minimumRows) {
+    const rows = lines.map(line => ({
+        shipQuantity: line.shipQuantity,
+        itemAssemblyNumber: line.partNumber || ''
+    }));
+    while (rows.length < minimumRows) {
+        rows.push({ shipQuantity: '', itemAssemblyNumber: '' });
+    }
+    return rows;
+}
+
+function validateShipmentPreparation(preparation) {
+    const errors = [];
+    if (!preparation || !Array.isArray(preparation.lines) || !preparation.lines.length) {
+        errors.push('Select at least one Open Order line before confirming a shipment.');
+    } else {
+        preparation.lines.forEach(line => {
+            if (line.shipQuantity <= 0) {
+                errors.push('Ship Qty must be greater than 0 for Sales Order ' + line.salesOrder + ', line ' + line.sequenceLine + '.');
+            }
+            if (line.shipQuantity > line.openQuantity) {
+                errors.push('Ship Qty cannot exceed Open Qty for Sales Order ' + line.salesOrder + ', line ' + line.sequenceLine + '.');
+            }
+        });
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors
+    };
+}
+
+function cancelShipmentPreview() {
+    go('openOrders');
+}
+
+function confirmShipmentPreview() {
+    const validation = validateShipmentPreparation(openOrderShipmentPreparation);
+    const validationEl = document.getElementById('shipmentPreviewValidation');
+    if (!validation.valid) {
+        if (validationEl) validationEl.textContent = validation.errors[0];
+        return;
+    }
+    if (validationEl) {
+        validationEl.textContent = 'Opening print dialog for Request to Ship. No data will be modified.';
+    }
+    document.body.classList.add('request-to-ship-printing');
+    window.print();
+    setTimeout(() => {
+        document.body.classList.remove('request-to-ship-printing');
+        if (validationEl) {
+            validationEl.textContent = 'Request to Ship print completed or cancelled. No data was modified.';
+        }
+    }, 250);
 }
 
 async function createDleMasterData() {
@@ -14675,6 +15267,7 @@ syncAssemblyInfoToBomUi();
 prepareBomExtractionWorkspace();
 renderBomWorkbenchStatus();
 updateOpenOrderReportSelectionCount();
+updateOpenOrderShipmentSelectionCount();
 renderActiveInquiryList();
 renderMasterDataDashboardStatus();
 renderErpImportDashboardStatus();
