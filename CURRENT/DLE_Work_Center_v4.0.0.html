@@ -5260,9 +5260,9 @@ BOM Viewer</h2>
 
       <div class="master-data-dashboard-actions">
         <section class="master-data-dashboard-action">
-          <h4>Reconcile Master Data</h4>
-          <p>Compare the loaded ERP snapshot against the loaded DLE Master Data.</p>
-          <button type="button" onclick="startMasterDataReconciliation()">Reconcile Master Data</button>
+          <h4>Reconcile</h4>
+          <p>Evaluate current Shipment Log readiness before future ERP reconciliation begins.</p>
+          <button type="button" onclick="startMasterDataReconciliation()">Reconcile</button>
         </section>
 
         <section class="master-data-dashboard-action">
@@ -7339,7 +7339,7 @@ const erpImportState = {
     rawRows: 0
 };
 const reconciliationState = {
-    lastReconciliation: 'Not available',
+    lastSuccessfulReconciliation: 'No Successful Reconciliation',
     currentState: 'Not Ready',
     latestSummary: null
 };
@@ -7919,12 +7919,14 @@ function renderReconciliationDashboardStatus() {
 
     const masterDataLoaded = !!dleMasterDataFileState.data;
     const erpSnapshotLoaded = erpImportState.status === 'Loaded';
-    reconciliationState.currentState = masterDataLoaded && erpSnapshotLoaded ? 'Ready' : 'Not Ready';
+    if (reconciliationState.currentState !== 'Synchronized') {
+        reconciliationState.currentState = masterDataLoaded && erpSnapshotLoaded ? 'Ready' : 'Not Ready';
+    }
 
     const items = [
         ['Master Data Status', masterDataLoaded ? 'Loaded' : 'Not Loaded'],
         ['ERP Snapshot Status', erpSnapshotLoaded ? 'Loaded' : 'Not Loaded'],
-        ['Last Reconciliation', reconciliationState.lastReconciliation],
+        ['Last Successful Reconciliation', reconciliationState.lastSuccessfulReconciliation],
         ['Current State', reconciliationState.currentState]
     ];
 
@@ -7943,27 +7945,123 @@ function setReconciliationActionStatus(message) {
 
 function startMasterDataReconciliation() {
     const summaryPanel = document.getElementById('reconciliationSummaryPanel');
-    if (!dleMasterDataFileState.data) {
-        setReconciliationActionStatus('Load DLE Master Data before running reconciliation analysis.');
-        return;
-    }
-    if (!erpImportedOpenOrdersRows.length) {
-        setReconciliationActionStatus('Load an ERP Open Orders snapshot before running reconciliation analysis.');
-        return;
-    }
-
-    const summary = analyzeMasterDataReconciliation();
-    reconciliationState.latestSummary = summary;
-    reconciliationState.lastReconciliation = summary.analysisDate;
-    renderReconciliationDashboardStatus();
-    renderReconciliationSummary(summary);
-    setReconciliationActionStatus('Reconciliation analysis complete. No Master Data records were modified.');
+    const status = buildShipmentLogReconciliationStatus();
+    reconciliationState.latestSummary = null;
 
     if (summaryPanel) {
         summaryPanel.hidden = false;
     }
     const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
     if (button) button.textContent = 'Collapse Summary';
+
+    if (status.pendingShipmentTransactions > 0) {
+        renderReconciliationDashboardStatus();
+        renderShipmentLogReconciliationStatus(status);
+        setReconciliationActionStatus('Not ready for reconciliation. Pending shipment transactions must be invoiced first.');
+        return;
+    }
+
+    if (!dleMasterDataFileState.data) {
+        renderShipmentLogReconciliationStatus({
+            ...status,
+            status: 'READY FOR RECONCILIATION',
+            message: 'Shipment Log is clear. Load DLE Master Data before comparing ERP and Master Data.'
+        });
+        renderReconciliationDashboardStatus();
+        setReconciliationActionStatus('Shipment Log is ready. Load DLE Master Data before running reconciliation.');
+        return;
+    }
+
+    if (!erpImportedOpenOrdersRows.length) {
+        renderShipmentLogReconciliationStatus({
+            ...status,
+            status: 'READY FOR RECONCILIATION',
+            message: 'Shipment Log is clear. Load an ERP Open Orders snapshot before comparing ERP and Master Data.'
+        });
+        renderReconciliationDashboardStatus();
+        setReconciliationActionStatus('Shipment Log is ready. Load an ERP Open Orders snapshot before running reconciliation.');
+        return;
+    }
+
+    const summary = analyzeMasterDataReconciliation();
+    reconciliationState.latestSummary = summary;
+
+    if (summary.overallStatus === 'No Differences Found') {
+        reconciliationState.lastSuccessfulReconciliation = summary.analysisDate;
+        reconciliationState.latestSummary = null;
+        reconciliationState.currentState = 'Synchronized';
+        renderReconciliationDashboardStatus();
+        renderSuccessfulReconciliationSummary(summary, status);
+        setReconciliationActionStatus('Reconciliation Successful. Master Data and ERP Snapshot are synchronized. No ERP updates were required.');
+        return;
+    }
+
+    renderReconciliationDashboardStatus();
+    renderReconciliationSummary(summary);
+    setReconciliationActionStatus('Reconciliation differences found. No Master Data records were modified. Review the summary before a future approval workflow.');
+}
+
+function buildShipmentLogReconciliationStatus() {
+    const records = Array.isArray(shipmentLogState.records) ? shipmentLogState.records : [];
+    const pendingRecords = records.filter(record => record.status === 'Pending Invoice');
+    const pendingShipmentIds = new Set(
+        pendingRecords
+            .map(record => record.shipmentId)
+            .filter(Boolean)
+    );
+    const ready = pendingRecords.length === 0;
+
+    return {
+        analysisDate: new Date().toLocaleString(),
+        pendingShipmentTransactions: pendingShipmentIds.size,
+        pendingShipmentRecords: pendingRecords.length,
+        status: ready ? 'READY FOR RECONCILIATION' : 'NOT READY FOR RECONCILIATION',
+        message: ready
+            ? 'Shipment Log has no Pending Invoice records. DLE-OS is ready for the next reconciliation phase.'
+            : 'Accounting still has shipments waiting to be invoiced before reconciliation can begin.'
+    };
+}
+
+function renderShipmentLogReconciliationStatus(status) {
+    const panel = document.getElementById('reconciliationSummaryPanel');
+    if (!panel) return;
+
+    panel.innerHTML = `
+      <h4>Reconciliation Status</h4>
+      <p>Read-only Shipment Log readiness check. No ERP comparison is performed during this phase.</p>
+      <div class="master-data-summary">
+        ${reconciliationSummaryCard('Pending Shipment Transactions', status.pendingShipmentTransactions)}
+        ${reconciliationSummaryCard('Pending Shipment Records', status.pendingShipmentRecords)}
+        ${reconciliationSummaryCard('Status', status.status)}
+        ${reconciliationSummaryCard('Checked', status.analysisDate)}
+      </div>
+      <section class="master-data-detail-section reconciliation-investigation-workspace">
+        <h3>${escapeHtml(status.status)}</h3>
+        <p>${escapeHtml(status.message)}</p>
+      </section>
+    `;
+}
+
+function renderSuccessfulReconciliationSummary(summary, shipmentStatus) {
+    const panel = document.getElementById('reconciliationSummaryPanel');
+    if (!panel) return;
+
+    panel.innerHTML = `
+      <h4>Reconciliation Successful</h4>
+      <p>Master Data and ERP Snapshot are synchronized. No ERP updates were required.</p>
+      <div class="master-data-summary">
+        ${reconciliationSummaryCard('Pending Shipment Transactions', shipmentStatus.pendingShipmentTransactions)}
+        ${reconciliationSummaryCard('Pending Shipment Records', shipmentStatus.pendingShipmentRecords)}
+        ${reconciliationSummaryCard('Master Data Records', summary.masterRecordCount)}
+        ${reconciliationSummaryCard('ERP Snapshot Records', summary.erpSnapshotRecordCount)}
+        ${reconciliationSummaryCard('Differences', 0)}
+        ${reconciliationSummaryCard('Last Successful Reconciliation', summary.analysisDate)}
+      </div>
+      <section class="master-data-detail-section reconciliation-investigation-workspace">
+        <h3>Reconciliation Successful</h3>
+        <p>Master Data and ERP Snapshot are synchronized. No ERP updates were required.</p>
+      </section>
+    `;
 }
 
 function toggleReconciliationSummary() {
@@ -8013,7 +8111,7 @@ async function approveReconciliationErpUpdates() {
 
         const verificationSummary = analyzeMasterDataReconciliation();
         reconciliationState.latestSummary = verificationSummary;
-        reconciliationState.lastReconciliation = verificationSummary.analysisDate;
+        reconciliationState.lastSuccessfulReconciliation = verificationSummary.analysisDate;
         renderReconciliationDashboardStatus();
         renderReconciliationSummary(verificationSummary);
 
@@ -8035,6 +8133,7 @@ async function approveReconciliationErpUpdates() {
 
 function clearReconciliationAnalysis(message) {
     reconciliationState.latestSummary = null;
+    reconciliationState.currentState = 'Not Ready';
     const panel = document.getElementById('reconciliationSummaryPanel');
     if (panel) {
         panel.innerHTML = `
