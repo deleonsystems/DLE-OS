@@ -5176,7 +5176,7 @@ BOM Viewer</h2>
       <div id="erpImportDashboardStatus" class="master-data-dashboard-status"></div>
 
       <div class="erp-import-actions">
-        <input type="file" id="systemErpOpenOrdersFile">
+        <input type="file" id="systemErpOpenOrdersFile" hidden>
         <button type="button" onclick="loadSystemCenterOpenOrders()">Load Open Orders Export</button>
         <button type="button" onclick="createDleMasterDataFromErpImport()">Create DLE Master Data</button>
       </div>
@@ -7279,8 +7279,21 @@ const dleMasterDataFileState = {
     writable: false
 };
 
-async function loadSystemCenterOpenOrders() {
-    await loadOpenOrdersFromFileInput('systemErpOpenOrdersFile');
+function openFilePickerForImport(fileInputId, importHandler) {
+    const fileInput = document.getElementById(fileInputId);
+    if (!fileInput) return;
+
+    fileInput.value = '';
+    fileInput.onchange = async event => {
+        const file = event.target?.files?.[0];
+        if (!file) return;
+        await importHandler(file);
+    };
+    fileInput.click();
+}
+
+function loadSystemCenterOpenOrders() {
+    openFilePickerForImport('systemErpOpenOrdersFile', loadOpenOrdersExportFile);
 }
 
 async function loadOpenOrdersFromFileInput(fileInputId) {
@@ -7292,6 +7305,10 @@ async function loadOpenOrdersFromFileInput(fileInputId) {
         return;
     }
 
+    await loadOpenOrdersExportFile(file);
+}
+
+async function loadOpenOrdersExportFile(file) {
     const text = await file.text();
     const lines = text.split('\n');
     const importedAt = new Date().toLocaleString();
@@ -7402,6 +7419,11 @@ function renderOpenOrdersTable() {
     table.innerHTML = html;
 }
 
+function refreshOpenOrdersTableView() {
+    renderOpenOrdersTable();
+    filterOpenOrders();
+}
+
 function refreshOpenOrdersFromMasterData() {
     const records = Array.isArray(dleMasterDataFileState.data?.records)
         ? dleMasterDataFileState.data.records
@@ -7412,7 +7434,7 @@ function refreshOpenOrdersFromMasterData() {
     selectedOpenOrderShipmentRows = new Set();
     openOrderShipmentQuantities = {};
     openOrderShipmentPreparation = null;
-    renderOpenOrdersTable();
+    refreshOpenOrdersTableView();
     updateOpenOrderReportSelectionCount();
     updateOpenOrderShipmentSelectionCount();
 
@@ -8098,7 +8120,7 @@ function toggleOpenOrderShipmentSelection(event, index) {
         selectedOpenOrderShipmentRows.delete(index);
     }
 
-    renderOpenOrdersTable();
+    refreshOpenOrdersTableView();
     updateOpenOrderShipmentSelectionCount();
 }
 
@@ -8122,7 +8144,7 @@ function selectAllOpenOrderShipmentRows() {
         selectedOpenOrderShipmentRows.add(index);
         openOrderShipmentQuantities[index] = getOpenOrderShipmentQuantity(index);
     });
-    renderOpenOrdersTable();
+    refreshOpenOrdersTableView();
     updateOpenOrderShipmentSelectionCount();
 }
 
@@ -8130,7 +8152,7 @@ function clearOpenOrderShipmentSelection() {
     selectedOpenOrderShipmentRows = new Set();
     openOrderShipmentQuantities = {};
     openOrderShipmentPreparation = null;
-    renderOpenOrdersTable();
+    refreshOpenOrdersTableView();
     updateOpenOrderShipmentSelectionCount();
 }
 
