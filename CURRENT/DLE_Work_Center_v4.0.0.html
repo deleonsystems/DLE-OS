@@ -7,161 +7,173 @@
 <!-- =====================================================
 DLE-OS DEVELOPER MAP
 
-CURRENT ARCHITECTURE FLOW
+DLE-OS v4.0.0 is currently maintained as a single-file application.
+This map is the navigation index for the current file and the extraction
+plan for future modularization. Do not split CSS, HTML, or JavaScript into
+external files during v4.0.x cleanup unless a later phase explicitly approves it.
 
-Open Orders
--> Order Dashboard
--> Work Order Dashboard
--> Assembly Dashboard
+NUMBERING PHILOSOPHY
 
-Single-file architecture is intentional for v4.0.x.
-Do not split CSS, HTML, or JavaScript into external files yet.
+000 - Project overview and repository standards
+100 - Application shell, global styling, and shared layout
+200 - Navigation and application state
+300 - Dashboards and order navigation
+400 - Production operations and shipment workflows
+500 - Data management, ERP import, Master Data, and reconciliation
+600 - Reports and communications
+700 - Print engine and controlled document output
+800 - Document intake, BOM, OCR, and manufacturing intelligence tools
+900 - Utilities and initialization
+
+CURRENT OPERATIONAL FLOWS
+
+Master Data / ERP:
+System Center -> ERP Data Import -> Candidate ERP Snapshot
+System Center -> Master Data -> DLE Master Data Viewer
+System Center -> Reconciliation -> readiness / baseline synchronization
+
+Shipping:
+Open Orders -> Request to Ship -> Print Engine -> Confirm Shipment
+Confirm Shipment -> Shipment Log -> Operational Open Orders view
+
+Reporting:
+Open Orders report selection -> Reports & Communications
+Reports & Communications -> Work Order Status Inquiry -> Print Engine
+
+Engineering Intelligence:
+Document Intake or Workbench -> RFQ Processing -> BOM Extraction / OCR
+BOM Extraction -> DLE BOM review workspace
+
+SECTION INDEX
 
 CSS SECTIONS
 
-001 - GLOBAL VARIABLES
-002 - GLOBAL STYLES
-003 - HOME + ASSEMBLY SEARCH + DASHBOARD
-004 - CAPTURE LAYOUT
-005 - BOM MODULE
-006 - OPEN ORDERS MODULE
-007 - DOCUMENT INTAKE MODULE
-008 - ORDER DASHBOARD MODULE
-009 - WORK ORDER DASHBOARD MODULE
-010 - RFQ PROCESSING MODULE
-011 - BOM EXTRACTION MODULE
-012 - WORKBENCH MODULE
-013 - DLE BOM MODULE
-014 - REPORTS & COMMUNICATIONS MODULE
-015 - DLE MASTER DATA VIEWER MODULE
-016 - SYSTEM CENTER MODULE
+110 - CSS: Global Variables
+120 - CSS: Global Styles and Shared Layout
+310 - CSS: Home and Assembly Dashboard
+410 - CSS: Open Orders and Shipment Log
+430 - CSS: Request to Ship / Shipment Preview
+500 - CSS: System Center Shell
+510 - CSS: Master Data Dashboard and Viewer
+520 - CSS: ERP Import / Snapshot Manager
+530 - CSS: Reconciliation Engine
+610 - CSS: Reports and Communications
+810 - CSS: Capture
+820 - CSS: BOM Viewer
+830 - CSS: Document Intake
+840 - CSS: RFQ Processing
+850 - CSS: BOM Extraction and OCR
+860 - CSS: Workbench
+870 - CSS: DLE BOM
 
 HTML SECTIONS
 
-101 - APPLICATION SHELL
-102 - HOME SCREEN
-103 - FIND ASSEMBLY
-103A - SELECT REVISION
-103B - ASSEMBLY DASHBOARD
-104 - BOM VIEWER
-105 - OPEN ORDERS
-105A - SHIPMENT PREVIEW
-106 - ORDER DASHBOARD
-106A - WORK ORDER DASHBOARD
-107 - DOCUMENT INTAKE
-108 - CAPTURE
-108A - CAPTURE FORM
-108B - CAPTURE SAVED
-109 - RFQ PROCESSING
-110 - BOM EXTRACTION
-111 - WORKBENCH
-112 - DLE BOM
-113 - REPORTS & COMMUNICATIONS
-114 - SYSTEM CENTER
+100 - HTML: Application Shell
+300 - HTML: Home Dashboard
+310 - HTML: Find Assembly
+320 - HTML: Select Revision
+330 - HTML: Assembly Dashboard
+340 - HTML: Order Dashboard
+350 - HTML: Work Order Dashboard
+400 - HTML: Open Orders
+420 - HTML: Shipment Preview / Request to Ship
+440 - HTML: Shipment Log
+500 - HTML: System Center
+510 - HTML: Master Data Dashboard and Viewer
+520 - HTML: ERP Import Dashboard
+530 - HTML: Reconciliation Dashboard
+600 - HTML: Reports and Communications
+800 - HTML: Capture
+820 - HTML: BOM Viewer
+830 - HTML: Document Intake
+840 - HTML: RFQ Processing
+850 - HTML: BOM Extraction and OCR
+860 - HTML: Workbench
+870 - HTML: DLE BOM
 
 JAVASCRIPT SECTIONS
 
-201 - NAVIGATION
-202 - ASSEMBLY SEARCH + DASHBOARD
-203 - CAPTURE
-204 - BOM PARSER + LABEL GENERATOR
-205 - OPEN ORDERS
-205A - SHIPMENT PREVIEW
-206 - ORDER DASHBOARD
-206A - WORK ORDER DASHBOARD
-207 - DOCUMENT INTAKE
-208 - RFQ PROCESSING
-209 - BOM EXTRACTION
-210 - WORKBENCH
-211 - DLE BOM
-212 - REPORTS & COMMUNICATIONS
-213 - DLE MASTER DATA VIEWER
-214 - DLE-OS PRINT ENGINE
-215 - INITIALIZATION
+200 - JS: Navigation and App State
+300 - JS: Assembly Search and Dashboard
+340 - JS: Order Dashboard
+350 - JS: Work Order Dashboard
+400 - JS: Open Orders, Shipment Log, and Request to Ship
+500 - JS: Master Data, ERP Import, and Reconciliation
+600 - JS: Reports and Communications
+700 - JS: Print Engine
+800 - JS: Capture
+820 - JS: BOM Parser and Label Generator
+830 - JS: Document Intake
+840 - JS: RFQ Processing
+850 - JS: BOM Extraction and OCR
+860 - JS: Workbench
+870 - JS: DLE BOM
+900 - JS: Initialization
 
-FUTURE MODULE BOUNDARIES
+SUBSYSTEM RESPONSIBILITIES
 
-Navigation Module:
-- state object
-- go(), goBack(), goHome()
-- updatePills(), updateBackButton()
+Application Shell:
+- Header, footer, top navigation context, and shared screen container.
 
-Open Orders Module:
-- ERP export loading
-- semicolon progressive search
-- Open Orders table rendering
-- handoff into Order Dashboard
+Navigation:
+- state object, go(), goBack(), goHome(), updatePills(), and back-button state.
 
-Order Dashboard Module:
-- customer / PO / sales order summary
-- line item and work order summary
-- work order row selection
-- bulk assignment placeholders
-- order-level notes and shipping placeholders
+Open Orders:
+- Operational open order view sourced from DLE Master Data.
+- Search, row navigation, report selection, and shipment selection.
 
-Work Order Dashboard Module:
-- work order execution view
-- production status
-- workflow status
-- shipping / production actions
-- future navigation into Assembly Dashboard
+Shipment Log:
+- In-memory shipment transaction records.
+- Pending Invoice operational queue and undo-selected-shipment workflow.
 
-Assembly Dashboard Module:
-- assembly context
-- BOM entry point
-- product knowledge placeholders
+Request to Ship:
+- Digital controlled form generated from selected Open Orders lines.
+- Print action uses the Print Engine; Confirm Shipment records Shipment Log entries.
 
-BOM Module:
-- raw BOM loading
-- BOM parsing
-- label preview generation
+Master Data:
+- DLE-owned operational dataset, JSON load/write helpers, and read-only viewer.
 
-Capture Module:
-- capture type routing
-- capture form
-- saved-path confirmation
+ERP Import / Snapshot Manager:
+- ERP Open Orders import, candidate snapshot metadata, and import dashboard state.
 
-RFQ Processing Module:
-- hidden workflow module
-- launched by Document Intake Commit RFQ
-- primary drawing, BOM, and supporting document classification
+Reconciliation Engine:
+- Current readiness and baseline synchronization workflow.
+- Future home for shipment validation, snapshot promotion, and Master Data sync.
 
-BOM Extraction Module:
-- manufacturing-focused BOM review workspace
-- launched after RFQ Processing
-- original drawing and DLE Standard BOM comparison
+Reports & Communications:
+- Operational report template hub, active inquiries, Work Order Status Inquiry.
 
-Workbench Module:
-- manufacturing intelligence tools
-- temporary processing sessions
-- alternate entry point into shared extraction engines
+Print Engine:
+- Isolated controlled-document rendering and browser print handoff.
 
-DLE BOM Module:
-- draft standardized BOM object
-- editable engineering review grid
-- future controlled BOM record foundation
+Document Intake:
+- Intake routing, document package staging, RFQ/order/revision/quality workflows.
 
-Reports & Communications Module:
-- operational report template hub
-- print-friendly production communication reports
-- selected Open Orders handoff
+RFQ Processing:
+- Primary drawing/BOM/supporting document classification before BOM extraction.
 
-System Center Module:
-- future administrative home for data management and system utilities
-- Master Data Viewer utility
-- placeholder sections for future system tools
+BOM Viewer:
+- Raw Add-On BOM loading, parsing, table display, and label preview.
 
-DLE Master Data Viewer Module:
-- developer verification utility inside System Center Master Data
-- read-only grid, search, sorting, and record detail inspection
+BOM Extraction / OCR:
+- Engineering drawing viewer, BOM region selection, manual guide assist,
+  OCR review table, cell refinement, and DLE BOM commit flow.
+
+Workbench:
+- Manufacturing intelligence entry point for isolated processing sessions.
+
+DLE BOM:
+- Draft standardized BOM object and editable engineering review grid.
+
+Capture:
+- Legacy capture workflow, capture form, and saved-path confirmation.
 
 EXTRACTION NOTE
 
 This prototype is intentionally kept as one HTML file for now.
 Each numbered CSS, HTML, and JavaScript section should remain self-contained
-so it can later be moved into separate files with minimal rewriting.
-When extraction begins, preserve the numbering and move one full numbered
-section at a time.
+enough to move later with minimal rewriting. When extraction begins, preserve
+the numbering bands and move one subsystem at a time.
 
 ===================================================== -->
 
@@ -169,7 +181,7 @@ section at a time.
 <style>
 
 /* =====================================================
-   001 - GLOBAL VARIABLES
+   110 - CSS: GLOBAL VARIABLES
 ===================================================== */
 
 :root {
@@ -188,7 +200,7 @@ section at a time.
     }
 
 /* =====================================================
-   002 - GLOBAL STYLES
+   120 - CSS: GLOBAL STYLES AND SHARED LAYOUT
 ===================================================== */
 
     * { box-sizing: border-box; }
@@ -316,7 +328,7 @@ body {
     .module-card.disabled:hover { transform: none; border-color: var(--border); }
 
 /* =====================================================
-   003 - HOME + ASSEMBLY SEARCH + DASHBOARD
+   310 - CSS: HOME AND ASSEMBLY DASHBOARD
 ===================================================== */
 
     .icon-circle {
@@ -339,7 +351,7 @@ body {
     .module-card p, .subtitle { color: #d7dee8; line-height: 1.45; }
 
 /* =====================================================
-   004 - CAPTURE LAYOUT
+   810 - CSS: CAPTURE
 ===================================================== */
 
     .capture-panel {
@@ -661,7 +673,7 @@ body {
 
 
     /* =====================================================
-   005 - BOM MODULE
+   820 - CSS: BOM VIEWER
 ===================================================== */
 
     .bom-actions {
@@ -863,7 +875,7 @@ body {
     }
 
 /* =====================================================
-   006 - OPEN ORDERS MODULE
+   410 - CSS: OPEN ORDERS AND SHIPMENT LOG
 ===================================================== */
 
     #openOrders,
@@ -1007,6 +1019,10 @@ body {
     .shipment-preview-message {
       margin-top: 12px;
     }
+
+/* -----------------------------------------------------
+   430 - CSS: REQUEST TO SHIP / SHIPMENT PREVIEW
+----------------------------------------------------- */
 
     .request-to-ship-form {
       background: #fff;
@@ -1276,11 +1292,11 @@ body {
     }
 
 /* =====================================================
-   END 006 - OPEN ORDERS MODULE
+   END 410 - CSS: OPEN ORDERS AND SHIPMENT LOG
 ===================================================== */
 
 /* =====================================================
-   007 - DOCUMENT INTAKE MODULE
+   830 - CSS: DOCUMENT INTAKE
 ===================================================== */
 
     #documentIntake {
@@ -1904,11 +1920,11 @@ body {
     }
 
 /* =====================================================
-   END 007 - DOCUMENT INTAKE MODULE
+   END 830 - CSS: DOCUMENT INTAKE
 ===================================================== */
 
 /* =====================================================
-   008 - ORDER DASHBOARD MODULE
+   340 - CSS: ORDER DASHBOARD
 ===================================================== */
 
     #orderDashboard {
@@ -2184,11 +2200,11 @@ body {
     }
 
 /* =====================================================
-   END 008 - ORDER DASHBOARD MODULE
+   END 340 - CSS: ORDER DASHBOARD
 ===================================================== */
 
 /* =====================================================
-   009 - WORK ORDER DASHBOARD MODULE
+   350 - CSS: WORK ORDER DASHBOARD
 ===================================================== */
 
     #workOrderDashboard {
@@ -2519,11 +2535,11 @@ body {
     }
 
 /* =====================================================
-   END 009 - WORK ORDER DASHBOARD MODULE
+   END 350 - CSS: WORK ORDER DASHBOARD
 ===================================================== */
 
 /* =====================================================
-   010 - RFQ PROCESSING MODULE
+   840 - CSS: RFQ PROCESSING
 ===================================================== */
 
     #rfqProcessing {
@@ -2675,11 +2691,11 @@ body {
     }
 
 /* =====================================================
-   END 010 - RFQ PROCESSING MODULE
+   END 840 - CSS: RFQ PROCESSING
 ===================================================== */
 
 /* =====================================================
-   011 - BOM EXTRACTION MODULE
+   850 - CSS: BOM EXTRACTION AND OCR
 ===================================================== */
 
     #bomExtraction {
@@ -3697,11 +3713,11 @@ body {
     }
 
 /* =====================================================
-   END 011 - BOM EXTRACTION MODULE
+   END 850 - CSS: BOM EXTRACTION AND OCR
 ===================================================== */
 
 /* =====================================================
-   012 - WORKBENCH MODULE
+   860 - CSS: WORKBENCH
 ===================================================== */
 
     .workbench-layout {
@@ -3779,11 +3795,11 @@ body {
     }
 
 /* =====================================================
-   END 012 - WORKBENCH MODULE
+   END 860 - CSS: WORKBENCH
 ===================================================== */
 
 /* =====================================================
-   013 - DLE BOM MODULE
+   870 - CSS: DLE BOM
 ===================================================== */
 
     .dle-bom-header {
@@ -3892,11 +3908,11 @@ body {
     }
 
 /* =====================================================
-   END 013 - DLE BOM MODULE
+   END 870 - CSS: DLE BOM
 ===================================================== */
 
 /* =====================================================
-   014 - REPORTS & COMMUNICATIONS MODULE
+   610 - CSS: REPORTS AND COMMUNICATIONS
 ===================================================== */
 
     #reportsCommunications {
@@ -4170,11 +4186,11 @@ body {
     }
 
 /* =====================================================
-   END 014 - REPORTS & COMMUNICATIONS MODULE
+   END 610 - CSS: REPORTS AND COMMUNICATIONS
 ===================================================== */
 
 /* =====================================================
-   015 - DLE MASTER DATA VIEWER MODULE
+   510 - CSS: MASTER DATA DASHBOARD AND VIEWER
 ===================================================== */
 
     .master-data-viewer-panel {
@@ -4415,6 +4431,10 @@ body {
 
     .system-center-master-data-section,
     .system-center-erp-section,
+/* -----------------------------------------------------
+   530 - CSS: RECONCILIATION ENGINE
+----------------------------------------------------- */
+
     .system-center-reconciliation-section {
       margin-top: 18px;
       border: 1px solid var(--border);
@@ -4437,6 +4457,10 @@ body {
       color: var(--muted);
       line-height: 1.5;
     }
+
+/* -----------------------------------------------------
+   520 - CSS: ERP IMPORT / SNAPSHOT MANAGER
+----------------------------------------------------- */
 
     .erp-import-actions {
       display: grid;
@@ -4545,11 +4569,11 @@ body {
     }
 
 /* =====================================================
-   END 015 - DLE MASTER DATA VIEWER MODULE
+   END 510 - CSS: MASTER DATA DASHBOARD AND VIEWER
 ===================================================== */
 
 /* =====================================================
-   016 - SYSTEM CENTER MODULE
+   500 - CSS: SYSTEM CENTER SHELL
 ===================================================== */
 
     #systemCenter {
@@ -4615,11 +4639,11 @@ body {
     }
 
 /* =====================================================
-   END 016 - SYSTEM CENTER MODULE
+   END 500 - CSS: SYSTEM CENTER SHELL
 ===================================================== */
 
 /* =====================================================
-   SHARED FOOTER + RESPONSIVE RULES
+   130 - CSS: SHARED FOOTER AND RESPONSIVE RULES
 ===================================================== */
 
     footer {
@@ -4714,7 +4738,7 @@ body {
 
 
 <!-- =====================================================
-   101 - APPLICATION SHELL
+   100 - HTML: APPLICATION SHELL
 ===================================================== -->
 
   <header>
@@ -4734,7 +4758,7 @@ body {
 
   <main>
 <!-- =====================================================
-   102 - HOME SCREEN
+   300 - HTML: HOME DASHBOARD
 ===================================================== -->
 
     <section id="home" class="screen active">
@@ -4784,7 +4808,7 @@ body {
     </section>
 
 <!-- =====================================================
-   103 - FIND ASSEMBLY
+   310 - HTML: FIND ASSEMBLY
 ===================================================== -->
 
     <section id="findAssembly" class="screen">
@@ -4813,7 +4837,7 @@ body {
     </section>
 
 <!-- =====================================================
-   103A - SELECT REVISION
+   320 - HTML: SELECT REVISION
 ===================================================== -->
 
     <section id="selectRevision" class="screen">
@@ -4832,7 +4856,7 @@ body {
     </section>
 
 <!-- =====================================================
-   103B - ASSEMBLY DASHBOARD
+   330 - HTML: ASSEMBLY DASHBOARD
 ===================================================== -->
 
     <section id="assemblyDashboard" class="screen">
@@ -4874,7 +4898,7 @@ body {
     </section>
 
 <!-- =====================================================
-   104 - BOM VIEWER
+   820 - HTML: BOM VIEWER
 ===================================================== -->
 
 <section id="bomViewer" class="screen">
@@ -4883,7 +4907,7 @@ body {
     <div class="panel-intro">
       <h2><span class="small-icon">BM</span>
 
-<!-- SECTION: BOM VIEWER MODULE -->
+<!-- SECTION 820: HTML - BOM VIEWER MODULE -->
 BOM Viewer</h2>
       <p>Bill of Materials for the selected assembly.</p>
 
@@ -4969,7 +4993,7 @@ BOM Viewer</h2>
 </section>
 
 <!-- =====================================================
-   105 - OPEN ORDERS
+   400 - HTML: OPEN ORDERS
 ===================================================== -->
 
 <section id="openOrders" class="screen">
@@ -5023,11 +5047,11 @@ BOM Viewer</h2>
 </section>
 
 <!-- =====================================================
-   END 105 - OPEN ORDERS
+   END 400 - HTML: OPEN ORDERS
 ===================================================== -->
 
 <!-- =====================================================
-   105A - SHIPMENT PREVIEW
+   420 - HTML: SHIPMENT PREVIEW / REQUEST TO SHIP
 ===================================================== -->
 
 <section id="shipmentPreview" class="screen">
@@ -5059,11 +5083,11 @@ BOM Viewer</h2>
 </section>
 
 <!-- =====================================================
-   END 105A - SHIPMENT PREVIEW
+   END 420 - HTML: SHIPMENT PREVIEW / REQUEST TO SHIP
 ===================================================== -->
 
 <!-- =====================================================
-   105B - SHIPMENT LOG
+   440 - HTML: SHIPMENT LOG
 ===================================================== -->
 
 <section id="shipmentLog" class="screen">
@@ -5106,11 +5130,11 @@ BOM Viewer</h2>
 </section>
 
 <!-- =====================================================
-   END 105B - SHIPMENT LOG
+   END 440 - HTML: SHIPMENT LOG
 ===================================================== -->
 
 <!-- =====================================================
-   113 - REPORTS & COMMUNICATIONS
+   600 - HTML: REPORTS AND COMMUNICATIONS
 ===================================================== -->
 
 <section id="reportsCommunications" class="screen">
@@ -5157,11 +5181,11 @@ BOM Viewer</h2>
 </section>
 
 <!-- =====================================================
-   END 113 - REPORTS & COMMUNICATIONS
+   END 600 - HTML: REPORTS AND COMMUNICATIONS
 ===================================================== -->
 
 <!-- =====================================================
-   114 - SYSTEM CENTER
+   500 - HTML: SYSTEM CENTER
 ===================================================== -->
 
 <section id="systemCenter" class="screen">
@@ -5174,6 +5198,7 @@ BOM Viewer</h2>
       </div>
     </div>
 
+    <!-- SECTION 510: HTML - MASTER DATA DASHBOARD AND VIEWER -->
     <section class="system-center-master-data-section">
       <h3>Master Data</h3>
       <p>Control point for Master Data loading, status, and future management utilities.</p>
@@ -5237,6 +5262,7 @@ BOM Viewer</h2>
       </div>
     </section>
 
+    <!-- SECTION 520: HTML - ERP IMPORT DASHBOARD -->
     <section class="system-center-erp-section">
       <h3>ERP Data Import</h3>
       <p>Permanent intake point for VPro5 ERP exports entering DLE-OS.</p>
@@ -5252,6 +5278,7 @@ BOM Viewer</h2>
       <div id="systemErpImportStatus" class="open-orders-status erp-import-message">No ERP export loaded.</div>
     </section>
 
+    <!-- SECTION 530: HTML - RECONCILIATION DASHBOARD -->
     <section class="system-center-reconciliation-section">
       <h3>Reconciliation</h3>
       <p>Permanent workspace for comparing ERP snapshots against DLE Master Data in future phases.</p>
@@ -5286,6 +5313,7 @@ BOM Viewer</h2>
       </div>
     </section>
 
+    <!-- SECTION 590: HTML - SYSTEM CENTER UTILITIES -->
     <div class="system-center-grid">
       <section class="system-center-card">
         <h3>System Status</h3>
@@ -5312,11 +5340,11 @@ BOM Viewer</h2>
 </section>
 
 <!-- =====================================================
-   END 114 - SYSTEM CENTER
+   END 500 - HTML: SYSTEM CENTER
 ===================================================== -->
 
 <!-- =====================================================
-   106 - ORDER DASHBOARD
+   340 - HTML: ORDER DASHBOARD
 ===================================================== -->
 
 <section id="orderDashboard" class="screen">
@@ -5427,11 +5455,11 @@ BOM Viewer</h2>
 </section>
 
 <!-- =====================================================
-   END 106 - ORDER DASHBOARD
+   END 340 - HTML: ORDER DASHBOARD
 ===================================================== -->
 
 <!-- =====================================================
-   106A - WORK ORDER DASHBOARD
+   350 - HTML: WORK ORDER DASHBOARD
 ===================================================== -->
 
 <section id="workOrderDashboard" class="screen">
@@ -5677,11 +5705,11 @@ BOM Viewer</h2>
 </section>
 
 <!-- =====================================================
-   END 106A - WORK ORDER DASHBOARD
+   END 350 - HTML: WORK ORDER DASHBOARD
 ===================================================== -->
 
 <!-- =====================================================
-   107 - DOCUMENT INTAKE
+   830 - HTML: DOCUMENT INTAKE
 ===================================================== -->
 
     <section id="documentIntake" class="screen">
@@ -6172,11 +6200,11 @@ BOM Viewer</h2>
     </section>
 
 <!-- =====================================================
-   END 107 - DOCUMENT INTAKE
+   END 830 - HTML: DOCUMENT INTAKE
 ===================================================== -->
 
 <!-- =====================================================
-   108 - CAPTURE
+   800 - HTML: CAPTURE
 ===================================================== -->
 
     <section id="capture" class="screen">
@@ -6196,7 +6224,7 @@ BOM Viewer</h2>
 
     
 <!-- =====================================================
-   108A - CAPTURE FORM
+   801 - HTML: CAPTURE FORM
 ===================================================== -->
 
 <section id="captureForm" class="screen">
@@ -6220,7 +6248,7 @@ BOM Viewer</h2>
 
     
 <!-- =====================================================
-   108B - CAPTURE SAVED
+   802 - HTML: CAPTURE SAVED
 ===================================================== -->
 
 <section id="saved" class="screen">
@@ -6237,7 +6265,7 @@ BOM Viewer</h2>
     </section>
 
 <!-- =====================================================
-   109 - RFQ PROCESSING
+   840 - HTML: RFQ PROCESSING
 ===================================================== -->
 
     <section id="rfqProcessing" class="screen">
@@ -6297,11 +6325,11 @@ BOM Viewer</h2>
     </section>
 
 <!-- =====================================================
-   END 109 - RFQ PROCESSING
+   END 840 - HTML: RFQ PROCESSING
 ===================================================== -->
 
 <!-- =====================================================
-   111 - WORKBENCH
+   860 - HTML: WORKBENCH
 ===================================================== -->
 
     <section id="workbench" class="screen">
@@ -6370,11 +6398,11 @@ BOM Viewer</h2>
     </section>
 
 <!-- =====================================================
-   END 111 - WORKBENCH
+   END 860 - HTML: WORKBENCH
 ===================================================== -->
 
 <!-- =====================================================
-   110 - BOM EXTRACTION
+   850 - HTML: BOM EXTRACTION AND OCR
 ===================================================== -->
 
     <section id="bomExtraction" class="screen">
@@ -6501,11 +6529,11 @@ BOM Viewer</h2>
     </section>
 
 <!-- =====================================================
-   END 110 - BOM EXTRACTION
+   END 850 - HTML: BOM EXTRACTION AND OCR
 ===================================================== -->
 
 <!-- =====================================================
-   112 - DLE BOM
+   870 - HTML: DLE BOM
 ===================================================== -->
 
     <section id="dleBom" class="screen">
@@ -6555,7 +6583,7 @@ BOM Viewer</h2>
     </section>
 
 <!-- =====================================================
-   END 112 - DLE BOM
+   END 870 - HTML: DLE BOM
 ===================================================== -->
   </main>
 
@@ -6563,7 +6591,7 @@ BOM Viewer</h2>
 
   <script>
 /* =====================================================
-   201 - NAVIGATION + APP STATE
+   200 - JS: NAVIGATION AND APP STATE
 ===================================================== */
 
     let state = {
@@ -6650,7 +6678,7 @@ BOM Viewer</h2>
     }
 
 /* =====================================================
-   202 - ASSEMBLY SEARCH + DASHBOARD
+   300 - JS: ASSEMBLY SEARCH AND DASHBOARD
 ===================================================== */
 
     const sampleOrders = [
@@ -6981,7 +7009,7 @@ BOM Viewer</h2>
     }
 
 /* =====================================================
-   203 - CAPTURE
+   800 - JS: CAPTURE
 ===================================================== */
 
     function goCapture(type) {
@@ -7004,7 +7032,7 @@ BOM Viewer</h2>
 }
 
 /* =====================================================
-   204 - BOM PARSER + LABEL GENERATOR
+   820 - JS: BOM PARSER AND LABEL GENERATOR
 ===================================================== */
 
 async function loadBomTest() {
@@ -7314,7 +7342,7 @@ async function parseBomTest() {
 }
 
 /* =====================================================
-   205 - OPEN ORDERS
+   400 - JS: OPEN ORDERS, SHIPMENT LOG, REQUEST TO SHIP, AND DATA BRIDGE
 ===================================================== */
 
 let openOrdersRows = [];
@@ -7324,12 +7352,22 @@ let selectedOpenOrderShipmentRows = new Set();
 let openOrderShipmentQuantities = {};
 let openOrderShipmentPreparation = null;
 let selectedShipmentLogId = '';
+
+/* -----------------------------------------------------
+   440 - JS: SHIPMENT LOG STATE AND TRANSACTIONS
+----------------------------------------------------- */
+
 const shipmentLogState = {
     schema: 'DLE_SHIPMENT_LOG_V1',
     initializedAt: null,
     lastUpdated: '',
     records: []
 };
+
+/* -----------------------------------------------------
+   520 - JS: ERP IMPORT STATE
+----------------------------------------------------- */
+
 const erpImportState = {
     status: 'Not Loaded',
     sourceFile: 'Not available',
@@ -7338,6 +7376,11 @@ const erpImportState = {
     characters: 0,
     rawRows: 0
 };
+
+/* -----------------------------------------------------
+   530 - JS: RECONCILIATION STATE
+----------------------------------------------------- */
+
 const reconciliationState = {
     lastSuccessfulReconciliation: 'No Successful Reconciliation',
     currentState: 'Not Ready',
@@ -7348,6 +7391,10 @@ let dleMasterData = {
     source: null,
     records: []
 };
+
+/* -----------------------------------------------------
+   510 - JS: MASTER DATA FILE STATE
+----------------------------------------------------- */
 
 const dleMasterDataFileState = {
     data: null,
@@ -9301,11 +9348,11 @@ function generateOpenOrdersReport() {
 }
 
 /* =====================================================
-   END 205 - OPEN ORDERS
+   END 400 - JS: OPEN ORDERS, SHIPMENT LOG, REQUEST TO SHIP, AND DATA BRIDGE
 ===================================================== */
 
 /* =====================================================
-   212 - REPORTS & COMMUNICATIONS
+   600 - JS: REPORTS AND COMMUNICATIONS
 ===================================================== */
 
 const reportsCommunicationsState = {
@@ -9770,11 +9817,11 @@ function markCurrentInquiryIssued() {
 }
 
 /* =====================================================
-   END 212 - REPORTS & COMMUNICATIONS
+   END 600 - JS: REPORTS AND COMMUNICATIONS
 ===================================================== */
 
 /* =====================================================
-   206 - ORDER DASHBOARD
+   340 - JS: ORDER DASHBOARD
 ===================================================== */
 
 let currentJobDashboardOrder = null;
@@ -10219,11 +10266,11 @@ function setText(id, value) {
 }
 
 /* =====================================================
-   END 206 - ORDER DASHBOARD
+   END 340 - JS: ORDER DASHBOARD
 ===================================================== */
 
 /* =====================================================
-   206A - WORK ORDER DASHBOARD
+   350 - JS: WORK ORDER DASHBOARD
 ===================================================== */
 
 function openSelectedWorkOrderDashboard() {
@@ -10379,11 +10426,11 @@ function placeholderWorkOrderAction(actionName) {
 }
 
 /* =====================================================
-   END 206A - WORK ORDER DASHBOARD
+   END 350 - JS: WORK ORDER DASHBOARD
 ===================================================== */
 
 /* =====================================================
-   207 - DOCUMENT INTAKE
+   830 - JS: DOCUMENT INTAKE
 ===================================================== */
 
 let documentIntakeState = {
@@ -12130,11 +12177,11 @@ function renderIntakeReviewSummary() {
 }
 
 /* =====================================================
-   END 207 - DOCUMENT INTAKE
+   END 830 - JS: DOCUMENT INTAKE
 ===================================================== */
 
 /* =====================================================
-   208 - RFQ PROCESSING
+   840 - JS: RFQ PROCESSING
 ===================================================== */
 
 let currentRFQ = {
@@ -12427,11 +12474,11 @@ function openRfqQueuePlaceholder() {
 }
 
 /* =====================================================
-   END 208 - RFQ PROCESSING
+   END 840 - JS: RFQ PROCESSING
 ===================================================== */
 
 /* =====================================================
-   209 - BOM EXTRACTION
+   850 - JS: BOM EXTRACTION AND OCR
 ===================================================== */
 
 let bomExtractionState = {
@@ -15203,11 +15250,11 @@ function countPdfPagesForViewer(file) {
 }
 
 /* =====================================================
-   END 209 - BOM EXTRACTION
+   END 850 - JS: BOM EXTRACTION AND OCR
 ===================================================== */
 
 /* =====================================================
-   210 - WORKBENCH
+   860 - JS: WORKBENCH
 ===================================================== */
 
 let workbenchState = {
@@ -15384,11 +15431,11 @@ function renderBomWorkbenchResult() {
 }
 
 /* =====================================================
-   END 210 - WORKBENCH
+   END 860 - JS: WORKBENCH
 ===================================================== */
 
 /* =====================================================
-   211 - DLE BOM
+   870 - JS: DLE BOM
 ===================================================== */
 
 let currentDleBom = null;
@@ -15590,11 +15637,11 @@ function returnFromDleBomToWorkbench() {
 }
 
 /* =====================================================
-   END 211 - DLE BOM
+   END 870 - JS: DLE BOM
 ===================================================== */
 
 /* =====================================================
-   213 - DLE MASTER DATA VIEWER
+   520 - JS: DLE MASTER DATA VIEWER
 ===================================================== */
 
 const dleMasterDataViewerState = {
@@ -16153,11 +16200,11 @@ function setDleMasterDataStatus(message) {
 }
 
 /* =====================================================
-   END 213 - DLE MASTER DATA VIEWER
+   END 520 - JS: DLE MASTER DATA VIEWER
 ===================================================== */
 
 /* =====================================================
-   214 - DLE-OS PRINT ENGINE
+   700 - JS: DLE-OS PRINT ENGINE
 ===================================================== */
 
 const DlePrintEngine = (() => {
@@ -16449,11 +16496,11 @@ function buildPrintEngineQualificationCss() {
 }
 
 /* =====================================================
-   END 214 - DLE-OS PRINT ENGINE
+   END 700 - JS: DLE-OS PRINT ENGINE
 ===================================================== */
 
 /* =====================================================
-   215 - INITIALIZATION
+   900 - JS: INITIALIZATION
 ===================================================== */
 
 configureDocumentProcessingLibraries();
