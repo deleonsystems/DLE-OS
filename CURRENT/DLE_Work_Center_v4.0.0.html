@@ -965,6 +965,16 @@ body {
       background: rgba(39, 174, 96, .12) !important;
     }
 
+    .shipment-log-row-selected {
+      outline: 2px solid rgba(47,140,255,.75);
+      outline-offset: -2px;
+      background: rgba(47,140,255,.16) !important;
+    }
+
+    .shipment-log-row {
+      cursor: pointer;
+    }
+
     .open-order-ship-qty-input {
       width: 88px;
       min-width: 76px;
@@ -5086,7 +5096,7 @@ BOM Viewer</h2>
       </div>
       <div class="open-orders-actions">
         <button type="button" onclick="renderShipmentLogModule()">Refresh Shipment Log</button>
-        <button type="button" disabled title="Undo shipment will be implemented in a future phase.">Undo Last Shipment</button>
+        <button type="button" id="undoSelectedShipmentButton" onclick="undoSelectedShipment()" disabled title="Select a Pending Invoice shipment before undoing.">Undo Selected Shipment</button>
         <button type="button" disabled title="Clear Shipment Log is reserved for a future developer tool.">Clear Shipment Log</button>
       </div>
     </div>
@@ -7313,6 +7323,7 @@ let selectedOpenOrderReportRows = new Set();
 let selectedOpenOrderShipmentRows = new Set();
 let openOrderShipmentQuantities = {};
 let openOrderShipmentPreparation = null;
+let selectedShipmentLogId = '';
 const shipmentLogState = {
     schema: 'DLE_SHIPMENT_LOG_V1',
     initializedAt: null,
@@ -7357,6 +7368,7 @@ function initializeShipmentLog() {
 
 function createEmptyShipmentLogRecord() {
     return {
+        shipmentTransactionId: '',
         shipmentId: '',
         shipmentDateTime: '',
         customerNumber: '',
@@ -7383,8 +7395,9 @@ function commitShipmentPreparationToShipmentLog(preparation) {
 
     const shipmentDate = new Date();
     const shipmentDateTime = shipmentDate.toLocaleString();
+    const shipmentId = generateShipmentId(preparation.lines[0], shipmentDate);
     const records = preparation.lines.map(line => {
-        const record = buildShipmentLogRecord(line, shipmentDate, shipmentDateTime);
+        const record = buildShipmentLogRecord(line, shipmentDateTime, shipmentId);
         shipmentLogState.records.push(record);
         logShipmentLogRecord(record);
         return record;
@@ -7400,10 +7413,11 @@ function commitShipmentPreparationToShipmentLog(preparation) {
     return records;
 }
 
-function buildShipmentLogRecord(line, shipmentDate, shipmentDateTime) {
+function buildShipmentLogRecord(line, shipmentDateTime, shipmentId) {
     return {
         ...createEmptyShipmentLogRecord(),
-        shipmentId: generateShipmentId(line, shipmentDate),
+        shipmentTransactionId: shipmentId,
+        shipmentId,
         shipmentDateTime,
         customerNumber: line.customerNumber || '',
         customerName: line.customer || '',
@@ -7478,6 +7492,9 @@ function renderShipmentLogSummary() {
             ? records.length + ' Shipment Log record' + (records.length === 1 ? '' : 's') + ' available.'
             : 'Shipment Log is empty. Confirm shipments to create records.';
     }
+
+    syncSelectedShipmentLogIdToRecords();
+    updateUndoSelectedShipmentButton();
 }
 
 function renderShipmentLogTable() {
@@ -7507,8 +7524,12 @@ function renderShipmentLogTable() {
 `;
 
     records.forEach((record, index) => {
+        const shipmentId = record.shipmentId || '';
+        const selectedClass = shipmentId && shipmentId === selectedShipmentLogId
+            ? ' shipment-log-row-selected'
+            : '';
         html += `
-<tr class="${index % 2 === 0 ? 'rowEven' : 'rowOdd'}" data-shipment-log-row="true">
+<tr class="${index % 2 === 0 ? 'rowEven' : 'rowOdd'} shipment-log-row${selectedClass}" data-shipment-log-row="true" data-shipment-id="${escapeHtml(shipmentId)}" onclick="selectShipmentLogTransaction(event, this.dataset.shipmentId)">
     <td>${escapeHtml(record.shipmentDateTime || '')}</td>
     <td>${escapeHtml(record.shipmentId || '')}</td>
     <td class="nowrap">${escapeHtml(formatShipmentLogCustomer(record))}</td>
@@ -7550,6 +7571,85 @@ function filterShipmentLog() {
         rows[i].style.display = filters.every(filter => rowText.includes(filter))
             ? ''
             : 'none';
+    }
+}
+
+function selectShipmentLogTransaction(event, shipmentId) {
+    if (event) event.stopPropagation();
+    selectedShipmentLogId = shipmentId || '';
+    renderShipmentLogTable();
+    updateUndoSelectedShipmentButton();
+
+    const status = document.getElementById('shipmentLogStatus');
+    const selectedRecords = getSelectedShipmentLogRecords();
+    if (status) {
+        status.textContent = selectedRecords.length
+            ? 'Selected Shipment ID ' + selectedShipmentLogId + ' (' + selectedRecords.length + ' line' + (selectedRecords.length === 1 ? '' : 's') + ').'
+            : 'No Shipment Log transaction is selected.';
+    }
+}
+
+function syncSelectedShipmentLogIdToRecords() {
+    if (!selectedShipmentLogId) return;
+    const records = Array.isArray(shipmentLogState.records) ? shipmentLogState.records : [];
+    if (!records.some(record => record.shipmentId === selectedShipmentLogId)) {
+        selectedShipmentLogId = '';
+    }
+}
+
+function getSelectedShipmentLogRecords() {
+    if (!selectedShipmentLogId) return [];
+    const records = Array.isArray(shipmentLogState.records) ? shipmentLogState.records : [];
+    return records.filter(record => record.shipmentId === selectedShipmentLogId);
+}
+
+function updateUndoSelectedShipmentButton() {
+    const button = document.getElementById('undoSelectedShipmentButton');
+    if (!button) return;
+
+    const selectedRecords = getSelectedShipmentLogRecords();
+    const canUndo = selectedRecords.length > 0 &&
+        selectedRecords.every(record => record.status === 'Pending Invoice');
+
+    button.disabled = !canUndo;
+    button.title = canUndo
+        ? 'Undo selected Pending Invoice shipment.'
+        : 'Select a shipment where every line is Pending Invoice before undoing.';
+}
+
+function undoSelectedShipment() {
+    const selectedRecords = getSelectedShipmentLogRecords();
+    const status = document.getElementById('shipmentLogStatus');
+
+    if (!selectedRecords.length) {
+        if (status) status.textContent = 'Select a shipment before undoing.';
+        return;
+    }
+
+    const nonPendingRecord = selectedRecords.find(record => record.status !== 'Pending Invoice');
+    if (nonPendingRecord) {
+        if (status) {
+            status.textContent = 'Undo is not allowed after a shipment has been reconciled.';
+        }
+        updateUndoSelectedShipmentButton();
+        return;
+    }
+
+    const shipmentId = selectedShipmentLogId;
+    shipmentLogState.records = shipmentLogState.records.filter(record =>
+        record.shipmentId !== shipmentId
+    );
+    shipmentLogState.lastUpdated = new Date().toLocaleString();
+    selectedShipmentLogId = '';
+
+    openOrderShipmentPreparation = null;
+    syncOpenOrderShipmentSelectionToOperationalView();
+    renderShipmentLogModule();
+    refreshOpenOrdersTableView();
+    updateOpenOrderShipmentSelectionCount('Selected shipment was undone.');
+
+    if (status) {
+        status.textContent = 'Shipment ID ' + shipmentId + ' undone. Open Orders restored from Shipment Log.';
     }
 }
 
