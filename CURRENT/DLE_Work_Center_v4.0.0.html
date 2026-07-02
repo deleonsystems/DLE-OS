@@ -866,7 +866,8 @@ body {
    006 - OPEN ORDERS MODULE
 ===================================================== */
 
-    #openOrders {
+    #openOrders,
+    #shipmentLog {
       width: calc(100vw - 44px);
       margin-left: calc(50% - 50vw + 22px);
     }
@@ -912,6 +913,10 @@ body {
       grid-template-columns: minmax(260px, 1fr) auto minmax(220px, 320px);
       gap: 10px;
       align-items: end;
+    }
+
+    .shipment-log-toolbar {
+      grid-template-columns: minmax(260px, 1fr) minmax(280px, 420px);
     }
 
     .open-orders-actions {
@@ -4708,7 +4713,7 @@ body {
     <div class="divider"></div>
       <div class="title-wrap">
         <div class="app-title">DLE Work Center</div>
-      <div class="app-subtitle">Version 4.0.0 baseline: Open Orders | Order Dashboard | Work Order Dashboard | Assembly Dashboard | Document Intake | Reports & Communications | Workbench | System Center</div>
+      <div class="app-subtitle">Version 4.0.0 baseline: Open Orders | Shipment Log | Order Dashboard | Work Order Dashboard | Assembly Dashboard | Document Intake | Reports & Communications | Workbench | System Center</div>
     </div>
     <div class="top-pills">
       <div class="pill">Part: <span id="partPill">Not Selected</span></div>
@@ -4739,6 +4744,11 @@ body {
           <h1>Open Orders</h1>
           <p>Load ERP exports and monitor production activity.</p>
           <div class="future">Future</div>
+        </div>
+        <div class="module-card active-card" onclick="go('shipmentLog')">
+          <div class="icon-circle">SL</div>
+          <h1>Shipment Log</h1>
+          <p>Inspect DLE-OS shipment transactions pending invoicing.</p>
         </div>
         <div class="module-card active-card" onclick="go('reportsCommunications')">
           <div class="icon-circle">RC</div>
@@ -5031,6 +5041,7 @@ BOM Viewer</h2>
     <div id="shipmentPreviewLines"></div>
 
     <div class="shipment-preview-actions">
+      <button type="button" onclick="printRequestToShip()">Print Request to Ship</button>
       <button type="button" onclick="confirmShipmentPreview()">Confirm Shipment</button>
       <button type="button" class="secondary-btn" onclick="cancelShipmentPreview()">Cancel</button>
     </div>
@@ -5039,6 +5050,53 @@ BOM Viewer</h2>
 
 <!-- =====================================================
    END 105A - SHIPMENT PREVIEW
+===================================================== -->
+
+<!-- =====================================================
+   105B - SHIPMENT LOG
+===================================================== -->
+
+<section id="shipmentLog" class="screen">
+  <div class="open-orders-panel">
+    <div class="open-orders-header">
+      <div class="open-orders-title">
+        <span class="small-icon">SL</span>
+        <div>
+          <h2>Shipment Log</h2>
+          <p>DLE-OS shipment transaction viewer</p>
+        </div>
+      </div>
+
+      <div class="open-orders-toolbar shipment-log-toolbar">
+        <div id="shipmentLogStatus" class="open-orders-status">Shipment Log initialized.</div>
+
+        <input
+          type="text"
+          id="shipmentLogSearch"
+          class="open-orders-search"
+          placeholder="Search shipment ID, customer, sales order, work order, or item..."
+          onkeyup="filterShipmentLog()">
+      </div>
+    </div>
+
+    <div class="open-order-report-controls">
+      <div>
+        <strong>Shipment Log</strong>
+        <div id="shipmentLogSummary" class="open-order-report-count">0 shipments recorded.</div>
+      </div>
+      <div class="open-orders-actions">
+        <button type="button" onclick="renderShipmentLogModule()">Refresh Shipment Log</button>
+        <button type="button" disabled title="Undo shipment will be implemented in a future phase.">Undo Last Shipment</button>
+        <button type="button" disabled title="Clear Shipment Log is reserved for a future developer tool.">Clear Shipment Log</button>
+      </div>
+    </div>
+
+    <div id="shipmentLogTable" class="open-orders-table-wrap"></div>
+  </div>
+</section>
+
+<!-- =====================================================
+   END 105B - SHIPMENT LOG
 ===================================================== -->
 
 <!-- =====================================================
@@ -6527,6 +6585,9 @@ BOM Viewer</h2>
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
       currentScreen = id;
+      if (id === 'shipmentLog') {
+        renderShipmentLogModule();
+      }
       updatePills();
       updateBackButton();
     }
@@ -7252,6 +7313,12 @@ let selectedOpenOrderReportRows = new Set();
 let selectedOpenOrderShipmentRows = new Set();
 let openOrderShipmentQuantities = {};
 let openOrderShipmentPreparation = null;
+const shipmentLogState = {
+    schema: 'DLE_SHIPMENT_LOG_V1',
+    initializedAt: null,
+    lastUpdated: '',
+    records: []
+};
 const erpImportState = {
     status: 'Not Loaded',
     sourceFile: 'Not available',
@@ -7278,6 +7345,213 @@ const dleMasterDataFileState = {
     lastModified: '',
     writable: false
 };
+
+function initializeShipmentLog() {
+    if (!Array.isArray(shipmentLogState.records)) {
+        shipmentLogState.records = [];
+    }
+    if (!shipmentLogState.initializedAt) {
+        shipmentLogState.initializedAt = new Date().toISOString();
+    }
+}
+
+function createEmptyShipmentLogRecord() {
+    return {
+        shipmentId: '',
+        shipmentDateTime: '',
+        customerNumber: '',
+        customerName: '',
+        salesOrder: '',
+        salesOrderLine: '',
+        workOrder: '',
+        itemNumber: '',
+        description: '',
+        quantityShipped: 0,
+        originalOpenQuantity: 0,
+        user: '',
+        status: 'Pending Invoice'
+    };
+}
+
+function commitShipmentPreparationToShipmentLog(preparation) {
+    if (!preparation || !preparation.valid || !Array.isArray(preparation.lines) || !preparation.lines.length) {
+        return [];
+    }
+    if (preparation.shipmentLogCommitted) {
+        return preparation.shipmentLogRecords || [];
+    }
+
+    const shipmentDate = new Date();
+    const shipmentDateTime = shipmentDate.toLocaleString();
+    const records = preparation.lines.map(line => {
+        const record = buildShipmentLogRecord(line, shipmentDate, shipmentDateTime);
+        shipmentLogState.records.push(record);
+        logShipmentLogRecord(record);
+        return record;
+    });
+
+    preparation.shipmentLogCommitted = true;
+    preparation.shipmentLogRecords = records;
+    shipmentLogState.lastUpdated = shipmentDateTime;
+    renderShipmentLogModule();
+    syncOpenOrderShipmentSelectionToOperationalView(preparation);
+    refreshOpenOrdersTableView();
+    updateOpenOrderShipmentSelectionCount();
+    return records;
+}
+
+function buildShipmentLogRecord(line, shipmentDate, shipmentDateTime) {
+    return {
+        ...createEmptyShipmentLogRecord(),
+        shipmentId: generateShipmentId(line, shipmentDate),
+        shipmentDateTime,
+        customerNumber: line.customerNumber || '',
+        customerName: line.customer || '',
+        salesOrder: line.salesOrder || '',
+        salesOrderLine: line.sequenceLine || '',
+        workOrder: line.workOrder || '',
+        itemNumber: line.partNumber || '',
+        description: line.description || '',
+        quantityShipped: line.shipQuantity || 0,
+        originalOpenQuantity: line.openQuantity || 0,
+        user: 'DLE-OS User',
+        status: 'Pending Invoice'
+    };
+}
+
+function generateShipmentId(line, shipmentDate) {
+    const pad = value => String(value).padStart(2, '0');
+    const dateCode = String(shipmentDate.getFullYear()).slice(-2) +
+        pad(shipmentDate.getMonth() + 1) +
+        pad(shipmentDate.getDate());
+    const customerNumber = sanitizeShipmentIdPart(line.customerNumber || 'UNKNOWN');
+    const salesOrder = sanitizeShipmentIdPart(line.salesOrder || 'UNKNOWN');
+    const baseId = 'SHP-' + customerNumber + '-' + salesOrder + '-' + dateCode;
+    const nextSequence = shipmentLogState.records
+        .filter(record => String(record.shipmentId || '').startsWith(baseId + '-'))
+        .length + 1;
+    return baseId + '-' + pad(nextSequence);
+}
+
+function sanitizeShipmentIdPart(value) {
+    return String(value || 'UNKNOWN')
+        .trim()
+        .replace(/[^A-Za-z0-9]/g, '') || 'UNKNOWN';
+}
+
+function logShipmentLogRecord(record) {
+    console.log([
+        'Shipment Log Updated',
+        '',
+        'Shipment ID: ' + record.shipmentId,
+        'Customer: ' + record.customerName,
+        'Work Order: ' + record.workOrder,
+        'Quantity Shipped: ' + record.quantityShipped,
+        'Status: ' + record.status
+    ].join('\n'));
+}
+
+function renderShipmentLogModule() {
+    renderShipmentLogSummary();
+    renderShipmentLogTable();
+    filterShipmentLog();
+}
+
+function renderShipmentLogSummary() {
+    const records = Array.isArray(shipmentLogState.records) ? shipmentLogState.records : [];
+    const pendingCount = records.filter(record => record.status === 'Pending Invoice').length;
+    const lastUpdated = shipmentLogState.lastUpdated ||
+        records[records.length - 1]?.shipmentDateTime ||
+        'Not available';
+
+    const summary = document.getElementById('shipmentLogSummary');
+    if (summary) {
+        summary.textContent =
+            'Shipment Count: ' + records.length +
+            ' | Pending Invoice: ' + pendingCount +
+            ' | Last Updated: ' + lastUpdated;
+    }
+
+    const status = document.getElementById('shipmentLogStatus');
+    if (status) {
+        status.textContent = records.length
+            ? records.length + ' Shipment Log record' + (records.length === 1 ? '' : 's') + ' available.'
+            : 'Shipment Log is empty. Confirm shipments to create records.';
+    }
+}
+
+function renderShipmentLogTable() {
+    const table = document.getElementById('shipmentLogTable');
+    if (!table) return;
+
+    const records = Array.isArray(shipmentLogState.records) ? shipmentLogState.records : [];
+    if (!records.length) {
+        table.innerHTML = '<div class="report-empty">No shipment records have been created yet.</div>';
+        return;
+    }
+
+    let html = `
+<table class="open-orders-table">
+<tr>
+    <th>Shipment Date</th>
+    <th>Shipment ID</th>
+    <th>Customer</th>
+    <th>Sales Order</th>
+    <th>Line</th>
+    <th>Work Order</th>
+    <th>Item Number</th>
+    <th>Description</th>
+    <th>Qty Shipped</th>
+    <th>Status</th>
+</tr>
+`;
+
+    records.forEach((record, index) => {
+        html += `
+<tr class="${index % 2 === 0 ? 'rowEven' : 'rowOdd'}" data-shipment-log-row="true">
+    <td>${escapeHtml(record.shipmentDateTime || '')}</td>
+    <td>${escapeHtml(record.shipmentId || '')}</td>
+    <td class="nowrap">${escapeHtml(formatShipmentLogCustomer(record))}</td>
+    <td>${escapeHtml(record.salesOrder || '')}</td>
+    <td>${escapeHtml(record.salesOrderLine || '')}</td>
+    <td>${escapeHtml(record.workOrder || '')}</td>
+    <td>${escapeHtml(record.itemNumber || '')}</td>
+    <td class="nowrap">${escapeHtml(record.description || '')}</td>
+    <td>${escapeHtml(String(record.quantityShipped ?? ''))}</td>
+    <td>${escapeHtml(record.status || 'Pending Invoice')}</td>
+</tr>
+`;
+    });
+
+    html += '</table>';
+    table.innerHTML = html;
+}
+
+function formatShipmentLogCustomer(record) {
+    const customerNumber = normalizeOrderValue(record.customerNumber, '');
+    const customerName = normalizeOrderValue(record.customerName, '');
+    if (customerNumber && customerName) return customerNumber + ' - ' + customerName;
+    return customerName || customerNumber;
+}
+
+function filterShipmentLog() {
+    const input = document.getElementById('shipmentLogSearch');
+    const table = document.querySelector('#shipmentLogTable table');
+    if (!input || !table) return;
+
+    const filters = input.value
+        .split(';')
+        .map(segment => segment.trim().toUpperCase())
+        .filter(Boolean);
+
+    const rows = table.getElementsByTagName('tr');
+    for (let i = 1; i < rows.length; i++) {
+        const rowText = rows[i].textContent.toUpperCase();
+        rows[i].style.display = filters.every(filter => rowText.includes(filter))
+            ? ''
+            : 'none';
+    }
+}
 
 function openFilePickerForImport(fileInputId, importHandler) {
     const fileInput = document.getElementById(fileInputId);
@@ -7343,6 +7617,7 @@ function parseOpenOrdersExportText(text) {
 function renderOpenOrdersTable() {
     const table = document.getElementById('openOrdersTable');
     if (!table) return;
+    const operationalRows = buildOperationalOpenOrdersRows();
 
     let html = `
 <table class="open-orders-table">
@@ -7369,8 +7644,8 @@ function renderOpenOrdersTable() {
 </tr>
 `;
 
-    for (let i = 0; i < openOrdersRows.length; i++) {
-        const cols = openOrdersRows[i];
+    operationalRows.forEach(({ cols, sourceIndex }, viewIndex) => {
+        const i = sourceIndex;
         const checked = selectedOpenOrderReportRows.has(i) ? ' checked' : '';
         const shipmentChecked = selectedOpenOrderShipmentRows.has(i) ? ' checked' : '';
         const shipQty = getOpenOrderShipmentQuantity(i);
@@ -7381,7 +7656,7 @@ function renderOpenOrdersTable() {
         ].filter(Boolean).join(' ');
 
         html += `
-<tr class="${i % 2 === 0 ? 'rowEven' : 'rowOdd'} clickable-open-order${selectedClass ? ' ' + selectedClass : ''}" data-open-order-index="${i}" onclick="openJobDashboardFromOpenOrder(${i})" title="Open Order Dashboard">
+<tr class="${viewIndex % 2 === 0 ? 'rowEven' : 'rowOdd'} clickable-open-order${selectedClass ? ' ' + selectedClass : ''}" data-open-order-index="${i}" onclick="openJobDashboardFromOpenOrder(${i})" title="Open Order Dashboard">
     <td class="open-order-report-select">
       <input class="open-order-shipment-checkbox" type="checkbox"${shipmentChecked} onclick="toggleOpenOrderShipmentSelection(event, ${i})" title="Select for shipment">
     </td>
@@ -7413,10 +7688,52 @@ function renderOpenOrdersTable() {
     <td>${escapeHtml(cols[14] || '')}</td>
 </tr>
 `;
-    }
+    });
 
     html += '</table>';
     table.innerHTML = html;
+}
+
+function buildOperationalOpenOrdersRows() {
+    return openOrdersRows
+        .map((cols, index) => {
+            const pendingQuantity = getPendingShipmentQuantityForOpenOrder(cols);
+            const erpOpenQuantity = parseOpenOrderQuantity(cols[9]);
+            const displayedOpenQuantity = Math.max(erpOpenQuantity - pendingQuantity, 0);
+            if (erpOpenQuantity > 0 && displayedOpenQuantity <= 0) {
+                return null;
+            }
+            const operationalCols = [...cols];
+            operationalCols[9] = formatOpenOrderQuantity(displayedOpenQuantity);
+            return {
+                sourceIndex: index,
+                cols: operationalCols,
+                pendingQuantity,
+                displayedOpenQuantity
+            };
+        })
+        .filter(Boolean);
+}
+
+function getPendingShipmentQuantityForOpenOrder(cols) {
+    const customerNumber = normalizeOrderValue(cols[1], '');
+    const salesOrder = normalizeOrderValue(cols[4], '');
+    const salesOrderLine = normalizeOrderValue(cols[5], '');
+    const workOrder = normalizeOrderValue(cols[6], '');
+
+    return shipmentLogState.records
+        .filter(record => record.status === 'Pending Invoice')
+        .filter(record =>
+            normalizeOrderValue(record.customerNumber, '') === customerNumber &&
+            normalizeOrderValue(record.salesOrder, '') === salesOrder &&
+            normalizeOrderValue(record.salesOrderLine, '') === salesOrderLine &&
+            normalizeOrderValue(record.workOrder, '') === workOrder
+        )
+        .reduce((total, record) => total + parseOpenOrderQuantity(record.quantityShipped), 0);
+}
+
+function formatOpenOrderQuantity(value) {
+    return Number.isInteger(value) ? String(value) : String(value);
 }
 
 function refreshOpenOrdersTableView() {
@@ -8126,7 +8443,7 @@ function toggleOpenOrderShipmentSelection(event, index) {
 
 function updateOpenOrderShipmentQuantity(event, index) {
     event.stopPropagation();
-    const cols = openOrdersRows[index] || [];
+    const cols = getOperationalOpenOrderColumns(index) || openOrdersRows[index] || [];
     const maxQty = parseOpenOrderQuantity(cols[9]);
     const enteredQty = parseOpenOrderQuantity(event.target.value);
     const clampedQty = Math.min(Math.max(enteredQty, 0), maxQty);
@@ -8140,9 +8457,9 @@ function updateOpenOrderShipmentQuantity(event, index) {
 }
 
 function selectAllOpenOrderShipmentRows() {
-    openOrdersRows.forEach((cols, index) => {
-        selectedOpenOrderShipmentRows.add(index);
-        openOrderShipmentQuantities[index] = getOpenOrderShipmentQuantity(index);
+    buildOperationalOpenOrdersRows().forEach(({ sourceIndex }) => {
+        selectedOpenOrderShipmentRows.add(sourceIndex);
+        openOrderShipmentQuantities[sourceIndex] = getOpenOrderShipmentQuantity(sourceIndex);
     });
     refreshOpenOrdersTableView();
     updateOpenOrderShipmentSelectionCount();
@@ -8156,6 +8473,29 @@ function clearOpenOrderShipmentSelection() {
     updateOpenOrderShipmentSelectionCount();
 }
 
+function syncOpenOrderShipmentSelectionToOperationalView(preparation = null) {
+    const operationalIndexes = new Set(buildOperationalOpenOrdersRows().map(row => row.sourceIndex));
+    const committedIndexes = new Set(
+        Array.isArray(preparation?.lines)
+            ? preparation.lines.map(line => Number(line.rowIndex))
+            : []
+    );
+
+    selectedOpenOrderShipmentRows = new Set(
+        Array.from(selectedOpenOrderShipmentRows)
+            .filter(index => !committedIndexes.has(Number(index)))
+            .filter(index => operationalIndexes.has(index))
+    );
+
+    openOrderShipmentQuantities = Object.fromEntries(
+        Object.entries(openOrderShipmentQuantities)
+            .filter(([index]) => !committedIndexes.has(Number(index)))
+            .filter(([index]) => operationalIndexes.has(Number(index)))
+    );
+
+    openOrderShipmentPreparation = null;
+}
+
 function updateOpenOrderShipmentSelectionCount(message = '') {
     const countEl = document.getElementById('openOrderShipmentSelectionCount');
     if (!countEl) return;
@@ -8165,13 +8505,19 @@ function updateOpenOrderShipmentSelectionCount(message = '') {
 }
 
 function getOpenOrderShipmentQuantity(index) {
-    const cols = openOrdersRows[index] || [];
+    const cols = getOperationalOpenOrderColumns(index) || openOrdersRows[index] || [];
     const maxQty = parseOpenOrderQuantity(cols[9]);
     const existing = openOrderShipmentQuantities[index];
     if (existing !== undefined && existing !== '') {
         return Math.min(Math.max(parseOpenOrderQuantity(existing), 0), maxQty);
     }
     return maxQty;
+}
+
+function getOperationalOpenOrderColumns(index) {
+    const operationalRow = buildOperationalOpenOrdersRows()
+        .find(row => row.sourceIndex === Number(index));
+    return operationalRow?.cols || null;
 }
 
 function parseOpenOrderQuantity(value) {
@@ -8200,7 +8546,7 @@ function buildOpenOrderShipmentPreparation() {
     const errors = [];
 
     selectedOpenOrderShipmentRows.forEach(index => {
-        const cols = openOrdersRows[index] || [];
+        const cols = getOperationalOpenOrderColumns(index) || [];
         const openQty = parseOpenOrderQuantity(cols[9]);
         const shipQty = getOpenOrderShipmentQuantity(index);
 
@@ -8521,7 +8867,7 @@ function cancelShipmentPreview() {
     go('openOrders');
 }
 
-function confirmShipmentPreview() {
+function printRequestToShip() {
     const validation = validateShipmentPreparation(openOrderShipmentPreparation);
     const validationEl = document.getElementById('shipmentPreviewValidation');
     if (!validation.valid) {
@@ -8529,12 +8875,12 @@ function confirmShipmentPreview() {
         return;
     }
     if (validationEl) {
-        validationEl.textContent = 'Opening Print Engine for Request to Ship. No data will be modified.';
+        validationEl.textContent = 'Opening Print Engine for Request to Ship. Shipment has not been confirmed.';
     }
     DlePrintEngine.print(buildRequestToShipPrintDefinition(openOrderShipmentPreparation))
         .then(() => {
             if (validationEl) {
-                validationEl.textContent = 'Request to Ship print completed or cancelled. No data was modified.';
+                validationEl.textContent = 'Status: Printed. Review production activity before confirming shipment.';
             }
         })
         .catch(error => {
@@ -8542,6 +8888,21 @@ function confirmShipmentPreview() {
                 validationEl.textContent = 'Unable to print Request to Ship: ' + (error?.message || error);
             }
         });
+}
+
+function confirmShipmentPreview() {
+    const validation = validateShipmentPreparation(openOrderShipmentPreparation);
+    const validationEl = document.getElementById('shipmentPreviewValidation');
+    if (!validation.valid) {
+        if (validationEl) validationEl.textContent = validation.errors[0];
+        return;
+    }
+
+    commitShipmentPreparationToShipmentLog(openOrderShipmentPreparation);
+    if (validationEl) {
+        validationEl.textContent = 'Shipment confirmed. Shipment Log updated.';
+    }
+    go('openOrders');
 }
 
 function legacyPrintRequestToShip() {
@@ -8715,10 +9076,12 @@ function buildDleMasterDataFileName(date) {
 }
 
 function generateOpenOrdersReport() {
+    const operationalIndexes = new Set(buildOperationalOpenOrdersRows().map(row => row.sourceIndex));
     const selectedRecords = Array
         .from(selectedOpenOrderReportRows)
         .sort((a, b) => a - b)
-        .map(index => buildWorkOrderStatusReportRecord(openOrdersRows[index], index))
+        .filter(index => operationalIndexes.has(index))
+        .map(index => buildWorkOrderStatusReportRecord(getOperationalOpenOrderColumns(index) || openOrdersRows[index], index))
         .filter(Boolean);
     const inquiry = createWorkOrderStatusInquiry(selectedRecords);
 
@@ -15895,6 +16258,8 @@ function buildPrintEngineQualificationCss() {
 ===================================================== */
 
 configureDocumentProcessingLibraries();
+initializeShipmentLog();
+renderShipmentLogModule();
 initDocumentIntake();
 syncAssemblyInfoToBomUi();
 prepareBomExtractionWorkspace();
