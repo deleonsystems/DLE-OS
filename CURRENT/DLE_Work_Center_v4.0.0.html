@@ -8955,6 +8955,149 @@ function buildProductionStatusCell(record, editableStatus, inquiryId) {
     return `<textarea class="production-status-input" oninput="updateActiveInquiryProductionStatus('${escapeHtml(inquiryId)}', ${record.sourceIndex}, this.value)">${escapeHtml(record.productionStatus || '')}</textarea>`;
 }
 
+function buildWorkOrderStatusInquiryPrintDefinition() {
+    const surface = document.getElementById('reportPrintSurface');
+    const report = reportsCommunicationsState.currentReport;
+    return {
+        documentName: 'Work Order Status Inquiry',
+        paperSize: 'letter',
+        orientation: 'landscape',
+        margins: '.35in',
+        html: surface ? surface.outerHTML : '<div class="report-empty">No report is available to print.</div>',
+        css: buildWorkOrderStatusInquiryPrintCss(),
+        data: report
+    };
+}
+
+function buildWorkOrderStatusInquiryPrintCss() {
+    return `
+.report-print-surface {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: #fff;
+  color: #000;
+}
+
+.report-print-document {
+  width: 100%;
+  border-collapse: collapse;
+  display: table;
+}
+
+.report-print-document > thead {
+  display: table-header-group;
+}
+
+.report-print-document > tbody {
+  display: table-row-group;
+}
+
+.report-print-document > thead > tr > td,
+.report-print-document > tbody > tr > td {
+  padding: 0;
+  border: 0;
+}
+
+.report-print-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 8px;
+  margin: 0 0 12px;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.report-header-meta {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 16px;
+  align-content: start;
+  font-size: 12px;
+}
+
+.report-print-header h2 {
+  margin: 0;
+  color: #111827;
+}
+
+.report-print-header p {
+  margin: 4px 0 0;
+  color: #374151;
+}
+
+.report-page-number {
+  font-weight: 900;
+}
+
+.report-page-number::after {
+  content: "Page " counter(page) " of " counter(pages);
+}
+
+.report-group {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  margin-bottom: 22px;
+}
+
+.report-group:first-child {
+  break-before: avoid;
+  page-break-before: avoid;
+}
+
+.report-group h3 {
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  background: #dbeafe;
+  color: #111827;
+  border: 1px solid #93c5fd;
+}
+
+.work-order-status-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  color: #111827;
+}
+
+.work-order-status-report-table th,
+.work-order-status-report-table td {
+  border: 1px solid #9ca3af;
+  padding: 7px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.work-order-status-report-table th {
+  background: #e5e7eb;
+  font-weight: 900;
+}
+
+.work-order-status-report-table .report-notes-cell {
+  height: 42px;
+}
+
+.report-section-notes {
+  margin-top: 10px;
+  border: 1px solid #9ca3af;
+  min-height: 72px;
+  padding: 8px;
+  color: #374151;
+  background: #fff;
+}
+
+.report-empty {
+  color: #111827;
+  border: 1px dashed #9ca3af;
+  padding: 18px;
+}
+`;
+}
+
 function updateActiveInquiryProductionStatus(inquiryId, sourceIndex, value) {
     const inquiry = getActiveInquiryById(inquiryId);
     if (!inquiry) return;
@@ -9016,6 +9159,15 @@ async function completeActiveInquiry(inquiryId) {
 }
 
 function printCurrentReport() {
+    markCurrentInquiryIssued();
+    renderWorkOrderStatusInquiryReport();
+    DlePrintEngine.print(buildWorkOrderStatusInquiryPrintDefinition())
+        .catch(error => {
+            window.alert('Unable to print Work Order Status Inquiry: ' + (error?.message || error));
+        });
+}
+
+function legacyPrintCurrentReport() {
     markCurrentInquiryIssued();
     document.body.classList.add('reports-printing');
     window.print();
@@ -15437,7 +15589,7 @@ const DlePrintEngine = (() => {
 
   function print(printDefinition = {}) {
     const definition = normalizePrintDefinition(printDefinition);
-    const frame = createPrintFrame();
+    const frame = createPrintFrame(definition);
     const printDocument = buildPrintDocument(definition);
 
     return new Promise((resolve, reject) => {
@@ -15481,14 +15633,14 @@ const DlePrintEngine = (() => {
     };
   }
 
-  function createPrintFrame() {
+  function createPrintFrame(definition) {
     const frame = document.createElement('iframe');
     frame.setAttribute('title', 'DLE-OS Print Engine');
     frame.style.position = 'fixed';
     frame.style.left = '-10000px';
     frame.style.top = '0';
-    frame.style.width = '8.5in';
-    frame.style.height = '11in';
+    frame.style.width = definition.orientation === 'landscape' ? '11in' : '8.5in';
+    frame.style.height = definition.orientation === 'landscape' ? '8.5in' : '11in';
     frame.style.border = '0';
     frame.style.opacity = '0';
     frame.style.pointerEvents = 'none';
