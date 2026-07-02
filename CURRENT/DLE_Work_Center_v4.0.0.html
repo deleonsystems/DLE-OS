@@ -8351,6 +8351,129 @@ function buildRequestToShipRows(lines, minimumRows) {
     return rows;
 }
 
+function buildRequestToShipPrintDefinition(preparation) {
+    const uniqueCustomers = Array.from(new Set(preparation.lines.map(line => line.customerNumber).filter(Boolean)));
+    const uniqueSalesOrders = Array.from(new Set(preparation.lines.map(line => line.salesOrder).filter(Boolean)));
+
+    return {
+        documentName: 'Request to Ship',
+        paperSize: 'letter',
+        orientation: 'portrait',
+        margins: '.45in',
+        html: buildDigitalRequestToShipForm(preparation, uniqueCustomers, uniqueSalesOrders),
+        css: buildRequestToShipPrintCss(),
+        data: preparation
+    };
+}
+
+function buildRequestToShipPrintCss() {
+    return `
+.request-to-ship-form {
+  background: #fff;
+  color: #111;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  font-family: Arial, Helvetica, sans-serif;
+  box-shadow: none;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.request-to-ship-title {
+  display: grid;
+  grid-template-columns: 1.625in 1fr 1.625in;
+  align-items: start;
+  margin-bottom: 22px;
+}
+
+.request-to-ship-logo {
+  width: 1.625in;
+  height: .625in;
+  object-fit: contain;
+  object-position: left top;
+  display: block;
+}
+
+.request-to-ship-title h3 {
+  margin: 0;
+  color: #111;
+  font-size: 18px;
+  letter-spacing: .02em;
+  text-align: center;
+  font-weight: 700;
+  align-self: center;
+}
+
+.request-to-ship-header-row {
+  display: grid;
+  grid-template-columns: 11.855fr 28.426fr 8.711fr 17fr 11.711fr 11.285fr;
+  align-items: center;
+  min-height: 30px;
+  color: #111;
+  font-size: 14px;
+}
+
+.request-to-ship-header-row .request-label {
+  text-align: right;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
+.request-to-ship-header-row .request-entry {
+  min-height: 22px;
+  border-bottom: 1px solid #111;
+  padding: 2px 6px;
+}
+
+.request-to-ship-header-row .request-entry.merge-two {
+  grid-column: span 2;
+}
+
+.request-to-ship-header-spacer {
+  height: 22px;
+}
+
+.request-to-ship-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #111;
+  font-size: 13px;
+  table-layout: fixed;
+}
+
+.request-to-ship-table th,
+.request-to-ship-table td {
+  border: 1px solid #111;
+  padding: 6px 7px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.request-to-ship-table th {
+  background: #0070c0;
+  color: #fff;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.request-to-ship-table td {
+  height: 28px;
+}
+
+.request-to-ship-footer {
+  margin-top: 8px;
+  color: #111;
+  font-size: 13px;
+  text-align: right;
+}
+`;
+}
+
 function validateShipmentPreparation(preparation) {
     const errors = [];
     if (!preparation || !Array.isArray(preparation.lines) || !preparation.lines.length) {
@@ -8384,7 +8507,25 @@ function confirmShipmentPreview() {
         return;
     }
     if (validationEl) {
-        validationEl.textContent = 'Opening print dialog for Request to Ship. No data will be modified.';
+        validationEl.textContent = 'Opening Print Engine for Request to Ship. No data will be modified.';
+    }
+    DlePrintEngine.print(buildRequestToShipPrintDefinition(openOrderShipmentPreparation))
+        .then(() => {
+            if (validationEl) {
+                validationEl.textContent = 'Request to Ship print completed or cancelled. No data was modified.';
+            }
+        })
+        .catch(error => {
+            if (validationEl) {
+                validationEl.textContent = 'Unable to print Request to Ship: ' + (error?.message || error);
+            }
+        });
+}
+
+function legacyPrintRequestToShip() {
+    const validationEl = document.getElementById('shipmentPreviewValidation');
+    if (validationEl) {
+        validationEl.textContent = 'Opening legacy print dialog for Request to Ship. No data will be modified.';
     }
     document.body.classList.add('request-to-ship-printing');
     window.print();
