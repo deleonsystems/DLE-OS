@@ -76,7 +76,8 @@ JAVASCRIPT SECTIONS
 211 - DLE BOM
 212 - REPORTS & COMMUNICATIONS
 213 - DLE MASTER DATA VIEWER
-214 - INITIALIZATION
+214 - DLE-OS PRINT ENGINE
+215 - INITIALIZATION
 
 FUTURE MODULE BOUNDARIES
 
@@ -4580,6 +4581,24 @@ body {
       font-weight: 700;
     }
 
+    .system-center-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .system-center-card-actions button {
+      margin: 0;
+      border: 1px solid rgba(47,140,255,.75);
+      background: rgba(47,140,255,.18);
+      color: white;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
 /* =====================================================
    END 016 - SYSTEM CENTER MODULE
 ===================================================== */
@@ -5214,8 +5233,11 @@ BOM Viewer</h2>
 
       <section class="system-center-card">
         <h3>Developer Console</h3>
-        <p>Coming Soon</p>
-        <div class="system-center-status">Placeholder</div>
+        <p>Internal qualification tools for controlled DLE-OS subsystems.</p>
+        <div class="system-center-status">Print Engine Session 1</div>
+        <div class="system-center-card-actions">
+          <button type="button" onclick="runPrintEngineQualification()">Print Engine Qualification</button>
+        </div>
       </section>
     </div>
   </div>
@@ -15258,7 +15280,303 @@ function setDleMasterDataStatus(message) {
 ===================================================== */
 
 /* =====================================================
-   214 - INITIALIZATION
+   214 - DLE-OS PRINT ENGINE
+===================================================== */
+
+const DlePrintEngine = (() => {
+  const defaults = {
+    documentName: 'DLE-OS Controlled Document',
+    paperSize: 'letter',
+    orientation: 'portrait',
+    margins: '.45in',
+    html: '',
+    css: '',
+    data: null
+  };
+
+  function print(printDefinition = {}) {
+    const definition = normalizePrintDefinition(printDefinition);
+    const frame = createPrintFrame();
+    const printDocument = buildPrintDocument(definition);
+
+    return new Promise((resolve, reject) => {
+      try {
+        document.body.appendChild(frame);
+        frame.contentDocument.open();
+        frame.contentDocument.write(printDocument);
+        frame.contentDocument.close();
+
+        setTimeout(async () => {
+          try {
+            await waitForPrintDocument(frame);
+            const printWindow = frame.contentWindow;
+            printWindow.focus();
+            printWindow.print();
+            schedulePrintFrameCleanup(frame);
+            resolve({ documentName: definition.documentName });
+          } catch (error) {
+            schedulePrintFrameCleanup(frame);
+            reject(error);
+          }
+        }, 100);
+      } catch (error) {
+        schedulePrintFrameCleanup(frame);
+        reject(error);
+      }
+    });
+  }
+
+  function normalizePrintDefinition(printDefinition) {
+    return {
+      ...defaults,
+      ...printDefinition,
+      documentName: printDefinition.documentName || defaults.documentName,
+      paperSize: printDefinition.paperSize || defaults.paperSize,
+      orientation: printDefinition.orientation || defaults.orientation,
+      margins: printDefinition.margins || defaults.margins,
+      html: printDefinition.html || defaults.html,
+      css: printDefinition.css || defaults.css,
+      data: printDefinition.data || defaults.data
+    };
+  }
+
+  function createPrintFrame() {
+    const frame = document.createElement('iframe');
+    frame.setAttribute('title', 'DLE-OS Print Engine');
+    frame.style.position = 'fixed';
+    frame.style.left = '-10000px';
+    frame.style.top = '0';
+    frame.style.width = '8.5in';
+    frame.style.height = '11in';
+    frame.style.border = '0';
+    frame.style.opacity = '0';
+    frame.style.pointerEvents = 'none';
+    return frame;
+  }
+
+  function buildPrintDocument(definition) {
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base href="${escapeHtml(document.baseURI)}">
+  <title>${escapeHtml(definition.documentName)}</title>
+  <style>
+    ${buildSharedPrintCss(definition)}
+    ${definition.css}
+  <\/style>
+<\/head>
+<body>
+  <main class="dle-print-page">
+    ${definition.html}
+  </main>
+<\/body>
+<\/html>`;
+  }
+
+  function buildSharedPrintCss(definition) {
+    return `
+@page {
+  size: ${definition.paperSize} ${definition.orientation};
+  margin: ${definition.margins};
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11pt;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.dle-print-page {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.dle-controlled-document {
+  width: 100%;
+  color: #111;
+  background: #fff;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.dle-print-logo {
+  width: 1.625in;
+  height: .625in;
+  object-fit: contain;
+  object-position: left top;
+  display: block;
+}
+`;
+  }
+
+  function waitForPrintDocument(frame) {
+    const printWindow = frame.contentWindow;
+    const printDocument = frame.contentDocument;
+    const images = Array.from(printDocument.images || []);
+    const imagePromises = images.map(image => {
+      if (image.complete) return Promise.resolve();
+      return new Promise(resolve => {
+        image.addEventListener('load', resolve, { once: true });
+        image.addEventListener('error', resolve, { once: true });
+      });
+    });
+    const fontPromise = printDocument.fonts?.ready || Promise.resolve();
+    return Promise.all([fontPromise, ...imagePromises]).then(() => printWindow);
+  }
+
+  function schedulePrintFrameCleanup(frame) {
+    setTimeout(() => {
+      if (frame?.parentNode) {
+        frame.parentNode.removeChild(frame);
+      }
+    }, 1000);
+  }
+
+  return {
+    print,
+    normalizePrintDefinition,
+    buildSharedPrintCss
+  };
+})();
+
+function runPrintEngineQualification() {
+  const definition = buildPrintEngineQualificationDefinition();
+  DlePrintEngine.print(definition).catch(error => {
+    window.alert('Print Engine qualification failed: ' + (error?.message || error));
+  });
+}
+
+function buildPrintEngineQualificationDefinition() {
+  const created = new Date();
+  return {
+    documentName: 'DLE-OS Print Engine Qualification',
+    paperSize: 'letter',
+    orientation: 'portrait',
+    margins: '.5in',
+    data: {
+      createdAt: created.toISOString(),
+      session: 'Session 1'
+    },
+    html: buildPrintEngineQualificationHtml(created),
+    css: buildPrintEngineQualificationCss()
+  };
+}
+
+function buildPrintEngineQualificationHtml(created) {
+  return `
+    <section class="dle-controlled-document print-engine-qualification">
+      <header class="print-engine-qualification-header">
+        <img class="dle-print-logo" src="ASSETS/LOGOS/DLE_Logo.JPG" alt="White Lion Technologies">
+        <div>
+          <h1>DLE-OS Print Engine</h1>
+          <p>Qualification Test</p>
+        </div>
+      </header>
+
+      <section class="print-engine-qualification-body">
+        <div class="print-engine-qualification-row">
+          <strong>Current Date</strong>
+          <span>${escapeHtml(created.toLocaleString())}</span>
+        </div>
+        <div class="print-engine-qualification-row">
+          <strong>Application Version</strong>
+          <span>DLE-OS Version 4.0.0</span>
+        </div>
+        <div class="print-engine-qualification-row">
+          <strong>Qualification Scope</strong>
+          <span>Isolated print engine foundation only</span>
+        </div>
+      </section>
+
+      <p class="print-engine-qualification-statement">
+        This document was generated by the DLE-OS Print Engine.
+      </p>
+    </section>
+  `;
+}
+
+function buildPrintEngineQualificationCss() {
+  return `
+.print-engine-qualification {
+  width: 7.5in;
+  max-width: 7.5in;
+  min-height: 10in;
+  margin: 0 auto;
+  border: 2px solid #111;
+  padding: .25in;
+}
+
+.print-engine-qualification-header {
+  display: grid;
+  grid-template-columns: 1.8in 1fr;
+  gap: .25in;
+  align-items: center;
+  border-bottom: 1px solid #111;
+  padding-bottom: .18in;
+  margin-bottom: .3in;
+}
+
+.print-engine-qualification h1 {
+  margin: 0;
+  font-size: 20pt;
+  line-height: 1.1;
+}
+
+.print-engine-qualification p {
+  margin: .08in 0 0;
+}
+
+.print-engine-qualification-body {
+  border: 1px solid #111;
+}
+
+.print-engine-qualification-row {
+  display: grid;
+  grid-template-columns: 2.2in 1fr;
+  min-height: .36in;
+  border-bottom: 1px solid #111;
+}
+
+.print-engine-qualification-row:last-child {
+  border-bottom: 0;
+}
+
+.print-engine-qualification-row strong,
+.print-engine-qualification-row span {
+  padding: .1in .12in;
+}
+
+.print-engine-qualification-row strong {
+  border-right: 1px solid #111;
+  background: #f1f4f8;
+  text-transform: uppercase;
+  font-size: 9pt;
+}
+
+.print-engine-qualification-statement {
+  margin-top: .35in;
+  font-size: 13pt;
+  font-weight: 700;
+}
+`;
+}
+
+/* =====================================================
+   END 214 - DLE-OS PRINT ENGINE
+===================================================== */
+
+/* =====================================================
+   215 - INITIALIZATION
 ===================================================== */
 
 configureDocumentProcessingLibraries();
