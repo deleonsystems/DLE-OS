@@ -7041,10 +7041,10 @@ async function loadBomTest() {
   output.textContent = 'Loading BOM...';
 
   try {
-    const response = await fetch('BOM-500144-103.TXT');
+    const response = await fetch('TEST_DATA/BOM-500144-103.TXT');
 
     if (!response.ok) {
-      throw new Error('Could not load BOM-500144-103.TXT. Make sure the BOM text file is in the same folder as this HTML file.');
+      throw new Error('Could not load TEST_DATA/BOM-500144-103.TXT. Make sure the BOM text file is available in the project TEST_DATA folder.');
     }
 
     const text = await response.text();
@@ -7310,10 +7310,10 @@ async function parseBomTest() {
   try {
     output.textContent = 'Parsing BOM...';
 
-    const response = await fetch('BOM-500144-103.TXT');
+    const response = await fetch('TEST_DATA/BOM-500144-103.TXT');
 
     if (!response.ok) {
-      throw new Error('Could not load BOM-500144-103.TXT. Make sure the BOM text file is in the same folder as this HTML file.');
+      throw new Error('Could not load TEST_DATA/BOM-500144-103.TXT. Make sure the BOM text file is available in the project TEST_DATA folder.');
     }
 
     const text = await response.text();
