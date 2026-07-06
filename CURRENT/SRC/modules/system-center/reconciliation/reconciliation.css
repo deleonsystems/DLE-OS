@@ -44,11 +44,19 @@
   line-height: 1.35;
 }
 
-.reconciliation-three-panel {
+.reconciliation-workspace-layout {
   display: grid;
-  grid-template-columns: 210px minmax(720px, 1fr) 230px;
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+  min-width: 0;
+}
+
+.reconciliation-context-column {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  max-width: 260px;
 }
 
 .reconciliation-side-panel,
@@ -60,9 +68,10 @@
 }
 
 .reconciliation-side-panel {
-  position: sticky;
-  top: 16px;
   background: rgba(255,255,255,.025);
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .reconciliation-center-panel {
@@ -103,13 +112,17 @@
 
 .reconciliation-side-panel .master-data-dashboard-status {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+  min-width: 0;
 }
 
 .reconciliation-side-panel .master-data-status-item {
   padding: 10px;
   background: rgba(5,12,22,.32);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .reconciliation-side-panel .master-data-status-item span {
@@ -119,6 +132,9 @@
 .reconciliation-side-panel .master-data-status-item strong {
   font-size: .86rem;
   line-height: 1.35;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* -----------------------------------------------------
@@ -351,6 +367,35 @@
   font-weight: 900;
 }
 
+.event-pill.event-new-order {
+  background: rgba(69,212,131,.18);
+  color: #bdf4d0;
+}
+
+.event-pill.event-missing-erp {
+  background: rgba(255,122,122,.18);
+  color: #ffd0d0;
+}
+
+.event-pill.event-modified-record {
+  background: rgba(245,200,75,.18);
+  color: #ffe9a6;
+}
+
+.event-pill.event-validation-issue {
+  background: rgba(143,184,255,.18);
+  color: #cfe0ff;
+}
+
+.reconciliation-event-type {
+  font-weight: 800;
+}
+
+.reconciliation-event-description {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .reconciliation-approval-card {
   display: grid;
   gap: 14px;
@@ -459,12 +504,8 @@
 }
 
 @media (max-width: 1180px) {
-  .reconciliation-three-panel {
+  .reconciliation-workspace-layout {
     grid-template-columns: 1fr;
-  }
-
-  .reconciliation-side-panel {
-    position: static;
   }
 
   .reconciliation-workflow-steps,

@@ -7416,11 +7416,7 @@ async function loadOpenOrdersExportFile(file) {
     renderErpImportDashboardStatus();
     renderReconciliationDashboardStatus();
 
-    setSystemErpImportStatus(
-        'Loaded: ' + file.name +
-        ' | Characters: ' + text.length +
-        ' | Rows: ' + lines.length
-    );
+    setSystemErpImportStatus('ERP Snapshot imported successfully.');
 }
 
 function parseOpenOrdersExportText(text) {
@@ -7665,14 +7661,13 @@ function startMasterDataReconciliation() {
     const status = buildShipmentLogReconciliationStatus();
     reconciliationState.latestSummary = null;
 
-    if (summaryPanel) {
-        summaryPanel.hidden = false;
-    }
+    if (summaryPanel) summaryPanel.hidden = true;
     const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
-    if (button) button.textContent = 'Collapse Summary';
+    if (button) button.textContent = 'Open Summary';
 
     if (status.pendingShipmentTransactions > 0) {
         renderReconciliationDashboardStatus();
+        renderReconciliationReviewQueueFromEvents([]);
         renderShipmentLogReconciliationStatus(status);
         setReconciliationActionStatus('Not ready for reconciliation. Pending shipment transactions must be invoiced first.');
         return;
@@ -7685,6 +7680,7 @@ function startMasterDataReconciliation() {
             message: 'Shipment Log is clear. Load DLE Master Data before comparing ERP and Master Data.'
         });
         renderReconciliationDashboardStatus();
+        renderReconciliationReviewQueueFromEvents([]);
         setReconciliationActionStatus('Shipment Log is ready. Load DLE Master Data before running reconciliation.');
         return;
     }
@@ -7696,12 +7692,15 @@ function startMasterDataReconciliation() {
             message: 'Shipment Log is clear. Load an ERP Open Orders snapshot before comparing ERP and Master Data.'
         });
         renderReconciliationDashboardStatus();
+        renderReconciliationReviewQueueFromEvents([]);
         setReconciliationActionStatus('Shipment Log is ready. Load an ERP Open Orders snapshot before running reconciliation.');
         return;
     }
 
     const summary = analyzeMasterDataReconciliation();
     reconciliationState.latestSummary = summary;
+    const reviewEvents = buildReconciliationReviewQueueEvents(summary);
+    renderReconciliationReviewQueueFromEvents(reviewEvents);
 
     if (summary.overallStatus === 'No Differences Found') {
         reconciliationState.lastSuccessfulReconciliation = summary.analysisDate;
@@ -7709,13 +7708,13 @@ function startMasterDataReconciliation() {
         reconciliationState.currentState = 'Synchronized';
         renderReconciliationDashboardStatus();
         renderSuccessfulReconciliationSummary(summary, status);
-        setReconciliationActionStatus('Reconciliation Successful. Master Data and ERP Snapshot are synchronized. No ERP updates were required.');
+        setReconciliationActionStatus('Reconciliation completed successfully. 0 review events detected. Last run: ' + summary.analysisDate + '.');
         return;
     }
 
     renderReconciliationDashboardStatus();
     renderReconciliationSummary(summary);
-    setReconciliationActionStatus('Reconciliation differences found. No Master Data records were modified. Review the summary before a future approval workflow.');
+    setReconciliationActionStatus('Reconciliation completed. ' + reviewEvents.length + ' review event(s) detected. Review the Reconciliation Events queue before approving ERP updates.');
 }
 
 function buildShipmentLogReconciliationStatus() {
@@ -7829,6 +7828,8 @@ async function approveReconciliationErpUpdates() {
         const verificationSummary = analyzeMasterDataReconciliation();
         reconciliationState.latestSummary = verificationSummary;
         reconciliationState.lastSuccessfulReconciliation = verificationSummary.analysisDate;
+        const verificationEvents = buildReconciliationReviewQueueEvents(verificationSummary);
+        renderReconciliationReviewQueueFromEvents(verificationEvents);
         renderReconciliationDashboardStatus();
         renderReconciliationSummary(verificationSummary);
 
@@ -7841,7 +7842,8 @@ async function approveReconciliationErpUpdates() {
             'Approved ERP updates applied.',
             result.updatedRecords + ' existing record(s) updated.',
             result.createdRecords + ' new ERP record(s) added.',
-            'DLE-owned fields were preserved. Reconciliation was rerun automatically.'
+            'DLE-owned fields were preserved.',
+            'Reconciliation was rerun automatically with ' + verificationEvents.length + ' event(s) remaining.'
         ].join(' '));
     } catch (error) {
         setReconciliationActionStatus('Unable to apply approved ERP updates: ' + (error?.message || error));
@@ -7861,6 +7863,7 @@ function clearReconciliationAnalysis(message) {
     }
     const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
     if (button) button.textContent = 'Open Summary';
+    renderReconciliationReviewQueueFromEvents([]);
 }
 
 function applyApprovedErpUpdatesToMasterData() {
@@ -8027,6 +8030,132 @@ function buildReconciliationRecordSummary(record, recordKey) {
         workOrder: vpro5.workOrder || '',
         partNumber: vpro5.partNumber || ''
     };
+}
+
+function buildReconciliationReviewQueueEvents(summary) {
+    if (!summary) return [];
+
+    const newOrders = summary.newErpRecords.map(record => ({
+        statusIcon: '+',
+        eventClass: 'event-new-order',
+        workOrder: record.workOrder || 'Not assigned',
+        customer: record.customer || 'Not available',
+        eventType: 'New Order',
+        description: 'ERP Snapshot contains a new order line not currently present in DLE Master Data. Record key: ' + record.recordKey,
+        disposition: 'Select',
+        resolutionStatus: 'Pending'
+    }));
+
+    const missingFromErp = summary.recordsMissingFromErp.map(record => ({
+        statusIcon: '-',
+        eventClass: 'event-missing-erp',
+        workOrder: record.workOrder || 'Not assigned',
+        customer: record.customer || 'Not available',
+        eventType: 'Missing From ERP',
+        description: 'DLE Master Data contains an order line that is not present in the ERP Snapshot. Record key: ' + record.recordKey,
+        disposition: 'Select',
+        resolutionStatus: 'Pending'
+    }));
+
+    const modifiedRecords = summary.erpFieldDifferences.map(item => ({
+        statusIcon: '~',
+        eventClass: 'event-modified-record',
+        workOrder: item.record.workOrder || 'Not assigned',
+        customer: item.record.customer || 'Not available',
+        eventType: 'Modified Record',
+        description: 'ERP-owned fields changed: ' + item.differences.map(diff => formatMasterDataLabel(diff.field)).join(', ') + '.',
+        disposition: 'Select',
+        resolutionStatus: 'Pending'
+    }));
+
+    const validationIssues = summary.missingErpOwnedFields.map(item => ({
+        statusIcon: '!',
+        eventClass: 'event-validation-issue',
+        workOrder: item.record.workOrder || 'Not assigned',
+        customer: item.record.customer || 'Not available',
+        eventType: 'Validation Issue',
+        description: 'Master Data is missing ERP-owned fields: ' + item.fields.map(formatMasterDataLabel).join(', ') + '.',
+        disposition: 'Select',
+        resolutionStatus: 'Pending'
+    }));
+
+    return [
+        ...newOrders,
+        ...missingFromErp,
+        ...modifiedRecords,
+        ...validationIssues
+    ];
+}
+
+function renderReconciliationReviewQueueFromEvents(events) {
+    const tableBody = document.getElementById('reconciliationEventsTableBody');
+    updateReconciliationReviewQueueCounters(events);
+    if (!tableBody) return;
+
+    if (!events.length) {
+        tableBody.innerHTML = `
+          <tr class="reconciliation-placeholder-row">
+            <td><span class="event-pill event-validation-issue">!</span></td>
+            <td>None</td>
+            <td>None</td>
+            <td>Validation Issue</td>
+            <td class="reconciliation-event-description">No reconciliation events are currently available. Run reconciliation to populate detected differences.</td>
+            <td>
+              <select disabled>
+                <option>Select</option>
+              </select>
+            </td>
+            <td>Pending</td>
+          </tr>
+        `;
+        return;
+    }
+
+    tableBody.innerHTML = events.map(event => `
+      <tr>
+        <td><span class="event-pill ${escapeHtml(event.eventClass)}">${escapeHtml(event.statusIcon)}</span></td>
+        <td>${escapeHtml(event.workOrder)}</td>
+        <td>${escapeHtml(event.customer)}</td>
+        <td><span class="reconciliation-event-type">${escapeHtml(event.eventType)}</span></td>
+        <td class="reconciliation-event-description">${escapeHtml(event.description)}</td>
+        <td>
+          <select disabled>
+            <option>${escapeHtml(event.disposition)}</option>
+          </select>
+        </td>
+        <td>${escapeHtml(event.resolutionStatus)}</td>
+      </tr>
+    `).join('');
+}
+
+function updateReconciliationReviewQueueCounters(events) {
+    const counts = events.reduce((totals, event) => {
+        if (event.eventType === 'New Order') totals.newOrders += 1;
+        if (event.eventType === 'Modified Record') totals.modifiedRecords += 1;
+        if (event.eventType === 'Missing From ERP') totals.missingFromErp += 1;
+        if (event.eventType === 'Validation Issue') totals.validationIssues += 1;
+        return totals;
+    }, {
+        newOrders: 0,
+        modifiedRecords: 0,
+        missingFromErp: 0,
+        validationIssues: 0
+    });
+
+    const pendingEvents = events.length;
+    const setText = (id, value) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = String(value);
+    };
+
+    setText('reconciliationNewOrderCount', counts.newOrders);
+    setText('reconciliationModifiedRecordCount', counts.modifiedRecords);
+    setText('reconciliationMissingErpCount', counts.missingFromErp);
+    setText('reconciliationPendingEventCount', pendingEvents);
+    setText('reconciliationResolvedEventCount', 0);
+    setText('reconciliationApprovalPendingCount', pendingEvents);
+    setText('reconciliationReadyToApplyCount', 0);
+    setText('reconciliationApprovedCount', 0);
 }
 
 function renderReconciliationSummary(summary) {
