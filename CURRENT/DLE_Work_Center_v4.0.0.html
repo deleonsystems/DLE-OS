@@ -28,7 +28,7 @@ NUMBERING PHILOSOPHY
 CURRENT OPERATIONAL FLOWS
 
 Master Data / ERP:
-System Center -> ERP Data Import -> Candidate ERP Snapshot
+System Center -> Reconciliation Workspace -> ERP Data Import -> Candidate ERP Snapshot
 System Center -> Master Data -> DLE Master Data Viewer
 System Center -> Reconciliation -> readiness / baseline synchronization
 
@@ -4429,13 +4429,7 @@ body {
       background: rgba(255,255,255,.03);
     }
 
-    .system-center-master-data-section,
-    .system-center-erp-section,
-/* -----------------------------------------------------
-   530 - CSS: RECONCILIATION ENGINE
------------------------------------------------------ */
-
-    .system-center-reconciliation-section {
+    .system-center-master-data-section {
       margin-top: 18px;
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -4443,203 +4437,19 @@ body {
       padding: 18px;
     }
 
-    .system-center-master-data-section h3,
-    .system-center-erp-section h3,
-    .system-center-reconciliation-section h3 {
+    .system-center-master-data-section h3 {
       margin: 0 0 8px;
       color: var(--text);
     }
 
-    .system-center-master-data-section p,
-    .system-center-erp-section p,
-    .system-center-reconciliation-section p {
+    .system-center-master-data-section p {
       margin: 0;
       color: var(--muted);
       line-height: 1.5;
-    }
-
-/* -----------------------------------------------------
-   520 - CSS: ERP IMPORT / SNAPSHOT MANAGER
------------------------------------------------------ */
-
-    .erp-import-actions {
-      display: grid;
-      grid-template-columns: minmax(240px, 1fr) auto auto;
-      gap: 12px;
-      align-items: center;
-      margin-top: 18px;
-    }
-
-    .erp-import-actions input[type="file"] {
-      min-width: 0;
-      color: var(--muted);
-    }
-
-    .erp-import-message {
-      margin-top: 12px;
-    }
-
-    .reconciliation-summary-panel {
-      margin-top: 18px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(5,12,22,.42);
-      padding: 16px;
-    }
-
-    .reconciliation-summary-panel[hidden] {
-      display: none !important;
-    }
-
-    .reconciliation-investigation-workspace {
-      margin-top: 18px;
-    }
-
-    .reconciliation-investigation-list {
-      display: grid;
-      gap: 12px;
-      max-height: 620px;
-      overflow-y: auto;
-      padding-right: 6px;
-    }
-
-    .reconciliation-investigation-card {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(255,255,255,.035);
-      padding: 15px;
-    }
-
-    .reconciliation-investigation-title,
-    .reconciliation-value-compare {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      align-items: start;
-    }
-
-    .reconciliation-investigation-title {
-      margin-bottom: 12px;
-    }
-
-    .reconciliation-investigation-title strong {
-      color: var(--text);
-      font-size: 1rem;
-    }
-
-    .reconciliation-investigation-title span {
-      justify-self: end;
-      color: #9fb4ca;
-      font-weight: 700;
-      font-size: .82rem;
-    }
-
-    .reconciliation-investigation-grid {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .reconciliation-investigation-grid div,
-    .reconciliation-value-compare div {
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 8px;
-      background: rgba(5,12,22,.42);
-      padding: 10px;
-      min-width: 0;
-    }
-
-    .reconciliation-investigation-grid span,
-    .reconciliation-value-compare span {
-      display: block;
-      color: var(--muted);
-      font-size: .72rem;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      margin-bottom: 6px;
-    }
-
-    .reconciliation-investigation-grid strong,
-    .reconciliation-value-compare strong {
-      display: block;
-      color: var(--text);
-      word-break: break-word;
-      white-space: pre-wrap;
     }
 
 /* =====================================================
    END 510 - CSS: MASTER DATA DASHBOARD AND VIEWER
-===================================================== */
-
-/* =====================================================
-   500 - CSS: SYSTEM CENTER SHELL
-===================================================== */
-
-    #systemCenter {
-      width: min(1200px, calc(100% - 40px));
-      margin-left: 20px;
-    }
-
-    .system-center-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
-      margin-top: 22px;
-    }
-
-    .system-center-card {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(255,255,255,.04);
-      padding: 18px;
-      min-height: 150px;
-    }
-
-    .system-center-card h3 {
-      margin: 0 0 10px;
-      font-size: 1rem;
-      color: var(--text);
-    }
-
-    .system-center-card p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .system-center-status {
-      display: inline-flex;
-      margin-top: 18px;
-      padding: 7px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.16);
-      color: #9fb4ca;
-      background: rgba(255,255,255,.04);
-      font-size: .82rem;
-      font-weight: 700;
-    }
-
-    .system-center-card-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .system-center-card-actions button {
-      margin: 0;
-      border: 1px solid rgba(47,140,255,.75);
-      background: rgba(47,140,255,.18);
-      color: white;
-      padding: 10px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-/* =====================================================
-   END 500 - CSS: SYSTEM CENTER SHELL
 ===================================================== */
 
 /* =====================================================
@@ -4706,7 +4516,6 @@ body {
       .workbench-tool-grid,
       .workbench-flow,
       .master-data-dashboard-actions,
-      .erp-import-actions,
       .master-data-toolbar,
       .master-data-summary,
       .master-data-layout,
@@ -4731,6 +4540,8 @@ body {
       .work-order-split-row { grid-template-columns: 1fr; }
     }
   </style>
+  <link rel="stylesheet" href="SRC/modules/system-center/system-center.css" />
+  <link rel="stylesheet" href="SRC/modules/system-center/reconciliation/reconciliation.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
@@ -5188,156 +4999,13 @@ BOM Viewer</h2>
    500 - HTML: SYSTEM CENTER
 ===================================================== -->
 
-<section id="systemCenter" class="screen">
-  <div class="open-orders-panel">
-    <div class="module-header">
-      <div>
-        <div class="module-eyebrow">System Administration</div>
-        <h2>System Center</h2>
-        <p class="module-subtitle">Permanent home for future DLE-OS data management, diagnostics, and administrative utilities.</p>
-      </div>
-    </div>
+<section id="systemCenter" class="screen" data-module-placeholder="system-center"></section>
 
-    <!-- SECTION 510: HTML - MASTER DATA DASHBOARD AND VIEWER -->
-    <section class="system-center-master-data-section">
-      <h3>Master Data</h3>
-      <p>Control point for Master Data loading, status, and future management utilities.</p>
+<!-- =====================================================
+   530 - HTML: RECONCILIATION WORKSPACE
+===================================================== -->
 
-      <div id="masterDataDashboardStatus" class="master-data-dashboard-status"></div>
-
-      <div class="master-data-dashboard-actions">
-        <section class="master-data-dashboard-action">
-          <h4>Load Master Data</h4>
-          <p>Select the active DLE Master Data JSON file for this session.</p>
-          <button type="button" onclick="browseDleMasterDataFile()">Load Master Data</button>
-        </section>
-
-        <section class="master-data-dashboard-action">
-          <h4>Open Master Data Viewer</h4>
-          <p>Inspect the currently available Master Data in a dedicated viewer workspace.</p>
-          <button type="button" onclick="openMasterDataViewerWorkspace()">Open Master Data Viewer</button>
-        </section>
-      </div>
-
-      <div id="dleMasterDataViewer" class="master-data-viewer-panel" hidden>
-        <div class="module-header master-data-viewer-header">
-          <div>
-            <div class="module-eyebrow">Developer Verification Tool</div>
-            <h2>DLE Master Data Viewer</h2>
-            <p class="module-subtitle">Open a DLE Master Data JSON file and inspect ERP-owned and DLE-owned fields without editing the source file.</p>
-          </div>
-          <button type="button" onclick="collapseMasterDataViewerWorkspace()">Collapse Viewer</button>
-        </div>
-
-        <div class="master-data-toolbar">
-          <input id="dleMasterDataFileInput" type="file" accept=".json,application/json" onchange="openDleMasterDataFile(this.files)" hidden>
-          <button type="button" onclick="browseDleMasterDataFile()">Open DLE Master Data</button>
-          <input
-            id="dleMasterDataSearch"
-            class="master-data-search"
-            type="text"
-            placeholder="Search Customer, Sales Order, Work Order, Part Number, or Description"
-            oninput="filterDleMasterDataViewer()">
-          <div id="dleMasterDataStatus" class="open-orders-status">No DLE Master Data file loaded.</div>
-        </div>
-
-        <div id="dleMasterDataSummary" class="master-data-summary"></div>
-
-        <div class="master-data-layout">
-          <div id="dleMasterDataGrid" class="master-data-table-wrap">
-            <div class="master-data-empty">Open a DLE Master Data JSON file to inspect records.</div>
-          </div>
-
-          <aside class="master-data-detail-card">
-            <div class="master-data-nav">
-              <button type="button" onclick="goDleMasterDataRecord(-1)">Previous</button>
-              <div id="dleMasterDataPosition" class="master-data-position">Record 0 of 0</div>
-              <button type="button" onclick="goDleMasterDataRecord(1)">Next</button>
-            </div>
-            <div id="dleMasterDataDetail">
-              <div class="master-data-empty">Select a record to inspect its full structure.</div>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION 520: HTML - ERP IMPORT DASHBOARD -->
-    <section class="system-center-erp-section">
-      <h3>ERP Data Import</h3>
-      <p>Permanent intake point for VPro5 ERP exports entering DLE-OS.</p>
-
-      <div id="erpImportDashboardStatus" class="master-data-dashboard-status"></div>
-
-      <div class="erp-import-actions">
-        <input type="file" id="systemErpOpenOrdersFile" hidden>
-        <button type="button" onclick="loadSystemCenterOpenOrders()">Load Open Orders Export</button>
-        <button type="button" onclick="createDleMasterDataFromErpImport()">Create DLE Master Data</button>
-      </div>
-
-      <div id="systemErpImportStatus" class="open-orders-status erp-import-message">No ERP export loaded.</div>
-    </section>
-
-    <!-- SECTION 530: HTML - RECONCILIATION DASHBOARD -->
-    <section class="system-center-reconciliation-section">
-      <h3>Reconciliation</h3>
-      <p>Permanent workspace for comparing ERP snapshots against DLE Master Data in future phases.</p>
-
-      <div id="reconciliationDashboardStatus" class="master-data-dashboard-status"></div>
-
-      <div class="master-data-dashboard-actions">
-        <section class="master-data-dashboard-action">
-          <h4>Reconcile</h4>
-          <p>Evaluate current Shipment Log readiness before future ERP reconciliation begins.</p>
-          <button type="button" onclick="startMasterDataReconciliation()">Reconcile</button>
-        </section>
-
-        <section class="master-data-dashboard-action">
-          <h4>Reconciliation Summary</h4>
-          <p>Reserved location for future reconciliation results, exceptions, and review reports.</p>
-          <button type="button" onclick="toggleReconciliationSummary()">Open Summary</button>
-        </section>
-
-        <section class="master-data-dashboard-action">
-          <h4>Approve ERP Updates</h4>
-          <p>Apply approved ERP-owned field updates while preserving DLE-owned information.</p>
-          <button type="button" onclick="approveReconciliationErpUpdates()">Approve ERP Updates</button>
-        </section>
-      </div>
-
-      <div id="reconciliationActionStatus" class="open-orders-status erp-import-message">Reconciliation engine under development.</div>
-
-      <div id="reconciliationSummaryPanel" class="reconciliation-summary-panel" hidden>
-        <h4>Reconciliation Summary</h4>
-        <p>No reconciliation has been performed. Future summaries will show new records, updated ERP fields, preserved DLE-owned fields, and records requiring review.</p>
-      </div>
-    </section>
-
-    <!-- SECTION 590: HTML - SYSTEM CENTER UTILITIES -->
-    <div class="system-center-grid">
-      <section class="system-center-card">
-        <h3>System Status</h3>
-        <p>Coming Soon</p>
-        <div class="system-center-status">Placeholder</div>
-      </section>
-
-      <section class="system-center-card">
-        <h3>Utilities</h3>
-        <p>Coming Soon</p>
-        <div class="system-center-status">Placeholder</div>
-      </section>
-
-      <section class="system-center-card">
-        <h3>Developer Console</h3>
-        <p>Internal qualification tools for controlled DLE-OS subsystems.</p>
-        <div class="system-center-status">Print Engine Session 1</div>
-        <div class="system-center-card-actions">
-          <button type="button" onclick="runPrintEngineQualification()">Print Engine Qualification</button>
-        </div>
-      </section>
-    </div>
-  </div>
-</section>
+<section id="reconciliationWorkspace" class="screen" data-module-placeholder="system-center-reconciliation"></section>
 
 <!-- =====================================================
    END 500 - HTML: SYSTEM CENTER
@@ -6589,6 +6257,8 @@ BOM Viewer</h2>
 
   <footer>DLE Work Center &nbsp; | &nbsp; Version 4.0.0 &nbsp; | &nbsp; Internal Use Only</footer>
 
+  <script src="SRC/modules/system-center/reconciliation/reconciliation.js"></script>
+  <script src="SRC/modules/system-center/system-center.js"></script>
   <script>
 /* =====================================================
    200 - JS: NAVIGATION AND APP STATE
@@ -16503,21 +16173,30 @@ function buildPrintEngineQualificationCss() {
    900 - JS: INITIALIZATION
 ===================================================== */
 
-configureDocumentProcessingLibraries();
-initializeShipmentLog();
-renderShipmentLogModule();
-initDocumentIntake();
-syncAssemblyInfoToBomUi();
-prepareBomExtractionWorkspace();
-renderBomWorkbenchStatus();
-updateOpenOrderReportSelectionCount();
-updateOpenOrderShipmentSelectionCount();
-renderActiveInquiryList();
-renderMasterDataDashboardStatus();
-renderErpImportDashboardStatus();
-renderReconciliationDashboardStatus();
-renderDleMasterDataViewer();
-updateBackButton();
+async function initializeDleWorkCenter() {
+  if (typeof loadSystemCenterModule === 'function') {
+    await loadSystemCenterModule();
+  }
+  configureDocumentProcessingLibraries();
+  initializeShipmentLog();
+  renderShipmentLogModule();
+  initDocumentIntake();
+  syncAssemblyInfoToBomUi();
+  prepareBomExtractionWorkspace();
+  renderBomWorkbenchStatus();
+  updateOpenOrderReportSelectionCount();
+  updateOpenOrderShipmentSelectionCount();
+  renderActiveInquiryList();
+  renderMasterDataDashboardStatus();
+  renderErpImportDashboardStatus();
+  renderReconciliationDashboardStatus();
+  renderDleMasterDataViewer();
+  updateBackButton();
+}
+
+initializeDleWorkCenter().catch(error => {
+  console.error('DLE Work Center initialization failed:', error);
+});
 
   </script>
 </body>

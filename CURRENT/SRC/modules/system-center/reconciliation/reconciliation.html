@@ -1,0 +1,202 @@
+<!-- SECTION 530: HTML - RECONCILIATION WORKSPACE -->
+<section id="reconciliationWorkspace" class="screen" data-module-loaded="true">
+  <div class="open-orders-panel">
+    <div class="module-header">
+      <div>
+        <div class="module-eyebrow">System Center Workspace</div>
+        <h2>Reconciliation Workspace</h2>
+        <p class="module-subtitle">Operational approval queue for importing ERP snapshots, reviewing detected events, resolving dispositions, and approving ERP-owned updates.</p>
+      </div>
+      <button type="button" onclick="go('systemCenter')">Return to System Center</button>
+    </div>
+
+    <div class="reconciliation-workflow-steps" aria-label="Reconciliation workflow">
+      <div class="reconciliation-step">
+        <span>1</span>
+        <strong>Master Data Loaded</strong>
+      </div>
+      <div class="reconciliation-step">
+        <span>2</span>
+        <strong>ERP Snapshot Imported</strong>
+      </div>
+      <div class="reconciliation-step">
+        <span>3</span>
+        <strong>Comparison Executed</strong>
+      </div>
+      <div class="reconciliation-step">
+        <span>4</span>
+        <strong>Review Events</strong>
+      </div>
+      <div class="reconciliation-step">
+        <span>5</span>
+        <strong>Resolve Events</strong>
+      </div>
+      <div class="reconciliation-step">
+        <span>6</span>
+        <strong>Approve Updates</strong>
+      </div>
+    </div>
+
+    <div class="reconciliation-three-panel">
+      <aside class="reconciliation-side-panel">
+        <div class="reconciliation-panel-heading">
+          <span class="reconciliation-panel-kicker">Left Panel</span>
+          <h3>Master Data</h3>
+          <p>Current DLE Master JSON session state.</p>
+        </div>
+
+        <div id="reconciliationMasterDataContext" class="master-data-dashboard-status reconciliation-side-status">
+          <div class="master-data-status-item">
+            <span>Status</span>
+            <strong>Missing</strong>
+          </div>
+        </div>
+      </aside>
+
+      <main class="reconciliation-center-panel">
+        <section class="reconciliation-work-card reconciliation-command-card">
+          <div class="reconciliation-panel-heading">
+            <span class="reconciliation-panel-kicker">Command Strip</span>
+            <h3>Compare ERP Snapshot to Master Data</h3>
+            <p>Run comparison, review the current readiness state, then work the event queue below.</p>
+          </div>
+
+          <div class="reconciliation-command-layout">
+            <div class="reconciliation-summary-dashboard">
+              <div class="reconciliation-metric-card event-new-order">
+                <span>New Orders</span>
+                <strong>0</strong>
+              </div>
+              <div class="reconciliation-metric-card event-modified-record">
+                <span>Modified</span>
+                <strong>0</strong>
+              </div>
+              <div class="reconciliation-metric-card event-missing-erp">
+                <span>Missing</span>
+                <strong>0</strong>
+              </div>
+              <div class="reconciliation-metric-card event-validation-issue">
+                <span>Pending</span>
+                <strong>0</strong>
+              </div>
+              <div class="reconciliation-metric-card event-resolved">
+                <span>Resolved</span>
+                <strong>0</strong>
+              </div>
+            </div>
+
+            <div class="reconciliation-command-actions">
+              <button type="button" onclick="startMasterDataReconciliation()">Reconcile</button>
+              <button type="button" onclick="toggleReconciliationSummary()">Open Summary</button>
+            </div>
+          </div>
+
+          <div id="reconciliationDashboardStatus" class="master-data-dashboard-status reconciliation-live-status"></div>
+        </section>
+
+        <section class="reconciliation-work-card reconciliation-events-card">
+          <div class="reconciliation-panel-heading">
+            <span class="reconciliation-panel-kicker">Review Queue</span>
+            <h3>Reconciliation Events</h3>
+            <p>This is the primary workspace. Future detected differences will appear here for review and disposition.</p>
+          </div>
+
+          <div class="reconciliation-event-legend" aria-label="Reconciliation event types">
+            <span><i class="event-dot event-new-order"></i>New Order</span>
+            <span><i class="event-dot event-missing-erp"></i>Missing From ERP</span>
+            <span><i class="event-dot event-modified-record"></i>Modified Record</span>
+            <span><i class="event-dot event-validation-issue"></i>Validation Issue</span>
+          </div>
+
+          <div class="reconciliation-event-table-wrap">
+            <table class="reconciliation-event-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Work Order</th>
+                  <th>Customer</th>
+                  <th>Event Type</th>
+                  <th>Description</th>
+                  <th>Disposition</th>
+                  <th>Resolution Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="reconciliation-placeholder-row">
+                  <td><span class="event-pill event-validation-issue">!</span></td>
+                  <td>Pending</td>
+                  <td>Pending</td>
+                  <td>Validation Issue</td>
+                  <td>Run reconciliation to populate detected events.</td>
+                  <td>
+                    <select disabled>
+                      <option>Select</option>
+                    </select>
+                  </td>
+                  <td>Pending</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="reconciliation-work-card reconciliation-approval-card">
+          <div class="reconciliation-panel-heading">
+            <span class="reconciliation-panel-kicker">Approval</span>
+            <h3>Approve ERP Updates</h3>
+            <p>Final approval area for applying ERP-owned updates after event review.</p>
+          </div>
+
+          <div class="reconciliation-approval-metrics">
+            <div>
+              <span>Pending Events</span>
+              <strong>0</strong>
+            </div>
+            <div>
+              <span>Ready to Apply</span>
+              <strong>0</strong>
+            </div>
+            <div>
+              <span>Approved</span>
+              <strong>0</strong>
+            </div>
+          </div>
+
+          <button type="button" onclick="approveReconciliationErpUpdates()">Approve ERP Updates</button>
+        </section>
+
+        <section class="reconciliation-work-card reconciliation-results-card">
+          <div class="reconciliation-panel-heading">
+            <span class="reconciliation-panel-kicker">Status / Results</span>
+            <h3>Reconciliation Status</h3>
+          </div>
+
+          <div id="reconciliationActionStatus" class="open-orders-status erp-import-message">Reconciliation engine under development.</div>
+
+          <div id="reconciliationSummaryPanel" class="reconciliation-summary-panel" hidden>
+            <h4>Reconciliation Summary</h4>
+            <p>No reconciliation has been performed. Future summaries will show new records, updated ERP fields, preserved DLE-owned fields, and records requiring review.</p>
+          </div>
+        </section>
+      </main>
+
+      <aside class="reconciliation-side-panel">
+        <div class="reconciliation-panel-heading">
+          <span class="reconciliation-panel-kicker">Right Panel</span>
+          <h3>ERP Snapshot</h3>
+          <p>Import the ERP Open Orders export used as the candidate reconciliation snapshot.</p>
+        </div>
+
+        <div id="erpImportDashboardStatus" class="master-data-dashboard-status reconciliation-side-status"></div>
+
+        <div class="erp-import-actions">
+          <input type="file" id="systemErpOpenOrdersFile" hidden>
+          <button type="button" onclick="loadSystemCenterOpenOrders()">Load Open Orders Export</button>
+          <button type="button" onclick="createDleMasterDataFromErpImport()">Create DLE Master Data</button>
+        </div>
+
+        <div id="systemErpImportStatus" class="open-orders-status erp-import-message">No ERP export loaded.</div>
+      </aside>
+    </div>
+  </div>
+</section>
