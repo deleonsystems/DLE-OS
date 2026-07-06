@@ -118,7 +118,7 @@
           <div class="reconciliation-panel-heading">
             <span class="reconciliation-panel-kicker">Review Queue</span>
             <h3>Reconciliation Events</h3>
-            <p>This is the primary workspace. Future detected differences will appear here for review and disposition.</p>
+            <p>Compare the ERP Snapshot against current Master Data, then select the appropriate disposition.</p>
           </div>
 
           <div class="reconciliation-event-legend" aria-label="Reconciliation event types">
@@ -132,28 +132,34 @@
             <table class="reconciliation-event-table">
               <thead>
                 <tr>
-                  <th>Status</th>
-                  <th>Work Order</th>
-                  <th>Customer</th>
+                  <th>ERP WO</th>
+                  <th>ERP Customer</th>
+                  <th>ERP Part Number</th>
+                  <th>ERP Qty</th>
+                  <th>ERP Due Date</th>
+                  <th>Master WO</th>
+                  <th>Master Customer</th>
+                  <th>Master Part Number</th>
+                  <th>Master Qty</th>
+                  <th>Master Due Date</th>
+                  <th>Shipment ID</th>
                   <th>Event Type</th>
-                  <th>Description</th>
                   <th>Disposition</th>
-                  <th>Resolution Status</th>
+                  <th>Resolution</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody id="reconciliationEventsTableBody">
                 <tr class="reconciliation-placeholder-row">
-                  <td><span class="event-pill event-validation-issue">!</span></td>
-                  <td>Pending</td>
-                  <td>Pending</td>
-                  <td>Validation Issue</td>
-                  <td>Run reconciliation to populate detected events.</td>
+                  <td colspan="11">Run reconciliation to populate detected comparison events.</td>
+                  <td><span class="reconciliation-event-type">Validation Issue</span></td>
                   <td>
                     <select disabled>
                       <option>Select</option>
                     </select>
                   </td>
                   <td>Pending</td>
+                  <td><span class="event-pill event-validation-issue">!</span></td>
                 </tr>
               </tbody>
             </table>

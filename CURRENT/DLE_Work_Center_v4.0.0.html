@@ -7665,14 +7665,6 @@ function startMasterDataReconciliation() {
     const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
     if (button) button.textContent = 'Open Summary';
 
-    if (status.pendingShipmentTransactions > 0) {
-        renderReconciliationDashboardStatus();
-        renderReconciliationReviewQueueFromEvents([]);
-        renderShipmentLogReconciliationStatus(status);
-        setReconciliationActionStatus('Not ready for reconciliation. Pending shipment transactions must be invoiced first.');
-        return;
-    }
-
     if (!dleMasterDataFileState.data) {
         renderShipmentLogReconciliationStatus({
             ...status,
@@ -7731,10 +7723,10 @@ function buildShipmentLogReconciliationStatus() {
         analysisDate: new Date().toLocaleString(),
         pendingShipmentTransactions: pendingShipmentIds.size,
         pendingShipmentRecords: pendingRecords.length,
-        status: ready ? 'READY FOR RECONCILIATION' : 'NOT READY FOR RECONCILIATION',
+        status: ready ? 'READY FOR APPROVAL' : 'APPROVAL BLOCKED',
         message: ready
-            ? 'Shipment Log has no Pending Invoice records. DLE-OS is ready for the next reconciliation phase.'
-            : 'Accounting still has shipments waiting to be invoiced before reconciliation can begin.'
+            ? 'Shipment Log has no Pending Invoice records. Master Data updates may be approved after review.'
+            : 'Accounting still has shipments waiting to be invoiced before Master Data updates can be applied.'
     };
 }
 
@@ -7744,7 +7736,7 @@ function renderShipmentLogReconciliationStatus(status) {
 
     panel.innerHTML = `
       <h4>Reconciliation Status</h4>
-      <p>Read-only Shipment Log readiness check. No ERP comparison is performed during this phase.</p>
+      <p>Read-only approval readiness check. Review Queue analysis remains available; Master Data updates are protected until pending shipments are invoiced.</p>
       <div class="master-data-summary">
         ${reconciliationSummaryCard('Pending Shipment Transactions', status.pendingShipmentTransactions)}
         ${reconciliationSummaryCard('Pending Shipment Records', status.pendingShipmentRecords)}
@@ -7811,6 +7803,24 @@ async function approveReconciliationErpUpdates() {
     }
 
     const currentSummary = reconciliationState.latestSummary;
+    const shipmentStatus = buildShipmentLogReconciliationStatus();
+    if (shipmentStatus.pendingShipmentTransactions > 0) {
+        renderReconciliationDashboardStatus();
+        renderShipmentLogReconciliationStatus(shipmentStatus);
+        const summaryPanel = document.getElementById('reconciliationSummaryPanel');
+        if (summaryPanel) summaryPanel.hidden = false;
+        const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
+        if (button) button.textContent = 'Collapse Summary';
+        setReconciliationActionStatus(
+            'Approval blocked. ' +
+            shipmentStatus.pendingShipmentTransactions +
+            ' pending shipment transaction(s) / ' +
+            shipmentStatus.pendingShipmentRecords +
+            ' pending shipment record(s) must be invoiced before Master Data updates can be applied.'
+        );
+        return;
+    }
+
     const hasApprovedUpdates = currentSummary.newErpRecords.length
         || currentSummary.erpFieldDifferences.length
         || currentSummary.missingErpOwnedFields.length;
@@ -7930,6 +7940,7 @@ function analyzeMasterDataReconciliation() {
             missingErpOwnedFields.push({
                 recordKey,
                 record: buildReconciliationRecordSummary(masterRecord, recordKey),
+                erpRecord: buildReconciliationRecordSummary(erpRecord, recordKey),
                 fields: missingFields
             });
         }
@@ -7947,6 +7958,7 @@ function analyzeMasterDataReconciliation() {
             erpFieldDifferences.push({
                 recordKey,
                 record: buildReconciliationRecordSummary(masterRecord, recordKey),
+                erpRecord: buildReconciliationRecordSummary(erpRecord, recordKey),
                 differences: fieldDifferences
             });
             return;
@@ -8024,11 +8036,14 @@ function buildReconciliationRecordSummary(record, recordKey) {
     const vpro5 = record?.vpro5 || {};
     return {
         recordKey,
+        customerNumber: vpro5.customerNumber || '',
         customer: vpro5.customer || '',
         salesOrder: vpro5.salesOrder || '',
         sequenceLine: vpro5.sequenceLine || '',
         workOrder: vpro5.workOrder || '',
-        partNumber: vpro5.partNumber || ''
+        partNumber: vpro5.partNumber || '',
+        qtyOpen: vpro5.qtyOpen || '',
+        dueDate: vpro5.dueDate || ''
     };
 }
 
@@ -8038,10 +8053,9 @@ function buildReconciliationReviewQueueEvents(summary) {
     const newOrders = summary.newErpRecords.map(record => ({
         statusIcon: '+',
         eventClass: 'event-new-order',
-        workOrder: record.workOrder || 'Not assigned',
-        customer: record.customer || 'Not available',
+        erp: record,
+        master: null,
         eventType: 'New Order',
-        description: 'ERP Snapshot contains a new order line not currently present in DLE Master Data. Record key: ' + record.recordKey,
         disposition: 'Select',
         resolutionStatus: 'Pending'
     }));
@@ -8049,10 +8063,9 @@ function buildReconciliationReviewQueueEvents(summary) {
     const missingFromErp = summary.recordsMissingFromErp.map(record => ({
         statusIcon: '-',
         eventClass: 'event-missing-erp',
-        workOrder: record.workOrder || 'Not assigned',
-        customer: record.customer || 'Not available',
+        erp: null,
+        master: record,
         eventType: 'Missing From ERP',
-        description: 'DLE Master Data contains an order line that is not present in the ERP Snapshot. Record key: ' + record.recordKey,
         disposition: 'Select',
         resolutionStatus: 'Pending'
     }));
@@ -8060,10 +8073,9 @@ function buildReconciliationReviewQueueEvents(summary) {
     const modifiedRecords = summary.erpFieldDifferences.map(item => ({
         statusIcon: '~',
         eventClass: 'event-modified-record',
-        workOrder: item.record.workOrder || 'Not assigned',
-        customer: item.record.customer || 'Not available',
+        erp: item.erpRecord,
+        master: item.record,
         eventType: 'Modified Record',
-        description: 'ERP-owned fields changed: ' + item.differences.map(diff => formatMasterDataLabel(diff.field)).join(', ') + '.',
         disposition: 'Select',
         resolutionStatus: 'Pending'
     }));
@@ -8071,10 +8083,9 @@ function buildReconciliationReviewQueueEvents(summary) {
     const validationIssues = summary.missingErpOwnedFields.map(item => ({
         statusIcon: '!',
         eventClass: 'event-validation-issue',
-        workOrder: item.record.workOrder || 'Not assigned',
-        customer: item.record.customer || 'Not available',
+        erp: item.erpRecord,
+        master: item.record,
         eventType: 'Validation Issue',
-        description: 'Master Data is missing ERP-owned fields: ' + item.fields.map(formatMasterDataLabel).join(', ') + '.',
         disposition: 'Select',
         resolutionStatus: 'Pending'
     }));
@@ -8089,43 +8100,129 @@ function buildReconciliationReviewQueueEvents(summary) {
 
 function renderReconciliationReviewQueueFromEvents(events) {
     const tableBody = document.getElementById('reconciliationEventsTableBody');
-    updateReconciliationReviewQueueCounters(events);
+    const normalizedEvents = Array.isArray(events)
+        ? events.map(normalizeReconciliationReviewQueueEvent)
+        : [];
+    updateReconciliationReviewQueueCounters(normalizedEvents);
     if (!tableBody) return;
 
-    if (!events.length) {
+    if (!normalizedEvents.length) {
         tableBody.innerHTML = `
           <tr class="reconciliation-placeholder-row">
+            <td colspan="11">No reconciliation events are currently available. Run reconciliation to populate detected differences.</td>
+            <td><span class="reconciliation-event-type">Validation Issue</span></td>
+            <td>${renderReconciliationDispositionSelector('')}</td>
+            <td class="reconciliation-resolution-status">Pending</td>
             <td><span class="event-pill event-validation-issue">!</span></td>
-            <td>None</td>
-            <td>None</td>
-            <td>Validation Issue</td>
-            <td class="reconciliation-event-description">No reconciliation events are currently available. Run reconciliation to populate detected differences.</td>
-            <td>
-              <select disabled>
-                <option>Select</option>
-              </select>
-            </td>
-            <td>Pending</td>
           </tr>
         `;
         return;
     }
 
-    tableBody.innerHTML = events.map(event => `
+    tableBody.innerHTML = normalizedEvents.map(event => `
       <tr>
-        <td><span class="event-pill ${escapeHtml(event.eventClass)}">${escapeHtml(event.statusIcon)}</span></td>
-        <td>${escapeHtml(event.workOrder)}</td>
-        <td>${escapeHtml(event.customer)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.workOrder)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.customer)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.partNumber)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.qtyOpen)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.dueDate)}</td>
+        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.workOrder)}</td>
+        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.customer)}</td>
+        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.partNumber)}</td>
+        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.qtyOpen)}</td>
+        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.dueDate)}</td>
+        <td>${renderReconciliationCompareValue(getShipmentIdForReconciliationRecord(event.master))}</td>
         <td><span class="reconciliation-event-type">${escapeHtml(event.eventType)}</span></td>
-        <td class="reconciliation-event-description">${escapeHtml(event.description)}</td>
-        <td>
-          <select disabled>
-            <option>${escapeHtml(event.disposition)}</option>
-          </select>
-        </td>
-        <td>${escapeHtml(event.resolutionStatus)}</td>
+        <td>${renderReconciliationDispositionSelector(event.disposition)}</td>
+        <td class="reconciliation-resolution-status">${escapeHtml(event.resolutionStatus)}</td>
+        <td><span class="event-pill ${escapeHtml(event.eventClass)}">${escapeHtml(event.statusIcon)}</span></td>
       </tr>
     `).join('');
+}
+
+function normalizeReconciliationReviewQueueEvent(event) {
+    return {
+        statusIcon: event?.statusIcon || '!',
+        eventClass: event?.eventClass || 'event-validation-issue',
+        erp: normalizeReconciliationReviewQueueSide(event?.erp),
+        master: normalizeReconciliationReviewQueueSide(event?.master),
+        eventType: event?.eventType || 'Validation Issue',
+        disposition: event?.disposition || 'Select',
+        resolutionStatus: event?.resolutionStatus || 'Pending'
+    };
+}
+
+function normalizeReconciliationReviewQueueSide(record) {
+    if (!record) return null;
+
+    return {
+        recordKey: record.recordKey || '',
+        customerNumber: record.customerNumber || '',
+        customer: record.customer || '',
+        salesOrder: record.salesOrder || '',
+        sequenceLine: record.sequenceLine || '',
+        workOrder: record.workOrder || '',
+        partNumber: record.partNumber || '',
+        qtyOpen: record.qtyOpen || '',
+        dueDate: record.dueDate || ''
+    };
+}
+
+function renderReconciliationCompareValue(value) {
+    const normalized = normalizeReconciliationValue(value);
+    return normalized ? escapeHtml(normalized) : '<span class="reconciliation-empty-value">--</span>';
+}
+
+function getShipmentIdForReconciliationRecord(record) {
+    if (!record) return '';
+
+    const shipmentRecords = Array.isArray(shipmentLogState.records)
+        ? shipmentLogState.records
+        : [];
+    const customerNumber = normalizeOrderValue(record.customerNumber, '');
+    const salesOrder = normalizeOrderValue(record.salesOrder, '');
+    const salesOrderLine = normalizeOrderValue(record.sequenceLine, '');
+    const workOrder = normalizeOrderValue(record.workOrder, '');
+    const shipmentIds = new Set(
+        shipmentRecords
+            .filter(shipmentRecord =>
+                normalizeOrderValue(shipmentRecord.customerNumber, '') === customerNumber &&
+                normalizeOrderValue(shipmentRecord.salesOrder, '') === salesOrder &&
+                normalizeOrderValue(shipmentRecord.salesOrderLine, '') === salesOrderLine &&
+                normalizeOrderValue(shipmentRecord.workOrder, '') === workOrder
+            )
+            .map(shipmentRecord => normalizeOrderValue(shipmentRecord.shipmentId, ''))
+            .filter(Boolean)
+    );
+
+    return Array.from(shipmentIds).join(', ');
+}
+
+function renderReconciliationDispositionSelector(selectedValue) {
+    const selected = selectedValue === 'Confirm Shipment' ? ' selected' : '';
+    return `
+      <select class="reconciliation-disposition-select" onchange="updateReconciliationEventDisposition(event)">
+        <option value="">Select</option>
+        <option value="Accept New Order" disabled>Accept New Order (Coming Soon)</option>
+        <option value="Confirm Shipment"${selected}>Confirm Shipment</option>
+        <option value="Accept ERP Value" disabled>Accept ERP Value (Coming Soon)</option>
+        <option value="Resolve Validation Issue" disabled>Resolve Validation Issue (Coming Soon)</option>
+      </select>
+    `;
+}
+
+function updateReconciliationEventDisposition(event) {
+    const selector = event?.target;
+    const row = selector?.closest('tr');
+    if (!selector || !row) return;
+
+    row.dataset.disposition = selector.value;
+    const statusCell = row.querySelector('.reconciliation-resolution-status');
+    if (statusCell) {
+        statusCell.textContent = selector.value === 'Confirm Shipment'
+            ? 'Disposition Selected'
+            : 'Pending';
+    }
 }
 
 function updateReconciliationReviewQueueCounters(events) {
