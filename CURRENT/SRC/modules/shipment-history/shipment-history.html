@@ -1,0 +1,42 @@
+<!-- =====================================================
+   450 - HTML: SHIPMENT HISTORY MODULE
+===================================================== -->
+
+<section id="shipmentHistory" class="screen" data-module-loaded="true">
+  <div class="open-orders-panel">
+    <div class="open-orders-header">
+      <div class="open-orders-title">
+        <span class="small-icon">SH</span>
+        <div>
+          <h2>Shipment History</h2>
+          <p>Permanent shipment archive prepared for future reconciliation history</p>
+        </div>
+      </div>
+
+      <div class="open-orders-toolbar shipment-history-toolbar">
+        <div id="shipmentHistoryStatus" class="open-orders-status">Shipment History initialized.</div>
+
+        <input
+          type="text"
+          id="shipmentHistorySearch"
+          class="open-orders-search"
+          placeholder="Search shipment ID, customer, sales order, work order, or item..."
+          onkeyup="filterShipmentHistory()">
+      </div>
+    </div>
+
+    <div class="open-order-report-controls">
+      <div>
+        <strong>Shipment History</strong>
+        <div id="shipmentHistorySummary" class="open-order-report-count">0 archived shipments.</div>
+      </div>
+      <div class="open-orders-actions">
+        <button type="button" onclick="renderShipmentHistoryModule()">Refresh Shipment History</button>
+        <button type="button" disabled title="Shipment recall will be implemented in a future phase.">Recall Shipment</button>
+        <button type="button" disabled title="Shipment History export will be implemented in a future phase.">Export History</button>
+      </div>
+    </div>
+
+    <div id="shipmentHistoryTable" class="open-orders-table-wrap"></div>
+  </div>
+</section>
