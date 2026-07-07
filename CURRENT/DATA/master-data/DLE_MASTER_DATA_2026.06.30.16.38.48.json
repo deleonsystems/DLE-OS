@@ -3,7 +3,7 @@
   "created": "6/30/2026, 4:38:48 PM",
   "uniqueKey": "Customer Number + Sales Order + Sequence Line",
   "source": "VPro5 Open Orders Export",
-  "recordCount": 107,
+  "recordCount": 115,
   "ownershipModel": {
     "vpro5Owned": [
       "orderDate",
@@ -3343,6 +3343,254 @@
       },
       "lifecycleState": "OPEN",
       "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+    },
+    {
+      "id": "001082|0012088|010",
+      "sourceIndex": 66,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/7/2026, 11:35:23 AM",
+      "vpro5": {
+        "orderDate": "07/02/26",
+        "customerNumber": "001082",
+        "customer": "ABBOTT TECHNOLOGIES, INC.",
+        "customerPo": "48158",
+        "salesOrder": "0012088",
+        "sequenceLine": "010",
+        "workOrder": "0115608",
+        "workOrderQuantity": "35",
+        "quantityShipped": "0",
+        "qtyOpen": "35",
+        "partNumber": "B11004-17",
+        "description": "PCB ASSEMBLY (N4-295A)",
+        "dueDate": "08/10/26",
+        "price": "207.80",
+        "extendedPrice": "7273.00"
+      },
+      "dle": {
+        "productionStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/7/2026, 11:35:23 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001082|0012088|040",
+      "sourceIndex": 67,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/7/2026, 11:35:23 AM",
+      "vpro5": {
+        "orderDate": "07/02/26",
+        "customerNumber": "001082",
+        "customer": "ABBOTT TECHNOLOGIES, INC.",
+        "customerPo": "48158",
+        "salesOrder": "0012088",
+        "sequenceLine": "040",
+        "workOrder": "0115609",
+        "workOrderQuantity": "60",
+        "quantityShipped": "0",
+        "qtyOpen": "60",
+        "partNumber": "B11005-17",
+        "description": "DC-DC CONTROL ASSEMBLY",
+        "dueDate": "08/10/26",
+        "price": "152.86",
+        "extendedPrice": "9171.60"
+      },
+      "dle": {
+        "productionStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/7/2026, 11:35:23 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|010",
+      "sourceIndex": 61,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/7/2026, 11:35:23 AM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "010",
+        "workOrder": "0115610",
+        "workOrderQuantity": "30",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "08/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "productionStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/7/2026, 11:35:23 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|030",
+      "sourceIndex": 74,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/7/2026, 11:35:23 AM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "030",
+        "workOrder": "0115610",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "09/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "productionStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/7/2026, 11:35:23 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|050",
+      "sourceIndex": 79,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/7/2026, 11:35:23 AM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "050",
+        "workOrder": "0115610",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "10/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "productionStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/7/2026, 11:35:23 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|070",
+      "sourceIndex": 92,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/7/2026, 11:35:23 AM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "070",
+        "workOrder": "0115610",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "11/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "productionStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/7/2026, 11:35:23 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|090",
+      "sourceIndex": 98,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/7/2026, 11:35:23 AM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "090",
+        "workOrder": "0115610",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "12/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "productionStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/7/2026, 11:35:23 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|110",
+      "sourceIndex": 106,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/7/2026, 11:35:23 AM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "110",
+        "workOrder": "0115610",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "01/04/27",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "productionStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/7/2026, 11:35:23 AM",
+        "status": "Active"
+      }
     }
   ]
 }

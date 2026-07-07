@@ -7456,7 +7456,7 @@ function renderReconciliationDashboardStatus() {
     }
 
     const items = [
-        ['Master Data Status', masterDataLoaded ? 'Loaded' : 'Not Loaded'],
+        ['Master Data Status', masterDataLoaded ? getDleMasterDataConnectionStatusLabel() : 'Not Loaded'],
         ['ERP Snapshot Status', erpSnapshotLoaded ? 'Loaded' : 'Not Loaded'],
         ['Last Successful Reconciliation', reconciliationState.lastSuccessfulReconciliation],
         ['Current State', reconciliationState.currentState]
@@ -7473,6 +7473,31 @@ function renderReconciliationDashboardStatus() {
 function setReconciliationActionStatus(message) {
     const status = document.getElementById('reconciliationActionStatus');
     if (status) status.textContent = message;
+}
+
+function renderReconciliationMasterDataReconnectPrompt() {
+    const status = document.getElementById('reconciliationActionStatus');
+    if (!status) return;
+
+    status.innerHTML = `
+      <strong>DLE Master Data is currently loaded as read-only.</strong>
+      <br>
+      <span>A writable connection is required before operational changes can be approved.</span>
+      <br>
+      <button type="button" onclick="reconnectDleMasterDataFromReconciliation()">Reconnect DLE Master Data</button>
+    `;
+}
+
+async function reconnectDleMasterDataFromReconciliation() {
+    await browseDleMasterDataFile();
+    renderReconciliationDashboardStatus();
+
+    if (dleMasterDataFileState.fileHandle && dleMasterDataFileState.writable) {
+        setReconciliationActionStatus('DLE Master Data Connected (Writable). Approval workflows are ready. Click Approve ERP Updates when you are ready to commit the staged decisions.');
+        return;
+    }
+
+    renderReconciliationMasterDataReconnectPrompt();
 }
 
 function startMasterDataReconciliation() {
@@ -7608,7 +7633,7 @@ async function approveReconciliationErpUpdates() {
         return;
     }
     if (!dleMasterDataFileState.fileHandle || !dleMasterDataFileState.writable) {
-        setReconciliationActionStatus('The loaded DLE Master Data file is read-only. Open it from System Center > Master Data before approving ERP updates.');
+        renderReconciliationMasterDataReconnectPrompt();
         return;
     }
     if (!erpImportedOpenOrdersRows.length) {
@@ -7820,6 +7845,7 @@ function analyzeMasterDataReconciliation() {
                 masterValue: normalizeReconciliationValue(masterRecord.vpro5?.[field]),
                 erpValue: normalizeReconciliationValue(erpRecord.vpro5?.[field])
             }))
+            .filter(item => !isIgnoredDleOwnedWorkOrderDifference(item))
             .filter(item => item.masterValue !== item.erpValue);
 
         if (fieldDifferences.length) {
@@ -7898,6 +7924,12 @@ function getDleMasterDataVpro5OwnedFields() {
 
 function normalizeReconciliationValue(value) {
     return String(value ?? '').trim();
+}
+
+function isIgnoredDleOwnedWorkOrderDifference(item) {
+    if (item?.field !== 'workOrder') return false;
+    return isUnknownReconciliationWorkOrder(item.erpValue) &&
+        !isUnknownReconciliationWorkOrder(item.masterValue);
 }
 
 function buildReconciliationRecordSummary(record, recordKey) {
@@ -15901,9 +15933,19 @@ async function browseDleMasterDataFile() {
           accept: { 'application/json': ['.json'] }
         }]
       });
+      const writable = await ensureDleMasterDataWritableFileHandle(handle, {
+        allowPrompt: true
+      });
       const file = await handle.getFile();
-      await loadDleMasterDataFromFile(file, handle);
-      storeDleMasterDataFileHandle(handle);
+      await loadDleMasterDataFromFile(file, writable ? handle : null, {
+        writable,
+        loadedFrom: writable
+          ? 'DLE Master Data Connected (Writable). Approval workflows are ready.'
+          : 'DLE Master Data Loaded (Read Only). Reconnect is required before operational changes can be approved.'
+      });
+      if (writable) {
+        storeDleMasterDataFileHandle(handle);
+      }
       return;
     } catch (error) {
       if (error?.name !== 'AbortError') {
@@ -15922,17 +15964,22 @@ function openDleMasterDataFile(fileList) {
   loadDleMasterDataFromFile(file, null);
 }
 
-function loadDleMasterDataFromFile(file, fileHandle = null) {
+function loadDleMasterDataFromFile(file, fileHandle = null, options = {}) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = event => {
       try {
+        const writable = typeof options.writable === 'boolean'
+          ? options.writable
+          : !!fileHandle;
         loadDleMasterDataFromText(event.target.result, {
           fileHandle,
           fileName: file.name,
           lastModified: file.lastModified ? new Date(file.lastModified).toLocaleString() : 'Not available',
-          writable: !!fileHandle,
-          loadedFrom: fileHandle ? 'Writable file handle active.' : 'Loaded read-only through browser file input.'
+          writable,
+          loadedFrom: options.loadedFrom || (writable
+            ? 'DLE Master Data Connected (Writable). Approval workflows are ready.'
+            : 'DLE Master Data Loaded (Read Only). Reconnect is required before operational changes can be approved.')
         });
         resolve(dleMasterDataFileState.data);
       } catch (error) {
@@ -15997,20 +16044,27 @@ async function loadDleMasterDataFromStoredHandle(handle) {
     const readPermission = await queryDleMasterDataFileHandlePermission(handle, 'read');
     if (readPermission !== 'granted') return false;
 
-    const writePermission = await queryDleMasterDataFileHandlePermission(handle, 'readwrite');
+    const writable = await ensureDleMasterDataWritableFileHandle(handle, {
+      allowPrompt: false
+    });
     const file = await handle.getFile();
-    await loadDleMasterDataFromFile(file, writePermission === 'granted' ? handle : null);
+    await loadDleMasterDataFromFile(file, writable ? handle : null, {
+      writable,
+      loadedFrom: writable
+        ? 'DLE Master Data Connected (Writable). Approval workflows are ready.'
+        : 'DLE Master Data Loaded (Read Only). Reconnect is required before operational changes can be approved.'
+    });
     const loadedRecordCount = Array.isArray(dleMasterDataFileState.data?.records)
       ? dleMasterDataFileState.data.records.length
       : Array.isArray(dleMasterDataFileState.data)
         ? dleMasterDataFileState.data.length
         : 0;
 
-    if (writePermission === 'granted') {
+    if (writable) {
       await storeDleMasterDataFileHandle(handle);
-      setDleMasterDataStatus(`${loadedRecordCount} records auto-loaded from ${file.name}. Writable file handle active.`);
+      setDleMasterDataStatus(`${loadedRecordCount} records auto-loaded from ${file.name}. DLE Master Data Connected (Writable). Approval workflows are ready.`);
     } else {
-      setDleMasterDataStatus(`${loadedRecordCount} records auto-loaded from ${file.name}. Loaded read-only because write permission is not currently granted.`);
+      setDleMasterDataStatus(`${loadedRecordCount} records auto-loaded from ${file.name}. DLE Master Data Loaded (Read Only). Reconnect required before operational changes can be approved.`);
     }
     return true;
   } catch (error) {
@@ -16030,7 +16084,7 @@ async function loadDefaultDleMasterDataJson() {
       fileName,
       lastModified: new Date().toLocaleString(),
       writable: false,
-      loadedFrom: 'Auto-loaded from project DATA folder. Manual Load Master Data can be used to establish writable access.'
+      loadedFrom: 'DLE Master Data Loaded (Read Only). Reconnect required before operational changes can be approved.'
     });
     return true;
   } catch (error) {
@@ -16042,6 +16096,26 @@ async function loadDefaultDleMasterDataJson() {
 async function queryDleMasterDataFileHandlePermission(handle, mode) {
   if (!handle?.queryPermission) return 'granted';
   return handle.queryPermission({ mode });
+}
+
+async function requestDleMasterDataFileHandlePermission(handle, mode) {
+  if (!handle?.requestPermission) return 'granted';
+  return handle.requestPermission({ mode });
+}
+
+async function ensureDleMasterDataWritableFileHandle(handle, options = {}) {
+  if (!handle) return false;
+
+  const currentPermission = await queryDleMasterDataFileHandlePermission(handle, 'readwrite');
+  if (currentPermission === 'granted') return true;
+  if (!options.allowPrompt) return false;
+
+  try {
+    const requestedPermission = await requestDleMasterDataFileHandlePermission(handle, 'readwrite');
+    return requestedPermission === 'granted';
+  } catch (error) {
+    return false;
+  }
 }
 
 async function storeDleMasterDataFileHandle(handle) {
@@ -16358,9 +16432,10 @@ function renderMasterDataDashboardStatus() {
     : [];
   const lifecycleCounts = getMasterRecordLifecycleCounts(records);
   const isLoaded = !!dleMasterDataFileState.data;
+  const connectionStatus = getDleMasterDataConnectionStatusLabel();
 
   const items = [
-    ['Status', isLoaded ? 'Loaded' : 'Not Loaded'],
+    ['Status', isLoaded ? connectionStatus : 'Not Loaded'],
     ['Source File', dleMasterDataFileState.fileName || 'Not available'],
     ['Record Count', isLoaded ? String(records.length) : '0'],
     ['Open Master Records', isLoaded ? String(lifecycleCounts.OPEN) : '0'],
@@ -16395,6 +16470,7 @@ function renderDleMasterDataSummary() {
   const lifecycleCounts = getMasterRecordLifecycleCounts(dleMasterDataViewerState.records);
   summary.innerHTML = [
     masterDataSummaryCard('DLE Master Data File Name', dleMasterDataViewerState.fileName || 'Not available'),
+    masterDataSummaryCard('Connection', getDleMasterDataConnectionStatusLabel()),
     masterDataSummaryCard('Schema Version', data.schema || data.schemaVersion || 'Not available'),
     masterDataSummaryCard('Total Records', String(dleMasterDataViewerState.records.length)),
     masterDataSummaryCard('Open Records', String(lifecycleCounts.OPEN)),
@@ -16903,6 +16979,13 @@ async function initializeDleWorkCenter() {
   renderReconciliationDashboardStatus();
   renderDleMasterDataViewer();
   updateBackButton();
+}
+
+function getDleMasterDataConnectionStatusLabel() {
+  if (!dleMasterDataFileState.data) return 'Not Loaded';
+  return dleMasterDataFileState.fileHandle && dleMasterDataFileState.writable
+    ? 'DLE Master Data Connected (Writable)'
+    : 'DLE Master Data Loaded (Read Only)';
 }
 
 initializeDleWorkCenter().catch(error => {
