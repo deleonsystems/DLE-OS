@@ -7036,6 +7036,13 @@ const reconciliationState = {
     currentState: 'Not Ready',
     latestSummary: null
 };
+
+const reconciliationReviewQueueState = {
+    events: [],
+    selectedEventIds: new Set(),
+    stagedWorkOrders: {},
+    stagedDispositions: {}
+};
 let dleMasterData = {
     created: null,
     source: null,
@@ -7614,7 +7621,6 @@ async function approveReconciliationErpUpdates() {
         return;
     }
 
-    const currentSummary = reconciliationState.latestSummary;
     const approvedArchiveShipmentIds = getApprovedShipmentArchiveShipmentIdsFromReviewQueue();
     const archiveCandidates = getShipmentStagingArchiveCandidates(approvedArchiveShipmentIds);
     const shipmentStatus = buildShipmentStagingReconciliationStatus();
@@ -7644,11 +7650,10 @@ async function approveReconciliationErpUpdates() {
         return;
     }
 
-    const hasApprovedUpdates = currentSummary.newErpRecords.length
-        || currentSummary.erpFieldDifferences.length
-        || currentSummary.missingErpOwnedFields.length;
+    const acceptedNewOrderEvents = getAcceptedNewOrderReviewQueueEvents();
+    const hasApprovedUpdates = acceptedNewOrderEvents.length > 0;
     if (!hasApprovedUpdates && !archiveCandidates.length) {
-        setReconciliationActionStatus('No ERP-owned updates are available to approve.');
+        setReconciliationActionStatus('No staged Review Queue decisions are available to approve.');
         return;
     }
 
@@ -7658,7 +7663,9 @@ async function approveReconciliationErpUpdates() {
 
     try {
         const result = hasApprovedUpdates
-            ? applyApprovedErpUpdatesToMasterData()
+            ? applyApprovedReviewQueueDecisionsToMasterData({
+                acceptedNewOrderEvents
+            })
             : { updatedRecords: 0, createdRecords: 0 };
 
         const archiveResult = await archiveApprovedShipmentStagingRecords(approvedArchiveShipmentIds);
@@ -7729,42 +7736,47 @@ function clearReconciliationAnalysis(message) {
     renderReconciliationReviewQueueFromEvents([]);
 }
 
-function applyApprovedErpUpdatesToMasterData() {
+function applyApprovedReviewQueueDecisionsToMasterData(decisions = {}) {
     const records = dleMasterDataFileState.data.records;
     const erpRecords = erpImportedOpenOrdersRows
         .map((cols, index) => buildDleMasterDataRecord(cols, index, erpImportState.lastImported || new Date().toLocaleString()));
-    const erpOwnedFields = getDleMasterDataVpro5OwnedFields();
     const masterByKey = buildReconciliationRecordMap(getActiveMasterDataRecords(records), getMasterRecordKeyForRecord);
+    const erpByKey = buildReconciliationRecordMap(erpRecords, record => record.id);
+    const acceptedNewOrderEvents = Array.isArray(decisions.acceptedNewOrderEvents)
+        ? decisions.acceptedNewOrderEvents
+        : [];
     let updatedRecords = 0;
     let createdRecords = 0;
 
-    erpRecords.forEach(erpRecord => {
-        const recordKey = erpRecord.id;
-        const masterRecord = masterByKey.get(recordKey);
+    acceptedNewOrderEvents.forEach(event => {
+        const recordKey = event?.erp?.recordKey || '';
+        if (!recordKey || masterByKey.has(recordKey)) return;
 
-        if (!masterRecord) {
-            records.push(erpRecord);
-            createdRecords += 1;
-            return;
+        const erpRecord = erpByKey.get(recordKey);
+        if (!erpRecord) return;
+
+        const stagedWorkOrder = reconciliationReviewQueueState.stagedWorkOrders[event.reviewQueueId] || '';
+        if (stagedWorkOrder) {
+            erpRecord.vpro5 = erpRecord.vpro5 || {};
+            erpRecord.vpro5.workOrder = stagedWorkOrder;
         }
+        erpRecord.dle = erpRecord.dle || {};
+        erpRecord.dle.productionStatus = 'New Order';
 
-        masterRecord.vpro5 = masterRecord.vpro5 || {};
-        let recordChanged = false;
-        erpOwnedFields.forEach(field => {
-            const nextValue = erpRecord.vpro5?.[field] ?? '';
-            if (normalizeReconciliationValue(masterRecord.vpro5[field]) !== normalizeReconciliationValue(nextValue)) {
-                masterRecord.vpro5[field] = nextValue;
-                recordChanged = true;
-            }
-        });
-
-        if (recordChanged) {
-            updatedRecords += 1;
-        }
+        records.push(erpRecord);
+        masterByKey.set(recordKey, erpRecord);
+        createdRecords += 1;
     });
 
     dleMasterDataFileState.data.recordCount = records.length;
     return { updatedRecords, createdRecords };
+}
+
+function getAcceptedNewOrderReviewQueueEvents() {
+    return reconciliationReviewQueueState.events.filter(event =>
+        event.eventType === 'New Order' &&
+        reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Accept New Order'
+    );
 }
 
 function analyzeMasterDataReconciliation() {
@@ -7959,14 +7971,23 @@ function renderReconciliationReviewQueueFromEvents(events) {
     const normalizedEvents = Array.isArray(events)
         ? events.map(normalizeReconciliationReviewQueueEvent)
         : [];
-    const sortedEvents = sortReconciliationReviewQueueEvents(normalizedEvents);
+    const sortedEvents = sortReconciliationReviewQueueEvents(normalizedEvents)
+        .map((event, index) => ({
+            ...event,
+            reviewQueueId: buildReconciliationReviewQueueEventId(event, index)
+        }));
+    reconciliationReviewQueueState.events = sortedEvents;
+    reconcileReviewQueueSelectionWithCurrentEvents();
     updateReconciliationReviewQueueCounters(sortedEvents);
     if (!tableBody) return;
 
     if (!sortedEvents.length) {
+        reconciliationReviewQueueState.selectedEventIds.clear();
+        reconciliationReviewQueueState.stagedWorkOrders = {};
+        reconciliationReviewQueueState.stagedDispositions = {};
         tableBody.innerHTML = `
           <tr class="reconciliation-placeholder-row">
-            <td colspan="17">No reconciliation events are currently available. Run reconciliation to populate detected differences.</td>
+            <td colspan="18">No reconciliation events are currently available. Run reconciliation to populate detected differences.</td>
             <td><span class="reconciliation-event-type">Validation Issue</span></td>
             <td>${renderReconciliationDispositionSelector('')}</td>
             <td class="reconciliation-resolution-status">Pending</td>
@@ -7978,13 +7999,24 @@ function renderReconciliationReviewQueueFromEvents(events) {
 
     tableBody.innerHTML = sortedEvents.map(event => {
         const shipmentIds = getShipmentIdForReconciliationRecord(event.master);
+        const isSelected = reconciliationReviewQueueState.selectedEventIds.has(event.reviewQueueId);
+        const stagedWorkOrder = reconciliationReviewQueueState.stagedWorkOrders[event.reviewQueueId] || '';
+        const stagedDisposition = reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] || event.disposition;
+        const displayedErpWorkOrder = stagedWorkOrder || event.erp?.workOrder;
         return `
-      <tr data-event-type="${escapeHtml(event.eventType)}" data-shipment-ids="${escapeHtml(shipmentIds)}">
+      <tr class="${[
+          isSelected ? 'reconciliation-review-row-selected' : '',
+          stagedWorkOrder ? 'reconciliation-staged-work-order-row' : '',
+          stagedDisposition && stagedDisposition !== 'Select' ? 'reconciliation-staged-disposition-row' : ''
+      ].filter(Boolean).join(' ')}" data-review-queue-id="${escapeHtml(event.reviewQueueId)}" data-event-type="${escapeHtml(event.eventType)}" data-shipment-ids="${escapeHtml(shipmentIds)}">
+        <td class="reconciliation-row-select">
+          <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleReconciliationReviewQueueRowSelection(this)" aria-label="Select reconciliation event">
+        </td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.customerNumber)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.customer)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.salesOrder)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.sequenceLine)}</td>
-        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.workOrder)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationWorkOrderValue(displayedErpWorkOrder, stagedWorkOrder)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.partNumber)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.qtyOpen)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.dueDate)}</td>
@@ -7998,12 +8030,42 @@ function renderReconciliationReviewQueueFromEvents(events) {
         <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.dueDate)}</td>
         <td>${renderReconciliationCompareValue(shipmentIds)}</td>
         <td><span class="reconciliation-event-type">${escapeHtml(event.eventType)}</span></td>
-        <td>${renderReconciliationDispositionSelector(event.disposition)}</td>
-        <td class="reconciliation-resolution-status">${escapeHtml(event.resolutionStatus)}</td>
+        <td>${renderReconciliationDispositionSelector(stagedDisposition, event)}</td>
+        <td class="reconciliation-resolution-status">${escapeHtml(getReconciliationResolutionStatus(stagedDisposition))}</td>
         <td><span class="event-pill ${escapeHtml(event.eventClass)}">${escapeHtml(event.statusIcon)}</span></td>
       </tr>
     `;
     }).join('');
+}
+
+function buildReconciliationReviewQueueEventId(event, index) {
+    return [
+        event?.eventType || 'Event',
+        event?.erp?.recordKey || '',
+        event?.master?.recordKey || '',
+        event?.erp?.customerNumber || event?.master?.customerNumber || '',
+        event?.erp?.salesOrder || event?.master?.salesOrder || '',
+        event?.erp?.sequenceLine || event?.master?.sequenceLine || '',
+        event?.erp?.partNumber || event?.master?.partNumber || '',
+        index
+    ].join('|');
+}
+
+function reconcileReviewQueueSelectionWithCurrentEvents() {
+    const currentIds = new Set(reconciliationReviewQueueState.events.map(event => event.reviewQueueId));
+    reconciliationReviewQueueState.selectedEventIds = new Set(
+        Array.from(reconciliationReviewQueueState.selectedEventIds).filter(id => currentIds.has(id))
+    );
+    Object.keys(reconciliationReviewQueueState.stagedWorkOrders).forEach(id => {
+        if (!currentIds.has(id)) {
+            delete reconciliationReviewQueueState.stagedWorkOrders[id];
+        }
+    });
+    Object.keys(reconciliationReviewQueueState.stagedDispositions).forEach(id => {
+        if (!currentIds.has(id)) {
+            delete reconciliationReviewQueueState.stagedDispositions[id];
+        }
+    });
 }
 
 function sortReconciliationReviewQueueEvents(events) {
@@ -8074,6 +8136,120 @@ function renderReconciliationCompareValue(value) {
     return normalized ? escapeHtml(normalized) : '<span class="reconciliation-empty-value">--</span>';
 }
 
+function renderReconciliationWorkOrderValue(value, stagedValue) {
+    const renderedValue = renderReconciliationCompareValue(value);
+    if (!stagedValue) return renderedValue;
+    return `
+      <span class="reconciliation-staged-work-order-value">${renderedValue}</span>
+      <span class="reconciliation-staged-indicator">Staged</span>
+    `;
+}
+
+function toggleReconciliationReviewQueueRowSelection(checkbox) {
+    const row = checkbox?.closest('[data-review-queue-id]');
+    const reviewQueueId = row?.dataset?.reviewQueueId || '';
+    const selected = !!checkbox?.checked;
+    if (!reviewQueueId) return;
+
+    if (selected) {
+        reconciliationReviewQueueState.selectedEventIds.add(reviewQueueId);
+    } else {
+        reconciliationReviewQueueState.selectedEventIds.delete(reviewQueueId);
+    }
+    if (row) row.classList.toggle('reconciliation-review-row-selected', selected);
+}
+
+function applyExistingWorkOrderToSelectedReviewQueueRows() {
+    const selectedEvents = getSelectedReconciliationReviewQueueEvents();
+    if (!selectedEvents.length) {
+        setReconciliationActionStatus('Select one or more reconciliation rows before applying an existing Work Order.');
+        return;
+    }
+
+    let stagedCount = 0;
+    let skippedCount = 0;
+    selectedEvents.forEach(event => {
+        if (!event.erp || !isUnknownReconciliationWorkOrder(event.erp.workOrder)) {
+            skippedCount += 1;
+            return;
+        }
+
+        const matchingWorkOrders = findMatchingExistingWorkOrdersForReviewQueueEvent(event);
+        if (matchingWorkOrders.length !== 1) {
+            skippedCount += 1;
+            return;
+        }
+
+        reconciliationReviewQueueState.stagedWorkOrders[event.reviewQueueId] = matchingWorkOrders[0];
+        stagedCount += 1;
+    });
+
+    renderReconciliationReviewQueueFromEvents(reconciliationReviewQueueState.events);
+    setReconciliationActionStatus(
+        stagedCount
+            ? stagedCount + ' Work Order assignment' + (stagedCount === 1 ? '' : 's') + ' staged in the Review Queue. ' + skippedCount + ' selected row' + (skippedCount === 1 ? '' : 's') + ' skipped.'
+            : 'No Work Order assignments were staged. A selected row must have ERP Work Order Unknown and exactly one matching existing Work Order in the current Review Queue.'
+    );
+}
+
+function revertSelectedReviewQueueWorkOrderAssignments() {
+    const selectedEvents = getSelectedReconciliationReviewQueueEvents();
+    if (!selectedEvents.length) {
+        setReconciliationActionStatus('Select one or more reconciliation rows before reverting staged Work Order assignments.');
+        return;
+    }
+
+    let revertedCount = 0;
+    selectedEvents.forEach(event => {
+        if (reconciliationReviewQueueState.stagedWorkOrders[event.reviewQueueId]) {
+            delete reconciliationReviewQueueState.stagedWorkOrders[event.reviewQueueId];
+            revertedCount += 1;
+        }
+    });
+
+    renderReconciliationReviewQueueFromEvents(reconciliationReviewQueueState.events);
+    setReconciliationActionStatus(
+        revertedCount
+            ? revertedCount + ' staged Work Order assignment' + (revertedCount === 1 ? '' : 's') + ' reverted to Unknown in the Review Queue.'
+            : 'No staged Work Order assignments were found on the selected Review Queue rows.'
+    );
+}
+
+function getSelectedReconciliationReviewQueueEvents() {
+    return reconciliationReviewQueueState.events.filter(event =>
+        reconciliationReviewQueueState.selectedEventIds.has(event.reviewQueueId)
+    );
+}
+
+function findMatchingExistingWorkOrdersForReviewQueueEvent(selectedEvent) {
+    const customerNumber = normalizeOrderValue(selectedEvent.erp?.customerNumber, '');
+    const salesOrder = normalizeOrderValue(selectedEvent.erp?.salesOrder, '');
+    const partNumber = normalizeOrderValue(selectedEvent.erp?.partNumber, '');
+    if (!customerNumber || !salesOrder || !partNumber) return [];
+
+    const matches = new Set();
+    reconciliationReviewQueueState.events.forEach(event => {
+        const erp = event.erp;
+        if (!erp) return;
+        const workOrder = normalizeOrderValue(erp.workOrder, '');
+        if (isUnknownReconciliationWorkOrder(workOrder)) return;
+        if (
+            normalizeOrderValue(erp.customerNumber, '') === customerNumber &&
+            normalizeOrderValue(erp.salesOrder, '') === salesOrder &&
+            normalizeOrderValue(erp.partNumber, '') === partNumber
+        ) {
+            matches.add(workOrder);
+        }
+    });
+
+    return Array.from(matches);
+}
+
+function isUnknownReconciliationWorkOrder(value) {
+    const normalized = normalizeOrderValue(value, '').toUpperCase();
+    return !normalized || normalized === 'UNKNOWN';
+}
+
 function getShipmentIdForReconciliationRecord(record) {
     if (!record) return '';
 
@@ -8099,17 +8275,28 @@ function getShipmentIdForReconciliationRecord(record) {
     return Array.from(shipmentIds).join(', ');
 }
 
-function renderReconciliationDispositionSelector(selectedValue) {
-    const selected = selectedValue === 'Confirm Shipment' ? ' selected' : '';
+function renderReconciliationDispositionSelector(selectedValue, eventContext = {}) {
+    const value = selectedValue === 'Select' ? '' : selectedValue || '';
+    const isNewOrder = eventContext.eventType === 'New Order';
+    const acceptNewOrderSelected = value === 'Accept New Order' ? ' selected' : '';
+    const confirmShipmentSelected = value === 'Confirm Shipment' ? ' selected' : '';
+    const acceptNewOrderDisabled = isNewOrder ? '' : ' disabled';
+    const confirmShipmentDisabled = isNewOrder ? ' disabled' : '';
     return `
       <select class="reconciliation-disposition-select" onchange="updateReconciliationEventDisposition(event)">
         <option value="">Select</option>
-        <option value="Accept New Order" disabled>Accept New Order (Coming Soon)</option>
-        <option value="Confirm Shipment"${selected}>Confirm Shipment</option>
+        <option value="Accept New Order"${acceptNewOrderDisabled}${acceptNewOrderSelected}>Accept New Order</option>
+        <option value="Confirm Shipment"${confirmShipmentDisabled}${confirmShipmentSelected}>Confirm Shipment</option>
         <option value="Accept ERP Value" disabled>Accept ERP Value (Coming Soon)</option>
         <option value="Resolve Validation Issue" disabled>Resolve Validation Issue (Coming Soon)</option>
       </select>
     `;
+}
+
+function getReconciliationResolutionStatus(disposition) {
+    return disposition && disposition !== 'Select'
+        ? 'Disposition Selected'
+        : 'Pending';
 }
 
 function updateReconciliationEventDisposition(event) {
@@ -8118,12 +8305,19 @@ function updateReconciliationEventDisposition(event) {
     if (!selector || !row) return;
 
     row.dataset.disposition = selector.value;
+    const reviewQueueId = row.dataset.reviewQueueId || '';
+    if (reviewQueueId) {
+        if (selector.value) {
+            reconciliationReviewQueueState.stagedDispositions[reviewQueueId] = selector.value;
+        } else {
+            delete reconciliationReviewQueueState.stagedDispositions[reviewQueueId];
+        }
+    }
     const statusCell = row.querySelector('.reconciliation-resolution-status');
     if (statusCell) {
-        statusCell.textContent = selector.value === 'Confirm Shipment'
-            ? 'Disposition Selected'
-            : 'Pending';
+        statusCell.textContent = getReconciliationResolutionStatus(selector.value);
     }
+    row.classList.toggle('reconciliation-staged-disposition-row', !!selector.value);
 }
 
 function getApprovedShipmentArchiveShipmentIdsFromReviewQueue() {

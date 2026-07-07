@@ -121,17 +121,24 @@
             <p>Compare the ERP Snapshot against current Master Data, then select the appropriate disposition.</p>
           </div>
 
-          <div class="reconciliation-event-legend" aria-label="Reconciliation event types">
-            <span><i class="event-dot event-new-order"></i>New Order</span>
-            <span><i class="event-dot event-missing-erp"></i>Missing From ERP</span>
-            <span><i class="event-dot event-modified-record"></i>Modified Record</span>
-            <span><i class="event-dot event-validation-issue"></i>Validation Issue</span>
+          <div class="reconciliation-event-toolbar">
+            <div class="reconciliation-event-legend" aria-label="Reconciliation event types">
+              <span><i class="event-dot event-new-order"></i>New Order</span>
+              <span><i class="event-dot event-missing-erp"></i>Missing From ERP</span>
+              <span><i class="event-dot event-modified-record"></i>Modified Record</span>
+              <span><i class="event-dot event-validation-issue"></i>Validation Issue</span>
+            </div>
+            <div class="reconciliation-event-actions">
+              <button type="button" onclick="applyExistingWorkOrderToSelectedReviewQueueRows()">Apply Existing Work Order</button>
+              <button type="button" onclick="revertSelectedReviewQueueWorkOrderAssignments()">Revert Staged Work Order</button>
+            </div>
           </div>
 
           <div class="reconciliation-event-table-wrap">
             <table class="reconciliation-event-table">
               <thead>
                 <tr>
+                  <th>Select</th>
                   <th>ERP Cust #</th>
                   <th>ERP Customer</th>
                   <th>ERP S/O</th>
@@ -157,7 +164,7 @@
               </thead>
               <tbody id="reconciliationEventsTableBody">
                 <tr class="reconciliation-placeholder-row">
-                  <td colspan="17">Run reconciliation to populate detected comparison events.</td>
+                  <td colspan="18">Run reconciliation to populate detected comparison events.</td>
                   <td><span class="reconciliation-event-type">Validation Issue</span></td>
                   <td>
                     <select disabled>

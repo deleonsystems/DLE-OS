@@ -284,11 +284,31 @@
   overflow: hidden;
 }
 
+.reconciliation-event-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.reconciliation-event-toolbar button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.reconciliation-event-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .reconciliation-event-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 14px;
+  margin: 0;
 }
 
 .reconciliation-event-legend span {
@@ -335,7 +355,7 @@
 .reconciliation-event-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 2200px;
+  min-width: 2300px;
 }
 
 .reconciliation-event-table th,
@@ -357,23 +377,67 @@
   background: rgba(255,255,255,.035);
 }
 
-.reconciliation-event-table th:nth-child(-n+8) {
+.reconciliation-event-table th:nth-child(n+2):nth-child(-n+9) {
   background: rgba(47,140,255,.08);
   color: #cfe5ff;
 }
 
-.reconciliation-event-table th:nth-child(n+9):nth-child(-n+16) {
+.reconciliation-event-table th:nth-child(n+10):nth-child(-n+17) {
   background: rgba(69,212,131,.07);
   color: #d2f5df;
 }
 
-.reconciliation-event-table th:nth-child(17) {
+.reconciliation-event-table th:nth-child(18) {
   background: rgba(245,200,75,.07);
   color: #ffe9a6;
 }
 
 .reconciliation-placeholder-row td {
   color: var(--muted);
+}
+
+.reconciliation-row-select {
+  text-align: center;
+  background: rgba(255,255,255,.02);
+}
+
+.reconciliation-row-select input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.reconciliation-review-row-selected {
+  background: rgba(47,140,255,.075);
+}
+
+.reconciliation-staged-work-order-row {
+  outline: 2px solid rgba(245,200,75,.42);
+  outline-offset: -2px;
+  background: rgba(245,200,75,.045);
+}
+
+.reconciliation-staged-disposition-row {
+  box-shadow: inset 4px 0 0 rgba(69,212,131,.72);
+}
+
+.reconciliation-staged-work-order-value {
+  color: #ffe9a6;
+  font-weight: 900;
+}
+
+.reconciliation-staged-indicator {
+  display: inline-flex;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(245,200,75,.5);
+  background: rgba(245,200,75,.14);
+  color: #ffe9a6;
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
 
 .reconciliation-event-table select {
