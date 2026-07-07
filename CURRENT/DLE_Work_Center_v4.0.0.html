@@ -7054,6 +7054,11 @@ const dleMasterDataFileState = {
     writable: false
 };
 
+const DLE_MASTER_DATA_DEFAULT_PATH = 'DATA/master-data/DLE_MASTER_DATA_2026.06.30.16.38.48.json';
+const DLE_MASTER_DATA_HANDLE_DB = 'DLE_OS_FILE_HANDLES';
+const DLE_MASTER_DATA_HANDLE_STORE = 'fileHandles';
+const DLE_MASTER_DATA_HANDLE_KEY = 'dleMasterData';
+
 function initializeShipmentStaging() {
     if (!Array.isArray(shipmentStagingState.records)) {
         shipmentStagingState.records = [];
@@ -15662,6 +15667,7 @@ async function browseDleMasterDataFile() {
       });
       const file = await handle.getFile();
       await loadDleMasterDataFromFile(file, handle);
+      storeDleMasterDataFileHandle(handle);
       return;
     } catch (error) {
       if (error?.name !== 'AbortError') {
@@ -15681,44 +15687,188 @@ function openDleMasterDataFile(fileList) {
 }
 
 function loadDleMasterDataFromFile(file, fileHandle = null) {
-  const reader = new FileReader();
-  reader.onload = event => {
-    try {
-      const parsed = JSON.parse(event.target.result);
-      const records = Array.isArray(parsed?.records)
-        ? parsed.records
-        : Array.isArray(parsed)
-          ? parsed
-          : [];
-
-      setCurrentDleMasterDataFile(parsed, {
-        fileHandle,
-        fileName: file.name,
-        lastModified: file.lastModified ? new Date(file.lastModified).toLocaleString() : 'Not available',
-        writable: !!fileHandle
-      });
-      dleMasterDataViewerState.sortField = '';
-      dleMasterDataViewerState.sortDirection = 'asc';
-      dleMasterDataViewerState.selectedFilteredIndex = records.length ? 0 : -1;
-
-      const searchInput = document.getElementById('dleMasterDataSearch');
-      if (searchInput) searchInput.value = '';
-      dleMasterDataViewerState.search = '';
-
-      applyDleMasterDataFilterAndSort();
-      renderDleMasterDataViewer();
-      const writableMessage = fileHandle ? 'Writable file handle active.' : 'Loaded read-only through browser file input.';
-      setDleMasterDataStatus(`${records.length} records loaded from ${file.name}. ${writableMessage}`);
-    } catch (error) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = event => {
+      try {
+        loadDleMasterDataFromText(event.target.result, {
+          fileHandle,
+          fileName: file.name,
+          lastModified: file.lastModified ? new Date(file.lastModified).toLocaleString() : 'Not available',
+          writable: !!fileHandle,
+          loadedFrom: fileHandle ? 'Writable file handle active.' : 'Loaded read-only through browser file input.'
+        });
+        resolve(dleMasterDataFileState.data);
+      } catch (error) {
+        resetDleMasterDataViewer();
+        setDleMasterDataStatus(`Unable to read DLE Master Data JSON: ${error.message}`);
+        reject(error);
+      }
+    };
+    reader.onerror = () => {
+      const error = new Error('Unable to open the selected DLE Master Data file.');
       resetDleMasterDataViewer();
-      setDleMasterDataStatus(`Unable to read DLE Master Data JSON: ${error.message}`);
+      setDleMasterDataStatus(error.message);
+      reject(error);
+    };
+    reader.readAsText(file);
+  });
+}
+
+function loadDleMasterDataFromText(text, options = {}) {
+  const parsed = JSON.parse(text);
+  const records = Array.isArray(parsed?.records)
+    ? parsed.records
+    : Array.isArray(parsed)
+      ? parsed
+      : [];
+
+  setCurrentDleMasterDataFile(parsed, {
+    fileHandle: options.fileHandle || null,
+    fileName: options.fileName || 'DLE Master Data',
+    lastModified: options.lastModified || new Date().toLocaleString(),
+    writable: !!options.writable
+  });
+  dleMasterDataViewerState.sortField = '';
+  dleMasterDataViewerState.sortDirection = 'asc';
+  dleMasterDataViewerState.selectedFilteredIndex = records.length ? 0 : -1;
+
+  const searchInput = document.getElementById('dleMasterDataSearch');
+  if (searchInput) searchInput.value = '';
+  dleMasterDataViewerState.search = '';
+
+  applyDleMasterDataFilterAndSort();
+  renderDleMasterDataViewer();
+  const loadedFrom = options.loadedFrom || 'Loaded read-only.';
+  setDleMasterDataStatus(`${records.length} records loaded from ${options.fileName || 'DLE Master Data'}. ${loadedFrom}`);
+  return parsed;
+}
+
+async function initializeDleMasterDataAutoLoad() {
+  if (dleMasterDataFileState.data) return;
+
+  const handle = await readStoredDleMasterDataFileHandle();
+  if (handle) {
+    const loadedFromHandle = await loadDleMasterDataFromStoredHandle(handle);
+    if (loadedFromHandle) return;
+  }
+
+  await loadDefaultDleMasterDataJson();
+}
+
+async function loadDleMasterDataFromStoredHandle(handle) {
+  try {
+    const readPermission = await queryDleMasterDataFileHandlePermission(handle, 'read');
+    if (readPermission !== 'granted') return false;
+
+    const writePermission = await queryDleMasterDataFileHandlePermission(handle, 'readwrite');
+    const file = await handle.getFile();
+    await loadDleMasterDataFromFile(file, writePermission === 'granted' ? handle : null);
+    const loadedRecordCount = Array.isArray(dleMasterDataFileState.data?.records)
+      ? dleMasterDataFileState.data.records.length
+      : Array.isArray(dleMasterDataFileState.data)
+        ? dleMasterDataFileState.data.length
+        : 0;
+
+    if (writePermission === 'granted') {
+      await storeDleMasterDataFileHandle(handle);
+      setDleMasterDataStatus(`${loadedRecordCount} records auto-loaded from ${file.name}. Writable file handle active.`);
+    } else {
+      setDleMasterDataStatus(`${loadedRecordCount} records auto-loaded from ${file.name}. Loaded read-only because write permission is not currently granted.`);
     }
-  };
-  reader.onerror = () => {
-    resetDleMasterDataViewer();
-    setDleMasterDataStatus('Unable to open the selected DLE Master Data file.');
-  };
-  reader.readAsText(file);
+    return true;
+  } catch (error) {
+    console.warn('Stored DLE Master Data file handle could not be used for automatic loading.', error);
+    return false;
+  }
+}
+
+async function loadDefaultDleMasterDataJson() {
+  try {
+    const response = await fetch(DLE_MASTER_DATA_DEFAULT_PATH, { cache: 'no-store' });
+    if (!response.ok) return false;
+
+    const text = await response.text();
+    const fileName = DLE_MASTER_DATA_DEFAULT_PATH.split('/').pop();
+    loadDleMasterDataFromText(text, {
+      fileName,
+      lastModified: new Date().toLocaleString(),
+      writable: false,
+      loadedFrom: 'Auto-loaded from project DATA folder. Manual Load Master Data can be used to establish writable access.'
+    });
+    return true;
+  } catch (error) {
+    console.warn('Default DLE Master Data JSON could not be auto-loaded.', error);
+    return false;
+  }
+}
+
+async function queryDleMasterDataFileHandlePermission(handle, mode) {
+  if (!handle?.queryPermission) return 'granted';
+  return handle.queryPermission({ mode });
+}
+
+async function storeDleMasterDataFileHandle(handle) {
+  if (!handle || !window.indexedDB) return;
+
+  try {
+    const db = await openDleMasterDataHandleDatabase();
+    await writeDleMasterDataHandleDatabaseValue(db, DLE_MASTER_DATA_HANDLE_KEY, handle);
+    db.close();
+  } catch (error) {
+    console.warn('Unable to store DLE Master Data file handle for automatic loading.', error);
+  }
+}
+
+async function readStoredDleMasterDataFileHandle() {
+  if (!window.indexedDB) return null;
+
+  try {
+    const db = await openDleMasterDataHandleDatabase();
+    const handle = await readDleMasterDataHandleDatabaseValue(db, DLE_MASTER_DATA_HANDLE_KEY);
+    db.close();
+    return handle || null;
+  } catch (error) {
+    console.warn('Unable to read stored DLE Master Data file handle.', error);
+    return null;
+  }
+}
+
+function openDleMasterDataHandleDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DLE_MASTER_DATA_HANDLE_DB, 1);
+    request.onupgradeneeded = event => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(DLE_MASTER_DATA_HANDLE_STORE)) {
+        db.createObjectStore(DLE_MASTER_DATA_HANDLE_STORE);
+      }
+    };
+    request.onsuccess = event => resolve(event.target.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function writeDleMasterDataHandleDatabaseValue(db, key, value) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(DLE_MASTER_DATA_HANDLE_STORE, 'readwrite');
+    const store = transaction.objectStore(DLE_MASTER_DATA_HANDLE_STORE);
+    store.put(value, key);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
+
+function readDleMasterDataHandleDatabaseValue(db, key) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(DLE_MASTER_DATA_HANDLE_STORE, 'readonly');
+    const store = transaction.objectStore(DLE_MASTER_DATA_HANDLE_STORE);
+    const request = store.get(key);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
 }
 
 function setCurrentDleMasterDataFile(data, options = {}) {
@@ -16504,6 +16654,7 @@ async function initializeDleWorkCenter() {
   } else {
     renderShipmentHistoryModule();
   }
+  await initializeDleMasterDataAutoLoad();
   initDocumentIntake();
   syncAssemblyInfoToBomUi();
   prepareBomExtractionWorkspace();
