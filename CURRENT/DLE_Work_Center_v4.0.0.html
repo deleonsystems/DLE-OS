@@ -6230,6 +6230,7 @@ BOM Viewer</h2>
 
   <script src="SRC/modules/system-center/reconciliation/reconciliation.js"></script>
   <script src="SRC/modules/system-center/system-center.js"></script>
+  <script src="SRC/modules/shipment-staging/shipment-staging-service.js"></script>
   <script src="SRC/modules/shipment-staging/shipment-staging.js"></script>
   <script src="SRC/modules/shipment-history/shipment-history.js"></script>
   <script>
@@ -9322,7 +9323,7 @@ function printRequestToShip() {
         });
 }
 
-function confirmShipmentPreview() {
+async function confirmShipmentPreview() {
     const validation = validateShipmentPreparation(openOrderShipmentPreparation);
     const validationEl = document.getElementById('shipmentPreviewValidation');
     if (!validation.valid) {
@@ -9330,11 +9331,47 @@ function confirmShipmentPreview() {
         return;
     }
 
-    commitShipmentPreparationToShipmentStaging(openOrderShipmentPreparation);
-    if (validationEl) {
-        validationEl.textContent = 'Shipment confirmed. Shipment Staging updated.';
+    if (typeof persistShipmentStagingDataset !== 'function') {
+        if (validationEl) validationEl.textContent = 'Shipment Staging persistence service is not available. Shipment was not confirmed.';
+        return;
     }
-    go('openOrders');
+
+    const shipmentStagingRecordsBeforeConfirm = JSON.parse(JSON.stringify(shipmentStagingState.records));
+    const shipmentStagingLastUpdatedBeforeConfirm = shipmentStagingState.lastUpdated;
+    const masterDataBeforeConfirm = dleMasterDataFileState.data
+        ? cloneMasterDataRecordForHistory(dleMasterDataFileState.data)
+        : null;
+    const preparationCommittedBeforeConfirm = !!openOrderShipmentPreparation.shipmentStagingCommitted;
+    const preparationRecordsBeforeConfirm = openOrderShipmentPreparation.shipmentStagingRecords;
+
+    try {
+        commitShipmentPreparationToShipmentStaging(openOrderShipmentPreparation);
+        await persistShipmentStagingDataset('Confirm Shipment');
+        if (validationEl) {
+            validationEl.textContent = 'Shipment confirmed. Shipment Staging persisted.';
+        }
+        go('openOrders');
+    } catch (error) {
+        shipmentStagingState.records = shipmentStagingRecordsBeforeConfirm;
+        shipmentStagingState.lastUpdated = shipmentStagingLastUpdatedBeforeConfirm;
+        if (masterDataBeforeConfirm) {
+            dleMasterDataFileState.data = masterDataBeforeConfirm;
+            dleMasterData = masterDataBeforeConfirm;
+            dleMasterDataViewerState.data = masterDataBeforeConfirm;
+            dleMasterDataViewerState.records = masterDataBeforeConfirm.records || [];
+        }
+        openOrderShipmentPreparation.shipmentStagingCommitted = preparationCommittedBeforeConfirm;
+        openOrderShipmentPreparation.shipmentStagingRecords = preparationRecordsBeforeConfirm;
+        renderShipmentStagingModule();
+        renderMasterDataDashboardStatus();
+        renderDleMasterDataViewer();
+        syncOpenOrderShipmentSelectionToOperationalView(openOrderShipmentPreparation);
+        refreshOpenOrdersTableView();
+        updateOpenOrderShipmentSelectionCount();
+        if (validationEl) {
+            validationEl.textContent = 'Shipment was not confirmed. Shipment Staging persistence failed: ' + (error?.message || error);
+        }
+    }
 }
 
 function legacyPrintRequestToShip() {
@@ -16960,6 +16997,9 @@ async function initializeDleWorkCenter() {
   }
   configureDocumentProcessingLibraries();
   initializeShipmentStaging();
+  if (typeof initializeShipmentStagingPersistence === 'function') {
+    await initializeShipmentStagingPersistence();
+  }
   renderShipmentStagingModule();
   if (typeof initializeShipmentHistory === 'function') {
     await initializeShipmentHistory();

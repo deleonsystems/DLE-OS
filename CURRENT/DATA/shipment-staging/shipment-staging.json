@@ -1,0 +1,27 @@
+{
+  "schema": "DLE_SHIPMENT_STAGING_V1",
+  "version": "1.0",
+  "createdAt": "7/7/2026, 2:14:14 PM",
+  "lastUpdated": "7/7/2026, 2:14:14 PM",
+  "lastReason": "Confirm Shipment",
+  "recordCount": 1,
+  "records": [
+    {
+      "shipmentTransactionId": "SHP-001021-0012035-260707-01",
+      "shipmentId": "SHP-001021-0012035-260707-01",
+      "masterRecordKey": "001021|0012035|010",
+      "shipmentDateTime": "7/7/2026, 2:14:14 PM",
+      "customerNumber": "001021",
+      "customerName": "VALIDYNE ENGINEERING",
+      "salesOrder": "0012035",
+      "salesOrderLine": "010",
+      "workOrder": "0115593",
+      "itemNumber": "QR196385",
+      "description": "HARNESS ASSEMBLY",
+      "quantityShipped": 10,
+      "originalOpenQuantity": 31,
+      "user": "DLE-OS User",
+      "status": "Pending Invoice"
+    }
+  ]
+}

@@ -43,7 +43,9 @@
 
     const status = document.getElementById('shipmentStagingStatus');
     if (status) {
-      status.textContent = records.length
+      status.textContent = shipmentStagingState.persistence?.mode === 'Load Error'
+        ? 'Shipment Staging persistence error: ' + (shipmentStagingState.persistence.error || 'Unable to load persisted dataset.')
+        : records.length
         ? records.length + ' Shipment Staging record' + (records.length === 1 ? '' : 's') + ' available.'
         : 'Shipment Staging is empty. Confirm shipments to create records.';
     }
