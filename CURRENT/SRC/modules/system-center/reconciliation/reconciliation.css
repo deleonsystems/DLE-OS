@@ -49,7 +49,9 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-items: start;
+  justify-items: stretch;
   min-width: 0;
+  width: 100%;
 }
 
 .reconciliation-context-column {
@@ -58,6 +60,8 @@
   gap: 14px;
   min-width: 0;
   max-width: none;
+  width: 100%;
+  justify-self: stretch;
 }
 
 .reconciliation-side-panel,
@@ -67,6 +71,8 @@
   background: rgba(255,255,255,.04);
   padding: 16px;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .reconciliation-side-panel {
@@ -80,6 +86,11 @@
   display: grid;
   gap: 14px;
   min-width: 0;
+  width: 100%;
+  justify-self: stretch;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .reconciliation-panel-heading {
