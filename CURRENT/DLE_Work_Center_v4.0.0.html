@@ -7959,13 +7959,14 @@ function renderReconciliationReviewQueueFromEvents(events) {
     const normalizedEvents = Array.isArray(events)
         ? events.map(normalizeReconciliationReviewQueueEvent)
         : [];
-    updateReconciliationReviewQueueCounters(normalizedEvents);
+    const sortedEvents = sortReconciliationReviewQueueEvents(normalizedEvents);
+    updateReconciliationReviewQueueCounters(sortedEvents);
     if (!tableBody) return;
 
-    if (!normalizedEvents.length) {
+    if (!sortedEvents.length) {
         tableBody.innerHTML = `
           <tr class="reconciliation-placeholder-row">
-            <td colspan="11">No reconciliation events are currently available. Run reconciliation to populate detected differences.</td>
+            <td colspan="17">No reconciliation events are currently available. Run reconciliation to populate detected differences.</td>
             <td><span class="reconciliation-event-type">Validation Issue</span></td>
             <td>${renderReconciliationDispositionSelector('')}</td>
             <td class="reconciliation-resolution-status">Pending</td>
@@ -7975,17 +7976,23 @@ function renderReconciliationReviewQueueFromEvents(events) {
         return;
     }
 
-    tableBody.innerHTML = normalizedEvents.map(event => {
+    tableBody.innerHTML = sortedEvents.map(event => {
         const shipmentIds = getShipmentIdForReconciliationRecord(event.master);
         return `
       <tr data-event-type="${escapeHtml(event.eventType)}" data-shipment-ids="${escapeHtml(shipmentIds)}">
-        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.workOrder)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.customerNumber)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.customer)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.salesOrder)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.sequenceLine)}</td>
+        <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.workOrder)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.partNumber)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.qtyOpen)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.dueDate)}</td>
-        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.workOrder)}</td>
+        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.customerNumber)}</td>
         <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.customer)}</td>
+        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.salesOrder)}</td>
+        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.sequenceLine)}</td>
+        <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.workOrder)}</td>
         <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.partNumber)}</td>
         <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.qtyOpen)}</td>
         <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.dueDate)}</td>
@@ -7997,6 +8004,41 @@ function renderReconciliationReviewQueueFromEvents(events) {
       </tr>
     `;
     }).join('');
+}
+
+function sortReconciliationReviewQueueEvents(events) {
+    return (Array.isArray(events) ? events : []).slice().sort(compareReconciliationReviewQueueEvents);
+}
+
+function compareReconciliationReviewQueueEvents(a, b) {
+    return compareReconciliationEventType(a.eventType, b.eventType)
+        || compareReconciliationBusinessValue(getReconciliationSortValue(a, 'customerNumber'), getReconciliationSortValue(b, 'customerNumber'))
+        || compareReconciliationBusinessValue(getReconciliationSortValue(a, 'salesOrder'), getReconciliationSortValue(b, 'salesOrder'))
+        || compareReconciliationBusinessValue(getReconciliationSortValue(a, 'sequenceLine'), getReconciliationSortValue(b, 'sequenceLine'))
+        || compareReconciliationBusinessValue(getReconciliationSortValue(a, 'workOrder'), getReconciliationSortValue(b, 'workOrder'));
+}
+
+function compareReconciliationEventType(a, b) {
+    const order = {
+        'Validation Issue': 1,
+        'Missing From ERP': 2,
+        'Modified Record': 3,
+        'New Order': 4
+    };
+    const aRank = order[a] || 99;
+    const bRank = order[b] || 99;
+    return aRank - bRank || compareReconciliationBusinessValue(a, b);
+}
+
+function getReconciliationSortValue(event, field) {
+    return event?.erp?.[field] || event?.master?.[field] || '';
+}
+
+function compareReconciliationBusinessValue(a, b) {
+    return String(a || '').localeCompare(String(b || ''), undefined, {
+        numeric: true,
+        sensitivity: 'base'
+    });
 }
 
 function normalizeReconciliationReviewQueueEvent(event) {

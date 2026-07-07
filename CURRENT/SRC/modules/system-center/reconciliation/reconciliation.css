@@ -335,7 +335,7 @@
 .reconciliation-event-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1600px;
+  min-width: 2200px;
 }
 
 .reconciliation-event-table th,
@@ -357,17 +357,17 @@
   background: rgba(255,255,255,.035);
 }
 
-.reconciliation-event-table th:nth-child(-n+5) {
+.reconciliation-event-table th:nth-child(-n+8) {
   background: rgba(47,140,255,.08);
   color: #cfe5ff;
 }
 
-.reconciliation-event-table th:nth-child(n+6):nth-child(-n+10) {
+.reconciliation-event-table th:nth-child(n+9):nth-child(-n+16) {
   background: rgba(69,212,131,.07);
   color: #d2f5df;
 }
 
-.reconciliation-event-table th:nth-child(11) {
+.reconciliation-event-table th:nth-child(17) {
   background: rgba(245,200,75,.07);
   color: #ffe9a6;
 }
