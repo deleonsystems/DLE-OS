@@ -5,7 +5,20 @@
 (function () {
   'use strict';
 
-  const shipmentHistoryRecords = [];
+  const SHIPMENT_HISTORY_DATA_PATH = 'DATA/shipment-history/shipment-history.json';
+  const SHIPMENT_HISTORY_STORAGE_KEY = 'DLE_OS_SHIPMENT_HISTORY_V1';
+
+  const shipmentHistoryState = {
+    schema: 'DLE_SHIPMENT_HISTORY_V1',
+    createdAt: '',
+    lastUpdated: '',
+    recordCount: 0,
+    records: [],
+    sourceFile: SHIPMENT_HISTORY_DATA_PATH,
+    fileHandle: null,
+    writable: false,
+    persistenceMode: 'Not Loaded'
+  };
 
   async function loadShipmentHistoryModule() {
     const placeholder = document.getElementById('shipmentHistory');
@@ -20,6 +33,91 @@
     placeholder.outerHTML = html;
   }
 
+  async function initializeShipmentHistory() {
+    let loaded = false;
+
+    try {
+      const response = await fetch(SHIPMENT_HISTORY_DATA_PATH, { cache: 'no-store' });
+      if (response.ok) {
+        const data = await response.json();
+        setShipmentHistoryDataset(data, {
+          sourceFile: SHIPMENT_HISTORY_DATA_PATH,
+          persistenceMode: 'Project JSON loaded read-only'
+        });
+        loaded = true;
+      }
+    } catch (error) {
+      loaded = false;
+    }
+
+    if (!loaded) {
+      const stored = readShipmentHistoryLocalStorageDataset();
+      if (stored) {
+        setShipmentHistoryDataset(stored, {
+          sourceFile: 'Browser storage fallback',
+          persistenceMode: 'Browser storage fallback'
+        });
+        loaded = true;
+      }
+    }
+
+    if (!loaded) {
+      setShipmentHistoryDataset(createEmptyShipmentHistoryDataset(), {
+        sourceFile: SHIPMENT_HISTORY_DATA_PATH,
+        persistenceMode: 'Initialized empty dataset'
+      });
+    }
+
+    renderShipmentHistoryModule();
+  }
+
+  function createEmptyShipmentHistoryDataset() {
+    return {
+      schema: 'DLE_SHIPMENT_HISTORY_V1',
+      createdAt: '',
+      lastUpdated: '',
+      recordCount: 0,
+      records: []
+    };
+  }
+
+  function setShipmentHistoryDataset(data, options = {}) {
+    const normalized = normalizeShipmentHistoryDataset(data);
+    shipmentHistoryState.schema = normalized.schema;
+    shipmentHistoryState.createdAt = normalized.createdAt;
+    shipmentHistoryState.lastUpdated = normalized.lastUpdated;
+    shipmentHistoryState.recordCount = normalized.recordCount;
+    shipmentHistoryState.records = normalized.records;
+    shipmentHistoryState.sourceFile = options.sourceFile || shipmentHistoryState.sourceFile || SHIPMENT_HISTORY_DATA_PATH;
+    shipmentHistoryState.persistenceMode = options.persistenceMode || shipmentHistoryState.persistenceMode;
+  }
+
+  function normalizeShipmentHistoryDataset(data) {
+    const source = data && typeof data === 'object' ? data : {};
+    const records = Array.isArray(source.records)
+      ? source.records
+      : Array.isArray(data)
+        ? data
+        : [];
+
+    return {
+      schema: source.schema || 'DLE_SHIPMENT_HISTORY_V1',
+      createdAt: source.createdAt || '',
+      lastUpdated: source.lastUpdated || '',
+      recordCount: records.length,
+      records
+    };
+  }
+
+  function readShipmentHistoryLocalStorageDataset() {
+    try {
+      const stored = localStorage.getItem(SHIPMENT_HISTORY_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   function renderShipmentHistoryModule() {
     renderShipmentHistorySummary();
     renderShipmentHistoryTable();
@@ -27,18 +125,22 @@
   }
 
   function renderShipmentHistorySummary() {
-    const records = Array.isArray(shipmentHistoryRecords) ? shipmentHistoryRecords : [];
+    const records = Array.isArray(shipmentHistoryState.records) ? shipmentHistoryState.records : [];
 
     const summary = document.getElementById('shipmentHistorySummary');
     if (summary) {
-      summary.textContent = records.length + ' archived shipment' + (records.length === 1 ? '' : 's') + '.';
+      summary.textContent = [
+        records.length + ' archived shipment' + (records.length === 1 ? '' : 's') + '.',
+        'Source: ' + (shipmentHistoryState.sourceFile || 'Not available'),
+        'Last Updated: ' + (shipmentHistoryState.lastUpdated || 'Not available')
+      ].join(' | ');
     }
 
     const status = document.getElementById('shipmentHistoryStatus');
     if (status) {
       status.textContent = records.length
-        ? records.length + ' Shipment History record' + (records.length === 1 ? '' : 's') + ' available.'
-        : 'Shipment History is empty. Completed shipments will appear here after future archive logic is implemented.';
+        ? records.length + ' Shipment History record' + (records.length === 1 ? '' : 's') + ' available. ' + shipmentHistoryState.persistenceMode + '.'
+        : 'Shipment History is empty. ' + shipmentHistoryState.persistenceMode + '.';
     }
   }
 
@@ -46,7 +148,7 @@
     const table = document.getElementById('shipmentHistoryTable');
     if (!table) return;
 
-    const records = Array.isArray(shipmentHistoryRecords) ? shipmentHistoryRecords : [];
+    const records = Array.isArray(shipmentHistoryState.records) ? shipmentHistoryState.records : [];
     if (!records.length) {
       table.innerHTML = '<div class="report-empty">No shipment history records have been archived yet.</div>';
       return;
@@ -63,7 +165,10 @@
     <th>Work Order</th>
     <th>Item Number</th>
     <th>Description</th>
+    <th>Original Due Date</th>
     <th>Qty Shipped</th>
+    <th>Unit Price</th>
+    <th>Extended Price</th>
     <th>Status</th>
 </tr>
 `;
@@ -71,22 +176,240 @@
     records.forEach((record, index) => {
       html += `
 <tr class="${index % 2 === 0 ? 'rowEven' : 'rowOdd'}">
-    <td>${escapeHtml(record.shipmentDateTime || '')}</td>
-    <td>${escapeHtml(record.shipmentId || '')}</td>
-    <td class="nowrap">${escapeHtml(record.customer || '')}</td>
-    <td>${escapeHtml(record.salesOrder || '')}</td>
-    <td>${escapeHtml(record.salesOrderLine || '')}</td>
-    <td>${escapeHtml(record.workOrder || '')}</td>
-    <td>${escapeHtml(record.itemNumber || '')}</td>
-    <td class="nowrap">${escapeHtml(record.description || '')}</td>
-    <td>${escapeHtml(String(record.quantityShipped ?? ''))}</td>
-    <td>${escapeHtml(record.status || 'Archived')}</td>
+    <td>${escapeHtml(record.shipmentDateTime || record.dates?.shipmentConfirmationDate || '')}</td>
+    <td>${escapeHtml(record.shipmentId || record.identifiers?.shipmentId || '')}</td>
+    <td class="nowrap">${escapeHtml(formatShipmentHistoryCustomer(record))}</td>
+    <td>${escapeHtml(record.salesOrder || record.order?.salesOrder || '')}</td>
+    <td>${escapeHtml(record.salesOrderLine || record.order?.salesOrderLine || '')}</td>
+    <td>${escapeHtml(record.workOrder || record.order?.workOrder || '')}</td>
+    <td>${escapeHtml(record.itemNumber || record.item?.partNumber || '')}</td>
+    <td class="nowrap">${escapeHtml(record.description || record.item?.description || '')}</td>
+    <td>${escapeHtml(record.dates?.dueDate || record.originalDueDate || record.dueDate || '')}</td>
+    <td>${escapeHtml(String(record.quantityShipped ?? record.order?.quantityShipped ?? ''))}</td>
+    <td>${escapeHtml(record.unitPrice || record.financial?.unitPrice || '')}</td>
+    <td>${escapeHtml(record.extendedPrice || record.financial?.extendedPrice || '')}</td>
+    <td>${escapeHtml(record.status || record.shipment?.shipmentStatus || 'Archived')}</td>
 </tr>
 `;
     });
 
     html += '</table>';
     table.innerHTML = html;
+  }
+
+  async function archiveShipmentHistoryRecords(records, metadata = {}) {
+    if (!Array.isArray(records) || !records.length) return [];
+
+    const archivedAt = metadata.archivedAt || new Date().toLocaleString();
+    const archivedRecords = records.map(record => buildShipmentHistoryRecord(record, {
+      ...metadata,
+      archivedAt
+    }));
+
+    const previousRecords = shipmentHistoryState.records.slice();
+    const previousLastUpdated = shipmentHistoryState.lastUpdated;
+    const previousRecordCount = shipmentHistoryState.recordCount;
+
+    shipmentHistoryState.records.push(...archivedRecords);
+    shipmentHistoryState.lastUpdated = archivedAt;
+    shipmentHistoryState.createdAt = shipmentHistoryState.createdAt || archivedAt;
+    shipmentHistoryState.recordCount = shipmentHistoryState.records.length;
+
+    try {
+      await writeShipmentHistoryDataset();
+    } catch (error) {
+      shipmentHistoryState.records = previousRecords;
+      shipmentHistoryState.lastUpdated = previousLastUpdated;
+      shipmentHistoryState.recordCount = previousRecordCount;
+      renderShipmentHistoryModule();
+      throw error;
+    }
+
+    renderShipmentHistoryModule();
+    return archivedRecords;
+  }
+
+  function buildShipmentHistoryRecord(record, metadata = {}) {
+    const masterRecord = record.masterDataSnapshot || {};
+    const vpro5 = masterRecord.vpro5 || {};
+    const dle = masterRecord.dle || {};
+    const archivedAt = metadata.archivedAt || new Date().toLocaleString();
+    const shipmentId = record.shipmentId || record.identifiers?.shipmentId || '';
+    const masterRecordKey = record.masterRecordKey || buildShipmentHistoryMasterRecordKey(record);
+
+    return {
+      schema: 'DLE_SHIPMENT_HISTORY_RECORD_V1',
+      shipmentId,
+      masterRecordKey,
+      shipmentDateTime: record.shipmentDateTime || '',
+      customerNumber: record.customerNumber || vpro5.customerNumber || '',
+      customerName: record.customerName || vpro5.customer || '',
+      customerPo: vpro5.customerPo || '',
+      salesOrder: record.salesOrder || vpro5.salesOrder || '',
+      salesOrderLine: record.salesOrderLine || vpro5.sequenceLine || '',
+      workOrder: record.workOrder || vpro5.workOrder || '',
+      workOrderQuantity: vpro5.workOrderQuantity || '',
+      quantityShipped: record.quantityShipped ?? vpro5.quantityShipped ?? '',
+      originalOpenQuantity: record.originalOpenQuantity ?? vpro5.qtyOpen ?? '',
+      quantityOpenAtArchive: vpro5.qtyOpen || '',
+      itemNumber: record.itemNumber || vpro5.partNumber || '',
+      revision: dle.revision || '',
+      description: record.description || vpro5.description || '',
+      unitOfMeasure: vpro5.unitOfMeasure || '',
+      unitPrice: vpro5.price || '',
+      extendedPrice: vpro5.extendedPrice || '',
+      currency: vpro5.currency || '',
+      status: 'Archived',
+      stagingStatus: record.status || '',
+      archivedAt,
+      approvalTimestamp: metadata.approvalTimestamp || archivedAt,
+      archiveReason: metadata.archiveReason || 'Reconciliation Approval',
+      identifiers: {
+        shipmentId,
+        masterRecordKey,
+        shipmentTransactionId: record.shipmentTransactionId || shipmentId
+      },
+      customer: {
+        customerNumber: record.customerNumber || vpro5.customerNumber || '',
+        customerName: record.customerName || vpro5.customer || '',
+        customerPo: vpro5.customerPo || ''
+      },
+      order: {
+        salesOrder: record.salesOrder || vpro5.salesOrder || '',
+        salesOrderLine: record.salesOrderLine || vpro5.sequenceLine || '',
+        workOrder: record.workOrder || vpro5.workOrder || '',
+        workOrderQuantity: vpro5.workOrderQuantity || '',
+        quantityShipped: record.quantityShipped ?? vpro5.quantityShipped ?? '',
+        originalOpenQuantity: record.originalOpenQuantity ?? '',
+        quantityOpenAtArchive: vpro5.qtyOpen || ''
+      },
+      item: {
+        partNumber: record.itemNumber || vpro5.partNumber || '',
+        revision: dle.revision || '',
+        description: record.description || vpro5.description || '',
+        unitOfMeasure: vpro5.unitOfMeasure || ''
+      },
+      dates: {
+        orderDate: vpro5.orderDate || '',
+        dueDate: vpro5.dueDate || '',
+        shipDate: vpro5.shipDate || '',
+        shipmentConfirmationDate: record.shipmentDateTime || '',
+        approvalDate: metadata.approvalTimestamp || archivedAt,
+        archiveTimestamp: archivedAt
+      },
+      financial: {
+        unitPrice: vpro5.price || '',
+        extendedPrice: vpro5.extendedPrice || '',
+        currency: vpro5.currency || ''
+      },
+      shipment: {
+        shipmentStatus: 'Archived',
+        stagingStatus: record.status || '',
+        shipmentNotes: record.shipmentNotes || '',
+        trackingNumber: record.trackingNumber || '',
+        carrier: record.carrier || ''
+      },
+      operational: {
+        user: record.user || '',
+        approvedBy: metadata.approvedBy || '',
+        archiveReason: metadata.archiveReason || 'Reconciliation Approval',
+        source: 'Reconciliation Approval'
+      },
+      sourceSnapshots: {
+        shipmentStagingRecord: JSON.parse(JSON.stringify(record)),
+        masterDataRecord: record.masterDataSnapshot || null
+      }
+    };
+  }
+
+  async function writeShipmentHistoryDataset() {
+    const dataset = getShipmentHistoryDatasetForWrite();
+
+    if (shipmentHistoryState.fileHandle) {
+      const writable = await shipmentHistoryState.fileHandle.createWritable();
+      await writable.write(JSON.stringify(dataset, null, 2));
+      await writable.close();
+      await verifyShipmentHistoryFileWrite(dataset);
+      shipmentHistoryState.persistenceMode = 'Project JSON writable file handle';
+      writeShipmentHistoryLocalStorageDataset(dataset);
+      return;
+    }
+
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'shipment-history.json',
+        types: [{
+          description: 'Shipment History JSON',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+      shipmentHistoryState.fileHandle = handle;
+      shipmentHistoryState.writable = true;
+      shipmentHistoryState.sourceFile = handle.name || 'shipment-history.json';
+      await writeShipmentHistoryDataset();
+      return;
+    }
+
+    writeShipmentHistoryLocalStorageDataset(dataset);
+    verifyShipmentHistoryLocalStorageWrite(dataset);
+    shipmentHistoryState.persistenceMode = 'Browser storage fallback';
+  }
+
+  async function verifyShipmentHistoryFileWrite(expectedDataset) {
+    if (!shipmentHistoryState.fileHandle?.getFile) return;
+    const file = await shipmentHistoryState.fileHandle.getFile();
+    const text = await file.text();
+    const actualDataset = JSON.parse(text);
+    const actualCount = Array.isArray(actualDataset.records) ? actualDataset.records.length : 0;
+    if (actualCount !== expectedDataset.records.length) {
+      throw new Error('Shipment History JSON verification failed after write.');
+    }
+  }
+
+  function getShipmentHistoryDatasetForWrite() {
+    return {
+      schema: shipmentHistoryState.schema || 'DLE_SHIPMENT_HISTORY_V1',
+      createdAt: shipmentHistoryState.createdAt,
+      lastUpdated: shipmentHistoryState.lastUpdated,
+      recordCount: shipmentHistoryState.records.length,
+      records: shipmentHistoryState.records
+    };
+  }
+
+  function writeShipmentHistoryLocalStorageDataset(dataset) {
+    try {
+      localStorage.setItem(SHIPMENT_HISTORY_STORAGE_KEY, JSON.stringify(dataset));
+    } catch (error) {
+      // Browser storage is a fallback only; file-handle writes remain authoritative when available.
+    }
+  }
+
+  function verifyShipmentHistoryLocalStorageWrite(expectedDataset) {
+    const stored = localStorage.getItem(SHIPMENT_HISTORY_STORAGE_KEY);
+    const actualDataset = JSON.parse(stored || '{}');
+    const actualCount = Array.isArray(actualDataset.records) ? actualDataset.records.length : 0;
+    if (actualCount !== expectedDataset.records.length) {
+      throw new Error('Shipment History browser storage verification failed after write.');
+    }
+  }
+
+  function buildShipmentHistoryMasterRecordKey(record) {
+    if (record.masterDataSnapshot && typeof getMasterRecordKeyForRecord === 'function') {
+      return getMasterRecordKeyForRecord(record.masterDataSnapshot);
+    }
+    if (typeof buildMasterRecordKey !== 'function') return '';
+    return buildMasterRecordKey(
+      record.customerNumber || '',
+      record.salesOrder || '',
+      record.salesOrderLine || ''
+    );
+  }
+
+  function formatShipmentHistoryCustomer(record) {
+    const customerNumber = normalizeOrderValue(record.customerNumber || record.customer?.customerNumber, '');
+    const customerName = normalizeOrderValue(record.customerName || record.customer?.customerName, '');
+    if (customerNumber && customerName) return customerNumber + ' - ' + customerName;
+    return customerName || customerNumber;
   }
 
   function filterShipmentHistory() {
@@ -109,8 +432,11 @@
   }
 
   window.loadShipmentHistoryModule = loadShipmentHistoryModule;
+  window.initializeShipmentHistory = initializeShipmentHistory;
   window.renderShipmentHistoryModule = renderShipmentHistoryModule;
   window.renderShipmentHistorySummary = renderShipmentHistorySummary;
   window.renderShipmentHistoryTable = renderShipmentHistoryTable;
   window.filterShipmentHistory = filterShipmentHistory;
+  window.archiveShipmentHistoryRecords = archiveShipmentHistoryRecords;
+  window.shipmentHistoryState = shipmentHistoryState;
 })();

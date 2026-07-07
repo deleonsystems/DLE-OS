@@ -7009,6 +7009,11 @@ const shipmentStagingState = {
     records: []
 };
 
+const MASTER_RECORD_LIFECYCLE_STATES = {
+    OPEN: 'OPEN',
+    STAGED: 'STAGED'
+};
+
 /* -----------------------------------------------------
    520 - JS: ERP IMPORT STATE
 ----------------------------------------------------- */
@@ -7062,6 +7067,7 @@ function createEmptyShipmentStagingRecord() {
     return {
         shipmentTransactionId: '',
         shipmentId: '',
+        masterRecordKey: '',
         shipmentDateTime: '',
         customerNumber: '',
         customerName: '',
@@ -7091,6 +7097,10 @@ function commitShipmentPreparationToShipmentStaging(preparation) {
     const records = preparation.lines.map(line => {
         const record = buildShipmentStagingRecord(line, shipmentDateTime, shipmentId);
         shipmentStagingState.records.push(record);
+        setMasterRecordLifecycleState(record.masterRecordKey, MASTER_RECORD_LIFECYCLE_STATES.STAGED, {
+            reason: 'Shipment Staging',
+            shipmentId
+        });
         logShipmentStagingRecord(record);
         return record;
     });
@@ -7099,6 +7109,8 @@ function commitShipmentPreparationToShipmentStaging(preparation) {
     preparation.shipmentStagingRecords = records;
     shipmentStagingState.lastUpdated = shipmentDateTime;
     renderShipmentStagingModule();
+    renderMasterDataDashboardStatus();
+    renderDleMasterDataViewer();
     syncOpenOrderShipmentSelectionToOperationalView(preparation);
     refreshOpenOrdersTableView();
     updateOpenOrderShipmentSelectionCount();
@@ -7110,6 +7122,7 @@ function buildShipmentStagingRecord(line, shipmentDateTime, shipmentId) {
         ...createEmptyShipmentStagingRecord(),
         shipmentTransactionId: shipmentId,
         shipmentId,
+        masterRecordKey: line.masterRecordKey || '',
         shipmentDateTime,
         customerNumber: line.customerNumber || '',
         customerName: line.customer || '',
@@ -7345,8 +7358,9 @@ function refreshOpenOrdersFromMasterData() {
     const records = Array.isArray(dleMasterDataFileState.data?.records)
         ? dleMasterDataFileState.data.records
         : [];
+    const activeRecords = getActiveMasterDataRecords(records);
 
-    openOrdersRows = records.map(convertMasterDataRecordToOpenOrderRow);
+    openOrdersRows = activeRecords.map(convertMasterDataRecordToOpenOrderRow);
     selectedOpenOrderReportRows = new Set();
     selectedOpenOrderShipmentRows = new Set();
     openOrderShipmentQuantities = {};
@@ -7355,11 +7369,17 @@ function refreshOpenOrdersFromMasterData() {
     updateOpenOrderReportSelectionCount();
     updateOpenOrderShipmentSelectionCount();
 
-    if (records.length) {
-        setOpenOrdersStatus(records.length + ' Open Orders records loaded from DLE Master Data.');
+    if (activeRecords.length) {
+        setOpenOrdersStatus(activeRecords.length + ' active Open Orders record' + (activeRecords.length === 1 ? '' : 's') + ' loaded from DLE Master Data.');
     } else {
-        setOpenOrdersStatus('No Open Orders records are available in the currently loaded DLE Master Data.');
+        setOpenOrdersStatus('No active Open Orders records are available in the currently loaded DLE Master Data.');
     }
+}
+
+function getActiveMasterDataRecords(records) {
+    return (Array.isArray(records) ? records : []).filter(record =>
+        isActiveMasterRecordLifecycleState(getMasterRecordLifecycleState(record))
+    );
 }
 
 function convertMasterDataRecordToOpenOrderRow(record) {
@@ -7590,20 +7610,31 @@ async function approveReconciliationErpUpdates() {
     }
 
     const currentSummary = reconciliationState.latestSummary;
+    const approvedArchiveShipmentIds = getApprovedShipmentArchiveShipmentIdsFromReviewQueue();
+    const archiveCandidates = getShipmentStagingArchiveCandidates(approvedArchiveShipmentIds);
     const shipmentStatus = buildShipmentStagingReconciliationStatus();
-    if (shipmentStatus.pendingShipmentTransactions > 0) {
+    const pendingShipmentIds = getPendingShipmentStagingTransactionIds();
+    const unapprovedPendingShipmentIds = pendingShipmentIds.filter(shipmentId =>
+        !approvedArchiveShipmentIds.includes(shipmentId)
+    );
+
+    if (unapprovedPendingShipmentIds.length > 0) {
         renderReconciliationDashboardStatus();
-        renderShipmentStagingReconciliationStatus(shipmentStatus);
+        renderShipmentStagingReconciliationStatus({
+            ...shipmentStatus,
+            pendingShipmentTransactions: unapprovedPendingShipmentIds.length,
+            pendingShipmentRecords: getPendingShipmentStagingRecordsForShipmentIds(unapprovedPendingShipmentIds).length,
+            status: 'APPROVAL BLOCKED',
+            message: 'Shipment Staging contains pending shipment transactions that are not included in the current approved reconciliation disposition.'
+        });
         const summaryPanel = document.getElementById('reconciliationSummaryPanel');
         if (summaryPanel) summaryPanel.hidden = false;
         const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
         if (button) button.textContent = 'Collapse Summary';
         setReconciliationActionStatus(
             'Approval blocked. ' +
-            shipmentStatus.pendingShipmentTransactions +
-            ' pending shipment transaction(s) / ' +
-            shipmentStatus.pendingShipmentRecords +
-            ' pending shipment record(s) must be invoiced before Master Data updates can be applied.'
+            unapprovedPendingShipmentIds.length +
+            ' pending shipment transaction(s) are not dispositioned for archive in the current Review Queue.'
         );
         return;
     }
@@ -7611,22 +7642,36 @@ async function approveReconciliationErpUpdates() {
     const hasApprovedUpdates = currentSummary.newErpRecords.length
         || currentSummary.erpFieldDifferences.length
         || currentSummary.missingErpOwnedFields.length;
-    if (!hasApprovedUpdates) {
+    if (!hasApprovedUpdates && !archiveCandidates.length) {
         setReconciliationActionStatus('No ERP-owned updates are available to approve.');
         return;
     }
 
+    const masterDataBeforeApproval = cloneMasterDataRecordForHistory(dleMasterDataFileState.data);
+    const shipmentStagingRecordsBeforeApproval = JSON.parse(JSON.stringify(shipmentStagingState.records));
+    const shipmentStagingLastUpdatedBeforeApproval = shipmentStagingState.lastUpdated;
+
     try {
-        const result = applyApprovedErpUpdatesToMasterData();
-        await writeCurrentDleMasterDataFile();
-        refreshDleMasterDataViewerAfterWrite();
-        refreshOpenOrdersFromMasterData();
+        const result = hasApprovedUpdates
+            ? applyApprovedErpUpdatesToMasterData()
+            : { updatedRecords: 0, createdRecords: 0 };
+
+        const archiveResult = await archiveApprovedShipmentStagingRecords(approvedArchiveShipmentIds);
+
+        if (hasApprovedUpdates || archiveResult.archivedRecords) {
+            await writeCurrentDleMasterDataFile();
+            refreshDleMasterDataViewerAfterWrite();
+            refreshOpenOrdersFromMasterData();
+        }
 
         const verificationSummary = analyzeMasterDataReconciliation();
         reconciliationState.latestSummary = verificationSummary;
         reconciliationState.lastSuccessfulReconciliation = verificationSummary.analysisDate;
         const verificationEvents = buildReconciliationReviewQueueEvents(verificationSummary);
         renderReconciliationReviewQueueFromEvents(verificationEvents);
+        renderShipmentStagingModule();
+        renderShipmentHistoryModule();
+        refreshOpenOrdersTableView();
         renderReconciliationDashboardStatus();
         renderReconciliationSummary(verificationSummary);
 
@@ -7639,10 +7684,25 @@ async function approveReconciliationErpUpdates() {
             'Approved ERP updates applied.',
             result.updatedRecords + ' existing record(s) updated.',
             result.createdRecords + ' new ERP record(s) added.',
+            archiveResult.archivedRecords + ' shipment staging record(s) archived into Shipment History.',
+            archiveResult.removedMasterRecords + ' completed Master Data record(s) removed from the operational dataset.',
+            archiveResult.archivedTransactions + ' shipment transaction(s) removed from Shipment Staging.',
             'DLE-owned fields were preserved.',
             'Reconciliation was rerun automatically with ' + verificationEvents.length + ' event(s) remaining.'
         ].join(' '));
     } catch (error) {
+        if (masterDataBeforeApproval) {
+            dleMasterDataFileState.data = masterDataBeforeApproval;
+            dleMasterData = masterDataBeforeApproval;
+            dleMasterDataViewerState.data = masterDataBeforeApproval;
+            dleMasterDataViewerState.records = masterDataBeforeApproval.records || [];
+        }
+        shipmentStagingState.records = shipmentStagingRecordsBeforeApproval;
+        shipmentStagingState.lastUpdated = shipmentStagingLastUpdatedBeforeApproval;
+        renderShipmentStagingModule();
+        renderMasterDataDashboardStatus();
+        refreshOpenOrdersFromMasterData();
+        renderDleMasterDataViewer();
         setReconciliationActionStatus('Unable to apply approved ERP updates: ' + (error?.message || error));
     }
 }
@@ -7665,9 +7725,10 @@ function clearReconciliationAnalysis(message) {
 
 function applyApprovedErpUpdatesToMasterData() {
     const records = dleMasterDataFileState.data.records;
-    const erpRecords = erpImportedOpenOrdersRows.map((cols, index) => buildDleMasterDataRecord(cols, index, erpImportState.lastImported || new Date().toLocaleString()));
+    const erpRecords = erpImportedOpenOrdersRows
+        .map((cols, index) => buildDleMasterDataRecord(cols, index, erpImportState.lastImported || new Date().toLocaleString()));
     const erpOwnedFields = getDleMasterDataVpro5OwnedFields();
-    const masterByKey = buildReconciliationRecordMap(records, getMasterRecordKeyForRecord);
+    const masterByKey = buildReconciliationRecordMap(getActiveMasterDataRecords(records), getMasterRecordKeyForRecord);
     let updatedRecords = 0;
     let createdRecords = 0;
 
@@ -7702,10 +7763,12 @@ function applyApprovedErpUpdatesToMasterData() {
 
 function analyzeMasterDataReconciliation() {
     const analysisDate = new Date().toLocaleString();
-    const masterRecords = Array.isArray(dleMasterDataFileState.data?.records)
+    const allMasterRecords = Array.isArray(dleMasterDataFileState.data?.records)
         ? dleMasterDataFileState.data.records
         : [];
-    const erpRecords = erpImportedOpenOrdersRows.map((cols, index) => buildDleMasterDataRecord(cols, index, erpImportState.lastImported || analysisDate));
+    const masterRecords = getActiveMasterDataRecords(allMasterRecords);
+    const erpRecords = erpImportedOpenOrdersRows
+        .map((cols, index) => buildDleMasterDataRecord(cols, index, erpImportState.lastImported || analysisDate));
     const erpOwnedFields = getDleMasterDataVpro5OwnedFields();
     const masterByKey = buildReconciliationRecordMap(masterRecords, getMasterRecordKeyForRecord);
     const erpByKey = buildReconciliationRecordMap(erpRecords, record => record.id);
@@ -7906,8 +7969,10 @@ function renderReconciliationReviewQueueFromEvents(events) {
         return;
     }
 
-    tableBody.innerHTML = normalizedEvents.map(event => `
-      <tr>
+    tableBody.innerHTML = normalizedEvents.map(event => {
+        const shipmentIds = getShipmentIdForReconciliationRecord(event.master);
+        return `
+      <tr data-event-type="${escapeHtml(event.eventType)}" data-shipment-ids="${escapeHtml(shipmentIds)}">
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.workOrder)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.customer)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.partNumber)}</td>
@@ -7918,13 +7983,14 @@ function renderReconciliationReviewQueueFromEvents(events) {
         <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.partNumber)}</td>
         <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.qtyOpen)}</td>
         <td class="reconciliation-master-value">${renderReconciliationCompareValue(event.master?.dueDate)}</td>
-        <td>${renderReconciliationCompareValue(getShipmentIdForReconciliationRecord(event.master))}</td>
+        <td>${renderReconciliationCompareValue(shipmentIds)}</td>
         <td><span class="reconciliation-event-type">${escapeHtml(event.eventType)}</span></td>
         <td>${renderReconciliationDispositionSelector(event.disposition)}</td>
         <td class="reconciliation-resolution-status">${escapeHtml(event.resolutionStatus)}</td>
         <td><span class="event-pill ${escapeHtml(event.eventClass)}">${escapeHtml(event.statusIcon)}</span></td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function normalizeReconciliationReviewQueueEvent(event) {
@@ -8010,6 +8076,134 @@ function updateReconciliationEventDisposition(event) {
             ? 'Disposition Selected'
             : 'Pending';
     }
+}
+
+function getApprovedShipmentArchiveShipmentIdsFromReviewQueue() {
+    const tableBody = document.getElementById('reconciliationEventsTableBody');
+    if (!tableBody) return [];
+
+    const shipmentIds = new Set();
+    tableBody.querySelectorAll('tr').forEach(row => {
+        const selector = row.querySelector('.reconciliation-disposition-select');
+        if (!selector || selector.value !== 'Confirm Shipment') return;
+
+        const rowShipmentIds = String(row.dataset.shipmentIds || '')
+            .split(',')
+            .map(value => normalizeOrderValue(value, ''))
+            .filter(Boolean);
+
+        rowShipmentIds.forEach(shipmentId => shipmentIds.add(shipmentId));
+    });
+
+    return Array.from(shipmentIds);
+}
+
+function getPendingShipmentStagingTransactionIds() {
+    const records = Array.isArray(shipmentStagingState.records) ? shipmentStagingState.records : [];
+    const shipmentIds = new Set(
+        records
+            .filter(record => record.status === 'Pending Invoice')
+            .map(record => normalizeOrderValue(record.shipmentId, ''))
+            .filter(Boolean)
+    );
+    return Array.from(shipmentIds);
+}
+
+function getPendingShipmentStagingRecordsForShipmentIds(shipmentIds) {
+    const approvedIds = new Set((shipmentIds || []).map(shipmentId => normalizeOrderValue(shipmentId, '')).filter(Boolean));
+    const records = Array.isArray(shipmentStagingState.records) ? shipmentStagingState.records : [];
+    return records.filter(record =>
+        record.status === 'Pending Invoice' &&
+        approvedIds.has(normalizeOrderValue(record.shipmentId, ''))
+    );
+}
+
+function getShipmentStagingArchiveCandidates(shipmentIds) {
+    const approvedIds = new Set((shipmentIds || []).map(shipmentId => normalizeOrderValue(shipmentId, '')).filter(Boolean));
+    const records = Array.isArray(shipmentStagingState.records) ? shipmentStagingState.records : [];
+    return records.filter(record =>
+        approvedIds.has(normalizeOrderValue(record.shipmentId, '')) &&
+        normalizeOrderValue(record.shipmentId, '') &&
+        record.status === 'Pending Invoice'
+    );
+}
+
+async function archiveApprovedShipmentStagingRecords(shipmentIds) {
+    const archiveCandidates = getShipmentStagingArchiveCandidates(shipmentIds);
+    if (!archiveCandidates.length) {
+        return { archivedRecords: 0, archivedTransactions: 0, removedMasterRecords: 0 };
+    }
+    if (typeof archiveShipmentHistoryRecords !== 'function') {
+        throw new Error('Shipment History archive service is not available.');
+    }
+
+    const archiveTimestamp = new Date().toLocaleString();
+    const archivePayload = archiveCandidates.map(record => {
+        const recordKey = getShipmentStagingMasterRecordKey(record);
+        const masterRecord = getMasterDataRecordByKey(recordKey);
+        return {
+            ...record,
+            masterRecordKey: recordKey,
+            masterDataSnapshot: cloneMasterDataRecordForHistory(masterRecord)
+        };
+    });
+    const archivedRecords = await archiveShipmentHistoryRecords(archivePayload, {
+        archivedAt: archiveTimestamp,
+        approvalTimestamp: archiveTimestamp,
+        archiveReason: 'Reconciliation Approval'
+    });
+
+    if (!Array.isArray(archivedRecords) || archivedRecords.length !== archiveCandidates.length) {
+        throw new Error('Shipment History archive did not return the expected record count.');
+    }
+
+    const archivedMasterKeys = new Set(
+        archivePayload
+            .map(record => normalizeOrderValue(record.masterRecordKey, ''))
+            .filter(Boolean)
+    );
+    const previousMasterRecordCount = dleMasterDataFileState.data.records.length;
+    dleMasterDataFileState.data.records = dleMasterDataFileState.data.records.filter(record =>
+        !archivedMasterKeys.has(normalizeOrderValue(getMasterRecordKeyForRecord(record), ''))
+    );
+    const removedMasterRecords = previousMasterRecordCount - dleMasterDataFileState.data.records.length;
+    dleMasterDataFileState.data.recordCount = dleMasterDataFileState.data.records.length;
+
+    const archivedIds = new Set(
+        archiveCandidates
+            .map(record => normalizeOrderValue(record.shipmentId, ''))
+            .filter(Boolean)
+    );
+    shipmentStagingState.records = shipmentStagingState.records.filter(record =>
+        !archivedIds.has(normalizeOrderValue(record.shipmentId, ''))
+    );
+    shipmentStagingState.lastUpdated = archiveTimestamp;
+
+    return {
+        archivedRecords: archivedRecords.length,
+        archivedTransactions: archivedIds.size,
+        removedMasterRecords
+    };
+}
+
+function getShipmentStagingMasterRecordKey(record) {
+    return record.masterRecordKey || buildMasterRecordKey(
+        record.customerNumber,
+        record.salesOrder,
+        record.salesOrderLine
+    );
+}
+
+function getMasterDataRecordByKey(recordKey) {
+    if (!recordKey || !Array.isArray(dleMasterDataFileState.data?.records)) return null;
+    return dleMasterDataFileState.data.records.find(record =>
+        getMasterRecordKeyForRecord(record) === recordKey
+    ) || null;
+}
+
+function cloneMasterDataRecordForHistory(record) {
+    if (!record) return null;
+    return JSON.parse(JSON.stringify(record));
 }
 
 function updateReconciliationReviewQueueCounters(events) {
@@ -8913,6 +9107,8 @@ function buildDleMasterDataRecord(cols, index, importedAt) {
     return {
         id: buildDleMasterDataRecordId(cols, index),
         sourceIndex: index,
+        lifecycleState: MASTER_RECORD_LIFECYCLE_STATES.OPEN,
+        lifecycleUpdatedAt: importedAt,
         vpro5: {
             orderDate: normalizeOrderValue(cols[0]),
             customerNumber: normalizeOrderValue(cols[1]),
@@ -9876,6 +10072,58 @@ function getMasterRecordKeyForRecord(record) {
         return buildRecordKeyFromVpro5(vpro5);
     }
     return record?.id || record?.recordKey || '';
+}
+
+function normalizeMasterRecordLifecycleState(value) {
+    const normalized = String(value || '').trim().toUpperCase();
+    if (normalized === 'ARCHIVED') return 'ARCHIVED';
+    return Object.values(MASTER_RECORD_LIFECYCLE_STATES).includes(normalized)
+        ? normalized
+        : MASTER_RECORD_LIFECYCLE_STATES.OPEN;
+}
+
+function getMasterRecordLifecycleState(record) {
+    return normalizeMasterRecordLifecycleState(record?.lifecycleState || record?.lifecycle?.state);
+}
+
+function isActiveMasterRecordLifecycleState(state) {
+    const normalized = normalizeMasterRecordLifecycleState(state);
+    return normalized === MASTER_RECORD_LIFECYCLE_STATES.OPEN ||
+        normalized === MASTER_RECORD_LIFECYCLE_STATES.STAGED;
+}
+
+function setMasterRecordLifecycleState(recordKey, lifecycleState, metadata = {}) {
+    if (!recordKey || !Array.isArray(dleMasterDataFileState.data?.records)) return false;
+
+    const normalizedState = normalizeMasterRecordLifecycleState(lifecycleState);
+    const record = dleMasterDataFileState.data.records.find(masterRecord =>
+        getMasterRecordKeyForRecord(masterRecord) === recordKey
+    );
+    if (!record) return false;
+
+    record.lifecycleState = normalizedState;
+    record.lifecycleUpdatedAt = metadata.updatedAt || new Date().toLocaleString();
+    record.lifecycleReason = metadata.reason || record.lifecycleReason || '';
+    if (metadata.shipmentId) {
+        record.lifecycleShipmentId = metadata.shipmentId;
+    }
+    return true;
+}
+
+function getMasterRecordLifecycleCounts(records) {
+    return (Array.isArray(records) ? records : []).reduce((counts, record) => {
+        const state = getMasterRecordLifecycleState(record);
+        if (isActiveMasterRecordLifecycleState(state)) {
+            counts.active += 1;
+        }
+        counts[state] = (counts[state] || 0) + 1;
+        return counts;
+    }, {
+        active: 0,
+        OPEN: 0,
+        STAGED: 0,
+        ARCHIVED: 0
+    });
 }
 
 function formatImportedWorkOrder(value) {
@@ -15348,7 +15596,8 @@ const dleMasterDataGridColumns = [
   { key: 'description', label: 'Description' },
   { key: 'dueDate', label: 'Due Date' },
   { key: 'qtyOpen', label: 'Quantity Open' },
-  { key: 'productionStatus', label: 'Production Status' }
+  { key: 'productionStatus', label: 'Production Status' },
+  { key: 'lifecycleState', label: 'Lifecycle State' }
 ];
 
 function openMasterDataViewerWorkspace() {
@@ -15506,6 +15755,10 @@ function ensureDleMasterDataOperationalFields(data) {
 
   records.forEach(record => {
     record.dle = record.dle || {};
+    record.lifecycleState = getMasterRecordLifecycleState(record);
+    if (!record.lifecycleUpdatedAt) {
+      record.lifecycleUpdatedAt = record.sync?.importedAt || data?.created || new Date().toLocaleString();
+    }
     const hasProductionStatus = Object.prototype.hasOwnProperty.call(record.dle, 'productionStatus');
     if (!hasProductionStatus) {
       record.dle.productionStatus = record.dle.productionNotes || '';
@@ -15681,12 +15934,15 @@ function renderMasterDataDashboardStatus() {
   const records = Array.isArray(dleMasterDataFileState.data?.records)
     ? dleMasterDataFileState.data.records
     : [];
+  const lifecycleCounts = getMasterRecordLifecycleCounts(records);
   const isLoaded = !!dleMasterDataFileState.data;
 
   const items = [
     ['Status', isLoaded ? 'Loaded' : 'Not Loaded'],
     ['Source File', dleMasterDataFileState.fileName || 'Not available'],
     ['Record Count', isLoaded ? String(records.length) : '0'],
+    ['Open Master Records', isLoaded ? String(lifecycleCounts.OPEN) : '0'],
+    ['Staged Master Records', isLoaded ? String(lifecycleCounts.STAGED) : '0'],
     ['Last Loaded', dleMasterDataFileState.lastModified || 'Not available']
   ];
 
@@ -15714,10 +15970,13 @@ function renderDleMasterDataSummary() {
     return;
   }
 
+  const lifecycleCounts = getMasterRecordLifecycleCounts(dleMasterDataViewerState.records);
   summary.innerHTML = [
     masterDataSummaryCard('DLE Master Data File Name', dleMasterDataViewerState.fileName || 'Not available'),
     masterDataSummaryCard('Schema Version', data.schema || data.schemaVersion || 'Not available'),
     masterDataSummaryCard('Total Records', String(dleMasterDataViewerState.records.length)),
+    masterDataSummaryCard('Open Records', String(lifecycleCounts.OPEN)),
+    masterDataSummaryCard('Staged Records', String(lifecycleCounts.STAGED)),
     masterDataSummaryCard('Import Date', formatDleMasterDataDate(data.created || data.importDate)),
     masterDataSummaryCard('Last Modified', dleMasterDataViewerState.lastModified || 'Not available')
   ].join('');
@@ -15792,6 +16051,10 @@ function renderDleMasterDataDetail() {
     importDate: record.sync?.importedAt || dleMasterDataViewerState.data?.created || '',
     importStatus: record.sync?.status || record.importStatus || 'Unknown',
     sourceSystem: record.sync?.sourceSystem || 'VPro5',
+    lifecycleState: getMasterRecordLifecycleState(record),
+    lifecycleUpdatedAt: record.lifecycleUpdatedAt || '',
+    lifecycleReason: record.lifecycleReason || '',
+    lifecycleShipmentId: record.lifecycleShipmentId || '',
     readOnly: 'Yes'
   };
 
@@ -15852,7 +16115,8 @@ function getDleMasterDataField(record, field) {
     description: vpro5.description,
     dueDate: vpro5.dueDate,
     qtyOpen: vpro5.qtyOpen,
-    productionStatus: dle.productionStatus
+    productionStatus: dle.productionStatus,
+    lifecycleState: getMasterRecordLifecycleState(record)
   };
   return formatMasterDataValue(fieldMap[field]);
 }
@@ -16199,7 +16463,11 @@ async function initializeDleWorkCenter() {
   configureDocumentProcessingLibraries();
   initializeShipmentStaging();
   renderShipmentStagingModule();
-  renderShipmentHistoryModule();
+  if (typeof initializeShipmentHistory === 'function') {
+    await initializeShipmentHistory();
+  } else {
+    renderShipmentHistoryModule();
+  }
   initDocumentIntake();
   syncAssemblyInfoToBomUi();
   prepareBomExtractionWorkspace();

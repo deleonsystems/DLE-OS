@@ -191,6 +191,18 @@
     }
 
     const shipmentId = selectedShipmentStagingId;
+    selectedRecords.forEach(record => {
+      const recordKey = record.masterRecordKey || (typeof buildMasterRecordKey === 'function'
+        ? buildMasterRecordKey(record.customerNumber, record.salesOrder, record.salesOrderLine)
+        : '');
+      if (typeof setMasterRecordLifecycleState === 'function') {
+        setMasterRecordLifecycleState(recordKey, 'OPEN', {
+          reason: 'Shipment Staging Undo',
+          shipmentId
+        });
+      }
+    });
+
     shipmentStagingState.records = shipmentStagingState.records.filter(record =>
       record.shipmentId !== shipmentId
     );
@@ -201,6 +213,8 @@
     syncOpenOrderShipmentSelectionToOperationalView();
     renderShipmentStagingModule();
     refreshOpenOrdersTableView();
+    if (typeof renderMasterDataDashboardStatus === 'function') renderMasterDataDashboardStatus();
+    if (typeof renderDleMasterDataViewer === 'function') renderDleMasterDataViewer();
     updateOpenOrderShipmentSelectionCount('Selected shipment was undone.');
 
     if (status) {
