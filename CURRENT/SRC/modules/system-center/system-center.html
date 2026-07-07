@@ -72,6 +72,48 @@
       </div>
     </section>
 
+    <!-- SECTION 520: HTML - SHIPMENT HISTORY DATA VIEWER -->
+    <section class="system-center-shipment-history-viewer">
+      <div class="system-center-section-header">
+        <div>
+          <h3>Shipment History Data Viewer</h3>
+          <p>Read-only inspection tool for the persisted Shipment History JSON dataset.</p>
+        </div>
+        <div class="system-center-section-actions">
+          <button type="button" onclick="connectShipmentHistoryDataViewerFile()">Connect Shipment History JSON</button>
+          <button type="button" onclick="refreshShipmentHistoryDataViewer()">Refresh Shipment History</button>
+          <button id="deleteShipmentHistoryDataViewerRecordButton" type="button" onclick="deleteSelectedShipmentHistoryDataViewerRecord()" disabled>Delete Selected Record</button>
+        </div>
+      </div>
+
+      <div class="shipment-history-data-viewer-meta">
+        <div>
+          <span class="shipment-history-data-viewer-label">Data Source</span>
+          <strong>DATA/shipment-history/shipment-history.json</strong>
+        </div>
+        <div>
+          <span class="shipment-history-data-viewer-label">Record Count</span>
+          <strong id="shipmentHistoryDataViewerCount">0</strong>
+        </div>
+        <div>
+          <span class="shipment-history-data-viewer-label">Status</span>
+          <strong id="shipmentHistoryDataViewerStatus">Not loaded</strong>
+        </div>
+        <div>
+          <span class="shipment-history-data-viewer-label">Selected Record</span>
+          <strong id="shipmentHistoryDataViewerSelected">None</strong>
+        </div>
+        <div>
+          <span class="shipment-history-data-viewer-label">Write Access</span>
+          <strong id="shipmentHistoryDataViewerWriteAccess">Read-only</strong>
+        </div>
+      </div>
+
+      <div id="shipmentHistoryDataViewerTable" class="shipment-history-data-viewer-table-wrap">
+        <div class="shipment-history-data-viewer-empty">Refresh Shipment History to inspect persisted archive records.</div>
+      </div>
+    </section>
+
     <!-- SECTION 530: HTML - RECONCILIATION DASHBOARD -->
     <section class="system-center-reconciliation-launcher">
       <h3>Reconciliation</h3>

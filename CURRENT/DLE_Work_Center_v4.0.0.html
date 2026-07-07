@@ -7659,7 +7659,7 @@ async function approveReconciliationErpUpdates() {
         const archiveResult = await archiveApprovedShipmentStagingRecords(approvedArchiveShipmentIds);
 
         if (hasApprovedUpdates || archiveResult.archivedRecords) {
-            await writeCurrentDleMasterDataFile();
+            await persistCurrentOperationalMasterData(archiveResult);
             refreshDleMasterDataViewerAfterWrite();
             refreshOpenOrdersFromMasterData();
         }
@@ -7686,6 +7686,7 @@ async function approveReconciliationErpUpdates() {
             result.createdRecords + ' new ERP record(s) added.',
             archiveResult.archivedRecords + ' shipment staging record(s) archived into Shipment History.',
             archiveResult.removedMasterRecords + ' completed Master Data record(s) removed from the operational dataset.',
+            'DLE Master JSON persisted and verified.',
             archiveResult.archivedTransactions + ' shipment transaction(s) removed from Shipment Staging.',
             'DLE-owned fields were preserved.',
             'Reconciliation was rerun automatically with ' + verificationEvents.length + ' event(s) remaining.'
@@ -8131,7 +8132,7 @@ function getShipmentStagingArchiveCandidates(shipmentIds) {
 async function archiveApprovedShipmentStagingRecords(shipmentIds) {
     const archiveCandidates = getShipmentStagingArchiveCandidates(shipmentIds);
     if (!archiveCandidates.length) {
-        return { archivedRecords: 0, archivedTransactions: 0, removedMasterRecords: 0 };
+        return { archivedRecords: 0, archivedTransactions: 0, removedMasterRecords: 0, removedMasterRecordKeys: [] };
     }
     if (typeof archiveShipmentHistoryRecords !== 'function') {
         throw new Error('Shipment History archive service is not available.');
@@ -8182,8 +8183,43 @@ async function archiveApprovedShipmentStagingRecords(shipmentIds) {
     return {
         archivedRecords: archivedRecords.length,
         archivedTransactions: archivedIds.size,
-        removedMasterRecords
+        removedMasterRecords,
+        removedMasterRecordKeys: Array.from(archivedMasterKeys)
     };
+}
+
+async function persistCurrentOperationalMasterData(archiveResult = {}) {
+    if (!dleMasterDataFileState.fileHandle || !dleMasterDataFileState.writable) {
+        throw new Error('The current DLE Master Data file is not writable.');
+    }
+
+    dleMasterDataFileState.data.recordCount = Array.isArray(dleMasterDataFileState.data.records)
+        ? dleMasterDataFileState.data.records.length
+        : 0;
+
+    await writeCurrentDleMasterDataFile();
+    await verifyCurrentOperationalMasterDataWrite(archiveResult.removedMasterRecordKeys || []);
+}
+
+async function verifyCurrentOperationalMasterDataWrite(removedMasterRecordKeys = []) {
+    if (!dleMasterDataFileState.fileHandle?.getFile) {
+        return;
+    }
+
+    const file = await dleMasterDataFileState.fileHandle.getFile();
+    const text = await file.text();
+    const savedData = JSON.parse(text);
+    const savedRecords = Array.isArray(savedData?.records) ? savedData.records : [];
+    const savedKeys = new Set(savedRecords.map(record => getMasterRecordKeyForRecord(record)).filter(Boolean));
+    const missingRemoval = removedMasterRecordKeys.filter(recordKey => savedKeys.has(recordKey));
+
+    if (missingRemoval.length) {
+        throw new Error('DLE Master JSON verification failed. Archived record(s) still exist in saved Master Data: ' + missingRemoval.join(', '));
+    }
+
+    if (Number(savedData.recordCount || 0) !== savedRecords.length) {
+        throw new Error('DLE Master JSON verification failed. Record count does not match saved records.');
+    }
 }
 
 function getShipmentStagingMasterRecordKey(record) {

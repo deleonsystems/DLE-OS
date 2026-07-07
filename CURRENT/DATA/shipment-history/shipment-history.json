@@ -1,14 +1,14 @@
 {
   "schema": "DLE_SHIPMENT_HISTORY_V1",
   "createdAt": "7/6/2026, 8:12:25 PM",
-  "lastUpdated": "7/6/2026, 8:12:25 PM",
+  "lastUpdated": "7/6/2026, 9:09:48 PM",
   "recordCount": 4,
   "records": [
     {
       "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
       "shipmentId": "SHP-839287-0012042-260706-01",
       "masterRecordKey": "839287|0012042|030",
-      "shipmentDateTime": "7/6/2026, 8:10:50 PM",
+      "shipmentDateTime": "7/6/2026, 8:34:38 PM",
       "customerNumber": "839287",
       "customerName": "THERMASOL STEAMBATH CO.",
       "customerPo": "41636",
@@ -28,8 +28,8 @@
       "currency": "",
       "status": "Archived",
       "stagingStatus": "Pending Invoice",
-      "archivedAt": "7/6/2026, 8:12:25 PM",
-      "approvalTimestamp": "7/6/2026, 8:12:25 PM",
+      "archivedAt": "7/6/2026, 8:36:44 PM",
+      "approvalTimestamp": "7/6/2026, 8:36:44 PM",
       "archiveReason": "Reconciliation Approval",
       "identifiers": {
         "shipmentId": "SHP-839287-0012042-260706-01",
@@ -60,9 +60,9 @@
         "orderDate": "11/19/25",
         "dueDate": "04/15/26",
         "shipDate": "",
-        "shipmentConfirmationDate": "7/6/2026, 8:10:50 PM",
-        "approvalDate": "7/6/2026, 8:12:25 PM",
-        "archiveTimestamp": "7/6/2026, 8:12:25 PM"
+        "shipmentConfirmationDate": "7/6/2026, 8:34:38 PM",
+        "approvalDate": "7/6/2026, 8:36:44 PM",
+        "archiveTimestamp": "7/6/2026, 8:36:44 PM"
       },
       "financial": {
         "unitPrice": "35.00",
@@ -87,7 +87,7 @@
           "shipmentTransactionId": "SHP-839287-0012042-260706-01",
           "shipmentId": "SHP-839287-0012042-260706-01",
           "masterRecordKey": "839287|0012042|030",
-          "shipmentDateTime": "7/6/2026, 8:10:50 PM",
+          "shipmentDateTime": "7/6/2026, 8:34:38 PM",
           "customerNumber": "839287",
           "customerName": "THERMASOL STEAMBATH CO.",
           "salesOrder": "0012042",
@@ -128,7 +128,7 @@
               "status": "Active"
             },
             "lifecycleState": "STAGED",
-            "lifecycleUpdatedAt": "7/6/2026, 8:10:50 PM",
+            "lifecycleUpdatedAt": "7/6/2026, 8:34:38 PM",
             "lifecycleReason": "Shipment Staging",
             "lifecycleShipmentId": "SHP-839287-0012042-260706-01"
           }
@@ -162,7 +162,7 @@
             "status": "Active"
           },
           "lifecycleState": "STAGED",
-          "lifecycleUpdatedAt": "7/6/2026, 8:10:50 PM",
+          "lifecycleUpdatedAt": "7/6/2026, 8:34:38 PM",
           "lifecycleReason": "Shipment Staging",
           "lifecycleShipmentId": "SHP-839287-0012042-260706-01"
         }
@@ -172,7 +172,7 @@
       "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
       "shipmentId": "SHP-001077-0012078-260706-01",
       "masterRecordKey": "001077|0012078|010",
-      "shipmentDateTime": "7/6/2026, 8:11:13 PM",
+      "shipmentDateTime": "7/6/2026, 8:35:06 PM",
       "customerNumber": "001077",
       "customerName": "SARICA MANUFACTURING COMP",
       "customerPo": "SP00174416",
@@ -192,8 +192,8 @@
       "currency": "",
       "status": "Archived",
       "stagingStatus": "Pending Invoice",
-      "archivedAt": "7/6/2026, 8:12:25 PM",
-      "approvalTimestamp": "7/6/2026, 8:12:25 PM",
+      "archivedAt": "7/6/2026, 8:36:44 PM",
+      "approvalTimestamp": "7/6/2026, 8:36:44 PM",
       "archiveReason": "Reconciliation Approval",
       "identifiers": {
         "shipmentId": "SHP-001077-0012078-260706-01",
@@ -224,9 +224,9 @@
         "orderDate": "04/23/26",
         "dueDate": "07/06/26",
         "shipDate": "",
-        "shipmentConfirmationDate": "7/6/2026, 8:11:13 PM",
-        "approvalDate": "7/6/2026, 8:12:25 PM",
-        "archiveTimestamp": "7/6/2026, 8:12:25 PM"
+        "shipmentConfirmationDate": "7/6/2026, 8:35:06 PM",
+        "approvalDate": "7/6/2026, 8:36:44 PM",
+        "archiveTimestamp": "7/6/2026, 8:36:44 PM"
       },
       "financial": {
         "unitPrice": "19.21",
@@ -251,7 +251,7 @@
           "shipmentTransactionId": "SHP-001077-0012078-260706-01",
           "shipmentId": "SHP-001077-0012078-260706-01",
           "masterRecordKey": "001077|0012078|010",
-          "shipmentDateTime": "7/6/2026, 8:11:13 PM",
+          "shipmentDateTime": "7/6/2026, 8:35:06 PM",
           "customerNumber": "001077",
           "customerName": "SARICA MANUFACTURING COMP",
           "salesOrder": "0012078",
@@ -292,7 +292,7 @@
               "status": "Active"
             },
             "lifecycleState": "STAGED",
-            "lifecycleUpdatedAt": "7/6/2026, 8:11:13 PM",
+            "lifecycleUpdatedAt": "7/6/2026, 8:35:06 PM",
             "lifecycleReason": "Shipment Staging",
             "lifecycleShipmentId": "SHP-001077-0012078-260706-01"
           }
@@ -326,7 +326,7 @@
             "status": "Active"
           },
           "lifecycleState": "STAGED",
-          "lifecycleUpdatedAt": "7/6/2026, 8:11:13 PM",
+          "lifecycleUpdatedAt": "7/6/2026, 8:35:06 PM",
           "lifecycleReason": "Shipment Staging",
           "lifecycleShipmentId": "SHP-001077-0012078-260706-01"
         }
@@ -336,7 +336,7 @@
       "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
       "shipmentId": "SHP-001165-0012053-260706-01",
       "masterRecordKey": "001165|0012053|010",
-      "shipmentDateTime": "7/6/2026, 8:11:42 PM",
+      "shipmentDateTime": "7/6/2026, 8:35:25 PM",
       "customerNumber": "001165",
       "customerName": "AERO FLUID PRODUCTS",
       "customerPo": "P138315",
@@ -356,8 +356,8 @@
       "currency": "",
       "status": "Archived",
       "stagingStatus": "Pending Invoice",
-      "archivedAt": "7/6/2026, 8:12:25 PM",
-      "approvalTimestamp": "7/6/2026, 8:12:25 PM",
+      "archivedAt": "7/6/2026, 8:36:44 PM",
+      "approvalTimestamp": "7/6/2026, 8:36:44 PM",
       "archiveReason": "Reconciliation Approval",
       "identifiers": {
         "shipmentId": "SHP-001165-0012053-260706-01",
@@ -388,9 +388,9 @@
         "orderDate": "01/19/26",
         "dueDate": "07/08/26",
         "shipDate": "",
-        "shipmentConfirmationDate": "7/6/2026, 8:11:42 PM",
-        "approvalDate": "7/6/2026, 8:12:25 PM",
-        "archiveTimestamp": "7/6/2026, 8:12:25 PM"
+        "shipmentConfirmationDate": "7/6/2026, 8:35:25 PM",
+        "approvalDate": "7/6/2026, 8:36:44 PM",
+        "archiveTimestamp": "7/6/2026, 8:36:44 PM"
       },
       "financial": {
         "unitPrice": "1237.85",
@@ -415,7 +415,7 @@
           "shipmentTransactionId": "SHP-001165-0012053-260706-01",
           "shipmentId": "SHP-001165-0012053-260706-01",
           "masterRecordKey": "001165|0012053|010",
-          "shipmentDateTime": "7/6/2026, 8:11:42 PM",
+          "shipmentDateTime": "7/6/2026, 8:35:25 PM",
           "customerNumber": "001165",
           "customerName": "AERO FLUID PRODUCTS",
           "salesOrder": "0012053",
@@ -456,7 +456,7 @@
               "status": "Active"
             },
             "lifecycleState": "STAGED",
-            "lifecycleUpdatedAt": "7/6/2026, 8:11:42 PM",
+            "lifecycleUpdatedAt": "7/6/2026, 8:35:25 PM",
             "lifecycleReason": "Shipment Staging",
             "lifecycleShipmentId": "SHP-001165-0012053-260706-01"
           }
@@ -490,7 +490,7 @@
             "status": "Active"
           },
           "lifecycleState": "STAGED",
-          "lifecycleUpdatedAt": "7/6/2026, 8:11:42 PM",
+          "lifecycleUpdatedAt": "7/6/2026, 8:35:25 PM",
           "lifecycleReason": "Shipment Staging",
           "lifecycleShipmentId": "SHP-001165-0012053-260706-01"
         }
@@ -500,7 +500,7 @@
       "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
       "shipmentId": "SHP-001165-0012053-260706-01",
       "masterRecordKey": "001165|0012053|030",
-      "shipmentDateTime": "7/6/2026, 8:11:42 PM",
+      "shipmentDateTime": "7/6/2026, 8:35:25 PM",
       "customerNumber": "001165",
       "customerName": "AERO FLUID PRODUCTS",
       "customerPo": "P138315",
@@ -520,8 +520,8 @@
       "currency": "",
       "status": "Archived",
       "stagingStatus": "Pending Invoice",
-      "archivedAt": "7/6/2026, 8:12:25 PM",
-      "approvalTimestamp": "7/6/2026, 8:12:25 PM",
+      "archivedAt": "7/6/2026, 8:36:44 PM",
+      "approvalTimestamp": "7/6/2026, 8:36:44 PM",
       "archiveReason": "Reconciliation Approval",
       "identifiers": {
         "shipmentId": "SHP-001165-0012053-260706-01",
@@ -552,9 +552,9 @@
         "orderDate": "01/19/26",
         "dueDate": "07/08/26",
         "shipDate": "",
-        "shipmentConfirmationDate": "7/6/2026, 8:11:42 PM",
-        "approvalDate": "7/6/2026, 8:12:25 PM",
-        "archiveTimestamp": "7/6/2026, 8:12:25 PM"
+        "shipmentConfirmationDate": "7/6/2026, 8:35:25 PM",
+        "approvalDate": "7/6/2026, 8:36:44 PM",
+        "archiveTimestamp": "7/6/2026, 8:36:44 PM"
       },
       "financial": {
         "unitPrice": "1237.85",
@@ -579,7 +579,7 @@
           "shipmentTransactionId": "SHP-001165-0012053-260706-01",
           "shipmentId": "SHP-001165-0012053-260706-01",
           "masterRecordKey": "001165|0012053|030",
-          "shipmentDateTime": "7/6/2026, 8:11:42 PM",
+          "shipmentDateTime": "7/6/2026, 8:35:25 PM",
           "customerNumber": "001165",
           "customerName": "AERO FLUID PRODUCTS",
           "salesOrder": "0012053",
@@ -620,7 +620,7 @@
               "status": "Active"
             },
             "lifecycleState": "STAGED",
-            "lifecycleUpdatedAt": "7/6/2026, 8:11:42 PM",
+            "lifecycleUpdatedAt": "7/6/2026, 8:35:25 PM",
             "lifecycleReason": "Shipment Staging",
             "lifecycleShipmentId": "SHP-001165-0012053-260706-01"
           }
@@ -654,7 +654,7 @@
             "status": "Active"
           },
           "lifecycleState": "STAGED",
-          "lifecycleUpdatedAt": "7/6/2026, 8:11:42 PM",
+          "lifecycleUpdatedAt": "7/6/2026, 8:35:25 PM",
           "lifecycleReason": "Shipment Staging",
           "lifecycleShipmentId": "SHP-001165-0012053-260706-01"
         }

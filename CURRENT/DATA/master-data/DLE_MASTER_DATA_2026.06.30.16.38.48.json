@@ -3,7 +3,7 @@
   "created": "6/30/2026, 4:38:48 PM",
   "uniqueKey": "Customer Number + Sales Order + Sequence Line",
   "source": "VPro5 Open Orders Export",
-  "recordCount": 111,
+  "recordCount": 107,
   "ownershipModel": {
     "vpro5Owned": [
       "orderDate",
@@ -54,7 +54,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011694|040",
@@ -83,7 +85,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011694|050",
@@ -112,7 +116,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011694|090",
@@ -141,7 +147,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011694|100",
@@ -170,7 +178,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011694|140",
@@ -199,7 +209,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011694|150",
@@ -228,7 +240,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0011833|010",
@@ -257,7 +271,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0011948|030",
@@ -286,7 +302,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012015|040",
@@ -315,7 +333,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001082|0012023|020",
@@ -344,7 +364,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012014|040",
@@ -373,7 +395,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0011824|090",
@@ -402,7 +426,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012046|010",
@@ -431,7 +457,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012032|010",
@@ -460,7 +488,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012032|040",
@@ -489,7 +519,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0012012|040",
@@ -518,7 +550,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0012012|050",
@@ -547,7 +581,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0012012|075",
@@ -576,7 +612,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0012012|080",
@@ -605,7 +643,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012059|010",
@@ -634,7 +674,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012060|010",
@@ -663,7 +705,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012033|010",
@@ -692,7 +736,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001021|0012035|010",
@@ -721,7 +767,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001037|0012028|020",
@@ -750,36 +798,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
-    },
-    {
-      "id": "839287|0012042|030",
-      "sourceIndex": 25,
-      "vpro5": {
-        "orderDate": "11/19/25",
-        "customerNumber": "839287",
-        "customer": "THERMASOL STEAMBATH CO.",
-        "customerPo": "41636",
-        "salesOrder": "0012042",
-        "sequenceLine": "030",
-        "workOrder": "UNKNOWN",
-        "workOrderQuantity": "0",
-        "quantityShipped": "0",
-        "qtyOpen": "100",
-        "partNumber": "03-4770-5",
-        "description": "POWER SUPPLY PCB ASSY (SIDE)",
-        "dueDate": "04/15/26",
-        "price": "35.00",
-        "extendedPrice": "3500.00"
       },
-      "dle": {
-        "productionStatus": ""
-      },
-      "sync": {
-        "sourceSystem": "VPro5",
-        "importedAt": "6/30/2026, 4:38:48 PM",
-        "status": "Active"
-      }
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001061|0012033|010",
@@ -808,7 +829,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0012057|010",
@@ -837,7 +860,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "839287|0012042|080",
@@ -866,7 +891,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011896|010",
@@ -895,7 +922,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011896|020",
@@ -924,7 +953,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011896|050",
@@ -953,7 +984,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011896|060",
@@ -982,7 +1015,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012077|010",
@@ -1011,7 +1046,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "839287|0012042|040",
@@ -1040,7 +1077,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "565650|0012083|010",
@@ -1069,7 +1108,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "549250|0012084|010",
@@ -1098,7 +1139,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011751|100",
@@ -1127,7 +1170,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011751|110",
@@ -1156,7 +1201,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011751|150",
@@ -1185,7 +1232,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "578350|0011751|160",
@@ -1214,7 +1263,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012005|190",
@@ -1243,7 +1294,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012034|060",
@@ -1272,7 +1325,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012035|040",
@@ -1301,7 +1356,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012040|110",
@@ -1330,7 +1387,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012041|070",
@@ -1359,7 +1418,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012055|090",
@@ -1388,7 +1449,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012082|010",
@@ -1417,7 +1480,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012082|030",
@@ -1446,7 +1511,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012082|050",
@@ -1475,7 +1542,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012082|070",
@@ -1504,36 +1573,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
-    },
-    {
-      "id": "001077|0012078|010",
-      "sourceIndex": 51,
-      "vpro5": {
-        "orderDate": "04/23/26",
-        "customerNumber": "001077",
-        "customer": "SARICA MANUFACTURING COMP",
-        "customerPo": "SP00174416",
-        "salesOrder": "0012078",
-        "sequenceLine": "010",
-        "workOrder": "0115598",
-        "workOrderQuantity": "100",
-        "quantityShipped": "0",
-        "qtyOpen": "100",
-        "partNumber": "PA446B",
-        "description": "PHOTOCELL PCB ASSY",
-        "dueDate": "07/06/26",
-        "price": "19.21",
-        "extendedPrice": "1921.00"
       },
-      "dle": {
-        "productionStatus": ""
-      },
-      "sync": {
-        "sourceSystem": "VPro5",
-        "importedAt": "6/30/2026, 4:38:48 PM",
-        "status": "Active"
-      }
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012006|110",
@@ -1562,65 +1604,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
-    },
-    {
-      "id": "001165|0012053|010",
-      "sourceIndex": 53,
-      "vpro5": {
-        "orderDate": "01/19/26",
-        "customerNumber": "001165",
-        "customer": "AERO FLUID PRODUCTS",
-        "customerPo": "P138315",
-        "salesOrder": "0012053",
-        "sequenceLine": "010",
-        "workOrder": "0115570",
-        "workOrderQuantity": "150",
-        "quantityShipped": "0",
-        "qtyOpen": "10",
-        "partNumber": "718720-1",
-        "description": "ISOLATION SWITCH ASSY",
-        "dueDate": "07/08/26",
-        "price": "1237.85",
-        "extendedPrice": "12378.50"
       },
-      "dle": {
-        "productionStatus": ""
-      },
-      "sync": {
-        "sourceSystem": "VPro5",
-        "importedAt": "6/30/2026, 4:38:48 PM",
-        "status": "Active"
-      }
-    },
-    {
-      "id": "001165|0012053|030",
-      "sourceIndex": 54,
-      "vpro5": {
-        "orderDate": "01/19/26",
-        "customerNumber": "001165",
-        "customer": "AERO FLUID PRODUCTS",
-        "customerPo": "P138315",
-        "salesOrder": "0012053",
-        "sequenceLine": "030",
-        "workOrder": "UNKNOWN",
-        "workOrderQuantity": "0",
-        "quantityShipped": "0",
-        "qtyOpen": "20",
-        "partNumber": "718720-1",
-        "description": "ISOLATION SWITCH ASSY",
-        "dueDate": "07/08/26",
-        "price": "1237.85",
-        "extendedPrice": "24757.00"
-      },
-      "dle": {
-        "productionStatus": ""
-      },
-      "sync": {
-        "sourceSystem": "VPro5",
-        "importedAt": "6/30/2026, 4:38:48 PM",
-        "status": "Active"
-      }
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "565650|0012083|030",
@@ -1649,7 +1635,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012054|030",
@@ -1678,7 +1666,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001082|0012067|030",
@@ -1707,7 +1697,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012063|030",
@@ -1736,7 +1728,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "839287|0012042|050",
@@ -1765,7 +1759,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001061|0012086|010",
@@ -1794,7 +1790,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001037|0012029|040",
@@ -1823,7 +1821,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001238|0012085|010",
@@ -1852,7 +1852,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012053|050",
@@ -1881,7 +1883,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "565650|0012066|010",
@@ -1910,7 +1914,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012040|130",
@@ -1939,7 +1945,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001037|0012087|010",
@@ -1968,7 +1976,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001037|0011998|040",
@@ -1997,7 +2007,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012053|070",
@@ -2026,7 +2038,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012075|050",
@@ -2055,7 +2069,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001082|0012067|040",
@@ -2084,7 +2100,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012006|130",
@@ -2113,7 +2131,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012035|050",
@@ -2142,7 +2162,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012064|090",
@@ -2171,7 +2193,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012082|090",
@@ -2200,7 +2224,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012053|090",
@@ -2229,7 +2255,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012053|121",
@@ -2258,7 +2286,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012006|150",
@@ -2287,7 +2317,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012040|150",
@@ -2316,7 +2348,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "565650|0012083|050",
@@ -2345,7 +2379,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012054|050",
@@ -2374,7 +2410,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "565650|0012072|010",
@@ -2403,7 +2441,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "565650|0012073|010",
@@ -2432,7 +2472,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012075|070",
@@ -2461,7 +2503,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012039|030",
@@ -2490,7 +2534,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012063|050",
@@ -2519,7 +2565,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001037|0012029|050",
@@ -2548,7 +2596,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001037|0011998|050",
@@ -2577,7 +2627,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012006|170",
@@ -2606,7 +2658,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012064|110",
@@ -2635,7 +2689,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012082|110",
@@ -2664,7 +2720,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "565650|0012083|070",
@@ -2693,7 +2751,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001037|0012029|060",
@@ -2722,7 +2782,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012006|190",
@@ -2751,7 +2813,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012040|170",
@@ -2780,7 +2844,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012064|130",
@@ -2809,7 +2875,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "565650|0012083|090",
@@ -2838,7 +2906,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012075|090",
@@ -2867,7 +2937,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001037|0011998|060",
@@ -2896,7 +2968,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "565650|0011802|290",
@@ -2925,7 +2999,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001037|0012029|070",
@@ -2954,7 +3030,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012040|190",
@@ -2983,7 +3061,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012082|130",
@@ -3012,7 +3092,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012054|070",
@@ -3041,7 +3123,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012080|015",
@@ -3070,7 +3154,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012064|150",
@@ -3099,7 +3185,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012075|110",
@@ -3128,7 +3216,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012064|170",
@@ -3157,7 +3247,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001148|0012064|190",
@@ -3186,7 +3278,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012065|030",
@@ -3215,7 +3309,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     },
     {
       "id": "001165|0012080|017",
@@ -3244,7 +3340,9 @@
         "sourceSystem": "VPro5",
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
-      }
+      },
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
     }
   ]
 }
