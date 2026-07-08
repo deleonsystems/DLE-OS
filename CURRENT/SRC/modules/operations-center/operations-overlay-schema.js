@@ -7,7 +7,8 @@
 
   window.OperationsCenter = window.OperationsCenter || {};
 
-  const overlayFields = window.OperationsCenter.overlayFields || [];
+  const overlayFields = (window.OperationsCenter.overlayFields || [])
+    .filter(field => !field.documentLink);
 
   const schema = {
     dataPath: 'DATA/operations-center/operations-overlay.json',

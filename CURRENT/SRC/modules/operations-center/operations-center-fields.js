@@ -26,7 +26,13 @@
   window.OperationsCenter.overlayFields = [
     { key: 'status', label: 'STATUS' },
     { key: 'productionShipping', label: 'Production / Shipping' },
-    { key: 'kitShort', label: 'Kit Short' },
+    {
+      key: 'kitShort',
+      label: 'Kit Short',
+      documentLink: {
+        type: 'kitShort'
+      }
+    },
     { key: 'purchasingComplete', label: 'Purchasing Complete' },
     { key: 'kitComplete', label: 'Kit Complete' },
     { key: 'holdIssue', label: 'HOLD / ISSUE' }

@@ -34,6 +34,27 @@
     window.OperationsCenter.table.filter();
   }
 
+  async function connectOperationsCenterDocumentFolder(typeKey) {
+    try {
+      await window.OperationsCenter.documentLinks.connectType(typeKey);
+      window.OperationsCenter.table.renderModule();
+    } catch (error) {
+      window.OperationsCenter.table.updateSaveStatus('Document folder connection failed: ' + (error?.message || error), 'error');
+    }
+  }
+
+  async function openOperationsCenterDocumentLink(event) {
+    const target = event?.currentTarget || event?.target;
+    const typeKey = target?.dataset?.documentLinkType || '';
+    const workOrder = target?.dataset?.workOrder || '';
+
+    try {
+      await window.OperationsCenter.documentLinks.openDocument(typeKey, workOrder);
+    } catch (error) {
+      window.OperationsCenter.table.updateSaveStatus('Unable to open document: ' + (error?.message || error), 'error');
+    }
+  }
+
   function updateOperationsCenterOverlayField(event) {
     window.OperationsCenter.table.updateOverlayField(event);
   }
@@ -69,6 +90,8 @@
   window.OperationsCenter.initialize = initializeOperationsCenter;
   window.OperationsCenter.render = renderOperationsCenterModule;
   window.OperationsCenter.filter = filterOperationsCenter;
+  window.OperationsCenter.connectDocumentFolder = connectOperationsCenterDocumentFolder;
+  window.OperationsCenter.openDocumentLink = openOperationsCenterDocumentLink;
   window.OperationsCenter.updateOverlayField = updateOperationsCenterOverlayField;
   window.OperationsCenter.saveOverlay = saveOperationsCenterOverlay;
 
@@ -76,6 +99,8 @@
   window.initializeOperationsCenter = initializeOperationsCenter;
   window.renderOperationsCenterModule = renderOperationsCenterModule;
   window.filterOperationsCenter = filterOperationsCenter;
+  window.connectOperationsCenterDocumentFolder = connectOperationsCenterDocumentFolder;
+  window.openOperationsCenterDocumentLink = openOperationsCenterDocumentLink;
   window.updateOperationsCenterOverlayField = updateOperationsCenterOverlayField;
   window.saveOperationsCenterOverlay = saveOperationsCenterOverlay;
 })();

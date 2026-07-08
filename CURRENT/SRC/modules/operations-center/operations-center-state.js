@@ -8,7 +8,8 @@
   window.OperationsCenter = window.OperationsCenter || {};
 
   const overlaySchema = window.OperationsCenter.overlaySchema;
-  const overlayFields = window.OperationsCenter.overlayFields || [];
+  const overlayFields = (window.OperationsCenter.overlayFields || [])
+    .filter(field => !field.documentLink);
 
   const state = {
     overlayByKey: {},

@@ -12,6 +12,7 @@
   const state = window.OperationsCenter.state;
   const stateActions = window.OperationsCenter.stateActions;
   const viewModel = window.OperationsCenter.viewModel;
+  const documentLinks = window.OperationsCenter.documentLinks;
 
   function renderModule() {
     renderStatus();
@@ -30,6 +31,11 @@
     status.textContent = masterLoaded
       ? records.length + ' active Master Data record' + (records.length === 1 ? '' : 's') + ' shown. Overlay records: ' + overlayCount + '. Source: ' + state.sourceFile + '.'
       : 'Load Master Data from System Center to view Operations Center. Overlay source: ' + state.sourceFile + '.';
+
+    const documentStatus = document.getElementById('operationsCenterDocumentStatus');
+    if (documentStatus && documentLinks?.getStatus) {
+      documentStatus.textContent = documentLinks.getStatus('kitShort');
+    }
   }
 
   function renderTable() {
@@ -59,8 +65,10 @@
       return '<td class="operations-center-official-cell' + descriptionClass + '">' + escapeHtml(value) + '</td>';
     }).join('');
 
-    const overlay = stateActions.getOverlayRecord(masterRecordKey);
     const overlayCells = overlayFields.map(field => {
+      if (field.documentLink) return renderDocumentLinkCell(field, record);
+
+      const overlay = stateActions.getOverlayRecord(masterRecordKey);
       return [
         '<td class="operations-center-overlay-cell">',
         '<div class="operations-center-editable" contenteditable="true" data-master-record-key="',
@@ -75,6 +83,32 @@
     }).join('');
 
     return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + officialCells + overlayCells + '</tr>';
+  }
+
+  function renderDocumentLinkCell(field, record) {
+    const type = field.documentLink.type;
+    const workOrder = viewModel.getOfficialField(record, 'workOrder');
+    const documentState = documentLinks?.getDocumentState(type, workOrder) || { exists: false };
+
+    if (!documentState.exists) {
+      return [
+        '<td class="operations-center-overlay-cell operations-center-document-cell">',
+        '<span class="operations-center-document-missing" title="No document found">&mdash;</span>',
+        '</td>'
+      ].join('');
+    }
+
+    return [
+      '<td class="operations-center-overlay-cell operations-center-document-cell">',
+      '<button type="button" class="operations-center-document-link" title="Open ',
+      escapeHtml(field.label),
+      ' PDF" data-document-link-type="',
+      escapeHtml(type),
+      '" data-work-order="',
+      escapeHtml(workOrder),
+      '" onclick="openOperationsCenterDocumentLink(event)">&#128279;</button>',
+      '</td>'
+    ].join('');
   }
 
   function updateOverlayField(event) {
