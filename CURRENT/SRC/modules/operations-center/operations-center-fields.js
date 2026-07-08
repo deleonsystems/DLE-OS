@@ -19,11 +19,11 @@
     { key: 'description', label: 'Description' },
     { key: 'dueDate', label: 'Due Date' },
     { key: 'price', label: 'Price' },
-    { key: 'extendedPrice', label: 'Ext Price' }
+    { key: 'extendedPrice', label: 'Ext Price' },
+    { key: 'productionStatus', label: 'NOTES' }
   ];
 
   window.OperationsCenter.overlayFields = [
-    { key: 'notes', label: 'NOTES' },
     { key: 'status', label: 'STATUS' },
     { key: 'productionShipping', label: 'Production / Shipping' },
     { key: 'kitShort', label: 'Kit Short' },
