@@ -3972,7 +3972,7 @@ body {
       margin: 0 0 14px;
     }
 
-    .production-status-input {
+    .operational-status-input {
       width: 100%;
       min-height: 56px;
       resize: vertical;
@@ -5176,7 +5176,7 @@ BOM Viewer</h2>
                 <span>Pending Review</span>
               </div>
               <div class="work-order-summary-item workflow">
-                <strong>Production Status</strong>
+                <strong>Operational Status</strong>
                 <span id="woDashStatus">PENDING</span>
               </div>
               <div class="work-order-summary-item workflow">
@@ -5327,8 +5327,8 @@ BOM Viewer</h2>
             <div id="workOrderTimeline" class="workflow-timeline"></div>
           </section>
 
-          <section class="work-order-card" aria-label="Production Status">
-            <h3>Production Status</h3>
+          <section class="work-order-card" aria-label="Operational Status">
+            <h3>Operational Status</h3>
             <div class="notes-empty">No notes available.</div>
           </section>
         </div>
@@ -5348,7 +5348,7 @@ BOM Viewer</h2>
             <h3>Work Order Actions</h3>
             <div class="job-action-buttons">
               <button onclick="placeholderWorkOrderAction('Update Status')">Update Status</button>
-              <button onclick="placeholderWorkOrderAction('Add Production Status')">Add Production Status</button>
+              <button onclick="placeholderWorkOrderAction('Add Operational Status')">Add Operational Status</button>
               <button onclick="placeholderWorkOrderAction('Place On Hold')">Place On Hold</button>
               <button onclick="placeholderWorkOrderAction('Mark Complete')">Mark Complete</button>
             </div>
@@ -7287,7 +7287,7 @@ function renderOpenOrdersTable() {
     <th>Item#</th>
     <th>Description</th>
     <th>Ship Dt</th>
-    <th>Production Status</th>
+    <th>Operational Status</th>
     <th>Price</th>
     <th>Ext Price</th>
 </tr>
@@ -7436,7 +7436,7 @@ function convertMasterDataRecordToOpenOrderRow(record) {
         vpro5.dueDate || '',
         vpro5.price || '',
         vpro5.extendedPrice || '',
-        record?.dle?.productionStatus || ''
+        record?.dle?.operationalStatus || ''
     ];
 }
 
@@ -7810,7 +7810,7 @@ function applyApprovedReviewQueueDecisionsToMasterData(decisions = {}) {
             erpRecord.vpro5.workOrder = stagedWorkOrder;
         }
         erpRecord.dle = erpRecord.dle || {};
-        erpRecord.dle.productionStatus = 'New Order';
+        erpRecord.dle.operationalStatus = 'New Order';
 
         records.push(erpRecord);
         masterByKey.set(recordKey, erpRecord);
@@ -9445,7 +9445,7 @@ async function createDleMasterData() {
                 'extendedPrice'
             ],
             dleOwned: [
-                'productionStatus'
+                'operationalStatus'
             ]
         },
         records: erpImportedOpenOrdersRows.map((cols, index) => buildDleMasterDataRecord(cols, index, created))
@@ -9496,7 +9496,7 @@ function buildDleMasterDataRecord(cols, index, importedAt) {
             extendedPrice: normalizeOrderValue(cols[14], '0')
         },
         dle: {
-            productionStatus: ''
+            operationalStatus: ''
         },
         sync: {
             sourceSystem: 'VPro5',
@@ -9620,7 +9620,7 @@ function createWorkOrderStatusInquiry(records) {
         status: 'Created',
         records: records.map(record => ({
             ...record,
-            productionStatus: record.productionStatus || ''
+            operationalStatus: record.operationalStatus || ''
         }))
     };
 
@@ -9708,7 +9708,7 @@ function buildWorkOrderStatusReportRecord(cols, index) {
         openQuantity: normalizeOrderValue(cols[9] || cols[7], '0'),
         salesOrder: normalizeOrderValue(cols[4]),
         customerPo: normalizeOrderValue(cols[3]),
-        productionStatus: normalizeOrderValue(cols[15], '')
+        operationalStatus: normalizeOrderValue(cols[15], '')
     };
 }
 
@@ -9730,7 +9730,7 @@ function renderWorkOrderStatusInquiryReport() {
       ${isInquiryDetail ? `
         <div class="inquiry-detail-actions">
           <button type="button" onclick="completeActiveInquiry('${escapeHtml(report.inquiryId)}')">Complete Inquiry</button>
-          <span class="open-order-report-count">Enter handwritten production responses in the Production Status column.</span>
+          <span class="open-order-report-count">Enter handwritten operational responses in the Operational Status column.</span>
         </div>
       ` : ''}
       <div id="reportPrintSurface" class="report-print-surface">
@@ -9807,7 +9807,7 @@ function buildWorkOrderStatusReportGroup(group, editableStatus = false, inquiryI
               <th style="width: 15%;">Part Number</th>
               <th style="width: 27%;">Description</th>
               <th style="width: 8%;">Qty Open</th>
-              <th style="width: 13%;">Production Status</th>
+              <th style="width: 13%;">Operational Status</th>
             </tr>
           </thead>
           <tbody>
@@ -9819,19 +9819,19 @@ function buildWorkOrderStatusReportGroup(group, editableStatus = false, inquiryI
                 <td>${escapeHtml(record.partNumber)}</td>
                 <td>${escapeHtml(record.description)}</td>
                 <td>${escapeHtml(record.openQuantity)}</td>
-                <td class="report-notes-cell">${buildProductionStatusCell(record, editableStatus, inquiryId)}</td>
+                <td class="report-notes-cell">${buildOperationalStatusCell(record, editableStatus, inquiryId)}</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
-        <div class="report-section-notes">General production comments:</div>
+        <div class="report-section-notes">General operational comments:</div>
       </section>
     `;
 }
 
-function buildProductionStatusCell(record, editableStatus, inquiryId) {
+function buildOperationalStatusCell(record, editableStatus, inquiryId) {
     if (!editableStatus) return '';
-    return `<textarea class="production-status-input" oninput="updateActiveInquiryProductionStatus('${escapeHtml(inquiryId)}', ${record.sourceIndex}, this.value)">${escapeHtml(record.productionStatus || '')}</textarea>`;
+    return `<textarea class="operational-status-input" oninput="updateActiveInquiryOperationalStatus('${escapeHtml(inquiryId)}', ${record.sourceIndex}, this.value)">${escapeHtml(record.operationalStatus || '')}</textarea>`;
 }
 
 function buildWorkOrderStatusInquiryPrintDefinition() {
@@ -9977,12 +9977,12 @@ function buildWorkOrderStatusInquiryPrintCss() {
 `;
 }
 
-function updateActiveInquiryProductionStatus(inquiryId, sourceIndex, value) {
+function updateActiveInquiryOperationalStatus(inquiryId, sourceIndex, value) {
     const inquiry = getActiveInquiryById(inquiryId);
     if (!inquiry) return;
     const record = inquiry.records.find(item => item.sourceIndex === Number(sourceIndex));
     if (!record) return;
-    record.productionStatus = value;
+    record.operationalStatus = value;
     if (inquiry.status === 'Created' || inquiry.status === 'Issued') {
         inquiry.status = 'Returned';
         syncCurrentInquiryReportStatus(inquiry);
@@ -10004,7 +10004,7 @@ async function completeActiveInquiry(inquiryId) {
     const updates = inquiry.records.map(record => ({
         recordKey: record.masterDataRecordId,
         dleFields: {
-            productionStatus: record.productionStatus || ''
+            operationalStatus: record.operationalStatus || ''
         }
     }));
 
@@ -15965,7 +15965,7 @@ const dleMasterDataGridColumns = [
   { key: 'description', label: 'Description' },
   { key: 'dueDate', label: 'Due Date' },
   { key: 'qtyOpen', label: 'Quantity Open' },
-  { key: 'productionStatus', label: 'Production Status' },
+  { key: 'operationalStatus', label: 'Operational Status' },
   { key: 'lifecycleState', label: 'Lifecycle State' }
 ];
 
@@ -16318,19 +16318,21 @@ function ensureDleMasterDataOperationalFields(data) {
     if (!record.lifecycleUpdatedAt) {
       record.lifecycleUpdatedAt = record.sync?.importedAt || data?.created || new Date().toLocaleString();
     }
-    const hasProductionStatus = Object.prototype.hasOwnProperty.call(record.dle, 'productionStatus');
-    if (!hasProductionStatus) {
-      record.dle.productionStatus = record.dle.productionNotes || '';
+    const hasOperationalStatus = Object.prototype.hasOwnProperty.call(record.dle, 'operationalStatus');
+    if (!hasOperationalStatus) {
+      record.dle.operationalStatus = record.dle.productionStatus || record.dle.operationalNotes || record.dle.productionNotes || '';
     }
+    delete record.dle.productionStatus;
+    delete record.dle.operationalNotes;
     delete record.dle.productionNotes;
   });
 
   if (data?.ownershipModel) {
     const dleOwned = Array.isArray(data.ownershipModel.dleOwned)
-      ? data.ownershipModel.dleOwned.filter(field => field !== 'productionNotes')
+      ? data.ownershipModel.dleOwned.filter(field => !['productionStatus', 'productionNotes', 'operationalNotes'].includes(field))
       : [];
-    if (!dleOwned.includes('productionStatus')) {
-      data.ownershipModel.dleOwned = [...dleOwned, 'productionStatus'];
+    if (!dleOwned.includes('operationalStatus')) {
+      data.ownershipModel.dleOwned = [...dleOwned, 'operationalStatus'];
     } else {
       data.ownershipModel.dleOwned = dleOwned;
     }
@@ -16398,7 +16400,7 @@ async function updateDleMasterDataRecordsDleFields(updates) {
 
 function getDleMasterDataOwnedFields() {
   const ownedFields = dleMasterDataFileState.data?.ownershipModel?.dleOwned;
-  return new Set(Array.isArray(ownedFields) && ownedFields.length ? ownedFields : ['productionStatus']);
+  return new Set(Array.isArray(ownedFields) && ownedFields.length ? ownedFields : ['operationalStatus']);
 }
 
 async function writeCurrentDleMasterDataFile() {
@@ -16676,7 +16678,7 @@ function getDleMasterDataField(record, field) {
     description: vpro5.description,
     dueDate: vpro5.dueDate,
     qtyOpen: vpro5.qtyOpen,
-    productionStatus: dle.productionStatus,
+    operationalStatus: dle.operationalStatus,
     lifecycleState: getMasterRecordLifecycleState(record)
   };
   return formatMasterDataValue(fieldMap[field]);

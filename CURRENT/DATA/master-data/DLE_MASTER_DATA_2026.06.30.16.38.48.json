@@ -23,7 +23,7 @@
       "extendedPrice"
     ],
     "dleOwned": [
-      "productionStatus"
+      "operationalStatus"
     ]
   },
   "records": [
@@ -48,7 +48,7 @@
         "extendedPrice": "3400.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -79,7 +79,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -110,7 +110,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -141,7 +141,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -172,7 +172,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -203,7 +203,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -234,7 +234,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -265,7 +265,7 @@
         "extendedPrice": "2300.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -296,7 +296,7 @@
         "extendedPrice": "2196.65"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -327,7 +327,7 @@
         "extendedPrice": "2196.65"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -358,7 +358,7 @@
         "extendedPrice": "425.62"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -389,7 +389,7 @@
         "extendedPrice": "878.66"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -420,7 +420,7 @@
         "extendedPrice": "2853.20"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -451,7 +451,7 @@
         "extendedPrice": "2196.65"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -482,7 +482,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -513,7 +513,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -544,7 +544,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -575,7 +575,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -606,7 +606,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -637,7 +637,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -668,7 +668,7 @@
         "extendedPrice": "439.33"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -699,7 +699,7 @@
         "extendedPrice": "439.33"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -730,7 +730,7 @@
         "extendedPrice": "170.70"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -761,7 +761,7 @@
         "extendedPrice": "15500.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -792,7 +792,7 @@
         "extendedPrice": "2740.55"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -823,7 +823,7 @@
         "extendedPrice": "945.60"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -854,7 +854,7 @@
         "extendedPrice": "51342.50"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -885,7 +885,7 @@
         "extendedPrice": "3443.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -916,7 +916,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -947,7 +947,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -978,7 +978,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1009,7 +1009,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1040,7 +1040,7 @@
         "extendedPrice": "1317.99"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1071,7 +1071,7 @@
         "extendedPrice": "3500.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1102,7 +1102,7 @@
         "extendedPrice": "14592.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1133,7 +1133,7 @@
         "extendedPrice": "3988.62"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1164,7 +1164,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1195,7 +1195,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1226,7 +1226,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1257,7 +1257,7 @@
         "extendedPrice": "0.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1288,7 +1288,7 @@
         "extendedPrice": "1435.50"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1319,7 +1319,7 @@
         "extendedPrice": "648.70"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1350,7 +1350,7 @@
         "extendedPrice": "570.85"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1381,7 +1381,7 @@
         "extendedPrice": "1288.40"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1412,7 +1412,7 @@
         "extendedPrice": "825.50"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1443,7 +1443,7 @@
         "extendedPrice": "529.65"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1474,7 +1474,7 @@
         "extendedPrice": "145.88"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1505,7 +1505,7 @@
         "extendedPrice": "218.82"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1536,7 +1536,7 @@
         "extendedPrice": "1327.90"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1567,7 +1567,7 @@
         "extendedPrice": "1327.90"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1598,7 +1598,7 @@
         "extendedPrice": "1035.45"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1629,7 +1629,7 @@
         "extendedPrice": "18240.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1660,7 +1660,7 @@
         "extendedPrice": "12370.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1691,7 +1691,7 @@
         "extendedPrice": "820.40"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1722,7 +1722,7 @@
         "extendedPrice": "6805.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1753,7 +1753,7 @@
         "extendedPrice": "3500.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1784,7 +1784,7 @@
         "extendedPrice": "3766.70"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1815,7 +1815,7 @@
         "extendedPrice": "2131.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1846,7 +1846,7 @@
         "extendedPrice": "21899.60"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1877,7 +1877,7 @@
         "extendedPrice": "24757.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1908,7 +1908,7 @@
         "extendedPrice": "42698.70"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1939,7 +1939,7 @@
         "extendedPrice": "1288.40"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -1970,7 +1970,7 @@
         "extendedPrice": "2005.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2001,7 +2001,7 @@
         "extendedPrice": "4957.50"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2032,7 +2032,7 @@
         "extendedPrice": "24757.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2063,7 +2063,7 @@
         "extendedPrice": "657.85"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2094,7 +2094,7 @@
         "extendedPrice": "820.40"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2125,7 +2125,7 @@
         "extendedPrice": "1035.45"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2156,7 +2156,7 @@
         "extendedPrice": "570.85"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2187,7 +2187,7 @@
         "extendedPrice": "310.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2218,7 +2218,7 @@
         "extendedPrice": "1327.90"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2249,7 +2249,7 @@
         "extendedPrice": "24757.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2280,7 +2280,7 @@
         "extendedPrice": "37135.50"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2311,7 +2311,7 @@
         "extendedPrice": "1035.45"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2342,7 +2342,7 @@
         "extendedPrice": "1288.40"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2373,7 +2373,7 @@
         "extendedPrice": "18240.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2404,7 +2404,7 @@
         "extendedPrice": "12370.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2435,7 +2435,7 @@
         "extendedPrice": "17880.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2466,7 +2466,7 @@
         "extendedPrice": "16390.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2497,7 +2497,7 @@
         "extendedPrice": "657.85"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2528,7 +2528,7 @@
         "extendedPrice": "21506.50"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2559,7 +2559,7 @@
         "extendedPrice": "6805.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2590,7 +2590,7 @@
         "extendedPrice": "2131.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2621,7 +2621,7 @@
         "extendedPrice": "4957.50"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2652,7 +2652,7 @@
         "extendedPrice": "1035.45"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2683,7 +2683,7 @@
         "extendedPrice": "310.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2714,7 +2714,7 @@
         "extendedPrice": "1327.90"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2745,7 +2745,7 @@
         "extendedPrice": "18240.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2776,7 +2776,7 @@
         "extendedPrice": "2131.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2807,7 +2807,7 @@
         "extendedPrice": "1035.45"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2838,7 +2838,7 @@
         "extendedPrice": "1288.40"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2869,7 +2869,7 @@
         "extendedPrice": "310.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2900,7 +2900,7 @@
         "extendedPrice": "16051.20"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2931,7 +2931,7 @@
         "extendedPrice": "657.85"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2962,7 +2962,7 @@
         "extendedPrice": "21813.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -2993,7 +2993,7 @@
         "extendedPrice": "30210.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3024,7 +3024,7 @@
         "extendedPrice": "2131.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3055,7 +3055,7 @@
         "extendedPrice": "1288.40"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3086,7 +3086,7 @@
         "extendedPrice": "1327.90"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3117,7 +3117,7 @@
         "extendedPrice": "12370.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3148,7 +3148,7 @@
         "extendedPrice": "10838.75"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3179,7 +3179,7 @@
         "extendedPrice": "310.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3210,7 +3210,7 @@
         "extendedPrice": "657.85"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3241,7 +3241,7 @@
         "extendedPrice": "310.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3272,7 +3272,7 @@
         "extendedPrice": "310.00"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3303,7 +3303,7 @@
         "extendedPrice": "1693.50"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3334,7 +3334,7 @@
         "extendedPrice": "5419.38"
       },
       "dle": {
-        "productionStatus": ""
+        "operationalStatus": ""
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3367,7 +3367,7 @@
         "extendedPrice": "7273.00"
       },
       "dle": {
-        "productionStatus": "New Order"
+        "operationalStatus": "New Order"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3398,7 +3398,7 @@
         "extendedPrice": "9171.60"
       },
       "dle": {
-        "productionStatus": "New Order"
+        "operationalStatus": "New Order"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3429,7 +3429,7 @@
         "extendedPrice": "698.75"
       },
       "dle": {
-        "productionStatus": "New Order"
+        "operationalStatus": "New Order"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3460,7 +3460,7 @@
         "extendedPrice": "698.75"
       },
       "dle": {
-        "productionStatus": "New Order"
+        "operationalStatus": "New Order"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3491,7 +3491,7 @@
         "extendedPrice": "698.75"
       },
       "dle": {
-        "productionStatus": "New Order"
+        "operationalStatus": "New Order"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3522,7 +3522,7 @@
         "extendedPrice": "698.75"
       },
       "dle": {
-        "productionStatus": "New Order"
+        "operationalStatus": "New Order"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3553,7 +3553,7 @@
         "extendedPrice": "698.75"
       },
       "dle": {
-        "productionStatus": "New Order"
+        "operationalStatus": "New Order"
       },
       "sync": {
         "sourceSystem": "VPro5",
@@ -3584,7 +3584,7 @@
         "extendedPrice": "698.75"
       },
       "dle": {
-        "productionStatus": "New Order"
+        "operationalStatus": "New Order"
       },
       "sync": {
         "sourceSystem": "VPro5",

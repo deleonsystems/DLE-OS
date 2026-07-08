@@ -45,7 +45,7 @@
       dueDate: vpro5.dueDate,
       price: vpro5.price,
       extendedPrice: vpro5.extendedPrice,
-      productionStatus: dle.productionStatus
+      operationalStatus: dle.operationalStatus
     };
     return String(fieldMap[field] ?? '');
   }

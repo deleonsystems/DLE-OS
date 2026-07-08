@@ -20,7 +20,7 @@
     { key: 'dueDate', label: 'Due Date' },
     { key: 'price', label: 'Price' },
     { key: 'extendedPrice', label: 'Ext Price' },
-    { key: 'productionStatus', label: 'NOTES' }
+    { key: 'operationalStatus', label: 'Operational Status' }
   ];
 
   window.OperationsCenter.overlayFields = [
