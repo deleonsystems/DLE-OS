@@ -91,6 +91,10 @@
                 <span>Modified</span>
                 <strong id="reconciliationModifiedRecordCount">0</strong>
               </div>
+              <div class="reconciliation-metric-card event-work-order-sync">
+                <span>W/O Sync</span>
+                <strong id="reconciliationWorkOrderSyncCount">0</strong>
+              </div>
               <div class="reconciliation-metric-card event-missing-erp">
                 <span>Missing</span>
                 <strong id="reconciliationMissingErpCount">0</strong>
@@ -106,6 +110,10 @@
             </div>
 
             <div class="reconciliation-command-actions">
+              <label class="reconciliation-migration-toggle">
+                <input id="workOrderSyncMigrationModeToggle" type="checkbox" onchange="toggleWorkOrderSyncMigrationMode(event)">
+                <span>W/O Sync Migration Mode</span>
+              </label>
               <button type="button" onclick="startMasterDataReconciliation()">Reconcile</button>
               <button type="button" onclick="toggleReconciliationSummary()">Open Summary</button>
             </div>
@@ -126,6 +134,7 @@
               <span><i class="event-dot event-new-order"></i>New Order</span>
               <span><i class="event-dot event-missing-erp"></i>Missing From ERP</span>
               <span><i class="event-dot event-modified-record"></i>Modified Record</span>
+              <span><i class="event-dot event-work-order-sync"></i>W/O Sync</span>
               <span><i class="event-dot event-validation-issue"></i>Validation Issue</span>
             </div>
             <div class="reconciliation-event-actions">

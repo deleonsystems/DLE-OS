@@ -7058,7 +7058,8 @@ const erpImportState = {
 const reconciliationState = {
     lastSuccessfulReconciliation: 'No Successful Reconciliation',
     currentState: 'Not Ready',
-    latestSummary: null
+    latestSummary: null,
+    workOrderSyncMigrationMode: false
 };
 
 const reconciliationReviewQueueState = {
@@ -7472,6 +7473,10 @@ function renderErpImportDashboardStatus() {
 function renderReconciliationDashboardStatus() {
     const container = document.getElementById('reconciliationDashboardStatus');
     if (!container) return;
+    const migrationToggle = document.getElementById('workOrderSyncMigrationModeToggle');
+    if (migrationToggle) {
+        migrationToggle.checked = !!reconciliationState.workOrderSyncMigrationMode;
+    }
 
     const masterDataLoaded = !!dleMasterDataFileState.data;
     const erpSnapshotLoaded = erpImportState.status === 'Loaded';
@@ -7482,6 +7487,7 @@ function renderReconciliationDashboardStatus() {
     const items = [
         ['Master Data Status', masterDataLoaded ? getDleMasterDataConnectionStatusLabel() : 'Not Loaded'],
         ['ERP Snapshot Status', erpSnapshotLoaded ? 'Loaded' : 'Not Loaded'],
+        ['W/O Sync Migration Mode', reconciliationState.workOrderSyncMigrationMode ? 'Enabled' : 'Disabled'],
         ['Last Successful Reconciliation', reconciliationState.lastSuccessfulReconciliation],
         ['Current State', reconciliationState.currentState]
     ];
@@ -7670,6 +7676,11 @@ async function approveReconciliationErpUpdates() {
         return;
     }
 
+    if (reconciliationState.workOrderSyncMigrationMode) {
+        await approveWorkOrderSyncMigrationUpdates();
+        return;
+    }
+
     const approvedArchiveShipmentIds = getApprovedShipmentArchiveShipmentIdsFromReviewQueue();
     const archiveCandidates = getShipmentStagingArchiveCandidates(approvedArchiveShipmentIds);
     const shipmentStatus = buildShipmentStagingReconciliationStatus();
@@ -7828,6 +7839,93 @@ function getAcceptedNewOrderReviewQueueEvents() {
     );
 }
 
+function getApprovedWorkOrderSyncMigrationEvents() {
+    return reconciliationReviewQueueState.events.filter(event =>
+        event.eventType === 'W/O Sync' &&
+        reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Sync Work Order'
+    );
+}
+
+async function approveWorkOrderSyncMigrationUpdates() {
+    const approvedEvents = getApprovedWorkOrderSyncMigrationEvents();
+    if (!approvedEvents.length) {
+        setReconciliationActionStatus('No staged W/O Sync decisions are available to approve.');
+        return;
+    }
+
+    const masterDataBeforeApproval = cloneMasterDataRecordForHistory(dleMasterDataFileState.data);
+
+    try {
+        const result = applyApprovedWorkOrderSyncMigrationEvents(approvedEvents);
+        if (!result.updatedRecords) {
+            setReconciliationActionStatus('No W/O Sync records were updated. Confirm the staged rows still have Master Work Order UNKNOWN and valid ERP Work Orders.');
+            return;
+        }
+
+        await persistCurrentOperationalMasterData();
+        refreshDleMasterDataViewerAfterWrite();
+        refreshOpenOrdersFromMasterData();
+
+        const verificationSummary = analyzeMasterDataReconciliation();
+        reconciliationState.latestSummary = verificationSummary;
+        reconciliationState.lastSuccessfulReconciliation = verificationSummary.analysisDate;
+        const verificationEvents = buildReconciliationReviewQueueEvents(verificationSummary);
+        renderReconciliationReviewQueueFromEvents(verificationEvents);
+        refreshOpenOrdersTableView();
+        renderReconciliationDashboardStatus();
+        renderReconciliationSummary(verificationSummary);
+
+        const summaryPanel = document.getElementById('reconciliationSummaryPanel');
+        if (summaryPanel) summaryPanel.hidden = false;
+        const button = document.querySelector('button[onclick="toggleReconciliationSummary()"]');
+        if (button) button.textContent = 'Collapse Summary';
+
+        setReconciliationActionStatus([
+            'W/O Sync migration approval applied.',
+            result.updatedRecords + ' Master Data Work Order value(s) synchronized.',
+            'No shipment, new order, missing ERP, modified record, or validation workflows were processed.',
+            'DLE Master JSON persisted and verified.',
+            'Reconciliation was rerun automatically with ' + verificationEvents.length + ' event(s) remaining.'
+        ].join(' '));
+    } catch (error) {
+        if (masterDataBeforeApproval) {
+            dleMasterDataFileState.data = masterDataBeforeApproval;
+            dleMasterData = masterDataBeforeApproval;
+            dleMasterDataViewerState.data = masterDataBeforeApproval;
+            dleMasterDataViewerState.records = masterDataBeforeApproval.records || [];
+        }
+        refreshOpenOrdersFromMasterData();
+        renderDleMasterDataViewer();
+        renderReconciliationDashboardStatus();
+        setReconciliationActionStatus('Unable to apply W/O Sync migration updates: ' + (error?.message || error));
+    }
+}
+
+function applyApprovedWorkOrderSyncMigrationEvents(events) {
+    const records = Array.isArray(dleMasterDataFileState.data?.records)
+        ? dleMasterDataFileState.data.records
+        : [];
+    const masterByKey = buildReconciliationRecordMap(records, getMasterRecordKeyForRecord);
+    let updatedRecords = 0;
+
+    events.forEach(event => {
+        const masterRecordKey = event?.master?.recordKey || event?.record?.recordKey || '';
+        const erpWorkOrder = normalizeReconciliationValue(event?.erp?.workOrder);
+        if (!masterRecordKey || isUnknownReconciliationWorkOrder(erpWorkOrder)) return;
+
+        const masterRecord = masterByKey.get(masterRecordKey);
+        if (!masterRecord) return;
+
+        masterRecord.vpro5 = masterRecord.vpro5 || {};
+        if (!isUnknownReconciliationWorkOrder(masterRecord.vpro5.workOrder)) return;
+
+        masterRecord.vpro5.workOrder = erpWorkOrder;
+        updatedRecords += 1;
+    });
+
+    return { updatedRecords };
+}
+
 function analyzeMasterDataReconciliation() {
     const analysisDate = new Date().toLocaleString();
     const allMasterRecords = Array.isArray(dleMasterDataFileState.data?.records)
@@ -7844,8 +7942,27 @@ function analyzeMasterDataReconciliation() {
     const recordsMissingFromErp = [];
     const erpFieldDifferences = [];
     const missingErpOwnedFields = [];
+    const workOrderSyncRecords = [];
+    const workOrderSyncMasterKeys = new Set();
+    const workOrderSyncErpKeys = new Set();
+
+    if (reconciliationState.workOrderSyncMigrationMode) {
+        buildWorkOrderSyncMigrationCandidates({
+            masterRecords,
+            erpRecords,
+            masterByKey,
+            erpByKey,
+            erpOwnedFields
+        }).forEach(item => {
+            workOrderSyncRecords.push(item);
+            workOrderSyncMasterKeys.add(item.record.recordKey);
+            workOrderSyncErpKeys.add(item.erpRecord.recordKey);
+        });
+    }
 
     erpByKey.forEach((erpRecord, recordKey) => {
+        if (workOrderSyncErpKeys.has(recordKey)) return;
+
         const masterRecord = masterByKey.get(recordKey);
         if (!masterRecord) {
             newErpRecords.push(buildReconciliationRecordSummary(erpRecord, recordKey));
@@ -7888,12 +8005,14 @@ function analyzeMasterDataReconciliation() {
     });
 
     masterByKey.forEach((masterRecord, recordKey) => {
+        if (workOrderSyncMasterKeys.has(recordKey)) return;
+
         if (!erpByKey.has(recordKey)) {
             recordsMissingFromErp.push(buildReconciliationRecordSummary(masterRecord, recordKey));
         }
     });
 
-    const overallStatus = newErpRecords.length || recordsMissingFromErp.length || erpFieldDifferences.length || missingErpOwnedFields.length
+    const overallStatus = newErpRecords.length || recordsMissingFromErp.length || erpFieldDifferences.length || missingErpOwnedFields.length || workOrderSyncRecords.length
         ? 'Review Needed'
         : 'No Differences Found';
 
@@ -7906,8 +8025,19 @@ function analyzeMasterDataReconciliation() {
         recordsMissingFromErp,
         erpFieldDifferences,
         missingErpOwnedFields,
+        workOrderSyncRecords,
         overallStatus
     };
+}
+
+function toggleWorkOrderSyncMigrationMode(event) {
+    reconciliationState.workOrderSyncMigrationMode = !!event?.target?.checked;
+    clearReconciliationAnalysis(
+        reconciliationState.workOrderSyncMigrationMode
+            ? 'Work Order Sync Migration Mode enabled. Run reconciliation to include migration-only W/O Sync events.'
+            : 'Work Order Sync Migration Mode disabled. Run reconciliation to use normal reconciliation events only.'
+    );
+    renderReconciliationDashboardStatus();
 }
 
 function buildReconciliationRecordMap(records, getKey) {
@@ -7917,6 +8047,127 @@ function buildReconciliationRecordMap(records, getKey) {
         if (recordKey) map.set(recordKey, record);
     });
     return map;
+}
+
+function buildWorkOrderSyncMigrationCandidates(context = {}) {
+    const masterRecords = Array.isArray(context.masterRecords) ? context.masterRecords : [];
+    const erpRecords = Array.isArray(context.erpRecords) ? context.erpRecords : [];
+    const masterByKey = context.masterByKey || new Map();
+    const erpByKey = context.erpByKey || new Map();
+    const erpOwnedFields = Array.isArray(context.erpOwnedFields) ? context.erpOwnedFields : [];
+    const candidates = [];
+    const usedMasterKeys = new Set();
+    const usedErpKeys = new Set();
+
+    erpByKey.forEach((erpRecord, recordKey) => {
+        const masterRecord = masterByKey.get(recordKey);
+        if (!masterRecord) return;
+
+        const candidate = buildWorkOrderSyncMigrationCandidate(masterRecord, erpRecord, recordKey, recordKey, erpOwnedFields);
+        if (!candidate) return;
+
+        candidates.push(candidate);
+        usedMasterKeys.add(recordKey);
+        usedErpKeys.add(recordKey);
+    });
+
+    const unmatchedMasterRecords = masterRecords
+        .map(record => ({ record, recordKey: getMasterRecordKeyForRecord(record) }))
+        .filter(item => item.recordKey && !erpByKey.has(item.recordKey) && !usedMasterKeys.has(item.recordKey));
+    const unmatchedErpRecords = erpRecords
+        .map(record => ({ record, recordKey: record.id }))
+        .filter(item => item.recordKey && !masterByKey.has(item.recordKey) && !usedErpKeys.has(item.recordKey));
+
+    unmatchedErpRecords.forEach(erpItem => {
+        const matches = unmatchedMasterRecords
+            .filter(masterItem => !usedMasterKeys.has(masterItem.recordKey))
+            .map(masterItem => ({
+                masterItem,
+                candidate: buildWorkOrderSyncMigrationCandidate(
+                    masterItem.record,
+                    erpItem.record,
+                    masterItem.recordKey,
+                    erpItem.recordKey,
+                    erpOwnedFields,
+                    { allowKeyMismatch: true }
+                )
+            }))
+            .filter(item => item.candidate);
+
+        if (matches.length !== 1) return;
+
+        candidates.push(matches[0].candidate);
+        usedMasterKeys.add(matches[0].masterItem.recordKey);
+        usedErpKeys.add(erpItem.recordKey);
+    });
+
+    return candidates;
+}
+
+function buildWorkOrderSyncMigrationCandidate(masterRecord, erpRecord, masterRecordKey, erpRecordKey, erpOwnedFields, options = {}) {
+    const masterVpro5 = masterRecord?.vpro5 || {};
+    const erpVpro5 = erpRecord?.vpro5 || {};
+    const masterWorkOrder = normalizeReconciliationValue(masterVpro5.workOrder);
+    const erpWorkOrder = normalizeReconciliationValue(erpVpro5.workOrder);
+
+    if (!isUnknownReconciliationWorkOrder(masterWorkOrder) || isUnknownReconciliationWorkOrder(erpWorkOrder)) {
+        return null;
+    }
+
+    if (options.allowKeyMismatch && !isWorkOrderSyncMigrationBusinessMatch(masterRecord, erpRecord)) {
+        return null;
+    }
+
+    const missingFields = erpOwnedFields.filter(field => !Object.prototype.hasOwnProperty.call(masterVpro5, field));
+    if (missingFields.length) return null;
+
+    const excludedFields = options.allowKeyMismatch
+        ? new Set(['workOrder', 'workOrderQuantity', 'sequenceLine'])
+        : new Set(['workOrder']);
+    const differences = erpOwnedFields
+        .filter(field => !excludedFields.has(field))
+        .filter(field => Object.prototype.hasOwnProperty.call(masterVpro5, field))
+        .map(field => ({
+            field,
+            masterValue: normalizeReconciliationValue(masterVpro5[field]),
+            erpValue: normalizeReconciliationValue(erpVpro5[field])
+        }))
+        .filter(item => item.masterValue !== item.erpValue);
+
+    if (differences.length) return null;
+
+    return {
+        recordKey: masterRecordKey,
+        erpRecordKey,
+        record: buildReconciliationRecordSummary(masterRecord, masterRecordKey),
+        erpRecord: buildReconciliationRecordSummary(erpRecord, erpRecordKey),
+        differences: [{
+            field: 'workOrder',
+            masterValue: masterWorkOrder,
+            erpValue: erpWorkOrder
+        }]
+    };
+}
+
+function isWorkOrderSyncMigrationBusinessMatch(masterRecord, erpRecord) {
+    const masterVpro5 = masterRecord?.vpro5 || {};
+    const erpVpro5 = erpRecord?.vpro5 || {};
+    const requiredFields = [
+        'customerNumber',
+        'customer',
+        'customerPo',
+        'salesOrder',
+        'partNumber',
+        'description',
+        'dueDate',
+        'qtyOpen',
+        'price',
+        'extendedPrice'
+    ];
+
+    return requiredFields.every(field =>
+        normalizeReconciliationValue(masterVpro5[field]) === normalizeReconciliationValue(erpVpro5[field])
+    );
 }
 
 function buildRecordKeyFromVpro5(vpro5) {
@@ -7954,6 +8205,12 @@ function isIgnoredDleOwnedWorkOrderDifference(item) {
     if (item?.field !== 'workOrder') return false;
     return isUnknownReconciliationWorkOrder(item.erpValue) &&
         !isUnknownReconciliationWorkOrder(item.masterValue);
+}
+
+function isWorkOrderSyncDifference(item) {
+    if (item?.field !== 'workOrder') return false;
+    return isUnknownReconciliationWorkOrder(item.masterValue) &&
+        !isUnknownReconciliationWorkOrder(item.erpValue);
 }
 
 function buildReconciliationRecordSummary(record, recordKey) {
@@ -8004,6 +8261,16 @@ function buildReconciliationReviewQueueEvents(summary) {
         resolutionStatus: 'Pending'
     }));
 
+    const workOrderSyncRecords = (summary.workOrderSyncRecords || []).map(item => ({
+        statusIcon: 'WO',
+        eventClass: 'event-work-order-sync',
+        erp: item.erpRecord,
+        master: item.record,
+        eventType: 'W/O Sync',
+        disposition: 'Select',
+        resolutionStatus: 'Pending'
+    }));
+
     const validationIssues = summary.missingErpOwnedFields.map(item => ({
         statusIcon: '!',
         eventClass: 'event-validation-issue',
@@ -8018,6 +8285,7 @@ function buildReconciliationReviewQueueEvents(summary) {
         ...newOrders,
         ...missingFromErp,
         ...modifiedRecords,
+        ...workOrderSyncRecords,
         ...validationIssues
     ];
 }
@@ -8141,7 +8409,8 @@ function compareReconciliationEventType(a, b) {
         'Validation Issue': 1,
         'Missing From ERP': 2,
         'Modified Record': 3,
-        'New Order': 4
+        'W/O Sync': 4,
+        'New Order': 5
     };
     const aRank = order[a] || 99;
     const bRank = order[b] || 99;
@@ -8334,15 +8603,19 @@ function getShipmentIdForReconciliationRecord(record) {
 function renderReconciliationDispositionSelector(selectedValue, eventContext = {}) {
     const value = selectedValue === 'Select' ? '' : selectedValue || '';
     const isNewOrder = eventContext.eventType === 'New Order';
+    const isWorkOrderSync = eventContext.eventType === 'W/O Sync';
     const acceptNewOrderSelected = value === 'Accept New Order' ? ' selected' : '';
     const confirmShipmentSelected = value === 'Confirm Shipment' ? ' selected' : '';
+    const syncWorkOrderSelected = value === 'Sync Work Order' ? ' selected' : '';
     const acceptNewOrderDisabled = isNewOrder ? '' : ' disabled';
-    const confirmShipmentDisabled = isNewOrder ? ' disabled' : '';
+    const confirmShipmentDisabled = isNewOrder || isWorkOrderSync ? ' disabled' : '';
+    const syncWorkOrderDisabled = isWorkOrderSync ? '' : ' disabled';
     return `
       <select class="reconciliation-disposition-select" onchange="updateReconciliationEventDisposition(event)">
         <option value="">Select</option>
         <option value="Accept New Order"${acceptNewOrderDisabled}${acceptNewOrderSelected}>Accept New Order</option>
         <option value="Confirm Shipment"${confirmShipmentDisabled}${confirmShipmentSelected}>Confirm Shipment</option>
+        <option value="Sync Work Order"${syncWorkOrderDisabled}${syncWorkOrderSelected}>Sync Work Order</option>
         <option value="Accept ERP Value" disabled>Accept ERP Value (Coming Soon)</option>
         <option value="Resolve Validation Issue" disabled>Resolve Validation Issue (Coming Soon)</option>
       </select>
@@ -8543,12 +8816,14 @@ function updateReconciliationReviewQueueCounters(events) {
     const counts = events.reduce((totals, event) => {
         if (event.eventType === 'New Order') totals.newOrders += 1;
         if (event.eventType === 'Modified Record') totals.modifiedRecords += 1;
+        if (event.eventType === 'W/O Sync') totals.workOrderSync += 1;
         if (event.eventType === 'Missing From ERP') totals.missingFromErp += 1;
         if (event.eventType === 'Validation Issue') totals.validationIssues += 1;
         return totals;
     }, {
         newOrders: 0,
         modifiedRecords: 0,
+        workOrderSync: 0,
         missingFromErp: 0,
         validationIssues: 0
     });
@@ -8561,6 +8836,7 @@ function updateReconciliationReviewQueueCounters(events) {
 
     setText('reconciliationNewOrderCount', counts.newOrders);
     setText('reconciliationModifiedRecordCount', counts.modifiedRecords);
+    setText('reconciliationWorkOrderSyncCount', counts.workOrderSync);
     setText('reconciliationMissingErpCount', counts.missingFromErp);
     setText('reconciliationPendingEventCount', pendingEvents);
     setText('reconciliationResolvedEventCount', 0);
@@ -8583,11 +8859,13 @@ function renderReconciliationSummary(summary) {
         ${reconciliationSummaryCard('New ERP Records', summary.newErpRecords.length)}
         ${reconciliationSummaryCard('Records Missing from ERP', summary.recordsMissingFromErp.length)}
         ${reconciliationSummaryCard('ERP-Owned Field Differences', summary.erpFieldDifferences.length)}
+        ${reconciliationSummaryCard('W/O Sync Events', (summary.workOrderSyncRecords || []).length)}
         ${reconciliationSummaryCard('Missing ERP-Owned Fields', summary.missingErpOwnedFields.length)}
         ${reconciliationSummaryCard('Overall Status', summary.overallStatus)}
       </div>
       ${renderReconciliationList('New ERP Records', summary.newErpRecords)}
       ${renderReconciliationList('Records Missing from ERP', summary.recordsMissingFromErp)}
+      ${renderReconciliationWorkOrderSyncList(summary.workOrderSyncRecords || [])}
       ${renderReconciliationDifferences(summary.erpFieldDifferences)}
       ${renderMissingErpFieldList(summary.missingErpOwnedFields)}
       ${renderReconciliationInvestigation(summary)}
@@ -8669,6 +8947,43 @@ function renderReconciliationDifferences(items) {
           </div>
           ${items.length > 25 ? `<p>Showing first 25 of ${items.length} records.</p>` : ''}
         ` : '<p>No ERP-owned field differences found.</p>'}
+      </section>
+    `;
+}
+
+function renderReconciliationWorkOrderSyncList(items) {
+    const rows = items.slice(0, 25).map(item => `
+      <tr>
+        <td>${escapeHtml(item.recordKey)}</td>
+        <td>${escapeHtml(item.record.customer)}</td>
+        <td>${escapeHtml(item.record.salesOrder)}</td>
+        <td>${escapeHtml(item.record.sequenceLine)}</td>
+        <td>${renderReconciliationCompareValue(item.record.workOrder)}</td>
+        <td>${renderReconciliationCompareValue(item.erpRecord.workOrder)}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <section class="master-data-detail-section">
+        <h3>W/O Sync Events (${items.length})</h3>
+        ${items.length ? `
+          <div class="master-data-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record Key</th>
+                  <th>Customer</th>
+                  <th>Sales Order</th>
+                  <th>Seq Line</th>
+                  <th>Master WO</th>
+                  <th>ERP WO</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${items.length > 25 ? `<p>Showing first 25 of ${items.length} records.</p>` : ''}
+        ` : '<p>No Work Order synchronization events found.</p>'}
       </section>
     `;
 }
@@ -8798,6 +9113,17 @@ function buildReconciliationInvestigationRecords(summary) {
         erpValue: record.recordKey
     }));
 
+    const workOrderSyncRecords = (summary.workOrderSyncRecords || []).map(item => ({
+        category: 'Work Order Sync',
+        salesOrder: item.record.salesOrder,
+        sequenceLine: item.record.sequenceLine,
+        workOrder: item.record.workOrder,
+        customer: item.record.customer,
+        fieldName: 'Work Order',
+        masterValue: item.record.workOrder || '[unknown]',
+        erpValue: item.erpRecord.workOrder || '[blank]'
+    }));
+
     const missingRecords = summary.recordsMissingFromErp.map(record => ({
         category: 'Record Missing from ERP',
         salesOrder: record.salesOrder,
@@ -8813,6 +9139,7 @@ function buildReconciliationInvestigationRecords(summary) {
         ...fieldDifferences,
         ...missingFields,
         ...newRecords,
+        ...workOrderSyncRecords,
         ...missingRecords
     ];
 }
