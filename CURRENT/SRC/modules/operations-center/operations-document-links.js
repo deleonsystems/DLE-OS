@@ -28,7 +28,12 @@
     },
     kitComplete: {
       label: 'Kit Complete',
-      enabled: false
+      enabled: true,
+      basePath: 'Kit Complete folder selected at runtime',
+      directoryPickerId: 'dle-kit-complete-docs',
+      buildFileName(workOrder) {
+        return normalizeWorkOrder(workOrder) + '.pdf';
+      }
     }
   };
 

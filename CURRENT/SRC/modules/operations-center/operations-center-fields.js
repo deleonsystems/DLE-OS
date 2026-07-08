@@ -40,7 +40,13 @@
         type: 'purchasingComplete'
       }
     },
-    { key: 'kitComplete', label: 'Kit Complete' },
+    {
+      key: 'kitComplete',
+      label: 'Kit Complete',
+      documentLink: {
+        type: 'kitComplete'
+      }
+    },
     { key: 'holdIssue', label: 'HOLD / ISSUE' }
   ];
 })();
