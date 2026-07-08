@@ -21,7 +21,12 @@
           placeholder="Search customer, PO, sales order, work order, item, notes..."
           onkeyup="filterOperationsCenter()">
         <button type="button" onclick="renderOperationsCenterModule()">Refresh</button>
-        <button type="button" onclick="connectOperationsCenterDocumentFolder('kitShort')">Connect Kit Short Folder</button>
+        <select
+          id="operationsCenterDocumentType"
+          class="operations-center-document-type"
+          onchange="refreshOperationsCenterDocumentStatus()">
+        </select>
+        <button type="button" onclick="connectOperationsCenterDocumentFolder()">Connect Document Folder</button>
         <button id="operationsCenterSaveButton" type="button" onclick="saveOperationsCenterOverlay()">Save</button>
       </div>
     </div>

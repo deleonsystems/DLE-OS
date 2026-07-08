@@ -58,6 +58,10 @@
   max-width: 520px;
 }
 
+.operations-center-document-type {
+  min-width: 180px;
+}
+
 .operations-center-status-row {
   display: flex;
   justify-content: space-between;

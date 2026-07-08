@@ -10,11 +10,25 @@
   const documentTypes = {
     kitShort: {
       label: 'Kit Short',
+      enabled: true,
       basePath: 'P:\\KITTING\\KIT-SHORTAGES',
       directoryPickerId: 'dle-kit-short-documents',
       buildFileName(workOrder) {
         return normalizeWorkOrder(workOrder) + '.pdf';
       }
+    },
+    purchasingComplete: {
+      label: 'Purchasing Complete',
+      enabled: true,
+      basePath: 'P:\\Workstation Folder Shortcuts\\Purchasing\\Complete-Shortages',
+      directoryPickerId: 'dle-purch-complete-docs',
+      buildFileName(workOrder) {
+        return normalizeWorkOrder(workOrder) + '.pdf';
+      }
+    },
+    kitComplete: {
+      label: 'Kit Complete',
+      enabled: false
     }
   };
 
@@ -63,11 +77,16 @@
     const config = documentTypes[typeKey];
     if (!config) throw new Error('Unknown document link type: ' + typeKey);
 
+    if (!config.enabled) {
+      setStatus(config.label + ' document folder registration is reserved for a future phase.', '');
+      return;
+    }
+
     setStatus('Select the ' + config.label + ' folder: ' + config.basePath + '.', '');
 
     if (window.showDirectoryPicker) {
       const handle = await window.showDirectoryPicker({
-        id: config.directoryPickerId || typeKey,
+        id: getDirectoryPickerId(typeKey, config),
         mode: 'read'
       });
       await indexDirectoryHandle(typeKey, handle);
@@ -76,6 +95,11 @@
 
     const files = await promptForDirectoryFiles(config);
     indexFileList(typeKey, files, config.label);
+  }
+
+  function getDirectoryPickerId(typeKey, config) {
+    const pickerId = String(config.directoryPickerId || typeKey || 'documents');
+    return pickerId.length <= 32 ? pickerId : pickerId.slice(0, 32);
   }
 
   async function indexDirectoryHandle(typeKey, directoryHandle) {
@@ -187,8 +211,17 @@
     const config = documentTypes[typeKey];
     const state = getTypeState(typeKey);
     if (!config) return '';
+    if (!config.enabled) return config.label + ' document folder support is reserved for a future phase.';
     if (!state.connected) return config.label + ' folder not connected. Expected source: ' + config.basePath + '.';
     return buildConnectedMessage(typeKey);
+  }
+
+  function getDocumentTypes() {
+    return Object.entries(documentTypes).map(([key, config]) => ({
+      key,
+      label: config.label,
+      enabled: !!config.enabled
+    }));
   }
 
   function setStatus(message, stateClass) {
@@ -203,6 +236,7 @@
     connectType,
     getCandidateFileNames,
     getDocumentState,
+    getDocumentTypes,
     getWorkOrderAliases,
     getStatus,
     openDocument,

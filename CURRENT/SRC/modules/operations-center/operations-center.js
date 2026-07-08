@@ -22,6 +22,7 @@
 
   async function initializeOperationsCenter() {
     await window.OperationsCenter.overlayService.initializeOverlay();
+    populateOperationsCenterDocumentTypes();
     window.OperationsCenter.table.updateSaveStatus('No unsaved changes.', 'saved');
     window.OperationsCenter.table.renderModule();
   }
@@ -34,7 +35,45 @@
     window.OperationsCenter.table.filter();
   }
 
-  async function connectOperationsCenterDocumentFolder(typeKey) {
+  function getSelectedOperationsCenterDocumentType() {
+    const selector = document.getElementById('operationsCenterDocumentType');
+    return selector?.value || 'kitShort';
+  }
+
+  function escapeOptionText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    }[character]));
+  }
+
+  function populateOperationsCenterDocumentTypes() {
+    const selector = document.getElementById('operationsCenterDocumentType');
+    const documentLinks = window.OperationsCenter.documentLinks;
+    if (!selector || !documentLinks?.getDocumentTypes) return;
+
+    const selected = selector.value || 'kitShort';
+    selector.innerHTML = documentLinks.getDocumentTypes()
+      .map(type => '<option value="' + escapeOptionText(type.key) + '">' + escapeOptionText(type.label) + '</option>')
+      .join('');
+
+    if (Array.from(selector.options).some(option => option.value === selected)) {
+      selector.value = selected;
+    }
+  }
+
+  function refreshOperationsCenterDocumentStatus() {
+    const typeKey = getSelectedOperationsCenterDocumentType();
+    const status = document.getElementById('operationsCenterDocumentStatus');
+    if (!status) return;
+    status.textContent = window.OperationsCenter.documentLinks.getStatus(typeKey);
+    status.classList.remove('dirty', 'saved', 'error');
+  }
+
+  async function connectOperationsCenterDocumentFolder(typeKey = getSelectedOperationsCenterDocumentType()) {
     try {
       await window.OperationsCenter.documentLinks.connectType(typeKey);
       window.OperationsCenter.table.renderModule();
@@ -92,6 +131,8 @@
   window.OperationsCenter.filter = filterOperationsCenter;
   window.OperationsCenter.connectDocumentFolder = connectOperationsCenterDocumentFolder;
   window.OperationsCenter.openDocumentLink = openOperationsCenterDocumentLink;
+  window.OperationsCenter.populateDocumentTypes = populateOperationsCenterDocumentTypes;
+  window.OperationsCenter.refreshDocumentStatus = refreshOperationsCenterDocumentStatus;
   window.OperationsCenter.updateOverlayField = updateOperationsCenterOverlayField;
   window.OperationsCenter.saveOverlay = saveOperationsCenterOverlay;
 
@@ -101,6 +142,8 @@
   window.filterOperationsCenter = filterOperationsCenter;
   window.connectOperationsCenterDocumentFolder = connectOperationsCenterDocumentFolder;
   window.openOperationsCenterDocumentLink = openOperationsCenterDocumentLink;
+  window.populateOperationsCenterDocumentTypes = populateOperationsCenterDocumentTypes;
+  window.refreshOperationsCenterDocumentStatus = refreshOperationsCenterDocumentStatus;
   window.updateOperationsCenterOverlayField = updateOperationsCenterOverlayField;
   window.saveOperationsCenterOverlay = saveOperationsCenterOverlay;
 })();

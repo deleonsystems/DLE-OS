@@ -34,7 +34,8 @@
 
     const documentStatus = document.getElementById('operationsCenterDocumentStatus');
     if (documentStatus && documentLinks?.getStatus) {
-      documentStatus.textContent = documentLinks.getStatus('kitShort');
+      const selector = document.getElementById('operationsCenterDocumentType');
+      documentStatus.textContent = documentLinks.getStatus(selector?.value || 'kitShort');
     }
   }
 

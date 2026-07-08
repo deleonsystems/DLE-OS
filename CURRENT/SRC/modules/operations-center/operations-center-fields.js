@@ -33,7 +33,13 @@
         type: 'kitShort'
       }
     },
-    { key: 'purchasingComplete', label: 'Purchasing Complete' },
+    {
+      key: 'purchasingComplete',
+      label: 'Purchasing Complete',
+      documentLink: {
+        type: 'purchasingComplete'
+      }
+    },
     { key: 'kitComplete', label: 'Kit Complete' },
     { key: 'holdIssue', label: 'HOLD / ISSUE' }
   ];
