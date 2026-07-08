@@ -3,16 +3,22 @@
 ----------------------------------------------------- */
 
 #operationsCenter {
-  width: min(1800px, 96vw);
-  margin: 0 auto;
+  width: calc(100vw - 32px);
+  max-width: none;
+  min-height: calc(100vh - 220px);
+  margin-left: 50%;
+  transform: translateX(-50%);
 }
 
 .operations-center-panel {
+  min-height: calc(100vh - 220px);
+  display: flex;
+  flex-direction: column;
   background: rgba(255, 255, 255, .05);
   border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 10px;
-  padding: 18px;
-  box-shadow: 0 18px 55px rgba(0, 0, 0, .32);
+  border-radius: 8px;
+  padding: 14px;
+  box-shadow: 0 14px 42px rgba(0, 0, 0, .28);
 }
 
 .operations-center-header {
@@ -20,7 +26,7 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .operations-center-title {
@@ -57,7 +63,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   flex-wrap: wrap;
 }
 
@@ -87,8 +93,10 @@
 }
 
 .operations-center-table-wrap {
+  flex: 1 1 auto;
   overflow: auto;
-  max-height: calc(100vh - 260px);
+  min-height: 420px;
+  max-height: calc(100vh - 252px);
   border: 1px solid rgba(255, 255, 255, .14);
   border-radius: 8px;
   background: rgba(0, 0, 0, .22);
@@ -105,7 +113,7 @@
 .operations-center-table td {
   border-bottom: 1px solid rgba(255, 255, 255, .09);
   border-right: 1px solid rgba(255, 255, 255, .08);
-  padding: 7px 8px;
+  padding: 6px 7px;
   vertical-align: top;
 }
 
@@ -128,25 +136,25 @@
 }
 
 .operations-center-official-cell {
-  min-width: 92px;
+  min-width: 86px;
   white-space: nowrap;
   color: #edf4ff;
 }
 
 .operations-center-description-cell {
-  min-width: 240px;
-  max-width: 420px;
+  min-width: 260px;
+  max-width: 520px;
   white-space: normal;
 }
 
 .operations-center-overlay-cell {
-  min-width: 150px;
+  min-width: 138px;
   background: rgba(250, 204, 21, .035);
 }
 
 .operations-center-editable {
   min-height: 18px;
-  min-width: 130px;
+  min-width: 120px;
   outline: none;
   white-space: pre-wrap;
 }
@@ -162,6 +170,16 @@
 }
 
 @media (max-width: 900px) {
+  #operationsCenter {
+    width: calc(100vw - 20px);
+    min-height: calc(100vh - 190px);
+  }
+
+  .operations-center-panel {
+    min-height: calc(100vh - 190px);
+    padding: 10px;
+  }
+
   .operations-center-header {
     display: block;
   }
@@ -173,5 +191,9 @@
 
   .operations-center-search {
     min-width: 100%;
+  }
+
+  .operations-center-table-wrap {
+    max-height: calc(100vh - 250px);
   }
 }

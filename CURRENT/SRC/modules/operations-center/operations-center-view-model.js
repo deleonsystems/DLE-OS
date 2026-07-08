@@ -42,7 +42,7 @@
       qtyOpen: vpro5.qtyOpen,
       partNumber: vpro5.partNumber,
       description: vpro5.description,
-      shipDate: vpro5.shipDate || dle.shipDate || '',
+      dueDate: vpro5.dueDate,
       price: vpro5.price,
       extendedPrice: vpro5.extendedPrice
     };

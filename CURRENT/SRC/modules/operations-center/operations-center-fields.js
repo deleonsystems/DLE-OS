@@ -17,7 +17,7 @@
     { key: 'qtyOpen', label: 'Qty Open' },
     { key: 'partNumber', label: 'Item#' },
     { key: 'description', label: 'Description' },
-    { key: 'shipDate', label: 'Ship Dt' },
+    { key: 'dueDate', label: 'Due Date' },
     { key: 'price', label: 'Price' },
     { key: 'extendedPrice', label: 'Ext Price' }
   ];
