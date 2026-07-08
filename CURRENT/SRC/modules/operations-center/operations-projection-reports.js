@@ -8,14 +8,15 @@
   window.OperationsCenter = window.OperationsCenter || {};
 
   const reportColumns = [
-    { key: 'customer', label: 'Customer', width: '15%' },
-    { key: 'customerPo', label: 'Customer P/O', width: '14%' },
-    { key: 'salesOrder', label: 'Sales Order #', width: '10%' },
-    { key: 'workOrder', label: 'Work Order', width: '11%' },
-    { key: 'qtyOpen', label: 'Quantity Open', width: '8%' },
-    { key: 'partNumber', label: 'Item #', width: '11%' },
-    { key: 'description', label: 'Description', width: '22%' },
-    { key: 'dueDate', label: 'Due Date', width: '9%' }
+    { key: 'customer', label: 'Customer', width: '13%' },
+    { key: 'customerPo', label: 'Customer P/O', width: '12%' },
+    { key: 'salesOrder', label: 'Sales Order #', width: '9%' },
+    { key: 'workOrder', label: 'Work Order', width: '9%' },
+    { key: 'qtyOpen', label: 'Quantity Open', width: '7%' },
+    { key: 'partNumber', label: 'Item #', width: '10%' },
+    { key: 'description', label: 'Description', width: '21%' },
+    { key: 'dueDate', label: 'Due Date', width: '8%' },
+    { key: 'productionShipping', label: 'Production / Shipping', width: '11%', manualEntry: true }
   ];
 
   function printProductionProjectionReport() {
@@ -35,7 +36,7 @@
     return {
       documentName: 'Production Projection Report',
       paperSize: 'letter',
-      orientation: 'portrait',
+      orientation: 'landscape',
       margins: '.35in',
       html: buildProductionProjectionHtml(records),
       css: buildProductionProjectionCss(),
@@ -53,7 +54,9 @@
 
     return selectedRecords.map(record => {
       return reportColumns.reduce((reportRecord, column) => {
-        reportRecord[column.key] = viewModel.getOfficialField(record, column.key);
+        reportRecord[column.key] = column.manualEntry
+          ? ''
+          : viewModel.getOfficialField(record, column.key);
         return reportRecord;
       }, {});
     });
@@ -94,7 +97,7 @@
   function buildProductionProjectionRow(record) {
     return [
       '<tr>',
-      reportColumns.map(column => '<td>' + escapeReportHtml(record[column.key]) + '</td>').join(''),
+      reportColumns.map(column => '<td class="' + (column.manualEntry ? 'production-projection-write-in-cell' : '') + '">' + escapeReportHtml(record[column.key]) + '</td>').join(''),
       '</tr>'
     ].join('');
   }
@@ -156,7 +159,7 @@
 .production-projection-table th,
 .production-projection-table td {
   border: 1px solid #9ca3af;
-  padding: 5px;
+  padding: 6px;
   vertical-align: top;
   text-align: left;
   overflow-wrap: anywhere;
@@ -170,6 +173,11 @@
 
 .production-projection-table tbody tr:nth-child(even) td {
   background: #f8fafc;
+}
+
+.production-projection-write-in-cell {
+  min-height: .32in;
+  height: .32in;
 }
 
 .production-projection-empty {
