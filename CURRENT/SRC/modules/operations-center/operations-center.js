@@ -22,6 +22,7 @@
 
   async function initializeOperationsCenter() {
     await window.OperationsCenter.overlayService.initializeOverlay();
+    window.OperationsCenter.projection.initialize();
     populateOperationsCenterDocumentTypes();
     window.OperationsCenter.table.updateSaveStatus('No unsaved changes.', 'saved');
     window.OperationsCenter.table.renderModule();
@@ -94,6 +95,15 @@
     }
   }
 
+  function toggleOperationsCenterProjectionMode() {
+    window.OperationsCenter.projection.toggleActive();
+    window.OperationsCenter.table.renderModule();
+  }
+
+  function updateOperationsCenterProjectionSelection(event) {
+    window.OperationsCenter.table.updateProjectionSelection(event);
+  }
+
   function updateOperationsCenterOverlayField(event) {
     window.OperationsCenter.table.updateOverlayField(event);
   }
@@ -133,6 +143,8 @@
   window.OperationsCenter.openDocumentLink = openOperationsCenterDocumentLink;
   window.OperationsCenter.populateDocumentTypes = populateOperationsCenterDocumentTypes;
   window.OperationsCenter.refreshDocumentStatus = refreshOperationsCenterDocumentStatus;
+  window.OperationsCenter.toggleProjectionMode = toggleOperationsCenterProjectionMode;
+  window.OperationsCenter.updateProjectionSelection = updateOperationsCenterProjectionSelection;
   window.OperationsCenter.updateOverlayField = updateOperationsCenterOverlayField;
   window.OperationsCenter.saveOverlay = saveOperationsCenterOverlay;
 
@@ -144,6 +156,8 @@
   window.openOperationsCenterDocumentLink = openOperationsCenterDocumentLink;
   window.populateOperationsCenterDocumentTypes = populateOperationsCenterDocumentTypes;
   window.refreshOperationsCenterDocumentStatus = refreshOperationsCenterDocumentStatus;
+  window.toggleOperationsCenterProjectionMode = toggleOperationsCenterProjectionMode;
+  window.updateOperationsCenterProjectionSelection = updateOperationsCenterProjectionSelection;
   window.updateOperationsCenterOverlayField = updateOperationsCenterOverlayField;
   window.saveOperationsCenterOverlay = saveOperationsCenterOverlay;
 })();

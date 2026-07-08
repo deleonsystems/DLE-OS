@@ -20,6 +20,7 @@
           class="operations-center-search"
           placeholder="Search customer, PO, sales order, work order, item, notes..."
           onkeyup="filterOperationsCenter()">
+        <button id="operationsCenterProjectionToggle" type="button" onclick="toggleOperationsCenterProjectionMode()">Projection Mode</button>
         <button type="button" onclick="renderOperationsCenterModule()">Refresh</button>
         <select
           id="operationsCenterDocumentType"
@@ -35,6 +36,18 @@
       <div id="operationsCenterStatus" class="operations-center-status">Operations Center initializing.</div>
       <div id="operationsCenterDocumentStatus" class="operations-center-save-status">Kit Short folder not connected.</div>
       <div id="operationsCenterSaveStatus" class="operations-center-save-status">No unsaved changes.</div>
+    </div>
+
+    <div id="operationsCenterProjectionSummary" class="operations-center-projection-summary" hidden>
+      <div>
+        <span>Selected Jobs</span>
+        <strong id="operationsCenterProjectionJobs">0</strong>
+      </div>
+      <div>
+        <span>Projected Revenue</span>
+        <strong id="operationsCenterProjectionRevenue">$0.00</strong>
+      </div>
+      <button id="operationsCenterProductionProjectionPrintButton" type="button" onclick="printProductionProjectionReport()">Print Production Projection Report</button>
     </div>
 
     <div id="operationsCenterTable" class="operations-center-table-wrap">

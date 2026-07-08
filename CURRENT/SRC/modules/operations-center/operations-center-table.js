@@ -13,9 +13,11 @@
   const stateActions = window.OperationsCenter.stateActions;
   const viewModel = window.OperationsCenter.viewModel;
   const documentLinks = window.OperationsCenter.documentLinks;
+  const projection = window.OperationsCenter.projection;
 
   function renderModule() {
     renderStatus();
+    renderProjectionSummary();
     renderTable();
     filter();
   }
@@ -49,7 +51,11 @@
       return;
     }
 
-    const headers = officialColumns
+    const projectionHeader = projection?.isActive()
+      ? '<th class="operations-center-include-header">Include</th>'
+      : '';
+
+    const headers = projectionHeader + officialColumns
       .map(column => '<th>' + escapeHtml(column.label) + '</th>')
       .concat(overlayFields.map(field => '<th>' + escapeHtml(field.label) + '</th>'))
       .join('');
@@ -60,6 +66,10 @@
 
   function renderRow(record, index) {
     const masterRecordKey = viewModel.getMasterRecordKey(record);
+    const projectionCell = projection?.isActive()
+      ? renderProjectionCell(masterRecordKey)
+      : '';
+
     const officialCells = officialColumns.map(column => {
       const value = viewModel.getOfficialField(record, column.key);
       const descriptionClass = column.key === 'description' ? ' operations-center-description-cell' : '';
@@ -83,7 +93,48 @@
       ].join('');
     }).join('');
 
-    return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + officialCells + overlayCells + '</tr>';
+    return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + projectionCell + officialCells + overlayCells + '</tr>';
+  }
+
+  function renderProjectionCell(masterRecordKey) {
+    const checked = projection?.isSelected(masterRecordKey) ? ' checked' : '';
+    return [
+      '<td class="operations-center-include-cell">',
+      '<input type="checkbox" data-master-record-key="',
+      escapeHtml(masterRecordKey),
+      '" onchange="updateOperationsCenterProjectionSelection(event)"',
+      checked,
+      '>',
+      '</td>'
+    ].join('');
+  }
+
+  function renderProjectionSummary() {
+    const summary = document.getElementById('operationsCenterProjectionSummary');
+    const jobs = document.getElementById('operationsCenterProjectionJobs');
+    const revenue = document.getElementById('operationsCenterProjectionRevenue');
+    const toggle = document.getElementById('operationsCenterProjectionToggle');
+    const active = !!projection?.isActive();
+
+    if (toggle) {
+      toggle.classList.toggle('active', active);
+      toggle.textContent = active ? 'Projection Mode: On' : 'Projection Mode';
+    }
+
+    if (!summary) return;
+    summary.hidden = !active;
+    if (!active) return;
+
+    const projectionSummary = projection.getSummary(viewModel.getMasterRecords(), viewModel);
+    if (jobs) jobs.textContent = String(projectionSummary.selectedJobs);
+    if (revenue) revenue.textContent = projection.formatCurrency(projectionSummary.projectedRevenue);
+  }
+
+  function updateProjectionSelection(event) {
+    const target = event?.target;
+    const masterRecordKey = target?.dataset?.masterRecordKey || '';
+    projection?.setSelected(masterRecordKey, !!target?.checked);
+    renderProjectionSummary();
   }
 
   function renderDocumentLinkCell(field, record) {
@@ -150,7 +201,9 @@
   window.OperationsCenter.table = {
     renderModule,
     renderStatus,
+    renderProjectionSummary,
     renderTable,
+    updateProjectionSelection,
     updateOverlayField,
     filter,
     updateSaveStatus
