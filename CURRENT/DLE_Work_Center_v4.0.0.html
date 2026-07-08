@@ -4533,6 +4533,7 @@ body {
   </style>
   <link rel="stylesheet" href="SRC/modules/system-center/system-center.css" />
   <link rel="stylesheet" href="SRC/modules/system-center/reconciliation/reconciliation.css" />
+  <link rel="stylesheet" href="SRC/modules/operations-center/operations-center.css" />
   <link rel="stylesheet" href="SRC/modules/shipment-staging/shipment-staging.css" />
   <link rel="stylesheet" href="SRC/modules/shipment-history/shipment-history.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -4582,6 +4583,11 @@ body {
           <h1>Open Orders</h1>
           <p>Load ERP exports and monitor production activity.</p>
           <div class="future">Future</div>
+        </div>
+        <div class="module-card active-card" onclick="go('operationsCenter')">
+          <div class="icon-circle">OC</div>
+          <h1>Operations Center</h1>
+          <p>Daily command center for active Master Data records and operational notes.</p>
         </div>
         <div class="module-card active-card" onclick="go('shipmentStaging')">
           <div class="icon-circle">SS</div>
@@ -4913,6 +4919,16 @@ BOM Viewer</h2>
 
 <!-- =====================================================
    END 450 - HTML: SHIPMENT HISTORY
+===================================================== -->
+
+<!-- =====================================================
+   460 - HTML: OPERATIONS CENTER
+===================================================== -->
+
+<section id="operationsCenter" class="screen" data-module-placeholder="operations-center"></section>
+
+<!-- =====================================================
+   END 460 - HTML: OPERATIONS CENTER
 ===================================================== -->
 
 <!-- =====================================================
@@ -6230,6 +6246,13 @@ BOM Viewer</h2>
 
   <script src="SRC/modules/system-center/reconciliation/reconciliation.js"></script>
   <script src="SRC/modules/system-center/system-center.js"></script>
+  <script src="SRC/modules/operations-center/operations-center-fields.js"></script>
+  <script src="SRC/modules/operations-center/operations-overlay-schema.js"></script>
+  <script src="SRC/modules/operations-center/operations-center-state.js"></script>
+  <script src="SRC/modules/operations-center/operations-overlay-service.js"></script>
+  <script src="SRC/modules/operations-center/operations-center-view-model.js"></script>
+  <script src="SRC/modules/operations-center/operations-center-table.js"></script>
+  <script src="SRC/modules/operations-center/operations-center.js"></script>
   <script src="SRC/modules/shipment-staging/shipment-staging-service.js"></script>
   <script src="SRC/modules/shipment-staging/shipment-staging.js"></script>
   <script src="SRC/modules/shipment-history/shipment-history.js"></script>
@@ -16242,6 +16265,9 @@ function setCurrentDleMasterDataFile(data, options = {}) {
   renderMasterDataDashboardStatus();
   renderReconciliationDashboardStatus();
   refreshOpenOrdersFromMasterData();
+  if (typeof renderOperationsCenterModule === 'function') {
+    renderOperationsCenterModule();
+  }
 }
 
 function ensureDleMasterDataErpFields(data) {
@@ -16989,6 +17015,9 @@ async function initializeDleWorkCenter() {
   if (typeof loadSystemCenterModule === 'function') {
     await loadSystemCenterModule();
   }
+  if (typeof loadOperationsCenterModule === 'function') {
+    await loadOperationsCenterModule();
+  }
   if (typeof loadShipmentStagingModule === 'function') {
     await loadShipmentStagingModule();
   }
@@ -17006,6 +17035,9 @@ async function initializeDleWorkCenter() {
   } else {
     renderShipmentHistoryModule();
   }
+  if (typeof initializeOperationsCenter === 'function') {
+    await initializeOperationsCenter();
+  }
   await initializeDleMasterDataAutoLoad();
   initDocumentIntake();
   syncAssemblyInfoToBomUi();
@@ -17013,6 +17045,9 @@ async function initializeDleWorkCenter() {
   renderBomWorkbenchStatus();
   updateOpenOrderReportSelectionCount();
   updateOpenOrderShipmentSelectionCount();
+  if (typeof renderOperationsCenterModule === 'function') {
+    renderOperationsCenterModule();
+  }
   renderActiveInquiryList();
   renderMasterDataDashboardStatus();
   renderErpImportDashboardStatus();
