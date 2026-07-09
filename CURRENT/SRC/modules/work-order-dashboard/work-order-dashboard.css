@@ -75,7 +75,6 @@
 }
 
 .work-order-dashboard-module-summary-card h3,
-.work-order-dashboard-module-table-card h3,
 .work-order-dashboard-module-documents-card h3,
 .work-order-dashboard-module-workspace-card h3,
 .work-order-dashboard-module-placeholder h3 {
@@ -146,6 +145,35 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.work-order-dashboard-module-collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 10px;
+  color: #e7edf6;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.work-order-dashboard-module-collapse-toggle span {
+  color: #8bbcff;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.work-order-dashboard-module-collapse-toggle strong {
+  font-size: 15px;
+}
+
+.work-order-dashboard-module-collapse-toggle:hover strong,
+.work-order-dashboard-module-collapse-toggle:focus strong {
+  color: #dbeafe;
 }
 
 .work-order-dashboard-module-table-wrap {

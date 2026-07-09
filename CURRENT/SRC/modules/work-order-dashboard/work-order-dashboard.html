@@ -58,9 +58,12 @@
       </div>
     </section>
 
-    <section class="work-order-dashboard-module-table-card" data-work-order-dashboard-section="related-work-orders" aria-label="Related Work Orders">
-      <h3>Related Work Orders</h3>
-      <div class="work-order-dashboard-module-table-wrap">
+    <section class="work-order-dashboard-module-table-card" data-work-order-dashboard-section="scheduled-releases" aria-label="Scheduled Releases">
+      <button type="button" class="work-order-dashboard-module-collapse-toggle" onclick="toggleWorkOrderDashboardScheduledReleases()">
+        <span id="workOrderDashboardScheduledReleasesIndicator">▶</span>
+        <strong>Scheduled Releases</strong>
+      </button>
+      <div id="workOrderDashboardScheduledReleasesBody" class="work-order-dashboard-module-table-wrap" hidden>
         <table class="work-order-dashboard-module-table">
           <thead>
             <tr>

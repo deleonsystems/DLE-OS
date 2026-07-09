@@ -8,10 +8,11 @@
   window.WorkOrderDashboardModule = window.WorkOrderDashboardModule || {};
   let selectedWorkOrder = null;
   let currentView = 'standard';
+  let scheduledReleasesExpanded = false;
 
   const dashboardViews = {
-    standard: ['overview', 'related-work-orders', 'manufacturing-documents', 'module-placeholder'],
-    kitting: ['overview', 'manufacturing-documents', 'kitting-workspace'],
+    standard: ['overview', 'scheduled-releases', 'manufacturing-documents', 'module-placeholder'],
+    kitting: ['overview', 'scheduled-releases', 'manufacturing-documents', 'kitting-workspace'],
     production: ['overview', 'manufacturing-documents', 'production-workspace']
   };
 
@@ -36,12 +37,14 @@
 
   function initializeWorkOrderDashboardModule() {
     currentView = 'standard';
+    scheduledReleasesExpanded = false;
     renderWorkOrderDashboardModule();
   }
 
   function setSelectedWorkOrder(record) {
     selectedWorkOrder = record || null;
     currentView = 'standard';
+    scheduledReleasesExpanded = false;
     renderWorkOrderDashboardModule();
   }
 
@@ -57,6 +60,7 @@
     }
     syncDashboardViewSelector();
     applyDashboardView();
+    syncScheduledReleasesCollapseState();
     renderSelectedWorkOrderSummary();
     renderRelatedWorkOrders();
   }
@@ -81,6 +85,18 @@
       production: 'Production View'
     };
     return labels[viewName] || labels.standard;
+  }
+
+  function toggleScheduledReleases() {
+    scheduledReleasesExpanded = !scheduledReleasesExpanded;
+    syncScheduledReleasesCollapseState();
+  }
+
+  function syncScheduledReleasesCollapseState() {
+    const body = document.getElementById('workOrderDashboardScheduledReleasesBody');
+    const indicator = document.getElementById('workOrderDashboardScheduledReleasesIndicator');
+    if (body) body.hidden = !scheduledReleasesExpanded;
+    if (indicator) indicator.textContent = scheduledReleasesExpanded ? '▼' : '▶';
   }
 
   function renderSelectedWorkOrderSummary() {
@@ -265,11 +281,13 @@
   window.WorkOrderDashboardModule.initialize = initializeWorkOrderDashboardModule;
   window.WorkOrderDashboardModule.setSelectedWorkOrder = setSelectedWorkOrder;
   window.WorkOrderDashboardModule.setView = setDashboardView;
+  window.WorkOrderDashboardModule.toggleScheduledReleases = toggleScheduledReleases;
   window.WorkOrderDashboardModule.render = renderWorkOrderDashboardModule;
 
   window.loadWorkOrderDashboardModule = loadWorkOrderDashboardModule;
   window.initializeWorkOrderDashboardModule = initializeWorkOrderDashboardModule;
   window.setWorkOrderDashboardModuleSelectedWorkOrder = setSelectedWorkOrder;
   window.setWorkOrderDashboardModuleView = setDashboardView;
+  window.toggleWorkOrderDashboardScheduledReleases = toggleScheduledReleases;
   window.renderWorkOrderDashboardModule = renderWorkOrderDashboardModule;
 })();
