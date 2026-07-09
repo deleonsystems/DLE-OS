@@ -189,7 +189,7 @@
 
 .reconciliation-summary-dashboard {
   display: grid;
-  grid-template-columns: repeat(6, minmax(92px, 1fr));
+  grid-template-columns: repeat(7, minmax(92px, 1fr));
   gap: 8px;
   margin: 0;
 }
@@ -234,6 +234,11 @@
 .event-work-order-sync {
   border-color: rgba(255,255,255,.1);
   border-top-color: #2dd4bf;
+}
+
+.event-pending-invoice {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #c084fc;
 }
 
 .event-missing-erp {
@@ -365,6 +370,10 @@
 
 .event-dot.event-work-order-sync {
   background: #2dd4bf;
+}
+
+.event-dot.event-pending-invoice {
+  background: #c084fc;
 }
 
 .event-dot.event-validation-issue {
@@ -535,6 +544,11 @@
 .event-pill.event-work-order-sync {
   background: rgba(45,212,191,.18);
   color: #b9fff6;
+}
+
+.event-pill.event-pending-invoice {
+  background: rgba(192,132,252,.18);
+  color: #ead6ff;
 }
 
 .event-pill.event-validation-issue {

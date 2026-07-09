@@ -7945,6 +7945,9 @@ function analyzeMasterDataReconciliation() {
     const recordsMissingFromErp = [];
     const erpFieldDifferences = [];
     const missingErpOwnedFields = [];
+    const pendingInvoiceRecords = [];
+    const pendingInvoiceMasterKeys = new Set();
+    const pendingInvoiceErpKeys = new Set();
     const workOrderSyncRecords = [];
     const workOrderSyncMasterKeys = new Set();
     const workOrderSyncErpKeys = new Set();
@@ -7963,8 +7966,18 @@ function analyzeMasterDataReconciliation() {
         });
     }
 
+    buildPendingInvoiceReconciliationCandidates({
+        masterByKey,
+        erpByKey
+    }).forEach(item => {
+        pendingInvoiceRecords.push(item);
+        pendingInvoiceMasterKeys.add(item.record.recordKey);
+        pendingInvoiceErpKeys.add(item.erpRecord.recordKey);
+    });
+
     erpByKey.forEach((erpRecord, recordKey) => {
         if (workOrderSyncErpKeys.has(recordKey)) return;
+        if (pendingInvoiceErpKeys.has(recordKey)) return;
 
         const masterRecord = masterByKey.get(recordKey);
         if (!masterRecord) {
@@ -8009,13 +8022,14 @@ function analyzeMasterDataReconciliation() {
 
     masterByKey.forEach((masterRecord, recordKey) => {
         if (workOrderSyncMasterKeys.has(recordKey)) return;
+        if (pendingInvoiceMasterKeys.has(recordKey)) return;
 
         if (!erpByKey.has(recordKey)) {
             recordsMissingFromErp.push(buildReconciliationRecordSummary(masterRecord, recordKey));
         }
     });
 
-    const overallStatus = newErpRecords.length || recordsMissingFromErp.length || erpFieldDifferences.length || missingErpOwnedFields.length || workOrderSyncRecords.length
+    const overallStatus = newErpRecords.length || recordsMissingFromErp.length || erpFieldDifferences.length || missingErpOwnedFields.length || workOrderSyncRecords.length || pendingInvoiceRecords.length
         ? 'Review Needed'
         : 'No Differences Found';
 
@@ -8029,6 +8043,7 @@ function analyzeMasterDataReconciliation() {
         erpFieldDifferences,
         missingErpOwnedFields,
         workOrderSyncRecords,
+        pendingInvoiceRecords,
         overallStatus
     };
 }
@@ -8050,6 +8065,43 @@ function buildReconciliationRecordMap(records, getKey) {
         if (recordKey) map.set(recordKey, record);
     });
     return map;
+}
+
+function buildPendingInvoiceReconciliationCandidates(context = {}) {
+    const masterByKey = context.masterByKey || new Map();
+    const erpByKey = context.erpByKey || new Map();
+    const shipmentRecords = Array.isArray(shipmentStagingState.records)
+        ? shipmentStagingState.records
+        : [];
+    const candidatesByKey = new Map();
+
+    shipmentRecords
+        .filter(record => record.status === 'Pending Invoice')
+        .forEach(shipmentRecord => {
+            const recordKey = getShipmentStagingMasterRecordKey(shipmentRecord);
+            if (!recordKey || candidatesByKey.has(recordKey)) return;
+
+            const masterRecord = masterByKey.get(recordKey);
+            const erpRecord = erpByKey.get(recordKey);
+            if (!masterRecord || !erpRecord) return;
+
+            const shipmentIds = shipmentRecords
+                .filter(record =>
+                    record.status === 'Pending Invoice' &&
+                    getShipmentStagingMasterRecordKey(record) === recordKey
+                )
+                .map(record => normalizeOrderValue(record.shipmentId, ''))
+                .filter(Boolean);
+
+            candidatesByKey.set(recordKey, {
+                recordKey,
+                record: buildReconciliationRecordSummary(masterRecord, recordKey),
+                erpRecord: buildReconciliationRecordSummary(erpRecord, recordKey),
+                shipmentIds: Array.from(new Set(shipmentIds))
+            });
+        });
+
+    return Array.from(candidatesByKey.values());
 }
 
 function buildWorkOrderSyncMigrationCandidates(context = {}) {
@@ -8274,6 +8326,16 @@ function buildReconciliationReviewQueueEvents(summary) {
         resolutionStatus: 'Pending'
     }));
 
+    const pendingInvoiceRecords = (summary.pendingInvoiceRecords || []).map(item => ({
+        statusIcon: 'INV',
+        eventClass: 'event-pending-invoice',
+        erp: item.erpRecord,
+        master: item.record,
+        eventType: 'Pending Invoice',
+        disposition: 'Select',
+        resolutionStatus: 'Pending'
+    }));
+
     const validationIssues = summary.missingErpOwnedFields.map(item => ({
         statusIcon: '!',
         eventClass: 'event-validation-issue',
@@ -8289,6 +8351,7 @@ function buildReconciliationReviewQueueEvents(summary) {
         ...missingFromErp,
         ...modifiedRecords,
         ...workOrderSyncRecords,
+        ...pendingInvoiceRecords,
         ...validationIssues
     ];
 }
@@ -8410,10 +8473,11 @@ function compareReconciliationReviewQueueEvents(a, b) {
 function compareReconciliationEventType(a, b) {
     const order = {
         'Validation Issue': 1,
-        'Missing From ERP': 2,
-        'Modified Record': 3,
-        'W/O Sync': 4,
-        'New Order': 5
+        'Pending Invoice': 2,
+        'Missing From ERP': 3,
+        'Modified Record': 4,
+        'W/O Sync': 5,
+        'New Order': 6
     };
     const aRank = order[a] || 99;
     const bRank = order[b] || 99;
@@ -8607,12 +8671,20 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
     const value = selectedValue === 'Select' ? '' : selectedValue || '';
     const isNewOrder = eventContext.eventType === 'New Order';
     const isWorkOrderSync = eventContext.eventType === 'W/O Sync';
+    const isPendingInvoice = eventContext.eventType === 'Pending Invoice';
     const acceptNewOrderSelected = value === 'Accept New Order' ? ' selected' : '';
     const confirmShipmentSelected = value === 'Confirm Shipment' ? ' selected' : '';
     const syncWorkOrderSelected = value === 'Sync Work Order' ? ' selected' : '';
     const acceptNewOrderDisabled = isNewOrder ? '' : ' disabled';
-    const confirmShipmentDisabled = isNewOrder || isWorkOrderSync ? ' disabled' : '';
+    const confirmShipmentDisabled = isNewOrder || isWorkOrderSync || isPendingInvoice ? ' disabled' : '';
     const syncWorkOrderDisabled = isWorkOrderSync ? '' : ' disabled';
+    if (isPendingInvoice) {
+        return `
+      <select class="reconciliation-disposition-select" disabled>
+        <option value="">Review Only</option>
+      </select>
+    `;
+    }
     return `
       <select class="reconciliation-disposition-select" onchange="updateReconciliationEventDisposition(event)">
         <option value="">Select</option>
@@ -8820,6 +8892,7 @@ function updateReconciliationReviewQueueCounters(events) {
         if (event.eventType === 'New Order') totals.newOrders += 1;
         if (event.eventType === 'Modified Record') totals.modifiedRecords += 1;
         if (event.eventType === 'W/O Sync') totals.workOrderSync += 1;
+        if (event.eventType === 'Pending Invoice') totals.pendingInvoice += 1;
         if (event.eventType === 'Missing From ERP') totals.missingFromErp += 1;
         if (event.eventType === 'Validation Issue') totals.validationIssues += 1;
         return totals;
@@ -8827,6 +8900,7 @@ function updateReconciliationReviewQueueCounters(events) {
         newOrders: 0,
         modifiedRecords: 0,
         workOrderSync: 0,
+        pendingInvoice: 0,
         missingFromErp: 0,
         validationIssues: 0
     });
@@ -8840,6 +8914,7 @@ function updateReconciliationReviewQueueCounters(events) {
     setText('reconciliationNewOrderCount', counts.newOrders);
     setText('reconciliationModifiedRecordCount', counts.modifiedRecords);
     setText('reconciliationWorkOrderSyncCount', counts.workOrderSync);
+    setText('reconciliationPendingInvoiceCount', counts.pendingInvoice);
     setText('reconciliationMissingErpCount', counts.missingFromErp);
     setText('reconciliationPendingEventCount', pendingEvents);
     setText('reconciliationResolvedEventCount', 0);
@@ -8863,12 +8938,14 @@ function renderReconciliationSummary(summary) {
         ${reconciliationSummaryCard('Records Missing from ERP', summary.recordsMissingFromErp.length)}
         ${reconciliationSummaryCard('ERP-Owned Field Differences', summary.erpFieldDifferences.length)}
         ${reconciliationSummaryCard('W/O Sync Events', (summary.workOrderSyncRecords || []).length)}
+        ${reconciliationSummaryCard('Pending Invoice Events', (summary.pendingInvoiceRecords || []).length)}
         ${reconciliationSummaryCard('Missing ERP-Owned Fields', summary.missingErpOwnedFields.length)}
         ${reconciliationSummaryCard('Overall Status', summary.overallStatus)}
       </div>
       ${renderReconciliationList('New ERP Records', summary.newErpRecords)}
       ${renderReconciliationList('Records Missing from ERP', summary.recordsMissingFromErp)}
       ${renderReconciliationWorkOrderSyncList(summary.workOrderSyncRecords || [])}
+      ${renderReconciliationPendingInvoiceList(summary.pendingInvoiceRecords || [])}
       ${renderReconciliationDifferences(summary.erpFieldDifferences)}
       ${renderMissingErpFieldList(summary.missingErpOwnedFields)}
       ${renderReconciliationInvestigation(summary)}
@@ -8950,6 +9027,43 @@ function renderReconciliationDifferences(items) {
           </div>
           ${items.length > 25 ? `<p>Showing first 25 of ${items.length} records.</p>` : ''}
         ` : '<p>No ERP-owned field differences found.</p>'}
+      </section>
+    `;
+}
+
+function renderReconciliationPendingInvoiceList(items) {
+    const rows = items.slice(0, 25).map(item => `
+      <tr>
+        <td>${escapeHtml(item.recordKey)}</td>
+        <td>${escapeHtml(item.record.customer)}</td>
+        <td>${escapeHtml(item.record.salesOrder)}</td>
+        <td>${escapeHtml(item.record.sequenceLine)}</td>
+        <td>${escapeHtml(item.record.workOrder)}</td>
+        <td>${escapeHtml((item.shipmentIds || []).join(', '))}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <section class="master-data-detail-section">
+        <h3>Pending Invoice Events (${items.length})</h3>
+        ${items.length ? `
+          <div class="master-data-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record Key</th>
+                  <th>Customer</th>
+                  <th>Sales Order</th>
+                  <th>Seq Line</th>
+                  <th>Work Order</th>
+                  <th>Shipment ID</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${items.length > 25 ? `<p>Showing first 25 of ${items.length} records.</p>` : ''}
+        ` : '<p>No Pending Invoice timing events found.</p>'}
       </section>
     `;
 }
@@ -9127,6 +9241,17 @@ function buildReconciliationInvestigationRecords(summary) {
         erpValue: item.erpRecord.workOrder || '[blank]'
     }));
 
+    const pendingInvoiceRecords = (summary.pendingInvoiceRecords || []).map(item => ({
+        category: 'Pending Invoice',
+        salesOrder: item.record.salesOrder,
+        sequenceLine: item.record.sequenceLine,
+        workOrder: item.record.workOrder,
+        customer: item.record.customer,
+        fieldName: 'Shipment Staging',
+        masterValue: (item.shipmentIds || []).join(', ') || '[shipment staged]',
+        erpValue: 'ERP still shows open'
+    }));
+
     const missingRecords = summary.recordsMissingFromErp.map(record => ({
         category: 'Record Missing from ERP',
         salesOrder: record.salesOrder,
@@ -9143,6 +9268,7 @@ function buildReconciliationInvestigationRecords(summary) {
         ...missingFields,
         ...newRecords,
         ...workOrderSyncRecords,
+        ...pendingInvoiceRecords,
         ...missingRecords
     ];
 }
