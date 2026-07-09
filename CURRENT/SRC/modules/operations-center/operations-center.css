@@ -209,6 +209,23 @@
   white-space: normal;
 }
 
+.operations-center-sales-order-link {
+  color: #93c5fd;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.operations-center-sales-order-link:hover,
+.operations-center-sales-order-link:focus {
+  color: #dbeafe;
+  outline: none;
+}
+
 .operations-center-overlay-cell {
   min-width: 138px;
   background: rgba(250, 204, 21, .035);

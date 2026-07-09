@@ -73,6 +73,17 @@
     const officialCells = officialColumns.map(column => {
       const value = viewModel.getOfficialField(record, column.key);
       const descriptionClass = column.key === 'description' ? ' operations-center-description-cell' : '';
+      if (column.key === 'salesOrder') {
+        return [
+          '<td class="operations-center-official-cell">',
+          '<button type="button" class="operations-center-sales-order-link" data-master-record-key="',
+          escapeHtml(masterRecordKey),
+          '" onclick="openOperationsCenterSalesOrderDashboard(event)">',
+          escapeHtml(value),
+          '</button>',
+          '</td>'
+        ].join('');
+      }
       return '<td class="operations-center-official-cell' + descriptionClass + '">' + escapeHtml(value) + '</td>';
     }).join('');
 
@@ -135,6 +146,67 @@
     const masterRecordKey = target?.dataset?.masterRecordKey || '';
     projection?.setSelected(masterRecordKey, !!target?.checked);
     renderProjectionSummary();
+  }
+
+  function openSalesOrderDashboard(event) {
+    const target = event?.currentTarget || event?.target;
+    const masterRecordKey = target?.dataset?.masterRecordKey || '';
+    const record = viewModel.getMasterRecords().find(item => viewModel.getMasterRecordKey(item) === masterRecordKey);
+    if (!record) return;
+
+    const selectedOrder = buildSelectedOrderPayload(record, masterRecordKey);
+    if (typeof window.SalesOrderDashboard?.setSelectedOrder === 'function') {
+      window.SalesOrderDashboard.setSelectedOrder(selectedOrder);
+    }
+    if (typeof go === 'function') {
+      go('salesOrderDashboard');
+    }
+  }
+
+  function buildSelectedOrderPayload(record, masterRecordKey) {
+    const official = officialColumns.reduce((fields, column) => {
+      fields[column.key] = viewModel.getOfficialField(record, column.key);
+      return fields;
+    }, {});
+    const overlay = stateActions.getOverlayRecord(masterRecordKey);
+    const relatedRows = getRelatedSalesOrderRows(official);
+
+    return {
+      masterRecordKey,
+      official,
+      overlay: { ...overlay },
+      relatedRows,
+      masterRecord: cloneRecord(record)
+    };
+  }
+
+  function getRelatedSalesOrderRows(selectedOfficial) {
+    const salesOrder = String(selectedOfficial.salesOrder || '').trim();
+    if (!salesOrder) return [];
+
+    return viewModel.getMasterRecords()
+      .filter(record => String(viewModel.getOfficialField(record, 'salesOrder') || '').trim() === salesOrder)
+      .map(record => {
+        const key = viewModel.getMasterRecordKey(record);
+        const official = officialColumns.reduce((fields, column) => {
+          fields[column.key] = viewModel.getOfficialField(record, column.key);
+          return fields;
+        }, {});
+        return {
+          masterRecordKey: key,
+          official,
+          overlay: { ...stateActions.getOverlayRecord(key) },
+          masterRecord: cloneRecord(record)
+        };
+      });
+  }
+
+  function cloneRecord(record) {
+    try {
+      return structuredClone(record);
+    } catch (error) {
+      return JSON.parse(JSON.stringify(record || {}));
+    }
   }
 
   function renderDocumentLinkCell(field, record) {
@@ -203,9 +275,12 @@
     renderStatus,
     renderProjectionSummary,
     renderTable,
+    openSalesOrderDashboard,
     updateProjectionSelection,
     updateOverlayField,
     filter,
     updateSaveStatus
   };
+
+  window.openOperationsCenterSalesOrderDashboard = openSalesOrderDashboard;
 })();

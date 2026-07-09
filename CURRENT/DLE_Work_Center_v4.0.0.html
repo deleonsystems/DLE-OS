@@ -4534,6 +4534,7 @@ body {
   <link rel="stylesheet" href="SRC/modules/system-center/system-center.css" />
   <link rel="stylesheet" href="SRC/modules/system-center/reconciliation/reconciliation.css" />
   <link rel="stylesheet" href="SRC/modules/operations-center/operations-center.css" />
+  <link rel="stylesheet" href="SRC/modules/sales-order-dashboard/sales-order-dashboard.css" />
   <link rel="stylesheet" href="SRC/modules/shipment-staging/shipment-staging.css" />
   <link rel="stylesheet" href="SRC/modules/shipment-history/shipment-history.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -4929,6 +4930,16 @@ BOM Viewer</h2>
 
 <!-- =====================================================
    END 460 - HTML: OPERATIONS CENTER
+===================================================== -->
+
+<!-- =====================================================
+   470 - HTML: SALES ORDER DASHBOARD
+===================================================== -->
+
+<section id="salesOrderDashboard" class="screen" data-module-placeholder="sales-order-dashboard"></section>
+
+<!-- =====================================================
+   END 470 - HTML: SALES ORDER DASHBOARD
 ===================================================== -->
 
 <!-- =====================================================
@@ -6256,6 +6267,7 @@ BOM Viewer</h2>
   <script src="SRC/modules/operations-center/operations-projection-reports.js"></script>
   <script src="SRC/modules/operations-center/operations-center-table.js"></script>
   <script src="SRC/modules/operations-center/operations-center.js"></script>
+  <script src="SRC/modules/sales-order-dashboard/sales-order-dashboard.js"></script>
   <script src="SRC/modules/shipment-staging/shipment-staging-service.js"></script>
   <script src="SRC/modules/shipment-staging/shipment-staging.js"></script>
   <script src="SRC/modules/shipment-history/shipment-history.js"></script>
@@ -6298,6 +6310,9 @@ BOM Viewer</h2>
       }
       if (id === 'shipmentHistory') {
         renderShipmentHistoryModule();
+      }
+      if (id === 'salesOrderDashboard') {
+        renderSalesOrderDashboardModule();
       }
       updatePills();
       updateBackButton();
@@ -17482,6 +17497,9 @@ async function initializeDleWorkCenter() {
   if (typeof loadShipmentHistoryModule === 'function') {
     await loadShipmentHistoryModule();
   }
+  if (typeof loadSalesOrderDashboardModule === 'function') {
+    await loadSalesOrderDashboardModule();
+  }
   configureDocumentProcessingLibraries();
   initializeShipmentStaging();
   if (typeof initializeShipmentStagingPersistence === 'function') {
@@ -17495,6 +17513,9 @@ async function initializeDleWorkCenter() {
   }
   if (typeof initializeOperationsCenter === 'function') {
     await initializeOperationsCenter();
+  }
+  if (typeof initializeSalesOrderDashboard === 'function') {
+    initializeSalesOrderDashboard();
   }
   await initializeDleMasterDataAutoLoad();
   initDocumentIntake();
