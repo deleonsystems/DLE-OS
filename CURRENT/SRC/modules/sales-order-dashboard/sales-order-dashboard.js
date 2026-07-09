@@ -76,7 +76,11 @@
         rowClass,
         '">',
         '<td>',
+        '<button type="button" class="sales-order-dashboard-work-order-link" data-related-row-index="',
+        String(index),
+        '" onclick="openSalesOrderDashboardWorkOrder(event)">',
         escapeDashboardHtml(official.workOrder || 'Unknown'),
+        '</button>',
         '</td>',
         '<td>',
         escapeDashboardHtml(official.partNumber || 'N/A'),
@@ -93,6 +97,20 @@
         '</tr>'
       ].join('');
     }).join('');
+  }
+
+  function openWorkOrderDashboard(event) {
+    const target = event?.currentTarget || event?.target;
+    const index = Number(target?.dataset?.relatedRowIndex);
+    const selectedRow = getRelatedRows()[index];
+    if (!selectedRow) return;
+
+    if (typeof window.WorkOrderDashboardModule?.setSelectedWorkOrder === 'function') {
+      window.WorkOrderDashboardModule.setSelectedWorkOrder(selectedRow);
+    }
+    if (typeof go === 'function') {
+      go('workOrderDashboardModule');
+    }
   }
 
   function getRelatedRows() {
@@ -127,10 +145,12 @@
   window.SalesOrderDashboard.loadModule = loadSalesOrderDashboardModule;
   window.SalesOrderDashboard.initialize = initializeSalesOrderDashboard;
   window.SalesOrderDashboard.setSelectedOrder = setSelectedOrder;
+  window.SalesOrderDashboard.openWorkOrderDashboard = openWorkOrderDashboard;
   window.SalesOrderDashboard.render = renderSalesOrderDashboardModule;
 
   window.loadSalesOrderDashboardModule = loadSalesOrderDashboardModule;
   window.initializeSalesOrderDashboard = initializeSalesOrderDashboard;
   window.setSalesOrderDashboardSelectedOrder = setSelectedOrder;
+  window.openSalesOrderDashboardWorkOrder = openWorkOrderDashboard;
   window.renderSalesOrderDashboardModule = renderSalesOrderDashboardModule;
 })();

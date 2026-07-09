@@ -197,6 +197,23 @@
   white-space: nowrap;
 }
 
+.sales-order-dashboard-work-order-link {
+  color: #93c5fd;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.sales-order-dashboard-work-order-link:hover,
+.sales-order-dashboard-work-order-link:focus {
+  color: #dbeafe;
+  outline: none;
+}
+
 .sales-order-dashboard-document-grid,
 .sales-order-dashboard-action-buttons {
   display: grid;

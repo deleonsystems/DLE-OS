@@ -1,0 +1,155 @@
+<!-- =====================================================
+   480 - HTML: WORK ORDER DASHBOARD MODULE
+===================================================== -->
+
+<section id="workOrderDashboardModule" class="screen" data-module-loaded="true">
+  <div class="work-order-dashboard-module-panel">
+    <div class="work-order-dashboard-module-header">
+      <div class="work-order-dashboard-module-title">
+        <span class="small-icon">WO</span>
+        <div>
+          <h2>Work Order Dashboard</h2>
+          <p>Future digital replacement for the physical Work Order packet.</p>
+        </div>
+      </div>
+      <button type="button" onclick="go('salesOrderDashboard')">Back to Sales Order Dashboard</button>
+    </div>
+
+    <div id="workOrderDashboardModuleStatus" class="work-order-dashboard-module-status">
+      Work Order Dashboard module initialized. Future packet workflows will be migrated here.
+    </div>
+
+    <div class="work-order-dashboard-module-view-selector" aria-label="Dashboard View Selector">
+      <label for="workOrderDashboardView">Dashboard View</label>
+      <select id="workOrderDashboardView" onchange="setWorkOrderDashboardModuleView(event.target.value)">
+        <option value="standard">Standard View</option>
+        <option value="kitting">Kitting View</option>
+        <option value="production">Production View</option>
+      </select>
+    </div>
+
+    <section class="work-order-dashboard-module-summary-card" data-work-order-dashboard-section="overview" aria-label="Selected Work Order">
+      <h3>Selected Work Order</h3>
+      <div class="work-order-dashboard-module-summary-grid">
+        <div class="work-order-dashboard-module-summary-item">
+          <strong>Work Order</strong>
+          <span id="workOrderDashboardSummaryWorkOrder">None selected</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item">
+          <strong>Assembly</strong>
+          <span id="workOrderDashboardSummaryAssembly">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item">
+          <strong>Revision</strong>
+          <span id="workOrderDashboardSummaryRevision">Unknown</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item">
+          <strong>Qty Open</strong>
+          <span id="workOrderDashboardSummaryQuantity">0</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item">
+          <strong>Next Due Date</strong>
+          <span id="workOrderDashboardSummaryDueDate">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item">
+          <strong>Status</strong>
+          <span id="workOrderDashboardSummaryStatus">N/A</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="work-order-dashboard-module-table-card" data-work-order-dashboard-section="related-work-orders" aria-label="Related Work Orders">
+      <h3>Related Work Orders</h3>
+      <div class="work-order-dashboard-module-table-wrap">
+        <table class="work-order-dashboard-module-table">
+          <thead>
+            <tr>
+              <th>Work Order</th>
+              <th>Assembly</th>
+              <th>Revision</th>
+              <th>Quantity</th>
+              <th>Due Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="workOrderDashboardRelatedRows">
+            <tr>
+              <td class="work-order-dashboard-module-empty" colspan="6">Select a Work Order from Sales Order Dashboard.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="work-order-dashboard-module-documents-card" data-work-order-dashboard-section="manufacturing-documents" aria-label="Manufacturing Documents">
+      <h3>Manufacturing Documents</h3>
+      <div class="work-order-dashboard-module-document-grid">
+        <button type="button" disabled>
+          Released BOM
+          <span>Original released manufacturing BOM</span>
+        </button>
+        <button type="button" disabled>
+          Kitted BOM
+          <span>Approved Kit Complete or Kit Short BOM packet</span>
+        </button>
+        <button type="button" disabled>
+          Traveler
+          <span>Coming Soon</span>
+        </button>
+        <button type="button" disabled>
+          Assembly Drawing
+          <span>Coming Soon</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="work-order-dashboard-module-workspace-card" data-work-order-dashboard-section="kitting-workspace" aria-label="Kitting Workspace" hidden>
+      <h3>Kitting Workspace</h3>
+      <div class="work-order-dashboard-module-workspace-grid">
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Kit Status</strong>
+          <span>Coming Soon</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Kitting Notes</strong>
+          <span>Coming Soon</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Material Shortages</strong>
+          <span>Coming Soon</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Kitting Actions</strong>
+          <span>Coming Soon</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="work-order-dashboard-module-workspace-card" data-work-order-dashboard-section="production-workspace" aria-label="Production Workspace" hidden>
+      <h3>Production Workspace</h3>
+      <div class="work-order-dashboard-module-workspace-grid">
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Production Status</strong>
+          <span>Coming Soon</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Traveler Progress</strong>
+          <span>Coming Soon</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Production Notes</strong>
+          <span>Coming Soon</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Production Actions</strong>
+          <span>Coming Soon</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="work-order-dashboard-module-placeholder" data-work-order-dashboard-section="module-placeholder">
+      <h3>Module Ready</h3>
+      <p>This module is intentionally a navigation and data-passing foundation. Production, quality, BOM, labor, and shipping workflows will be added in future phases.</p>
+    </section>
+  </div>
+</section>
