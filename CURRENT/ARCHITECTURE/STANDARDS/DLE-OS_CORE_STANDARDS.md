@@ -23,6 +23,7 @@ Before implementing any major workflow or module, this document should be consul
 - [DATA-004 - Dataset Schema and Version Metadata](#data-004---dataset-schema-and-version-metadata)
 - [PERSIST-001 - Persistence and Write Verification](#persist-001---persistence-and-write-verification)
 - [LIFE-001 - Master Record Lifecycle](#life-001---master-record-lifecycle)
+- [UI-001 - Workspace Navigation Precedence](#ui-001---workspace-navigation-precedence)
 - [MOD-001 - Module Boundaries and State Ownership](#mod-001---module-boundaries-and-state-ownership)
 - [REC-001 - Reconciliation Review and Approval](#rec-001---reconciliation-review-and-approval)
 - [SHP-001 - Shipment Workflow Philosophy](#shp-001---shipment-workflow-philosophy)
@@ -246,6 +247,40 @@ Shipment confirmation may move a Master Data record into a staged state while th
 Approved reconciliation may archive completed shipment records into Shipment History and remove completed records from the active operational Master Data set.
 
 Lifecycle state changes should include enough metadata to understand when and why the state changed.
+
+---
+
+# UI-001 - Workspace Navigation Precedence
+
+**Status:** Approved  
+**Effective Date:** 2026-07-10
+
+DLE-OS shall present workspace views in a consistent order across the application.
+
+The workspace order represents enterprise-level access first, followed by the operational lifecycle from opportunity through shipment, then reporting.
+
+The approved workspace order is:
+
+1. Administration
+2. CEO Dashboard
+3. RFQ / Quoting
+4. Order Entry
+5. Contract Review
+6. Operations Center
+7. Purchasing
+8. Kitting
+9. Production
+10. Quality
+11. Shipping
+12. Reports
+
+Administration remains the primary development, system management, ERP import, reconciliation, configuration, and developer-tools workspace during Alpha.
+
+The CEO Dashboard is reserved for executive operational visibility, company health, production overview, financial and operational KPIs, and daily priorities.
+
+Operational workspaces should evolve into role-specific landing pages rather than duplicate module navigation menus.
+
+Workspace ordering should not be changed casually because it encodes the intended operational flow of De Leon Enterprises.
 
 ---
 

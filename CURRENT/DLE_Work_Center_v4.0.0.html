@@ -272,15 +272,33 @@ body {
     .app-subtitle { margin-top: 8px; color: var(--muted); font-size: 14px; }
 
     .top-pills { display: flex; gap: 14px; align-items: center; }
-    .pill {
+    .workspace-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       border: 1px solid rgba(47,140,255,.35);
       background: rgba(10, 20, 34, .85);
       border-radius: 10px;
-      padding: 12px 16px;
+      padding: 8px 10px 8px 14px;
       color: var(--muted);
       white-space: nowrap;
     }
-    .pill span { color: var(--blue); }
+
+    .workspace-selector label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .workspace-selector select {
+      min-width: 144px;
+      border: 1px solid rgba(47,140,255,.32);
+      border-radius: 8px;
+      background: rgba(4, 12, 22, .96);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
 
     .nav-btn, .home-btn {
       border: 1px solid rgba(255,255,255,.40);
@@ -336,6 +354,79 @@ body {
 /* =====================================================
    310 - CSS: HOME AND ASSEMBLY DASHBOARD
 ===================================================== */
+
+    .workspace-home { display: none; }
+    .workspace-home.active { display: block; }
+
+    .workspace-dashboard {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .workspace-dashboard-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+    }
+
+    .workspace-dashboard-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .workspace-dashboard-title h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    .workspace-dashboard-title p {
+      margin: 6px 0 0;
+      color: #d7dee8;
+      line-height: 1.4;
+    }
+
+    .workspace-dashboard-status {
+      border: 1px solid rgba(130, 170, 210, .22);
+      border-radius: 14px;
+      background: rgba(4, 10, 18, .48);
+      color: #d7dee8;
+      padding: 10px 12px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .workspace-dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .workspace-dashboard-card {
+      border: 1px solid rgba(130, 170, 210, .22);
+      border-radius: 14px;
+      background: rgba(4, 10, 18, .48);
+      padding: 16px;
+      min-height: 138px;
+    }
+
+    .workspace-dashboard-card h3 {
+      margin: 0 0 10px;
+      color: var(--blue);
+      font-size: 18px;
+    }
+
+    .workspace-dashboard-card p {
+      margin: 0;
+      color: #c7d0dc;
+      line-height: 1.45;
+    }
 
     .icon-circle {
       width: 74px;
@@ -4469,6 +4560,9 @@ body {
     @media (max-width: 900px) {
       header { flex-wrap: wrap; }
       .top-pills { width: 100%; flex-wrap: wrap; }
+      .workspace-dashboard-header { display: grid; }
+      .workspace-dashboard-status { white-space: normal; }
+      .workspace-dashboard-grid { grid-template-columns: 1fr; }
       .hero-grid, .capture-panel, .capture-grid, .search-type-grid, .result-details { grid-template-columns: 1fr; }
       .panel-intro { border-right: 0; border-bottom: 1px solid var(--border); padding-right: 0; padding-bottom: 18px; }
       #openOrders,
@@ -4557,8 +4651,23 @@ body {
       <div class="app-subtitle">Open Orders | Shipment Staging | Shipment History | Order Dashboard | Work Order Dashboard | Assembly Dashboard | Document Intake | Reports & Communications | Workbench | System Center</div>
     </div>
     <div class="top-pills">
-      <div class="pill">Part: <span id="partPill">Not Selected</span></div>
-      <div class="pill">Rev: <span id="revPill">Not Selected</span></div>
+      <div class="workspace-selector">
+        <label for="workspaceViewSelect">Workspace View</label>
+        <select id="workspaceViewSelect" onchange="setWorkspaceView(this.value)">
+          <option value="Administration" selected>Administration</option>
+          <option value="CEO Dashboard">CEO Dashboard</option>
+          <option value="RFQ / Quoting">RFQ / Quoting</option>
+          <option value="Order Entry">Order Entry</option>
+          <option value="Contract Review">Contract Review</option>
+          <option value="Operations Center">Operations Center</option>
+          <option value="Purchasing">Purchasing</option>
+          <option value="Kitting">Kitting</option>
+          <option value="Production">Production</option>
+          <option value="Quality">Quality</option>
+          <option value="Shipping">Shipping</option>
+          <option value="Reports">Reports</option>
+        </select>
+      </div>
       <button class="home-btn" onclick="goHome()">Home</button>
     </div>
   </header>
@@ -4569,57 +4678,378 @@ body {
 ===================================================== -->
 
     <section id="home" class="screen active">
-      <div class="hero-grid">
-        <div class="module-card active-card" onclick="go('documentIntake')">
-          <div class="icon-circle">DI</div>
-          <h1>Document Intake</h1>
-          <p>Convert files into DLE-OS data.</p>
+      <div class="workspace-home active" data-workspace-home="Administration">
+        <div class="hero-grid">
+          <div class="module-card active-card" onclick="go('documentIntake')">
+            <div class="icon-circle">DI</div>
+            <h1>Document Intake</h1>
+            <p>Convert files into DLE-OS data.</p>
+          </div>
+          <div class="module-card active-card" onclick="go('findAssembly')">
+            <div class="icon-circle">FA</div>
+            <h1>Find Assembly</h1>
+            <p>Search by Customer PO, DLE Work Order, Sales Order, or Part Number.</p>
+          </div>
+          <div class="module-card active-card" onclick="go('openOrders')">
+            <div class="icon-circle">OO</div>
+            <h1>Open Orders</h1>
+            <p>Load ERP exports and monitor production activity.</p>
+            <div class="future">Future</div>
+          </div>
+          <div class="module-card active-card" onclick="go('operationsCenter')">
+            <div class="icon-circle">OC</div>
+            <h1>Operations Center</h1>
+            <p>Daily command center for active Master Data records and operational notes.</p>
+          </div>
+          <div class="module-card active-card" onclick="go('shipmentStaging')">
+            <div class="icon-circle">SS</div>
+            <h1>Shipment Staging</h1>
+            <p>Inspect DLE-OS shipment transactions pending invoicing.</p>
+          </div>
+          <div class="module-card active-card" onclick="go('shipmentHistory')">
+            <div class="icon-circle">SH</div>
+            <h1>Shipment History</h1>
+            <p>Review archived shipment records after future reconciliation.</p>
+          </div>
+          <div class="module-card active-card" onclick="go('reportsCommunications')">
+            <div class="icon-circle">RC</div>
+            <h1>Reports & Communications</h1>
+            <p>Generate production-ready reports for paper workflow support.</p>
+          </div>
+          <div class="module-card active-card" onclick="go('workbench')">
+            <div class="icon-circle">WB</div>
+            <h1>Workbench</h1>
+            <p>Develop and operate manufacturing intelligence tools.</p>
+          </div>
+          <div class="module-card active-card" onclick="go('systemCenter')">
+            <div class="icon-circle">SC</div>
+            <h1>System Center</h1>
+            <p>Future home for system utilities, data management, and diagnostics.</p>
+          </div>
+          <div class="module-card disabled">
+            <div class="icon-circle">TR</div>
+            <h1>Training</h1>
+            <div class="future">Future</div>
+          </div>
         </div>
-        <div class="module-card active-card" onclick="go('findAssembly')">
-          <div class="icon-circle">FA</div>
-          <h1>Find Assembly</h1>
-          <p>Search by Customer PO, DLE Work Order, Sales Order, or Part Number.</p>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="CEO Dashboard">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">CEO</span>
+              <div>
+                <h1>CEO Dashboard</h1>
+                <p>Executive operational view for company health, production overview, KPIs, and daily priorities.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Company Health</h3>
+              <p>Future executive summary of operational status, customer pressure, and business risk.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Production Overview</h3>
+              <p>Future high-level view of released work, late jobs, and capacity pressure.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Daily Priorities</h3>
+              <p>Future priority list for management review, escalation, and cross-department alignment.</p>
+            </section>
+          </div>
         </div>
-        <div class="module-card active-card" onclick="go('openOrders')">
-          <div class="icon-circle">OO</div>
-          <h1>Open Orders</h1>
-          <p>Load ERP exports and monitor production activity.</p>
-          <div class="future">Future</div>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="RFQ / Quoting">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">RFQ</span>
+              <div>
+                <h1>RFQ / Quoting Workspace</h1>
+                <p>Focused view for incoming opportunities, customer quotations, and estimating workflow.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Incoming Opportunities</h3>
+              <p>Future queue for RFQs, customer requests, and quotation intake review.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Estimating Workflow</h3>
+              <p>Future workspace for cost inputs, technical assumptions, and quote preparation status.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Customer Quotations</h3>
+              <p>Future view for active quotes, pending responses, and follow-up actions.</p>
+            </section>
+          </div>
         </div>
-        <div class="module-card active-card" onclick="go('operationsCenter')">
-          <div class="icon-circle">OC</div>
-          <h1>Operations Center</h1>
-          <p>Daily command center for active Master Data records and operational notes.</p>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="Order Entry">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">OE</span>
+              <div>
+                <h1>Order Entry Workspace</h1>
+                <p>Focused view for new customer orders, sales order processing, and initial job creation.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>New Customer Orders</h3>
+              <p>Future intake queue for received purchase orders and order-entry validation.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Sales Order Processing</h3>
+              <p>Future view for sales order creation, ERP entry status, and customer order data checks.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Initial Job Creation</h3>
+              <p>Future handoff point for converting accepted orders into controlled operational records.</p>
+            </section>
+          </div>
         </div>
-        <div class="module-card active-card" onclick="go('shipmentStaging')">
-          <div class="icon-circle">SS</div>
-          <h1>Shipment Staging</h1>
-          <p>Inspect DLE-OS shipment transactions pending invoicing.</p>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="Contract Review">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">CR</span>
+              <div>
+                <h1>Contract Review Workspace</h1>
+                <p>Focused view for technical review, contract verification, and release approval.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Technical Review</h3>
+              <p>Future review queue for drawings, specifications, revisions, and customer requirements.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Contract Verification</h3>
+              <p>Future checklist for confirming order terms, documents, quantities, dates, and constraints.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Release Approval</h3>
+              <p>Future approval state before work becomes visible to released operations workflows.</p>
+            </section>
+          </div>
         </div>
-        <div class="module-card active-card" onclick="go('shipmentHistory')">
-          <div class="icon-circle">SH</div>
-          <h1>Shipment History</h1>
-          <p>Review archived shipment records after future reconciliation.</p>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="Operations Center">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">OP</span>
+              <div>
+                <h1>Operations Center Workspace</h1>
+                <p>Company-wide operational visibility for released jobs, scheduling, and production priorities.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Priority Orders</h3>
+              <p>Future home for urgent jobs, due-date pressure, and operational review queues.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Department Signals</h3>
+              <p>Future summary of open status by production, kitting, shipping, quality, and purchasing.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Reconciliation Watch</h3>
+              <p>Future visibility into pending ERP comparison, shipment staging, and records needing review.</p>
+            </section>
+          </div>
         </div>
-        <div class="module-card active-card" onclick="go('reportsCommunications')">
-          <div class="icon-circle">RC</div>
-          <h1>Reports & Communications</h1>
-          <p>Generate production-ready reports for paper workflow support.</p>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="Purchasing">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">PU</span>
+              <div>
+                <h1>Purchasing Workspace</h1>
+                <p>Focused view for material procurement, vendor management, and material shortages.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Open Needs</h3>
+              <p>Future list of jobs requiring purchase order review, vendor follow-up, or material action.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Vendor Management</h3>
+              <p>Future view for vendor follow-up, confirmations, late material, and purchasing communication.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Material Shortages</h3>
+              <p>Future view for late, partial, or high-risk material that may affect production schedules.</p>
+            </section>
+          </div>
         </div>
-        <div class="module-card active-card" onclick="go('workbench')">
-          <div class="icon-circle">WB</div>
-          <h1>Workbench</h1>
-          <p>Develop and operate manufacturing intelligence tools.</p>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="Kitting">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">KT</span>
+              <div>
+                <h1>Kitting Workspace</h1>
+                <p>Focused view for kit preparation, kit shortages, and material issue to production.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Kit Queue</h3>
+              <p>Future list of jobs ready to kit, waiting to kit, or blocked by material status.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Kit Shortages</h3>
+              <p>Future exception view for missing material, late receipts, and purchasing follow-up.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Material Issue</h3>
+              <p>Future workspace for release prep, material issue status, and production handoff.</p>
+            </section>
+          </div>
         </div>
-        <div class="module-card active-card" onclick="go('systemCenter')">
-          <div class="icon-circle">SC</div>
-          <h1>System Center</h1>
-          <p>Future home for system utilities, data management, and diagnostics.</p>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="Production">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">PR</span>
+              <div>
+                <h1>Production Workspace</h1>
+                <p>Focused view for active builds, work order readiness, and production execution.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Active Work Orders</h3>
+              <p>Future queue for jobs currently released, in progress, or waiting for production action.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Build Readiness</h3>
+              <p>Future summary of drawings, BOM status, material availability, and production notes.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Production Holds</h3>
+              <p>Future view of blockers that require engineering, quality, purchasing, or management action.</p>
+            </section>
+          </div>
         </div>
-        <div class="module-card disabled">
-          <div class="icon-circle">TR</div>
-          <h1>Training</h1>
-          <div class="future">Future</div>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="Quality">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">QA</span>
+              <div>
+                <h1>Quality Workspace</h1>
+                <p>Focused view for customer quality issues, inspection signals, and controlled review work.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Quality Intake</h3>
+              <p>Future queue for incoming customer quality issues and internal review packages.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Inspection Review</h3>
+              <p>Future view for inspection status, issue disposition, and required documentation.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Controlled Records</h3>
+              <p>Future location for quality record links, print outputs, and review history.</p>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="Shipping">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">SH</span>
+              <div>
+                <h1>Shipping Workspace</h1>
+                <p>Focused view for shipment staging, shipment verification, and customer shipments.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Shipment Staging</h3>
+              <p>Future queue for open order lines ready for shipment review and Request to Ship output.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Shipment Verification</h3>
+              <p>Future summary of confirmed shipment transactions pending invoice reconciliation.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Customer Shipments</h3>
+              <p>Future quick access to recently archived shipments and customer shipping activity.</p>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="Reports">
+        <div class="workspace-dashboard">
+          <div class="workspace-dashboard-header">
+            <div class="workspace-dashboard-title">
+              <span class="small-icon">RP</span>
+              <div>
+                <h1>Reports Workspace</h1>
+                <p>Focused view for reporting, analytics, and historical data.</p>
+              </div>
+            </div>
+            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
+          </div>
+          <div class="workspace-dashboard-grid">
+            <section class="workspace-dashboard-card">
+              <h3>Reporting</h3>
+              <p>Future workspace for production, shipping, quality, and operational reports.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Analytics</h3>
+              <p>Future dashboard for trends, throughput, bottlenecks, and performance indicators.</p>
+            </section>
+            <section class="workspace-dashboard-card">
+              <h3>Historical Data</h3>
+              <p>Future access point for archived records, shipment history, and completed operational activity.</p>
+            </section>
+          </div>
         </div>
       </div>
     </section>
@@ -6309,6 +6739,20 @@ BOM Viewer</h2>
     let selectedSearchType = "customerPO";
     let currentScreen = "home";
     let screenHistory = [];
+    let selectedWorkspaceView = "Administration";
+
+    function setWorkspaceView(value) {
+      selectedWorkspaceView = value || "Administration";
+      document.body.dataset.workspaceView = selectedWorkspaceView;
+      updateWorkspaceHomeView();
+    }
+
+    function updateWorkspaceHomeView() {
+      document.querySelectorAll('[data-workspace-home]').forEach(workspace => {
+        workspace.classList.toggle('active', workspace.dataset.workspaceHome === selectedWorkspaceView);
+      });
+    }
+    setWorkspaceView(selectedWorkspaceView);
 
     function go(id, addToHistory = true) {
       if (id === currentScreen) return;
@@ -6328,6 +6772,9 @@ BOM Viewer</h2>
       }
       if (id === 'workOrderDashboardModule') {
         renderWorkOrderDashboardModule();
+      }
+      if (id === 'home') {
+        updateWorkspaceHomeView();
       }
       updatePills();
       updateBackButton();
@@ -6352,9 +6799,6 @@ BOM Viewer</h2>
     }
 
     function updatePills() {
-      document.getElementById('partPill').textContent = state.part || "Not Selected";
-      document.getElementById('revPill').textContent = state.revision || "Not Selected";
-
       const assemblyLabel = document.getElementById('assemblyLabel');
       if (assemblyLabel) {
         assemblyLabel.innerHTML = state.part && state.revision
