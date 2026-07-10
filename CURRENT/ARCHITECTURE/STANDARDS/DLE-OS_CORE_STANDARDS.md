@@ -26,6 +26,7 @@ Before implementing any major workflow or module, this document should be consul
 - [UI-001 - Workspace Navigation Precedence](#ui-001---workspace-navigation-precedence)
 - [UI-002 - Shell and Workspace Boundary](#ui-002---shell-and-workspace-boundary)
 - [UI-003 - Workspace Package Structure](#ui-003---workspace-package-structure)
+- [UI-004 - Operational Workspace Layout](#ui-004---operational-workspace-layout)
 - [MOD-001 - Module Boundaries and State Ownership](#mod-001---module-boundaries-and-state-ownership)
 - [REC-001 - Reconciliation Review and Approval](#rec-001---reconciliation-review-and-approval)
 - [SHP-001 - Shipment Workflow Philosophy](#shp-001---shipment-workflow-philosophy)
@@ -341,6 +342,23 @@ Business capabilities inside a Workspace should be implemented as Modules.
 Reusable business logic, data access, persistence, validation, and integration behavior should be implemented as Services.
 
 The Shell may provide a mount point for each Workspace and invoke the Workspace renderer when that Workspace becomes active.
+
+---
+
+# UI-004 - Operational Workspace Layout
+
+**Status:** Approved  
+**Effective Date:** 2026-07-10
+
+Production-oriented operational Workspaces shall prioritize usable screen area and data visibility.
+
+Operational Workspaces should use the available workspace width, especially when presenting queues, tables, schedules, exception lists, or other dense operational views.
+
+Operational Workspace layouts should avoid narrow centered containers when the primary content is tabular or queue-based.
+
+The Operations Center layout is the visual reference for full-width operational table views.
+
+Administration may retain its development module grid and narrower dashboard layout during Alpha.
 
 ---
 

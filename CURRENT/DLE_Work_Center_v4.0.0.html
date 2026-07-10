@@ -17164,6 +17164,12 @@ function setCurrentDleMasterDataFile(data, options = {}) {
   if (typeof renderOperationsCenterModule === 'function') {
     renderOperationsCenterModule();
   }
+  document.dispatchEvent(new CustomEvent('dle:master-data-change', {
+    detail: {
+      source: 'master-data',
+      recordCount: records.length
+    }
+  }));
 }
 
 function ensureDleMasterDataErpFields(data) {

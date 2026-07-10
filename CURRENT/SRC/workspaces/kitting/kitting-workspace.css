@@ -1,6 +1,15 @@
+.workspace-home[data-workspace-home="kitting"] {
+  width: calc(100vw - 32px);
+  max-width: none;
+  min-height: calc(100vh - 220px);
+  margin-left: 50%;
+  transform: translateX(-50%);
+}
+
 .kitting-workspace {
   display: grid;
   gap: 18px;
+  min-height: calc(100vh - 220px);
 }
 
 .kitting-workspace-header,
@@ -54,10 +63,30 @@
   border-radius: 8px;
 }
 
+.kitting-workspace-region > div {
+  width: 100%;
+}
+
 .kitting-workspace-region h2 {
   margin: 0 0 8px;
   font-size: 20px;
   letter-spacing: 0;
+}
+
+.kitting-kit-queue {
+  margin-top: 16px;
+}
+
+.kitting-kit-queue-table-wrap {
+  min-height: 180px;
+  max-height: 320px;
+}
+
+.kitting-kit-queue-empty {
+  border: 1px dashed rgba(255, 255, 255, .18);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 16px;
 }
 
 .kitting-workspace {
@@ -70,8 +99,14 @@
 }
 
 @media (max-width: 820px) {
+  .workspace-home[data-workspace-home="kitting"] {
+    width: calc(100vw - 20px);
+    min-height: calc(100vh - 190px);
+  }
+
   .kitting-workspace {
     grid-template-columns: 1fr;
+    min-height: calc(100vh - 190px);
   }
 
   .kitting-workspace-header {
