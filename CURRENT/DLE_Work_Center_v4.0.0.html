@@ -4632,6 +4632,7 @@ body {
   <link rel="stylesheet" href="SRC/modules/work-order-dashboard/work-order-dashboard.css" />
   <link rel="stylesheet" href="SRC/modules/shipment-staging/shipment-staging.css" />
   <link rel="stylesheet" href="SRC/modules/shipment-history/shipment-history.css" />
+  <link rel="stylesheet" href="SRC/workspaces/kitting/kitting-workspace.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
@@ -4654,18 +4655,7 @@ body {
       <div class="workspace-selector">
         <label for="workspaceViewSelect">Workspace View</label>
         <select id="workspaceViewSelect" onchange="setWorkspaceView(this.value)">
-          <option value="Administration" selected>Administration</option>
-          <option value="CEO Dashboard">CEO Dashboard</option>
-          <option value="RFQ / Quoting">RFQ / Quoting</option>
-          <option value="Order Entry">Order Entry</option>
-          <option value="Contract Review">Contract Review</option>
-          <option value="Operations Center">Operations Center</option>
-          <option value="Purchasing">Purchasing</option>
-          <option value="Kitting">Kitting</option>
-          <option value="Production">Production</option>
-          <option value="Quality">Quality</option>
-          <option value="Shipping">Shipping</option>
-          <option value="Reports">Reports</option>
+          <option value="administration" selected>Administration</option>
         </select>
       </div>
       <button class="home-btn" onclick="goHome()">Home</button>
@@ -4678,7 +4668,7 @@ body {
 ===================================================== -->
 
     <section id="home" class="screen active">
-      <div class="workspace-home active" data-workspace-home="Administration">
+      <div class="workspace-home active" data-workspace-home="administration">
         <div class="hero-grid">
           <div class="module-card active-card" onclick="go('documentIntake')">
             <div class="icon-circle">DI</div>
@@ -4734,7 +4724,7 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="CEO Dashboard">
+      <div class="workspace-home" data-workspace-home="ceo-dashboard">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -4763,7 +4753,7 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="RFQ / Quoting">
+      <div class="workspace-home" data-workspace-home="rfq-quoting">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -4792,7 +4782,7 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="Order Entry">
+      <div class="workspace-home" data-workspace-home="order-entry">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -4821,7 +4811,7 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="Contract Review">
+      <div class="workspace-home" data-workspace-home="contract-review">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -4850,7 +4840,7 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="Operations Center">
+      <div class="workspace-home" data-workspace-home="operations-center">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -4879,7 +4869,7 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="Purchasing">
+      <div class="workspace-home" data-workspace-home="purchasing">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -4908,36 +4898,11 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="Kitting">
-        <div class="workspace-dashboard">
-          <div class="workspace-dashboard-header">
-            <div class="workspace-dashboard-title">
-              <span class="small-icon">KT</span>
-              <div>
-                <h1>Kitting Workspace</h1>
-                <p>Focused view for kit preparation, kit shortages, and material issue to production.</p>
-              </div>
-            </div>
-            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
-          </div>
-          <div class="workspace-dashboard-grid">
-            <section class="workspace-dashboard-card">
-              <h3>Kit Queue</h3>
-              <p>Future list of jobs ready to kit, waiting to kit, or blocked by material status.</p>
-            </section>
-            <section class="workspace-dashboard-card">
-              <h3>Kit Shortages</h3>
-              <p>Future exception view for missing material, late receipts, and purchasing follow-up.</p>
-            </section>
-            <section class="workspace-dashboard-card">
-              <h3>Material Issue</h3>
-              <p>Future workspace for release prep, material issue status, and production handoff.</p>
-            </section>
-          </div>
-        </div>
+      <div class="workspace-home" data-workspace-home="kitting">
+        <div data-workspace-mount="kitting"></div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="Production">
+      <div class="workspace-home" data-workspace-home="production">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -4966,7 +4931,7 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="Quality">
+      <div class="workspace-home" data-workspace-home="quality">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -4995,7 +4960,7 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="Shipping">
+      <div class="workspace-home" data-workspace-home="shipping">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -5024,7 +4989,7 @@ body {
         </div>
       </div>
 
-      <div class="workspace-home" data-workspace-home="Reports">
+      <div class="workspace-home" data-workspace-home="reports">
         <div class="workspace-dashboard">
           <div class="workspace-dashboard-header">
             <div class="workspace-dashboard-title">
@@ -6713,6 +6678,9 @@ BOM Viewer</h2>
   <script src="SRC/modules/shipment-staging/shipment-staging-service.js"></script>
   <script src="SRC/modules/shipment-staging/shipment-staging.js"></script>
   <script src="SRC/modules/shipment-history/shipment-history.js"></script>
+  <script src="SRC/shell/workspace-registry.js"></script>
+  <script src="SRC/shell/workspace-shell.js"></script>
+  <script src="SRC/workspaces/kitting/kitting-workspace.js"></script>
   <script>
 /* =====================================================
    200 - JS: NAVIGATION AND APP STATE
@@ -6739,20 +6707,18 @@ BOM Viewer</h2>
     let selectedSearchType = "customerPO";
     let currentScreen = "home";
     let screenHistory = [];
-    let selectedWorkspaceView = "Administration";
+    let selectedWorkspaceView = "administration";
 
     function setWorkspaceView(value) {
-      selectedWorkspaceView = value || "Administration";
-      document.body.dataset.workspaceView = selectedWorkspaceView;
-      updateWorkspaceHomeView();
+      const workspace = window.DleWorkspaceShell.setWorkspaceView(value || selectedWorkspaceView);
+      selectedWorkspaceView = workspace.id;
     }
 
     function updateWorkspaceHomeView() {
-      document.querySelectorAll('[data-workspace-home]').forEach(workspace => {
-        workspace.classList.toggle('active', workspace.dataset.workspaceHome === selectedWorkspaceView);
-      });
+      window.DleWorkspaceShell.updateWorkspaceHomeView();
     }
-    setWorkspaceView(selectedWorkspaceView);
+    window.DleWorkspaceShell.init();
+    selectedWorkspaceView = window.DleWorkspaceShell.getCurrentWorkspace().id;
 
     function go(id, addToHistory = true) {
       if (id === currentScreen) return;

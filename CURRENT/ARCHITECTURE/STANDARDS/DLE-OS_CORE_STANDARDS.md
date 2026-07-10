@@ -24,6 +24,8 @@ Before implementing any major workflow or module, this document should be consul
 - [PERSIST-001 - Persistence and Write Verification](#persist-001---persistence-and-write-verification)
 - [LIFE-001 - Master Record Lifecycle](#life-001---master-record-lifecycle)
 - [UI-001 - Workspace Navigation Precedence](#ui-001---workspace-navigation-precedence)
+- [UI-002 - Shell and Workspace Boundary](#ui-002---shell-and-workspace-boundary)
+- [UI-003 - Workspace Package Structure](#ui-003---workspace-package-structure)
 - [MOD-001 - Module Boundaries and State Ownership](#mod-001---module-boundaries-and-state-ownership)
 - [REC-001 - Reconciliation Review and Approval](#rec-001---reconciliation-review-and-approval)
 - [SHP-001 - Shipment Workflow Philosophy](#shp-001---shipment-workflow-philosophy)
@@ -281,6 +283,64 @@ The CEO Dashboard is reserved for executive operational visibility, company heal
 Operational workspaces should evolve into role-specific landing pages rather than duplicate module navigation menus.
 
 Workspace ordering should not be changed casually because it encodes the intended operational flow of De Leon Enterprises.
+
+---
+
+# UI-002 - Shell and Workspace Boundary
+
+**Status:** Approved  
+**Effective Date:** 2026-07-10
+
+DLE-OS shall distinguish the application Shell from role-specific Workspaces.
+
+The Shell owns the stable application frame, including global header, Workspace selector, global navigation behavior, Workspace activation, and the Workspace container.
+
+Workspace identity, display order, labels, and high-level purpose shall be defined by a Shell-owned Workspace registry.
+
+Workspaces own role-specific landing pages and decide which Modules, Components, and workflow summaries are presented to that role.
+
+Workspaces should not duplicate global Shell navigation rules.
+
+Modules remain business capabilities that may be used by one or more Workspaces.
+
+Components remain reusable UI building blocks used by Modules and Workspaces.
+
+Services remain responsible for business logic, persistence, validation, integration, and approved data access.
+
+Master Data remains the authoritative operational source for ERP-derived order records.
+
+During Alpha, the Administration Workspace may continue to expose the full development module grid while production-oriented Workspaces evolve into focused role-specific dashboards.
+
+---
+
+# UI-003 - Workspace Package Structure
+
+**Status:** Approved  
+**Effective Date:** 2026-07-10
+
+Production-oriented Workspaces shall be implemented as dedicated Workspace packages under:
+
+```text
+SRC/workspaces/<workspace-id>/
+```
+
+Each Workspace package should contain the Workspace layout, styling, and Workspace-level renderer:
+
+```text
+<workspace-id>-workspace.html
+<workspace-id>-workspace.css
+<workspace-id>-workspace.js
+```
+
+Workspace packages own layout and orchestration only.
+
+Workspace packages must not own authoritative business data or implement workflow-specific business logic.
+
+Business capabilities inside a Workspace should be implemented as Modules.
+
+Reusable business logic, data access, persistence, validation, and integration behavior should be implemented as Services.
+
+The Shell may provide a mount point for each Workspace and invoke the Workspace renderer when that Workspace becomes active.
 
 ---
 
