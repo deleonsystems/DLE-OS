@@ -27,6 +27,7 @@ Before implementing any major workflow or module, this document should be consul
 - [UI-002 - Shell and Workspace Boundary](#ui-002---shell-and-workspace-boundary)
 - [UI-003 - Workspace Package Structure](#ui-003---workspace-package-structure)
 - [UI-004 - Operational Workspace Layout](#ui-004---operational-workspace-layout)
+- [UI-005 - Workbench Layer](#ui-005---workbench-layer)
 - [MOD-001 - Module Boundaries and State Ownership](#mod-001---module-boundaries-and-state-ownership)
 - [REC-001 - Reconciliation Review and Approval](#rec-001---reconciliation-review-and-approval)
 - [SHP-001 - Shipment Workflow Philosophy](#shp-001---shipment-workflow-philosophy)
@@ -359,6 +360,43 @@ Operational Workspace layouts should avoid narrow centered containers when the p
 The Operations Center layout is the visual reference for full-width operational table views.
 
 Administration may retain its development module grid and narrower dashboard layout during Alpha.
+
+---
+
+# UI-005 - Workbench Layer
+
+**Status:** Approved  
+**Effective Date:** 2026-07-11
+
+DLE-OS may use Workbenches as record-centered execution environments launched from role-specific Workspaces.
+
+A Workspace answers what requires attention for a role.
+
+A Workbench answers which operational record is currently being worked.
+
+Workbenches belong between Workspace and Module in the DLE-OS architecture.
+
+Workbenches should receive selected operational record context from the launching Workspace.
+
+Workbenches own focused record layout and orchestration only.
+
+Workbenches must not own authoritative business data or create independent copies of Master Data records.
+
+Business capabilities inside a Workbench should be implemented as Modules.
+
+Production-oriented Workbenches shall be implemented as dedicated packages under:
+
+```text
+SRC/workbenches/<workbench-id>/
+```
+
+Each Workbench package should contain the Workbench layout, styling, and Workbench-level renderer:
+
+```text
+<workbench-id>-workbench.html
+<workbench-id>-workbench.css
+<workbench-id>-workbench.js
+```
 
 ---
 

@@ -8,27 +8,31 @@
     <div class="kitting-workspace-status">Workspace foundation</div>
   </header>
 
-  <section class="kitting-workspace-region kitting-workspace-region-wide" aria-labelledby="kittingNewOrdersTitle">
-    <div>
-      <h2 id="kittingNewOrdersTitle">New Orders</h2>
-      <p>Jobs that have recently entered Kitting and require acknowledgment and initial review.</p>
-      <div id="kittingNewOrdersQueue" class="kitting-kit-queue"></div>
-    </div>
-  </section>
+  <div data-kitting-workspace-queues>
+    <section class="kitting-workspace-region kitting-workspace-region-wide" aria-labelledby="kittingNewOrdersTitle">
+      <div>
+        <h2 id="kittingNewOrdersTitle">New Orders</h2>
+        <p>Jobs that have recently entered Kitting and require acknowledgment and initial review.</p>
+        <div id="kittingNewOrdersQueue" class="kitting-kit-queue"></div>
+      </div>
+    </section>
 
-  <section class="kitting-workspace-region kitting-workspace-region-wide" aria-labelledby="kittingApprovedModifiedTitle">
-    <div>
-      <h2 id="kittingApprovedModifiedTitle">Approved Modified Orders</h2>
-      <p>Existing jobs modified after release that require Kitting to review the changes before continuing.</p>
-      <div id="kittingApprovedModifiedQueue" class="kitting-kit-queue"></div>
-    </div>
-  </section>
+    <section class="kitting-workspace-region kitting-workspace-region-wide" aria-labelledby="kittingApprovedModifiedTitle">
+      <div>
+        <h2 id="kittingApprovedModifiedTitle">Approved Modified Orders</h2>
+        <p>Existing jobs modified after release that require Kitting to review the changes before continuing.</p>
+        <div id="kittingApprovedModifiedQueue" class="kitting-kit-queue"></div>
+      </div>
+    </section>
 
-  <section class="kitting-workspace-region kitting-workspace-region-wide" aria-labelledby="kittingShortsTitle">
-    <div>
-      <h2 id="kittingShortsTitle">Kit Shorts</h2>
-      <p>Jobs that remain Kitting's responsibility because they cannot yet be released to Production.</p>
-      <div id="kittingShortsQueue" class="kitting-kit-queue"></div>
-    </div>
-  </section>
+    <section class="kitting-workspace-region kitting-workspace-region-wide" aria-labelledby="kittingShortsTitle">
+      <div>
+        <h2 id="kittingShortsTitle">Kit Shorts</h2>
+        <p>Jobs that remain Kitting's responsibility because they cannot yet be released to Production.</p>
+        <div id="kittingShortsQueue" class="kitting-kit-queue"></div>
+      </div>
+    </section>
+  </div>
+
+  <div data-workbench-mount="kitting" hidden></div>
 </div>

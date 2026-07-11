@@ -128,8 +128,8 @@
       '<tr class="', index % 2 === 0 ? 'rowEven' : 'rowOdd', '" data-master-record-key="', escapeHtml(masterRecordKey), '">',
       renderOfficialCell(viewModel.getOfficialField(record, "orderDate")),
       renderOfficialCell(viewModel.getOfficialField(record, "customer")),
-      renderSalesOrderCell(masterRecordKey, viewModel.getOfficialField(record, "salesOrder")),
-      renderOfficialCell(viewModel.getOfficialField(record, "workOrder")),
+      renderOfficialCell(viewModel.getOfficialField(record, "salesOrder")),
+      renderWorkOrderCell(masterRecordKey, viewModel.getOfficialField(record, "workOrder")),
       renderOfficialCell(viewModel.getOfficialField(record, "dueDate")),
       renderOfficialCell(viewModel.getOfficialField(record, "operationalStatus")),
       renderEditableCell(masterRecordKey, "kitStatus", temporaryFields.kitStatus || "", "Kit Status"),
@@ -144,12 +144,12 @@
     return '<td class="operations-center-official-cell">' + escapeHtml(value) + '</td>';
   }
 
-  function renderSalesOrderCell(masterRecordKey, value) {
+  function renderWorkOrderCell(masterRecordKey, value) {
     return [
       '<td class="operations-center-official-cell">',
-      '<button type="button" class="operations-center-sales-order-link" data-master-record-key="',
+      '<button type="button" class="operations-center-sales-order-link" data-kitting-work-order-key="',
       escapeHtml(masterRecordKey),
-      '" onclick="openOperationsCenterSalesOrderDashboard(event)">',
+      '" onclick="selectKittingWorkOrder(event)">',
       escapeHtml(value),
       '</button>',
       '</td>'
@@ -192,6 +192,37 @@
     };
   }
 
+  function selectKittingWorkOrder(event) {
+    event?.preventDefault?.();
+    const masterRecordKey = event?.currentTarget?.dataset?.kittingWorkOrderKey || "";
+    if (!masterRecordKey) return;
+
+    const viewModel = window.OperationsCenter?.viewModel;
+    if (!viewModel?.getMasterRecords || !viewModel?.getMasterRecordKey || !viewModel?.getOfficialField) return;
+
+    const masterRecord = viewModel.getMasterRecords().find(record => viewModel.getMasterRecordKey(record) === masterRecordKey);
+    if (!masterRecord) return;
+
+    window.DleWorkbenchShell?.open("kitting", {
+      masterRecordKey,
+      masterRecord,
+      workOrder: viewModel.getOfficialField(masterRecord, "workOrder"),
+      customer: viewModel.getOfficialField(masterRecord, "customer"),
+      partNumber: viewModel.getOfficialField(masterRecord, "partNumber"),
+      revision: getRecordRevision(masterRecord),
+      description: viewModel.getOfficialField(masterRecord, "description")
+    });
+  }
+
+  function getRecordRevision(record) {
+    return record?.vpro5?.revision
+      || record?.vpro5?.rev
+      || record?.vpro5?.partRevision
+      || record?.dle?.revision
+      || record?.revision
+      || "";
+  }
+
   function getTemporaryKittingField(masterRecordKey, field) {
     return String(temporaryKittingQueueByRecordKey[masterRecordKey]?.[field] || "");
   }
@@ -223,6 +254,7 @@
   document.addEventListener("dle:master-data-change", renderKitQueue);
   window.updateTemporaryKittingQueueField = updateTemporaryKittingQueueField;
   window.renderKittingKitQueue = renderKitQueue;
+  window.selectKittingWorkOrder = selectKittingWorkOrder;
 
   window.DleWorkspaces = window.DleWorkspaces || {};
   window.DleWorkspaces[WORKSPACE_ID] = Object.freeze({
