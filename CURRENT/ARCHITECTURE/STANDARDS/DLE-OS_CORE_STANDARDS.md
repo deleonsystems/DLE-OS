@@ -376,6 +376,14 @@ A Workbench answers which operational record is currently being worked.
 
 Workbenches belong between Workspace and Module in the DLE-OS architecture.
 
+The Shell owns the transition between Workspace mode and Workbench mode.
+
+The Shell shall display either an active Workspace or an active Workbench within the active content area, but not both simultaneously.
+
+When a Workbench opens, the launching Workspace should be hidden or unmounted while the Workbench receives the selected operational record context.
+
+When a Workbench closes, the Shell should restore the launching Workspace and preserve prior Workspace context where practical.
+
 Workbenches should receive selected operational record context from the launching Workspace.
 
 Workbenches own focused record layout and orchestration only.

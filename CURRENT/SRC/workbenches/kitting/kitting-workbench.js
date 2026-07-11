@@ -6,7 +6,6 @@
 
   async function render(context = {}) {
     const mount = document.querySelector('[data-workbench-mount="kitting"]');
-    const workspaceQueues = document.querySelector("[data-kitting-workspace-queues]");
     if (!mount) return;
 
     if (mount.dataset.workbenchLoaded !== "true") {
@@ -22,16 +21,13 @@
     }
 
     mount.hidden = false;
-    if (workspaceQueues) workspaceQueues.hidden = true;
     populateWorkbenchFields(context);
-    mount.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }
 
   function close() {
     const mount = document.querySelector('[data-workbench-mount="kitting"]');
-    const workspaceQueues = document.querySelector("[data-kitting-workspace-queues]");
     if (mount) mount.hidden = true;
-    if (workspaceQueues) workspaceQueues.hidden = false;
   }
 
   function populateWorkbenchFields(context) {

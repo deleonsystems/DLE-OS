@@ -41,6 +41,11 @@
 
   function activateWorkspace(value) {
     const workspace = registry().resolve(value);
+    const activeWorkbenchId = window.DleWorkbenchShell?.getCurrent?.()?.workbenchId;
+    if (activeWorkbenchId) {
+      window.DleWorkbenchShell.close(activeWorkbenchId);
+    }
+
     selectedWorkspaceId = workspace.id;
 
     document.body.dataset.workspaceView = workspace.id;

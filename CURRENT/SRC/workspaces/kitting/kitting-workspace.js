@@ -204,6 +204,7 @@
     if (!masterRecord) return;
 
     window.DleWorkbenchShell?.open("kitting", {
+      sourceWorkspaceId: WORKSPACE_ID,
       masterRecordKey,
       masterRecord,
       workOrder: viewModel.getOfficialField(masterRecord, "workOrder"),
