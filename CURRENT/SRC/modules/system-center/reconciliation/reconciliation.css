@@ -231,6 +231,11 @@
   border-top-color: #f5c84b;
 }
 
+.event-master-data-enrichment {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #58d5a8;
+}
+
 .event-work-order-sync {
   border-color: rgba(255,255,255,.1);
   border-top-color: #2dd4bf;
@@ -366,6 +371,10 @@
 
 .event-dot.event-modified-record {
   background: #f5c84b;
+}
+
+.event-dot.event-master-data-enrichment {
+  background: #58d5a8;
 }
 
 .event-dot.event-work-order-sync {
@@ -539,6 +548,11 @@
 .event-pill.event-modified-record {
   background: rgba(245,200,75,.18);
   color: #ffe9a6;
+}
+
+.event-pill.event-master-data-enrichment {
+  background: rgba(88,213,168,.18);
+  color: #c5f7e5;
 }
 
 .event-pill.event-work-order-sync {

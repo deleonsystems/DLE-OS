@@ -1,0 +1,3596 @@
+{
+  "schema": "DLE_MASTER_DATA_V1",
+  "created": "7/11/2026, 3:53:26 PM",
+  "uniqueKey": "Customer Number + Sales Order + Sequence Line",
+  "source": "VPro5 Open Orders Export",
+  "recordCount": 115,
+  "ownershipModel": {
+    "vpro5Owned": [
+      "orderDate",
+      "customerNumber",
+      "customer",
+      "customerPo",
+      "salesOrder",
+      "sequenceLine",
+      "workOrder",
+      "workOrderQuantity",
+      "quantityShipped",
+      "partNumber",
+      "description",
+      "dueDate",
+      "qtyOpen",
+      "price",
+      "extendedPrice"
+    ],
+    "dleOwned": [
+      "operationalStatus"
+    ]
+  },
+  "records": [
+    {
+      "id": "578350|0011694|010",
+      "sourceIndex": 0,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/17/23",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP29243",
+        "salesOrder": "0011694",
+        "sequenceLine": "010",
+        "workOrder": "0115244",
+        "workOrderQuantity": "20",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/15/23",
+        "price": "3400.00",
+        "extendedPrice": "3400.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011694|040",
+      "sourceIndex": 1,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/17/23",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP29243",
+        "salesOrder": "0011694",
+        "sequenceLine": "040",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "-1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/15/23",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011694|050",
+      "sourceIndex": 2,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/17/23",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP29243",
+        "salesOrder": "0011694",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/15/23",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011694|090",
+      "sourceIndex": 3,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/17/23",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP29243",
+        "salesOrder": "0011694",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "-1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/15/23",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011694|100",
+      "sourceIndex": 4,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/17/23",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP29243",
+        "salesOrder": "0011694",
+        "sequenceLine": "100",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/15/23",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011694|140",
+      "sourceIndex": 5,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/17/23",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP29243",
+        "salesOrder": "0011694",
+        "sequenceLine": "140",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "-1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/15/23",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011694|150",
+      "sourceIndex": 6,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/17/23",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP29243",
+        "salesOrder": "0011694",
+        "sequenceLine": "150",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/15/23",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0011833|010",
+      "sourceIndex": 7,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/16/24",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P129530",
+        "salesOrder": "0011833",
+        "sequenceLine": "010",
+        "workOrder": "0115359",
+        "workOrderQuantity": "150",
+        "quantityShipped": "0",
+        "qtyOpen": "2",
+        "partNumber": "718720-1",
+        "description": "ISOLATION SWITCH ASSY",
+        "dueDate": "10/16/24",
+        "price": "1150.00",
+        "extendedPrice": "2300.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0011948|030",
+      "sourceIndex": 8,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "01/27/25",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "300016503",
+        "salesOrder": "0011948",
+        "sequenceLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "799-057-2",
+        "description": "CCA, RH, PROGRAMMED",
+        "dueDate": "01/27/25",
+        "price": "439.33",
+        "extendedPrice": "2196.65"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012015|040",
+      "sourceIndex": 9,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "08/21/25",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "300019634",
+        "salesOrder": "0012015",
+        "sequenceLine": "040",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "799-057-2",
+        "description": "CCA, RH, PROGRAMMED",
+        "dueDate": "11/10/25",
+        "price": "439.33",
+        "extendedPrice": "2196.65"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001082|0012023|020",
+      "sourceIndex": 10,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "09/08/25",
+        "customerNumber": "001082",
+        "customer": "ABBOTT TECHNOLOGIES, INC.",
+        "customerPo": "47398",
+        "salesOrder": "0012023",
+        "sequenceLine": "020",
+        "workOrder": "0115533",
+        "workOrderQuantity": "12",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "B11280-17",
+        "description": "POWERBOARD SMT ASSY",
+        "dueDate": "11/12/25",
+        "price": "425.62",
+        "extendedPrice": "425.62"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012014|040",
+      "sourceIndex": 11,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "08/21/25",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "300019633",
+        "salesOrder": "0012014",
+        "sequenceLine": "040",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "2",
+        "partNumber": "799-057-3",
+        "description": "CCA, LH, PROGRAMMED",
+        "dueDate": "12/10/25",
+        "price": "439.33",
+        "extendedPrice": "878.66"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0011824|090",
+      "sourceIndex": 12,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "01/17/24",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P128954",
+        "salesOrder": "0011824",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "4",
+        "partNumber": "28785-999",
+        "description": "POWER CABLE ASSY C-13CE",
+        "dueDate": "01/02/26",
+        "price": "713.30",
+        "extendedPrice": "2853.20"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012046|010",
+      "sourceIndex": 13,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "12/09/25",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "300021707",
+        "salesOrder": "0012046",
+        "sequenceLine": "010",
+        "workOrder": "0115560",
+        "workOrderQuantity": "40",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "799-057-2",
+        "description": "CCA, RH, PROGRAMMED",
+        "dueDate": "01/23/26",
+        "price": "439.33",
+        "extendedPrice": "2196.65"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012032|010",
+      "sourceIndex": 14,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/04/26",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "N/A",
+        "salesOrder": "0012032",
+        "sequenceLine": "010",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "13",
+        "partNumber": "799-057-3",
+        "description": "CCA, LH, PROGRAMMED",
+        "dueDate": "02/04/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012032|040",
+      "sourceIndex": 15,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/04/26",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "N/A",
+        "salesOrder": "0012032",
+        "sequenceLine": "040",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "2",
+        "partNumber": "799-057-2",
+        "description": "CCA, RH, PROGRAMMED",
+        "dueDate": "02/04/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0012012|040",
+      "sourceIndex": 16,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/17/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP38318",
+        "salesOrder": "0012012",
+        "sequenceLine": "040",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "-1",
+        "partNumber": "600280-103",
+        "description": "CONTROLLER BOARD",
+        "dueDate": "02/17/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0012012|050",
+      "sourceIndex": 17,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/17/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP38318",
+        "salesOrder": "0012012",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "600280-103",
+        "description": "CONTROLLER BOARD",
+        "dueDate": "02/17/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0012012|075",
+      "sourceIndex": 18,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/17/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP38318",
+        "salesOrder": "0012012",
+        "sequenceLine": "075",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "-2",
+        "partNumber": "600280-103",
+        "description": "CONTROLLER BOARD",
+        "dueDate": "02/17/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0012012|080",
+      "sourceIndex": 19,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/17/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP38318",
+        "salesOrder": "0012012",
+        "sequenceLine": "080",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "2",
+        "partNumber": "600280-103",
+        "description": "CONTROLLER BOARD",
+        "dueDate": "02/17/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012059|010",
+      "sourceIndex": 20,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/05/26",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "300022069",
+        "salesOrder": "0012059",
+        "sequenceLine": "010",
+        "workOrder": "0115576",
+        "workOrderQuantity": "80",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "799-057-3",
+        "description": "CCA, LH, PROGRAMMED",
+        "dueDate": "02/21/26",
+        "price": "439.33",
+        "extendedPrice": "439.33"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012060|010",
+      "sourceIndex": 21,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/05/26",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "300022140",
+        "salesOrder": "0012060",
+        "sequenceLine": "010",
+        "workOrder": "0115578",
+        "workOrderQuantity": "80",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "799-057-2",
+        "description": "CCA, RH, PROGRAMMED",
+        "dueDate": "03/01/26",
+        "price": "439.33",
+        "extendedPrice": "439.33"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012033|010",
+      "sourceIndex": 22,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/19/26",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "300022834",
+        "salesOrder": "0012033",
+        "sequenceLine": "010",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "2",
+        "partNumber": "999-6419-03",
+        "description": "PRINTED CIRCUIT BOARD ASSY LED",
+        "dueDate": "03/19/26",
+        "price": "85.35",
+        "extendedPrice": "170.70"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001021|0012035|010",
+      "sourceIndex": 23,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/31/26",
+        "customerNumber": "001021",
+        "customer": "VALIDYNE ENGINEERING",
+        "customerPo": "19972",
+        "salesOrder": "0012035",
+        "sequenceLine": "010",
+        "workOrder": "0115593",
+        "workOrderQuantity": "56",
+        "quantityShipped": "0",
+        "qtyOpen": "21",
+        "partNumber": "QR196385",
+        "description": "HARNESS ASSEMBLY",
+        "dueDate": "03/31/26",
+        "price": "500.00",
+        "extendedPrice": "10500.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001037|0012028|020",
+      "sourceIndex": 24,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "10/15/25",
+        "customerNumber": "001037",
+        "customer": "MEGGITT (N. HOLLYWOOD), I",
+        "customerPo": "4551246288",
+        "salesOrder": "0012028",
+        "sequenceLine": "020",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "59",
+        "partNumber": "160238-1",
+        "description": "CIRCUIT BOARD ASSY",
+        "dueDate": "04/01/26",
+        "price": "46.45",
+        "extendedPrice": "2740.55"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0012057|010",
+      "sourceIndex": 25,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/02/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP44592",
+        "salesOrder": "0012057",
+        "sequenceLine": "010",
+        "workOrder": "0115574",
+        "workOrderQuantity": "55",
+        "quantityShipped": "0",
+        "qtyOpen": "55",
+        "partNumber": "600280-103",
+        "description": "CONTROLLER BOARD",
+        "dueDate": "05/12/26",
+        "price": "933.50",
+        "extendedPrice": "51342.50"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011896|010",
+      "sourceIndex": 26,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/20/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP37357",
+        "salesOrder": "0011896",
+        "sequenceLine": "010",
+        "workOrder": "0115414",
+        "workOrderQuantity": "20",
+        "quantityShipped": "0",
+        "qtyOpen": "-1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "05/20/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011896|020",
+      "sourceIndex": 27,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/20/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP37357",
+        "salesOrder": "0011896",
+        "sequenceLine": "020",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "05/20/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011896|050",
+      "sourceIndex": 28,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/20/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP37357",
+        "salesOrder": "0011896",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "-2",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "05/20/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011896|060",
+      "sourceIndex": 29,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/20/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP37357",
+        "salesOrder": "0011896",
+        "sequenceLine": "060",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "2",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "05/20/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012077|010",
+      "sourceIndex": 30,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "04/01/26",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "300023105",
+        "salesOrder": "0012077",
+        "sequenceLine": "010",
+        "workOrder": "0115597",
+        "workOrderQuantity": "70",
+        "quantityShipped": "0",
+        "qtyOpen": "3",
+        "partNumber": "799-057-2",
+        "description": "CCA, RH, PROGRAMMED",
+        "dueDate": "05/24/26",
+        "price": "439.33",
+        "extendedPrice": "1317.99"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "565650|0012083|010",
+      "sourceIndex": 31,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/19/26",
+        "customerNumber": "565650",
+        "customer": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551292410",
+        "salesOrder": "0012083",
+        "sequenceLine": "010",
+        "workOrder": "0115604",
+        "workOrderQuantity": "234",
+        "quantityShipped": "0",
+        "qtyOpen": "40",
+        "partNumber": "910781-03",
+        "description": "SMOKE DETECTOR SINGLE, 8930",
+        "dueDate": "06/03/26",
+        "price": "364.80",
+        "extendedPrice": "14592.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "549250|0012084|010",
+      "sourceIndex": 32,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/03/26",
+        "customerNumber": "549250",
+        "customer": "MASON ELECTRIC CO.",
+        "customerPo": "300023434",
+        "salesOrder": "0012084",
+        "sequenceLine": "010",
+        "workOrder": "0115605",
+        "workOrderQuantity": "9",
+        "quantityShipped": "0",
+        "qtyOpen": "9",
+        "partNumber": "999-057-36",
+        "description": "CCA, ARINC-429 I/F,CCD",
+        "dueDate": "06/15/26",
+        "price": "443.18",
+        "extendedPrice": "3988.62"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011751|100",
+      "sourceIndex": 33,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/16/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP31885",
+        "salesOrder": "0011751",
+        "sequenceLine": "100",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "-1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/16/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011751|110",
+      "sourceIndex": 34,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/16/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP31885",
+        "salesOrder": "0011751",
+        "sequenceLine": "110",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/16/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011751|150",
+      "sourceIndex": 35,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/16/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP31885",
+        "salesOrder": "0011751",
+        "sequenceLine": "150",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "-1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/16/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0011751|160",
+      "sourceIndex": 36,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/16/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP31885",
+        "salesOrder": "0011751",
+        "sequenceLine": "160",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "1",
+        "partNumber": "500144-103",
+        "description": "PANEL ASSEMBLY",
+        "dueDate": "06/16/26",
+        "price": "0.00",
+        "extendedPrice": "0.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012005|190",
+      "sourceIndex": 37,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "07/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00194834",
+        "salesOrder": "0012005",
+        "sequenceLine": "190",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "277-5014-003",
+        "description": "TRIGGER CONTROL BOARD",
+        "dueDate": "07/01/26",
+        "price": "143.55",
+        "extendedPrice": "1435.50"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012034|060",
+      "sourceIndex": 38,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "10/21/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195446",
+        "salesOrder": "0012034",
+        "sequenceLine": "060",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "07/01/26",
+        "price": "129.74",
+        "extendedPrice": "648.70"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012035|040",
+      "sourceIndex": 39,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "10/31/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195447",
+        "salesOrder": "0012035",
+        "sequenceLine": "040",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C57LAA-001",
+        "description": "ALARM CARD",
+        "dueDate": "07/01/26",
+        "price": "114.17",
+        "extendedPrice": "570.85"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012040|110",
+      "sourceIndex": 40,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "11/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195568",
+        "salesOrder": "0012040",
+        "sequenceLine": "110",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C14PAA",
+        "description": "MASTER CARD",
+        "dueDate": "07/01/26",
+        "price": "128.84",
+        "extendedPrice": "1288.40"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012041|070",
+      "sourceIndex": 41,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "11/20/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195647",
+        "salesOrder": "0012041",
+        "sequenceLine": "070",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C23LAA-001",
+        "description": "ALARM CARD",
+        "dueDate": "07/01/26",
+        "price": "82.55",
+        "extendedPrice": "825.50"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012055|090",
+      "sourceIndex": 42,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "01/27/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195872",
+        "salesOrder": "0012055",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C21LAA-001",
+        "description": "CCA ALARM CARD BCN-LS LED 120V",
+        "dueDate": "07/01/26",
+        "price": "105.93",
+        "extendedPrice": "529.65"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012082|010",
+      "sourceIndex": 43,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/07/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695",
+        "salesOrder": "0012082",
+        "sequenceLine": "010",
+        "workOrder": "0115602",
+        "workOrderQuantity": "5",
+        "quantityShipped": "0",
+        "qtyOpen": "2",
+        "partNumber": "B7C91PAA",
+        "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+        "dueDate": "07/01/26",
+        "price": "72.94",
+        "extendedPrice": "145.88"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012082|030",
+      "sourceIndex": 44,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/07/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695",
+        "salesOrder": "0012082",
+        "sequenceLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "3",
+        "partNumber": "B7C91PAA",
+        "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+        "dueDate": "07/01/26",
+        "price": "72.94",
+        "extendedPrice": "218.82"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012082|050",
+      "sourceIndex": 45,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/07/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695",
+        "salesOrder": "0012082",
+        "sequenceLine": "050",
+        "workOrder": "0115603",
+        "workOrderQuantity": "50",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C24LAA-001",
+        "description": "ALARM BCN-LED 120V",
+        "dueDate": "07/01/26",
+        "price": "132.79",
+        "extendedPrice": "1327.90"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012082|070",
+      "sourceIndex": 46,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/07/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695",
+        "salesOrder": "0012082",
+        "sequenceLine": "070",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C24LAA-001",
+        "description": "ALARM BCN-LED 120V",
+        "dueDate": "07/01/26",
+        "price": "132.79",
+        "extendedPrice": "1327.90"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012006|110",
+      "sourceIndex": 47,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "07/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00194880",
+        "salesOrder": "0012006",
+        "sequenceLine": "110",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "277-3261",
+        "description": "ASSY 1 POWER SUPPLY",
+        "dueDate": "07/08/26",
+        "price": "207.09",
+        "extendedPrice": "1035.45"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "565650|0012083|030",
+      "sourceIndex": 48,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/19/26",
+        "customerNumber": "565650",
+        "customer": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551292410",
+        "salesOrder": "0012083",
+        "sequenceLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "50",
+        "partNumber": "910781-03",
+        "description": "SMOKE DETECTOR SINGLE, 8930",
+        "dueDate": "07/08/26",
+        "price": "364.80",
+        "extendedPrice": "18240.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001082|0012067|030",
+      "sourceIndex": 49,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/17/26",
+        "customerNumber": "001082",
+        "customer": "ABBOTT TECHNOLOGIES, INC.",
+        "customerPo": "47854",
+        "salesOrder": "0012067",
+        "sequenceLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B11020-26",
+        "description": "PCBA-644",
+        "dueDate": "07/15/26",
+        "price": "82.04",
+        "extendedPrice": "820.40"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012063|030",
+      "sourceIndex": 50,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/21/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P139101",
+        "salesOrder": "0012063",
+        "sequenceLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "125",
+        "partNumber": "5372-36-1",
+        "description": "SWITCH HARNESS ASSY",
+        "dueDate": "07/15/26",
+        "price": "54.44",
+        "extendedPrice": "6805.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "839287|0012042|050",
+      "sourceIndex": 51,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "11/19/25",
+        "customerNumber": "839287",
+        "customer": "THERMASOL STEAMBATH CO.",
+        "customerPo": "41636",
+        "salesOrder": "0012042",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "100",
+        "partNumber": "03-4770-5",
+        "description": "POWER SUPPLY PCB ASSY (SIDE)",
+        "dueDate": "07/15/26",
+        "price": "35.00",
+        "extendedPrice": "3500.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001061|0012086|010",
+      "sourceIndex": 52,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/09/26",
+        "customerNumber": "001061",
+        "customer": "SKURKA AEROSPACE INC.",
+        "customerPo": "P176090",
+        "salesOrder": "0012086",
+        "sequenceLine": "010",
+        "workOrder": "0115607",
+        "workOrderQuantity": "10",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "4240157-1",
+        "description": "CCA, PLUG, MOTOR",
+        "dueDate": "07/17/26",
+        "price": "376.67",
+        "extendedPrice": "3766.70"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001037|0012029|040",
+      "sourceIndex": 53,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "10/13/25",
+        "customerNumber": "001037",
+        "customer": "MEGGITT (N. HOLLYWOOD), I",
+        "customerPo": "4551252615",
+        "salesOrder": "0012029",
+        "sequenceLine": "040",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "100",
+        "partNumber": "450007",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "07/22/26",
+        "price": "21.31",
+        "extendedPrice": "2131.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001238|0012085|010",
+      "sourceIndex": 54,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/05/26",
+        "customerNumber": "001238",
+        "customer": "KING NUTRONICS CORPORATIO",
+        "customerPo": "953",
+        "salesOrder": "0012085",
+        "sequenceLine": "010",
+        "workOrder": "0115606",
+        "workOrderQuantity": "20",
+        "quantityShipped": "0",
+        "qtyOpen": "20",
+        "partNumber": "KA3666-361-005",
+        "description": "PCBA AUTO PRESS.CAL.",
+        "dueDate": "07/24/26",
+        "price": "1094.98",
+        "extendedPrice": "21899.60"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001238|0012090|010",
+      "sourceIndex": 55,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/26/26",
+        "customerNumber": "001238",
+        "customer": "KING NUTRONICS CORPORATIO",
+        "customerPo": "1066",
+        "salesOrder": "0012090",
+        "sequenceLine": "010",
+        "workOrder": "0115611",
+        "workOrderQuantity": "30",
+        "quantityShipped": "0",
+        "qtyOpen": "30",
+        "partNumber": "3666-291-1",
+        "description": "FERENSTAT PCB ASSY AUTO PRESS",
+        "dueDate": "07/24/26",
+        "price": "65.70",
+        "extendedPrice": "1971.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001238|0012090|050",
+      "sourceIndex": 56,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/26/26",
+        "customerNumber": "001238",
+        "customer": "KING NUTRONICS CORPORATIO",
+        "customerPo": "1066",
+        "salesOrder": "0012090",
+        "sequenceLine": "050",
+        "workOrder": "0115612",
+        "workOrderQuantity": "10",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "3666-291-3",
+        "description": "FERENSTAT PCB ASSY AUTO PRESS",
+        "dueDate": "07/24/26",
+        "price": "70.70",
+        "extendedPrice": "707.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001238|0012090|090",
+      "sourceIndex": 57,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/26/26",
+        "customerNumber": "001238",
+        "customer": "KING NUTRONICS CORPORATIO",
+        "customerPo": "1066",
+        "salesOrder": "0012090",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "60",
+        "partNumber": "3666-292-1 REV A",
+        "description": "FERENSTAT PCB BARE BOARD",
+        "dueDate": "07/24/26",
+        "price": "20.70",
+        "extendedPrice": "1242.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012053|050",
+      "sourceIndex": 58,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "01/19/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P138315",
+        "salesOrder": "0012053",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "20",
+        "partNumber": "718720-1",
+        "description": "ISOLATION SWITCH ASSY",
+        "dueDate": "07/27/26",
+        "price": "1237.85",
+        "extendedPrice": "24757.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "565650|0012066|010",
+      "sourceIndex": 59,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/04/26",
+        "customerNumber": "565650",
+        "customer": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551281494",
+        "salesOrder": "0012066",
+        "sequenceLine": "010",
+        "workOrder": "0115585",
+        "workOrderQuantity": "10",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "H23982-1",
+        "description": "CONTROLLER COVER ASSY",
+        "dueDate": "07/29/26",
+        "price": "4269.87",
+        "extendedPrice": "42698.70"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|010",
+      "sourceIndex": 60,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "010",
+        "workOrder": "0115610",
+        "workOrderQuantity": "30",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "08/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012040|130",
+      "sourceIndex": 61,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "11/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195568",
+        "salesOrder": "0012040",
+        "sequenceLine": "130",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C14PAA",
+        "description": "MASTER CARD",
+        "dueDate": "08/03/26",
+        "price": "128.84",
+        "extendedPrice": "1288.40"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001037|0012087|010",
+      "sourceIndex": 62,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/10/26",
+        "customerNumber": "001037",
+        "customer": "MEGGITT (N. HOLLYWOOD), I",
+        "customerPo": "4551301478",
+        "salesOrder": "0012087",
+        "sequenceLine": "010",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "100",
+        "partNumber": "160192 REV NC",
+        "description": "PLATE,INTERFACE PCB BARE BOARD",
+        "dueDate": "08/05/26",
+        "price": "20.05",
+        "extendedPrice": "2005.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001037|0011998|040",
+      "sourceIndex": 63,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/04/25",
+        "customerNumber": "001037",
+        "customer": "MEGGITT (N. HOLLYWOOD), I",
+        "customerPo": "4551226777",
+        "salesOrder": "0011998",
+        "sequenceLine": "040",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "159617",
+        "description": "PRINTED CIRCUIT ASSEMBLY OP20",
+        "dueDate": "08/07/26",
+        "price": "495.75",
+        "extendedPrice": "4957.50"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012053|070",
+      "sourceIndex": 64,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "01/19/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P138315",
+        "salesOrder": "0012053",
+        "sequenceLine": "070",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "20",
+        "partNumber": "718720-1",
+        "description": "ISOLATION SWITCH ASSY",
+        "dueDate": "08/08/26",
+        "price": "1237.85",
+        "extendedPrice": "24757.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001082|0012088|010",
+      "sourceIndex": 65,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "07/02/26",
+        "customerNumber": "001082",
+        "customer": "ABBOTT TECHNOLOGIES, INC.",
+        "customerPo": "48158",
+        "salesOrder": "0012088",
+        "sequenceLine": "010",
+        "workOrder": "0115608",
+        "workOrderQuantity": "35",
+        "quantityShipped": "0",
+        "qtyOpen": "35",
+        "partNumber": "B11004-17",
+        "description": "PCB ASSEMBLY (N4-295A)",
+        "dueDate": "08/10/26",
+        "price": "207.80",
+        "extendedPrice": "7273.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001082|0012088|040",
+      "sourceIndex": 66,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "07/02/26",
+        "customerNumber": "001082",
+        "customer": "ABBOTT TECHNOLOGIES, INC.",
+        "customerPo": "48158",
+        "salesOrder": "0012088",
+        "sequenceLine": "040",
+        "workOrder": "0115609",
+        "workOrderQuantity": "60",
+        "quantityShipped": "0",
+        "qtyOpen": "60",
+        "partNumber": "B11005-17",
+        "description": "DC-DC CONTROL ASSEMBLY",
+        "dueDate": "08/10/26",
+        "price": "152.86",
+        "extendedPrice": "9171.60"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012075|050",
+      "sourceIndex": 67,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "04/13/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196437",
+        "salesOrder": "0012075",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C11PAA",
+        "description": "MASTER CARD",
+        "dueDate": "08/10/26",
+        "price": "131.57",
+        "extendedPrice": "657.85"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001082|0012067|040",
+      "sourceIndex": 68,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/17/26",
+        "customerNumber": "001082",
+        "customer": "ABBOTT TECHNOLOGIES, INC.",
+        "customerPo": "47854",
+        "salesOrder": "0012067",
+        "sequenceLine": "040",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B11020-26",
+        "description": "PCBA-644",
+        "dueDate": "08/12/26",
+        "price": "82.04",
+        "extendedPrice": "820.40"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012006|130",
+      "sourceIndex": 69,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "07/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00194880",
+        "salesOrder": "0012006",
+        "sequenceLine": "130",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "277-3261",
+        "description": "ASSY 1 POWER SUPPLY",
+        "dueDate": "09/01/26",
+        "price": "207.09",
+        "extendedPrice": "1035.45"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012035|050",
+      "sourceIndex": 70,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "10/31/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195447",
+        "salesOrder": "0012035",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C57LAA-001",
+        "description": "ALARM CARD",
+        "dueDate": "09/01/26",
+        "price": "114.17",
+        "extendedPrice": "570.85"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012064|090",
+      "sourceIndex": 71,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/05/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195650",
+        "salesOrder": "0012064",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "277-3939",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "09/01/26",
+        "price": "31.00",
+        "extendedPrice": "310.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012082|090",
+      "sourceIndex": 72,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/07/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695",
+        "salesOrder": "0012082",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C24LAA-001",
+        "description": "ALARM BCN-LED 120V",
+        "dueDate": "09/01/26",
+        "price": "132.79",
+        "extendedPrice": "1327.90"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|030",
+      "sourceIndex": 73,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "09/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012053|090",
+      "sourceIndex": 74,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "01/19/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P138315",
+        "salesOrder": "0012053",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "20",
+        "partNumber": "718720-1",
+        "description": "ISOLATION SWITCH ASSY",
+        "dueDate": "09/07/26",
+        "price": "1237.85",
+        "extendedPrice": "24757.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012053|121",
+      "sourceIndex": 75,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "01/19/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P138315",
+        "salesOrder": "0012053",
+        "sequenceLine": "121",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "30",
+        "partNumber": "718720-1",
+        "description": "ISOLATION SWITCH ASSY",
+        "dueDate": "09/15/26",
+        "price": "1237.85",
+        "extendedPrice": "37135.50"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0012091|010",
+      "sourceIndex": 76,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "07/08/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP44814",
+        "salesOrder": "0012091",
+        "sequenceLine": "010",
+        "workOrder": "0115613",
+        "workOrderQuantity": "55",
+        "quantityShipped": "0",
+        "qtyOpen": "55",
+        "partNumber": "600280-103",
+        "description": "CONTROLLER BOARD",
+        "dueDate": "09/23/26",
+        "price": "933.50",
+        "extendedPrice": "51342.50"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012006|150",
+      "sourceIndex": 77,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "07/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00194880",
+        "salesOrder": "0012006",
+        "sequenceLine": "150",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "277-3261",
+        "description": "ASSY 1 POWER SUPPLY",
+        "dueDate": "10/01/26",
+        "price": "207.09",
+        "extendedPrice": "1035.45"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012040|150",
+      "sourceIndex": 78,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "11/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195568",
+        "salesOrder": "0012040",
+        "sequenceLine": "150",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C14PAA",
+        "description": "MASTER CARD",
+        "dueDate": "10/01/26",
+        "price": "128.84",
+        "extendedPrice": "1288.40"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|050",
+      "sourceIndex": 79,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "10/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "565650|0012083|050",
+      "sourceIndex": 80,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/19/26",
+        "customerNumber": "565650",
+        "customer": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551292410",
+        "salesOrder": "0012083",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "50",
+        "partNumber": "910781-03",
+        "description": "SMOKE DETECTOR SINGLE, 8930",
+        "dueDate": "10/07/26",
+        "price": "364.80",
+        "extendedPrice": "18240.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012054|050",
+      "sourceIndex": 81,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "01/14/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P138515",
+        "salesOrder": "0012054",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "200",
+        "partNumber": "15K35-1",
+        "description": "FILTER AND RECTIFIER ASSEMBLY",
+        "dueDate": "10/09/26",
+        "price": "61.85",
+        "extendedPrice": "12370.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "565650|0012072|010",
+      "sourceIndex": 82,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/27/26",
+        "customerNumber": "565650",
+        "customer": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551286831",
+        "salesOrder": "0012072",
+        "sequenceLine": "010",
+        "workOrder": "0115591",
+        "workOrderQuantity": "12",
+        "quantityShipped": "0",
+        "qtyOpen": "12",
+        "partNumber": "6834-03",
+        "description": "PC BD ASSY CONTROL FALCON 2000",
+        "dueDate": "10/09/26",
+        "price": "1490.00",
+        "extendedPrice": "17880.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "565650|0012073|010",
+      "sourceIndex": 83,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/27/26",
+        "customerNumber": "565650",
+        "customer": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551286872",
+        "salesOrder": "0012073",
+        "sequenceLine": "010",
+        "workOrder": "0115592",
+        "workOrderQuantity": "11",
+        "quantityShipped": "0",
+        "qtyOpen": "11",
+        "partNumber": "6834-04",
+        "description": "PC BD ASSY CONTROL FALCON 2000",
+        "dueDate": "10/09/26",
+        "price": "1490.00",
+        "extendedPrice": "16390.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012075|070",
+      "sourceIndex": 84,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "04/13/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196437",
+        "salesOrder": "0012075",
+        "sequenceLine": "070",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C11PAA",
+        "description": "MASTER CARD",
+        "dueDate": "10/12/26",
+        "price": "131.57",
+        "extendedPrice": "657.85"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012039|030",
+      "sourceIndex": 85,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "10/30/25",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P137686",
+        "salesOrder": "0012039",
+        "sequenceLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "50",
+        "partNumber": "1175136-1",
+        "description": "CAPACITOR TUBE ASSEMBLY",
+        "dueDate": "10/15/26",
+        "price": "430.13",
+        "extendedPrice": "21506.50"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012063|050",
+      "sourceIndex": 86,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/21/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P139101",
+        "salesOrder": "0012063",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "125",
+        "partNumber": "5372-36-1",
+        "description": "SWITCH HARNESS ASSY",
+        "dueDate": "10/15/26",
+        "price": "54.44",
+        "extendedPrice": "6805.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001037|0012029|050",
+      "sourceIndex": 87,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "10/13/25",
+        "customerNumber": "001037",
+        "customer": "MEGGITT (N. HOLLYWOOD), I",
+        "customerPo": "4551252615",
+        "salesOrder": "0012029",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "100",
+        "partNumber": "450007",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "10/21/26",
+        "price": "21.31",
+        "extendedPrice": "2131.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001037|0011998|050",
+      "sourceIndex": 88,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/04/25",
+        "customerNumber": "001037",
+        "customer": "MEGGITT (N. HOLLYWOOD), I",
+        "customerPo": "4551226777",
+        "salesOrder": "0011998",
+        "sequenceLine": "050",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "159617",
+        "description": "PRINTED CIRCUIT ASSEMBLY OP20",
+        "dueDate": "10/23/26",
+        "price": "495.75",
+        "extendedPrice": "4957.50"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012006|170",
+      "sourceIndex": 89,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "07/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00194880",
+        "salesOrder": "0012006",
+        "sequenceLine": "170",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "277-3261",
+        "description": "ASSY 1 POWER SUPPLY",
+        "dueDate": "11/02/26",
+        "price": "207.09",
+        "extendedPrice": "1035.45"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012064|110",
+      "sourceIndex": 90,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/05/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195650",
+        "salesOrder": "0012064",
+        "sequenceLine": "110",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "277-3939",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "11/02/26",
+        "price": "31.00",
+        "extendedPrice": "310.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012082|110",
+      "sourceIndex": 91,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/07/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695",
+        "salesOrder": "0012082",
+        "sequenceLine": "110",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C24LAA-001",
+        "description": "ALARM BCN-LED 120V",
+        "dueDate": "11/02/26",
+        "price": "132.79",
+        "extendedPrice": "1327.90"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|070",
+      "sourceIndex": 92,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "070",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "11/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "565650|0012083|070",
+      "sourceIndex": 93,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/19/26",
+        "customerNumber": "565650",
+        "customer": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551292410",
+        "salesOrder": "0012083",
+        "sequenceLine": "070",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "50",
+        "partNumber": "910781-03",
+        "description": "SMOKE DETECTOR SINGLE, 8930",
+        "dueDate": "11/04/26",
+        "price": "364.80",
+        "extendedPrice": "18240.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001037|0012029|060",
+      "sourceIndex": 94,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "10/13/25",
+        "customerNumber": "001037",
+        "customer": "MEGGITT (N. HOLLYWOOD), I",
+        "customerPo": "4551252615",
+        "salesOrder": "0012029",
+        "sequenceLine": "060",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "100",
+        "partNumber": "450007",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "11/09/26",
+        "price": "21.31",
+        "extendedPrice": "2131.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012006|190",
+      "sourceIndex": 95,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "07/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00194880",
+        "salesOrder": "0012006",
+        "sequenceLine": "190",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "277-3261",
+        "description": "ASSY 1 POWER SUPPLY",
+        "dueDate": "12/01/26",
+        "price": "207.09",
+        "extendedPrice": "1035.45"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012040|170",
+      "sourceIndex": 96,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "11/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195568",
+        "salesOrder": "0012040",
+        "sequenceLine": "170",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C14PAA",
+        "description": "MASTER CARD",
+        "dueDate": "12/01/26",
+        "price": "128.84",
+        "extendedPrice": "1288.40"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012064|130",
+      "sourceIndex": 97,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/05/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195650",
+        "salesOrder": "0012064",
+        "sequenceLine": "130",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "277-3939",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "12/01/26",
+        "price": "31.00",
+        "extendedPrice": "310.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|090",
+      "sourceIndex": 98,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "12/02/26",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "565650|0012083|090",
+      "sourceIndex": 99,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/19/26",
+        "customerNumber": "565650",
+        "customer": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551292410",
+        "salesOrder": "0012083",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "44",
+        "partNumber": "910781-03",
+        "description": "SMOKE DETECTOR SINGLE, 8930",
+        "dueDate": "12/09/26",
+        "price": "364.80",
+        "extendedPrice": "16051.20"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012075|090",
+      "sourceIndex": 100,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "04/13/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196437",
+        "salesOrder": "0012075",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C11PAA",
+        "description": "MASTER CARD",
+        "dueDate": "12/14/26",
+        "price": "131.57",
+        "extendedPrice": "657.85"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001037|0011998|060",
+      "sourceIndex": 101,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/04/25",
+        "customerNumber": "001037",
+        "customer": "MEGGITT (N. HOLLYWOOD), I",
+        "customerPo": "4551226777",
+        "salesOrder": "0011998",
+        "sequenceLine": "060",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "44",
+        "partNumber": "159617",
+        "description": "PRINTED CIRCUIT ASSEMBLY OP20",
+        "dueDate": "12/21/26",
+        "price": "495.75",
+        "extendedPrice": "21813.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "565650|0011802|290",
+      "sourceIndex": 102,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "09/27/23",
+        "customerNumber": "565650",
+        "customer": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551097248",
+        "salesOrder": "0011802",
+        "sequenceLine": "290",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "75",
+        "partNumber": "910781-01",
+        "description": "PCBA SMOKE DET MICRO602 (DUAL)",
+        "dueDate": "12/31/26",
+        "price": "402.80",
+        "extendedPrice": "30210.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001037|0012029|070",
+      "sourceIndex": 103,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "10/13/25",
+        "customerNumber": "001037",
+        "customer": "MEGGITT (N. HOLLYWOOD), I",
+        "customerPo": "4551252615",
+        "salesOrder": "0012029",
+        "sequenceLine": "070",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "100",
+        "partNumber": "450007",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "01/04/27",
+        "price": "21.31",
+        "extendedPrice": "2131.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012040|190",
+      "sourceIndex": 104,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "11/07/25",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195568",
+        "salesOrder": "0012040",
+        "sequenceLine": "190",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C14PAA",
+        "description": "MASTER CARD",
+        "dueDate": "01/04/27",
+        "price": "128.84",
+        "extendedPrice": "1288.40"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012082|130",
+      "sourceIndex": 105,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/07/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695",
+        "salesOrder": "0012082",
+        "sequenceLine": "130",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "B7C24LAA-001",
+        "description": "ALARM BCN-LED 120V",
+        "dueDate": "01/04/27",
+        "price": "132.79",
+        "extendedPrice": "1327.90"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012089|110",
+      "sourceIndex": 106,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "06/30/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196884",
+        "salesOrder": "0012089",
+        "sequenceLine": "110",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C19PAA",
+        "description": "MASTER CARD",
+        "dueDate": "01/04/27",
+        "price": "139.75",
+        "extendedPrice": "698.75"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012054|070",
+      "sourceIndex": 107,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "01/14/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P138515",
+        "salesOrder": "0012054",
+        "sequenceLine": "070",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "200",
+        "partNumber": "15K35-1",
+        "description": "FILTER AND RECTIFIER ASSEMBLY",
+        "dueDate": "01/14/27",
+        "price": "61.85",
+        "extendedPrice": "12370.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012080|015",
+      "sourceIndex": 108,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/11/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P139703",
+        "salesOrder": "0012080",
+        "sequenceLine": "015",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "100",
+        "partNumber": "5372-35-2",
+        "description": "CONNECTOR HARNESS ASSY",
+        "dueDate": "01/15/27",
+        "price": "108.39",
+        "extendedPrice": "10838.75"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012064|150",
+      "sourceIndex": 109,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/05/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195650",
+        "salesOrder": "0012064",
+        "sequenceLine": "150",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "277-3939",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "02/01/27",
+        "price": "31.00",
+        "extendedPrice": "310.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012075|110",
+      "sourceIndex": 110,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "04/13/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196437",
+        "salesOrder": "0012075",
+        "sequenceLine": "110",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "5",
+        "partNumber": "B7C11PAA",
+        "description": "MASTER CARD",
+        "dueDate": "02/08/27",
+        "price": "131.57",
+        "extendedPrice": "657.85"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012064|170",
+      "sourceIndex": 111,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/05/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195650",
+        "salesOrder": "0012064",
+        "sequenceLine": "170",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "277-3939",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "03/01/27",
+        "price": "31.00",
+        "extendedPrice": "310.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001148|0012064|190",
+      "sourceIndex": 112,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "03/05/26",
+        "customerNumber": "001148",
+        "customer": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195650",
+        "salesOrder": "0012064",
+        "sequenceLine": "190",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "277-3939",
+        "description": "PCB ASSEMBLY",
+        "dueDate": "04/01/27",
+        "price": "31.00",
+        "extendedPrice": "310.00"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012065|030",
+      "sourceIndex": 113,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "02/25/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P139065",
+        "salesOrder": "0012065",
+        "sequenceLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "75",
+        "partNumber": "5411-125-1",
+        "description": "WIRING HARNESS ASSY MOTOR",
+        "dueDate": "05/19/27",
+        "price": "22.58",
+        "extendedPrice": "1693.50"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001165|0012080|017",
+      "sourceIndex": 114,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/11/2026, 3:53:26 PM",
+      "vpro5": {
+        "orderDate": "05/11/26",
+        "customerNumber": "001165",
+        "customer": "AERO FLUID PRODUCTS",
+        "customerPo": "P139703",
+        "salesOrder": "0012080",
+        "sequenceLine": "017",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "50",
+        "partNumber": "5372-35-2",
+        "description": "CONNECTOR HARNESS ASSY",
+        "dueDate": "07/15/27",
+        "price": "108.39",
+        "extendedPrice": "5419.38"
+      },
+      "dle": {
+        "operationalStatus": ""
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/11/2026, 3:53:26 PM",
+        "status": "Active"
+      }
+    }
+  ]
+}

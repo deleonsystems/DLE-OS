@@ -4414,9 +4414,9 @@ body {
     }
 
     .master-data-table {
-      width: 100%;
+      width: max-content;
       border-collapse: collapse;
-      min-width: 1120px;
+      min-width: 100%;
       font-size: .86rem;
     }
 
@@ -4426,6 +4426,8 @@ body {
       border-bottom: 1px solid rgba(255,255,255,.08);
       text-align: left;
       vertical-align: top;
+      min-width: 130px;
+      white-space: nowrap;
     }
 
     .master-data-table th {
@@ -7711,6 +7713,43 @@ function parseOpenOrdersExportText(text) {
         .filter(cols => cols.some(value => (value || '').trim()));
 }
 
+function mapOpenOrdersColumnsToErpRow(cols = []) {
+    return {
+        orderDate: cols[0],
+        customerNumber: cols[1],
+        customer: cols[2],
+        customerPo: cols[3],
+        salesOrder: cols[4],
+        sequenceLine: cols[5],
+        workOrder: cols[6],
+        workOrderQuantity: cols[7],
+        quantityShipped: cols[8],
+        qtyOpen: cols[9],
+        partNumber: cols[10],
+        description: cols[11],
+        dueDate: cols[12],
+        price: cols[13],
+        extendedPrice: cols[14],
+        materialCost: cols[15],
+        laborCost: cols[16],
+        totalCost: cols[17],
+        billNumber: cols[18],
+        drawingNumber: cols[19],
+        drawingRevision: cols[20],
+        revisionCode: cols[21]
+    };
+}
+
+const ERP_MASTER_DATA_ENRICHMENT_FIELDS = [
+    { key: 'materialCost', label: 'Material Cost' },
+    { key: 'laborCost', label: 'Labor Cost' },
+    { key: 'totalCost', label: 'Total Cost' },
+    { key: 'billNumber', label: 'Bill Number' },
+    { key: 'drawingNumber', label: 'Drawing Number' },
+    { key: 'drawingRevision', label: 'Drawing Revision' },
+    { key: 'revisionCode', label: 'Revision Code' }
+];
+
 function renderOpenOrdersTable() {
     const table = document.getElementById('openOrdersTable');
     if (!table) return;
@@ -8128,15 +8167,20 @@ async function approveReconciliationErpUpdates() {
         return;
     }
 
+    const acceptedNewOrderEvents = getAcceptedNewOrderReviewQueueEvents();
+    const approvedEnrichmentEvents = getApprovedMasterDataEnrichmentReviewQueueEvents();
     const approvedArchiveShipmentIds = getApprovedShipmentArchiveShipmentIdsFromReviewQueue();
     const archiveCandidates = getShipmentStagingArchiveCandidates(approvedArchiveShipmentIds);
+    const isEnrichmentOnlyApproval = approvedEnrichmentEvents.length > 0 &&
+        acceptedNewOrderEvents.length === 0 &&
+        archiveCandidates.length === 0;
     const shipmentStatus = buildShipmentStagingReconciliationStatus();
     const pendingShipmentIds = getPendingShipmentStagingTransactionIds();
     const unapprovedPendingShipmentIds = pendingShipmentIds.filter(shipmentId =>
         !approvedArchiveShipmentIds.includes(shipmentId)
     );
 
-    if (unapprovedPendingShipmentIds.length > 0) {
+    if (unapprovedPendingShipmentIds.length > 0 && !isEnrichmentOnlyApproval) {
         renderReconciliationDashboardStatus();
         renderShipmentStagingReconciliationStatus({
             ...shipmentStatus,
@@ -8157,8 +8201,7 @@ async function approveReconciliationErpUpdates() {
         return;
     }
 
-    const acceptedNewOrderEvents = getAcceptedNewOrderReviewQueueEvents();
-    const hasApprovedUpdates = acceptedNewOrderEvents.length > 0;
+    const hasApprovedUpdates = acceptedNewOrderEvents.length > 0 || approvedEnrichmentEvents.length > 0;
     if (!hasApprovedUpdates && !archiveCandidates.length) {
         setReconciliationActionStatus('No staged Review Queue decisions are available to approve.');
         return;
@@ -8171,7 +8214,8 @@ async function approveReconciliationErpUpdates() {
     try {
         const result = hasApprovedUpdates
             ? applyApprovedReviewQueueDecisionsToMasterData({
-                acceptedNewOrderEvents
+                acceptedNewOrderEvents,
+                approvedEnrichmentEvents
             })
             : { updatedRecords: 0, createdRecords: 0 };
 
@@ -8202,6 +8246,8 @@ async function approveReconciliationErpUpdates() {
         setReconciliationActionStatus([
             'Approved ERP updates applied.',
             result.updatedRecords + ' existing record(s) updated.',
+            (result.enrichedRecords || 0) + ' existing record(s) enriched.',
+            (result.enrichedFields || 0) + ' ERP-owned enrichment field value(s) added.',
             result.createdRecords + ' new ERP record(s) added.',
             archiveResult.archivedRecords + ' shipment staging record(s) archived into Shipment History.',
             archiveResult.removedMasterRecords + ' completed Master Data record(s) removed from the operational dataset.',
@@ -8252,8 +8298,13 @@ function applyApprovedReviewQueueDecisionsToMasterData(decisions = {}) {
     const acceptedNewOrderEvents = Array.isArray(decisions.acceptedNewOrderEvents)
         ? decisions.acceptedNewOrderEvents
         : [];
+    const approvedEnrichmentEvents = Array.isArray(decisions.approvedEnrichmentEvents)
+        ? decisions.approvedEnrichmentEvents
+        : [];
     let updatedRecords = 0;
     let createdRecords = 0;
+    let enrichedRecords = 0;
+    let enrichedFields = 0;
 
     acceptedNewOrderEvents.forEach(event => {
         const recordKey = event?.erp?.recordKey || '';
@@ -8275,14 +8326,77 @@ function applyApprovedReviewQueueDecisionsToMasterData(decisions = {}) {
         createdRecords += 1;
     });
 
+    approvedEnrichmentEvents.forEach(event => {
+        const recordKey = event?.master?.recordKey || event?.erp?.recordKey || '';
+        if (!recordKey) return;
+
+        const masterRecord = masterByKey.get(recordKey);
+        if (!masterRecord) return;
+
+        masterRecord.vpro5 = masterRecord.vpro5 || {};
+        const erpRecord = erpByKey.get(recordKey);
+        const erpVpro5 = erpRecord?.vpro5 || {};
+        let recordEnriched = false;
+
+        (event.enrichmentFields || [])
+            .filter(field => field.action === 'populate')
+            .filter(field => ERP_MASTER_DATA_ENRICHMENT_FIELDS.some(allowed => allowed.key === field.key))
+            .forEach(field => {
+                const erpValue = normalizeReconciliationValue(erpVpro5[field.key] ?? field.erpValue);
+                const masterValue = normalizeReconciliationValue(masterRecord.vpro5[field.key]);
+                if (!erpValue || masterValue) return;
+
+                masterRecord.vpro5[field.key] = erpValue;
+                enrichedFields += 1;
+                recordEnriched = true;
+            });
+
+        if (recordEnriched) enrichedRecords += 1;
+    });
+
+    if (enrichedFields) {
+        ensureMasterDataVpro5OwnedFields(ERP_MASTER_DATA_ENRICHMENT_FIELDS.map(field => field.key));
+        updatedRecords += enrichedRecords;
+    }
+
     dleMasterDataFileState.data.recordCount = records.length;
-    return { updatedRecords, createdRecords };
+    return { updatedRecords, createdRecords, enrichedRecords, enrichedFields };
+}
+
+function ensureMasterDataVpro5OwnedFields(fields) {
+    const data = dleMasterDataFileState.data;
+    if (!data || typeof data !== 'object') return;
+
+    const records = Array.isArray(data.records) ? data.records : [];
+    data.ownershipModel = data.ownershipModel || {};
+    const vpro5Owned = Array.isArray(data.ownershipModel.vpro5Owned)
+        ? data.ownershipModel.vpro5Owned
+        : [];
+    fields.forEach(field => {
+        if (field && !vpro5Owned.includes(field)) {
+            vpro5Owned.push(field);
+        }
+        records.forEach(record => {
+            record.vpro5 = record.vpro5 || {};
+            if (field && !Object.prototype.hasOwnProperty.call(record.vpro5, field)) {
+                record.vpro5[field] = '';
+            }
+        });
+    });
+    data.ownershipModel.vpro5Owned = vpro5Owned;
 }
 
 function getAcceptedNewOrderReviewQueueEvents() {
     return reconciliationReviewQueueState.events.filter(event =>
         event.eventType === 'New Order' &&
         reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Accept New Order'
+    );
+}
+
+function getApprovedMasterDataEnrichmentReviewQueueEvents() {
+    return reconciliationReviewQueueState.events.filter(event =>
+        event.eventType === 'Master Data Enrichment' &&
+        reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Apply Enrichment'
     );
 }
 
@@ -8389,6 +8503,7 @@ function analyzeMasterDataReconciliation() {
     const recordsMissingFromErp = [];
     const erpFieldDifferences = [];
     const missingErpOwnedFields = [];
+    const masterDataEnrichmentRecords = [];
     const pendingInvoiceRecords = [];
     const pendingInvoiceMasterKeys = new Set();
     const pendingInvoiceErpKeys = new Set();
@@ -8417,6 +8532,13 @@ function analyzeMasterDataReconciliation() {
         pendingInvoiceRecords.push(item);
         pendingInvoiceMasterKeys.add(item.record.recordKey);
         pendingInvoiceErpKeys.add(item.erpRecord.recordKey);
+    });
+
+    buildMasterDataEnrichmentCandidates({
+        masterByKey,
+        erpByKey
+    }).forEach(item => {
+        masterDataEnrichmentRecords.push(item);
     });
 
     erpByKey.forEach((erpRecord, recordKey) => {
@@ -8473,7 +8595,7 @@ function analyzeMasterDataReconciliation() {
         }
     });
 
-    const overallStatus = newErpRecords.length || recordsMissingFromErp.length || erpFieldDifferences.length || missingErpOwnedFields.length || workOrderSyncRecords.length || pendingInvoiceRecords.length
+    const overallStatus = newErpRecords.length || recordsMissingFromErp.length || erpFieldDifferences.length || missingErpOwnedFields.length || masterDataEnrichmentRecords.length || workOrderSyncRecords.length || pendingInvoiceRecords.length
         ? 'Review Needed'
         : 'No Differences Found';
 
@@ -8486,10 +8608,61 @@ function analyzeMasterDataReconciliation() {
         recordsMissingFromErp,
         erpFieldDifferences,
         missingErpOwnedFields,
+        masterDataEnrichmentRecords,
         workOrderSyncRecords,
         pendingInvoiceRecords,
         overallStatus
     };
+}
+
+function buildMasterDataEnrichmentCandidates(context = {}) {
+    const masterByKey = context.masterByKey || new Map();
+    const erpByKey = context.erpByKey || new Map();
+    const candidates = [];
+
+    erpByKey.forEach((erpRecord, recordKey) => {
+        const masterRecord = masterByKey.get(recordKey);
+        if (!masterRecord) return;
+
+        const masterVpro5 = masterRecord.vpro5 || {};
+        const erpVpro5 = erpRecord.vpro5 || {};
+        const fields = ERP_MASTER_DATA_ENRICHMENT_FIELDS
+            .map(fieldDefinition => {
+                const masterHasField = Object.prototype.hasOwnProperty.call(masterVpro5, fieldDefinition.key);
+                const masterValue = normalizeReconciliationValue(masterVpro5[fieldDefinition.key]);
+                const erpValue = normalizeReconciliationValue(erpVpro5[fieldDefinition.key]);
+                if (!erpValue) return null;
+                if (!masterHasField || !masterValue) {
+                    return {
+                        ...fieldDefinition,
+                        masterValue,
+                        erpValue,
+                        action: 'populate'
+                    };
+                }
+                if (masterValue !== erpValue) {
+                    return {
+                        ...fieldDefinition,
+                        masterValue,
+                        erpValue,
+                        action: 'conflict'
+                    };
+                }
+                return null;
+            })
+            .filter(Boolean);
+
+        if (!fields.length) return;
+
+        candidates.push({
+            recordKey,
+            record: buildReconciliationRecordSummary(masterRecord, recordKey),
+            erpRecord: buildReconciliationRecordSummary(erpRecord, recordKey),
+            fields
+        });
+    });
+
+    return candidates;
 }
 
 function toggleWorkOrderSyncMigrationMode(event) {
@@ -8760,6 +8933,17 @@ function buildReconciliationReviewQueueEvents(summary) {
         resolutionStatus: 'Pending'
     }));
 
+    const enrichmentRecords = (summary.masterDataEnrichmentRecords || []).map(item => ({
+        statusIcon: 'ENR',
+        eventClass: 'event-master-data-enrichment',
+        erp: item.erpRecord,
+        master: item.record,
+        eventType: 'Master Data Enrichment',
+        disposition: item.fields.some(field => field.action === 'populate') ? 'Select' : 'Review Only',
+        resolutionStatus: 'Pending',
+        enrichmentFields: item.fields
+    }));
+
     const workOrderSyncRecords = (summary.workOrderSyncRecords || []).map(item => ({
         statusIcon: 'WO',
         eventClass: 'event-work-order-sync',
@@ -8794,6 +8978,7 @@ function buildReconciliationReviewQueueEvents(summary) {
         ...newOrders,
         ...missingFromErp,
         ...modifiedRecords,
+        ...enrichmentRecords,
         ...workOrderSyncRecords,
         ...pendingInvoiceRecords,
         ...validationIssues
@@ -8920,8 +9105,9 @@ function compareReconciliationEventType(a, b) {
         'Pending Invoice': 2,
         'Missing From ERP': 3,
         'Modified Record': 4,
-        'W/O Sync': 5,
-        'New Order': 6
+        'Master Data Enrichment': 5,
+        'W/O Sync': 6,
+        'New Order': 7
     };
     const aRank = order[a] || 99;
     const bRank = order[b] || 99;
@@ -8947,7 +9133,8 @@ function normalizeReconciliationReviewQueueEvent(event) {
         master: normalizeReconciliationReviewQueueSide(event?.master),
         eventType: event?.eventType || 'Validation Issue',
         disposition: event?.disposition || 'Select',
-        resolutionStatus: event?.resolutionStatus || 'Pending'
+        resolutionStatus: event?.resolutionStatus || 'Pending',
+        enrichmentFields: Array.isArray(event?.enrichmentFields) ? event.enrichmentFields : []
     };
 }
 
@@ -9116,13 +9303,18 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
     const isNewOrder = eventContext.eventType === 'New Order';
     const isWorkOrderSync = eventContext.eventType === 'W/O Sync';
     const isPendingInvoice = eventContext.eventType === 'Pending Invoice';
+    const isMasterDataEnrichment = eventContext.eventType === 'Master Data Enrichment';
+    const hasApplicableEnrichment = isMasterDataEnrichment && (eventContext.enrichmentFields || []).some(field => field.action === 'populate');
+    const isReviewOnly = value === 'Review Only';
     const acceptNewOrderSelected = value === 'Accept New Order' ? ' selected' : '';
     const confirmShipmentSelected = value === 'Confirm Shipment' ? ' selected' : '';
     const syncWorkOrderSelected = value === 'Sync Work Order' ? ' selected' : '';
+    const applyEnrichmentSelected = value === 'Apply Enrichment' ? ' selected' : '';
     const acceptNewOrderDisabled = isNewOrder ? '' : ' disabled';
-    const confirmShipmentDisabled = isNewOrder || isWorkOrderSync || isPendingInvoice ? ' disabled' : '';
+    const confirmShipmentDisabled = isNewOrder || isWorkOrderSync || isPendingInvoice || isMasterDataEnrichment ? ' disabled' : '';
     const syncWorkOrderDisabled = isWorkOrderSync ? '' : ' disabled';
-    if (isPendingInvoice) {
+    const applyEnrichmentDisabled = hasApplicableEnrichment ? '' : ' disabled';
+    if (isPendingInvoice || isReviewOnly) {
         return `
       <select class="reconciliation-disposition-select" disabled>
         <option value="">Review Only</option>
@@ -9135,6 +9327,7 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
         <option value="Accept New Order"${acceptNewOrderDisabled}${acceptNewOrderSelected}>Accept New Order</option>
         <option value="Confirm Shipment"${confirmShipmentDisabled}${confirmShipmentSelected}>Confirm Shipment</option>
         <option value="Sync Work Order"${syncWorkOrderDisabled}${syncWorkOrderSelected}>Sync Work Order</option>
+        <option value="Apply Enrichment"${applyEnrichmentDisabled}${applyEnrichmentSelected}>Apply Enrichment</option>
         <option value="Accept ERP Value" disabled>Accept ERP Value (Coming Soon)</option>
         <option value="Resolve Validation Issue" disabled>Resolve Validation Issue (Coming Soon)</option>
       </select>
@@ -9335,6 +9528,7 @@ function updateReconciliationReviewQueueCounters(events) {
     const counts = events.reduce((totals, event) => {
         if (event.eventType === 'New Order') totals.newOrders += 1;
         if (event.eventType === 'Modified Record') totals.modifiedRecords += 1;
+        if (event.eventType === 'Master Data Enrichment') totals.enrichmentRecords += 1;
         if (event.eventType === 'W/O Sync') totals.workOrderSync += 1;
         if (event.eventType === 'Pending Invoice') totals.pendingInvoice += 1;
         if (event.eventType === 'Missing From ERP') totals.missingFromErp += 1;
@@ -9343,6 +9537,7 @@ function updateReconciliationReviewQueueCounters(events) {
     }, {
         newOrders: 0,
         modifiedRecords: 0,
+        enrichmentRecords: 0,
         workOrderSync: 0,
         pendingInvoice: 0,
         missingFromErp: 0,
@@ -9357,6 +9552,7 @@ function updateReconciliationReviewQueueCounters(events) {
 
     setText('reconciliationNewOrderCount', counts.newOrders);
     setText('reconciliationModifiedRecordCount', counts.modifiedRecords);
+    setText('reconciliationEnrichmentCount', counts.enrichmentRecords);
     setText('reconciliationWorkOrderSyncCount', counts.workOrderSync);
     setText('reconciliationPendingInvoiceCount', counts.pendingInvoice);
     setText('reconciliationMissingErpCount', counts.missingFromErp);
@@ -9381,6 +9577,7 @@ function renderReconciliationSummary(summary) {
         ${reconciliationSummaryCard('New ERP Records', summary.newErpRecords.length)}
         ${reconciliationSummaryCard('Records Missing from ERP', summary.recordsMissingFromErp.length)}
         ${reconciliationSummaryCard('ERP-Owned Field Differences', summary.erpFieldDifferences.length)}
+        ${reconciliationSummaryCard('Master Data Enrichment', (summary.masterDataEnrichmentRecords || []).length)}
         ${reconciliationSummaryCard('W/O Sync Events', (summary.workOrderSyncRecords || []).length)}
         ${reconciliationSummaryCard('Pending Invoice Events', (summary.pendingInvoiceRecords || []).length)}
         ${reconciliationSummaryCard('Missing ERP-Owned Fields', summary.missingErpOwnedFields.length)}
@@ -9391,6 +9588,7 @@ function renderReconciliationSummary(summary) {
       ${renderReconciliationWorkOrderSyncList(summary.workOrderSyncRecords || [])}
       ${renderReconciliationPendingInvoiceList(summary.pendingInvoiceRecords || [])}
       ${renderReconciliationDifferences(summary.erpFieldDifferences)}
+      ${renderMasterDataEnrichmentList(summary.masterDataEnrichmentRecords || [])}
       ${renderMissingErpFieldList(summary.missingErpOwnedFields)}
       ${renderReconciliationInvestigation(summary)}
     `;
@@ -9549,6 +9747,48 @@ function renderReconciliationWorkOrderSyncList(items) {
     `;
 }
 
+function renderMasterDataEnrichmentList(items) {
+    const rows = items.slice(0, 25).map(item => {
+        const fieldSummary = (item.fields || [])
+            .map(field => formatMasterDataLabel(field.key) + ' (' + (field.action === 'populate' ? 'add' : 'review') + ')')
+            .join(', ');
+        return `
+      <tr>
+        <td>${escapeHtml(item.recordKey)}</td>
+        <td>${escapeHtml(item.record.customer)}</td>
+        <td>${escapeHtml(item.record.salesOrder)}</td>
+        <td>${escapeHtml(item.record.sequenceLine)}</td>
+        <td>${escapeHtml(item.record.partNumber)}</td>
+        <td>${escapeHtml(fieldSummary)}</td>
+      </tr>
+    `;
+    }).join('');
+
+    return `
+      <section class="master-data-detail-section">
+        <h3>Master Data Enrichment (${items.length})</h3>
+        ${items.length ? `
+          <div class="master-data-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record Key</th>
+                  <th>Customer</th>
+                  <th>Sales Order</th>
+                  <th>Seq Line</th>
+                  <th>Part Number</th>
+                  <th>Fields</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${items.length > 25 ? `<p>Showing first 25 of ${items.length} records.</p>` : ''}
+        ` : '<p>No Master Data enrichment candidates found.</p>'}
+      </section>
+    `;
+}
+
 function renderMissingErpFieldList(items) {
     const rows = items.slice(0, 25).map(item => `
       <tr>
@@ -9663,6 +9903,19 @@ function buildReconciliationInvestigationRecords(summary) {
         }))
     );
 
+    const enrichmentFields = (summary.masterDataEnrichmentRecords || []).flatMap(item =>
+        (item.fields || []).map(field => ({
+            category: field.action === 'populate' ? 'Master Data Enrichment' : 'Enrichment Conflict',
+            salesOrder: item.record.salesOrder,
+            sequenceLine: item.record.sequenceLine,
+            workOrder: item.record.workOrder,
+            customer: item.record.customer,
+            fieldName: formatMasterDataLabel(field.key),
+            masterValue: field.masterValue || '[blank]',
+            erpValue: field.erpValue || '[blank]'
+        }))
+    );
+
     const newRecords = summary.newErpRecords.map(record => ({
         category: 'New ERP Record',
         salesOrder: record.salesOrder,
@@ -9710,6 +9963,7 @@ function buildReconciliationInvestigationRecords(summary) {
     return [
         ...fieldDifferences,
         ...missingFields,
+        ...enrichmentFields,
         ...newRecords,
         ...workOrderSyncRecords,
         ...pendingInvoiceRecords,
@@ -10342,7 +10596,14 @@ async function createDleMasterData() {
                 'dueDate',
                 'qtyOpen',
                 'price',
-                'extendedPrice'
+                'extendedPrice',
+                'materialCost',
+                'laborCost',
+                'totalCost',
+                'billNumber',
+                'drawingNumber',
+                'drawingRevision',
+                'revisionCode'
             ],
             dleOwned: [
                 'operationalStatus'
@@ -10372,28 +10633,39 @@ async function createDleMasterDataFromErpImport() {
     await createDleMasterData();
 }
 
-function buildDleMasterDataRecord(cols, index, importedAt) {
+function buildDleMasterDataRecord(sourceRow, index, importedAt) {
+    const erpRow = Array.isArray(sourceRow)
+        ? mapOpenOrdersColumnsToErpRow(sourceRow)
+        : sourceRow || {};
+
     return {
-        id: buildDleMasterDataRecordId(cols, index),
+        id: buildDleMasterDataRecordId(sourceRow, index),
         sourceIndex: index,
         lifecycleState: MASTER_RECORD_LIFECYCLE_STATES.OPEN,
         lifecycleUpdatedAt: importedAt,
         vpro5: {
-            orderDate: normalizeOrderValue(cols[0]),
-            customerNumber: normalizeOrderValue(cols[1]),
-            customer: normalizeOrderValue(cols[2]),
-            customerPo: normalizeOrderValue(cols[3]),
-            salesOrder: normalizeOrderValue(cols[4]),
-            sequenceLine: normalizeOrderValue(cols[5]),
-            workOrder: formatImportedWorkOrder(cols[6]),
-            workOrderQuantity: normalizeOrderValue(cols[7], '0'),
-            quantityShipped: normalizeOrderValue(cols[8], '0'),
-            qtyOpen: normalizeOrderValue(cols[9], '0'),
-            partNumber: normalizeOrderValue(cols[10], 'UNKNOWN'),
-            description: normalizeOrderValue(cols[11], ''),
-            dueDate: normalizeOrderValue(cols[12] || cols[0]),
-            price: normalizeOrderValue(cols[13], '0'),
-            extendedPrice: normalizeOrderValue(cols[14], '0')
+            orderDate: normalizeOrderValue(erpRow.orderDate),
+            customerNumber: normalizeOrderValue(erpRow.customerNumber),
+            customer: normalizeOrderValue(erpRow.customer),
+            customerPo: normalizeOrderValue(erpRow.customerPo),
+            salesOrder: normalizeOrderValue(erpRow.salesOrder),
+            sequenceLine: normalizeOrderValue(erpRow.sequenceLine),
+            workOrder: formatImportedWorkOrder(erpRow.workOrder),
+            workOrderQuantity: normalizeOrderValue(erpRow.workOrderQuantity, '0'),
+            quantityShipped: normalizeOrderValue(erpRow.quantityShipped, '0'),
+            qtyOpen: normalizeOrderValue(erpRow.qtyOpen, '0'),
+            partNumber: normalizeOrderValue(erpRow.partNumber, 'UNKNOWN'),
+            description: normalizeOrderValue(erpRow.description, ''),
+            dueDate: normalizeOrderValue(erpRow.dueDate || erpRow.orderDate),
+            price: normalizeOrderValue(erpRow.price, '0'),
+            extendedPrice: normalizeOrderValue(erpRow.extendedPrice, '0'),
+            materialCost: normalizeOrderValue(erpRow.materialCost, ''),
+            laborCost: normalizeOrderValue(erpRow.laborCost, ''),
+            totalCost: normalizeOrderValue(erpRow.totalCost, ''),
+            billNumber: normalizeOrderValue(erpRow.billNumber, ''),
+            drawingNumber: normalizeOrderValue(erpRow.drawingNumber, ''),
+            drawingRevision: normalizeOrderValue(erpRow.drawingRevision, ''),
+            revisionCode: normalizeOrderValue(erpRow.revisionCode, '')
         },
         dle: {
             operationalStatus: ''
@@ -10406,8 +10678,17 @@ function buildDleMasterDataRecord(cols, index, importedAt) {
     };
 }
 
-function buildDleMasterDataRecordId(cols, index) {
-    return buildMasterRecordKeyFromOpenOrderRow(cols, index);
+function buildDleMasterDataRecordId(sourceRow, index) {
+    if (Array.isArray(sourceRow)) {
+        return buildMasterRecordKeyFromOpenOrderRow(sourceRow, index);
+    }
+
+    const erpRow = sourceRow || {};
+    return buildMasterRecordKey(
+        erpRow.customerNumber,
+        erpRow.salesOrder,
+        erpRow.sequenceLine || String(index + 1)
+    );
 }
 
 async function saveDleMasterDataFile(data, createdAt) {
@@ -16856,17 +17137,19 @@ const dleMasterDataViewerState = {
   search: ''
 };
 
-const dleMasterDataGridColumns = [
-  { key: 'customer', label: 'Customer' },
-  { key: 'salesOrder', label: 'Sales Order' },
-  { key: 'sequenceLine', label: 'Sequence Line' },
-  { key: 'workOrder', label: 'Work Order' },
-  { key: 'partNumber', label: 'Part Number' },
-  { key: 'description', label: 'Description' },
-  { key: 'dueDate', label: 'Due Date' },
-  { key: 'qtyOpen', label: 'Quantity Open' },
-  { key: 'operationalStatus', label: 'Operational Status' },
-  { key: 'lifecycleState', label: 'Lifecycle State' }
+const dleMasterDataTopLevelGridFields = [
+  'id',
+  'sourceIndex',
+  'lifecycleState',
+  'lifecycleUpdatedAt',
+  'lifecycleReason',
+  'lifecycleShipmentId'
+];
+
+const dleMasterDataSyncGridFields = [
+  'sourceSystem',
+  'importedAt',
+  'status'
 ];
 
 function openMasterDataViewerWorkspace() {
@@ -17366,12 +17649,12 @@ function sortDleMasterData(field) {
 
 function applyDleMasterDataFilterAndSort() {
   const query = dleMasterDataViewerState.search;
-  const searchFields = ['customer', 'salesOrder', 'workOrder', 'partNumber', 'description'];
+  const gridColumns = buildDleMasterDataGridColumns();
 
   let records = dleMasterDataViewerState.records.filter(record => {
     if (!query) return true;
-    return searchFields.some(field =>
-      String(getDleMasterDataField(record, field)).toLowerCase().includes(query)
+    return gridColumns.some(column =>
+      String(getDleMasterDataField(record, column.key)).toLowerCase().includes(query)
     );
   });
 
@@ -17386,6 +17669,81 @@ function applyDleMasterDataFilterAndSort() {
   }
 
   dleMasterDataViewerState.filteredRecords = records;
+}
+
+function buildDleMasterDataGridColumns() {
+  const records = Array.isArray(dleMasterDataViewerState.records)
+    ? dleMasterDataViewerState.records
+    : [];
+  const data = dleMasterDataViewerState.data || {};
+  const vpro5OwnedFields = Array.isArray(data.ownershipModel?.vpro5Owned)
+    ? data.ownershipModel.vpro5Owned
+    : [];
+  const dleOwnedFields = Array.isArray(data.ownershipModel?.dleOwned)
+    ? data.ownershipModel.dleOwned
+    : [];
+
+  const topLevelFields = mergeMasterDataFieldOrder(
+    dleMasterDataTopLevelGridFields,
+    collectMasterDataSectionFields(records, '')
+      .filter(field => !['vpro5', 'dle', 'sync'].includes(field))
+  );
+  const vpro5Fields = mergeMasterDataFieldOrder(
+    vpro5OwnedFields,
+    collectMasterDataSectionFields(records, 'vpro5')
+  );
+  const dleFields = mergeMasterDataFieldOrder(
+    dleOwnedFields,
+    collectMasterDataSectionFields(records, 'dle')
+  );
+  const syncFields = mergeMasterDataFieldOrder(
+    dleMasterDataSyncGridFields,
+    collectMasterDataSectionFields(records, 'sync')
+  );
+
+  return [
+    ...topLevelFields.map(field => ({
+      key: field,
+      label: formatMasterDataLabel(field)
+    })),
+    ...vpro5Fields.map(field => ({
+      key: 'vpro5.' + field,
+      label: 'VPro5 ' + formatMasterDataLabel(field)
+    })),
+    ...dleFields.map(field => ({
+      key: 'dle.' + field,
+      label: 'DLE ' + formatMasterDataLabel(field)
+    })),
+    ...syncFields.map(field => ({
+      key: 'sync.' + field,
+      label: 'Sync ' + formatMasterDataLabel(field)
+    }))
+  ];
+}
+
+function mergeMasterDataFieldOrder(preferredFields, actualFields) {
+  const actualSet = new Set(actualFields || []);
+  const seen = new Set();
+  const merged = [];
+  [
+    ...(preferredFields || []).filter(field => actualSet.has(field)),
+    ...(actualFields || [])
+  ].forEach(field => {
+    if (!field || seen.has(field)) return;
+    seen.add(field);
+    merged.push(field);
+  });
+  return merged;
+}
+
+function collectMasterDataSectionFields(records, section) {
+  const fields = new Set();
+  (Array.isArray(records) ? records : []).forEach(record => {
+    const source = section ? record?.[section] : record;
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+    Object.keys(source).forEach(field => fields.add(field));
+  });
+  return Array.from(fields);
 }
 
 function renderDleMasterDataViewer() {
@@ -17475,7 +17833,8 @@ function renderDleMasterDataGrid() {
     return;
   }
 
-  const headers = dleMasterDataGridColumns.map(column => {
+  const gridColumns = buildDleMasterDataGridColumns();
+  const headers = gridColumns.map(column => {
     const sortLabel = dleMasterDataViewerState.sortField === column.key
       ? ` ${dleMasterDataViewerState.sortDirection.toUpperCase()}`
       : '';
@@ -17484,7 +17843,7 @@ function renderDleMasterDataGrid() {
 
   const rows = records.map((record, index) => {
     const selectedClass = index === dleMasterDataViewerState.selectedFilteredIndex ? ' selected' : '';
-    const cells = dleMasterDataGridColumns.map(column =>
+    const cells = gridColumns.map(column =>
       `<td>${escapeHtml(getDleMasterDataField(record, column.key))}</td>`
     ).join('');
     return `<tr class="${selectedClass}" onclick="selectDleMasterDataRecord(${index})">${cells}</tr>`;
@@ -17573,21 +17932,17 @@ function goDleMasterDataRecord(direction) {
 }
 
 function getDleMasterDataField(record, field) {
-  const vpro5 = record?.vpro5 || {};
-  const dle = record?.dle || {};
-  const fieldMap = {
-    customer: vpro5.customer,
-    salesOrder: vpro5.salesOrder,
-    sequenceLine: vpro5.sequenceLine,
-    workOrder: vpro5.workOrder,
-    partNumber: vpro5.partNumber,
-    description: vpro5.description,
-    dueDate: vpro5.dueDate,
-    qtyOpen: vpro5.qtyOpen,
-    operationalStatus: dle.operationalStatus,
-    lifecycleState: getMasterRecordLifecycleState(record)
-  };
-  return formatMasterDataValue(fieldMap[field]);
+  if (field === 'lifecycleState') {
+    return formatMasterDataValue(getMasterRecordLifecycleState(record));
+  }
+  return formatMasterDataValue(getMasterDataPathValue(record, field));
+}
+
+function getMasterDataPathValue(source, path) {
+  return String(path || '')
+    .split('.')
+    .filter(Boolean)
+    .reduce((value, key) => (value && typeof value === 'object' ? value[key] : undefined), source);
 }
 
 function formatMasterDataLabel(key) {

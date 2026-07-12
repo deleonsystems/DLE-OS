@@ -442,7 +442,7 @@ Reconciliation shall compare DLE Master Data against the current ERP import cand
 
 Reconciliation must preserve DLE-owned fields while evaluating ERP-owned fields.
 
-Reconciliation events may include new ERP records, missing ERP records, modified ERP-owned fields, missing ERP-owned fields, work order synchronization candidates, validation issues, and pending shipment invoice/archive candidates.
+Reconciliation events may include new ERP records, missing ERP records, modified ERP-owned fields, missing ERP-owned fields, Master Data enrichment candidates, work order synchronization candidates, validation issues, and pending shipment invoice/archive candidates.
 
 Operational changes detected by reconciliation should require explicit review and approval before they are applied to authoritative datasets.
 
