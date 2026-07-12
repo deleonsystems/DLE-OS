@@ -29,7 +29,65 @@
     return [vpro5.customerNumber || '', vpro5.salesOrder || '', vpro5.sequenceLine || ''].join('|');
   }
 
+  function getOperationalProjectionField(record, field) {
+    const projectionMap = {
+      opQtyOpen: getOperationalQuantityOpen
+    };
+    return projectionMap[field] ? projectionMap[field](record) : '';
+  }
+
+  function getOperationalQuantityOpen(record) {
+    const vpro5 = record?.vpro5 || {};
+    const erpQtyOpen = parseOperationsQuantity(vpro5.qtyOpen);
+    const pendingShipmentQuantity = getPendingShipmentQuantityForMasterRecord(record);
+    return formatOperationsQuantity(Math.max(erpQtyOpen - pendingShipmentQuantity, 0));
+  }
+
+  function getPendingShipmentQuantityForMasterRecord(record) {
+    const shipmentRecords = getShipmentStagingRecordsForProjection();
+    const vpro5 = record?.vpro5 || {};
+    const customerNumber = normalizeOperationsValue(vpro5.customerNumber);
+    const salesOrder = normalizeOperationsValue(vpro5.salesOrder);
+    const sequenceLine = normalizeOperationsValue(vpro5.sequenceLine);
+    if (!customerNumber || !salesOrder || !sequenceLine) return 0;
+
+    return shipmentRecords
+      .filter(shipmentRecord => normalizeOperationsValue(shipmentRecord.status) === 'Pending Invoice')
+      .filter(shipmentRecord =>
+        normalizeOperationsValue(shipmentRecord.customerNumber) === customerNumber &&
+        normalizeOperationsValue(shipmentRecord.salesOrder) === salesOrder &&
+        normalizeOperationsValue(shipmentRecord.salesOrderLine) === sequenceLine
+      )
+      .reduce((total, shipmentRecord) => total + parseOperationsQuantity(shipmentRecord.quantityShipped), 0);
+  }
+
+  function getShipmentStagingRecordsForProjection() {
+    if (typeof shipmentStagingState !== 'undefined' && Array.isArray(shipmentStagingState.records)) {
+      return shipmentStagingState.records;
+    }
+    if (Array.isArray(window.shipmentStagingState?.records)) {
+      return window.shipmentStagingState.records;
+    }
+    return [];
+  }
+
+  function normalizeOperationsValue(value) {
+    return String(value ?? '').trim();
+  }
+
+  function parseOperationsQuantity(value) {
+    const parsed = Number(String(value ?? '').replace(/,/g, '').trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function formatOperationsQuantity(value) {
+    return Number.isInteger(value) ? String(value) : String(value);
+  }
+
   function getOfficialField(record, field) {
+    const projectedValue = getOperationalProjectionField(record, field);
+    if (projectedValue !== '') return projectedValue;
+
     const vpro5 = record?.vpro5 || {};
     const dle = record?.dle || {};
     const fieldMap = {
@@ -54,6 +112,7 @@
     getMasterData,
     getMasterRecords,
     getMasterRecordKey,
+    getOperationalProjectionField,
     getOfficialField
   };
 })();

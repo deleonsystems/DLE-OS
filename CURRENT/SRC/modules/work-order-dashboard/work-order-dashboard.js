@@ -142,7 +142,7 @@
         escapeDashboardHtml(getRecordRevision(row) || 'Unknown'),
         '</td>',
         '<td>',
-        escapeDashboardHtml(official.qtyOpen || '0'),
+        escapeDashboardHtml(official.opQtyOpen || '0'),
         '</td>',
         '<td>',
         escapeDashboardHtml(official.dueDate || 'N/A'),
@@ -194,7 +194,7 @@
   }
 
   function sumOpenQuantity(rows) {
-    return rows.reduce((total, row) => total + parseQuantity(row?.official?.qtyOpen), 0);
+    return rows.reduce((total, row) => total + parseQuantity(row?.official?.opQtyOpen), 0);
   }
 
   function parseQuantity(value) {

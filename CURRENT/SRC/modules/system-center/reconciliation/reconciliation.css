@@ -246,6 +246,11 @@
   border-top-color: #c084fc;
 }
 
+.event-shipment-quantity-review {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #fb923c;
+}
+
 .event-missing-erp {
   border-color: rgba(255,255,255,.1);
   border-top-color: #ff7a7a;
@@ -383,6 +388,10 @@
 
 .event-dot.event-pending-invoice {
   background: #c084fc;
+}
+
+.event-dot.event-shipment-quantity-review {
+  background: #fb923c;
 }
 
 .event-dot.event-validation-issue {
@@ -563,6 +572,11 @@
 .event-pill.event-pending-invoice {
   background: rgba(192,132,252,.18);
   color: #ead6ff;
+}
+
+.event-pill.event-shipment-quantity-review {
+  background: rgba(251,146,60,.18);
+  color: #fed7aa;
 }
 
 .event-pill.event-validation-issue {

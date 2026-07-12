@@ -14,7 +14,7 @@
     { key: 'salesOrder', label: 'Sls Ord#' },
     { key: 'sequenceLine', label: 'Seq Ln' },
     { key: 'workOrder', label: 'WorkOrd' },
-    { key: 'qtyOpen', label: 'Qty Open' },
+    { key: 'opQtyOpen', label: 'OP Qty Open' },
     { key: 'partNumber', label: 'Item#' },
     { key: 'description', label: 'Description' },
     { key: 'dueDate', label: 'Due Date' },

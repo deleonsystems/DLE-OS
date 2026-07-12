@@ -12,7 +12,7 @@
     { key: 'customerPo', label: 'Customer P/O', width: '12%' },
     { key: 'salesOrder', label: 'Sales Order #', width: '9%' },
     { key: 'workOrder', label: 'Work Order', width: '9%' },
-    { key: 'qtyOpen', label: 'Quantity Open', width: '7%' },
+    { key: 'opQtyOpen', label: 'OP Qty Open', width: '7%' },
     { key: 'partNumber', label: 'Item #', width: '10%' },
     { key: 'description', label: 'Description', width: '21%' },
     { key: 'dueDate', label: 'Due Date', width: '8%' },

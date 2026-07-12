@@ -8507,6 +8507,7 @@ function analyzeMasterDataReconciliation() {
     const pendingInvoiceRecords = [];
     const pendingInvoiceMasterKeys = new Set();
     const pendingInvoiceErpKeys = new Set();
+    const shipmentQuantityReviewRecords = [];
     const workOrderSyncRecords = [];
     const workOrderSyncMasterKeys = new Set();
     const workOrderSyncErpKeys = new Set();
@@ -8532,6 +8533,13 @@ function analyzeMasterDataReconciliation() {
         pendingInvoiceRecords.push(item);
         pendingInvoiceMasterKeys.add(item.record.recordKey);
         pendingInvoiceErpKeys.add(item.erpRecord.recordKey);
+    });
+
+    buildShipmentQuantityReviewCandidates({
+        masterByKey,
+        erpByKey
+    }).forEach(item => {
+        shipmentQuantityReviewRecords.push(item);
     });
 
     buildMasterDataEnrichmentCandidates({
@@ -8595,7 +8603,7 @@ function analyzeMasterDataReconciliation() {
         }
     });
 
-    const overallStatus = newErpRecords.length || recordsMissingFromErp.length || erpFieldDifferences.length || missingErpOwnedFields.length || masterDataEnrichmentRecords.length || workOrderSyncRecords.length || pendingInvoiceRecords.length
+    const overallStatus = newErpRecords.length || recordsMissingFromErp.length || erpFieldDifferences.length || missingErpOwnedFields.length || masterDataEnrichmentRecords.length || workOrderSyncRecords.length || pendingInvoiceRecords.length || shipmentQuantityReviewRecords.length
         ? 'Review Needed'
         : 'No Differences Found';
 
@@ -8611,6 +8619,7 @@ function analyzeMasterDataReconciliation() {
         masterDataEnrichmentRecords,
         workOrderSyncRecords,
         pendingInvoiceRecords,
+        shipmentQuantityReviewRecords,
         overallStatus
     };
 }
@@ -8719,6 +8728,73 @@ function buildPendingInvoiceReconciliationCandidates(context = {}) {
         });
 
     return Array.from(candidatesByKey.values());
+}
+
+function buildShipmentQuantityReviewCandidates(context = {}) {
+    const masterByKey = context.masterByKey || new Map();
+    const erpByKey = context.erpByKey || new Map();
+    const shipmentRecords = Array.isArray(shipmentStagingState.records)
+        ? shipmentStagingState.records
+        : [];
+    const pendingRecordsByKey = new Map();
+    const candidates = [];
+
+    shipmentRecords
+        .filter(record => normalizeReconciliationValue(record.status) === 'Pending Invoice')
+        .forEach(shipmentRecord => {
+            const recordKey = getShipmentStagingMasterRecordKey(shipmentRecord);
+            if (!recordKey) return;
+            const records = pendingRecordsByKey.get(recordKey) || [];
+            records.push(shipmentRecord);
+            pendingRecordsByKey.set(recordKey, records);
+        });
+
+    pendingRecordsByKey.forEach((matchingShipmentRecords, recordKey) => {
+        const masterRecord = masterByKey.get(recordKey);
+        const erpRecord = erpByKey.get(recordKey);
+        if (!masterRecord || !erpRecord) return;
+
+        const previousErpQtyOpen = parseOpenOrderQuantity(masterRecord.vpro5?.qtyOpen);
+        const pendingShipmentQuantity = matchingShipmentRecords
+            .reduce((total, record) => total + parseOpenOrderQuantity(record.quantityShipped), 0);
+        const expectedErpQtyOpen = Math.max(previousErpQtyOpen - pendingShipmentQuantity, 0);
+        const incomingErpQtyOpen = parseOpenOrderQuantity(erpRecord.vpro5?.qtyOpen);
+        const difference = incomingErpQtyOpen - expectedErpQtyOpen;
+
+        if (Math.abs(difference) < 0.000001) return;
+
+        candidates.push({
+            recordKey,
+            record: buildReconciliationRecordSummary(masterRecord, recordKey),
+            erpRecord: buildReconciliationRecordSummary(erpRecord, recordKey),
+            previousErpQtyOpen: formatReconciliationQuantity(previousErpQtyOpen),
+            pendingShipmentQuantity: formatReconciliationQuantity(pendingShipmentQuantity),
+            expectedErpQtyOpen: formatReconciliationQuantity(expectedErpQtyOpen),
+            incomingErpQtyOpen: formatReconciliationQuantity(incomingErpQtyOpen),
+            difference: formatReconciliationQuantity(difference),
+            matchingShipmentRecords: matchingShipmentRecords.map(buildShipmentQuantityReviewStagingSummary)
+        });
+    });
+
+    return candidates;
+}
+
+function buildShipmentQuantityReviewStagingSummary(record) {
+    return {
+        shipmentId: normalizeReconciliationValue(record.shipmentId),
+        customerNumber: normalizeReconciliationValue(record.customerNumber),
+        salesOrder: normalizeReconciliationValue(record.salesOrder),
+        salesOrderLine: normalizeReconciliationValue(record.salesOrderLine),
+        workOrder: normalizeReconciliationValue(record.workOrder),
+        quantityShipped: formatReconciliationQuantity(parseOpenOrderQuantity(record.quantityShipped)),
+        status: normalizeReconciliationValue(record.status)
+    };
+}
+
+function formatReconciliationQuantity(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '0';
+    return Number.isInteger(number) ? String(number) : String(number);
 }
 
 function buildWorkOrderSyncMigrationCandidates(context = {}) {
@@ -8964,6 +9040,24 @@ function buildReconciliationReviewQueueEvents(summary) {
         resolutionStatus: 'Pending'
     }));
 
+    const shipmentQuantityReviewRecords = (summary.shipmentQuantityReviewRecords || []).map(item => ({
+        statusIcon: 'QTY',
+        eventClass: 'event-shipment-quantity-review',
+        erp: item.erpRecord,
+        master: item.record,
+        eventType: 'Shipment Quantity Review',
+        disposition: 'Review Only',
+        resolutionStatus: 'Pending',
+        shipmentQuantityReview: {
+            previousErpQtyOpen: item.previousErpQtyOpen,
+            pendingShipmentQuantity: item.pendingShipmentQuantity,
+            expectedErpQtyOpen: item.expectedErpQtyOpen,
+            incomingErpQtyOpen: item.incomingErpQtyOpen,
+            difference: item.difference,
+            matchingShipmentRecords: item.matchingShipmentRecords || []
+        }
+    }));
+
     const validationIssues = summary.missingErpOwnedFields.map(item => ({
         statusIcon: '!',
         eventClass: 'event-validation-issue',
@@ -8981,6 +9075,7 @@ function buildReconciliationReviewQueueEvents(summary) {
         ...enrichmentRecords,
         ...workOrderSyncRecords,
         ...pendingInvoiceRecords,
+        ...shipmentQuantityReviewRecords,
         ...validationIssues
     ];
 }
@@ -9017,7 +9112,7 @@ function renderReconciliationReviewQueueFromEvents(events) {
     }
 
     tableBody.innerHTML = sortedEvents.map(event => {
-        const shipmentIds = getShipmentIdForReconciliationRecord(event.master);
+        const shipmentIds = getShipmentIdsForReconciliationEvent(event);
         const isSelected = reconciliationReviewQueueState.selectedEventIds.has(event.reviewQueueId);
         const stagedWorkOrder = reconciliationReviewQueueState.stagedWorkOrders[event.reviewQueueId] || '';
         const stagedDisposition = reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] || event.disposition;
@@ -9103,11 +9198,12 @@ function compareReconciliationEventType(a, b) {
     const order = {
         'Validation Issue': 1,
         'Pending Invoice': 2,
-        'Missing From ERP': 3,
-        'Modified Record': 4,
-        'Master Data Enrichment': 5,
-        'W/O Sync': 6,
-        'New Order': 7
+        'Shipment Quantity Review': 3,
+        'Missing From ERP': 4,
+        'Modified Record': 5,
+        'Master Data Enrichment': 6,
+        'W/O Sync': 7,
+        'New Order': 8
     };
     const aRank = order[a] || 99;
     const bRank = order[b] || 99;
@@ -9134,8 +9230,19 @@ function normalizeReconciliationReviewQueueEvent(event) {
         eventType: event?.eventType || 'Validation Issue',
         disposition: event?.disposition || 'Select',
         resolutionStatus: event?.resolutionStatus || 'Pending',
-        enrichmentFields: Array.isArray(event?.enrichmentFields) ? event.enrichmentFields : []
+        enrichmentFields: Array.isArray(event?.enrichmentFields) ? event.enrichmentFields : [],
+        shipmentQuantityReview: event?.shipmentQuantityReview || null
     };
+}
+
+function getShipmentIdsForReconciliationEvent(event) {
+    const reviewShipmentIds = event?.shipmentQuantityReview?.matchingShipmentRecords
+        ?.map(record => normalizeReconciliationValue(record.shipmentId))
+        .filter(Boolean);
+    if (reviewShipmentIds?.length) {
+        return Array.from(new Set(reviewShipmentIds)).join(', ');
+    }
+    return getShipmentIdForReconciliationRecord(event?.master);
 }
 
 function normalizeReconciliationReviewQueueSide(record) {
@@ -9303,6 +9410,7 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
     const isNewOrder = eventContext.eventType === 'New Order';
     const isWorkOrderSync = eventContext.eventType === 'W/O Sync';
     const isPendingInvoice = eventContext.eventType === 'Pending Invoice';
+    const isShipmentQuantityReview = eventContext.eventType === 'Shipment Quantity Review';
     const isMasterDataEnrichment = eventContext.eventType === 'Master Data Enrichment';
     const hasApplicableEnrichment = isMasterDataEnrichment && (eventContext.enrichmentFields || []).some(field => field.action === 'populate');
     const isReviewOnly = value === 'Review Only';
@@ -9314,7 +9422,7 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
     const confirmShipmentDisabled = isNewOrder || isWorkOrderSync || isPendingInvoice || isMasterDataEnrichment ? ' disabled' : '';
     const syncWorkOrderDisabled = isWorkOrderSync ? '' : ' disabled';
     const applyEnrichmentDisabled = hasApplicableEnrichment ? '' : ' disabled';
-    if (isPendingInvoice || isReviewOnly) {
+    if (isPendingInvoice || isShipmentQuantityReview || isReviewOnly) {
         return `
       <select class="reconciliation-disposition-select" disabled>
         <option value="">Review Only</option>
@@ -9335,6 +9443,7 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
 }
 
 function getReconciliationResolutionStatus(disposition) {
+    if (disposition === 'Review Only') return 'Review Only';
     return disposition && disposition !== 'Select'
         ? 'Disposition Selected'
         : 'Pending';
@@ -9531,6 +9640,7 @@ function updateReconciliationReviewQueueCounters(events) {
         if (event.eventType === 'Master Data Enrichment') totals.enrichmentRecords += 1;
         if (event.eventType === 'W/O Sync') totals.workOrderSync += 1;
         if (event.eventType === 'Pending Invoice') totals.pendingInvoice += 1;
+        if (event.eventType === 'Shipment Quantity Review') totals.shipmentQuantityReview += 1;
         if (event.eventType === 'Missing From ERP') totals.missingFromErp += 1;
         if (event.eventType === 'Validation Issue') totals.validationIssues += 1;
         return totals;
@@ -9540,6 +9650,7 @@ function updateReconciliationReviewQueueCounters(events) {
         enrichmentRecords: 0,
         workOrderSync: 0,
         pendingInvoice: 0,
+        shipmentQuantityReview: 0,
         missingFromErp: 0,
         validationIssues: 0
     });
@@ -9555,6 +9666,7 @@ function updateReconciliationReviewQueueCounters(events) {
     setText('reconciliationEnrichmentCount', counts.enrichmentRecords);
     setText('reconciliationWorkOrderSyncCount', counts.workOrderSync);
     setText('reconciliationPendingInvoiceCount', counts.pendingInvoice);
+    setText('reconciliationShipmentQuantityReviewCount', counts.shipmentQuantityReview);
     setText('reconciliationMissingErpCount', counts.missingFromErp);
     setText('reconciliationPendingEventCount', pendingEvents);
     setText('reconciliationResolvedEventCount', 0);
@@ -9580,6 +9692,7 @@ function renderReconciliationSummary(summary) {
         ${reconciliationSummaryCard('Master Data Enrichment', (summary.masterDataEnrichmentRecords || []).length)}
         ${reconciliationSummaryCard('W/O Sync Events', (summary.workOrderSyncRecords || []).length)}
         ${reconciliationSummaryCard('Pending Invoice Events', (summary.pendingInvoiceRecords || []).length)}
+        ${reconciliationSummaryCard('Shipment Quantity Review', (summary.shipmentQuantityReviewRecords || []).length)}
         ${reconciliationSummaryCard('Missing ERP-Owned Fields', summary.missingErpOwnedFields.length)}
         ${reconciliationSummaryCard('Overall Status', summary.overallStatus)}
       </div>
@@ -9587,6 +9700,7 @@ function renderReconciliationSummary(summary) {
       ${renderReconciliationList('Records Missing from ERP', summary.recordsMissingFromErp)}
       ${renderReconciliationWorkOrderSyncList(summary.workOrderSyncRecords || [])}
       ${renderReconciliationPendingInvoiceList(summary.pendingInvoiceRecords || [])}
+      ${renderShipmentQuantityReviewList(summary.shipmentQuantityReviewRecords || [])}
       ${renderReconciliationDifferences(summary.erpFieldDifferences)}
       ${renderMasterDataEnrichmentList(summary.masterDataEnrichmentRecords || [])}
       ${renderMissingErpFieldList(summary.missingErpOwnedFields)}
@@ -9706,6 +9820,51 @@ function renderReconciliationPendingInvoiceList(items) {
           </div>
           ${items.length > 25 ? `<p>Showing first 25 of ${items.length} records.</p>` : ''}
         ` : '<p>No Pending Invoice timing events found.</p>'}
+      </section>
+    `;
+}
+
+function renderShipmentQuantityReviewList(items) {
+    const rows = items.slice(0, 25).map(item => `
+      <tr>
+        <td>${escapeHtml(item.recordKey)}</td>
+        <td>${escapeHtml(item.record.customer)}</td>
+        <td>${escapeHtml(item.record.salesOrder)}</td>
+        <td>${escapeHtml(item.record.sequenceLine)}</td>
+        <td>${escapeHtml(item.previousErpQtyOpen)}</td>
+        <td>${escapeHtml(item.pendingShipmentQuantity)}</td>
+        <td>${escapeHtml(item.expectedErpQtyOpen)}</td>
+        <td>${escapeHtml(item.incomingErpQtyOpen)}</td>
+        <td>${escapeHtml(item.difference)}</td>
+        <td>${escapeHtml((item.matchingShipmentRecords || []).map(record => record.shipmentId).filter(Boolean).join(', '))}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <section class="master-data-detail-section">
+        <h3>Shipment Quantity Review (${items.length})</h3>
+        ${items.length ? `
+          <div class="master-data-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record Key</th>
+                  <th>Customer</th>
+                  <th>Sales Order</th>
+                  <th>Seq Line</th>
+                  <th>Previous ERP Qty Open</th>
+                  <th>Pending Shipment Qty</th>
+                  <th>Expected ERP Qty Open</th>
+                  <th>Incoming ERP Qty Open</th>
+                  <th>Difference</th>
+                  <th>Shipment ID</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${items.length > 25 ? `<p>Showing first 25 of ${items.length} records.</p>` : ''}
+        ` : '<p>No shipment quantity expectation mismatches found.</p>'}
       </section>
     `;
 }
@@ -9949,6 +10108,25 @@ function buildReconciliationInvestigationRecords(summary) {
         erpValue: 'ERP still shows open'
     }));
 
+    const shipmentQuantityReviewRecords = (summary.shipmentQuantityReviewRecords || []).map(item => ({
+        category: 'Shipment Quantity Review',
+        salesOrder: item.record.salesOrder,
+        sequenceLine: item.record.sequenceLine,
+        workOrder: item.record.workOrder,
+        customer: item.record.customer,
+        fieldName: 'Qty Open',
+        masterValue: [
+            'Previous ERP Qty Open: ' + (item.previousErpQtyOpen || '0'),
+            'Pending Shipment Qty: ' + (item.pendingShipmentQuantity || '0'),
+            'Expected ERP Qty Open: ' + (item.expectedErpQtyOpen || '0')
+        ].join(' | '),
+        erpValue: [
+            'Incoming ERP Qty Open: ' + (item.incomingErpQtyOpen || '0'),
+            'Difference: ' + (item.difference || '0'),
+            'Shipment ID: ' + ((item.matchingShipmentRecords || []).map(record => record.shipmentId).filter(Boolean).join(', ') || '[staged shipment]')
+        ].join(' | ')
+    }));
+
     const missingRecords = summary.recordsMissingFromErp.map(record => ({
         category: 'Record Missing from ERP',
         salesOrder: record.salesOrder,
@@ -9967,6 +10145,7 @@ function buildReconciliationInvestigationRecords(summary) {
         ...newRecords,
         ...workOrderSyncRecords,
         ...pendingInvoiceRecords,
+        ...shipmentQuantityReviewRecords,
         ...missingRecords
     ];
 }

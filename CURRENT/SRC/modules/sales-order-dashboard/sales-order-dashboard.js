@@ -86,7 +86,7 @@
         escapeDashboardHtml(official.partNumber || 'N/A'),
         '</td>',
         '<td>',
-        escapeDashboardHtml(official.qtyOpen || '0'),
+        escapeDashboardHtml(official.opQtyOpen || '0'),
         '</td>',
         '<td>',
         escapeDashboardHtml(official.dueDate || 'N/A'),
