@@ -81,14 +81,17 @@
     };
   }
 
-  async function persistShipmentStagingDataset(reason = 'Shipment Staging Update') {
+  async function persistShipmentStagingDataset(reason = 'Shipment Staging Update', options = {}) {
     const dataset = buildShipmentStagingDatasetForWrite(reason);
     validateShipmentStagingDataset(dataset);
-    const handle = await getWritableShipmentStagingFileHandle();
+    const handle = options.fileHandle || await getWritableShipmentStagingFileHandle();
     const writable = await handle.createWritable();
     await writable.write(JSON.stringify(dataset, null, 2));
     await writable.close();
     await verifyShipmentStagingFileWrite(handle, dataset);
+    if (Array.isArray(options.absentShipmentIds) && options.absentShipmentIds.length) {
+      await verifyShipmentStagingShipmentIdsAbsent(handle, options.absentShipmentIds);
+    }
     await storeShipmentStagingFileHandle(handle);
     shipmentStagingState.persistence = {
       ...(shipmentStagingState.persistence || {}),
@@ -105,6 +108,19 @@
     };
     reportShipmentStagingPersistenceStatus('Shipment Staging persisted successfully. ' + dataset.recordCount + ' record' + (dataset.recordCount === 1 ? '' : 's') + ' saved.');
     return dataset;
+  }
+
+  async function ensureShipmentStagingWritableFileHandle() {
+    const handle = await getWritableShipmentStagingFileHandle();
+    await storeShipmentStagingFileHandle(handle);
+    shipmentStagingState.persistence = {
+      ...(shipmentStagingState.persistence || {}),
+      sourceFile: handle.name || 'shipment-staging.json',
+      fileHandle: handle,
+      writable: true,
+      mode: 'Writable'
+    };
+    return handle;
   }
 
   function buildShipmentStagingDatasetForWrite(reason) {
@@ -166,6 +182,24 @@
     const actualCount = getShipmentStagingDatasetRecords(actualDataset).length;
     if (actualCount !== expectedDataset.records.length) {
       throw new Error('Shipment Staging JSON verification failed. Saved record count does not match expected record count.');
+    }
+  }
+
+  async function verifyShipmentStagingShipmentIdsAbsent(handle, shipmentIds) {
+    if (!handle?.getFile) return;
+    const ids = new Set((shipmentIds || []).map(value => String(value || '').trim()).filter(Boolean));
+    if (!ids.size) return;
+
+    const file = await handle.getFile();
+    const text = await file.text();
+    const actualDataset = JSON.parse(text);
+    validateShipmentStagingDataset(actualDataset);
+    const remainingIds = getShipmentStagingDatasetRecords(actualDataset)
+      .map(record => String(record.shipmentId || '').trim())
+      .filter(shipmentId => ids.has(shipmentId));
+
+    if (remainingIds.length) {
+      throw new Error('Shipment Staging JSON verification failed. Archived shipment(s) still exist in staging: ' + Array.from(new Set(remainingIds)).join(', '));
     }
   }
 
@@ -293,4 +327,6 @@
 
   window.initializeShipmentStagingPersistence = initializeShipmentStagingPersistence;
   window.persistShipmentStagingDataset = persistShipmentStagingDataset;
+  window.ensureShipmentStagingWritableFileHandle = ensureShipmentStagingWritableFileHandle;
+  window.verifyShipmentStagingShipmentIdsAbsent = verifyShipmentStagingShipmentIdsAbsent;
 })();

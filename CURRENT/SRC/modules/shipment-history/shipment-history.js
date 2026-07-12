@@ -216,7 +216,10 @@
     shipmentHistoryState.recordCount = shipmentHistoryState.records.length;
 
     try {
-      await writeShipmentHistoryDataset();
+      await writeShipmentHistoryDataset({
+        fileHandle: metadata.fileHandle || null,
+        presentShipmentIds: archivedRecords.map(record => record.shipmentId).filter(Boolean)
+      });
     } catch (error) {
       shipmentHistoryState.records = previousRecords;
       shipmentHistoryState.lastUpdated = previousLastUpdated;
@@ -227,6 +230,35 @@
 
     renderShipmentHistoryModule();
     return archivedRecords;
+  }
+
+  async function removeShipmentHistoryRecordsByArchiveKeys(archiveKeys = []) {
+    const keys = new Set((archiveKeys || []).map(value => String(value || '').trim()).filter(Boolean));
+    if (!keys.size) return { removedRecords: 0 };
+
+    const previousRecords = shipmentHistoryState.records.slice();
+    const previousLastUpdated = shipmentHistoryState.lastUpdated;
+    const previousRecordCount = shipmentHistoryState.recordCount;
+    const nextRecords = previousRecords.filter(record => !keys.has(buildShipmentHistoryArchiveKey(record)));
+    const removedRecords = previousRecords.length - nextRecords.length;
+    if (!removedRecords) return { removedRecords: 0 };
+
+    shipmentHistoryState.records = nextRecords;
+    shipmentHistoryState.recordCount = nextRecords.length;
+    shipmentHistoryState.lastUpdated = new Date().toLocaleString();
+
+    try {
+      await writeShipmentHistoryDataset();
+    } catch (error) {
+      shipmentHistoryState.records = previousRecords;
+      shipmentHistoryState.lastUpdated = previousLastUpdated;
+      shipmentHistoryState.recordCount = previousRecordCount;
+      renderShipmentHistoryModule();
+      throw error;
+    }
+
+    renderShipmentHistoryModule();
+    return { removedRecords };
   }
 
   function buildShipmentHistoryRecord(record, metadata = {}) {
@@ -322,31 +354,70 @@
     };
   }
 
-  async function writeShipmentHistoryDataset() {
-    const dataset = getShipmentHistoryDatasetForWrite();
+  function buildShipmentHistoryArchiveKey(record) {
+    return [
+      record.shipmentId || record.identifiers?.shipmentId || '',
+      record.masterRecordKey || record.identifiers?.masterRecordKey || '',
+      record.archivedAt || record.dates?.archiveTimestamp || ''
+    ].map(value => String(value || '').trim()).join('|');
+  }
 
-    if (shipmentHistoryState.fileHandle) {
-      const writable = await shipmentHistoryState.fileHandle.createWritable();
-      await writable.write(JSON.stringify(dataset, null, 2));
-      await writable.close();
-      await verifyShipmentHistoryFileWrite(dataset);
-      shipmentHistoryState.persistenceMode = 'Project JSON writable file handle';
-      writeShipmentHistoryLocalStorageDataset(dataset);
-      return;
+  async function ensureShipmentHistoryWritableFileHandle() {
+    if (await isShipmentHistoryHandleWritable(shipmentHistoryState.fileHandle)) {
+      return shipmentHistoryState.fileHandle;
     }
 
-    if (window.showSaveFilePicker) {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: 'shipment-history.json',
-        types: [{
-          description: 'Shipment History JSON',
-          accept: { 'application/json': ['.json'] }
-        }]
-      });
+    if (!window.showSaveFilePicker) {
+      throw new Error('Shipment History persistence requires a writable JSON file handle. This browser does not support saving local files.');
+    }
+
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'shipment-history.json',
+      types: [{
+        description: 'Shipment History JSON',
+        accept: { 'application/json': ['.json'] }
+      }]
+    });
+
+    if (!(await isShipmentHistoryHandleWritable(handle, true))) {
+      throw new Error('Write permission was not granted for Shipment History JSON.');
+    }
+
+    shipmentHistoryState.fileHandle = handle;
+    shipmentHistoryState.writable = true;
+    shipmentHistoryState.sourceFile = handle.name || 'shipment-history.json';
+    shipmentHistoryState.persistenceMode = 'Project JSON writable file handle';
+    return handle;
+  }
+
+  async function isShipmentHistoryHandleWritable(handle, allowPrompt = false) {
+    if (!handle) return false;
+    if (!handle.queryPermission) return true;
+    let permission = await handle.queryPermission({ mode: 'readwrite' });
+    if (permission === 'granted') return true;
+    if (!allowPrompt || !handle.requestPermission) return false;
+    permission = await handle.requestPermission({ mode: 'readwrite' });
+    return permission === 'granted';
+  }
+
+  async function writeShipmentHistoryDataset(options = {}) {
+    const dataset = getShipmentHistoryDatasetForWrite();
+
+    const handle = options.fileHandle || await ensureShipmentHistoryWritableFileHandle();
+
+    if (handle) {
       shipmentHistoryState.fileHandle = handle;
       shipmentHistoryState.writable = true;
-      shipmentHistoryState.sourceFile = handle.name || 'shipment-history.json';
-      await writeShipmentHistoryDataset();
+      shipmentHistoryState.sourceFile = handle.name || shipmentHistoryState.sourceFile || 'shipment-history.json';
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(dataset, null, 2));
+      await writable.close();
+      await verifyShipmentHistoryFileWrite(dataset, handle);
+      if (Array.isArray(options.presentShipmentIds) && options.presentShipmentIds.length) {
+        await verifyShipmentHistoryShipmentIdsPresent(options.presentShipmentIds, handle);
+      }
+      shipmentHistoryState.persistenceMode = 'Project JSON writable file handle';
+      writeShipmentHistoryLocalStorageDataset(dataset);
       return;
     }
 
@@ -355,14 +426,32 @@
     shipmentHistoryState.persistenceMode = 'Browser storage fallback';
   }
 
-  async function verifyShipmentHistoryFileWrite(expectedDataset) {
-    if (!shipmentHistoryState.fileHandle?.getFile) return;
-    const file = await shipmentHistoryState.fileHandle.getFile();
+  async function verifyShipmentHistoryFileWrite(expectedDataset, fileHandle = shipmentHistoryState.fileHandle) {
+    if (!fileHandle?.getFile) return;
+    const file = await fileHandle.getFile();
     const text = await file.text();
     const actualDataset = JSON.parse(text);
     const actualCount = Array.isArray(actualDataset.records) ? actualDataset.records.length : 0;
     if (actualCount !== expectedDataset.records.length) {
       throw new Error('Shipment History JSON verification failed after write.');
+    }
+  }
+
+  async function verifyShipmentHistoryShipmentIdsPresent(shipmentIds, fileHandle = shipmentHistoryState.fileHandle) {
+    const ids = new Set((shipmentIds || []).map(value => String(value || '').trim()).filter(Boolean));
+    if (!ids.size) return;
+
+    const dataset = fileHandle?.getFile
+      ? JSON.parse(await (await fileHandle.getFile()).text())
+      : readShipmentHistoryLocalStorageDataset();
+    const records = Array.isArray(dataset?.records) ? dataset.records : [];
+    const foundIds = new Set(records
+      .map(record => String(record.shipmentId || record.identifiers?.shipmentId || '').trim())
+      .filter(Boolean));
+    const missingIds = Array.from(ids).filter(shipmentId => !foundIds.has(shipmentId));
+
+    if (missingIds.length) {
+      throw new Error('Shipment History JSON verification failed. Archived shipment(s) were not found in history: ' + missingIds.join(', '));
     }
   }
 
@@ -438,5 +527,8 @@
   window.renderShipmentHistoryTable = renderShipmentHistoryTable;
   window.filterShipmentHistory = filterShipmentHistory;
   window.archiveShipmentHistoryRecords = archiveShipmentHistoryRecords;
+  window.removeShipmentHistoryRecordsByArchiveKeys = removeShipmentHistoryRecordsByArchiveKeys;
+  window.ensureShipmentHistoryWritableFileHandle = ensureShipmentHistoryWritableFileHandle;
+  window.verifyShipmentHistoryShipmentIdsPresent = verifyShipmentHistoryShipmentIdsPresent;
   window.shipmentHistoryState = shipmentHistoryState;
 })();

@@ -622,6 +622,14 @@
   font-weight: 800;
 }
 
+.reconciliation-event-subtype {
+  display: block;
+  margin-top: 4px;
+  color: #cfe0ff;
+  font-size: .7rem;
+  font-weight: 800;
+}
+
 .reconciliation-approval-card {
   display: grid;
   gap: 14px;
