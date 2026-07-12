@@ -153,9 +153,19 @@
               <span><i class="event-dot event-validation-issue"></i>Validation Issue</span>
             </div>
             <div class="reconciliation-event-actions">
-              <button type="button" onclick="applyExistingWorkOrderToSelectedReviewQueueRows()">Apply Existing Work Order</button>
-              <button type="button" onclick="revertSelectedReviewQueueWorkOrderAssignments()">Revert Staged Work Order</button>
+              <button type="button" data-reconciliation-approval-control onclick="applyExistingWorkOrderToSelectedReviewQueueRows()">Apply Existing Work Order</button>
+              <button type="button" data-reconciliation-approval-control onclick="revertSelectedReviewQueueWorkOrderAssignments()">Revert Staged Work Order</button>
             </div>
+          </div>
+
+          <div class="reconciliation-bulk-select" aria-label="Bulk select reconciliation events">
+            <span>Bulk Select</span>
+            <button type="button" data-reconciliation-approval-control onclick="selectAllReconciliationReviewQueueEvents()">Select All</button>
+            <button type="button" data-reconciliation-approval-control onclick="clearReconciliationReviewQueueSelection()">Clear Selection</button>
+            <select id="reconciliationBulkEventTypeSelect" data-reconciliation-approval-control aria-label="Select reconciliation event type">
+              <option value="">Event Type</option>
+            </select>
+            <button type="button" data-reconciliation-approval-control onclick="selectReconciliationReviewQueueEventsByType()">Select Type</button>
           </div>
 
           <div class="reconciliation-event-table-wrap">
@@ -210,6 +220,10 @@
             <p>Final approval area for applying ERP-owned updates after event review.</p>
           </div>
 
+          <div id="reconciliationWritableModeNotice" class="reconciliation-writable-mode-notice">
+            Master Data approval mode has not been evaluated.
+          </div>
+
           <div class="reconciliation-approval-metrics">
             <div>
               <span>Pending Events</span>
@@ -225,7 +239,10 @@
             </div>
           </div>
 
-          <button type="button" onclick="approveReconciliationErpUpdates()">Approve ERP Updates</button>
+          <div class="reconciliation-approval-actions">
+            <button id="reconciliationReconnectWritableButton" type="button" onclick="reconnectDleMasterDataFromReconciliation()">Reconnect Writable Master Data</button>
+            <button id="reconciliationApproveUpdatesButton" type="button" data-reconciliation-approval-control onclick="approveReconciliationErpUpdates()">Approve ERP Updates</button>
+          </div>
         </section>
 
         <section class="reconciliation-work-card reconciliation-results-card">

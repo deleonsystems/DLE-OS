@@ -7984,6 +7984,45 @@ function renderReconciliationDashboardStatus() {
         <strong>${escapeHtml(value)}</strong>
       </div>
     `).join('');
+    updateReconciliationApprovalModeControls();
+}
+
+function canApproveReconciliationUpdates() {
+    return !!(dleMasterDataFileState.data && dleMasterDataFileState.fileHandle && dleMasterDataFileState.writable);
+}
+
+function updateReconciliationApprovalModeControls() {
+    const canApprove = canApproveReconciliationUpdates();
+    const notice = document.getElementById('reconciliationWritableModeNotice');
+    if (notice) {
+        notice.classList.toggle('writable', canApprove);
+        notice.classList.toggle('read-only', !canApprove);
+        notice.textContent = canApprove
+            ? 'Writable Master Data connection active. Selection, dispositions, and approval are available.'
+            : dleMasterDataFileState.data
+                ? 'Read-only preview mode. Reconciliation analysis is available, but selection, dispositions, and approval require a writable Master Data connection.'
+                : 'Load DLE Master Data to run reconciliation. Approval requires a writable Master Data connection.';
+    }
+
+    document.querySelectorAll('[data-reconciliation-approval-control]').forEach(control => {
+        control.disabled = !canApprove;
+    });
+
+    document.querySelectorAll('#reconciliationEventsTableBody .reconciliation-row-select input[type="checkbox"]').forEach(checkbox => {
+        checkbox.disabled = !canApprove;
+    });
+
+    if (!canApprove) {
+        document.querySelectorAll('#reconciliationEventsTableBody .reconciliation-disposition-select').forEach(selector => {
+            selector.disabled = true;
+        });
+    }
+
+    const reconnectButton = document.getElementById('reconciliationReconnectWritableButton');
+    if (reconnectButton) {
+        reconnectButton.hidden = canApprove;
+        reconnectButton.disabled = canApprove;
+    }
 }
 
 function setReconciliationActionStatus(message) {
@@ -7993,12 +8032,13 @@ function setReconciliationActionStatus(message) {
 
 function renderReconciliationMasterDataReconnectPrompt() {
     const status = document.getElementById('reconciliationActionStatus');
+    updateReconciliationApprovalModeControls();
     if (!status) return;
 
     status.innerHTML = `
       <strong>DLE Master Data is currently loaded as read-only.</strong>
       <br>
-      <span>A writable connection is required before operational changes can be approved.</span>
+      <span>Reconciliation preview is available, but a writable connection is required before selections, dispositions, or approval.</span>
       <br>
       <button type="button" onclick="reconnectDleMasterDataFromReconciliation()">Reconnect DLE Master Data</button>
     `;
@@ -8009,7 +8049,7 @@ async function reconnectDleMasterDataFromReconciliation() {
     renderReconciliationDashboardStatus();
 
     if (dleMasterDataFileState.fileHandle && dleMasterDataFileState.writable) {
-        setReconciliationActionStatus('DLE Master Data Connected (Writable). Approval workflows are ready. Click Approve ERP Updates when you are ready to commit the staged decisions.');
+        setReconciliationActionStatus('DLE Master Data Connected (Writable). Master Data was reloaded, so reconciliation state was cleared. Run reconciliation again before selecting dispositions or approving updates.');
         return;
     }
 
@@ -8066,7 +8106,11 @@ function startMasterDataReconciliation() {
 
     renderReconciliationDashboardStatus();
     renderReconciliationSummary(summary);
-    setReconciliationActionStatus('Reconciliation completed. ' + reviewEvents.length + ' review event(s) detected. Review the Reconciliation Events queue before approving ERP updates.');
+    setReconciliationActionStatus(
+        canApproveReconciliationUpdates()
+            ? 'Reconciliation completed. ' + reviewEvents.length + ' review event(s) detected. Review the Reconciliation Events queue before approving ERP updates.'
+            : 'Reconciliation preview completed in read-only mode. ' + reviewEvents.length + ' review event(s) detected. Reconnect Writable Master Data, then rerun reconciliation before selecting dispositions or approving updates.'
+    );
 }
 
 function buildShipmentStagingReconciliationStatus() {
@@ -8388,6 +8432,7 @@ function ensureMasterDataVpro5OwnedFields(fields) {
 
 function getAcceptedNewOrderReviewQueueEvents() {
     return reconciliationReviewQueueState.events.filter(event =>
+        reconciliationReviewQueueState.selectedEventIds.has(event.reviewQueueId) &&
         event.eventType === 'New Order' &&
         reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Accept New Order'
     );
@@ -8395,6 +8440,7 @@ function getAcceptedNewOrderReviewQueueEvents() {
 
 function getApprovedMasterDataEnrichmentReviewQueueEvents() {
     return reconciliationReviewQueueState.events.filter(event =>
+        reconciliationReviewQueueState.selectedEventIds.has(event.reviewQueueId) &&
         event.eventType === 'Master Data Enrichment' &&
         reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Apply Enrichment'
     );
@@ -8402,6 +8448,7 @@ function getApprovedMasterDataEnrichmentReviewQueueEvents() {
 
 function getApprovedWorkOrderSyncMigrationEvents() {
     return reconciliationReviewQueueState.events.filter(event =>
+        reconciliationReviewQueueState.selectedEventIds.has(event.reviewQueueId) &&
         event.eventType === 'W/O Sync' &&
         reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Sync Work Order'
     );
@@ -9082,6 +9129,7 @@ function buildReconciliationReviewQueueEvents(summary) {
 
 function renderReconciliationReviewQueueFromEvents(events) {
     const tableBody = document.getElementById('reconciliationEventsTableBody');
+    const approvalModeEnabled = canApproveReconciliationUpdates();
     const normalizedEvents = Array.isArray(events)
         ? events.map(normalizeReconciliationReviewQueueEvent)
         : [];
@@ -9091,14 +9139,22 @@ function renderReconciliationReviewQueueFromEvents(events) {
             reviewQueueId: buildReconciliationReviewQueueEventId(event, index)
         }));
     reconciliationReviewQueueState.events = sortedEvents;
+    if (!approvalModeEnabled) {
+        reconciliationReviewQueueState.selectedEventIds.clear();
+        reconciliationReviewQueueState.stagedWorkOrders = {};
+        reconciliationReviewQueueState.stagedDispositions = {};
+    }
     reconcileReviewQueueSelectionWithCurrentEvents();
     updateReconciliationReviewQueueCounters(sortedEvents);
+    populateReconciliationBulkEventTypeSelect(sortedEvents);
+    updateReconciliationApprovalModeControls();
     if (!tableBody) return;
 
     if (!sortedEvents.length) {
         reconciliationReviewQueueState.selectedEventIds.clear();
         reconciliationReviewQueueState.stagedWorkOrders = {};
         reconciliationReviewQueueState.stagedDispositions = {};
+        populateReconciliationBulkEventTypeSelect([]);
         tableBody.innerHTML = `
           <tr class="reconciliation-placeholder-row">
             <td colspan="18">No reconciliation events are currently available. Run reconciliation to populate detected differences.</td>
@@ -9108,6 +9164,7 @@ function renderReconciliationReviewQueueFromEvents(events) {
             <td><span class="event-pill event-validation-issue">!</span></td>
           </tr>
         `;
+        updateReconciliationApprovalModeControls();
         return;
     }
 
@@ -9124,7 +9181,7 @@ function renderReconciliationReviewQueueFromEvents(events) {
           stagedDisposition && stagedDisposition !== 'Select' ? 'reconciliation-staged-disposition-row' : ''
       ].filter(Boolean).join(' ')}" data-review-queue-id="${escapeHtml(event.reviewQueueId)}" data-event-type="${escapeHtml(event.eventType)}" data-shipment-ids="${escapeHtml(shipmentIds)}">
         <td class="reconciliation-row-select">
-          <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleReconciliationReviewQueueRowSelection(this)" aria-label="Select reconciliation event">
+          <input type="checkbox" ${isSelected ? 'checked' : ''} ${approvalModeEnabled ? '' : 'disabled'} onchange="toggleReconciliationReviewQueueRowSelection(this)" aria-label="Select reconciliation event">
         </td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.customerNumber)}</td>
         <td class="reconciliation-erp-value">${renderReconciliationCompareValue(event.erp?.customer)}</td>
@@ -9150,6 +9207,7 @@ function renderReconciliationReviewQueueFromEvents(events) {
       </tr>
     `;
     }).join('');
+    updateReconciliationApprovalModeControls();
 }
 
 function buildReconciliationReviewQueueEventId(event, index) {
@@ -9276,6 +9334,12 @@ function renderReconciliationWorkOrderValue(value, stagedValue) {
 }
 
 function toggleReconciliationReviewQueueRowSelection(checkbox) {
+    if (!canApproveReconciliationUpdates()) {
+        if (checkbox) checkbox.checked = false;
+        setReconciliationActionStatus('Read-only preview mode. Reconnect Writable Master Data before selecting reconciliation events.');
+        return;
+    }
+
     const row = checkbox?.closest('[data-review-queue-id]');
     const reviewQueueId = row?.dataset?.reviewQueueId || '';
     const selected = !!checkbox?.checked;
@@ -9289,7 +9353,101 @@ function toggleReconciliationReviewQueueRowSelection(checkbox) {
     if (row) row.classList.toggle('reconciliation-review-row-selected', selected);
 }
 
+function selectAllReconciliationReviewQueueEvents() {
+    if (!canApproveReconciliationUpdates()) {
+        setReconciliationActionStatus('Read-only preview mode. Reconnect Writable Master Data before selecting reconciliation events.');
+        return;
+    }
+
+    reconciliationReviewQueueState.events.forEach(event => {
+        if (event.reviewQueueId) reconciliationReviewQueueState.selectedEventIds.add(event.reviewQueueId);
+    });
+    syncReconciliationReviewQueueSelectionCheckboxes();
+    setReconciliationActionStatus(
+        reconciliationReviewQueueState.events.length
+            ? reconciliationReviewQueueState.events.length + ' reconciliation event' + (reconciliationReviewQueueState.events.length === 1 ? '' : 's') + ' selected.'
+            : 'No reconciliation events are available to select.'
+    );
+}
+
+function clearReconciliationReviewQueueSelection() {
+    if (!canApproveReconciliationUpdates()) {
+        setReconciliationActionStatus('Read-only preview mode. Reconnect Writable Master Data before changing reconciliation selections.');
+        return;
+    }
+
+    reconciliationReviewQueueState.selectedEventIds.clear();
+    syncReconciliationReviewQueueSelectionCheckboxes();
+    setReconciliationActionStatus('Reconciliation event selection cleared.');
+}
+
+function selectReconciliationReviewQueueEventsByType() {
+    if (!canApproveReconciliationUpdates()) {
+        setReconciliationActionStatus('Read-only preview mode. Reconnect Writable Master Data before selecting reconciliation events.');
+        return;
+    }
+
+    const selector = document.getElementById('reconciliationBulkEventTypeSelect');
+    const eventType = selector?.value || '';
+    if (!eventType) {
+        setReconciliationActionStatus('Choose an event type before using Select Type.');
+        return;
+    }
+
+    let selectedCount = 0;
+    reconciliationReviewQueueState.events.forEach(event => {
+        if (event.eventType !== eventType || !event.reviewQueueId) return;
+        reconciliationReviewQueueState.selectedEventIds.add(event.reviewQueueId);
+        selectedCount += 1;
+    });
+    syncReconciliationReviewQueueSelectionCheckboxes();
+    setReconciliationActionStatus(
+        selectedCount
+            ? selectedCount + ' ' + eventType + ' event' + (selectedCount === 1 ? '' : 's') + ' selected. Existing selections were preserved.'
+            : 'No ' + eventType + ' events are available in the current Review Queue.'
+    );
+}
+
+function syncReconciliationReviewQueueSelectionCheckboxes() {
+    const tableBody = document.getElementById('reconciliationEventsTableBody');
+    if (!tableBody) return;
+
+    tableBody.querySelectorAll('[data-review-queue-id]').forEach(row => {
+        const reviewQueueId = row.dataset.reviewQueueId || '';
+        const selected = reconciliationReviewQueueState.selectedEventIds.has(reviewQueueId);
+        row.classList.toggle('reconciliation-review-row-selected', selected);
+        const checkbox = row.querySelector('.reconciliation-row-select input[type="checkbox"]');
+        if (checkbox) checkbox.checked = selected;
+    });
+}
+
+function populateReconciliationBulkEventTypeSelect(events = []) {
+    const selector = document.getElementById('reconciliationBulkEventTypeSelect');
+    if (!selector) return;
+
+    const previousValue = selector.value || '';
+    const eventTypes = Array.from(new Set(
+        (Array.isArray(events) ? events : [])
+            .map(event => event.eventType)
+            .filter(Boolean)
+    )).sort(compareReconciliationEventType);
+
+    selector.innerHTML = [
+        '<option value="">Event Type</option>',
+        ...eventTypes.map(eventType => `<option value="${escapeHtml(eventType)}">${escapeHtml(eventType)}</option>`)
+    ].join('');
+
+    if (eventTypes.includes(previousValue)) {
+        selector.value = previousValue;
+    }
+}
+
 function applyExistingWorkOrderToSelectedReviewQueueRows() {
+    if (!canApproveReconciliationUpdates()) {
+        setReconciliationActionStatus('Read-only preview mode. Reconnect Writable Master Data before staging Work Order assignments.');
+        return;
+    }
+
     const selectedEvents = getSelectedReconciliationReviewQueueEvents();
     if (!selectedEvents.length) {
         setReconciliationActionStatus('Select one or more reconciliation rows before applying an existing Work Order.');
@@ -9323,6 +9481,11 @@ function applyExistingWorkOrderToSelectedReviewQueueRows() {
 }
 
 function revertSelectedReviewQueueWorkOrderAssignments() {
+    if (!canApproveReconciliationUpdates()) {
+        setReconciliationActionStatus('Read-only preview mode. Reconnect Writable Master Data before changing staged Work Order assignments.');
+        return;
+    }
+
     const selectedEvents = getSelectedReconciliationReviewQueueEvents();
     if (!selectedEvents.length) {
         setReconciliationActionStatus('Select one or more reconciliation rows before reverting staged Work Order assignments.');
@@ -9407,6 +9570,14 @@ function getShipmentIdForReconciliationRecord(record) {
 
 function renderReconciliationDispositionSelector(selectedValue, eventContext = {}) {
     const value = selectedValue === 'Select' ? '' : selectedValue || '';
+    if (!canApproveReconciliationUpdates()) {
+        return `
+      <select class="reconciliation-disposition-select" disabled>
+        <option value="">Read-only Preview</option>
+      </select>
+    `;
+    }
+
     const isNewOrder = eventContext.eventType === 'New Order';
     const isWorkOrderSync = eventContext.eventType === 'W/O Sync';
     const isPendingInvoice = eventContext.eventType === 'Pending Invoice';
@@ -9476,6 +9647,9 @@ function getApprovedShipmentArchiveShipmentIdsFromReviewQueue() {
 
     const shipmentIds = new Set();
     tableBody.querySelectorAll('tr').forEach(row => {
+        const reviewQueueId = row.dataset.reviewQueueId || '';
+        if (!reconciliationReviewQueueState.selectedEventIds.has(reviewQueueId)) return;
+
         const selector = row.querySelector('.reconciliation-disposition-select');
         if (!selector || selector.value !== 'Confirm Shipment') return;
 
