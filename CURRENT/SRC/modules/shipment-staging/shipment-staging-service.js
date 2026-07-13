@@ -81,6 +81,34 @@
     };
   }
 
+  function applyShipmentStagingDatasetToState(dataset, options = {}) {
+    validateShipmentStagingDataset(dataset);
+    applyShipmentStagingDataset(dataset);
+    shipmentStagingState.persistence = {
+      ...(shipmentStagingState.persistence || {}),
+      sourceFile: options.sourceFile || shipmentStagingState.persistence?.sourceFile || SHIPMENT_STAGING_DATA_PATH,
+      fileHandle: options.fileHandle || shipmentStagingState.persistence?.fileHandle || null,
+      writable: !!(options.fileHandle || shipmentStagingState.persistence?.fileHandle),
+      savedAt: dataset.lastUpdated || shipmentStagingState.persistence?.savedAt || '',
+      lastReason: dataset.lastReason || shipmentStagingState.persistence?.lastReason || '',
+      mode: options.mode || shipmentStagingState.persistence?.mode || 'Writable'
+    };
+  }
+
+  async function readShipmentStagingDatasetFromHandle(handle) {
+    if (!handle?.getFile) {
+      throw new Error('Shipment Staging writable file handle is not available for verification.');
+    }
+    const file = await handle.getFile();
+    const text = await file.text();
+    if (!text.trim()) {
+      throw new Error('Shipment Staging JSON is empty. Restore a valid Shipment Staging baseline before archiving.');
+    }
+    const dataset = JSON.parse(text);
+    validateShipmentStagingDataset(dataset);
+    return dataset;
+  }
+
   async function persistShipmentStagingDataset(reason = 'Shipment Staging Update', options = {}) {
     const dataset = buildShipmentStagingDatasetForWrite(reason);
     validateShipmentStagingDataset(dataset);
@@ -123,6 +151,35 @@
     return handle;
   }
 
+  async function openShipmentStagingWritableFile() {
+    if (!window.showOpenFilePicker) {
+      throw new Error('Shipment Staging requires opening the existing JSON file in a browser that supports file handles.');
+    }
+
+    const [handle] = await window.showOpenFilePicker({
+      multiple: false,
+      types: [{
+        description: 'Shipment Staging JSON',
+        accept: { 'application/json': ['.json'] }
+      }]
+    });
+
+    const dataset = await readShipmentStagingDatasetFromHandle(handle);
+    if (!(await isShipmentStagingHandleWritable(handle, true))) {
+      throw new Error('Write permission was not granted for the existing Shipment Staging JSON file.');
+    }
+
+    applyShipmentStagingDatasetToState(dataset, {
+      fileHandle: handle,
+      sourceFile: handle.name || 'shipment-staging.json',
+      mode: 'Writable'
+    });
+    await storeShipmentStagingFileHandle(handle);
+    if (typeof renderShipmentStagingModule === 'function') renderShipmentStagingModule();
+    reportShipmentStagingPersistenceStatus('Shipment Staging opened writable. ' + dataset.recordCount + ' record' + (dataset.recordCount === 1 ? '' : 's') + ' loaded.');
+    return dataset;
+  }
+
   function buildShipmentStagingDatasetForWrite(reason) {
     const now = new Date().toLocaleString();
     const records = Array.isArray(shipmentStagingState.records)
@@ -139,28 +196,53 @@
     };
   }
 
+  function buildShipmentStagingDatasetWithRecords(sourceDataset, records, reason, lastUpdated) {
+    const now = lastUpdated || new Date().toLocaleString();
+    const nextDataset = {
+      schema: SHIPMENT_STAGING_SCHEMA,
+      version: sourceDataset?.version || SHIPMENT_STAGING_VERSION,
+      createdAt: sourceDataset?.createdAt || now,
+      lastUpdated: now,
+      lastReason: reason || 'Shipment Staging Update',
+      recordCount: Array.isArray(records) ? records.length : 0,
+      records: Array.isArray(records) ? records : []
+    };
+    validateShipmentStagingDataset(nextDataset);
+    return nextDataset;
+  }
+
+  async function writeShipmentStagingDatasetToHandle(dataset, handle, options = {}) {
+    validateShipmentStagingDataset(dataset);
+    if (!handle?.createWritable) {
+      throw new Error('Shipment Staging writable file handle is not available.');
+    }
+
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(dataset, null, 2));
+    await writable.close();
+    await verifyShipmentStagingFileWrite(handle, dataset);
+
+    if (Array.isArray(options.absentShipmentIds) && options.absentShipmentIds.length) {
+      await verifyShipmentStagingShipmentIdsAbsent(handle, options.absentShipmentIds);
+    }
+    await storeShipmentStagingFileHandle(handle);
+    return dataset;
+  }
+
   async function getWritableShipmentStagingFileHandle() {
     const currentHandle = shipmentStagingState.persistence?.fileHandle;
-    if (await isShipmentStagingHandleWritable(currentHandle)) return currentHandle;
+    if (currentHandle) {
+      await readShipmentStagingDatasetFromHandle(currentHandle);
+      if (await isShipmentStagingHandleWritable(currentHandle, true)) return currentHandle;
+    }
 
     const storedHandle = await readStoredShipmentStagingFileHandle();
-    if (await isShipmentStagingHandleWritable(storedHandle)) return storedHandle;
-
-    if (!window.showSaveFilePicker) {
-      throw new Error('Shipment Staging persistence requires a writable JSON file handle. This browser does not support saving local files.');
+    if (storedHandle) {
+      await readShipmentStagingDatasetFromHandle(storedHandle);
+      if (await isShipmentStagingHandleWritable(storedHandle, true)) return storedHandle;
     }
 
-    const handle = await window.showSaveFilePicker({
-      suggestedName: 'shipment-staging.json',
-      types: [{
-        description: 'Shipment Staging JSON',
-        accept: { 'application/json': ['.json'] }
-      }]
-    });
-    if (!(await isShipmentStagingHandleWritable(handle, true))) {
-      throw new Error('Write permission was not granted for Shipment Staging JSON.');
-    }
-    return handle;
+    throw new Error('Shipment Staging must be opened as an existing writable JSON file before operational updates can be saved. Use Open Writable Staging, then retry.');
   }
 
   async function isShipmentStagingHandleWritable(handle, allowPrompt = false) {
@@ -328,5 +410,10 @@
   window.initializeShipmentStagingPersistence = initializeShipmentStagingPersistence;
   window.persistShipmentStagingDataset = persistShipmentStagingDataset;
   window.ensureShipmentStagingWritableFileHandle = ensureShipmentStagingWritableFileHandle;
+  window.openShipmentStagingWritableFile = openShipmentStagingWritableFile;
+  window.readShipmentStagingDatasetFromHandle = readShipmentStagingDatasetFromHandle;
+  window.buildShipmentStagingDatasetWithRecords = buildShipmentStagingDatasetWithRecords;
+  window.writeShipmentStagingDatasetToHandle = writeShipmentStagingDatasetToHandle;
+  window.applyShipmentStagingDatasetToState = applyShipmentStagingDatasetToState;
   window.verifyShipmentStagingShipmentIdsAbsent = verifyShipmentStagingShipmentIdsAbsent;
 })();

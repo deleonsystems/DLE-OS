@@ -109,6 +109,35 @@
     };
   }
 
+  function validateShipmentHistoryDataset(dataset) {
+    if (!dataset || typeof dataset !== 'object' || Array.isArray(dataset)) {
+      throw new Error('Shipment History dataset is invalid. Expected a JSON object.');
+    }
+    if (dataset.schema !== 'DLE_SHIPMENT_HISTORY_V1') {
+      throw new Error('Shipment History dataset schema is invalid. Expected DLE_SHIPMENT_HISTORY_V1.');
+    }
+    if (!Array.isArray(dataset.records)) {
+      throw new Error('Shipment History dataset is invalid. Expected records to be an array.');
+    }
+    if (Number(dataset.recordCount || 0) !== dataset.records.length) {
+      throw new Error('Shipment History dataset is invalid. Record count does not match records array length.');
+    }
+  }
+
+  async function readShipmentHistoryDatasetFromHandle(handle) {
+    if (!handle?.getFile) {
+      throw new Error('Shipment History writable file handle is not available for verification.');
+    }
+    const file = await handle.getFile();
+    const text = await file.text();
+    if (!text.trim()) {
+      throw new Error('Shipment History JSON is empty. Restore a valid Shipment History baseline before archiving.');
+    }
+    const dataset = JSON.parse(text);
+    validateShipmentHistoryDataset(dataset);
+    return dataset;
+  }
+
   function readShipmentHistoryLocalStorageDataset() {
     try {
       const stored = localStorage.getItem(SHIPMENT_HISTORY_STORAGE_KEY);
@@ -230,6 +259,56 @@
 
     renderShipmentHistoryModule();
     return archivedRecords;
+  }
+
+  function buildShipmentHistoryRecordsForArchive(records, metadata = {}) {
+    if (!Array.isArray(records) || !records.length) return [];
+    const archivedAt = metadata.archivedAt || new Date().toLocaleString();
+    return records.map(record => buildShipmentHistoryRecord(record, {
+      ...metadata,
+      archivedAt
+    }));
+  }
+
+  function buildShipmentHistoryDatasetWithRecords(sourceDataset, records, lastUpdated) {
+    const nextDataset = {
+      schema: 'DLE_SHIPMENT_HISTORY_V1',
+      createdAt: sourceDataset?.createdAt || lastUpdated || new Date().toLocaleString(),
+      lastUpdated: lastUpdated || new Date().toLocaleString(),
+      recordCount: Array.isArray(records) ? records.length : 0,
+      records: Array.isArray(records) ? records : []
+    };
+    validateShipmentHistoryDataset(nextDataset);
+    return nextDataset;
+  }
+
+  async function writeShipmentHistoryDatasetToHandle(dataset, handle, options = {}) {
+    validateShipmentHistoryDataset(dataset);
+    if (!handle?.createWritable) {
+      throw new Error('Shipment History writable file handle is not available.');
+    }
+
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(dataset, null, 2));
+    await writable.close();
+    await verifyShipmentHistoryFileWrite(dataset, handle);
+
+    if (Array.isArray(options.presentShipmentIds) && options.presentShipmentIds.length) {
+      await verifyShipmentHistoryShipmentIdsPresent(options.presentShipmentIds, handle);
+    }
+    writeShipmentHistoryLocalStorageDataset(dataset);
+    return dataset;
+  }
+
+  function applyShipmentHistoryDatasetToState(dataset, options = {}) {
+    validateShipmentHistoryDataset(dataset);
+    setShipmentHistoryDataset(dataset, {
+      sourceFile: options.sourceFile || shipmentHistoryState.sourceFile,
+      persistenceMode: options.persistenceMode || 'Project JSON writable file handle'
+    });
+    shipmentHistoryState.fileHandle = options.fileHandle || shipmentHistoryState.fileHandle;
+    shipmentHistoryState.writable = !!shipmentHistoryState.fileHandle;
+    renderShipmentHistoryModule();
   }
 
   async function removeShipmentHistoryRecordsByArchiveKeys(archiveKeys = []) {
@@ -363,31 +442,41 @@
   }
 
   async function ensureShipmentHistoryWritableFileHandle() {
-    if (await isShipmentHistoryHandleWritable(shipmentHistoryState.fileHandle)) {
+    if (shipmentHistoryState.fileHandle) {
+      await readShipmentHistoryDatasetFromHandle(shipmentHistoryState.fileHandle);
+    }
+    if (await isShipmentHistoryHandleWritable(shipmentHistoryState.fileHandle, true)) {
       return shipmentHistoryState.fileHandle;
     }
 
-    if (!window.showSaveFilePicker) {
-      throw new Error('Shipment History persistence requires a writable JSON file handle. This browser does not support saving local files.');
+    throw new Error('Shipment History must be opened as an existing writable JSON file before operational updates can be saved. Use Open Writable History, then retry.');
+  }
+
+  async function openShipmentHistoryWritableFile() {
+    if (!window.showOpenFilePicker) {
+      throw new Error('Shipment History requires opening the existing JSON file in a browser that supports file handles.');
     }
 
-    const handle = await window.showSaveFilePicker({
-      suggestedName: 'shipment-history.json',
+    const [handle] = await window.showOpenFilePicker({
+      multiple: false,
       types: [{
         description: 'Shipment History JSON',
         accept: { 'application/json': ['.json'] }
       }]
     });
 
+    const dataset = await readShipmentHistoryDatasetFromHandle(handle);
     if (!(await isShipmentHistoryHandleWritable(handle, true))) {
-      throw new Error('Write permission was not granted for Shipment History JSON.');
+      throw new Error('Write permission was not granted for the existing Shipment History JSON file.');
     }
 
-    shipmentHistoryState.fileHandle = handle;
-    shipmentHistoryState.writable = true;
-    shipmentHistoryState.sourceFile = handle.name || 'shipment-history.json';
-    shipmentHistoryState.persistenceMode = 'Project JSON writable file handle';
-    return handle;
+    applyShipmentHistoryDatasetToState(dataset, {
+      fileHandle: handle,
+      sourceFile: handle.name || 'shipment-history.json',
+      persistenceMode: 'Project JSON writable file handle'
+    });
+    renderShipmentHistoryModule();
+    return dataset;
   }
 
   async function isShipmentHistoryHandleWritable(handle, allowPrompt = false) {
@@ -527,8 +616,14 @@
   window.renderShipmentHistoryTable = renderShipmentHistoryTable;
   window.filterShipmentHistory = filterShipmentHistory;
   window.archiveShipmentHistoryRecords = archiveShipmentHistoryRecords;
+  window.buildShipmentHistoryRecordsForArchive = buildShipmentHistoryRecordsForArchive;
+  window.buildShipmentHistoryDatasetWithRecords = buildShipmentHistoryDatasetWithRecords;
+  window.readShipmentHistoryDatasetFromHandle = readShipmentHistoryDatasetFromHandle;
+  window.writeShipmentHistoryDatasetToHandle = writeShipmentHistoryDatasetToHandle;
+  window.applyShipmentHistoryDatasetToState = applyShipmentHistoryDatasetToState;
   window.removeShipmentHistoryRecordsByArchiveKeys = removeShipmentHistoryRecordsByArchiveKeys;
   window.ensureShipmentHistoryWritableFileHandle = ensureShipmentHistoryWritableFileHandle;
+  window.openShipmentHistoryWritableFile = openShipmentHistoryWritableFile;
   window.verifyShipmentHistoryShipmentIdsPresent = verifyShipmentHistoryShipmentIdsPresent;
   window.shipmentHistoryState = shipmentHistoryState;
 })();

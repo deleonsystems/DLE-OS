@@ -31,6 +31,7 @@
         <div id="shipmentStagingSummary" class="open-order-report-count">0 shipments recorded.</div>
       </div>
       <div class="open-orders-actions">
+        <button type="button" onclick="openShipmentStagingWritableFile()">Open Writable Staging</button>
         <button type="button" onclick="renderShipmentStagingModule()">Refresh Shipment Staging</button>
         <button type="button" id="undoSelectedShipmentButton" onclick="undoSelectedShipment()" disabled title="Select a Pending Invoice shipment before undoing.">Undo Selected Shipment</button>
         <button type="button" disabled title="Clear Shipment Staging is reserved for a future developer tool.">Clear Shipment Staging</button>
