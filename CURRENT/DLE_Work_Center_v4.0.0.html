@@ -7707,6 +7707,8 @@ async function loadOpenOrdersExportFile(file) {
 }
 
 function parseOpenOrdersExportText(text) {
+    erpImportState.openOrdersHeaders = getOpenOrdersExportHeaders(text);
+
     return text
         .split('\n')
         .slice(1)
@@ -7714,7 +7716,49 @@ function parseOpenOrdersExportText(text) {
         .filter(cols => cols.some(value => (value || '').trim()));
 }
 
+function getOpenOrdersExportHeaders(text) {
+    const headerLine = String(text || '').split('\n')[0] || '';
+    return headerLine.split('\t').map(header => header.trim());
+}
+
+const ERP_OPEN_ORDERS_HEADER_TO_FIELD = {
+    'Ord Dt': 'orderDate',
+    'Cust#': 'customerNumber',
+    'Cust Name': 'customer',
+    'P/O': 'customerPo',
+    'Sls Ord#': 'salesOrder',
+    'Ln#': 'sequenceLine',
+    'WorkOrd': 'workOrder',
+    'WorkOrd Qty': 'workOrderQuantity',
+    "Qty Shp'd": 'quantityShipped',
+    'Qty Open': 'qtyOpen',
+    'Item#': 'partNumber',
+    'Description': 'description',
+    'Ship Dt': 'dueDate',
+    'Price': 'price',
+    'Ext Price': 'extendedPrice',
+    'Bill Number': 'billNumber',
+    'Drawing Number': 'drawingNumber',
+    'Drawing Revision': 'drawingRevision',
+    'Revision Code': 'revisionCode'
+};
+
 function mapOpenOrdersColumnsToErpRow(cols = []) {
+    const headers = Array.isArray(erpImportState.openOrdersHeaders)
+        ? erpImportState.openOrdersHeaders
+        : [];
+    const erpRow = {};
+
+    headers.forEach((header, index) => {
+        const field = ERP_OPEN_ORDERS_HEADER_TO_FIELD[header];
+        if (!field) return;
+        erpRow[field] = cols[index];
+    });
+
+    if (Object.keys(erpRow).length) {
+        return erpRow;
+    }
+
     return {
         orderDate: cols[0],
         customerNumber: cols[1],
@@ -7731,20 +7775,14 @@ function mapOpenOrdersColumnsToErpRow(cols = []) {
         dueDate: cols[12],
         price: cols[13],
         extendedPrice: cols[14],
-        materialCost: cols[15],
-        laborCost: cols[16],
-        totalCost: cols[17],
-        billNumber: cols[18],
-        drawingNumber: cols[19],
-        drawingRevision: cols[20],
-        revisionCode: cols[21]
+        billNumber: cols.length >= 22 ? cols[18] : cols[15],
+        drawingNumber: cols.length >= 22 ? cols[19] : cols[16],
+        drawingRevision: cols.length >= 22 ? cols[20] : cols[17],
+        revisionCode: cols.length >= 22 ? cols[21] : cols[18]
     };
 }
 
 const ERP_MASTER_DATA_ENRICHMENT_FIELDS = [
-    { key: 'materialCost', label: 'Material Cost' },
-    { key: 'laborCost', label: 'Labor Cost' },
-    { key: 'totalCost', label: 'Total Cost' },
     { key: 'billNumber', label: 'Bill Number' },
     { key: 'drawingNumber', label: 'Drawing Number' },
     { key: 'drawingRevision', label: 'Drawing Revision' },
@@ -8415,12 +8453,11 @@ function applyApprovedReviewQueueDecisionsToMasterData(decisions = {}) {
         let recordEnriched = false;
 
         (event.enrichmentFields || [])
-            .filter(field => field.action === 'populate')
             .filter(field => ERP_MASTER_DATA_ENRICHMENT_FIELDS.some(allowed => allowed.key === field.key))
             .forEach(field => {
                 const erpValue = normalizeReconciliationValue(erpVpro5[field.key] ?? field.erpValue);
                 const masterValue = normalizeReconciliationValue(masterRecord.vpro5[field.key]);
-                if (!erpValue || masterValue) return;
+                if (!erpValue || masterValue === erpValue) return;
 
                 masterRecord.vpro5[field.key] = erpValue;
                 enrichedFields += 1;
@@ -8660,13 +8697,13 @@ function analyzeMasterDataReconciliation() {
 
         const fieldDifferences = erpOwnedFields
             .filter(field => Object.prototype.hasOwnProperty.call(masterRecord.vpro5 || {}, field))
+            .filter(field => !isMasterDataEnrichmentField(field))
             .map(field => ({
                 field,
                 masterValue: normalizeReconciliationValue(masterRecord.vpro5?.[field]),
                 erpValue: normalizeReconciliationValue(erpRecord.vpro5?.[field])
             }))
             .filter(item => !isIgnoredDleOwnedWorkOrderDifference(item))
-            .filter(item => !isPopulateOnlyMasterDataEnrichmentDifference(item))
             .filter(item => item.masterValue !== item.erpValue);
 
         if (fieldDifferences.length) {
@@ -9100,9 +9137,8 @@ function isIgnoredDleOwnedWorkOrderDifference(item) {
         !isUnknownReconciliationWorkOrder(item.masterValue);
 }
 
-function isPopulateOnlyMasterDataEnrichmentDifference(item) {
-    if (!ERP_MASTER_DATA_ENRICHMENT_FIELDS.some(field => field.key === item?.field)) return false;
-    return !normalizeReconciliationValue(item.masterValue) && !!normalizeReconciliationValue(item.erpValue);
+function isMasterDataEnrichmentField(fieldKey) {
+    return ERP_MASTER_DATA_ENRICHMENT_FIELDS.some(field => field.key === fieldKey);
 }
 
 function isWorkOrderSyncDifference(item) {
@@ -9166,7 +9202,7 @@ function buildReconciliationReviewQueueEvents(summary) {
         erp: item.erpRecord,
         master: item.record,
         eventType: 'Master Data Enrichment',
-        disposition: item.fields.some(field => field.action === 'populate') ? 'Select' : 'Review Only',
+        disposition: item.fields.length ? 'Select' : 'Review Only',
         resolutionStatus: 'Pending',
         enrichmentFields: item.fields
     }));
@@ -9711,7 +9747,7 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
     const isPendingInvoice = eventContext.eventType === 'Pending Invoice' || eventContext.eventType === 'Pending ERP Invoice' || eventContext.eventType === 'ERP Invoiced';
     const isShipmentQuantityReview = eventContext.eventType === 'Shipment Quantity Review';
     const isMasterDataEnrichment = eventContext.eventType === 'Master Data Enrichment';
-    const hasApplicableEnrichment = isMasterDataEnrichment && (eventContext.enrichmentFields || []).some(field => field.action === 'populate');
+    const hasApplicableEnrichment = isMasterDataEnrichment && (eventContext.enrichmentFields || []).length > 0;
     const isErpConfirmedShipment = isPendingInvoice && !!eventContext.shipmentLifecycle?.erpConfirmed;
     const isReviewOnly = value === 'Review Only';
     const acceptNewOrderSelected = value === 'Accept New Order' ? ' selected' : '';
@@ -11349,9 +11385,6 @@ async function createDleMasterData() {
                 'qtyOpen',
                 'price',
                 'extendedPrice',
-                'materialCost',
-                'laborCost',
-                'totalCost',
                 'billNumber',
                 'drawingNumber',
                 'drawingRevision',
@@ -11411,9 +11444,6 @@ function buildDleMasterDataRecord(sourceRow, index, importedAt) {
             dueDate: normalizeOrderValue(erpRow.dueDate || erpRow.orderDate),
             price: normalizeOrderValue(erpRow.price, '0'),
             extendedPrice: normalizeOrderValue(erpRow.extendedPrice, '0'),
-            materialCost: normalizeOrderValue(erpRow.materialCost, ''),
-            laborCost: normalizeOrderValue(erpRow.laborCost, ''),
-            totalCost: normalizeOrderValue(erpRow.totalCost, ''),
             billNumber: normalizeOrderValue(erpRow.billNumber, ''),
             drawingNumber: normalizeOrderValue(erpRow.drawingNumber, ''),
             drawingRevision: normalizeOrderValue(erpRow.drawingRevision, ''),
