@@ -3,7 +3,7 @@
   "created": "6/30/2026, 4:38:48 PM",
   "uniqueKey": "Customer Number + Sales Order + Sequence Line",
   "source": "VPro5 Open Orders Export",
-  "recordCount": 115,
+  "recordCount": 119,
   "ownershipModel": {
     "vpro5Owned": [
       "orderDate",
@@ -927,13 +927,13 @@
         "dueDate": "03/31/26",
         "price": "500.00",
         "extendedPrice": "10500.00",
-        "materialCost": "",
-        "laborCost": "",
-        "totalCost": "",
-        "billNumber": "",
-        "drawingNumber": "",
-        "drawingRevision": "",
-        "revisionCode": ""
+        "materialCost": "0.00",
+        "laborCost": "160.00",
+        "totalCost": "160.00",
+        "billNumber": "QR196385",
+        "drawingNumber": "QR196385",
+        "drawingRevision": "A",
+        "revisionCode": "A"
       },
       "dle": {
         "operationalStatus": ""
@@ -1097,8 +1097,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/14/2026, 9:10:47 AM",
+      "lifecycleReason": "ERP Invoiced shipment archived from reconciliation.",
+      "lifecycleShipmentId": "SHP-839287-0012042-260709-02"
     },
     {
       "id": "578350|0011896|010",
@@ -1325,8 +1327,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/14/2026, 9:10:47 AM",
+      "lifecycleReason": "ERP Invoiced shipment archived from reconciliation.",
+      "lifecycleShipmentId": "SHP-839287-0012042-260709-02"
     },
     {
       "id": "565650|0012083|010",
@@ -2047,8 +2051,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/14/2026, 9:10:47 AM",
+      "lifecycleReason": "ERP Invoiced shipment archived from reconciliation.",
+      "lifecycleShipmentId": "SHP-001165-0012054-260709-01"
     },
     {
       "id": "001082|0012067|030",
@@ -4403,6 +4409,158 @@
       "sync": {
         "sourceSystem": "VPro5",
         "importedAt": "7/7/2026, 11:35:23 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001238|0012090|010",
+      "sourceIndex": 55,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/14/2026, 9:11:18 AM",
+      "vpro5": {
+        "orderDate": "06/26/26",
+        "customerNumber": "001238",
+        "customer": "KING NUTRONICS CORPORATIO",
+        "customerPo": "1066",
+        "salesOrder": "0012090",
+        "sequenceLine": "010",
+        "workOrder": "0115611",
+        "workOrderQuantity": "30",
+        "quantityShipped": "0",
+        "qtyOpen": "30",
+        "partNumber": "3666-291-1",
+        "description": "FERENSTAT PCB ASSY AUTO PRESS",
+        "dueDate": "07/24/26",
+        "price": "65.70",
+        "extendedPrice": "1971.00",
+        "materialCost": "29.56",
+        "laborCost": "14.40",
+        "totalCost": "43.96",
+        "billNumber": "3666-291-1",
+        "drawingNumber": "3666-291-1",
+        "drawingRevision": "E",
+        "revisionCode": "E"
+      },
+      "dle": {
+        "operationalStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/14/2026, 9:11:18 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001238|0012090|050",
+      "sourceIndex": 56,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/14/2026, 9:11:18 AM",
+      "vpro5": {
+        "orderDate": "06/26/26",
+        "customerNumber": "001238",
+        "customer": "KING NUTRONICS CORPORATIO",
+        "customerPo": "1066",
+        "salesOrder": "0012090",
+        "sequenceLine": "050",
+        "workOrder": "0115612",
+        "workOrderQuantity": "10",
+        "quantityShipped": "0",
+        "qtyOpen": "10",
+        "partNumber": "3666-291-3",
+        "description": "FERENSTAT PCB ASSY AUTO PRESS",
+        "dueDate": "07/24/26",
+        "price": "70.70",
+        "extendedPrice": "707.00",
+        "materialCost": "28.78",
+        "laborCost": "14.40",
+        "totalCost": "43.18",
+        "billNumber": "3666-291-3",
+        "drawingNumber": "3666-291-1",
+        "drawingRevision": "F",
+        "revisionCode": "F"
+      },
+      "dle": {
+        "operationalStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/14/2026, 9:11:18 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "001238|0012090|090",
+      "sourceIndex": 57,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/14/2026, 9:11:18 AM",
+      "vpro5": {
+        "orderDate": "06/26/26",
+        "customerNumber": "001238",
+        "customer": "KING NUTRONICS CORPORATIO",
+        "customerPo": "1066",
+        "salesOrder": "0012090",
+        "sequenceLine": "090",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": "0",
+        "qtyOpen": "60",
+        "partNumber": "3666-292-1 REV A",
+        "description": "FERENSTAT PCB BARE BOARD",
+        "dueDate": "07/24/26",
+        "price": "20.70",
+        "extendedPrice": "1242.00",
+        "materialCost": "0.00",
+        "laborCost": "0.00",
+        "totalCost": "0.00",
+        "billNumber": "",
+        "drawingNumber": "",
+        "drawingRevision": "",
+        "revisionCode": ""
+      },
+      "dle": {
+        "operationalStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/14/2026, 9:11:18 AM",
+        "status": "Active"
+      }
+    },
+    {
+      "id": "578350|0012091|010",
+      "sourceIndex": 76,
+      "lifecycleState": "OPEN",
+      "lifecycleUpdatedAt": "7/14/2026, 9:11:18 AM",
+      "vpro5": {
+        "orderDate": "07/08/26",
+        "customerNumber": "578350",
+        "customer": "SAFRAN CABIN LAMPHUN LTD.",
+        "customerPo": "MLEP44814",
+        "salesOrder": "0012091",
+        "sequenceLine": "010",
+        "workOrder": "0115613",
+        "workOrderQuantity": "55",
+        "quantityShipped": "0",
+        "qtyOpen": "55",
+        "partNumber": "600280-103",
+        "description": "CONTROLLER BOARD",
+        "dueDate": "09/23/26",
+        "price": "933.50",
+        "extendedPrice": "51342.50",
+        "materialCost": "82.41",
+        "laborCost": "40.00",
+        "totalCost": "122.41",
+        "billNumber": "600280-103",
+        "drawingNumber": "600280",
+        "drawingRevision": "P",
+        "revisionCode": "P"
+      },
+      "dle": {
+        "operationalStatus": "New Order"
+      },
+      "sync": {
+        "sourceSystem": "VPro5",
+        "importedAt": "7/14/2026, 9:11:18 AM",
         "status": "Active"
       }
     }

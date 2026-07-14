@@ -2,60 +2,8 @@
   "schema": "DLE_SHIPMENT_STAGING_V1",
   "version": "1.0",
   "createdAt": "7/7/2026, 2:14:14 PM",
-  "lastUpdated": "7/14/2026, 9:05:05 AM",
+  "lastUpdated": "7/14/2026, 9:10:47 AM",
   "lastReason": "Reconciliation Archive Shipment",
-  "recordCount": 3,
-  "records": [
-    {
-      "shipmentTransactionId": "SHP-839287-0012042-260709-02",
-      "shipmentId": "SHP-839287-0012042-260709-02",
-      "masterRecordKey": "839287|0012042|040",
-      "shipmentDateTime": "7/9/2026, 10:12:32 AM",
-      "customerNumber": "839287",
-      "customerName": "THERMASOL STEAMBATH CO.",
-      "salesOrder": "0012042",
-      "salesOrderLine": "040",
-      "workOrder": "0115553",
-      "itemNumber": "03-4770-5",
-      "description": "POWER SUPPLY PCB ASSY (SIDE)",
-      "quantityShipped": 100,
-      "originalOpenQuantity": 100,
-      "user": "DLE-OS User",
-      "status": "Pending Invoice"
-    },
-    {
-      "shipmentTransactionId": "SHP-839287-0012042-260709-02",
-      "shipmentId": "SHP-839287-0012042-260709-02",
-      "masterRecordKey": "839287|0012042|080",
-      "shipmentDateTime": "7/9/2026, 10:33:28 AM",
-      "customerNumber": "839287",
-      "customerName": "THERMASOL STEAMBATH CO.",
-      "salesOrder": "0012042",
-      "salesOrderLine": "080",
-      "workOrder": "0115554",
-      "itemNumber": "03-4780",
-      "description": "ONE TOUCH PCB ASSY",
-      "quantityShipped": 100,
-      "originalOpenQuantity": 100,
-      "user": "DLE-OS User",
-      "status": "Pending Invoice"
-    },
-    {
-      "shipmentTransactionId": "SHP-001165-0012054-260709-01",
-      "shipmentId": "SHP-001165-0012054-260709-01",
-      "masterRecordKey": "001165|0012054|030",
-      "shipmentDateTime": "7/9/2026, 10:52:05 AM",
-      "customerNumber": "001165",
-      "customerName": "AERO FLUID PRODUCTS",
-      "salesOrder": "0012054",
-      "salesOrderLine": "030",
-      "workOrder": "0115571",
-      "itemNumber": "15K35-1",
-      "description": "FILTER AND RECTIFIER ASSEMBLY",
-      "quantityShipped": 200,
-      "originalOpenQuantity": 200,
-      "user": "DLE-OS User",
-      "status": "Pending Invoice"
-    }
-  ]
+  "recordCount": 0,
+  "records": []
 }
