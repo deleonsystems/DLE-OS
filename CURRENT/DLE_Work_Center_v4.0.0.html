@@ -8212,6 +8212,7 @@ async function approveReconciliationErpUpdates() {
     }
 
     const acceptedNewOrderEvents = getAcceptedNewOrderReviewQueueEvents();
+    const acceptedModifiedRecordEvents = getAcceptedModifiedRecordReviewQueueEvents();
     const approvedEnrichmentEvents = getApprovedMasterDataEnrichmentReviewQueueEvents();
     const approvedArchiveShipmentIds = getApprovedShipmentArchiveShipmentIdsFromReviewQueue();
     const archiveCandidates = getShipmentStagingArchiveCandidates(approvedArchiveShipmentIds);
@@ -8243,7 +8244,7 @@ async function approveReconciliationErpUpdates() {
         return;
     }
 
-    const hasApprovedUpdates = acceptedNewOrderEvents.length > 0 || approvedEnrichmentEvents.length > 0;
+    const hasApprovedUpdates = acceptedNewOrderEvents.length > 0 || acceptedModifiedRecordEvents.length > 0 || approvedEnrichmentEvents.length > 0;
     if (!hasApprovedUpdates && !archiveCandidates.length) {
         setReconciliationActionStatus('No staged Review Queue decisions are available to approve.');
         return;
@@ -8257,6 +8258,7 @@ async function approveReconciliationErpUpdates() {
         const result = hasApprovedUpdates
             ? applyApprovedReviewQueueDecisionsToMasterData({
                 acceptedNewOrderEvents,
+                acceptedModifiedRecordEvents,
                 approvedEnrichmentEvents
             })
             : { updatedRecords: 0, createdRecords: 0 };
@@ -8341,6 +8343,9 @@ function applyApprovedReviewQueueDecisionsToMasterData(decisions = {}) {
     const acceptedNewOrderEvents = Array.isArray(decisions.acceptedNewOrderEvents)
         ? decisions.acceptedNewOrderEvents
         : [];
+    const acceptedModifiedRecordEvents = Array.isArray(decisions.acceptedModifiedRecordEvents)
+        ? decisions.acceptedModifiedRecordEvents
+        : [];
     const approvedEnrichmentEvents = Array.isArray(decisions.approvedEnrichmentEvents)
         ? decisions.approvedEnrichmentEvents
         : [];
@@ -8367,6 +8372,32 @@ function applyApprovedReviewQueueDecisionsToMasterData(decisions = {}) {
         records.push(erpRecord);
         masterByKey.set(recordKey, erpRecord);
         createdRecords += 1;
+    });
+
+    acceptedModifiedRecordEvents.forEach(event => {
+        const recordKey = event?.master?.recordKey || event?.erp?.recordKey || '';
+        if (!recordKey) return;
+
+        const masterRecord = masterByKey.get(recordKey);
+        const erpRecord = erpByKey.get(recordKey);
+        if (!masterRecord || !erpRecord) return;
+
+        masterRecord.vpro5 = masterRecord.vpro5 || {};
+        const erpVpro5 = erpRecord.vpro5 || {};
+        const fields = (event.modifiedFields || [])
+            .map(item => item.field)
+            .filter(field => field && Object.prototype.hasOwnProperty.call(erpVpro5, field));
+        let recordUpdated = false;
+
+        fields.forEach(field => {
+            const erpValue = normalizeReconciliationValue(erpVpro5[field]);
+            const masterValue = normalizeReconciliationValue(masterRecord.vpro5[field]);
+            if (masterValue === erpValue) return;
+            masterRecord.vpro5[field] = erpValue;
+            recordUpdated = true;
+        });
+
+        if (recordUpdated) updatedRecords += 1;
     });
 
     approvedEnrichmentEvents.forEach(event => {
@@ -8434,6 +8465,14 @@ function getAcceptedNewOrderReviewQueueEvents() {
         reconciliationReviewQueueState.selectedEventIds.has(event.reviewQueueId) &&
         event.eventType === 'New Order' &&
         reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Accept New Order'
+    );
+}
+
+function getAcceptedModifiedRecordReviewQueueEvents() {
+    return reconciliationReviewQueueState.events.filter(event =>
+        reconciliationReviewQueueState.selectedEventIds.has(event.reviewQueueId) &&
+        event.eventType === 'Modified Record' &&
+        reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Accept ERP Value'
     );
 }
 
@@ -8623,6 +8662,7 @@ function analyzeMasterDataReconciliation() {
                 erpValue: normalizeReconciliationValue(erpRecord.vpro5?.[field])
             }))
             .filter(item => !isIgnoredDleOwnedWorkOrderDifference(item))
+            .filter(item => !isPopulateOnlyMasterDataEnrichmentDifference(item))
             .filter(item => item.masterValue !== item.erpValue);
 
         if (fieldDifferences.length) {
@@ -9024,6 +9064,11 @@ function isIgnoredDleOwnedWorkOrderDifference(item) {
         !isUnknownReconciliationWorkOrder(item.masterValue);
 }
 
+function isPopulateOnlyMasterDataEnrichmentDifference(item) {
+    if (!ERP_MASTER_DATA_ENRICHMENT_FIELDS.some(field => field.key === item?.field)) return false;
+    return !normalizeReconciliationValue(item.masterValue) && !!normalizeReconciliationValue(item.erpValue);
+}
+
 function isWorkOrderSyncDifference(item) {
     if (item?.field !== 'workOrder') return false;
     return isUnknownReconciliationWorkOrder(item.masterValue) &&
@@ -9075,7 +9120,8 @@ function buildReconciliationReviewQueueEvents(summary) {
         master: item.record,
         eventType: 'Modified Record',
         disposition: 'Select',
-        resolutionStatus: 'Pending'
+        resolutionStatus: 'Pending',
+        modifiedFields: item.differences || []
     }));
 
     const enrichmentRecords = (summary.masterDataEnrichmentRecords || []).map(item => ({
@@ -9323,6 +9369,7 @@ function normalizeReconciliationReviewQueueEvent(event) {
         eventType: event?.eventType || 'Validation Issue',
         disposition: event?.disposition || 'Select',
         resolutionStatus: event?.resolutionStatus || 'Pending',
+        modifiedFields: Array.isArray(event?.modifiedFields) ? event.modifiedFields : [],
         enrichmentFields: Array.isArray(event?.enrichmentFields) ? event.enrichmentFields : [],
         shipmentQuantityReview: event?.shipmentQuantityReview || null,
         shipmentLifecycle: event?.shipmentLifecycle || null
@@ -9622,6 +9669,7 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
     }
 
     const isNewOrder = eventContext.eventType === 'New Order';
+    const isModifiedRecord = eventContext.eventType === 'Modified Record';
     const isWorkOrderSync = eventContext.eventType === 'W/O Sync';
     const isPendingInvoice = eventContext.eventType === 'Pending Invoice' || eventContext.eventType === 'Pending ERP Invoice';
     const isShipmentQuantityReview = eventContext.eventType === 'Shipment Quantity Review';
@@ -9633,10 +9681,12 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
     const archiveShipmentSelected = value === 'Archive Shipment' ? ' selected' : '';
     const syncWorkOrderSelected = value === 'Sync Work Order' ? ' selected' : '';
     const applyEnrichmentSelected = value === 'Apply Enrichment' ? ' selected' : '';
+    const acceptErpValueSelected = value === 'Accept ERP Value' ? ' selected' : '';
     const acceptNewOrderDisabled = isNewOrder ? '' : ' disabled';
     const archiveShipmentDisabled = isErpConfirmedShipment ? '' : ' disabled';
     const syncWorkOrderDisabled = isWorkOrderSync ? '' : ' disabled';
     const applyEnrichmentDisabled = hasApplicableEnrichment ? '' : ' disabled';
+    const acceptErpValueDisabled = isModifiedRecord ? '' : ' disabled';
     if ((isPendingInvoice && !isErpConfirmedShipment) || isShipmentQuantityReview || isReviewOnly) {
         return `
       <select class="reconciliation-disposition-select" disabled>
@@ -9651,7 +9701,7 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
         <option value="Archive Shipment"${archiveShipmentDisabled}${archiveShipmentSelected}>Archive Shipment</option>
         <option value="Sync Work Order"${syncWorkOrderDisabled}${syncWorkOrderSelected}>Sync Work Order</option>
         <option value="Apply Enrichment"${applyEnrichmentDisabled}${applyEnrichmentSelected}>Apply Enrichment</option>
-        <option value="Accept ERP Value" disabled>Accept ERP Value (Coming Soon)</option>
+        <option value="Accept ERP Value"${acceptErpValueDisabled}${acceptErpValueSelected}>Accept ERP Value</option>
         <option value="Resolve Validation Issue" disabled>Resolve Validation Issue (Coming Soon)</option>
       </select>
     `;
