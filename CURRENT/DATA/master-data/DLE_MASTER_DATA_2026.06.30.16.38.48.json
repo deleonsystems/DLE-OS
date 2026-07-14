@@ -1019,8 +1019,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/14/2026, 9:05:05 AM",
+      "lifecycleReason": "ERP Invoiced shipment archived from reconciliation.",
+      "lifecycleShipmentId": "SHP-001061-0012033-260714-01"
     },
     {
       "id": "578350|0012057|010",

@@ -7484,7 +7484,8 @@ const shipmentStagingState = {
 
 const MASTER_RECORD_LIFECYCLE_STATES = {
     OPEN: 'OPEN',
-    STAGED: 'STAGED'
+    STAGED: 'STAGED',
+    ARCHIVED: 'ARCHIVED'
 };
 
 /* -----------------------------------------------------
@@ -8295,6 +8296,7 @@ async function approveReconciliationErpUpdates() {
             result.createdRecords + ' new ERP record(s) added.',
             archiveResult.archivedRecords + ' shipment staging record(s) archived into Shipment History.',
             'Master Data records were preserved during shipment archive.',
+            (archiveResult.archivedMasterRecords || 0) + ' ERP-invoiced Master Data record(s) marked archived.',
             'DLE Master JSON persisted and verified.',
             archiveResult.archivedTransactions + ' shipment transaction(s) removed from Shipment Staging.',
             (archiveResult.persistedStagingRecords ?? shipmentStagingState.records.length) + ' shipment staging record(s) persisted after archive.',
@@ -8617,7 +8619,9 @@ function analyzeMasterDataReconciliation() {
     }).forEach(item => {
         pendingInvoiceRecords.push(item);
         pendingInvoiceMasterKeys.add(item.record.recordKey);
-        pendingInvoiceErpKeys.add(item.erpRecord.recordKey);
+        if (item.erpRecord?.recordKey) {
+            pendingInvoiceErpKeys.add(item.erpRecord.recordKey);
+        }
     });
 
     buildShipmentQuantityReviewCandidates({
@@ -8795,13 +8799,25 @@ function buildPendingInvoiceReconciliationCandidates(context = {}) {
 
             const masterRecord = masterByKey.get(recordKey);
             const erpRecord = erpByKey.get(recordKey);
-            if (!masterRecord || !erpRecord) return;
+            if (!masterRecord) return;
 
             const matchingShipmentRecords = shipmentRecords
                 .filter(record =>
                     record.status === 'Pending Invoice' &&
                     getShipmentStagingMasterRecordKey(record) === recordKey
                 );
+            if (!erpRecord) {
+                const invoicedState = buildShipmentInvoicedLifecycleState(masterRecord, matchingShipmentRecords);
+                candidatesByKey.set(recordKey, {
+                    recordKey,
+                    record: buildReconciliationRecordSummary(masterRecord, recordKey),
+                    erpRecord: null,
+                    shipmentIds: Array.from(new Set(invoicedState.matchingShipmentRecords.map(record => record.shipmentId).filter(Boolean))),
+                    shipmentLifecycle: invoicedState
+                });
+                return;
+            }
+
             const quantityState = buildShipmentReconciliationQuantityState(masterRecord, erpRecord, matchingShipmentRecords);
             if (quantityState.requiresQuantityReview) return;
 
@@ -8815,6 +8831,26 @@ function buildPendingInvoiceReconciliationCandidates(context = {}) {
         });
 
     return Array.from(candidatesByKey.values());
+}
+
+function buildShipmentInvoicedLifecycleState(masterRecord, matchingShipmentRecords = []) {
+    const previousErpQtyOpen = parseOpenOrderQuantity(masterRecord?.vpro5?.qtyOpen);
+    const pendingShipmentQuantity = matchingShipmentRecords
+        .reduce((total, record) => total + parseOpenOrderQuantity(record.quantityShipped), 0);
+    const expectedErpQtyOpen = Math.max(previousErpQtyOpen - pendingShipmentQuantity, 0);
+
+    return {
+        erpConfirmed: true,
+        erpStillPending: false,
+        requiresQuantityReview: false,
+        status: 'ERP Invoiced',
+        previousErpQtyOpen: formatReconciliationQuantity(previousErpQtyOpen),
+        pendingShipmentQuantity: formatReconciliationQuantity(pendingShipmentQuantity),
+        expectedErpQtyOpen: formatReconciliationQuantity(expectedErpQtyOpen),
+        incomingErpQtyOpen: 'Not in ERP Open Orders',
+        difference: '',
+        matchingShipmentRecords: matchingShipmentRecords.map(buildShipmentQuantityReviewStagingSummary)
+    };
 }
 
 function buildShipmentQuantityReviewCandidates(context = {}) {
@@ -9146,11 +9182,11 @@ function buildReconciliationReviewQueueEvents(summary) {
     }));
 
     const pendingInvoiceRecords = (summary.pendingInvoiceRecords || []).map(item => ({
-        statusIcon: item.shipmentLifecycle?.erpConfirmed ? 'ERP' : 'INV',
+        statusIcon: item.shipmentLifecycle?.status === 'ERP Invoiced' ? 'INV' : item.shipmentLifecycle?.erpConfirmed ? 'ERP' : 'INV',
         eventClass: 'event-pending-invoice',
         erp: item.erpRecord,
         master: item.record,
-        eventType: 'Pending ERP Invoice',
+        eventType: item.shipmentLifecycle?.status === 'ERP Invoiced' ? 'ERP Invoiced' : 'Pending ERP Invoice',
         disposition: item.shipmentLifecycle?.erpConfirmed ? 'Select' : 'Review Only',
         resolutionStatus: 'Pending',
         shipmentLifecycle: item.shipmentLifecycle || null
@@ -9338,11 +9374,12 @@ function compareReconciliationEventType(a, b) {
         'Pending ERP Invoice': 2,
         'Pending Invoice': 2,
         'Shipment Quantity Review': 3,
-        'Missing From ERP': 4,
-        'Modified Record': 5,
-        'Master Data Enrichment': 6,
-        'W/O Sync': 7,
-        'New Order': 8
+        'ERP Invoiced': 4,
+        'Missing From ERP': 5,
+        'Modified Record': 6,
+        'Master Data Enrichment': 7,
+        'W/O Sync': 8,
+        'New Order': 9
     };
     const aRank = order[a] || 99;
     const bRank = order[b] || 99;
@@ -9671,7 +9708,7 @@ function renderReconciliationDispositionSelector(selectedValue, eventContext = {
     const isNewOrder = eventContext.eventType === 'New Order';
     const isModifiedRecord = eventContext.eventType === 'Modified Record';
     const isWorkOrderSync = eventContext.eventType === 'W/O Sync';
-    const isPendingInvoice = eventContext.eventType === 'Pending Invoice' || eventContext.eventType === 'Pending ERP Invoice';
+    const isPendingInvoice = eventContext.eventType === 'Pending Invoice' || eventContext.eventType === 'Pending ERP Invoice' || eventContext.eventType === 'ERP Invoiced';
     const isShipmentQuantityReview = eventContext.eventType === 'Shipment Quantity Review';
     const isMasterDataEnrichment = eventContext.eventType === 'Master Data Enrichment';
     const hasApplicableEnrichment = isMasterDataEnrichment && (eventContext.enrichmentFields || []).some(field => field.action === 'populate');
@@ -9839,6 +9876,12 @@ async function archiveApprovedShipmentStagingRecords(shipmentIds) {
     if (stagingArchiveCandidates.length !== archiveCandidates.length) {
         throw new Error('Archive transaction aborted. Selected shipment staging records do not match the persisted Shipment Staging dataset.');
     }
+    const currentErpRecordKeys = buildCurrentErpOpenOrderRecordKeySet();
+    const masterRecordKeysToArchive = Array.from(new Set(
+        stagingArchiveCandidates
+            .map(record => getShipmentStagingMasterRecordKey(record))
+            .filter(recordKey => recordKey && !currentErpRecordKeys.has(recordKey))
+    ));
 
     const archivePayload = stagingArchiveCandidates.map(record => {
         const recordKey = getShipmentStagingMasterRecordKey(record);
@@ -9941,13 +9984,50 @@ async function archiveApprovedShipmentStagingRecords(shipmentIds) {
         mode: 'Writable'
     });
 
+    const archivedMasterRecordKeys = archiveMasterRecordsForErpInvoicedShipments(stagingArchiveCandidates, masterRecordKeysToArchive, archiveTimestamp);
+
     return {
         archivedRecords: archivedRecords.length,
         archivedTransactions: archivedIds.size,
         persistedStagingRecords: nextStagingDataset.recordCount,
+        archivedMasterRecords: archivedMasterRecordKeys.length,
+        archivedMasterRecordKeys,
         removedMasterRecords: 0,
         removedMasterRecordKeys: []
     };
+}
+
+function buildCurrentErpOpenOrderRecordKeySet() {
+    const importedAt = erpImportState.lastImported || new Date().toLocaleString();
+    return new Set((erpImportedOpenOrdersRows || [])
+        .map((cols, index) => buildDleMasterDataRecord(cols, index, importedAt))
+        .map(record => record.id)
+        .filter(Boolean));
+}
+
+function archiveMasterRecordsForErpInvoicedShipments(stagingArchiveCandidates, masterRecordKeysToArchive, archiveTimestamp) {
+    const keys = new Set(masterRecordKeysToArchive || []);
+    if (!keys.size) return [];
+
+    const shipmentIdByRecordKey = new Map();
+    (stagingArchiveCandidates || []).forEach(record => {
+        const recordKey = getShipmentStagingMasterRecordKey(record);
+        const shipmentId = normalizeOrderValue(record.shipmentId, '');
+        if (recordKey && shipmentId && !shipmentIdByRecordKey.has(recordKey)) {
+            shipmentIdByRecordKey.set(recordKey, shipmentId);
+        }
+    });
+
+    const archivedRecordKeys = [];
+    keys.forEach(recordKey => {
+        const updated = setMasterRecordLifecycleState(recordKey, MASTER_RECORD_LIFECYCLE_STATES.ARCHIVED, {
+            updatedAt: archiveTimestamp,
+            reason: 'ERP Invoiced shipment archived from reconciliation.',
+            shipmentId: shipmentIdByRecordKey.get(recordKey) || ''
+        });
+        if (updated) archivedRecordKeys.push(recordKey);
+    });
+    return archivedRecordKeys;
 }
 
 async function verifyShipmentArchivePersistedDatasets(
@@ -10061,10 +10141,13 @@ async function persistCurrentOperationalMasterData(archiveResult = {}) {
         : 0;
 
     await writeCurrentDleMasterDataFile();
-    await verifyCurrentOperationalMasterDataWrite(archiveResult.removedMasterRecordKeys || []);
+    await verifyCurrentOperationalMasterDataWrite(
+        archiveResult.removedMasterRecordKeys || [],
+        archiveResult.archivedMasterRecordKeys || []
+    );
 }
 
-async function verifyCurrentOperationalMasterDataWrite(removedMasterRecordKeys = []) {
+async function verifyCurrentOperationalMasterDataWrite(removedMasterRecordKeys = [], archivedMasterRecordKeys = []) {
     if (!dleMasterDataFileState.fileHandle?.getFile) {
         return;
     }
@@ -10078,6 +10161,14 @@ async function verifyCurrentOperationalMasterDataWrite(removedMasterRecordKeys =
 
     if (missingRemoval.length) {
         throw new Error('DLE Master JSON verification failed. Archived record(s) still exist in saved Master Data: ' + missingRemoval.join(', '));
+    }
+
+    const archivedStateFailures = archivedMasterRecordKeys.filter(recordKey => {
+        const record = savedRecords.find(savedRecord => getMasterRecordKeyForRecord(savedRecord) === recordKey);
+        return !record || getMasterRecordLifecycleState(record) !== MASTER_RECORD_LIFECYCLE_STATES.ARCHIVED;
+    });
+    if (archivedStateFailures.length) {
+        throw new Error('DLE Master JSON verification failed. ERP-invoiced archived record(s) were not saved with ARCHIVED lifecycle state: ' + archivedStateFailures.join(', '));
     }
 
     if (Number(savedData.recordCount || 0) !== savedRecords.length) {
@@ -10111,7 +10202,7 @@ function updateReconciliationReviewQueueCounters(events) {
         if (event.eventType === 'Modified Record') totals.modifiedRecords += 1;
         if (event.eventType === 'Master Data Enrichment') totals.enrichmentRecords += 1;
         if (event.eventType === 'W/O Sync') totals.workOrderSync += 1;
-        if (event.eventType === 'Pending Invoice' || event.eventType === 'Pending ERP Invoice') totals.pendingInvoice += 1;
+        if (event.eventType === 'Pending Invoice' || event.eventType === 'Pending ERP Invoice' || event.eventType === 'ERP Invoiced') totals.pendingInvoice += 1;
         if (event.eventType === 'Shipment Quantity Review') totals.shipmentQuantityReview += 1;
         if (event.eventType === 'Missing From ERP') totals.missingFromErp += 1;
         if (event.eventType === 'Validation Issue') totals.validationIssues += 1;
@@ -10163,7 +10254,7 @@ function renderReconciliationSummary(summary) {
         ${reconciliationSummaryCard('ERP-Owned Field Differences', summary.erpFieldDifferences.length)}
         ${reconciliationSummaryCard('Master Data Enrichment', (summary.masterDataEnrichmentRecords || []).length)}
         ${reconciliationSummaryCard('W/O Sync Events', (summary.workOrderSyncRecords || []).length)}
-        ${reconciliationSummaryCard('Pending ERP Invoice Events', (summary.pendingInvoiceRecords || []).length)}
+        ${reconciliationSummaryCard('Shipment Lifecycle Events', (summary.pendingInvoiceRecords || []).length)}
         ${reconciliationSummaryCard('Shipment Quantity Review', (summary.shipmentQuantityReviewRecords || []).length)}
         ${reconciliationSummaryCard('Missing ERP-Owned Fields', summary.missingErpOwnedFields.length)}
         ${reconciliationSummaryCard('Overall Status', summary.overallStatus)}
@@ -10276,7 +10367,7 @@ function renderReconciliationPendingInvoiceList(items) {
 
     return `
       <section class="master-data-detail-section">
-        <h3>Pending ERP Invoice Events (${items.length})</h3>
+        <h3>Shipment Lifecycle Events (${items.length})</h3>
         ${items.length ? `
           <div class="master-data-table-wrap">
             <table>
@@ -10576,14 +10667,16 @@ function buildReconciliationInvestigationRecords(summary) {
     }));
 
     const pendingInvoiceRecords = (summary.pendingInvoiceRecords || []).map(item => ({
-        category: item.shipmentLifecycle?.erpConfirmed ? 'ERP Confirmed Shipment' : 'Pending ERP Invoice',
+        category: item.shipmentLifecycle?.status === 'ERP Invoiced' ? 'ERP Invoiced' : item.shipmentLifecycle?.erpConfirmed ? 'ERP Confirmed Shipment' : 'Pending ERP Invoice',
         salesOrder: item.record.salesOrder,
         sequenceLine: item.record.sequenceLine,
         workOrder: item.record.workOrder,
         customer: item.record.customer,
         fieldName: 'Shipment Staging',
         masterValue: (item.shipmentIds || []).join(', ') || '[shipment staged]',
-        erpValue: item.shipmentLifecycle?.erpConfirmed
+        erpValue: item.shipmentLifecycle?.status === 'ERP Invoiced'
+            ? 'ERP no longer lists this staged shipment in Open Orders.'
+            : item.shipmentLifecycle?.erpConfirmed
             ? 'ERP confirmed expected Qty Open ' + (item.shipmentLifecycle.expectedErpQtyOpen || '')
             : 'ERP still pending. Expected Qty Open ' + (item.shipmentLifecycle?.expectedErpQtyOpen || '') + ', incoming Qty Open ' + (item.shipmentLifecycle?.incomingErpQtyOpen || '')
     }));

@@ -1,8 +1,8 @@
 {
   "schema": "DLE_SHIPMENT_HISTORY_V1",
   "createdAt": "7/6/2026, 8:12:25 PM",
-  "lastUpdated": "7/12/2026, 8:35:04 PM",
-  "recordCount": 5,
+  "lastUpdated": "7/14/2026, 9:07:47 AM",
+  "recordCount": 6,
   "records": [
     {
       "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
@@ -813,6 +813,180 @@
             "dueDate": "03/31/26",
             "price": "500.00",
             "extendedPrice": "15500.00",
+            "materialCost": "",
+            "laborCost": "",
+            "totalCost": "",
+            "billNumber": "",
+            "drawingNumber": "",
+            "drawingRevision": "",
+            "revisionCode": ""
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001061-0012033-260709-01",
+      "masterRecordKey": "001061|0012033|010",
+      "shipmentDateTime": "7/9/2026, 10:52:52 AM",
+      "customerNumber": "001061",
+      "customerName": "SKURKA AEROSPACE INC.",
+      "customerPo": "P173897",
+      "salesOrder": "0012033",
+      "salesOrderLine": "010",
+      "workOrder": "0115543",
+      "workOrderQuantity": "100",
+      "quantityShipped": 2,
+      "originalOpenQuantity": 2,
+      "quantityOpenAtArchive": "2",
+      "itemNumber": "H661-BS693",
+      "revision": "",
+      "description": "CABLE ASSY",
+      "unitOfMeasure": "",
+      "unitPrice": "472.80",
+      "extendedPrice": "945.60",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/14/2026, 8:54:45 AM",
+      "approvalTimestamp": "7/14/2026, 8:54:45 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001061-0012033-260709-01",
+        "masterRecordKey": "001061|0012033|010",
+        "shipmentTransactionId": "SHP-001061-0012033-260709-01"
+      },
+      "customer": {
+        "customerNumber": "001061",
+        "customerName": "SKURKA AEROSPACE INC.",
+        "customerPo": "P173897"
+      },
+      "order": {
+        "salesOrder": "0012033",
+        "salesOrderLine": "010",
+        "workOrder": "0115543",
+        "workOrderQuantity": "100",
+        "quantityShipped": 2,
+        "originalOpenQuantity": 2,
+        "quantityOpenAtArchive": "2"
+      },
+      "item": {
+        "partNumber": "H661-BS693",
+        "revision": "",
+        "description": "CABLE ASSY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "10/27/25",
+        "dueDate": "04/17/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/9/2026, 10:52:52 AM",
+        "approvalDate": "7/14/2026, 8:54:45 AM",
+        "archiveTimestamp": "7/14/2026, 8:54:45 AM"
+      },
+      "financial": {
+        "unitPrice": "472.80",
+        "extendedPrice": "945.60",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-001061-0012033-260709-01",
+          "shipmentId": "SHP-001061-0012033-260709-01",
+          "masterRecordKey": "001061|0012033|010",
+          "shipmentDateTime": "7/9/2026, 10:52:52 AM",
+          "customerNumber": "001061",
+          "customerName": "SKURKA AEROSPACE INC.",
+          "salesOrder": "0012033",
+          "salesOrderLine": "010",
+          "workOrder": "0115543",
+          "itemNumber": "H661-BS693",
+          "description": "CABLE ASSY",
+          "quantityShipped": 2,
+          "originalOpenQuantity": 2,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "001061|0012033|010",
+            "sourceIndex": 26,
+            "vpro5": {
+              "orderDate": "10/27/25",
+              "customerNumber": "001061",
+              "customer": "SKURKA AEROSPACE INC.",
+              "customerPo": "P173897",
+              "salesOrder": "0012033",
+              "sequenceLine": "010",
+              "workOrder": "0115543",
+              "workOrderQuantity": "100",
+              "quantityShipped": "0",
+              "qtyOpen": "2",
+              "partNumber": "H661-BS693",
+              "description": "CABLE ASSY",
+              "dueDate": "04/17/26",
+              "price": "472.80",
+              "extendedPrice": "945.60",
+              "materialCost": "",
+              "laborCost": "",
+              "totalCost": "",
+              "billNumber": "",
+              "drawingNumber": "",
+              "drawingRevision": "",
+              "revisionCode": ""
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001061|0012033|010",
+          "sourceIndex": 26,
+          "vpro5": {
+            "orderDate": "10/27/25",
+            "customerNumber": "001061",
+            "customer": "SKURKA AEROSPACE INC.",
+            "customerPo": "P173897",
+            "salesOrder": "0012033",
+            "sequenceLine": "010",
+            "workOrder": "0115543",
+            "workOrderQuantity": "100",
+            "quantityShipped": "0",
+            "qtyOpen": "2",
+            "partNumber": "H661-BS693",
+            "description": "CABLE ASSY",
+            "dueDate": "04/17/26",
+            "price": "472.80",
+            "extendedPrice": "945.60",
             "materialCost": "",
             "laborCost": "",
             "totalCost": "",

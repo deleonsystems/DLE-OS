@@ -2,9 +2,9 @@
   "schema": "DLE_SHIPMENT_STAGING_V1",
   "version": "1.0",
   "createdAt": "7/7/2026, 2:14:14 PM",
-  "lastUpdated": "7/12/2026, 8:35:04 PM",
+  "lastUpdated": "7/14/2026, 9:05:05 AM",
   "lastReason": "Reconciliation Archive Shipment",
-  "recordCount": 4,
+  "recordCount": 3,
   "records": [
     {
       "shipmentTransactionId": "SHP-839287-0012042-260709-02",
@@ -54,23 +54,6 @@
       "description": "FILTER AND RECTIFIER ASSEMBLY",
       "quantityShipped": 200,
       "originalOpenQuantity": 200,
-      "user": "DLE-OS User",
-      "status": "Pending Invoice"
-    },
-    {
-      "shipmentTransactionId": "SHP-001061-0012033-260709-01",
-      "shipmentId": "SHP-001061-0012033-260709-01",
-      "masterRecordKey": "001061|0012033|010",
-      "shipmentDateTime": "7/9/2026, 10:52:52 AM",
-      "customerNumber": "001061",
-      "customerName": "SKURKA AEROSPACE INC.",
-      "salesOrder": "0012033",
-      "salesOrderLine": "010",
-      "workOrder": "0115543",
-      "itemNumber": "H661-BS693",
-      "description": "CABLE ASSY",
-      "quantityShipped": 2,
-      "originalOpenQuantity": 2,
       "user": "DLE-OS User",
       "status": "Pending Invoice"
     }

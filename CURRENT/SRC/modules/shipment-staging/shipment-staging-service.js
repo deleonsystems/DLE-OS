@@ -99,7 +99,12 @@
     if (!handle?.getFile) {
       throw new Error('Shipment Staging writable file handle is not available for verification.');
     }
-    const file = await handle.getFile();
+    let file;
+    try {
+      file = await handle.getFile();
+    } catch (error) {
+      throw new Error('Shipment Staging file access was denied. Use Open Writable Staging to reopen the existing shipment-staging.json file, then retry.');
+    }
     const text = await file.text();
     if (!text.trim()) {
       throw new Error('Shipment Staging JSON is empty. Restore a valid Shipment Staging baseline before archiving.');
@@ -232,14 +237,18 @@
   async function getWritableShipmentStagingFileHandle() {
     const currentHandle = shipmentStagingState.persistence?.fileHandle;
     if (currentHandle) {
-      await readShipmentStagingDatasetFromHandle(currentHandle);
-      if (await isShipmentStagingHandleWritable(currentHandle, true)) return currentHandle;
+      if (await isShipmentStagingHandleWritable(currentHandle, true)) {
+        await readShipmentStagingDatasetFromHandle(currentHandle);
+        return currentHandle;
+      }
     }
 
     const storedHandle = await readStoredShipmentStagingFileHandle();
     if (storedHandle) {
-      await readShipmentStagingDatasetFromHandle(storedHandle);
-      if (await isShipmentStagingHandleWritable(storedHandle, true)) return storedHandle;
+      if (await isShipmentStagingHandleWritable(storedHandle, true)) {
+        await readShipmentStagingDatasetFromHandle(storedHandle);
+        return storedHandle;
+      }
     }
 
     throw new Error('Shipment Staging must be opened as an existing writable JSON file before operational updates can be saved. Use Open Writable Staging, then retry.');

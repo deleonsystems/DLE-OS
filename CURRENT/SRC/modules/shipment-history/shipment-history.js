@@ -128,7 +128,12 @@
     if (!handle?.getFile) {
       throw new Error('Shipment History writable file handle is not available for verification.');
     }
-    const file = await handle.getFile();
+    let file;
+    try {
+      file = await handle.getFile();
+    } catch (error) {
+      throw new Error('Shipment History file access was denied. Use Open Writable History to reopen the existing shipment-history.json file, then retry.');
+    }
     const text = await file.text();
     if (!text.trim()) {
       throw new Error('Shipment History JSON is empty. Restore a valid Shipment History baseline before archiving.');
@@ -442,10 +447,8 @@
   }
 
   async function ensureShipmentHistoryWritableFileHandle() {
-    if (shipmentHistoryState.fileHandle) {
-      await readShipmentHistoryDatasetFromHandle(shipmentHistoryState.fileHandle);
-    }
     if (await isShipmentHistoryHandleWritable(shipmentHistoryState.fileHandle, true)) {
+      await readShipmentHistoryDatasetFromHandle(shipmentHistoryState.fileHandle);
       return shipmentHistoryState.fileHandle;
     }
 
