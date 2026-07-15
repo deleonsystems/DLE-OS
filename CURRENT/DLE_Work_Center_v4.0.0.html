@@ -7536,7 +7536,7 @@ const dleMasterDataFileState = {
     writable: false
 };
 
-const DLE_MASTER_DATA_DEFAULT_PATH = 'DATA/master-data/DLE_MASTER_DATA_2026.06.30.16.38.48.json';
+const DLE_MASTER_DATA_API_URL = '/api/masterdata';
 const DLE_MASTER_DATA_HANDLE_DB = 'DLE_OS_FILE_HANDLES';
 const DLE_MASTER_DATA_HANDLE_STORE = 'fileHandles';
 const DLE_MASTER_DATA_HANDLE_KEY = 'dleMasterData';
@@ -18055,13 +18055,7 @@ function loadDleMasterDataFromText(text, options = {}) {
 async function initializeDleMasterDataAutoLoad() {
   if (dleMasterDataFileState.data) return;
 
-  const handle = await readStoredDleMasterDataFileHandle();
-  if (handle) {
-    const loadedFromHandle = await loadDleMasterDataFromStoredHandle(handle);
-    if (loadedFromHandle) return;
-  }
-
-  await loadDefaultDleMasterDataJson();
+  await loadDleMasterDataFromApi();
 }
 
 async function loadDleMasterDataFromStoredHandle(handle) {
@@ -18098,22 +18092,24 @@ async function loadDleMasterDataFromStoredHandle(handle) {
   }
 }
 
-async function loadDefaultDleMasterDataJson() {
+async function loadDleMasterDataFromApi() {
   try {
-    const response = await fetch(DLE_MASTER_DATA_DEFAULT_PATH, { cache: 'no-store' });
-    if (!response.ok) return false;
+    const response = await fetch(DLE_MASTER_DATA_API_URL, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Master Data API returned HTTP ${response.status}.`);
+    }
 
     const text = await response.text();
-    const fileName = DLE_MASTER_DATA_DEFAULT_PATH.split('/').pop();
     loadDleMasterDataFromText(text, {
-      fileName,
+      fileName: 'GET /api/masterdata',
       lastModified: new Date().toLocaleString(),
       writable: false,
-      loadedFrom: 'DLE Master Data Loaded (Read Only). Reconnect required before operational changes can be approved.'
+      loadedFrom: 'DLE Master Data loaded from DLE-OS-Server.'
     });
     return true;
   } catch (error) {
-    console.warn('Default DLE Master Data JSON could not be auto-loaded.', error);
+    console.warn('DLE Master Data could not be loaded from DLE-OS-Server.', error);
+    setDleMasterDataStatus(`Unable to load DLE Master Data from the API: ${error.message}`);
     return false;
   }
 }
