@@ -17,6 +17,8 @@
   const SHIPMENT_STAGING_HANDLE_DB = 'DLE_OS_SHIPMENT_STAGING_HANDLES';
   const SHIPMENT_STAGING_HANDLE_STORE = 'fileHandles';
   const SHIPMENT_STAGING_HANDLE_KEY = 'shipmentStaging';
+  let lastShipmentStagingLoadSource = SHIPMENT_STAGING_DATA_PATH;
+  let lastShipmentStagingLoadMode = 'Project JSON loaded read-only';
 
   async function initializeShipmentStagingPersistence() {
     try {
@@ -35,6 +37,16 @@
   }
 
   async function loadShipmentStagingDataset() {
+    if (window.DleApiClient?.getJsonWithFallback) {
+      const result = await window.DleApiClient.getJsonWithFallback('shipmentStaging', SHIPMENT_STAGING_DATA_PATH, {
+        apiPersistenceMode: 'DLE-OS-HOST API read-only',
+        fallbackPersistenceMode: 'Project JSON fallback read-only'
+      });
+      lastShipmentStagingLoadSource = result.source;
+      lastShipmentStagingLoadMode = result.persistenceMode;
+      return result.data;
+    }
+
     const response = await fetch(SHIPMENT_STAGING_DATA_PATH, { cache: 'no-store' });
     if (!response.ok) {
       throw new Error('Unable to load Shipment Staging dataset from ' + SHIPMENT_STAGING_DATA_PATH + '. HTTP ' + response.status + '.');
@@ -73,11 +85,11 @@
       schema: dataset.schema,
       version: dataset.version || SHIPMENT_STAGING_VERSION,
       createdAt: dataset.createdAt || '',
-      sourceFile: SHIPMENT_STAGING_DATA_PATH,
+      sourceFile: lastShipmentStagingLoadSource || SHIPMENT_STAGING_DATA_PATH,
       fileHandle: null,
       writable: false,
       loadedAt: new Date().toLocaleString(),
-      mode: 'Read Only'
+      mode: lastShipmentStagingLoadMode || 'Read Only'
     };
   }
 

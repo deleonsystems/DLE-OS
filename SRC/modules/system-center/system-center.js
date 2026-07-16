@@ -66,14 +66,27 @@
           status: 'Loaded from connected file'
         });
       } else {
-        const response = await fetch(SHIPMENT_HISTORY_VIEWER_PATH, { cache: 'no-store' });
-        if (!response.ok) {
-          throw new Error(`Unable to load Shipment History JSON (${response.status}).`);
+        const result = window.DleApiClient?.getJsonWithFallback
+          ? await window.DleApiClient.getJsonWithFallback('shipmentHistory', SHIPMENT_HISTORY_VIEWER_PATH, {
+            apiPersistenceMode: 'Loaded from DLE-OS-HOST API',
+            fallbackPersistenceMode: 'Loaded from project JSON fallback'
+          })
+          : null;
+        let dataset;
+        let statusText;
+        if (result) {
+          dataset = result.data;
+          statusText = recordsStatusText(normalizeShipmentHistoryViewerRecords(dataset), result.persistenceMode);
+        } else {
+          const response = await fetch(SHIPMENT_HISTORY_VIEWER_PATH, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`Unable to load Shipment History JSON (${response.status}).`);
+          }
+          dataset = await response.json();
+          statusText = recordsStatusText(normalizeShipmentHistoryViewerRecords(dataset), 'Loaded read-only');
         }
-
-        const dataset = await response.json();
         setShipmentHistoryDataViewerDataset(dataset, {
-          status: recordsStatusText(normalizeShipmentHistoryViewerRecords(dataset), 'Loaded read-only')
+          status: statusText
         });
       }
     } catch (error) {
