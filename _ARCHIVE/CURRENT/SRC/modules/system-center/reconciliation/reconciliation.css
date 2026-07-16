@@ -1,0 +1,819 @@
+/* -----------------------------------------------------
+   530 - CSS: RECONCILIATION ENGINE
+----------------------------------------------------- */
+
+#reconciliationWorkspace {
+  width: calc(100vw - 44px);
+  margin-left: calc(50% - 50vw + 22px);
+}
+
+.reconciliation-workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 20px;
+}
+
+.reconciliation-step {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.025);
+  padding: 10px;
+  min-width: 0;
+}
+
+.reconciliation-step span {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(47,140,255,.18);
+  border: 1px solid rgba(47,140,255,.45);
+  color: #cfe5ff;
+  font-size: .76rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.reconciliation-step strong {
+  display: block;
+  color: var(--text);
+  font-size: .76rem;
+  line-height: 1.35;
+}
+
+.reconciliation-workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  justify-items: stretch;
+  min-width: 0;
+  width: 100%;
+}
+
+.reconciliation-context-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  justify-self: stretch;
+}
+
+.reconciliation-side-panel,
+.reconciliation-work-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  padding: 16px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.reconciliation-side-panel {
+  background: rgba(255,255,255,.025);
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.reconciliation-center-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  width: 100%;
+  justify-self: stretch;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reconciliation-panel-heading {
+  margin-bottom: 14px;
+}
+
+.reconciliation-panel-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: #9fb4ca;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.reconciliation-panel-heading h3 {
+  margin: 0 0 7px;
+  color: var(--text);
+}
+
+.reconciliation-panel-heading p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.reconciliation-side-status,
+.reconciliation-live-status {
+  margin-top: 12px;
+}
+
+.reconciliation-side-panel .master-data-dashboard-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.reconciliation-side-panel .master-data-status-item {
+  padding: 10px;
+  background: rgba(5,12,22,.32);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.reconciliation-side-panel .master-data-status-item span {
+  font-size: .68rem;
+}
+
+.reconciliation-side-panel .master-data-status-item strong {
+  font-size: .86rem;
+  line-height: 1.35;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* -----------------------------------------------------
+   520 - CSS: ERP IMPORT / SNAPSHOT MANAGER
+----------------------------------------------------- */
+
+.erp-import-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, auto));
+  gap: 10px;
+  align-items: center;
+  margin-top: 18px;
+  justify-content: start;
+}
+
+.erp-import-actions input[type="file"] {
+  min-width: 0;
+  color: var(--muted);
+}
+
+.erp-import-message {
+  margin-top: 12px;
+}
+
+.reconciliation-command-card {
+  padding: 14px 16px;
+}
+
+.reconciliation-command-card .reconciliation-panel-heading {
+  margin-bottom: 10px;
+}
+
+.reconciliation-command-layout {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.reconciliation-summary-dashboard {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(92px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.reconciliation-metric-card {
+  border: 1px solid rgba(255,255,255,.1);
+  border-top-width: 3px;
+  border-radius: 8px;
+  background: rgba(5,12,22,.42);
+  padding: 9px 10px;
+  min-width: 0;
+}
+
+.reconciliation-metric-card span,
+.reconciliation-approval-metrics span {
+  display: block;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.reconciliation-metric-card strong,
+.reconciliation-approval-metrics strong {
+  display: block;
+  color: var(--text);
+  font-size: 1.2rem;
+}
+
+.event-new-order {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #45d483;
+}
+
+.event-modified-record {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #f5c84b;
+}
+
+.event-master-data-enrichment {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #58d5a8;
+}
+
+.event-work-order-sync {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #2dd4bf;
+}
+
+.event-pending-invoice {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #c084fc;
+}
+
+.event-shipment-quantity-review {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #fb923c;
+}
+
+.event-missing-erp {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #ff7a7a;
+}
+
+.event-validation-issue {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #8fb8ff;
+}
+
+.event-resolved {
+  border-color: rgba(255,255,255,.1);
+  border-top-color: #9fd3c7;
+}
+
+.reconciliation-command-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.reconciliation-command-actions button {
+  white-space: nowrap;
+}
+
+.reconciliation-migration-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(45,212,191,.32);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: rgba(45,212,191,.08);
+  color: var(--text);
+  font-size: .78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.reconciliation-migration-toggle input {
+  margin: 0;
+}
+
+.reconciliation-live-status {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reconciliation-live-status .master-data-status-item {
+  padding: 9px 10px;
+  background: rgba(255,255,255,.025);
+}
+
+.reconciliation-live-status .master-data-status-item span {
+  font-size: .68rem;
+}
+
+.reconciliation-live-status .master-data-status-item strong {
+  font-size: .82rem;
+}
+
+.reconciliation-events-card {
+  min-height: 560px;
+  border-color: rgba(47,140,255,.38);
+  box-shadow: 0 0 0 1px rgba(47,140,255,.08), 0 18px 40px rgba(0,0,0,.18);
+  overflow: hidden;
+}
+
+.reconciliation-event-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.reconciliation-event-toolbar button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.reconciliation-event-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.reconciliation-bulk-select {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  background: rgba(255,255,255,.035);
+}
+
+.reconciliation-bulk-select span {
+  color: #9fb4ca;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.reconciliation-bulk-select button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.reconciliation-bulk-select select {
+  min-width: 210px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  padding: 8px;
+}
+
+.reconciliation-event-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+}
+
+.reconciliation-event-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.event-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border-left-width: 0;
+}
+
+.event-dot.event-new-order {
+  background: #45d483;
+}
+
+.event-dot.event-missing-erp {
+  background: #ff7a7a;
+}
+
+.event-dot.event-modified-record {
+  background: #f5c84b;
+}
+
+.event-dot.event-master-data-enrichment {
+  background: #58d5a8;
+}
+
+.event-dot.event-work-order-sync {
+  background: #2dd4bf;
+}
+
+.event-dot.event-pending-invoice {
+  background: #c084fc;
+}
+
+.event-dot.event-shipment-quantity-review {
+  background: #fb923c;
+}
+
+.event-dot.event-validation-issue {
+  background: #8fb8ff;
+}
+
+.reconciliation-event-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  background: rgba(5,12,22,.28);
+  min-height: 390px;
+}
+
+.reconciliation-event-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 2300px;
+}
+
+.reconciliation-event-table th,
+.reconciliation-event-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  text-align: left;
+  vertical-align: middle;
+  color: var(--text);
+  font-size: .86rem;
+}
+
+.reconciliation-event-table th {
+  color: #9fb4ca;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,.035);
+}
+
+.reconciliation-event-table th:nth-child(n+2):nth-child(-n+9) {
+  background: rgba(47,140,255,.08);
+  color: #cfe5ff;
+}
+
+.reconciliation-event-table th:nth-child(n+10):nth-child(-n+17) {
+  background: rgba(69,212,131,.07);
+  color: #d2f5df;
+}
+
+.reconciliation-event-table th:nth-child(18) {
+  background: rgba(245,200,75,.07);
+  color: #ffe9a6;
+}
+
+.reconciliation-placeholder-row td {
+  color: var(--muted);
+}
+
+.reconciliation-row-select {
+  text-align: center;
+  background: rgba(255,255,255,.02);
+}
+
+.reconciliation-row-select input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.reconciliation-review-row-selected {
+  background: rgba(47,140,255,.075);
+}
+
+.reconciliation-staged-work-order-row {
+  outline: 2px solid rgba(245,200,75,.42);
+  outline-offset: -2px;
+  background: rgba(245,200,75,.045);
+}
+
+.reconciliation-staged-disposition-row {
+  box-shadow: inset 4px 0 0 rgba(69,212,131,.72);
+}
+
+.reconciliation-staged-work-order-value {
+  color: #ffe9a6;
+  font-weight: 900;
+}
+
+.reconciliation-staged-indicator {
+  display: inline-flex;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(245,200,75,.5);
+  background: rgba(245,200,75,.14);
+  color: #ffe9a6;
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.reconciliation-event-table select {
+  width: 100%;
+  min-width: 105px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  padding: 8px;
+}
+
+.reconciliation-disposition-select option:disabled {
+  color: rgba(159,180,202,.48);
+}
+
+.reconciliation-resolution-status {
+  font-weight: 700;
+}
+
+.reconciliation-erp-value,
+.reconciliation-master-value {
+  max-width: 150px;
+  overflow-wrap: anywhere;
+}
+
+.reconciliation-erp-value {
+  background: rgba(47,140,255,.025);
+}
+
+.reconciliation-master-value {
+  background: rgba(69,212,131,.022);
+}
+
+.reconciliation-empty-value {
+  color: rgba(159,180,202,.58);
+  font-style: italic;
+}
+
+.event-pill {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(47,140,255,.18);
+  color: #cfe5ff;
+  font-weight: 900;
+}
+
+.event-pill.event-new-order {
+  background: rgba(69,212,131,.18);
+  color: #bdf4d0;
+}
+
+.event-pill.event-missing-erp {
+  background: rgba(255,122,122,.18);
+  color: #ffd0d0;
+}
+
+.event-pill.event-modified-record {
+  background: rgba(245,200,75,.18);
+  color: #ffe9a6;
+}
+
+.event-pill.event-master-data-enrichment {
+  background: rgba(88,213,168,.18);
+  color: #c5f7e5;
+}
+
+.event-pill.event-work-order-sync {
+  background: rgba(45,212,191,.18);
+  color: #b9fff6;
+}
+
+.event-pill.event-pending-invoice {
+  background: rgba(192,132,252,.18);
+  color: #ead6ff;
+}
+
+.event-pill.event-shipment-quantity-review {
+  background: rgba(251,146,60,.18);
+  color: #fed7aa;
+}
+
+.event-pill.event-validation-issue {
+  background: rgba(143,184,255,.18);
+  color: #cfe0ff;
+}
+
+.reconciliation-event-type {
+  font-weight: 800;
+}
+
+.reconciliation-event-subtype {
+  display: block;
+  margin-top: 4px;
+  color: #cfe0ff;
+  font-size: .7rem;
+  font-weight: 800;
+}
+
+.reconciliation-approval-card {
+  display: grid;
+  gap: 14px;
+}
+
+.reconciliation-writable-mode-notice {
+  border: 1px solid rgba(143,184,255,.26);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(143,184,255,.08);
+  color: #cfe0ff;
+  font-size: .84rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.reconciliation-writable-mode-notice.read-only {
+  border-color: rgba(245,200,75,.38);
+  background: rgba(245,200,75,.1);
+  color: #ffe9a6;
+}
+
+.reconciliation-writable-mode-notice.writable {
+  border-color: rgba(69,212,131,.34);
+  background: rgba(69,212,131,.09);
+  color: #bdf4d0;
+}
+
+.reconciliation-approval-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reconciliation-approval-metrics div {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  background: rgba(5,12,22,.36);
+  padding: 12px;
+}
+
+.reconciliation-approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.reconciliation-approval-actions button {
+  margin: 0;
+}
+
+.reconciliation-summary-panel {
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(5,12,22,.42);
+  padding: 16px;
+}
+
+.reconciliation-summary-panel[hidden] {
+  display: none !important;
+}
+
+.reconciliation-investigation-workspace {
+  margin-top: 18px;
+}
+
+.reconciliation-investigation-list {
+  display: grid;
+  gap: 12px;
+  max-height: 620px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.reconciliation-investigation-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.035);
+  padding: 15px;
+}
+
+.reconciliation-investigation-title,
+.reconciliation-value-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.reconciliation-investigation-title {
+  margin-bottom: 12px;
+}
+
+.reconciliation-investigation-title strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.reconciliation-investigation-title span {
+  justify-self: end;
+  color: #9fb4ca;
+  font-weight: 700;
+  font-size: .82rem;
+}
+
+.reconciliation-investigation-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.reconciliation-investigation-grid div,
+.reconciliation-value-compare div {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  background: rgba(5,12,22,.42);
+  padding: 10px;
+  min-width: 0;
+}
+
+.reconciliation-investigation-grid span,
+.reconciliation-value-compare span {
+  display: block;
+  color: var(--muted);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 6px;
+}
+
+.reconciliation-investigation-grid strong,
+.reconciliation-value-compare strong {
+  display: block;
+  color: var(--text);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1180px) {
+  .reconciliation-workspace-layout,
+  .reconciliation-context-column {
+    grid-template-columns: 1fr;
+  }
+
+  .reconciliation-workflow-steps,
+  .reconciliation-summary-dashboard,
+  .reconciliation-approval-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reconciliation-command-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .reconciliation-command-actions {
+    justify-content: flex-start;
+  }
+
+  .reconciliation-live-status {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  #reconciliationWorkspace {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .reconciliation-workflow-steps,
+  .reconciliation-summary-dashboard,
+  .reconciliation-approval-metrics,
+  .reconciliation-live-status,
+  .reconciliation-side-panel .master-data-dashboard-status,
+  .erp-import-actions,
+  .reconciliation-investigation-title,
+  .reconciliation-investigation-grid,
+  .reconciliation-value-compare {
+    grid-template-columns: 1fr;
+  }
+
+  .reconciliation-investigation-title span {
+    justify-self: start;
+  }
+}

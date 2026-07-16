@@ -1,0 +1,43 @@
+<!-- =====================================================
+   440 - HTML: SHIPMENT STAGING MODULE
+===================================================== -->
+
+<section id="shipmentStaging" class="screen" data-module-loaded="true">
+  <div class="open-orders-panel">
+    <div class="open-orders-header">
+      <div class="open-orders-title">
+        <span class="small-icon">SS</span>
+        <div>
+          <h2>Shipment Staging</h2>
+          <p>Temporary shipment transactions awaiting ERP reconciliation</p>
+        </div>
+      </div>
+
+      <div class="open-orders-toolbar shipment-staging-toolbar">
+        <div id="shipmentStagingStatus" class="open-orders-status">Shipment Staging initialized.</div>
+
+        <input
+          type="text"
+          id="shipmentStagingSearch"
+          class="open-orders-search"
+          placeholder="Search shipment ID, customer, sales order, work order, or item..."
+          onkeyup="filterShipmentStaging()">
+      </div>
+    </div>
+
+    <div class="open-order-report-controls">
+      <div>
+        <strong>Shipment Staging</strong>
+        <div id="shipmentStagingSummary" class="open-order-report-count">0 shipments recorded.</div>
+      </div>
+      <div class="open-orders-actions">
+        <button type="button" onclick="openShipmentStagingWritableFile()">Open Writable Staging</button>
+        <button type="button" onclick="renderShipmentStagingModule()">Refresh Shipment Staging</button>
+        <button type="button" id="undoSelectedShipmentButton" onclick="undoSelectedShipment()" disabled title="Select a Pending Invoice shipment before undoing.">Undo Selected Shipment</button>
+        <button type="button" disabled title="Clear Shipment Staging is reserved for a future developer tool.">Clear Shipment Staging</button>
+      </div>
+    </div>
+
+    <div id="shipmentStagingTable" class="open-orders-table-wrap"></div>
+  </div>
+</section>

@@ -1,0 +1,105 @@
+.kitting-workbench {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.kitting-workbench-header,
+.kitting-workbench-summary,
+.kitting-workbench-module-region {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(22, 31, 42, .96), rgba(14, 20, 29, .98));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .28);
+}
+
+.kitting-workbench-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 22px;
+}
+
+.kitting-workbench-header h1 {
+  margin: 12px 0 8px;
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.kitting-workbench-header p,
+.kitting-workbench-module-region p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.kitting-workbench-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+}
+
+.kitting-workbench-summary div {
+  min-height: 84px;
+  padding: 16px;
+  border-right: 1px solid rgba(255, 255, 255, .08);
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.kitting-workbench-summary span {
+  display: block;
+  color: #8bbcff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.kitting-workbench-summary strong {
+  display: block;
+  color: #eef4fb;
+  line-height: 1.35;
+}
+
+.kitting-workbench-summary-wide {
+  grid-column: 1 / -1;
+}
+
+.kitting-workbench-module-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kitting-workbench-module-region {
+  min-height: 132px;
+  padding: 16px;
+}
+
+.kitting-workbench-module-region h2 {
+  margin: 0 0 8px;
+  color: var(--blue);
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+@media (max-width: 1100px) {
+  .kitting-workbench-summary,
+  .kitting-workbench-module-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .kitting-workbench-header {
+    display: grid;
+  }
+
+  .kitting-workbench-summary,
+  .kitting-workbench-module-grid {
+    grid-template-columns: 1fr;
+  }
+}

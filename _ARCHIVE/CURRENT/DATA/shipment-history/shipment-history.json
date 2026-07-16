@@ -1,0 +1,1672 @@
+{
+  "schema": "DLE_SHIPMENT_HISTORY_V1",
+  "createdAt": "7/6/2026, 8:12:25 PM",
+  "lastUpdated": "7/14/2026, 11:22:54 AM",
+  "recordCount": 10,
+  "records": [
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-839287-0012042-260706-01",
+      "masterRecordKey": "839287|0012042|030",
+      "shipmentDateTime": "7/6/2026, 8:34:38 PM",
+      "customerNumber": "839287",
+      "customerName": "THERMASOL STEAMBATH CO.",
+      "customerPo": "41636",
+      "salesOrder": "0012042",
+      "salesOrderLine": "030",
+      "workOrder": "UNKNOWN",
+      "workOrderQuantity": "0",
+      "quantityShipped": 100,
+      "originalOpenQuantity": 100,
+      "quantityOpenAtArchive": "100",
+      "itemNumber": "03-4770-5",
+      "revision": "",
+      "description": "POWER SUPPLY PCB ASSY (SIDE)",
+      "unitOfMeasure": "",
+      "unitPrice": "35.00",
+      "extendedPrice": "3500.00",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/6/2026, 8:36:44 PM",
+      "approvalTimestamp": "7/6/2026, 8:36:44 PM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-839287-0012042-260706-01",
+        "masterRecordKey": "839287|0012042|030",
+        "shipmentTransactionId": "SHP-839287-0012042-260706-01"
+      },
+      "customer": {
+        "customerNumber": "839287",
+        "customerName": "THERMASOL STEAMBATH CO.",
+        "customerPo": "41636"
+      },
+      "order": {
+        "salesOrder": "0012042",
+        "salesOrderLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": 100,
+        "originalOpenQuantity": 100,
+        "quantityOpenAtArchive": "100"
+      },
+      "item": {
+        "partNumber": "03-4770-5",
+        "revision": "",
+        "description": "POWER SUPPLY PCB ASSY (SIDE)",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "11/19/25",
+        "dueDate": "04/15/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/6/2026, 8:34:38 PM",
+        "approvalDate": "7/6/2026, 8:36:44 PM",
+        "archiveTimestamp": "7/6/2026, 8:36:44 PM"
+      },
+      "financial": {
+        "unitPrice": "35.00",
+        "extendedPrice": "3500.00",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-839287-0012042-260706-01",
+          "shipmentId": "SHP-839287-0012042-260706-01",
+          "masterRecordKey": "839287|0012042|030",
+          "shipmentDateTime": "7/6/2026, 8:34:38 PM",
+          "customerNumber": "839287",
+          "customerName": "THERMASOL STEAMBATH CO.",
+          "salesOrder": "0012042",
+          "salesOrderLine": "030",
+          "workOrder": "UNKNOWN",
+          "itemNumber": "03-4770-5",
+          "description": "POWER SUPPLY PCB ASSY (SIDE)",
+          "quantityShipped": 100,
+          "originalOpenQuantity": 100,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "839287|0012042|030",
+            "sourceIndex": 25,
+            "vpro5": {
+              "orderDate": "11/19/25",
+              "customerNumber": "839287",
+              "customer": "THERMASOL STEAMBATH CO.",
+              "customerPo": "41636",
+              "salesOrder": "0012042",
+              "sequenceLine": "030",
+              "workOrder": "UNKNOWN",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "100",
+              "partNumber": "03-4770-5",
+              "description": "POWER SUPPLY PCB ASSY (SIDE)",
+              "dueDate": "04/15/26",
+              "price": "35.00",
+              "extendedPrice": "3500.00"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "STAGED",
+            "lifecycleUpdatedAt": "7/6/2026, 8:34:38 PM",
+            "lifecycleReason": "Shipment Staging",
+            "lifecycleShipmentId": "SHP-839287-0012042-260706-01"
+          }
+        },
+        "masterDataRecord": {
+          "id": "839287|0012042|030",
+          "sourceIndex": 25,
+          "vpro5": {
+            "orderDate": "11/19/25",
+            "customerNumber": "839287",
+            "customer": "THERMASOL STEAMBATH CO.",
+            "customerPo": "41636",
+            "salesOrder": "0012042",
+            "sequenceLine": "030",
+            "workOrder": "UNKNOWN",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "100",
+            "partNumber": "03-4770-5",
+            "description": "POWER SUPPLY PCB ASSY (SIDE)",
+            "dueDate": "04/15/26",
+            "price": "35.00",
+            "extendedPrice": "3500.00"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "STAGED",
+          "lifecycleUpdatedAt": "7/6/2026, 8:34:38 PM",
+          "lifecycleReason": "Shipment Staging",
+          "lifecycleShipmentId": "SHP-839287-0012042-260706-01"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001077-0012078-260706-01",
+      "masterRecordKey": "001077|0012078|010",
+      "shipmentDateTime": "7/6/2026, 8:35:06 PM",
+      "customerNumber": "001077",
+      "customerName": "SARICA MANUFACTURING COMP",
+      "customerPo": "SP00174416",
+      "salesOrder": "0012078",
+      "salesOrderLine": "010",
+      "workOrder": "0115598",
+      "workOrderQuantity": "100",
+      "quantityShipped": 100,
+      "originalOpenQuantity": 100,
+      "quantityOpenAtArchive": "100",
+      "itemNumber": "PA446B",
+      "revision": "",
+      "description": "PHOTOCELL PCB ASSY",
+      "unitOfMeasure": "",
+      "unitPrice": "19.21",
+      "extendedPrice": "1921.00",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/6/2026, 8:36:44 PM",
+      "approvalTimestamp": "7/6/2026, 8:36:44 PM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001077-0012078-260706-01",
+        "masterRecordKey": "001077|0012078|010",
+        "shipmentTransactionId": "SHP-001077-0012078-260706-01"
+      },
+      "customer": {
+        "customerNumber": "001077",
+        "customerName": "SARICA MANUFACTURING COMP",
+        "customerPo": "SP00174416"
+      },
+      "order": {
+        "salesOrder": "0012078",
+        "salesOrderLine": "010",
+        "workOrder": "0115598",
+        "workOrderQuantity": "100",
+        "quantityShipped": 100,
+        "originalOpenQuantity": 100,
+        "quantityOpenAtArchive": "100"
+      },
+      "item": {
+        "partNumber": "PA446B",
+        "revision": "",
+        "description": "PHOTOCELL PCB ASSY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "04/23/26",
+        "dueDate": "07/06/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/6/2026, 8:35:06 PM",
+        "approvalDate": "7/6/2026, 8:36:44 PM",
+        "archiveTimestamp": "7/6/2026, 8:36:44 PM"
+      },
+      "financial": {
+        "unitPrice": "19.21",
+        "extendedPrice": "1921.00",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-001077-0012078-260706-01",
+          "shipmentId": "SHP-001077-0012078-260706-01",
+          "masterRecordKey": "001077|0012078|010",
+          "shipmentDateTime": "7/6/2026, 8:35:06 PM",
+          "customerNumber": "001077",
+          "customerName": "SARICA MANUFACTURING COMP",
+          "salesOrder": "0012078",
+          "salesOrderLine": "010",
+          "workOrder": "0115598",
+          "itemNumber": "PA446B",
+          "description": "PHOTOCELL PCB ASSY",
+          "quantityShipped": 100,
+          "originalOpenQuantity": 100,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "001077|0012078|010",
+            "sourceIndex": 51,
+            "vpro5": {
+              "orderDate": "04/23/26",
+              "customerNumber": "001077",
+              "customer": "SARICA MANUFACTURING COMP",
+              "customerPo": "SP00174416",
+              "salesOrder": "0012078",
+              "sequenceLine": "010",
+              "workOrder": "0115598",
+              "workOrderQuantity": "100",
+              "quantityShipped": "0",
+              "qtyOpen": "100",
+              "partNumber": "PA446B",
+              "description": "PHOTOCELL PCB ASSY",
+              "dueDate": "07/06/26",
+              "price": "19.21",
+              "extendedPrice": "1921.00"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "STAGED",
+            "lifecycleUpdatedAt": "7/6/2026, 8:35:06 PM",
+            "lifecycleReason": "Shipment Staging",
+            "lifecycleShipmentId": "SHP-001077-0012078-260706-01"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001077|0012078|010",
+          "sourceIndex": 51,
+          "vpro5": {
+            "orderDate": "04/23/26",
+            "customerNumber": "001077",
+            "customer": "SARICA MANUFACTURING COMP",
+            "customerPo": "SP00174416",
+            "salesOrder": "0012078",
+            "sequenceLine": "010",
+            "workOrder": "0115598",
+            "workOrderQuantity": "100",
+            "quantityShipped": "0",
+            "qtyOpen": "100",
+            "partNumber": "PA446B",
+            "description": "PHOTOCELL PCB ASSY",
+            "dueDate": "07/06/26",
+            "price": "19.21",
+            "extendedPrice": "1921.00"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "STAGED",
+          "lifecycleUpdatedAt": "7/6/2026, 8:35:06 PM",
+          "lifecycleReason": "Shipment Staging",
+          "lifecycleShipmentId": "SHP-001077-0012078-260706-01"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001165-0012053-260706-01",
+      "masterRecordKey": "001165|0012053|010",
+      "shipmentDateTime": "7/6/2026, 8:35:25 PM",
+      "customerNumber": "001165",
+      "customerName": "AERO FLUID PRODUCTS",
+      "customerPo": "P138315",
+      "salesOrder": "0012053",
+      "salesOrderLine": "010",
+      "workOrder": "0115570",
+      "workOrderQuantity": "150",
+      "quantityShipped": 10,
+      "originalOpenQuantity": 10,
+      "quantityOpenAtArchive": "10",
+      "itemNumber": "718720-1",
+      "revision": "",
+      "description": "ISOLATION SWITCH ASSY",
+      "unitOfMeasure": "",
+      "unitPrice": "1237.85",
+      "extendedPrice": "12378.50",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/6/2026, 8:36:44 PM",
+      "approvalTimestamp": "7/6/2026, 8:36:44 PM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001165-0012053-260706-01",
+        "masterRecordKey": "001165|0012053|010",
+        "shipmentTransactionId": "SHP-001165-0012053-260706-01"
+      },
+      "customer": {
+        "customerNumber": "001165",
+        "customerName": "AERO FLUID PRODUCTS",
+        "customerPo": "P138315"
+      },
+      "order": {
+        "salesOrder": "0012053",
+        "salesOrderLine": "010",
+        "workOrder": "0115570",
+        "workOrderQuantity": "150",
+        "quantityShipped": 10,
+        "originalOpenQuantity": 10,
+        "quantityOpenAtArchive": "10"
+      },
+      "item": {
+        "partNumber": "718720-1",
+        "revision": "",
+        "description": "ISOLATION SWITCH ASSY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "01/19/26",
+        "dueDate": "07/08/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/6/2026, 8:35:25 PM",
+        "approvalDate": "7/6/2026, 8:36:44 PM",
+        "archiveTimestamp": "7/6/2026, 8:36:44 PM"
+      },
+      "financial": {
+        "unitPrice": "1237.85",
+        "extendedPrice": "12378.50",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-001165-0012053-260706-01",
+          "shipmentId": "SHP-001165-0012053-260706-01",
+          "masterRecordKey": "001165|0012053|010",
+          "shipmentDateTime": "7/6/2026, 8:35:25 PM",
+          "customerNumber": "001165",
+          "customerName": "AERO FLUID PRODUCTS",
+          "salesOrder": "0012053",
+          "salesOrderLine": "010",
+          "workOrder": "0115570",
+          "itemNumber": "718720-1",
+          "description": "ISOLATION SWITCH ASSY",
+          "quantityShipped": 10,
+          "originalOpenQuantity": 10,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "001165|0012053|010",
+            "sourceIndex": 53,
+            "vpro5": {
+              "orderDate": "01/19/26",
+              "customerNumber": "001165",
+              "customer": "AERO FLUID PRODUCTS",
+              "customerPo": "P138315",
+              "salesOrder": "0012053",
+              "sequenceLine": "010",
+              "workOrder": "0115570",
+              "workOrderQuantity": "150",
+              "quantityShipped": "0",
+              "qtyOpen": "10",
+              "partNumber": "718720-1",
+              "description": "ISOLATION SWITCH ASSY",
+              "dueDate": "07/08/26",
+              "price": "1237.85",
+              "extendedPrice": "12378.50"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "STAGED",
+            "lifecycleUpdatedAt": "7/6/2026, 8:35:25 PM",
+            "lifecycleReason": "Shipment Staging",
+            "lifecycleShipmentId": "SHP-001165-0012053-260706-01"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001165|0012053|010",
+          "sourceIndex": 53,
+          "vpro5": {
+            "orderDate": "01/19/26",
+            "customerNumber": "001165",
+            "customer": "AERO FLUID PRODUCTS",
+            "customerPo": "P138315",
+            "salesOrder": "0012053",
+            "sequenceLine": "010",
+            "workOrder": "0115570",
+            "workOrderQuantity": "150",
+            "quantityShipped": "0",
+            "qtyOpen": "10",
+            "partNumber": "718720-1",
+            "description": "ISOLATION SWITCH ASSY",
+            "dueDate": "07/08/26",
+            "price": "1237.85",
+            "extendedPrice": "12378.50"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "STAGED",
+          "lifecycleUpdatedAt": "7/6/2026, 8:35:25 PM",
+          "lifecycleReason": "Shipment Staging",
+          "lifecycleShipmentId": "SHP-001165-0012053-260706-01"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001165-0012053-260706-01",
+      "masterRecordKey": "001165|0012053|030",
+      "shipmentDateTime": "7/6/2026, 8:35:25 PM",
+      "customerNumber": "001165",
+      "customerName": "AERO FLUID PRODUCTS",
+      "customerPo": "P138315",
+      "salesOrder": "0012053",
+      "salesOrderLine": "030",
+      "workOrder": "UNKNOWN",
+      "workOrderQuantity": "0",
+      "quantityShipped": 20,
+      "originalOpenQuantity": 20,
+      "quantityOpenAtArchive": "20",
+      "itemNumber": "718720-1",
+      "revision": "",
+      "description": "ISOLATION SWITCH ASSY",
+      "unitOfMeasure": "",
+      "unitPrice": "1237.85",
+      "extendedPrice": "24757.00",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/6/2026, 8:36:44 PM",
+      "approvalTimestamp": "7/6/2026, 8:36:44 PM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001165-0012053-260706-01",
+        "masterRecordKey": "001165|0012053|030",
+        "shipmentTransactionId": "SHP-001165-0012053-260706-01"
+      },
+      "customer": {
+        "customerNumber": "001165",
+        "customerName": "AERO FLUID PRODUCTS",
+        "customerPo": "P138315"
+      },
+      "order": {
+        "salesOrder": "0012053",
+        "salesOrderLine": "030",
+        "workOrder": "UNKNOWN",
+        "workOrderQuantity": "0",
+        "quantityShipped": 20,
+        "originalOpenQuantity": 20,
+        "quantityOpenAtArchive": "20"
+      },
+      "item": {
+        "partNumber": "718720-1",
+        "revision": "",
+        "description": "ISOLATION SWITCH ASSY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "01/19/26",
+        "dueDate": "07/08/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/6/2026, 8:35:25 PM",
+        "approvalDate": "7/6/2026, 8:36:44 PM",
+        "archiveTimestamp": "7/6/2026, 8:36:44 PM"
+      },
+      "financial": {
+        "unitPrice": "1237.85",
+        "extendedPrice": "24757.00",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-001165-0012053-260706-01",
+          "shipmentId": "SHP-001165-0012053-260706-01",
+          "masterRecordKey": "001165|0012053|030",
+          "shipmentDateTime": "7/6/2026, 8:35:25 PM",
+          "customerNumber": "001165",
+          "customerName": "AERO FLUID PRODUCTS",
+          "salesOrder": "0012053",
+          "salesOrderLine": "030",
+          "workOrder": "UNKNOWN",
+          "itemNumber": "718720-1",
+          "description": "ISOLATION SWITCH ASSY",
+          "quantityShipped": 20,
+          "originalOpenQuantity": 20,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "001165|0012053|030",
+            "sourceIndex": 54,
+            "vpro5": {
+              "orderDate": "01/19/26",
+              "customerNumber": "001165",
+              "customer": "AERO FLUID PRODUCTS",
+              "customerPo": "P138315",
+              "salesOrder": "0012053",
+              "sequenceLine": "030",
+              "workOrder": "UNKNOWN",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "20",
+              "partNumber": "718720-1",
+              "description": "ISOLATION SWITCH ASSY",
+              "dueDate": "07/08/26",
+              "price": "1237.85",
+              "extendedPrice": "24757.00"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "STAGED",
+            "lifecycleUpdatedAt": "7/6/2026, 8:35:25 PM",
+            "lifecycleReason": "Shipment Staging",
+            "lifecycleShipmentId": "SHP-001165-0012053-260706-01"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001165|0012053|030",
+          "sourceIndex": 54,
+          "vpro5": {
+            "orderDate": "01/19/26",
+            "customerNumber": "001165",
+            "customer": "AERO FLUID PRODUCTS",
+            "customerPo": "P138315",
+            "salesOrder": "0012053",
+            "sequenceLine": "030",
+            "workOrder": "UNKNOWN",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "20",
+            "partNumber": "718720-1",
+            "description": "ISOLATION SWITCH ASSY",
+            "dueDate": "07/08/26",
+            "price": "1237.85",
+            "extendedPrice": "24757.00"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "STAGED",
+          "lifecycleUpdatedAt": "7/6/2026, 8:35:25 PM",
+          "lifecycleReason": "Shipment Staging",
+          "lifecycleShipmentId": "SHP-001165-0012053-260706-01"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001021-0012035-260707-01",
+      "masterRecordKey": "001021|0012035|010",
+      "shipmentDateTime": "7/7/2026, 2:14:14 PM",
+      "customerNumber": "001021",
+      "customerName": "VALIDYNE ENGINEERING",
+      "customerPo": "19972",
+      "salesOrder": "0012035",
+      "salesOrderLine": "010",
+      "workOrder": "0115593",
+      "workOrderQuantity": "56",
+      "quantityShipped": 10,
+      "originalOpenQuantity": 31,
+      "quantityOpenAtArchive": "31",
+      "itemNumber": "QR196385",
+      "revision": "",
+      "description": "HARNESS ASSEMBLY",
+      "unitOfMeasure": "",
+      "unitPrice": "500.00",
+      "extendedPrice": "15500.00",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/12/2026, 8:35:04 PM",
+      "approvalTimestamp": "7/12/2026, 8:35:04 PM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001021-0012035-260707-01",
+        "masterRecordKey": "001021|0012035|010",
+        "shipmentTransactionId": "SHP-001021-0012035-260707-01"
+      },
+      "customer": {
+        "customerNumber": "001021",
+        "customerName": "VALIDYNE ENGINEERING",
+        "customerPo": "19972"
+      },
+      "order": {
+        "salesOrder": "0012035",
+        "salesOrderLine": "010",
+        "workOrder": "0115593",
+        "workOrderQuantity": "56",
+        "quantityShipped": 10,
+        "originalOpenQuantity": 31,
+        "quantityOpenAtArchive": "31"
+      },
+      "item": {
+        "partNumber": "QR196385",
+        "revision": "",
+        "description": "HARNESS ASSEMBLY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "03/31/26",
+        "dueDate": "03/31/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/7/2026, 2:14:14 PM",
+        "approvalDate": "7/12/2026, 8:35:04 PM",
+        "archiveTimestamp": "7/12/2026, 8:35:04 PM"
+      },
+      "financial": {
+        "unitPrice": "500.00",
+        "extendedPrice": "15500.00",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-001021-0012035-260707-01",
+          "shipmentId": "SHP-001021-0012035-260707-01",
+          "masterRecordKey": "001021|0012035|010",
+          "shipmentDateTime": "7/7/2026, 2:14:14 PM",
+          "customerNumber": "001021",
+          "customerName": "VALIDYNE ENGINEERING",
+          "salesOrder": "0012035",
+          "salesOrderLine": "010",
+          "workOrder": "0115593",
+          "itemNumber": "QR196385",
+          "description": "HARNESS ASSEMBLY",
+          "quantityShipped": 10,
+          "originalOpenQuantity": 31,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "001021|0012035|010",
+            "sourceIndex": 23,
+            "vpro5": {
+              "orderDate": "03/31/26",
+              "customerNumber": "001021",
+              "customer": "VALIDYNE ENGINEERING",
+              "customerPo": "19972",
+              "salesOrder": "0012035",
+              "sequenceLine": "010",
+              "workOrder": "0115593",
+              "workOrderQuantity": "56",
+              "quantityShipped": "0",
+              "qtyOpen": "31",
+              "partNumber": "QR196385",
+              "description": "HARNESS ASSEMBLY",
+              "dueDate": "03/31/26",
+              "price": "500.00",
+              "extendedPrice": "15500.00",
+              "billNumber": "",
+              "drawingNumber": "",
+              "drawingRevision": "",
+              "revisionCode": ""
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001021|0012035|010",
+          "sourceIndex": 23,
+          "vpro5": {
+            "orderDate": "03/31/26",
+            "customerNumber": "001021",
+            "customer": "VALIDYNE ENGINEERING",
+            "customerPo": "19972",
+            "salesOrder": "0012035",
+            "sequenceLine": "010",
+            "workOrder": "0115593",
+            "workOrderQuantity": "56",
+            "quantityShipped": "0",
+            "qtyOpen": "31",
+            "partNumber": "QR196385",
+            "description": "HARNESS ASSEMBLY",
+            "dueDate": "03/31/26",
+            "price": "500.00",
+            "extendedPrice": "15500.00",
+            "billNumber": "",
+            "drawingNumber": "",
+            "drawingRevision": "",
+            "revisionCode": ""
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001061-0012033-260709-01",
+      "masterRecordKey": "001061|0012033|010",
+      "shipmentDateTime": "7/9/2026, 10:52:52 AM",
+      "customerNumber": "001061",
+      "customerName": "SKURKA AEROSPACE INC.",
+      "customerPo": "P173897",
+      "salesOrder": "0012033",
+      "salesOrderLine": "010",
+      "workOrder": "0115543",
+      "workOrderQuantity": "100",
+      "quantityShipped": 2,
+      "originalOpenQuantity": 2,
+      "quantityOpenAtArchive": "2",
+      "itemNumber": "H661-BS693",
+      "revision": "",
+      "description": "CABLE ASSY",
+      "unitOfMeasure": "",
+      "unitPrice": "472.80",
+      "extendedPrice": "945.60",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/14/2026, 8:54:45 AM",
+      "approvalTimestamp": "7/14/2026, 8:54:45 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001061-0012033-260709-01",
+        "masterRecordKey": "001061|0012033|010",
+        "shipmentTransactionId": "SHP-001061-0012033-260709-01"
+      },
+      "customer": {
+        "customerNumber": "001061",
+        "customerName": "SKURKA AEROSPACE INC.",
+        "customerPo": "P173897"
+      },
+      "order": {
+        "salesOrder": "0012033",
+        "salesOrderLine": "010",
+        "workOrder": "0115543",
+        "workOrderQuantity": "100",
+        "quantityShipped": 2,
+        "originalOpenQuantity": 2,
+        "quantityOpenAtArchive": "2"
+      },
+      "item": {
+        "partNumber": "H661-BS693",
+        "revision": "",
+        "description": "CABLE ASSY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "10/27/25",
+        "dueDate": "04/17/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/9/2026, 10:52:52 AM",
+        "approvalDate": "7/14/2026, 8:54:45 AM",
+        "archiveTimestamp": "7/14/2026, 8:54:45 AM"
+      },
+      "financial": {
+        "unitPrice": "472.80",
+        "extendedPrice": "945.60",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-001061-0012033-260709-01",
+          "shipmentId": "SHP-001061-0012033-260709-01",
+          "masterRecordKey": "001061|0012033|010",
+          "shipmentDateTime": "7/9/2026, 10:52:52 AM",
+          "customerNumber": "001061",
+          "customerName": "SKURKA AEROSPACE INC.",
+          "salesOrder": "0012033",
+          "salesOrderLine": "010",
+          "workOrder": "0115543",
+          "itemNumber": "H661-BS693",
+          "description": "CABLE ASSY",
+          "quantityShipped": 2,
+          "originalOpenQuantity": 2,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "001061|0012033|010",
+            "sourceIndex": 26,
+            "vpro5": {
+              "orderDate": "10/27/25",
+              "customerNumber": "001061",
+              "customer": "SKURKA AEROSPACE INC.",
+              "customerPo": "P173897",
+              "salesOrder": "0012033",
+              "sequenceLine": "010",
+              "workOrder": "0115543",
+              "workOrderQuantity": "100",
+              "quantityShipped": "0",
+              "qtyOpen": "2",
+              "partNumber": "H661-BS693",
+              "description": "CABLE ASSY",
+              "dueDate": "04/17/26",
+              "price": "472.80",
+              "extendedPrice": "945.60",
+              "billNumber": "",
+              "drawingNumber": "",
+              "drawingRevision": "",
+              "revisionCode": ""
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001061|0012033|010",
+          "sourceIndex": 26,
+          "vpro5": {
+            "orderDate": "10/27/25",
+            "customerNumber": "001061",
+            "customer": "SKURKA AEROSPACE INC.",
+            "customerPo": "P173897",
+            "salesOrder": "0012033",
+            "sequenceLine": "010",
+            "workOrder": "0115543",
+            "workOrderQuantity": "100",
+            "quantityShipped": "0",
+            "qtyOpen": "2",
+            "partNumber": "H661-BS693",
+            "description": "CABLE ASSY",
+            "dueDate": "04/17/26",
+            "price": "472.80",
+            "extendedPrice": "945.60",
+            "billNumber": "",
+            "drawingNumber": "",
+            "drawingRevision": "",
+            "revisionCode": ""
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-839287-0012042-260709-02",
+      "masterRecordKey": "839287|0012042|040",
+      "shipmentDateTime": "7/9/2026, 10:12:32 AM",
+      "customerNumber": "839287",
+      "customerName": "THERMASOL STEAMBATH CO.",
+      "customerPo": "41636",
+      "salesOrder": "0012042",
+      "salesOrderLine": "040",
+      "workOrder": "0115553",
+      "workOrderQuantity": "0",
+      "quantityShipped": 100,
+      "originalOpenQuantity": 100,
+      "quantityOpenAtArchive": "100",
+      "itemNumber": "03-4770-5",
+      "revision": "",
+      "description": "POWER SUPPLY PCB ASSY (SIDE)",
+      "unitOfMeasure": "",
+      "unitPrice": "35.00",
+      "extendedPrice": "3500.00",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/14/2026, 9:10:47 AM",
+      "approvalTimestamp": "7/14/2026, 9:10:47 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-839287-0012042-260709-02",
+        "masterRecordKey": "839287|0012042|040",
+        "shipmentTransactionId": "SHP-839287-0012042-260709-02"
+      },
+      "customer": {
+        "customerNumber": "839287",
+        "customerName": "THERMASOL STEAMBATH CO.",
+        "customerPo": "41636"
+      },
+      "order": {
+        "salesOrder": "0012042",
+        "salesOrderLine": "040",
+        "workOrder": "0115553",
+        "workOrderQuantity": "0",
+        "quantityShipped": 100,
+        "originalOpenQuantity": 100,
+        "quantityOpenAtArchive": "100"
+      },
+      "item": {
+        "partNumber": "03-4770-5",
+        "revision": "",
+        "description": "POWER SUPPLY PCB ASSY (SIDE)",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "11/19/25",
+        "dueDate": "06/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/9/2026, 10:12:32 AM",
+        "approvalDate": "7/14/2026, 9:10:47 AM",
+        "archiveTimestamp": "7/14/2026, 9:10:47 AM"
+      },
+      "financial": {
+        "unitPrice": "35.00",
+        "extendedPrice": "3500.00",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-839287-0012042-260709-02",
+          "shipmentId": "SHP-839287-0012042-260709-02",
+          "masterRecordKey": "839287|0012042|040",
+          "shipmentDateTime": "7/9/2026, 10:12:32 AM",
+          "customerNumber": "839287",
+          "customerName": "THERMASOL STEAMBATH CO.",
+          "salesOrder": "0012042",
+          "salesOrderLine": "040",
+          "workOrder": "0115553",
+          "itemNumber": "03-4770-5",
+          "description": "POWER SUPPLY PCB ASSY (SIDE)",
+          "quantityShipped": 100,
+          "originalOpenQuantity": 100,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "839287|0012042|040",
+            "sourceIndex": 34,
+            "vpro5": {
+              "orderDate": "11/19/25",
+              "customerNumber": "839287",
+              "customer": "THERMASOL STEAMBATH CO.",
+              "customerPo": "41636",
+              "salesOrder": "0012042",
+              "sequenceLine": "040",
+              "workOrder": "0115553",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "100",
+              "partNumber": "03-4770-5",
+              "description": "POWER SUPPLY PCB ASSY (SIDE)",
+              "dueDate": "06/01/26",
+              "price": "35.00",
+              "extendedPrice": "3500.00",
+              "billNumber": "",
+              "drawingNumber": "",
+              "drawingRevision": "",
+              "revisionCode": ""
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "839287|0012042|040",
+          "sourceIndex": 34,
+          "vpro5": {
+            "orderDate": "11/19/25",
+            "customerNumber": "839287",
+            "customer": "THERMASOL STEAMBATH CO.",
+            "customerPo": "41636",
+            "salesOrder": "0012042",
+            "sequenceLine": "040",
+            "workOrder": "0115553",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "100",
+            "partNumber": "03-4770-5",
+            "description": "POWER SUPPLY PCB ASSY (SIDE)",
+            "dueDate": "06/01/26",
+            "price": "35.00",
+            "extendedPrice": "3500.00",
+            "billNumber": "",
+            "drawingNumber": "",
+            "drawingRevision": "",
+            "revisionCode": ""
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-839287-0012042-260709-02",
+      "masterRecordKey": "839287|0012042|080",
+      "shipmentDateTime": "7/9/2026, 10:33:28 AM",
+      "customerNumber": "839287",
+      "customerName": "THERMASOL STEAMBATH CO.",
+      "customerPo": "41636",
+      "salesOrder": "0012042",
+      "salesOrderLine": "080",
+      "workOrder": "0115554",
+      "workOrderQuantity": "0",
+      "quantityShipped": 100,
+      "originalOpenQuantity": 100,
+      "quantityOpenAtArchive": "100",
+      "itemNumber": "03-4780",
+      "revision": "",
+      "description": "ONE TOUCH PCB ASSY",
+      "unitOfMeasure": "",
+      "unitPrice": "34.43",
+      "extendedPrice": "3443.00",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/14/2026, 9:10:47 AM",
+      "approvalTimestamp": "7/14/2026, 9:10:47 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-839287-0012042-260709-02",
+        "masterRecordKey": "839287|0012042|080",
+        "shipmentTransactionId": "SHP-839287-0012042-260709-02"
+      },
+      "customer": {
+        "customerNumber": "839287",
+        "customerName": "THERMASOL STEAMBATH CO.",
+        "customerPo": "41636"
+      },
+      "order": {
+        "salesOrder": "0012042",
+        "salesOrderLine": "080",
+        "workOrder": "0115554",
+        "workOrderQuantity": "0",
+        "quantityShipped": 100,
+        "originalOpenQuantity": 100,
+        "quantityOpenAtArchive": "100"
+      },
+      "item": {
+        "partNumber": "03-4780",
+        "revision": "",
+        "description": "ONE TOUCH PCB ASSY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "11/19/25",
+        "dueDate": "05/15/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/9/2026, 10:33:28 AM",
+        "approvalDate": "7/14/2026, 9:10:47 AM",
+        "archiveTimestamp": "7/14/2026, 9:10:47 AM"
+      },
+      "financial": {
+        "unitPrice": "34.43",
+        "extendedPrice": "3443.00",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-839287-0012042-260709-02",
+          "shipmentId": "SHP-839287-0012042-260709-02",
+          "masterRecordKey": "839287|0012042|080",
+          "shipmentDateTime": "7/9/2026, 10:33:28 AM",
+          "customerNumber": "839287",
+          "customerName": "THERMASOL STEAMBATH CO.",
+          "salesOrder": "0012042",
+          "salesOrderLine": "080",
+          "workOrder": "0115554",
+          "itemNumber": "03-4780",
+          "description": "ONE TOUCH PCB ASSY",
+          "quantityShipped": 100,
+          "originalOpenQuantity": 100,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "839287|0012042|080",
+            "sourceIndex": 28,
+            "vpro5": {
+              "orderDate": "11/19/25",
+              "customerNumber": "839287",
+              "customer": "THERMASOL STEAMBATH CO.",
+              "customerPo": "41636",
+              "salesOrder": "0012042",
+              "sequenceLine": "080",
+              "workOrder": "0115554",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "100",
+              "partNumber": "03-4780",
+              "description": "ONE TOUCH PCB ASSY",
+              "dueDate": "05/15/26",
+              "price": "34.43",
+              "extendedPrice": "3443.00",
+              "billNumber": "",
+              "drawingNumber": "",
+              "drawingRevision": "",
+              "revisionCode": ""
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "839287|0012042|080",
+          "sourceIndex": 28,
+          "vpro5": {
+            "orderDate": "11/19/25",
+            "customerNumber": "839287",
+            "customer": "THERMASOL STEAMBATH CO.",
+            "customerPo": "41636",
+            "salesOrder": "0012042",
+            "sequenceLine": "080",
+            "workOrder": "0115554",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "100",
+            "partNumber": "03-4780",
+            "description": "ONE TOUCH PCB ASSY",
+            "dueDate": "05/15/26",
+            "price": "34.43",
+            "extendedPrice": "3443.00",
+            "billNumber": "",
+            "drawingNumber": "",
+            "drawingRevision": "",
+            "revisionCode": ""
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001165-0012054-260709-01",
+      "masterRecordKey": "001165|0012054|030",
+      "shipmentDateTime": "7/9/2026, 10:52:05 AM",
+      "customerNumber": "001165",
+      "customerName": "AERO FLUID PRODUCTS",
+      "customerPo": "P138515",
+      "salesOrder": "0012054",
+      "salesOrderLine": "030",
+      "workOrder": "0115571",
+      "workOrderQuantity": "0",
+      "quantityShipped": 200,
+      "originalOpenQuantity": 200,
+      "quantityOpenAtArchive": "200",
+      "itemNumber": "15K35-1",
+      "revision": "",
+      "description": "FILTER AND RECTIFIER ASSEMBLY",
+      "unitOfMeasure": "",
+      "unitPrice": "61.85",
+      "extendedPrice": "12370.00",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/14/2026, 9:10:47 AM",
+      "approvalTimestamp": "7/14/2026, 9:10:47 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001165-0012054-260709-01",
+        "masterRecordKey": "001165|0012054|030",
+        "shipmentTransactionId": "SHP-001165-0012054-260709-01"
+      },
+      "customer": {
+        "customerNumber": "001165",
+        "customerName": "AERO FLUID PRODUCTS",
+        "customerPo": "P138515"
+      },
+      "order": {
+        "salesOrder": "0012054",
+        "salesOrderLine": "030",
+        "workOrder": "0115571",
+        "workOrderQuantity": "0",
+        "quantityShipped": 200,
+        "originalOpenQuantity": 200,
+        "quantityOpenAtArchive": "200"
+      },
+      "item": {
+        "partNumber": "15K35-1",
+        "revision": "",
+        "description": "FILTER AND RECTIFIER ASSEMBLY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "01/14/26",
+        "dueDate": "07/10/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/9/2026, 10:52:05 AM",
+        "approvalDate": "7/14/2026, 9:10:47 AM",
+        "archiveTimestamp": "7/14/2026, 9:10:47 AM"
+      },
+      "financial": {
+        "unitPrice": "61.85",
+        "extendedPrice": "12370.00",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-001165-0012054-260709-01",
+          "shipmentId": "SHP-001165-0012054-260709-01",
+          "masterRecordKey": "001165|0012054|030",
+          "shipmentDateTime": "7/9/2026, 10:52:05 AM",
+          "customerNumber": "001165",
+          "customerName": "AERO FLUID PRODUCTS",
+          "salesOrder": "0012054",
+          "salesOrderLine": "030",
+          "workOrder": "0115571",
+          "itemNumber": "15K35-1",
+          "description": "FILTER AND RECTIFIER ASSEMBLY",
+          "quantityShipped": 200,
+          "originalOpenQuantity": 200,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "001165|0012054|030",
+            "sourceIndex": 56,
+            "vpro5": {
+              "orderDate": "01/14/26",
+              "customerNumber": "001165",
+              "customer": "AERO FLUID PRODUCTS",
+              "customerPo": "P138515",
+              "salesOrder": "0012054",
+              "sequenceLine": "030",
+              "workOrder": "0115571",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "200",
+              "partNumber": "15K35-1",
+              "description": "FILTER AND RECTIFIER ASSEMBLY",
+              "dueDate": "07/10/26",
+              "price": "61.85",
+              "extendedPrice": "12370.00",
+              "billNumber": "",
+              "drawingNumber": "",
+              "drawingRevision": "",
+              "revisionCode": ""
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001165|0012054|030",
+          "sourceIndex": 56,
+          "vpro5": {
+            "orderDate": "01/14/26",
+            "customerNumber": "001165",
+            "customer": "AERO FLUID PRODUCTS",
+            "customerPo": "P138515",
+            "salesOrder": "0012054",
+            "sequenceLine": "030",
+            "workOrder": "0115571",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "200",
+            "partNumber": "15K35-1",
+            "description": "FILTER AND RECTIFIER ASSEMBLY",
+            "dueDate": "07/10/26",
+            "price": "61.85",
+            "extendedPrice": "12370.00",
+            "billNumber": "",
+            "drawingNumber": "",
+            "drawingRevision": "",
+            "revisionCode": ""
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-565650-0012083-260714-01",
+      "masterRecordKey": "565650|0012083|010",
+      "shipmentDateTime": "7/14/2026, 11:20:27 AM",
+      "customerNumber": "565650",
+      "customerName": "MEGGITT SAFETY SYSTEMS",
+      "customerPo": "4551292410",
+      "salesOrder": "0012083",
+      "salesOrderLine": "010",
+      "workOrder": "0115604",
+      "workOrderQuantity": "234",
+      "quantityShipped": 40,
+      "originalOpenQuantity": 40,
+      "quantityOpenAtArchive": "40",
+      "itemNumber": "910781-03",
+      "revision": "",
+      "description": "SMOKE DETECTOR SINGLE, 8930",
+      "unitOfMeasure": "",
+      "unitPrice": "364.80",
+      "extendedPrice": "14592.00",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/14/2026, 11:22:54 AM",
+      "approvalTimestamp": "7/14/2026, 11:22:54 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-565650-0012083-260714-01",
+        "masterRecordKey": "565650|0012083|010",
+        "shipmentTransactionId": "SHP-565650-0012083-260714-01"
+      },
+      "customer": {
+        "customerNumber": "565650",
+        "customerName": "MEGGITT SAFETY SYSTEMS",
+        "customerPo": "4551292410"
+      },
+      "order": {
+        "salesOrder": "0012083",
+        "salesOrderLine": "010",
+        "workOrder": "0115604",
+        "workOrderQuantity": "234",
+        "quantityShipped": 40,
+        "originalOpenQuantity": 40,
+        "quantityOpenAtArchive": "40"
+      },
+      "item": {
+        "partNumber": "910781-03",
+        "revision": "",
+        "description": "SMOKE DETECTOR SINGLE, 8930",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "05/19/26",
+        "dueDate": "06/03/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "7/14/2026, 11:20:27 AM",
+        "approvalDate": "7/14/2026, 11:22:54 AM",
+        "archiveTimestamp": "7/14/2026, 11:22:54 AM"
+      },
+      "financial": {
+        "unitPrice": "364.80",
+        "extendedPrice": "14592.00",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "DLE-OS User",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "shipmentTransactionId": "SHP-565650-0012083-260714-01",
+          "shipmentId": "SHP-565650-0012083-260714-01",
+          "masterRecordKey": "565650|0012083|010",
+          "shipmentDateTime": "7/14/2026, 11:20:27 AM",
+          "customerNumber": "565650",
+          "customerName": "MEGGITT SAFETY SYSTEMS",
+          "salesOrder": "0012083",
+          "salesOrderLine": "010",
+          "workOrder": "0115604",
+          "itemNumber": "910781-03",
+          "description": "SMOKE DETECTOR SINGLE, 8930",
+          "quantityShipped": 40,
+          "originalOpenQuantity": 40,
+          "user": "DLE-OS User",
+          "status": "Pending Invoice",
+          "masterDataSnapshot": {
+            "id": "565650|0012083|010",
+            "sourceIndex": 35,
+            "vpro5": {
+              "orderDate": "05/19/26",
+              "customerNumber": "565650",
+              "customer": "MEGGITT SAFETY SYSTEMS",
+              "customerPo": "4551292410",
+              "salesOrder": "0012083",
+              "sequenceLine": "010",
+              "workOrder": "0115604",
+              "workOrderQuantity": "234",
+              "quantityShipped": "0",
+              "qtyOpen": "40",
+              "partNumber": "910781-03",
+              "description": "SMOKE DETECTOR SINGLE, 8930",
+              "dueDate": "06/03/26",
+              "price": "364.80",
+              "extendedPrice": "14592.00",
+              "billNumber": "910781-03",
+              "drawingNumber": "910781-03",
+              "drawingRevision": "-",
+              "revisionCode": "-"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "565650|0012083|010",
+          "sourceIndex": 35,
+          "vpro5": {
+            "orderDate": "05/19/26",
+            "customerNumber": "565650",
+            "customer": "MEGGITT SAFETY SYSTEMS",
+            "customerPo": "4551292410",
+            "salesOrder": "0012083",
+            "sequenceLine": "010",
+            "workOrder": "0115604",
+            "workOrderQuantity": "234",
+            "quantityShipped": "0",
+            "qtyOpen": "40",
+            "partNumber": "910781-03",
+            "description": "SMOKE DETECTOR SINGLE, 8930",
+            "dueDate": "06/03/26",
+            "price": "364.80",
+            "extendedPrice": "14592.00",
+            "billNumber": "910781-03",
+            "drawingNumber": "910781-03",
+            "drawingRevision": "-",
+            "revisionCode": "-"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    }
+  ]
+}

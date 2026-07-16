@@ -1,0 +1,146 @@
+<!-- =====================================================
+   470 - HTML: SALES ORDER DASHBOARD MODULE
+===================================================== -->
+
+<section id="salesOrderDashboard" class="screen" data-module-loaded="true">
+  <div class="sales-order-dashboard-panel">
+    <div class="sales-order-dashboard-header">
+      <div class="sales-order-dashboard-title">
+        <span class="small-icon">SO</span>
+        <div>
+          <h2>Sales Order Dashboard</h2>
+          <p>Future digital replacement for the physical Sales Order folder.</p>
+        </div>
+      </div>
+      <button type="button" onclick="go('operationsCenter')">Back to Operations Center</button>
+    </div>
+
+    <div id="salesOrderDashboardStatus" class="sales-order-dashboard-status">
+      Sales Order Dashboard module initialized. Future sales order folder workflows will be migrated here.
+    </div>
+
+    <section class="sales-order-dashboard-summary-card" aria-label="Sales Order Summary">
+      <h3>Sales Order Summary</h3>
+      <div class="sales-order-dashboard-summary-grid">
+        <div class="sales-order-dashboard-summary-item">
+          <strong>Customer</strong>
+          <span id="salesOrderSummaryCustomer">Select an order</span>
+        </div>
+        <div class="sales-order-dashboard-summary-item">
+          <strong>Sales Order</strong>
+          <span id="salesOrderSummarySalesOrder">N/A</span>
+        </div>
+        <div class="sales-order-dashboard-summary-item">
+          <strong>Customer PO</strong>
+          <span id="salesOrderSummaryCustomerPo">N/A</span>
+        </div>
+        <div class="sales-order-dashboard-summary-item">
+          <strong>Total Line Items</strong>
+          <span id="salesOrderSummaryLineItems">0</span>
+        </div>
+        <div class="sales-order-dashboard-summary-item">
+          <strong>Work Orders</strong>
+          <span id="salesOrderSummaryWorkOrders">0</span>
+        </div>
+        <div class="sales-order-dashboard-summary-item">
+          <strong>Operational Status</strong>
+          <span id="salesOrderSummaryOperationalStatus">N/A</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="sales-order-dashboard-layout">
+      <div class="sales-order-dashboard-main">
+        <section class="sales-order-dashboard-card" aria-label="Related Work Orders">
+          <h3>Related Work Orders</h3>
+          <div class="sales-order-dashboard-table-wrap">
+            <table class="sales-order-dashboard-table">
+              <thead>
+                <tr>
+                  <th>Work Order</th>
+                  <th>Assembly</th>
+                  <th>Quantity</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="salesOrderDashboardWorkOrderRows">
+                <tr>
+                  <td class="sales-order-dashboard-empty" colspan="5">Select a Sales Order from Operations Center.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="sales-order-dashboard-card" aria-label="Documents">
+          <h3>Documents</h3>
+          <div class="sales-order-dashboard-document-grid">
+            <button type="button" disabled>Customer Purchase Order <span>Coming Soon</span></button>
+            <button type="button" disabled>Original Sales Order Snapshot <span>Coming Soon</span></button>
+            <button type="button" disabled>Packing Slips <span>Coming Soon</span></button>
+            <button type="button" disabled>Invoices <span>Coming Soon</span></button>
+            <button type="button" disabled>Shipping Documents <span>Coming Soon</span></button>
+          </div>
+        </section>
+
+        <section class="sales-order-dashboard-card" aria-label="Shipping and History">
+          <h3>Shipping &amp; History</h3>
+          <div class="sales-order-dashboard-history-grid">
+            <div class="sales-order-dashboard-history-item">
+              <strong>Shipment History</strong>
+              <span>Coming Soon</span>
+            </div>
+            <div class="sales-order-dashboard-history-item">
+              <strong>Request to Ship History</strong>
+              <span>Coming Soon</span>
+            </div>
+            <div class="sales-order-dashboard-history-item">
+              <strong>Invoice History</strong>
+              <span>Coming Soon</span>
+            </div>
+            <div class="sales-order-dashboard-history-item">
+              <strong>Timeline</strong>
+              <span>Coming Soon</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="sales-order-dashboard-actions-panel disabled" aria-label="Sales Order Actions">
+        <h3>Sales Order Actions</h3>
+        <div class="sales-order-dashboard-current-order">
+          <strong>Selected Sales Order</strong>
+          <span id="salesOrderDashboardSelectedSalesOrder">None selected</span>
+        </div>
+        <div class="sales-order-dashboard-current-order">
+          <strong>Selected Work Order</strong>
+          <span id="salesOrderDashboardSelectedWorkOrder">None selected</span>
+        </div>
+        <div class="sales-order-dashboard-action-buttons">
+          <button type="button" disabled>View Customer PO</button>
+          <button type="button" disabled>Generate Packing Slip</button>
+          <button type="button" disabled>View Sales Order Snapshot</button>
+          <button type="button" disabled>Create Request to Ship</button>
+          <button type="button" disabled>View Shipment History</button>
+          <button type="button" disabled>View Invoice History</button>
+          <button type="button" disabled>Open Work Order Dashboard</button>
+          <button type="button" disabled>Communications</button>
+          <button type="button" disabled>Order Notes</button>
+        </div>
+
+        <div class="sales-order-dashboard-management-section">
+          <h4>Folder Workspace</h4>
+          <div class="sales-order-dashboard-management-field">
+            <strong>Current Phase</strong>
+            <span>Structure Only</span>
+          </div>
+          <div class="sales-order-dashboard-management-field">
+            <strong>Future Role</strong>
+            <span>Digital Sales Order Folder</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>

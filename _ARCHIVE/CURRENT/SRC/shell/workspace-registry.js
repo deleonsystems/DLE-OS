@@ -1,0 +1,85 @@
+(function registerDleWorkspaceRegistry(window) {
+  "use strict";
+
+  const WORKSPACE_DEFINITIONS = [
+    {
+      id: "administration",
+      label: "Administration",
+      purpose: "Development, system management, ERP import, reconciliation, configuration, and developer tools."
+    },
+    {
+      id: "ceo-dashboard",
+      label: "CEO Dashboard",
+      purpose: "Executive operational view, company health, production overview, KPIs, and daily priorities."
+    },
+    {
+      id: "rfq-quoting",
+      label: "RFQ / Quoting",
+      purpose: "Incoming opportunities, customer quotations, and estimating workflow."
+    },
+    {
+      id: "order-entry",
+      label: "Order Entry",
+      purpose: "New customer orders, sales order processing, and initial job creation."
+    },
+    {
+      id: "contract-review",
+      label: "Contract Review",
+      purpose: "Technical review, contract verification, and release approval."
+    },
+    {
+      id: "operations-center",
+      label: "Operations Center",
+      purpose: "Released jobs, scheduling, production priorities, and company-wide operational visibility."
+    },
+    {
+      id: "purchasing",
+      label: "Purchasing",
+      purpose: "Material procurement, vendor management, and material shortages."
+    },
+    {
+      id: "kitting",
+      label: "Kitting",
+      purpose: "Kit preparation, kit shortages, and material issue to production."
+    },
+    {
+      id: "production",
+      label: "Production",
+      purpose: "Active work orders, operator workflow, labor reporting, and build status."
+    },
+    {
+      id: "quality",
+      label: "Quality",
+      purpose: "Inspection, FAIRs, nonconformances, and corrective actions."
+    },
+    {
+      id: "shipping",
+      label: "Shipping",
+      purpose: "Shipment staging, shipment verification, and customer shipments."
+    },
+    {
+      id: "reports",
+      label: "Reports",
+      purpose: "Reporting, analytics, and historical data."
+    }
+  ];
+
+  const workspaceById = new Map(WORKSPACE_DEFINITIONS.map(workspace => [workspace.id, workspace]));
+  const workspaceByLabel = new Map(WORKSPACE_DEFINITIONS.map(workspace => [workspace.label, workspace]));
+
+  window.DleWorkspaceRegistry = Object.freeze({
+    defaultWorkspaceId: WORKSPACE_DEFINITIONS[0].id,
+    all() {
+      return WORKSPACE_DEFINITIONS.slice();
+    },
+    getById(id) {
+      return workspaceById.get(id) || null;
+    },
+    getByLabel(label) {
+      return workspaceByLabel.get(label) || null;
+    },
+    resolve(value) {
+      return workspaceById.get(value) || workspaceByLabel.get(value) || workspaceById.get(this.defaultWorkspaceId);
+    }
+  });
+})(window);

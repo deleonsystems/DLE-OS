@@ -1,0 +1,148 @@
+<section id="systemCenter" class="screen" data-module-loaded="true">
+  <div class="open-orders-panel">
+    <div class="module-header">
+      <div>
+        <div class="module-eyebrow">System Administration</div>
+        <h2>System Center</h2>
+        <p class="module-subtitle">Permanent home for future DLE-OS data management, diagnostics, and administrative utilities.</p>
+      </div>
+    </div>
+
+    <!-- SECTION 510: HTML - MASTER DATA DASHBOARD AND VIEWER -->
+    <section class="system-center-master-data-section">
+      <h3>Master Data</h3>
+      <p>Control point for Master Data loading, status, and future management utilities.</p>
+
+      <div id="masterDataDashboardStatus" class="master-data-dashboard-status"></div>
+
+      <div class="master-data-dashboard-actions">
+        <section class="master-data-dashboard-action">
+          <h4>Load Master Data</h4>
+          <p>Select the active DLE Master Data JSON file for this session.</p>
+          <button type="button" onclick="browseDleMasterDataFile()">Load Master Data</button>
+        </section>
+
+        <section class="master-data-dashboard-action">
+          <h4>Open Master Data Viewer</h4>
+          <p>Inspect the currently available Master Data in a dedicated viewer workspace.</p>
+          <button type="button" onclick="openMasterDataViewerWorkspace()">Open Master Data Viewer</button>
+        </section>
+      </div>
+
+      <div id="dleMasterDataViewer" class="master-data-viewer-panel" hidden>
+        <div class="module-header master-data-viewer-header">
+          <div>
+            <div class="module-eyebrow">Developer Verification Tool</div>
+            <h2>DLE Master Data Viewer</h2>
+            <p class="module-subtitle">Open a DLE Master Data JSON file and inspect ERP-owned and DLE-owned fields without editing the source file.</p>
+          </div>
+          <button type="button" onclick="collapseMasterDataViewerWorkspace()">Collapse Viewer</button>
+        </div>
+
+        <div class="master-data-toolbar">
+          <input id="dleMasterDataFileInput" type="file" accept=".json,application/json" onchange="openDleMasterDataFile(this.files)" hidden>
+          <button type="button" onclick="browseDleMasterDataFile()">Open DLE Master Data</button>
+          <input
+            id="dleMasterDataSearch"
+            class="master-data-search"
+            type="text"
+            placeholder="Search Customer, Sales Order, Work Order, Part Number, or Description"
+            oninput="filterDleMasterDataViewer()">
+          <div id="dleMasterDataStatus" class="open-orders-status">No DLE Master Data file loaded.</div>
+        </div>
+
+        <div id="dleMasterDataSummary" class="master-data-summary"></div>
+
+        <div class="master-data-layout">
+          <div id="dleMasterDataGrid" class="master-data-table-wrap">
+            <div class="master-data-empty">Open a DLE Master Data JSON file to inspect records.</div>
+          </div>
+
+          <aside class="master-data-detail-card">
+            <div class="master-data-nav">
+              <button type="button" onclick="goDleMasterDataRecord(-1)">Previous</button>
+              <div id="dleMasterDataPosition" class="master-data-position">Record 0 of 0</div>
+              <button type="button" onclick="goDleMasterDataRecord(1)">Next</button>
+            </div>
+            <div id="dleMasterDataDetail">
+              <div class="master-data-empty">Select a record to inspect its full structure.</div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 520: HTML - SHIPMENT HISTORY DATA VIEWER -->
+    <section class="system-center-shipment-history-viewer">
+      <div class="system-center-section-header">
+        <div>
+          <h3>Shipment History Data Viewer</h3>
+          <p>Read-only inspection tool for the persisted Shipment History JSON dataset.</p>
+        </div>
+        <div class="system-center-section-actions">
+          <button type="button" onclick="connectShipmentHistoryDataViewerFile()">Connect Shipment History JSON</button>
+          <button type="button" onclick="refreshShipmentHistoryDataViewer()">Refresh Shipment History</button>
+          <button id="deleteShipmentHistoryDataViewerRecordButton" type="button" onclick="deleteSelectedShipmentHistoryDataViewerRecord()" disabled>Delete Selected Record</button>
+        </div>
+      </div>
+
+      <div class="shipment-history-data-viewer-meta">
+        <div>
+          <span class="shipment-history-data-viewer-label">Data Source</span>
+          <strong>DATA/shipment-history/shipment-history.json</strong>
+        </div>
+        <div>
+          <span class="shipment-history-data-viewer-label">Record Count</span>
+          <strong id="shipmentHistoryDataViewerCount">0</strong>
+        </div>
+        <div>
+          <span class="shipment-history-data-viewer-label">Status</span>
+          <strong id="shipmentHistoryDataViewerStatus">Not loaded</strong>
+        </div>
+        <div>
+          <span class="shipment-history-data-viewer-label">Selected Record</span>
+          <strong id="shipmentHistoryDataViewerSelected">None</strong>
+        </div>
+        <div>
+          <span class="shipment-history-data-viewer-label">Write Access</span>
+          <strong id="shipmentHistoryDataViewerWriteAccess">Read-only</strong>
+        </div>
+      </div>
+
+      <div id="shipmentHistoryDataViewerTable" class="shipment-history-data-viewer-table-wrap">
+        <div class="shipment-history-data-viewer-empty">Refresh Shipment History to inspect persisted archive records.</div>
+      </div>
+    </section>
+
+    <!-- SECTION 530: HTML - RECONCILIATION DASHBOARD -->
+    <section class="system-center-reconciliation-launcher">
+      <h3>Reconciliation</h3>
+      <p>Open the dedicated workspace for ERP snapshot comparison, reconciliation summaries, and approved ERP updates.</p>
+      <button type="button" onclick="openReconciliationWorkspace()">Open Reconciliation Workspace</button>
+    </section>
+
+    <!-- SECTION 590: HTML - SYSTEM CENTER UTILITIES -->
+    <div class="system-center-grid">
+      <section class="system-center-card">
+        <h3>System Status</h3>
+        <p>Coming Soon</p>
+        <div class="system-center-status">Placeholder</div>
+      </section>
+
+      <section class="system-center-card">
+        <h3>Utilities</h3>
+        <p>Coming Soon</p>
+        <div class="system-center-status">Placeholder</div>
+      </section>
+
+      <section class="system-center-card">
+        <h3>Developer Console</h3>
+        <p>Internal qualification tools for controlled DLE-OS subsystems.</p>
+        <div class="system-center-status">Print Engine Session 1</div>
+        <div class="system-center-card-actions">
+          <button type="button" onclick="runPrintEngineQualification()">Print Engine Qualification</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>

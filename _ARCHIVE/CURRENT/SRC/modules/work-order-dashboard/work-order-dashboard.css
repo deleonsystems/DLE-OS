@@ -1,0 +1,326 @@
+/* -----------------------------------------------------
+   480 - CSS: WORK ORDER DASHBOARD MODULE
+----------------------------------------------------- */
+
+#workOrderDashboardModule {
+  width: calc(100vw - 44px);
+  max-width: none;
+  min-height: calc(100vh - 220px);
+  margin-left: calc(50% - 50vw + 22px);
+}
+
+.work-order-dashboard-module-panel {
+  min-height: calc(100vh - 220px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: linear-gradient(145deg, rgba(14, 27, 43, .92), rgba(8, 15, 25, .90));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(8px);
+}
+
+.work-order-dashboard-module-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.work-order-dashboard-module-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.work-order-dashboard-module-title h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.work-order-dashboard-module-title p {
+  margin: 4px 0 0;
+  color: #d7dee8;
+  font-size: 13px;
+}
+
+.work-order-dashboard-module-status,
+.work-order-dashboard-module-view-selector,
+.work-order-dashboard-module-summary-card,
+.work-order-dashboard-module-table-card,
+.work-order-dashboard-module-documents-card,
+.work-order-dashboard-module-workspace-card,
+.work-order-dashboard-module-placeholder {
+  border: 1px solid rgba(130, 170, 210, .22);
+  border-radius: 14px;
+  background: rgba(4, 10, 18, .48);
+}
+
+.work-order-dashboard-module-status {
+  color: #d7dee8;
+  padding: 9px 11px;
+  font-size: 13px;
+}
+
+.work-order-dashboard-module-summary-card,
+.work-order-dashboard-module-table-card,
+.work-order-dashboard-module-documents-card,
+.work-order-dashboard-module-workspace-card,
+.work-order-dashboard-module-placeholder {
+  padding: 14px;
+}
+
+.work-order-dashboard-module-summary-card h3,
+.work-order-dashboard-module-documents-card h3,
+.work-order-dashboard-module-workspace-card h3,
+.work-order-dashboard-module-placeholder h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: #e7edf6;
+}
+
+.work-order-dashboard-module-view-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  width: fit-content;
+}
+
+.work-order-dashboard-module-view-selector label {
+  color: #8bbcff;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.work-order-dashboard-module-view-selector select {
+  min-width: 190px;
+}
+
+[data-work-order-dashboard-section][hidden] {
+  display: none;
+}
+
+.work-order-dashboard-module-placeholder {
+  flex: 1 1 auto;
+}
+
+.work-order-dashboard-module-placeholder p {
+  margin: 0;
+  color: #c7d0dc;
+}
+
+.work-order-dashboard-module-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.work-order-dashboard-module-summary-item {
+  border: 1px solid rgba(130, 170, 210, .16);
+  border-radius: 10px;
+  background: rgba(11, 22, 36, .74);
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.work-order-dashboard-module-summary-item strong {
+  display: block;
+  color: #8bbcff;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.work-order-dashboard-module-summary-item span {
+  display: block;
+  color: #f4f7fb;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-order-dashboard-module-collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 10px;
+  color: #e7edf6;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.work-order-dashboard-module-collapse-toggle span {
+  color: #8bbcff;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.work-order-dashboard-module-collapse-toggle strong {
+  font-size: 15px;
+}
+
+.work-order-dashboard-module-collapse-toggle:hover strong,
+.work-order-dashboard-module-collapse-toggle:focus strong {
+  color: #dbeafe;
+}
+
+.work-order-dashboard-module-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-height: calc(100vh - 560px);
+  min-height: 220px;
+}
+
+.work-order-dashboard-module-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: rgba(4, 10, 18, .55);
+}
+
+.work-order-dashboard-module-table th,
+.work-order-dashboard-module-table td {
+  padding: 10px 11px;
+  border-bottom: 1px solid rgba(130, 170, 210, .16);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.work-order-dashboard-module-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #8bbcff;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  background: rgba(6, 13, 22, .98);
+  white-space: nowrap;
+}
+
+.work-order-dashboard-module-table tr.selected-release {
+  background: rgba(47, 140, 255, .24);
+  box-shadow: inset 3px 0 0 #8bbcff;
+}
+
+.work-order-dashboard-module-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid rgba(47, 140, 255, .38);
+  border-radius: 999px;
+  background: rgba(47, 140, 255, .14);
+  color: #dbeafe;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.work-order-dashboard-module-empty {
+  color: #9ba8b8;
+  text-align: center;
+  padding: 28px 12px;
+}
+
+.work-order-dashboard-module-document-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 9px;
+}
+
+.work-order-dashboard-module-document-grid button {
+  width: 100%;
+  min-height: 74px;
+  text-align: left;
+}
+
+.work-order-dashboard-module-document-grid button span {
+  display: block;
+  margin-top: 5px;
+  color: #9ba8b8;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.work-order-dashboard-module-workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.work-order-dashboard-module-workspace-item {
+  border: 1px solid rgba(130, 170, 210, .16);
+  border-radius: 10px;
+  background: rgba(11, 22, 36, .74);
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.work-order-dashboard-module-workspace-item strong {
+  display: block;
+  color: #8bbcff;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.work-order-dashboard-module-workspace-item span {
+  display: block;
+  color: #f4f7fb;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  #workOrderDashboardModule {
+    width: calc(100vw - 20px);
+    min-height: calc(100vh - 190px);
+    margin-left: calc(50% - 50vw + 10px);
+  }
+
+  .work-order-dashboard-module-panel {
+    min-height: calc(100vh - 190px);
+    padding: 10px;
+  }
+
+  .work-order-dashboard-module-header {
+    display: block;
+  }
+
+  .work-order-dashboard-module-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .work-order-dashboard-module-document-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .work-order-dashboard-module-view-selector {
+    width: auto;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .work-order-dashboard-module-view-selector select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .work-order-dashboard-module-workspace-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -1,0 +1,22 @@
+/* -----------------------------------------------------
+   410 - CSS: SHIPMENT STAGING MODULE
+----------------------------------------------------- */
+
+#shipmentStaging {
+  width: calc(100vw - 44px);
+  margin-left: calc(50% - 50vw + 22px);
+}
+
+.shipment-staging-toolbar {
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 420px);
+}
+
+.shipment-staging-row-selected {
+  outline: 2px solid rgba(47,140,255,.75);
+  outline-offset: -2px;
+  background: rgba(47,140,255,.16) !important;
+}
+
+.shipment-staging-row {
+  cursor: pointer;
+}

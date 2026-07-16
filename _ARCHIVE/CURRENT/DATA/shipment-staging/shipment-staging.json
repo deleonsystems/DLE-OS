@@ -1,0 +1,9 @@
+{
+  "schema": "DLE_SHIPMENT_STAGING_V1",
+  "version": "1.0",
+  "createdAt": "7/7/2026, 2:14:14 PM",
+  "lastUpdated": "7/14/2026, 11:22:54 AM",
+  "lastReason": "Reconciliation Archive Shipment",
+  "recordCount": 0,
+  "records": []
+}
