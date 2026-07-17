@@ -1,4 +1,4 @@
-/* -----------------------------------------------------
+﻿/* -----------------------------------------------------
    450 - JS: SHIPMENT HISTORY MODULE LOADER
 ----------------------------------------------------- */
 
@@ -37,14 +37,29 @@
     let loaded = false;
 
     try {
-      const response = await fetch(SHIPMENT_HISTORY_DATA_PATH, { cache: 'no-store' });
-      if (response.ok) {
-        const data = await response.json();
-        setShipmentHistoryDataset(data, {
-          sourceFile: SHIPMENT_HISTORY_DATA_PATH,
-          persistenceMode: 'Project JSON loaded read-only'
+      const result = window.DleApiClient?.getJsonWithFallback
+        ? await window.DleApiClient.getJsonWithFallback('shipmentHistory', SHIPMENT_HISTORY_DATA_PATH, {
+          apiPersistenceMode: 'DLE-OS-HOST API read-only',
+          fallbackPersistenceMode: 'Project JSON fallback read-only'
+        })
+        : null;
+
+      if (result) {
+        setShipmentHistoryDataset(result.data, {
+          sourceFile: result.source,
+          persistenceMode: result.persistenceMode
         });
         loaded = true;
+      } else {
+        const response = await fetch(SHIPMENT_HISTORY_DATA_PATH, { cache: 'no-store' });
+        if (response.ok) {
+          const data = await response.json();
+          setShipmentHistoryDataset(data, {
+            sourceFile: SHIPMENT_HISTORY_DATA_PATH,
+            persistenceMode: 'Project JSON loaded read-only'
+          });
+          loaded = true;
+        }
       }
     } catch (error) {
       loaded = false;
@@ -630,3 +645,4 @@
   window.verifyShipmentHistoryShipmentIdsPresent = verifyShipmentHistoryShipmentIdsPresent;
   window.shipmentHistoryState = shipmentHistoryState;
 })();
+

@@ -6665,6 +6665,7 @@ BOM Viewer</h2>
 
   <footer>DLE-OS Alpha v1.0.0 &nbsp; | &nbsp; Internal Use Only</footer>
 
+  <script src="SRC/api/dle-api-client.js"></script>
   <script src="SRC/modules/system-center/reconciliation/reconciliation.js"></script>
   <script src="SRC/modules/system-center/system-center.js"></script>
   <script src="SRC/modules/operations-center/operations-center-fields.js"></script>
@@ -7536,7 +7537,7 @@ const dleMasterDataFileState = {
     writable: false
 };
 
-const DLE_MASTER_DATA_API_URL = '/api/masterdata';
+const DLE_MASTER_DATA_DEFAULT_PATH = 'DATA/master-data/DLE_MASTER_DATA_2026.06.30.16.38.48.json';
 const DLE_MASTER_DATA_HANDLE_DB = 'DLE_OS_FILE_HANDLES';
 const DLE_MASTER_DATA_HANDLE_STORE = 'fileHandles';
 const DLE_MASTER_DATA_HANDLE_KEY = 'dleMasterData';
@@ -18094,21 +18095,23 @@ async function loadDleMasterDataFromStoredHandle(handle) {
 
 async function loadDleMasterDataFromApi() {
   try {
-    const response = await fetch(DLE_MASTER_DATA_API_URL, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`Master Data API returned HTTP ${response.status}.`);
-    }
+    const result = window.DleApiClient
+      ? await window.DleApiClient.getJsonWithFallback('masterData', DLE_MASTER_DATA_DEFAULT_PATH, {
+        apiPersistenceMode: 'DLE-OS-HOST:5041 API read-only',
+        fallbackPersistenceMode: 'Project JSON fallback read-only'
+      })
+      : null;
+    if (!result) return false;
 
-    const text = await response.text();
-    loadDleMasterDataFromText(text, {
-      fileName: 'GET /api/masterdata',
+    loadDleMasterDataFromText(JSON.stringify(result.data), {
+      fileName: result.source || DLE_MASTER_DATA_DEFAULT_PATH.split('/').pop(),
       lastModified: new Date().toLocaleString(),
       writable: false,
-      loadedFrom: 'DLE Master Data loaded from DLE-OS-Server.'
+      loadedFrom: result.persistenceMode + '. Reconnect required before operational changes can be approved.'
     });
     return true;
   } catch (error) {
-    console.warn('DLE Master Data could not be loaded from DLE-OS-Server.', error);
+    console.warn('DLE Master Data could not be loaded from the DLE API client.', error);
     setDleMasterDataStatus(`Unable to load DLE Master Data from the API: ${error.message}`);
     return false;
   }
@@ -19123,4 +19126,5 @@ initializeDleWorkCenter().catch(error => {
   </script>
 </body>
 </html>
+
 

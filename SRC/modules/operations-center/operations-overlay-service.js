@@ -1,4 +1,4 @@
-/* -----------------------------------------------------
+﻿/* -----------------------------------------------------
    460 - JS: OPERATIONS OVERLAY SERVICE
 ----------------------------------------------------- */
 
@@ -15,14 +15,29 @@
     let loaded = false;
 
     try {
-      const response = await fetch(overlaySchema.dataPath, { cache: 'no-store' });
-      if (response.ok) {
-        const dataset = await response.json();
-        stateActions.setOverlayDataset(dataset, {
-          sourceFile: overlaySchema.dataPath,
-          persistenceMode: 'Project JSON loaded read-only'
+      const result = window.DleApiClient?.getJsonWithFallback
+        ? await window.DleApiClient.getJsonWithFallback('operationsOverlay', overlaySchema.dataPath, {
+          apiPersistenceMode: 'DLE-OS-HOST API read-only',
+          fallbackPersistenceMode: 'Project JSON fallback read-only'
+        })
+        : null;
+
+      if (result) {
+        stateActions.setOverlayDataset(result.data, {
+          sourceFile: result.source,
+          persistenceMode: result.persistenceMode
         });
         loaded = true;
+      } else {
+        const response = await fetch(overlaySchema.dataPath, { cache: 'no-store' });
+        if (response.ok) {
+          const dataset = await response.json();
+          stateActions.setOverlayDataset(dataset, {
+            sourceFile: overlaySchema.dataPath,
+            persistenceMode: 'Project JSON loaded read-only'
+          });
+          loaded = true;
+        }
       }
     } catch (error) {
       loaded = false;
@@ -139,3 +154,4 @@
     saveOverlay
   };
 })();
+
