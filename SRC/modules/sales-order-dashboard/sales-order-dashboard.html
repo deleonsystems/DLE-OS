@@ -51,12 +51,13 @@
 
     <div class="sales-order-dashboard-layout">
       <div class="sales-order-dashboard-main">
-        <section class="sales-order-dashboard-card" aria-label="Related Work Orders">
-          <h3>Related Work Orders</h3>
+        <section class="sales-order-dashboard-card" aria-label="Sales Order Lines">
+          <h3>Sales Order Lines</h3>
           <div class="sales-order-dashboard-table-wrap">
             <table class="sales-order-dashboard-table">
               <thead>
                 <tr>
+                  <th>Sales Order Line</th>
                   <th>Work Order</th>
                   <th>Assembly</th>
                   <th>Quantity</th>
@@ -66,7 +67,7 @@
               </thead>
               <tbody id="salesOrderDashboardWorkOrderRows">
                 <tr>
-                  <td class="sales-order-dashboard-empty" colspan="5">Select a Sales Order from Operations Center.</td>
+                  <td class="sales-order-dashboard-empty" colspan="6">Select a Sales Order from Operations Center.</td>
                 </tr>
               </tbody>
             </table>
@@ -114,7 +115,7 @@
           <span id="salesOrderDashboardSelectedSalesOrder">None selected</span>
         </div>
         <div class="sales-order-dashboard-current-order">
-          <strong>Selected Work Order</strong>
+          <strong>Selected Lines</strong>
           <span id="salesOrderDashboardSelectedWorkOrder">None selected</span>
         </div>
         <div class="sales-order-dashboard-action-buttons">
@@ -151,7 +152,7 @@
         <div>
           <span class="module-eyebrow">Operations Request</span>
           <h3 id="requestToShipDialogTitle">Request to Ship</h3>
-          <p>Review the selected work order and specify the quantity requested from Shipping.</p>
+          <p>Review the selected Sales Order lines and specify the quantity requested for each line.</p>
         </div>
         <button type="button" class="secondary-btn" onclick="cancelRequestToShipDialog()" aria-label="Close Request to Ship dialog">Cancel</button>
       </div>
@@ -167,27 +168,38 @@
             <span id="requestToShipSalesOrder">N/A</span>
           </div>
           <div class="sales-order-dashboard-dialog-field">
-            <strong>Work Order</strong>
-            <span id="requestToShipWorkOrder">N/A</span>
+            <strong>Selected Lines</strong>
+            <span id="requestToShipSelectedLineCount">0</span>
           </div>
-          <div class="sales-order-dashboard-dialog-field">
-            <strong>Assembly / Part Number</strong>
-            <span id="requestToShipAssembly">N/A</span>
-          </div>
-          <div class="sales-order-dashboard-dialog-field">
-            <strong>Open Quantity</strong>
-            <span id="requestToShipOpenQuantity">0</span>
-          </div>
-          <div class="sales-order-dashboard-dialog-field">
-            <strong>Due Date</strong>
-            <span id="requestToShipDueDate">N/A</span>
-          </div>
+          <label class="sales-order-dashboard-dialog-field" for="requestToShipWindow">
+            <strong>Requested Ship Window</strong>
+            <select id="requestToShipWindow" required onchange="validateRequestToShipQuantity()">
+              <option value="Today">Today</option>
+              <option value="Tomorrow">Tomorrow</option>
+              <option value="This Week">This Week</option>
+              <option value="No Rush">No Rush</option>
+            </select>
+          </label>
         </div>
 
-        <label class="sales-order-dashboard-quantity-field" for="requestToShipQuantity">
-          <strong>Qty Requested to Ship</strong>
-          <input id="requestToShipQuantity" type="number" min="0" step="any" required oninput="validateRequestToShipQuantity()">
-        </label>
+        <div class="sales-order-dashboard-request-lines-wrap">
+          <table class="sales-order-dashboard-request-lines-table">
+            <thead>
+              <tr>
+                <th>Sales Order Line</th>
+                <th>Work Order</th>
+                <th>Assembly / Part Number</th>
+                <th>Open Quantity</th>
+                <th>Qty Requested to Ship</th>
+              </tr>
+            </thead>
+            <tbody id="requestToShipLineRows">
+              <tr>
+                <td colspan="5" class="sales-order-dashboard-empty">Select one or more Sales Order lines.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <div id="requestToShipValidation" class="sales-order-dashboard-dialog-validation" role="status"></div>
 
         <div class="sales-order-dashboard-dialog-actions">

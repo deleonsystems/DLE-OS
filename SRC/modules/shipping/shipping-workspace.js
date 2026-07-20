@@ -8,7 +8,10 @@
     packingRequests: [],
     selectedShippingRequest: null,
     selectedPackingRequest: null,
-    returnDialogRequest: null
+    returnDialogRequest: null,
+    processingPackingRequest: null,
+    expandedShippingRequests: new Set(),
+    expandedPackingRequests: new Set()
   };
 
   async function loadShippingWorkspace() {
@@ -58,131 +61,215 @@
   }
 
   function renderShippingQueue() {
-    const target = document.getElementById("shippingQueue");
-    const count = document.getElementById("shippingQueueCount");
-    if (count) {
-      count.textContent = state.requests.length + (state.requests.length === 1 ? " request" : " requests");
-    }
-    if (!target) return;
-
-    if (!state.requests.length) {
-      target.innerHTML = '<div class="shipping-queue-empty">Create a Request to Ship from the Sales Order Dashboard to populate the Shipping Queue.</div>';
-      return;
-    }
-
-    target.innerHTML = [
-      '<div class="operations-center-table-wrap shipping-queue-table-wrap">',
-      '<table class="operations-center-table">',
-      '<thead><tr>',
-      '<th>Customer</th>',
-      '<th>Sales Order</th>',
-      '<th>Work Order</th>',
-      '<th>Assembly</th>',
-      '<th>Qty Requested</th>',
-      '<th>Due Date</th>',
-      '<th>Status</th>',
-      '</tr></thead>',
-      '<tbody>',
-      state.requests.map((requestToShip, index) => renderQueueRow(requestToShip, index, "shipping")).join(""),
-      '</tbody>',
-      '</table>',
-      '</div>'
-    ].join("");
+    renderRequestQueue({
+      queueName: "shipping",
+      targetId: "shippingQueue",
+      countId: "shippingQueueCount",
+      requests: state.requests,
+      selectedRequest: state.selectedShippingRequest,
+      expandedRequests: state.expandedShippingRequests,
+      emptyMessage: "Create a Request to Ship from the Sales Order Dashboard to populate the Shipping Queue.",
+      defaultStatus: "Pending Shipping"
+    });
   }
 
   function renderPackingQueue() {
-    const target = document.getElementById("packingQueue");
-    const count = document.getElementById("packingQueueCount");
+    renderRequestQueue({
+      queueName: "packing",
+      targetId: "packingQueue",
+      countId: "packingQueueCount",
+      requests: state.packingRequests,
+      selectedRequest: state.selectedPackingRequest,
+      expandedRequests: state.expandedPackingRequests,
+      emptyMessage: "Accept a selected Shipping Queue request to begin packing.",
+      defaultStatus: "Packing"
+    });
+  }
+
+  function renderRequestQueue(options) {
+    const target = document.getElementById(options.targetId);
+    const count = document.getElementById(options.countId);
+    const requestCount = options.requests.length;
     if (count) {
-      count.textContent = state.packingRequests.length + (state.packingRequests.length === 1 ? " request" : " requests");
+      count.textContent = requestCount + (requestCount === 1 ? " request" : " requests");
     }
     if (!target) return;
 
-    if (!state.packingRequests.length) {
-      target.innerHTML = '<div class="shipping-queue-empty">Accept a selected Shipping Queue request to begin packing.</div>';
+    if (!requestCount) {
+      target.innerHTML = '<div class="shipping-queue-empty">' + escapeHtml(options.emptyMessage) + '</div>';
       return;
     }
 
     target.innerHTML = [
       '<div class="operations-center-table-wrap shipping-queue-table-wrap">',
-      '<table class="operations-center-table">',
+      '<table class="operations-center-table shipping-request-queue-table">',
       '<thead><tr>',
+      '<th>Request ID</th>',
       '<th>Customer</th>',
       '<th>Sales Order</th>',
-      '<th>Work Order</th>',
-      '<th>Assembly</th>',
-      '<th>Qty Requested</th>',
-      '<th>Due Date</th>',
+      '<th>Detail Lines</th>',
+      '<th>Requested Ship Window</th>',
       '<th>Status</th>',
       '</tr></thead>',
       '<tbody>',
-      state.packingRequests.map((requestToShip, index) => renderQueueRow(requestToShip, index, "packing")).join(""),
+      options.requests.map((requestToShip, index) => renderRequestQueueRows(requestToShip, index, options)).join(""),
       '</tbody>',
       '</table>',
       '</div>'
     ].join("");
   }
 
-  function renderQueueRow(requestToShip, index, queueName) {
-    const isPackingQueue = queueName === "packing";
-    const selected = isPackingQueue
-      ? requestToShip === state.selectedPackingRequest
-      : requestToShip === state.selectedShippingRequest;
-    const rowClass = isPackingQueue ? "packing-queue-row" : "shipping-queue-row";
-    const selectedClass = isPackingQueue ? "packing-queue-row-selected" : "shipping-queue-row-selected";
-    const selectHandler = isPackingQueue ? "selectPackingQueueRow" : "selectShippingQueueRow";
-    const keyHandler = isPackingQueue ? "handlePackingQueueRowKeydown" : "handleShippingQueueRowKeydown";
-    const indexAttribute = isPackingQueue ? "data-packing-queue-index" : "data-shipping-queue-index";
+  function renderRequestQueueRows(requestToShip, index, options) {
+    const expanded = options.expandedRequests.has(requestToShip);
+    const selected = requestToShip === options.selectedRequest;
+    const detailLines = getRequestDisplayLines(requestToShip);
+    const requestId = requestToShip.requestId || "N/A";
+    const detailsId = options.queueName + '-request-details-' + index;
+    const rowClass = options.queueName === "packing" ? "packing-queue-row" : "shipping-queue-row";
+    const selectedClass = options.queueName === "packing" ? "packing-queue-row-selected" : "shipping-queue-row-selected";
+    const selectHandler = options.queueName === "packing" ? "selectPackingQueueRow" : "selectShippingQueueRow";
+    const keyHandler = options.queueName === "packing" ? "handlePackingQueueRowKeydown" : "handleShippingQueueRowKeydown";
 
     return [
-      '<tr class="',
-      index % 2 === 0 ? 'rowEven' : 'rowOdd',
-      ' ', rowClass,
+      '<tr class="', index % 2 === 0 ? 'rowEven' : 'rowOdd',
+      ' shipping-request-parent-row ', rowClass,
       selected ? ' ' + selectedClass : '',
-      '" ', indexAttribute, '="',
-      String(index),
-      '" tabindex="0" aria-selected="',
-      selected ? 'true' : 'false',
+      '" data-request-index="', String(index),
+      '" tabindex="0" aria-selected="', selected ? 'true' : 'false',
       '" onclick="', selectHandler, '(event)" onkeydown="', keyHandler, '(event)">',
-      renderCell(requestToShip.customer || "N/A"),
-      renderCell(requestToShip.salesOrder || "N/A"),
-      renderCell(requestToShip.workOrder || "Unknown"),
-      renderCell(requestToShip.assembly || "N/A"),
-      renderCell(formatQuantity(requestToShip.qtyRequested)),
-      renderCell(requestToShip.dueDate || "N/A"),
-      '<td><span class="shipping-status-pill">', escapeHtml(requestToShip.status || "Pending Shipping"), '</span></td>',
+      '<td class="operations-center-official-cell shipping-request-id-cell">',
+      '<div class="shipping-request-id-group">',
+      '<button type="button" class="shipping-request-expand-button" data-request-queue="', options.queueName,
+      '" data-request-index="', String(index),
+      '" aria-expanded="', expanded ? 'true' : 'false',
+      '" aria-controls="', detailsId,
+      '" aria-label="', expanded ? 'Collapse' : 'Expand', ' Request ', escapeHtml(requestId),
+      '" onclick="toggleShippingRequestDetails(event)">',
+      '<span class="shipping-request-expand-icon" aria-hidden="true">', expanded ? '&#9662;' : '&#9656;', '</span>',
+      '<span>', expanded ? 'Collapse' : 'Expand', '</span>',
+      '</button>',
+      '<span>', escapeHtml(requestId), '</span>',
+      '</div>',
+      '</td>',
+      renderCell(requestToShip.customer || detailLines[0]?.customer || "N/A"),
+      renderCell(requestToShip.salesOrder || detailLines[0]?.salesOrder || "N/A"),
+      renderCell(String(detailLines.length)),
+      renderCell(requestToShip.requestedShipWindow || "Not specified"),
+      '<td>', renderOperationalStatus(requestToShip.status || options.defaultStatus), '</td>',
+      '</tr>',
+      renderRequestDetailRow(requestToShip, detailLines, detailsId, expanded)
+    ].join("");
+  }
+
+  function renderRequestDetailRow(requestToShip, detailLines, detailsId, expanded) {
+    return [
+      '<tr id="', detailsId, '" class="shipping-request-detail-row"', expanded ? '' : ' hidden', '>',
+      '<td colspan="6">',
+      '<div class="shipping-request-detail-panel">',
+      '<table class="shipping-request-detail-table" aria-label="Request details for ', escapeHtml(requestToShip.requestId || "request"), '">',
+      '<thead><tr>',
+      '<th>Sales Order Line</th>',
+      '<th>Work Order</th>',
+      '<th>Assembly / Part Number</th>',
+      '<th>Qty Requested</th>',
+      '</tr></thead>',
+      '<tbody>',
+      detailLines.map((line, lineIndex) => [
+        '<tr class="', lineIndex % 2 === 0 ? 'rowEven' : 'rowOdd', '">',
+        renderCell(line?.salesOrderLine || line?.sequenceLine || requestToShip.salesOrderLine || "N/A"),
+        renderCell(line?.workOrder || requestToShip.workOrder || "Unknown"),
+        renderCell(line?.assembly || line?.partNumber || requestToShip.assembly || "N/A"),
+        renderCell(formatQuantity(line?.qtyRequested ?? requestToShip.qtyRequested)),
+        '</tr>'
+      ].join("")).join(""),
+      '</tbody>',
+      '</table>',
+      '</div>',
+      '</td>',
       '</tr>'
     ].join("");
   }
 
-  function selectShippingQueueRow(event) {
-    const index = Number(event?.currentTarget?.dataset?.shippingQueueIndex);
-    const selected = state.requests[index];
-    if (!selected) return;
+  function getRequestLines(request) {
+    return Array.isArray(request?.lines) && request.lines.length
+      ? request.lines
+      : [];
+  }
 
-    state.selectedShippingRequest = selected;
+  function getRequestDisplayLines(request) {
+    const detailLines = getRequestLines(request);
+    return detailLines.length ? detailLines : request ? [request] : [];
+  }
+
+  function selectShippingQueueRow(event) {
+    const dataset = event?.currentTarget?.dataset || {};
+    const requestIndex = Number(dataset.requestIndex);
+    const selectedRequest = state.requests[requestIndex];
+    if (!selectedRequest) return;
+
+    state.selectedShippingRequest = selectedRequest;
+    state.selectedPackingRequest = null;
     renderShippingWorkspace();
   }
 
   function handleShippingQueueRowKeydown(event) {
+    if (event?.target !== event?.currentTarget) return;
     if (!['Enter', ' '].includes(event?.key)) return;
     event.preventDefault();
     selectShippingQueueRow(event);
   }
 
   function selectPackingQueueRow(event) {
-    const index = Number(event?.currentTarget?.dataset?.packingQueueIndex);
+    const index = Number(event?.currentTarget?.dataset?.requestIndex);
     const selected = state.packingRequests[index];
     if (!selected) return;
 
     state.selectedPackingRequest = selected;
+    state.selectedShippingRequest = null;
     renderShippingWorkspace();
   }
 
   function handlePackingQueueRowKeydown(event) {
+    if (event?.target !== event?.currentTarget) return;
     if (!['Enter', ' '].includes(event?.key)) return;
     event.preventDefault();
     selectPackingQueueRow(event);
+  }
+
+  function toggleShippingRequestDetails(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const button = event?.currentTarget;
+    const queueName = button?.dataset?.requestQueue;
+    const requestIndex = Number(button?.dataset?.requestIndex);
+    const requests = queueName === "packing" ? state.packingRequests : state.requests;
+    const expandedRequests = queueName === "packing"
+      ? state.expandedPackingRequests
+      : state.expandedShippingRequests;
+    const request = requests[requestIndex];
+    if (!request || !["shipping", "packing"].includes(queueName)) return;
+
+    const expanded = !expandedRequests.has(request);
+    if (expanded) {
+      expandedRequests.add(request);
+    } else {
+      expandedRequests.delete(request);
+    }
+
+    const detailsId = button.getAttribute?.("aria-controls") || queueName + "-request-details-" + requestIndex;
+    const detailsRow = document.getElementById(detailsId);
+    if (detailsRow) detailsRow.hidden = !expanded;
+    button.setAttribute?.("aria-expanded", expanded ? "true" : "false");
+    button.setAttribute?.(
+      "aria-label",
+      (expanded ? "Collapse" : "Expand") + " Request " + (request.requestId || "N/A")
+    );
+    if (button) {
+      button.innerHTML = [
+        '<span class="shipping-request-expand-icon" aria-hidden="true">', expanded ? '&#9662;' : '&#9656;', '</span>',
+        '<span>', expanded ? 'Collapse' : 'Expand', '</span>'
+      ].join("");
+    }
   }
 
   function acceptShippingRequest() {
@@ -193,54 +280,171 @@
     if (selectedIndex < 0) return;
 
     state.requests.splice(selectedIndex, 1);
+    state.expandedShippingRequests.delete(selected);
+    state.expandedPackingRequests.delete(selected);
     selected.status = "Packing";
+    applyPackingOperationalStatus(selected);
     state.packingRequests.push(selected);
     state.selectedShippingRequest = null;
     state.selectedPackingRequest = selected;
     renderShippingWorkspace();
+    refreshOperationalStatusDisplays();
+  }
+
+  function applyPackingOperationalStatus(request) {
+    const sourceWorkOrders = getRequestSourceWorkOrders(request);
+    const failedRecordKeys = [];
+
+    sourceWorkOrders.forEach(sourceWorkOrder => {
+      const masterRecordKey = String(sourceWorkOrder?.masterRecordKey || "").trim();
+      if (sourceWorkOrder?.official) {
+        sourceWorkOrder.official.operationalStatus = "Packing";
+      }
+      if (sourceWorkOrder?.masterRecord) {
+        sourceWorkOrder.masterRecord.dle = sourceWorkOrder.masterRecord.dle || {};
+        sourceWorkOrder.masterRecord.dle.operationalStatus = "Packing";
+      }
+
+      const updated = window.OperationsCenter?.viewModel?.setPackingOperationalStatus?.(masterRecordKey);
+      if (!updated) failedRecordKeys.push(masterRecordKey || "Unknown");
+    });
+
+    if (!sourceWorkOrders.length || failedRecordKeys.length) {
+      console.warn("Packing operational status could not be linked to an active Master Data record.");
+    }
+  }
+
+  function getRequestSourceWorkOrders(request) {
+    const detailSources = getRequestLines(request)
+      .map(line => line?.sourceWorkOrder)
+      .filter(Boolean);
+    const requestSources = Array.isArray(request?.sourceWorkOrders)
+      ? request.sourceWorkOrders.filter(Boolean)
+      : [];
+    const sources = detailSources.length
+      ? detailSources
+      : requestSources.length
+        ? requestSources
+        : request?.sourceWorkOrder
+          ? [request.sourceWorkOrder]
+          : [];
+    const seenKeys = new Set();
+
+    return sources.filter(source => {
+      const key = String(source?.masterRecordKey || "").trim();
+      if (!key || seenKeys.has(key)) return false;
+      seenKeys.add(key);
+      return true;
+    });
+  }
+
+  function refreshOperationalStatusDisplays() {
+    window.OperationsCenter?.table?.renderModule?.();
+    window.SalesOrderDashboard?.render?.();
+    window.WorkOrderDashboardModule?.render?.();
+    if (typeof renderDleMasterDataViewer === "function") {
+      renderDleMasterDataViewer();
+    }
   }
 
   function renderShippingActions() {
-    const selectedLabel = document.getElementById("shippingSelectedWorkOrder");
+    const selectedLabel = document.getElementById("shippingSelectedRequest");
     const createButton = document.getElementById("shippingCreateRequestToShipButton");
     const acceptButton = document.getElementById("shippingAcceptRequestButton");
     const returnButton = document.getElementById("shippingReturnToOperationsButton");
     const printButton = document.getElementById("shippingPrintRequestToShipButton");
     const processedButton = document.getElementById("shippingShipmentProcessedButton");
-    const activeSelection = state.selectedShippingRequest || state.selectedPackingRequest;
-    const workOrder = String(activeSelection?.workOrder || "").trim();
+    const activeSelection = state.selectedPackingRequest || state.selectedShippingRequest;
+    const requestId = String(activeSelection?.requestId || "").trim();
+    const processing = !!state.processingPackingRequest;
 
-    if (selectedLabel) selectedLabel.textContent = workOrder || "None selected";
+    if (selectedLabel) selectedLabel.textContent = requestId || "None selected";
     if (createButton) createButton.disabled = true;
     if (acceptButton) acceptButton.disabled = !state.selectedShippingRequest;
     if (returnButton) returnButton.disabled = !state.selectedShippingRequest;
-    if (printButton) printButton.disabled = !state.selectedPackingRequest;
-    if (processedButton) processedButton.disabled = !state.selectedPackingRequest;
+    if (printButton) printButton.disabled = !state.selectedPackingRequest || processing;
+    if (processedButton) {
+      processedButton.disabled = !state.selectedPackingRequest || processing;
+      processedButton.textContent = processing ? "Persisting Shipment..." : "Shipment Processed";
+    }
   }
 
-  function processPackingShipment() {
+  async function processPackingShipment() {
     const request = state.selectedPackingRequest;
-    if (!request) return;
+    if (!request || state.processingPackingRequest) return null;
 
     if (typeof shipmentStagingState === "undefined" ||
         !Array.isArray(shipmentStagingState.records)) {
       console.error("Shipment Staging is not available.");
-      return;
+      setShippingWorkspaceStatus("Shipment Staging is not available.");
+      return null;
+    }
+    if (typeof window.buildShipmentStagingRecordsFromShippingRequest !== "function" ||
+        typeof window.persistShipmentStagingDataset !== "function") {
+      console.error("Shipment Staging persistence service is not available.");
+      setShippingWorkspaceStatus("Shipment Staging persistence service is not available.");
+      return null;
     }
 
     const requestIndex = state.packingRequests.indexOf(request);
-    if (requestIndex < 0) return;
+    if (requestIndex < 0) return null;
+
+    const previousStagingRecords = shipmentStagingState.records.slice();
+    const previousStagingLastUpdated = shipmentStagingState.lastUpdated;
+    const processedDate = new Date();
+    const processedTimestamp = processedDate.toISOString();
+    const stagingRecords = window.buildShipmentStagingRecordsFromShippingRequest(request, {
+      processedDate,
+      operationalStatus: "Pending Invoice"
+    });
+    if (!stagingRecords.length) {
+      setShippingWorkspaceStatus("Shipment Processed was not completed because no shipment detail lines were available.");
+      return null;
+    }
+
+    state.processingPackingRequest = request;
+    renderShippingActions();
+    setShippingWorkspaceStatus("Persisting " + stagingRecords.length + " shipment line" + (stagingRecords.length === 1 ? "" : "s") + "...");
+    shipmentStagingState.records.push(...stagingRecords);
+    shipmentStagingState.lastUpdated = processedTimestamp;
+
+    try {
+      await window.persistShipmentStagingDataset("Shipment Processed");
+    } catch (error) {
+      shipmentStagingState.records = previousStagingRecords;
+      shipmentStagingState.lastUpdated = previousStagingLastUpdated;
+      state.processingPackingRequest = null;
+      renderShippingWorkspace();
+      if (typeof renderShipmentStagingModule === "function") {
+        renderShipmentStagingModule();
+      }
+      setShippingWorkspaceStatus("Shipment was not processed because Shipment Staging could not be persisted.");
+      console.error("Shipment Staging persistence failed:", error);
+      return null;
+    }
 
     state.packingRequests.splice(requestIndex, 1);
-    request.status = "Awaiting ERP Reconciliation";
-    shipmentStagingState.records.push(request);
-    shipmentStagingState.lastUpdated = new Date().toLocaleString();
+    state.expandedPackingRequests.delete(request);
+    request.status = "Pending Invoice";
+    request.shipmentId = stagingRecords[0].shipmentId;
     state.selectedPackingRequest = null;
+    state.processingPackingRequest = null;
 
     renderShippingWorkspace();
     if (typeof renderShipmentStagingModule === "function") {
       renderShipmentStagingModule();
     }
+    window.OperationsCenter?.table?.renderModule?.();
+    setShippingWorkspaceStatus(
+      "Shipment " + request.shipmentId + " processed and persisted with " + stagingRecords.length +
+      " detail line" + (stagingRecords.length === 1 ? "." : "s.")
+    );
+    return stagingRecords;
+  }
+
+  function setShippingWorkspaceStatus(message) {
+    const status = document.getElementById("shippingWorkspaceStatus");
+    if (status) status.textContent = message;
   }
 
   async function printPackingRequestToShip() {
@@ -266,23 +470,31 @@
   }
 
   function buildLegacyRequestToShipPreparation(request) {
-    const openQuantity = Number(request?.openQuantity) || 0;
-    const requestedQuantity = Number(request?.qtyRequested) || 0;
+    const detailLines = getRequestLines(request);
+    const sourceLines = detailLines.length ? detailLines : [request || {}];
+    const lines = sourceLines.map(line => {
+      const openQuantity = Number(line?.openQuantity) || 0;
+      const requestedQuantity = Number(line?.qtyRequested) || 0;
+      return {
+        masterRecordKey: line?.masterRecordKey || line?.sourceWorkOrder?.masterRecordKey || "",
+        customerNumber: line?.customerNumber || request?.customerNumber || line?.customer || request?.customer || "",
+        customer: line?.customer || request?.customer || "",
+        salesOrder: line?.salesOrder || request?.salesOrder || "",
+        sequenceLine: line?.salesOrderLine || line?.sequenceLine || request?.salesOrderLine || "",
+        workOrder: line?.workOrder || request?.workOrder || "",
+        partNumber: line?.assembly || line?.partNumber || request?.assembly || "",
+        description: line?.description || "",
+        openQuantity,
+        shipQuantity: requestedQuantity,
+        remainingOpenQuantity: Math.max(openQuantity - requestedQuantity, 0)
+      };
+    });
 
     return {
       valid: true,
       requestId: request?.requestId || "",
-      lines: [{
-        customerNumber: request?.customerNumber || request?.customer || "",
-        customer: request?.customer || "",
-        salesOrder: request?.salesOrder || "",
-        workOrder: request?.workOrder || "",
-        partNumber: request?.assembly || "",
-        openQuantity,
-        shipQuantity: requestedQuantity,
-        remainingOpenQuantity: Math.max(openQuantity - requestedQuantity, 0)
-      }],
-      totalShipQuantity: requestedQuantity,
+      lines,
+      totalShipQuantity: lines.reduce((total, line) => total + line.shipQuantity, 0),
       requestToShip: request
     };
   }
@@ -332,6 +544,13 @@
       salesOrder: request.salesOrder || "",
       workOrder: request.workOrder || "",
       qtyRequested: request.qtyRequested,
+      lineCount: getRequestLines(request).length || 1,
+      lines: getRequestLines(request).map(line => ({
+        salesOrderLine: line.salesOrderLine || line.sequenceLine || "",
+        workOrder: line.workOrder || "",
+        assembly: line.assembly || line.partNumber || "",
+        qtyRequested: line.qtyRequested
+      })),
       selectedReason: validation.reason,
       comments
     };
@@ -358,6 +577,15 @@
     return Number.isInteger(quantity) ? String(quantity) : String(quantity);
   }
 
+  function renderOperationalStatus(value) {
+    const presentation = window.OperationsCenter?.viewModel?.getOperationalStatusPresentation?.(value) || {
+      label: String(value || ""),
+      className: ""
+    };
+    const classes = ["shipping-status-pill", presentation.className].filter(Boolean).join(" ");
+    return '<span class="' + classes + '">' + escapeHtml(presentation.label) + '</span>';
+  }
+
   function renderCell(value) {
     return '<td class="operations-center-official-cell">' + escapeHtml(value) + '</td>';
   }
@@ -382,7 +610,10 @@
       packingRequests: state.packingRequests.slice(),
       selectedRequest: state.selectedShippingRequest,
       selectedShippingRequest: state.selectedShippingRequest,
-      selectedPackingRequest: state.selectedPackingRequest
+      selectedShippingLine: null,
+      selectedPackingRequest: state.selectedPackingRequest,
+      expandedShippingRequests: Array.from(state.expandedShippingRequests),
+      expandedPackingRequests: Array.from(state.expandedPackingRequests)
     })
   });
 
@@ -390,6 +621,7 @@
   window.handleShippingQueueRowKeydown = handleShippingQueueRowKeydown;
   window.selectPackingQueueRow = selectPackingQueueRow;
   window.handlePackingQueueRowKeydown = handlePackingQueueRowKeydown;
+  window.toggleShippingRequestDetails = toggleShippingRequestDetails;
   window.acceptShippingRequest = acceptShippingRequest;
   window.printPackingRequestToShip = printPackingRequestToShip;
   window.processPackingShipment = processPackingShipment;

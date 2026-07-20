@@ -23,9 +23,12 @@
 
   async function initializeShipmentStagingPersistence() {
     try {
-      const dataset = await loadShipmentStagingDataset();
-      validateShipmentStagingDataset(dataset);
-      applyShipmentStagingDataset(dataset);
+      const connectedDataset = await loadConnectedShipmentStagingDataset();
+      const dataset = connectedDataset || await loadShipmentStagingDataset();
+      if (!connectedDataset) {
+        validateShipmentStagingDataset(dataset);
+        applyShipmentStagingDataset(dataset);
+      }
       const records = getShipmentStagingDatasetRecords(dataset);
       reportShipmentStagingPersistenceStatus(
         records.length
@@ -34,6 +37,26 @@
       );
     } catch (error) {
       reportShipmentStagingPersistenceError(error);
+    }
+  }
+
+  async function loadConnectedShipmentStagingDataset() {
+    const handle = await readStoredShipmentStagingFileHandle();
+    if (!handle) return null;
+
+    try {
+      const dataset = await readShipmentStagingDatasetFromHandle(handle);
+      const writable = await isShipmentStagingHandleWritable(handle, false);
+      applyShipmentStagingDatasetToState(dataset, {
+        fileHandle: handle,
+        sourceFile: handle.name || 'shipment-staging.json',
+        writable,
+        mode: writable ? 'Writable connected file' : 'Connected file read-only'
+      });
+      return dataset;
+    } catch (error) {
+      console.warn('Stored Shipment Staging file could not be restored; using the configured dataset source.', error);
+      return null;
     }
   }
 
@@ -97,11 +120,12 @@
   function applyShipmentStagingDatasetToState(dataset, options = {}) {
     validateShipmentStagingDataset(dataset);
     applyShipmentStagingDataset(dataset);
+    const fileHandle = options.fileHandle || shipmentStagingState.persistence?.fileHandle || null;
     shipmentStagingState.persistence = {
       ...(shipmentStagingState.persistence || {}),
       sourceFile: options.sourceFile || shipmentStagingState.persistence?.sourceFile || SHIPMENT_STAGING_DATA_PATH,
-      fileHandle: options.fileHandle || shipmentStagingState.persistence?.fileHandle || null,
-      writable: !!(options.fileHandle || shipmentStagingState.persistence?.fileHandle),
+      fileHandle,
+      writable: options.writable ?? !!fileHandle,
       savedAt: dataset.lastUpdated || shipmentStagingState.persistence?.savedAt || '',
       lastReason: dataset.lastReason || shipmentStagingState.persistence?.lastReason || '',
       mode: options.mode || shipmentStagingState.persistence?.mode || 'Writable'
@@ -212,6 +236,86 @@
       recordCount: records.length,
       records
     };
+  }
+
+  function buildShipmentStagingRecordsFromShippingRequest(request, options = {}) {
+    if (!request) return [];
+
+    const detailLines = Array.isArray(request.lines) && request.lines.length
+      ? request.lines
+      : [request];
+    const processedDate = options.processedDate instanceof Date
+      ? options.processedDate
+      : new Date(options.processedTimestamp || Date.now());
+    const processedTimestamp = processedDate.toISOString();
+    const createdTimestamp = request.createdTimestamp || request.requestDateTime || processedTimestamp;
+    const shipmentId = options.shipmentId || request.shipmentId ||
+      createShipmentStagingShipmentId(request, detailLines, processedDate);
+    const operationalStatus = options.operationalStatus || 'Pending Invoice';
+
+    return detailLines.map((line, index) => {
+      const sourceWorkOrder = line?.sourceWorkOrder || {};
+      const customerNumber = line?.customerNumber || request.customerNumber || '';
+      const customerName = line?.customerName || line?.customer || request.customerName || request.customer || '';
+      const salesOrder = line?.salesOrder || request.salesOrder || '';
+      const salesOrderLine = line?.salesOrderLine || line?.sequenceLine || request.salesOrderLine || '';
+      const assembly = line?.assembly || line?.partNumber || request.assembly || request.partNumber || '';
+      const masterRecordKey = line?.masterRecordKey || sourceWorkOrder.masterRecordKey || request.masterRecordKey || '';
+
+      return {
+        schema: 'DLE_SHIPMENT_STAGING_RECORD_V1',
+        shipmentTransactionId: shipmentId + '-L' + String(index + 1).padStart(3, '0'),
+        shipmentId,
+        requestId: request.requestId || '',
+        masterRecordKey,
+        shipmentDateTime: processedTimestamp,
+        createdTimestamp,
+        processedTimestamp,
+        customerNumber,
+        customerName,
+        salesOrder,
+        salesOrderLine,
+        workOrder: line?.workOrder || request.workOrder || '',
+        itemNumber: assembly,
+        assembly,
+        description: line?.description || request.description || '',
+        quantityShipped: line?.quantityShipped ?? line?.qtyRequested ?? request.quantityShipped ?? request.qtyRequested ?? 0,
+        originalOpenQuantity: line?.openQuantity ?? request.openQuantity ?? 0,
+        requestedShipWindow: request.requestedShipWindow || '',
+        operationalStatus,
+        status: options.reconciliationStatus || 'Pending Invoice',
+        user: request.processedBy || 'Shipping'
+      };
+    });
+  }
+
+  function createShipmentStagingShipmentId(request, detailLines, processedDate) {
+    const firstLine = detailLines[0] || {};
+    const customerNumber = sanitizeShipmentStagingIdPart(firstLine.customerNumber || request.customerNumber || 'UNKNOWN');
+    const salesOrder = sanitizeShipmentStagingIdPart(firstLine.salesOrder || request.salesOrder || 'UNKNOWN');
+    const dateCode = [
+      String(processedDate.getFullYear()).slice(-2),
+      String(processedDate.getMonth() + 1).padStart(2, '0'),
+      String(processedDate.getDate()).padStart(2, '0')
+    ].join('');
+    const baseId = 'SHP-' + customerNumber + '-' + salesOrder + '-' + dateCode;
+    const existingIds = new Set((Array.isArray(shipmentStagingState.records) ? shipmentStagingState.records : [])
+      .map(record => String(record?.shipmentId || '').trim())
+      .filter(Boolean));
+    let sequence = 1;
+    let shipmentId = baseId + '-' + String(sequence).padStart(2, '0');
+
+    while (existingIds.has(shipmentId)) {
+      sequence += 1;
+      shipmentId = baseId + '-' + String(sequence).padStart(2, '0');
+    }
+    return shipmentId;
+  }
+
+  function sanitizeShipmentStagingIdPart(value) {
+    return String(value || 'UNKNOWN')
+      .trim()
+      .replace(/[^A-Za-z0-9_-]+/g, '') || 'UNKNOWN';
   }
 
   function buildShipmentStagingDatasetWithRecords(sourceDataset, records, reason, lastUpdated) {
@@ -435,6 +539,7 @@
   window.openShipmentStagingWritableFile = openShipmentStagingWritableFile;
   window.readShipmentStagingDatasetFromHandle = readShipmentStagingDatasetFromHandle;
   window.buildShipmentStagingDatasetWithRecords = buildShipmentStagingDatasetWithRecords;
+  window.buildShipmentStagingRecordsFromShippingRequest = buildShipmentStagingRecordsFromShippingRequest;
   window.writeShipmentStagingDatasetToHandle = writeShipmentStagingDatasetToHandle;
   window.applyShipmentStagingDatasetToState = applyShipmentStagingDatasetToState;
   window.verifyShipmentStagingShipmentIdsAbsent = verifyShipmentStagingShipmentIdsAbsent;

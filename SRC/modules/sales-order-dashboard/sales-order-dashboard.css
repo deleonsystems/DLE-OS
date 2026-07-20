@@ -281,7 +281,7 @@
 
 .sales-order-dashboard-dialog-card {
   position: relative;
-  width: min(720px, 100%);
+  width: min(980px, 100%);
   max-height: calc(100vh - 40px);
   overflow: auto;
   border: 1px solid rgba(130, 170, 210, .32);
@@ -341,6 +341,11 @@
   overflow-wrap: anywhere;
 }
 
+.sales-order-dashboard-dialog-field select {
+  width: 100%;
+  margin: 0;
+}
+
 .sales-order-dashboard-quantity-field {
   display: block;
   margin-top: 14px;
@@ -349,6 +354,51 @@
 .sales-order-dashboard-quantity-field input {
   width: 100%;
   box-sizing: border-box;
+}
+
+.sales-order-dashboard-request-lines-wrap {
+  margin-top: 14px;
+  overflow: auto;
+  border: 1px solid rgba(130, 170, 210, .22);
+  border-radius: 10px;
+  background: rgba(4, 10, 18, .5);
+}
+
+.sales-order-dashboard-request-lines-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sales-order-dashboard-request-lines-table th,
+.sales-order-dashboard-request-lines-table td {
+  padding: 10px 11px;
+  border-bottom: 1px solid rgba(130, 170, 210, .16);
+  text-align: left;
+  vertical-align: top;
+}
+
+.sales-order-dashboard-request-lines-table th {
+  color: #8bbcff;
+  background: rgba(6, 13, 22, .98);
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sales-order-dashboard-request-quantity {
+  width: 130px;
+  margin: 0;
+}
+
+.sales-order-dashboard-request-line-validation {
+  min-height: 16px;
+  margin-top: 4px;
+  color: #ffb4b4;
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .sales-order-dashboard-dialog-validation {

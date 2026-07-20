@@ -26,12 +26,12 @@
     const status = document.getElementById('operationsCenterStatus');
     if (!status) return;
 
-    const records = viewModel.getMasterRecords();
+    const records = getDisplayedRecords();
     const overlayCount = Object.keys(state.overlayByKey).length;
     const masterLoaded = !!viewModel.getMasterData();
 
     status.textContent = masterLoaded
-      ? records.length + ' active Master Data record' + (records.length === 1 ? '' : 's') + ' shown. Overlay records: ' + overlayCount + '. Source: ' + state.sourceFile + '.'
+      ? records.length + ' operational Master Data record' + (records.length === 1 ? '' : 's') + ' requiring action shown. Overlay records: ' + overlayCount + '. Source: ' + state.sourceFile + '.'
       : 'Load Master Data from System Center to view Operations Center. Overlay source: ' + state.sourceFile + '.';
 
     const documentStatus = document.getElementById('operationsCenterDocumentStatus');
@@ -45,9 +45,11 @@
     const container = document.getElementById('operationsCenterTable');
     if (!container) return;
 
-    const records = viewModel.getMasterRecords();
+    const records = getDisplayedRecords();
     if (!records.length) {
-      container.innerHTML = '<div class="operations-center-empty">Load Master Data from System Center to view Operations Center.</div>';
+      container.innerHTML = viewModel.getMasterData()
+        ? '<div class="operations-center-empty">No operational work currently requires action.</div>'
+        : '<div class="operations-center-empty">Load Master Data from System Center to view Operations Center.</div>';
       return;
     }
 
@@ -84,6 +86,9 @@
           '</td>'
         ].join('');
       }
+      if (column.key === 'operationalStatus') {
+        return renderOperationalStatusCell(value);
+      }
       return '<td class="operations-center-official-cell' + descriptionClass + '">' + escapeHtml(value) + '</td>';
     }).join('');
 
@@ -105,6 +110,28 @@
     }).join('');
 
     return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + projectionCell + officialCells + overlayCells + '</tr>';
+  }
+
+  function getDisplayedRecords() {
+    return typeof viewModel.getOperationsCenterRecords === 'function'
+      ? viewModel.getOperationsCenterRecords()
+      : viewModel.getMasterRecords();
+  }
+
+  function renderOperationalStatusCell(value) {
+    const presentation = viewModel.getOperationalStatusPresentation(value);
+    const label = presentation.label || '';
+    if (!presentation.isPacking) {
+      return '<td class="operations-center-official-cell">' + escapeHtml(label) + '</td>';
+    }
+
+    return [
+      '<td class="operations-center-official-cell">',
+      '<span class="', presentation.className, '">',
+      escapeHtml(label),
+      '</span>',
+      '</td>'
+    ].join('');
   }
 
   function renderProjectionCell(masterRecordKey) {
@@ -136,7 +163,7 @@
     summary.hidden = !active;
     if (!active) return;
 
-    const projectionSummary = projection.getSummary(viewModel.getMasterRecords(), viewModel);
+    const projectionSummary = projection.getSummary(getDisplayedRecords(), viewModel);
     if (jobs) jobs.textContent = String(projectionSummary.selectedJobs);
     if (revenue) revenue.textContent = projection.formatCurrency(projectionSummary.projectedRevenue);
   }
@@ -151,7 +178,7 @@
   function openSalesOrderDashboard(event) {
     const target = event?.currentTarget || event?.target;
     const masterRecordKey = target?.dataset?.masterRecordKey || '';
-    const record = viewModel.getMasterRecords().find(item => viewModel.getMasterRecordKey(item) === masterRecordKey);
+    const record = getDisplayedRecords().find(item => viewModel.getMasterRecordKey(item) === masterRecordKey);
     if (!record) return;
 
     const selectedOrder = buildSelectedOrderPayload(record, masterRecordKey);
@@ -164,10 +191,7 @@
   }
 
   function buildSelectedOrderPayload(record, masterRecordKey) {
-    const official = officialColumns.reduce((fields, column) => {
-      fields[column.key] = viewModel.getOfficialField(record, column.key);
-      return fields;
-    }, {});
+    const official = buildOfficialFields(record);
     const overlay = stateActions.getOverlayRecord(masterRecordKey);
     const relatedRows = getRelatedSalesOrderRows(official);
 
@@ -181,24 +205,46 @@
   }
 
   function getRelatedSalesOrderRows(selectedOfficial) {
-    const salesOrder = String(selectedOfficial.salesOrder || '').trim();
-    if (!salesOrder) return [];
+    const selectedGroupKey = getSalesOrderGroupKey(selectedOfficial);
+    if (!selectedGroupKey) return [];
 
     return viewModel.getMasterRecords()
-      .filter(record => String(viewModel.getOfficialField(record, 'salesOrder') || '').trim() === salesOrder)
       .map(record => {
         const key = viewModel.getMasterRecordKey(record);
-        const official = officialColumns.reduce((fields, column) => {
-          fields[column.key] = viewModel.getOfficialField(record, column.key);
-          return fields;
-        }, {});
+        const official = buildOfficialFields(record);
         return {
           masterRecordKey: key,
           official,
           overlay: { ...stateActions.getOverlayRecord(key) },
           masterRecord: cloneRecord(record)
         };
-      });
+      })
+      .filter(row => getSalesOrderGroupKey(row.official) === selectedGroupKey);
+  }
+
+  function buildOfficialFields(record) {
+    const fields = officialColumns.reduce((official, column) => {
+      official[column.key] = viewModel.getOfficialField(record, column.key);
+      return official;
+    }, {});
+    fields.customerNumber = viewModel.getOfficialField(record, 'customerNumber');
+    return fields;
+  }
+
+  function getSalesOrderGroupKey(official) {
+    const salesOrder = normalizeSalesOrderGroupValue(official?.salesOrder);
+    if (!salesOrder) return '';
+
+    const customerNumber = normalizeSalesOrderGroupValue(official?.customerNumber);
+    const customerName = normalizeSalesOrderGroupValue(official?.customer);
+    const customerIdentity = customerNumber
+      ? 'NUMBER:' + customerNumber
+      : 'NAME:' + customerName;
+    return customerIdentity + '|SALES_ORDER:' + salesOrder;
+  }
+
+  function normalizeSalesOrderGroupValue(value) {
+    return String(value ?? '').trim().toUpperCase();
   }
 
   function cloneRecord(record) {

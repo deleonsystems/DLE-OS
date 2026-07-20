@@ -108,7 +108,7 @@
     setText('workOrderDashboardSummaryRevision', getRecordRevision(selectedWorkOrder) || 'Unknown');
     setText('workOrderDashboardSummaryQuantity', formatQuantity(sumOpenQuantity(relatedRows)));
     setText('workOrderDashboardSummaryDueDate', getNextDueDate(relatedRows) || 'N/A');
-    setText('workOrderDashboardSummaryStatus', official.operationalStatus || 'N/A');
+    setOperationalStatus('workOrderDashboardSummaryStatus', official.operationalStatus);
   }
 
   function renderRelatedWorkOrders() {
@@ -147,9 +147,9 @@
         '<td>',
         escapeDashboardHtml(official.dueDate || 'N/A'),
         '</td>',
-        '<td><span class="work-order-dashboard-module-status-pill">',
-        escapeDashboardHtml(official.operationalStatus || 'N/A'),
-        '</span></td>',
+        '<td>',
+        renderOperationalStatus(official.operationalStatus, 'work-order-dashboard-module-status-pill'),
+        '</td>',
         '</tr>'
       ].join('');
     }).join('');
@@ -265,6 +265,38 @@
   function setText(id, value) {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
+  }
+
+  function setOperationalStatus(id, value) {
+    const element = document.getElementById(id);
+    if (!element) return;
+
+    const presentation = getOperationalStatusPresentation(value);
+    element.textContent = presentation.label || 'N/A';
+    element.classList.toggle('dle-operational-status-badge', presentation.isPacking);
+    element.classList.toggle('dle-operational-status-packing', presentation.isPacking);
+  }
+
+  function renderOperationalStatus(value, baseClass) {
+    const presentation = getOperationalStatusPresentation(value);
+    const classes = [baseClass, presentation.className].filter(Boolean).join(' ');
+    return '<span class="' + classes + '">' + escapeDashboardHtml(presentation.label || 'N/A') + '</span>';
+  }
+
+  function getOperationalStatusPresentation(value) {
+    if (typeof window.OperationsCenter?.viewModel?.getOperationalStatusPresentation === 'function') {
+      return window.OperationsCenter.viewModel.getOperationalStatusPresentation(value);
+    }
+
+    const status = String(value ?? '').trim();
+    const isPacking = status.toLowerCase() === 'packing';
+    return {
+      label: isPacking ? '\u{1F7E8} Packing' : status,
+      isPacking,
+      className: isPacking
+        ? 'dle-operational-status-badge dle-operational-status-packing'
+        : ''
+    };
   }
 
   function escapeDashboardHtml(value) {

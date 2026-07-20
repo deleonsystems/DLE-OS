@@ -7,6 +7,9 @@
 
   window.OperationsCenter = window.OperationsCenter || {};
 
+  const PACKING_OPERATIONAL_STATUS = 'Packing';
+  const SHIPMENT_STAGING_EXIT_STATUS = 'Pending Invoice';
+
   function getMasterData() {
     if (typeof dleMasterDataFileState !== 'undefined' && dleMasterDataFileState.data) return dleMasterDataFileState.data;
     if (typeof dleMasterData !== 'undefined' && dleMasterData?.records) return dleMasterData;
@@ -20,6 +23,36 @@
       return getActiveMasterDataRecords(records);
     }
     return records.filter(record => String(record.lifecycleState || '').toUpperCase() !== 'ARCHIVED');
+  }
+
+  function getOperationsCenterRecords() {
+    const stagedRecordKeys = new Set(
+      getShipmentStagingRecordsForProjection()
+        .filter(record => normalizeOperationsValue(record?.status).toLowerCase() === SHIPMENT_STAGING_EXIT_STATUS.toLowerCase())
+        .flatMap(getShipmentStagingMasterRecordKeys)
+        .filter(Boolean)
+    );
+
+    if (!stagedRecordKeys.size) return getMasterRecords();
+    return getMasterRecords().filter(record =>
+      !stagedRecordKeys.has(normalizeOperationsValue(getMasterRecordKey(record)))
+    );
+  }
+
+  function getShipmentStagingMasterRecordKeys(record) {
+    const detailKeys = Array.isArray(record?.lines)
+      ? record.lines.map(line => line?.masterRecordKey || line?.sourceWorkOrder?.masterRecordKey)
+      : [];
+    const sourceKeys = Array.isArray(record?.sourceWorkOrders)
+      ? record.sourceWorkOrders.map(source => source?.masterRecordKey)
+      : [];
+    const keys = detailKeys.length
+      ? detailKeys
+      : sourceKeys.length
+        ? sourceKeys
+        : [record?.masterRecordKey || record?.sourceWorkOrder?.masterRecordKey];
+
+    return Array.from(new Set(keys.map(key => normalizeOperationsValue(key)).filter(Boolean)));
   }
 
   function getMasterRecordKey(record) {
@@ -92,6 +125,7 @@
     const dle = record?.dle || {};
     const fieldMap = {
       orderDate: vpro5.orderDate,
+      customerNumber: vpro5.customerNumber,
       customer: vpro5.customer,
       customerPo: vpro5.customerPo,
       salesOrder: vpro5.salesOrder,
@@ -108,11 +142,40 @@
     return String(fieldMap[field] ?? '');
   }
 
+  function getOperationalStatusPresentation(value) {
+    const status = String(value ?? '').trim();
+    const isPacking = status.toLowerCase() === PACKING_OPERATIONAL_STATUS.toLowerCase();
+
+    return {
+      status,
+      label: isPacking ? '\u{1F7E8} ' + PACKING_OPERATIONAL_STATUS : status,
+      isPacking,
+      className: isPacking
+        ? 'dle-operational-status-badge dle-operational-status-packing'
+        : ''
+    };
+  }
+
+  function setPackingOperationalStatus(masterRecordKey) {
+    const normalizedKey = String(masterRecordKey || '').trim();
+    if (!normalizedKey) return false;
+
+    const record = getMasterRecords().find(item => getMasterRecordKey(item) === normalizedKey);
+    if (!record) return false;
+
+    record.dle = record.dle || {};
+    record.dle.operationalStatus = PACKING_OPERATIONAL_STATUS;
+    return true;
+  }
+
   window.OperationsCenter.viewModel = {
     getMasterData,
     getMasterRecords,
+    getOperationsCenterRecords,
     getMasterRecordKey,
     getOperationalProjectionField,
-    getOfficialField
+    getOfficialField,
+    getOperationalStatusPresentation,
+    setPackingOperationalStatus
   };
 })();

@@ -132,6 +132,10 @@
   table-layout: auto;
 }
 
+.shipping-request-queue-table {
+  min-width: 760px !important;
+}
+
 .shipping-queue-empty {
   border: 1px dashed rgba(255, 255, 255, .18);
   border-radius: 8px;
@@ -143,6 +147,90 @@
 .packing-queue-row {
   cursor: pointer;
   transition: background-color .15s ease, box-shadow .15s ease;
+}
+
+.shipping-request-id-cell {
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.shipping-request-id-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.shipping-request-expand-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 82px;
+  margin: 0;
+  padding: 4px 7px;
+  border: 1px solid rgba(139, 188, 255, .36);
+  border-radius: 5px;
+  background: rgba(47, 140, 255, .10);
+  color: #dbeafe;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.shipping-request-expand-button:hover,
+.shipping-request-expand-button:focus-visible {
+  border-color: rgba(139, 188, 255, .72);
+  background: rgba(47, 140, 255, .20);
+  outline: none;
+}
+
+.shipping-request-expand-icon {
+  width: 10px;
+  color: #8bbcff;
+  font-size: 12px;
+  text-align: center;
+}
+
+.shipping-request-detail-row[hidden] {
+  display: none;
+}
+
+.shipping-request-detail-row > td {
+  padding: 0;
+  border-right: 0;
+  background: rgba(3, 9, 17, .72);
+}
+
+.shipping-request-detail-panel {
+  padding: 12px 18px 16px 44px;
+  border-left: 3px solid rgba(139, 188, 255, .48);
+}
+
+.shipping-request-detail-table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  background: rgba(10, 20, 33, .78);
+  font-size: 12px;
+}
+
+.shipping-request-queue-table .shipping-request-detail-table th,
+.shipping-request-queue-table .shipping-request-detail-table td {
+  position: static;
+  padding: 7px 9px;
+  border: 1px solid rgba(130, 170, 210, .13);
+}
+
+.shipping-request-queue-table .shipping-request-detail-table th {
+  background: rgba(19, 38, 61, .96);
+  color: #a9ceff;
+}
+
+.shipping-request-detail-table tbody tr:hover {
+  background: rgba(47, 140, 255, .08);
 }
 
 .shipping-queue-row:hover,
@@ -176,7 +264,7 @@
   white-space: nowrap;
 }
 
-.shipping-current-work-order {
+.shipping-current-request {
   border: 1px solid rgba(130, 170, 210, .16);
   border-radius: 8px;
   background: rgba(11, 22, 36, .74);
@@ -184,7 +272,7 @@
   margin: 14px 0;
 }
 
-.shipping-current-work-order strong {
+.shipping-current-request strong {
   display: block;
   color: #8bbcff;
   font-size: 11px;
@@ -193,7 +281,7 @@
   margin-bottom: 5px;
 }
 
-.shipping-current-work-order span {
+.shipping-current-request span {
   display: block;
   color: #f4f7fb;
   font-size: 16px;

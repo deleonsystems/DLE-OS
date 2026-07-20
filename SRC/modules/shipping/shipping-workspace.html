@@ -7,7 +7,7 @@
         <p>Operational workspace for preparing customer shipments.</p>
       </div>
     </div>
-    <div class="shipping-workspace-status">Workspace foundation</div>
+    <div id="shippingWorkspaceStatus" class="shipping-workspace-status">Ready</div>
   </header>
 
   <div class="shipping-workspace-layout">
@@ -16,7 +16,7 @@
         <div class="shipping-workspace-region-heading">
           <div>
             <h2 id="shippingQueueTitle">Shipping Queue</h2>
-            <p>Work orders transferred from the Sales Order Dashboard for shipment preparation.</p>
+            <p>Requests to Ship submitted by Operations and awaiting Shipping's decision.</p>
           </div>
           <span id="shippingQueueCount" class="shipping-queue-count">0 requests</span>
         </div>
@@ -37,9 +37,9 @@
 
     <aside class="shipping-action-panel" aria-labelledby="shippingActionsTitle">
       <h2 id="shippingActionsTitle">Shipping Actions</h2>
-      <div class="shipping-current-work-order">
-        <strong>Selected Work Order</strong>
-        <span id="shippingSelectedWorkOrder">None selected</span>
+      <div class="shipping-current-request">
+        <strong>Selected Request</strong>
+        <span id="shippingSelectedRequest">None selected</span>
       </div>
       <div class="shipping-action-buttons">
         <button id="shippingCreateRequestToShipButton" type="button" disabled>Create Request to Ship</button>

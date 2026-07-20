@@ -9,8 +9,12 @@
   const dashboardState = {
     selectedOrder: null,
     selectedWorkOrder: null,
+    selectedWorkOrders: [],
+    requestDialogLines: [],
     requestDialogOpen: false
   };
+  const REQUESTED_SHIP_WINDOWS = Object.freeze(['Today', 'Tomorrow', 'This Week', 'No Rush']);
+  const DEFAULT_REQUESTED_SHIP_WINDOW = REQUESTED_SHIP_WINDOWS[0];
   let requestDialogReturnFocus = null;
   let temporaryRequestSequence = 0;
 
@@ -40,6 +44,8 @@
   function setSelectedOrder(order) {
     dashboardState.selectedOrder = order || null;
     dashboardState.selectedWorkOrder = null;
+    dashboardState.selectedWorkOrders = [];
+    dashboardState.requestDialogLines = [];
     renderSalesOrderDashboardModule();
   }
 
@@ -56,15 +62,26 @@
   function renderSalesOrderSummary() {
     const official = dashboardState.selectedOrder?.official || {};
     const selectedWorkOrder = dashboardState.selectedWorkOrder?.official || {};
+    const selectedCount = dashboardState.selectedWorkOrders.length;
 
     setText('salesOrderSummaryCustomer', official.customer || 'Select an order');
     setText('salesOrderSummarySalesOrder', official.salesOrder || 'N/A');
     setText('salesOrderSummaryCustomerPo', official.customerPo || 'N/A');
     setText('salesOrderSummaryLineItems', String(getRelatedRows().length));
     setText('salesOrderSummaryWorkOrders', String(countRelatedWorkOrders()));
-    setText('salesOrderSummaryOperationalStatus', official.operationalStatus || 'N/A');
+    setOperationalStatus(
+      'salesOrderSummaryOperationalStatus',
+      selectedWorkOrder.operationalStatus || official.operationalStatus
+    );
     setText('salesOrderDashboardSelectedSalesOrder', official.salesOrder || 'None selected');
-    setText('salesOrderDashboardSelectedWorkOrder', selectedWorkOrder.workOrder || 'None selected');
+    setText(
+      'salesOrderDashboardSelectedWorkOrder',
+      selectedCount === 1
+        ? selectedWorkOrder.workOrder || '1 line selected'
+        : selectedCount > 1
+          ? selectedCount + ' lines selected'
+          : 'None selected'
+    );
   }
 
   function renderRelatedWorkOrders() {
@@ -73,14 +90,14 @@
 
     const relatedRows = getRelatedRows();
     if (!relatedRows.length) {
-      rows.innerHTML = '<tr><td class="sales-order-dashboard-empty" colspan="5">Select a Sales Order from Operations Center.</td></tr>';
+      rows.innerHTML = '<tr><td class="sales-order-dashboard-empty" colspan="6">Select a Sales Order from Operations Center.</td></tr>';
       return;
     }
 
     rows.innerHTML = relatedRows.map((row, index) => {
       const official = row.official || {};
       const rowClass = index % 2 === 0 ? 'rowEven' : 'rowOdd';
-      const selected = row === dashboardState.selectedWorkOrder;
+      const selected = dashboardState.selectedWorkOrders.includes(row);
       return [
         '<tr class="',
         rowClass,
@@ -91,6 +108,9 @@
         '" tabindex="0" aria-selected="',
         selected ? 'true' : 'false',
         '" onclick="selectSalesOrderDashboardWorkOrder(event)" onkeydown="handleSalesOrderDashboardWorkOrderKeydown(event)">',
+        '<td>',
+        escapeDashboardHtml(official.sequenceLine || 'N/A'),
+        '</td>',
         '<td>',
         '<button type="button" class="sales-order-dashboard-work-order-link" data-related-row-index="',
         String(index),
@@ -107,9 +127,9 @@
         '<td>',
         escapeDashboardHtml(official.dueDate || 'N/A'),
         '</td>',
-        '<td><span class="sales-order-dashboard-status-pill">',
-        escapeDashboardHtml(official.operationalStatus || 'N/A'),
-        '</span></td>',
+        '<td>',
+        renderOperationalStatus(official.operationalStatus, 'sales-order-dashboard-status-pill'),
+        '</td>',
         '</tr>'
       ].join('');
     }).join('');
@@ -121,9 +141,13 @@
     const selectedRow = getRelatedRows()[index];
     if (!selectedRow) return;
 
-    dashboardState.selectedWorkOrder = dashboardState.selectedWorkOrder === selectedRow
-      ? null
-      : selectedRow;
+    const selectedIndex = dashboardState.selectedWorkOrders.indexOf(selectedRow);
+    if (selectedIndex >= 0) {
+      dashboardState.selectedWorkOrders.splice(selectedIndex, 1);
+    } else {
+      dashboardState.selectedWorkOrders.push(selectedRow);
+    }
+    dashboardState.selectedWorkOrder = dashboardState.selectedWorkOrders[dashboardState.selectedWorkOrders.length - 1] || null;
     renderSalesOrderDashboardModule();
   }
 
@@ -143,102 +167,208 @@
     const button = document.getElementById('salesOrderDashboardCreateRequestToShipButton');
     if (!button) return;
 
-    const enabled = isValidWorkOrder(dashboardState.selectedWorkOrder);
+    const selectedRows = dashboardState.selectedWorkOrders;
+    const enabled = selectedRows.length > 0 && selectedRows.every(isValidWorkOrder);
     button.disabled = !enabled;
     button.title = enabled
-      ? 'Create a Request to Ship for the selected work order.'
-      : 'Select a valid work order before creating a Request to Ship.';
+      ? 'Create one Request to Ship for the selected Sales Order line' + (selectedRows.length === 1 ? '.' : 's.')
+      : 'Select one or more valid Sales Order lines before creating a Request to Ship.';
   }
 
   function openRequestToShipDialog() {
-    if (!isValidWorkOrder(dashboardState.selectedWorkOrder)) return;
+    const selectedRows = dashboardState.selectedWorkOrders.filter(isValidWorkOrder);
+    if (!selectedRows.length || selectedRows.length !== dashboardState.selectedWorkOrders.length) return;
 
-    const official = dashboardState.selectedWorkOrder.official || {};
-    const openQuantity = parseDashboardQuantity(official.opQtyOpen);
+    const orderOfficial = dashboardState.selectedOrder?.official || {};
+    const firstOfficial = selectedRows[0]?.official || {};
     const dialog = document.getElementById('requestToShipDialog');
-    const quantityInput = document.getElementById('requestToShipQuantity');
-    if (!dialog || !quantityInput) return;
+    if (!dialog) return;
 
-    setText('requestToShipCustomer', official.customer || 'N/A');
-    setText('requestToShipSalesOrder', official.salesOrder || 'N/A');
-    setText('requestToShipWorkOrder', official.workOrder || 'N/A');
-    setText('requestToShipAssembly', official.partNumber || 'N/A');
-    setText('requestToShipOpenQuantity', formatDashboardQuantity(openQuantity));
-    setText('requestToShipDueDate', official.dueDate || 'N/A');
+    dashboardState.requestDialogLines = selectedRows.map(buildRequestDialogLine);
 
-    quantityInput.max = String(openQuantity);
-    quantityInput.value = formatDashboardQuantity(openQuantity);
+    setText('requestToShipCustomer', orderOfficial.customer || firstOfficial.customer || 'N/A');
+    setText('requestToShipSalesOrder', orderOfficial.salesOrder || firstOfficial.salesOrder || 'N/A');
+    setText('requestToShipSelectedLineCount', String(dashboardState.requestDialogLines.length));
+    const requestedShipWindow = document.getElementById('requestToShipWindow');
+    if (requestedShipWindow) requestedShipWindow.value = DEFAULT_REQUESTED_SHIP_WINDOW;
+    renderRequestToShipDialogLines();
+
     requestDialogReturnFocus = document.activeElement;
     dashboardState.requestDialogOpen = true;
     dialog.hidden = false;
     validateRequestToShipQuantity();
-    quantityInput.focus();
-    quantityInput.select();
+    const firstQuantityInput = getRequestLineQuantityInput(0);
+    firstQuantityInput?.focus?.();
+    firstQuantityInput?.select?.();
+  }
+
+  function buildRequestDialogLine(sourceWorkOrder, index) {
+    const official = sourceWorkOrder?.official || {};
+    const masterVpro5 = sourceWorkOrder?.masterRecord?.vpro5 || {};
+    return {
+      lineIndex: index,
+      masterRecordKey: sourceWorkOrder?.masterRecordKey || '',
+      customerNumber: official.customerNumber || masterVpro5.customerNumber || '',
+      customer: official.customer || masterVpro5.customer || '',
+      salesOrder: official.salesOrder || masterVpro5.salesOrder || '',
+      salesOrderLine: official.sequenceLine || masterVpro5.sequenceLine || '',
+      workOrder: official.workOrder || masterVpro5.workOrder || '',
+      assembly: official.partNumber || masterVpro5.partNumber || '',
+      description: official.description || masterVpro5.description || '',
+      openQuantity: parseDashboardQuantity(official.opQtyOpen ?? masterVpro5.qtyOpen),
+      dueDate: official.dueDate || masterVpro5.dueDate || '',
+      sourceWorkOrder
+    };
+  }
+
+  function renderRequestToShipDialogLines() {
+    const target = document.getElementById('requestToShipLineRows');
+    if (!target) return;
+
+    target.innerHTML = dashboardState.requestDialogLines.map((line, index) => {
+      const inputId = getRequestLineQuantityInputId(index);
+      const validationId = 'requestToShipLineValidation-' + index;
+      return [
+        '<tr>',
+        '<td>', escapeDashboardHtml(line.salesOrderLine || 'N/A'), '</td>',
+        '<td>', escapeDashboardHtml(line.workOrder || 'Unknown'), '</td>',
+        '<td>', escapeDashboardHtml(line.assembly || 'N/A'), '</td>',
+        '<td>', escapeDashboardHtml(formatDashboardQuantity(line.openQuantity)), '</td>',
+        '<td>',
+        '<input class="sales-order-dashboard-request-quantity" id="', inputId,
+        '" data-request-to-ship-quantity="true" data-request-line-index="', String(index),
+        '" type="number" min="0" max="', escapeDashboardHtml(formatDashboardQuantity(line.openQuantity)),
+        '" step="any" required value="', escapeDashboardHtml(formatDashboardQuantity(line.openQuantity)),
+        '" aria-describedby="', validationId, '" oninput="validateRequestToShipQuantity()">',
+        '<div id="', validationId, '" class="sales-order-dashboard-request-line-validation"></div>',
+        '</td>',
+        '</tr>'
+      ].join('');
+    }).join('');
+  }
+
+  function getRequestLineQuantityInputId(index) {
+    return index === 0 ? 'requestToShipQuantity' : 'requestToShipQuantity-' + index;
+  }
+
+  function getRequestLineQuantityInput(index) {
+    return document.getElementById(getRequestLineQuantityInputId(index));
   }
 
   function cancelRequestToShipDialog() {
     const dialog = document.getElementById('requestToShipDialog');
     if (dialog) dialog.hidden = true;
     dashboardState.requestDialogOpen = false;
+    dashboardState.requestDialogLines = [];
     setText('requestToShipValidation', '');
     requestDialogReturnFocus?.focus?.();
     requestDialogReturnFocus = null;
   }
 
   function validateRequestToShipQuantity() {
-    const quantityInput = document.getElementById('requestToShipQuantity');
     const sendButton = document.getElementById('sendRequestToShippingButton');
-    const openQuantity = parseDashboardQuantity(dashboardState.selectedWorkOrder?.official?.opQtyOpen);
-    const requestedQuantity = parseDashboardQuantity(quantityInput?.value);
-    let message = '';
+    const requestedShipWindow = String(document.getElementById('requestToShipWindow')?.value || '').trim();
+    const hasValidRequestedShipWindow = REQUESTED_SHIP_WINDOWS.includes(requestedShipWindow);
+    const lines = dashboardState.requestDialogLines.map((line, index) => {
+      const quantityInput = getRequestLineQuantityInput(index);
+      const requestedQuantity = parseDashboardQuantity(quantityInput?.value);
+      let message = '';
 
-    if (!quantityInput?.value || requestedQuantity <= 0) {
-      message = 'Qty Requested to Ship must be greater than zero.';
-    } else if (requestedQuantity > openQuantity) {
-      message = 'Qty Requested to Ship cannot exceed Open Quantity.';
-    }
+      if (!quantityInput?.value || requestedQuantity <= 0) {
+        message = 'Quantity must be greater than zero.';
+      } else if (requestedQuantity > line.openQuantity) {
+        message = 'Quantity cannot exceed ' + formatDashboardQuantity(line.openQuantity) + '.';
+      }
+
+      setText('requestToShipLineValidation-' + index, message);
+      quantityInput?.setAttribute?.('aria-invalid', message ? 'true' : 'false');
+      return {
+        ...line,
+        requestedQuantity,
+        valid: !message,
+        message
+      };
+    });
+    const invalidLineCount = lines.filter(line => !line.valid).length;
+    const message = !hasValidRequestedShipWindow
+      ? 'Select a Requested Ship Window.'
+      : !lines.length
+      ? 'Select at least one Sales Order line.'
+      : invalidLineCount
+        ? 'Correct ' + invalidLineCount + ' invalid line ' + (invalidLineCount === 1 ? 'quantity.' : 'quantities.')
+        : '';
 
     setText('requestToShipValidation', message);
     if (sendButton) sendButton.disabled = !!message;
-    if (quantityInput) quantityInput.setAttribute('aria-invalid', message ? 'true' : 'false');
     return {
       valid: !message,
       message,
-      requestedQuantity,
-      openQuantity
+      lines,
+      requestedShipWindow,
+      requestedQuantity: lines[0]?.requestedQuantity || 0,
+      openQuantity: lines[0]?.openQuantity || 0
     };
   }
 
   function sendRequestToShipping(event) {
     event?.preventDefault?.();
     const validation = validateRequestToShipQuantity();
-    if (!validation.valid || !dashboardState.selectedWorkOrder) return;
+    if (!validation.valid || !validation.lines.length) return;
 
     if (typeof window.ShippingWorkspace?.openRequest !== 'function') {
       console.error('Shipping Workspace is not available.');
       return;
     }
 
-    const official = dashboardState.selectedWorkOrder.official || {};
+    const requestLines = validation.lines.map(line => ({
+      masterRecordKey: line.masterRecordKey,
+      customerNumber: line.customerNumber,
+      customer: line.customer,
+      salesOrder: line.salesOrder,
+      salesOrderLine: line.salesOrderLine,
+      sequenceLine: line.salesOrderLine,
+      workOrder: line.workOrder,
+      assembly: line.assembly,
+      partNumber: line.assembly,
+      description: line.description,
+      openQuantity: line.openQuantity,
+      qtyRequested: line.requestedQuantity,
+      dueDate: line.dueDate,
+      sourceWorkOrder: line.sourceWorkOrder
+    }));
+    const firstLine = requestLines[0];
+    const totalOpenQuantity = requestLines.reduce((total, line) => total + line.openQuantity, 0);
+    const totalRequestedQuantity = requestLines.reduce((total, line) => total + line.qtyRequested, 0);
     const requestToShip = {
       requestId: createTemporaryRequestId(),
       requestType: 'Request To Ship',
       requestedBy: 'Operations',
       requestDateTime: new Date().toISOString(),
-      customerNumber: official.customerNumber || '',
-      customer: official.customer || '',
-      salesOrder: official.salesOrder || '',
-      workOrder: official.workOrder || '',
-      assembly: official.partNumber || '',
-      openQuantity: validation.openQuantity,
-      qtyRequested: validation.requestedQuantity,
-      dueDate: official.dueDate || '',
+      customerNumber: firstLine.customerNumber,
+      customer: firstLine.customer,
+      salesOrder: firstLine.salesOrder,
+      salesOrderLine: requestLines.length === 1 ? firstLine.salesOrderLine : requestLines.length + ' lines',
+      workOrder: requestLines.length === 1 ? firstLine.workOrder : requestLines.length + ' work orders',
+      assembly: requestLines.length === 1 ? firstLine.assembly : requestLines.length + ' assemblies',
+      openQuantity: totalOpenQuantity,
+      qtyRequested: totalRequestedQuantity,
+      dueDate: summarizeRequestDueDates(requestLines),
+      requestedShipWindow: validation.requestedShipWindow,
       status: 'Pending Shipping',
-      sourceWorkOrder: dashboardState.selectedWorkOrder
+      lineCount: requestLines.length,
+      lines: requestLines,
+      sourceWorkOrder: firstLine.sourceWorkOrder,
+      sourceWorkOrders: requestLines.map(line => line.sourceWorkOrder)
     };
 
     cancelRequestToShipDialog();
     window.ShippingWorkspace.openRequest(requestToShip);
+  }
+
+  function summarizeRequestDueDates(lines) {
+    const dueDates = Array.from(new Set(lines.map(line => String(line.dueDate || '').trim()).filter(Boolean)));
+    if (!dueDates.length) return '';
+    return dueDates.length === 1 ? dueDates[0] : 'Multiple';
   }
 
   function createTemporaryRequestId() {
@@ -296,6 +426,38 @@
     if (element) element.textContent = value;
   }
 
+  function setOperationalStatus(id, value) {
+    const element = document.getElementById(id);
+    if (!element) return;
+
+    const presentation = getOperationalStatusPresentation(value);
+    element.textContent = presentation.label || 'N/A';
+    element.classList.toggle('dle-operational-status-badge', presentation.isPacking);
+    element.classList.toggle('dle-operational-status-packing', presentation.isPacking);
+  }
+
+  function renderOperationalStatus(value, baseClass) {
+    const presentation = getOperationalStatusPresentation(value);
+    const classes = [baseClass, presentation.className].filter(Boolean).join(' ');
+    return '<span class="' + classes + '">' + escapeDashboardHtml(presentation.label || 'N/A') + '</span>';
+  }
+
+  function getOperationalStatusPresentation(value) {
+    if (typeof window.OperationsCenter?.viewModel?.getOperationalStatusPresentation === 'function') {
+      return window.OperationsCenter.viewModel.getOperationalStatusPresentation(value);
+    }
+
+    const status = String(value ?? '').trim();
+    const isPacking = status.toLowerCase() === 'packing';
+    return {
+      label: isPacking ? '\u{1F7E8} Packing' : status,
+      isPacking,
+      className: isPacking
+        ? 'dle-operational-status-badge dle-operational-status-packing'
+        : ''
+    };
+  }
+
   function escapeDashboardHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, character => ({
       '&': '&amp;',
@@ -313,7 +475,11 @@
   window.SalesOrderDashboard.openRequestToShipDialog = openRequestToShipDialog;
   window.SalesOrderDashboard.cancelRequestToShipDialog = cancelRequestToShipDialog;
   window.SalesOrderDashboard.sendRequestToShipping = sendRequestToShipping;
-  window.SalesOrderDashboard.getState = () => ({ ...dashboardState });
+  window.SalesOrderDashboard.getState = () => ({
+    ...dashboardState,
+    selectedWorkOrders: dashboardState.selectedWorkOrders.slice(),
+    requestDialogLines: dashboardState.requestDialogLines.slice()
+  });
   window.SalesOrderDashboard.openWorkOrderDashboard = openWorkOrderDashboard;
   window.SalesOrderDashboard.render = renderSalesOrderDashboardModule;
 
