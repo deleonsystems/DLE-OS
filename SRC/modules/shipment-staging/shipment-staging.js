@@ -81,21 +81,21 @@
 `;
 
     records.forEach((record, index) => {
-      const shipmentId = record.shipmentId || '';
+      const shipmentId = getShipmentStagingRecordId(record);
       const selectedClass = shipmentId && shipmentId === selectedShipmentStagingId
         ? ' shipment-staging-row-selected'
         : '';
       html += `
 <tr class="${index % 2 === 0 ? 'rowEven' : 'rowOdd'} shipment-staging-row${selectedClass}" data-shipment-staging-row="true" data-shipment-id="${escapeHtml(shipmentId)}" onclick="selectShipmentStagingTransaction(event, this.dataset.shipmentId)">
-    <td>${escapeHtml(record.shipmentDateTime || '')}</td>
-    <td>${escapeHtml(record.shipmentId || '')}</td>
+    <td>${escapeHtml(record.shipmentDateTime || record.requestDateTime || '')}</td>
+    <td>${escapeHtml(shipmentId)}</td>
     <td class="nowrap">${escapeHtml(formatShipmentStagingCustomer(record))}</td>
     <td>${escapeHtml(record.salesOrder || '')}</td>
     <td>${escapeHtml(record.salesOrderLine || '')}</td>
     <td>${escapeHtml(record.workOrder || '')}</td>
-    <td>${escapeHtml(record.itemNumber || '')}</td>
+    <td>${escapeHtml(record.itemNumber || record.assembly || '')}</td>
     <td class="nowrap">${escapeHtml(record.description || '')}</td>
-    <td>${escapeHtml(String(record.quantityShipped ?? ''))}</td>
+    <td>${escapeHtml(String(record.quantityShipped ?? record.qtyRequested ?? ''))}</td>
     <td>${escapeHtml(record.status || 'Pending Invoice')}</td>
 </tr>
 `;
@@ -107,9 +107,13 @@
 
   function formatShipmentStagingCustomer(record) {
     const customerNumber = normalizeOrderValue(record.customerNumber, '');
-    const customerName = normalizeOrderValue(record.customerName, '');
+    const customerName = normalizeOrderValue(record.customerName || record.customer, '');
     if (customerNumber && customerName) return customerNumber + ' - ' + customerName;
     return customerName || customerNumber;
+  }
+
+  function getShipmentStagingRecordId(record) {
+    return record?.shipmentId || record?.requestId || '';
   }
 
   function filterShipmentStaging() {
@@ -149,7 +153,7 @@
   function syncSelectedShipmentStagingIdToRecords() {
     if (!selectedShipmentStagingId) return;
     const records = Array.isArray(shipmentStagingState.records) ? shipmentStagingState.records : [];
-    if (!records.some(record => record.shipmentId === selectedShipmentStagingId)) {
+    if (!records.some(record => getShipmentStagingRecordId(record) === selectedShipmentStagingId)) {
       selectedShipmentStagingId = '';
     }
   }
@@ -157,7 +161,7 @@
   function getSelectedShipmentStagingRecords() {
     if (!selectedShipmentStagingId) return [];
     const records = Array.isArray(shipmentStagingState.records) ? shipmentStagingState.records : [];
-    return records.filter(record => record.shipmentId === selectedShipmentStagingId);
+    return records.filter(record => getShipmentStagingRecordId(record) === selectedShipmentStagingId);
   }
 
   function updateUndoSelectedShipmentButton() {
@@ -206,7 +210,7 @@
     });
 
     shipmentStagingState.records = shipmentStagingState.records.filter(record =>
-      record.shipmentId !== shipmentId
+      getShipmentStagingRecordId(record) !== shipmentId
     );
     shipmentStagingState.lastUpdated = new Date().toLocaleString();
     selectedShipmentStagingId = '';

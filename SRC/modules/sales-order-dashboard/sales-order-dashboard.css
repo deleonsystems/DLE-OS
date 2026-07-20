@@ -178,6 +178,24 @@
   white-space: nowrap;
 }
 
+.sales-order-dashboard-work-order-row {
+  cursor: pointer;
+  transition: background-color .15s ease, box-shadow .15s ease;
+}
+
+.sales-order-dashboard-work-order-row:hover,
+.sales-order-dashboard-work-order-row:focus {
+  background: rgba(47, 140, 255, .10);
+  outline: none;
+}
+
+.sales-order-dashboard-work-order-row-selected,
+.sales-order-dashboard-work-order-row-selected:hover,
+.sales-order-dashboard-work-order-row-selected:focus {
+  background: rgba(47, 140, 255, .16) !important;
+  box-shadow: inset 3px 0 0 rgba(47, 140, 255, .85);
+}
+
 .sales-order-dashboard-empty {
   color: #9ba8b8;
   text-align: center;
@@ -241,6 +259,112 @@
   opacity: .68;
 }
 
+.sales-order-dashboard-dialog[hidden] {
+  display: none;
+}
+
+.sales-order-dashboard-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.sales-order-dashboard-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 7, 13, .78);
+  backdrop-filter: blur(5px);
+}
+
+.sales-order-dashboard-dialog-card {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid rgba(130, 170, 210, .32);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(18, 31, 47, .99), rgba(7, 15, 25, .99));
+  padding: 20px;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, .55);
+}
+
+.sales-order-dashboard-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.sales-order-dashboard-dialog-header h3 {
+  margin: 5px 0 6px;
+  font-size: 22px;
+}
+
+.sales-order-dashboard-dialog-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.sales-order-dashboard-dialog-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sales-order-dashboard-dialog-field,
+.sales-order-dashboard-quantity-field {
+  border: 1px solid rgba(130, 170, 210, .16);
+  border-radius: 10px;
+  background: rgba(11, 22, 36, .74);
+  padding: 11px 12px;
+  min-width: 0;
+}
+
+.sales-order-dashboard-dialog-field strong,
+.sales-order-dashboard-quantity-field strong {
+  display: block;
+  color: #8bbcff;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.sales-order-dashboard-dialog-field span {
+  display: block;
+  color: #f4f7fb;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.sales-order-dashboard-quantity-field {
+  display: block;
+  margin-top: 14px;
+}
+
+.sales-order-dashboard-quantity-field input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sales-order-dashboard-dialog-validation {
+  min-height: 20px;
+  margin-top: 8px;
+  color: #ffb4b4;
+  font-size: 13px;
+}
+
+.sales-order-dashboard-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 10px;
+}
+
 .sales-order-dashboard-management-section {
   border-top: 1px solid rgba(130, 170, 210, .18);
   margin-top: 14px;
@@ -285,5 +409,13 @@
 
   .sales-order-dashboard-document-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sales-order-dashboard-dialog-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sales-order-dashboard-dialog-header {
+    display: grid;
   }
 }

@@ -55,7 +55,7 @@
     {
       id: "shipping",
       label: "Shipping",
-      purpose: "Shipment staging, shipment verification, and customer shipments."
+      purpose: "Request to Ship preparation and customer shipment operations."
     },
     {
       id: "reports",

@@ -121,7 +121,7 @@
           <button type="button" disabled>View Customer PO</button>
           <button type="button" disabled>Generate Packing Slip</button>
           <button type="button" disabled>View Sales Order Snapshot</button>
-          <button type="button" disabled>Create Request to Ship</button>
+          <button type="button" id="salesOrderDashboardCreateRequestToShipButton" onclick="openRequestToShipDialog()" disabled>Create Request to Ship</button>
           <button type="button" disabled>View Shipment History</button>
           <button type="button" disabled>View Invoice History</button>
           <button type="button" disabled>Open Work Order Dashboard</button>
@@ -142,5 +142,59 @@
         </div>
       </aside>
     </div>
+  </div>
+
+  <div id="requestToShipDialog" class="sales-order-dashboard-dialog" role="dialog" aria-modal="true" aria-labelledby="requestToShipDialogTitle" hidden>
+    <div class="sales-order-dashboard-dialog-backdrop" onclick="cancelRequestToShipDialog()"></div>
+    <section class="sales-order-dashboard-dialog-card" onclick="event.stopPropagation()">
+      <div class="sales-order-dashboard-dialog-header">
+        <div>
+          <span class="module-eyebrow">Operations Request</span>
+          <h3 id="requestToShipDialogTitle">Request to Ship</h3>
+          <p>Review the selected work order and specify the quantity requested from Shipping.</p>
+        </div>
+        <button type="button" class="secondary-btn" onclick="cancelRequestToShipDialog()" aria-label="Close Request to Ship dialog">Cancel</button>
+      </div>
+
+      <form onsubmit="sendRequestToShipping(event)">
+        <div class="sales-order-dashboard-dialog-grid">
+          <div class="sales-order-dashboard-dialog-field">
+            <strong>Customer</strong>
+            <span id="requestToShipCustomer">N/A</span>
+          </div>
+          <div class="sales-order-dashboard-dialog-field">
+            <strong>Sales Order</strong>
+            <span id="requestToShipSalesOrder">N/A</span>
+          </div>
+          <div class="sales-order-dashboard-dialog-field">
+            <strong>Work Order</strong>
+            <span id="requestToShipWorkOrder">N/A</span>
+          </div>
+          <div class="sales-order-dashboard-dialog-field">
+            <strong>Assembly / Part Number</strong>
+            <span id="requestToShipAssembly">N/A</span>
+          </div>
+          <div class="sales-order-dashboard-dialog-field">
+            <strong>Open Quantity</strong>
+            <span id="requestToShipOpenQuantity">0</span>
+          </div>
+          <div class="sales-order-dashboard-dialog-field">
+            <strong>Due Date</strong>
+            <span id="requestToShipDueDate">N/A</span>
+          </div>
+        </div>
+
+        <label class="sales-order-dashboard-quantity-field" for="requestToShipQuantity">
+          <strong>Qty Requested to Ship</strong>
+          <input id="requestToShipQuantity" type="number" min="0" step="any" required oninput="validateRequestToShipQuantity()">
+        </label>
+        <div id="requestToShipValidation" class="sales-order-dashboard-dialog-validation" role="status"></div>
+
+        <div class="sales-order-dashboard-dialog-actions">
+          <button type="button" class="secondary-btn" onclick="cancelRequestToShipDialog()">Cancel</button>
+          <button id="sendRequestToShippingButton" type="submit">Send to Shipping</button>
+        </div>
+      </form>
+    </section>
   </div>
 </section>

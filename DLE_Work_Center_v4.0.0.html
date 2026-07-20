@@ -4634,6 +4634,7 @@ body {
   <link rel="stylesheet" href="SRC/modules/work-order-dashboard/work-order-dashboard.css" />
   <link rel="stylesheet" href="SRC/modules/shipment-staging/shipment-staging.css" />
   <link rel="stylesheet" href="SRC/modules/shipment-history/shipment-history.css" />
+  <link rel="stylesheet" href="SRC/modules/shipping/shipping-workspace.css" />
   <link rel="stylesheet" href="SRC/workspaces/kitting/kitting-workspace.css" />
   <link rel="stylesheet" href="SRC/workbenches/kitting/kitting-workbench.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -4965,32 +4966,7 @@ body {
       </div>
 
       <div class="workspace-home" data-workspace-home="shipping">
-        <div class="workspace-dashboard">
-          <div class="workspace-dashboard-header">
-            <div class="workspace-dashboard-title">
-              <span class="small-icon">SH</span>
-              <div>
-                <h1>Shipping Workspace</h1>
-                <p>Focused view for shipment staging, shipment verification, and customer shipments.</p>
-              </div>
-            </div>
-            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
-          </div>
-          <div class="workspace-dashboard-grid">
-            <section class="workspace-dashboard-card">
-              <h3>Shipment Staging</h3>
-              <p>Future queue for open order lines ready for shipment review and Request to Ship output.</p>
-            </section>
-            <section class="workspace-dashboard-card">
-              <h3>Shipment Verification</h3>
-              <p>Future summary of confirmed shipment transactions pending invoice reconciliation.</p>
-            </section>
-            <section class="workspace-dashboard-card">
-              <h3>Customer Shipments</h3>
-              <p>Future quick access to recently archived shipments and customer shipping activity.</p>
-            </section>
-          </div>
-        </div>
+        <div data-workspace-mount="shipping"></div>
       </div>
 
       <div class="workspace-home" data-workspace-home="reports">
@@ -6686,6 +6662,7 @@ BOM Viewer</h2>
   <script src="SRC/shell/workspace-registry.js"></script>
   <script src="SRC/shell/workspace-shell.js"></script>
   <script src="SRC/shell/workbench-shell.js"></script>
+  <script src="SRC/modules/shipping/shipping-workspace.js"></script>
   <script src="SRC/workspaces/kitting/kitting-workspace.js"></script>
   <script src="SRC/workbenches/kitting/kitting-workbench.js"></script>
   <script>

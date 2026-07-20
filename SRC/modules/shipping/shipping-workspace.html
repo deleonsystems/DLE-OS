@@ -1,0 +1,97 @@
+<div class="shipping-workspace" data-workspace-layout="shipping">
+  <header class="shipping-workspace-header">
+    <div class="shipping-workspace-title">
+      <span class="small-icon">SH</span>
+      <div>
+        <h1>Shipping Workspace</h1>
+        <p>Operational workspace for preparing customer shipments.</p>
+      </div>
+    </div>
+    <div class="shipping-workspace-status">Workspace foundation</div>
+  </header>
+
+  <div class="shipping-workspace-layout">
+    <main class="shipping-workspace-main">
+      <section class="shipping-workspace-region" aria-labelledby="shippingQueueTitle">
+        <div class="shipping-workspace-region-heading">
+          <div>
+            <h2 id="shippingQueueTitle">Shipping Queue</h2>
+            <p>Work orders transferred from the Sales Order Dashboard for shipment preparation.</p>
+          </div>
+          <span id="shippingQueueCount" class="shipping-queue-count">0 requests</span>
+        </div>
+        <div id="shippingQueue" class="shipping-queue"></div>
+      </section>
+
+      <section class="shipping-workspace-region" aria-labelledby="packingQueueTitle">
+        <div class="shipping-workspace-region-heading">
+          <div>
+            <h2 id="packingQueueTitle">Packing Queue</h2>
+            <p>Accepted shipment requests currently being prepared for shipment.</p>
+          </div>
+          <span id="packingQueueCount" class="shipping-queue-count">0 requests</span>
+        </div>
+        <div id="packingQueue" class="shipping-queue"></div>
+      </section>
+    </main>
+
+    <aside class="shipping-action-panel" aria-labelledby="shippingActionsTitle">
+      <h2 id="shippingActionsTitle">Shipping Actions</h2>
+      <div class="shipping-current-work-order">
+        <strong>Selected Work Order</strong>
+        <span id="shippingSelectedWorkOrder">None selected</span>
+      </div>
+      <div class="shipping-action-buttons">
+        <button id="shippingCreateRequestToShipButton" type="button" disabled>Create Request to Ship</button>
+        <button id="shippingAcceptRequestButton" type="button" onclick="acceptShippingRequest()" disabled>Accept Request</button>
+        <button id="shippingReturnToOperationsButton" type="button" onclick="openReturnToOperationsDialog()" disabled>Return to Operations</button>
+        <button id="shippingPrintRequestToShipButton" type="button" onclick="printPackingRequestToShip()" disabled>Print Request to Ship</button>
+        <button id="shippingShipmentProcessedButton" type="button" onclick="processPackingShipment()" disabled>Shipment Processed</button>
+        <button type="button" disabled>Shipping Notes</button>
+        <button type="button" disabled>Packing Slip</button>
+        <button type="button" disabled>Shipment History</button>
+      </div>
+    </aside>
+  </div>
+
+  <div id="returnToOperationsDialog" class="shipping-dialog" role="dialog" aria-modal="true" aria-labelledby="returnToOperationsDialogTitle" hidden>
+    <div class="shipping-dialog-backdrop" onclick="cancelReturnToOperationsDialog()"></div>
+    <section class="shipping-dialog-card" onclick="event.stopPropagation()">
+      <div class="shipping-dialog-header">
+        <div>
+          <span class="module-eyebrow">Shipping Response</span>
+          <h2 id="returnToOperationsDialogTitle">Return Request to Operations</h2>
+          <p>Explain why Shipping cannot accept the request exactly as submitted.</p>
+        </div>
+        <button type="button" class="secondary-btn" onclick="cancelReturnToOperationsDialog()" aria-label="Close Return Request to Operations dialog">Cancel</button>
+      </div>
+
+      <form onsubmit="submitReturnToOperations(event)">
+        <label class="shipping-dialog-field" for="returnToOperationsReason">
+          <strong>Reason</strong>
+          <select id="returnToOperationsReason" required onchange="validateReturnToOperationsDialog()">
+            <option value="">Select a reason</option>
+            <option value="Requested quantity unavailable">Requested quantity unavailable</option>
+            <option value="Waiting for production">Waiting for production</option>
+            <option value="Quality Hold">Quality Hold</option>
+            <option value="Material discrepancy">Material discrepancy</option>
+            <option value="Documentation incomplete">Documentation incomplete</option>
+            <option value="Other">Other</option>
+          </select>
+        </label>
+
+        <label class="shipping-dialog-field" for="returnToOperationsComments">
+          <strong>Comments</strong>
+          <textarea id="returnToOperationsComments" rows="5" placeholder="Explain why the request is being returned to Operations."></textarea>
+        </label>
+
+        <div id="returnToOperationsValidation" class="shipping-dialog-validation" role="status"></div>
+
+        <div class="shipping-dialog-actions">
+          <button type="button" class="secondary-btn" onclick="cancelReturnToOperationsDialog()">Cancel</button>
+          <button id="confirmReturnToOperationsButton" type="submit" disabled>Return to Operations</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
