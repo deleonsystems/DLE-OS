@@ -4635,6 +4635,7 @@ body {
   <link rel="stylesheet" href="SRC/modules/shipment-staging/shipment-staging.css" />
   <link rel="stylesheet" href="SRC/modules/shipment-history/shipment-history.css" />
   <link rel="stylesheet" href="SRC/modules/shipping/shipping-workspace.css" />
+  <link rel="stylesheet" href="SRC/modules/rfq-workspace/rfq-workspace.css" />
   <link rel="stylesheet" href="SRC/workspaces/kitting/kitting-workspace.css" />
   <link rel="stylesheet" href="SRC/workbenches/kitting/kitting-workbench.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -4758,32 +4759,7 @@ body {
       </div>
 
       <div class="workspace-home" data-workspace-home="rfq-quoting">
-        <div class="workspace-dashboard">
-          <div class="workspace-dashboard-header">
-            <div class="workspace-dashboard-title">
-              <span class="small-icon">RFQ</span>
-              <div>
-                <h1>RFQ / Quoting Workspace</h1>
-                <p>Focused view for incoming opportunities, customer quotations, and estimating workflow.</p>
-              </div>
-            </div>
-            <div class="workspace-dashboard-status">Workspace layout placeholder</div>
-          </div>
-          <div class="workspace-dashboard-grid">
-            <section class="workspace-dashboard-card">
-              <h3>Incoming Opportunities</h3>
-              <p>Future queue for RFQs, customer requests, and quotation intake review.</p>
-            </section>
-            <section class="workspace-dashboard-card">
-              <h3>Estimating Workflow</h3>
-              <p>Future workspace for cost inputs, technical assumptions, and quote preparation status.</p>
-            </section>
-            <section class="workspace-dashboard-card">
-              <h3>Customer Quotations</h3>
-              <p>Future view for active quotes, pending responses, and follow-up actions.</p>
-            </section>
-          </div>
-        </div>
+        <div data-workspace-mount="rfq-quoting"></div>
       </div>
 
       <div class="workspace-home" data-workspace-home="order-entry">
@@ -6663,6 +6639,7 @@ BOM Viewer</h2>
   <script src="SRC/shell/workspace-shell.js"></script>
   <script src="SRC/shell/workbench-shell.js"></script>
   <script src="SRC/modules/shipping/shipping-workspace.js"></script>
+  <script src="SRC/modules/rfq-workspace/rfq-workspace.js"></script>
   <script src="SRC/workspaces/kitting/kitting-workspace.js"></script>
   <script src="SRC/workbenches/kitting/kitting-workbench.js"></script>
   <script>
