@@ -8209,6 +8209,7 @@ async function approveReconciliationErpUpdates() {
     const acceptedNewOrderEvents = getAcceptedNewOrderReviewQueueEvents();
     const acceptedModifiedRecordEvents = getAcceptedModifiedRecordReviewQueueEvents();
     const approvedEnrichmentEvents = getApprovedMasterDataEnrichmentReviewQueueEvents();
+    const approvedMasterArchiveRecoveryEvents = getApprovedShipmentMasterArchiveRecoveryEvents();
     const approvedArchiveShipmentIds = getApprovedShipmentArchiveShipmentIdsFromReviewQueue();
     const archiveCandidates = getShipmentStagingArchiveCandidates(approvedArchiveShipmentIds);
     const hasShipmentSensitiveMasterUpdates = acceptedNewOrderEvents.length > 0;
@@ -8240,7 +8241,7 @@ async function approveReconciliationErpUpdates() {
     }
 
     const hasApprovedUpdates = acceptedNewOrderEvents.length > 0 || acceptedModifiedRecordEvents.length > 0 || approvedEnrichmentEvents.length > 0;
-    if (!hasApprovedUpdates && !archiveCandidates.length) {
+    if (!hasApprovedUpdates && !archiveCandidates.length && !approvedMasterArchiveRecoveryEvents.length) {
         setReconciliationActionStatus('No staged Review Queue decisions are available to approve.');
         return;
     }
@@ -8259,9 +8260,19 @@ async function approveReconciliationErpUpdates() {
             : { updatedRecords: 0, createdRecords: 0 };
 
         const archiveResult = await archiveApprovedShipmentStagingRecords(approvedArchiveShipmentIds);
+        const recoveredMasterRecordKeys = archiveMasterRecordsFromShipmentHistoryRecoveryEvents(
+            approvedMasterArchiveRecoveryEvents,
+            new Date().toLocaleString()
+        );
+        archiveResult.archivedMasterRecordKeys = Array.from(new Set([
+            ...(archiveResult.archivedMasterRecordKeys || []),
+            ...recoveredMasterRecordKeys
+        ]));
+        archiveResult.archivedMasterRecords = archiveResult.archivedMasterRecordKeys.length;
 
-        if (hasApprovedUpdates || archiveResult.archivedRecords) {
+        if (hasApprovedUpdates || archiveResult.archivedRecords || archiveResult.archivedMasterRecords) {
             await persistCurrentOperationalMasterData(archiveResult);
+            await verifyShipmentArchiveOperationalDatasetsSynchronized(archiveResult);
             refreshDleMasterDataViewerAfterWrite();
             refreshOpenOrdersFromMasterData();
         }
@@ -8273,6 +8284,9 @@ async function approveReconciliationErpUpdates() {
         renderReconciliationReviewQueueFromEvents(verificationEvents);
         renderShipmentStagingModule();
         renderShipmentHistoryModule();
+        if (typeof renderOperationsCenterModule === 'function') {
+            renderOperationsCenterModule();
+        }
         refreshOpenOrdersTableView();
         renderReconciliationDashboardStatus();
         renderReconciliationSummary(verificationSummary);
@@ -8290,8 +8304,7 @@ async function approveReconciliationErpUpdates() {
             result.createdRecords + ' new ERP record(s) added.',
             archiveResult.archivedRecords + ' shipment staging record(s) archived into Shipment History.',
             (archiveResult.previouslyArchivedRecords || 0) + ' previously archived shipment staging record(s) recovered without duplicating Shipment History.',
-            'Master Data records were preserved during shipment archive.',
-            (archiveResult.archivedMasterRecords || 0) + ' ERP-invoiced Master Data record(s) marked archived.',
+            (archiveResult.archivedMasterRecords || 0) + ' ERP-invoiced Master Data record(s) marked archived and removed from the active operational workload.',
             'DLE Master JSON persisted and verified.',
             archiveResult.archivedTransactions + ' shipment transaction(s) removed from Shipment Staging.',
             (archiveResult.persistedStagingRecords ?? shipmentStagingState.records.length) + ' shipment staging record(s) persisted after archive.',
@@ -8825,7 +8838,82 @@ function buildPendingInvoiceReconciliationCandidates(context = {}) {
             });
         });
 
+    buildShipmentHistoryMasterRecoveryCandidates(masterByKey, candidatesByKey, shipmentRecords)
+        .forEach(candidate => candidatesByKey.set(candidate.recordKey, candidate));
+
     return Array.from(candidatesByKey.values());
+}
+
+function buildShipmentHistoryMasterRecoveryCandidates(masterByKey, existingCandidatesByKey, shipmentRecords = []) {
+    const historyRecords = Array.isArray(window.shipmentHistoryState?.records)
+        ? window.shipmentHistoryState.records
+        : [];
+    const stagedRecordKeys = new Set(
+        (shipmentRecords || [])
+            .map(record => getShipmentStagingMasterRecordKey(record))
+            .filter(Boolean)
+    );
+    const historyByMasterKey = new Map();
+
+    historyRecords.forEach(historyRecord => {
+        const recordKey = normalizeReconciliationValue(
+            historyRecord?.masterRecordKey || historyRecord?.identifiers?.masterRecordKey
+        );
+        const shipmentId = normalizeReconciliationValue(
+            historyRecord?.shipmentId || historyRecord?.identifiers?.shipmentId
+        );
+        if (!recordKey || !shipmentId || stagedRecordKeys.has(recordKey)) return;
+
+        const archiveReason = normalizeReconciliationValue(
+            historyRecord?.archiveReason || historyRecord?.operational?.archiveReason
+        );
+        const shipmentStatus = normalizeReconciliationValue(
+            historyRecord?.status || historyRecord?.shipment?.shipmentStatus
+        );
+        if (archiveReason !== 'Reconciliation Approval' && shipmentStatus !== 'Archived') return;
+
+        const records = historyByMasterKey.get(recordKey) || [];
+        records.push(historyRecord);
+        historyByMasterKey.set(recordKey, records);
+    });
+
+    const recoveries = [];
+    historyByMasterKey.forEach((records, recordKey) => {
+        if (existingCandidatesByKey?.has(recordKey)) return;
+        const masterRecord = masterByKey.get(recordKey);
+        if (!masterRecord) return;
+
+        const shipmentIds = Array.from(new Set(records
+            .map(record => normalizeReconciliationValue(record?.shipmentId || record?.identifiers?.shipmentId))
+            .filter(Boolean)));
+        if (!shipmentIds.length) return;
+
+        recoveries.push({
+            recordKey,
+            record: buildReconciliationRecordSummary(masterRecord, recordKey),
+            erpRecord: null,
+            shipmentIds,
+            shipmentLifecycle: {
+                erpConfirmed: true,
+                erpStillPending: false,
+                requiresQuantityReview: false,
+                status: 'ERP Invoiced',
+                historyRecovery: true,
+                matchingShipmentRecords: records.map(record => ({
+                    shipmentId: normalizeReconciliationValue(record?.shipmentId || record?.identifiers?.shipmentId),
+                    masterRecordKey: recordKey,
+                    customerNumber: normalizeReconciliationValue(record?.customerNumber || record?.customer?.customerNumber),
+                    salesOrder: normalizeReconciliationValue(record?.salesOrder || record?.order?.salesOrder),
+                    salesOrderLine: normalizeReconciliationValue(record?.salesOrderLine || record?.order?.salesOrderLine),
+                    workOrder: normalizeReconciliationValue(record?.workOrder || record?.order?.workOrder),
+                    quantityShipped: normalizeReconciliationValue(record?.quantityShipped ?? record?.order?.quantityShipped),
+                    source: 'Shipment History Recovery'
+                }))
+            }
+        });
+    });
+
+    return recoveries;
 }
 
 function buildShipmentInvoicedLifecycleState(masterRecord, matchingShipmentRecords = []) {
@@ -9789,6 +9877,14 @@ function getApprovedShipmentArchiveShipmentIdsFromReviewQueue() {
     return Array.from(shipmentIds);
 }
 
+function getApprovedShipmentMasterArchiveRecoveryEvents() {
+    return reconciliationReviewQueueState.events.filter(event =>
+        reconciliationReviewQueueState.selectedEventIds.has(event.reviewQueueId) &&
+        reconciliationReviewQueueState.stagedDispositions[event.reviewQueueId] === 'Archive Shipment' &&
+        event.shipmentLifecycle?.historyRecovery === true
+    );
+}
+
 function getPendingShipmentStagingTransactionIds() {
     const records = Array.isArray(shipmentStagingState.records) ? shipmentStagingState.records : [];
     const shipmentIds = new Set(
@@ -10228,6 +10324,29 @@ function archiveMasterRecordsForErpInvoicedShipments(stagingArchiveCandidates, m
     return archivedRecordKeys;
 }
 
+function archiveMasterRecordsFromShipmentHistoryRecoveryEvents(events, archiveTimestamp) {
+    const archivedRecordKeys = [];
+    const processedKeys = new Set();
+
+    (events || []).forEach(event => {
+        const recordKey = normalizeReconciliationValue(event?.master?.recordKey);
+        if (!recordKey || processedKeys.has(recordKey)) return;
+        processedKeys.add(recordKey);
+
+        const shipmentId = (event?.shipmentLifecycle?.matchingShipmentRecords || [])
+            .map(record => normalizeReconciliationValue(record?.shipmentId))
+            .find(Boolean) || '';
+        const updated = setMasterRecordLifecycleState(recordKey, MASTER_RECORD_LIFECYCLE_STATES.ARCHIVED, {
+            updatedAt: archiveTimestamp,
+            reason: 'Recovered completed reconciliation archive from Shipment History.',
+            shipmentId
+        });
+        if (updated) archivedRecordKeys.push(recordKey);
+    });
+
+    return archivedRecordKeys;
+}
+
 async function verifyShipmentArchivePersistedDatasets(
     historyFileHandle,
     stagingFileHandle,
@@ -10382,6 +10501,46 @@ async function verifyCurrentOperationalMasterDataWrite(removedMasterRecordKeys =
 
     if (Number(savedData.recordCount || 0) !== savedRecords.length) {
         throw new Error('DLE Master JSON verification failed. Record count does not match saved records.');
+    }
+}
+
+async function verifyShipmentArchiveOperationalDatasetsSynchronized(archiveResult = {}) {
+    const archivedMasterRecordKeys = Array.from(new Set(
+        (archiveResult.archivedMasterRecordKeys || [])
+            .map(recordKey => normalizeReconciliationValue(recordKey))
+            .filter(Boolean)
+    ));
+    if (!archivedMasterRecordKeys.length) return;
+
+    const historyHandle = window.shipmentHistoryState?.fileHandle;
+    const stagingHandle = shipmentStagingState.persistence?.fileHandle;
+    if (!historyHandle?.getFile || !stagingHandle?.getFile) {
+        throw new Error('Archive synchronization verification failed. Writable History and Staging handles are required.');
+    }
+
+    const historyDataset = await readShipmentHistoryDatasetFromHandle(historyHandle);
+    const stagingDataset = await readShipmentStagingDatasetFromHandle(stagingHandle);
+    const historyMasterKeys = new Set((historyDataset.records || [])
+        .map(record => normalizeReconciliationValue(record?.masterRecordKey || record?.identifiers?.masterRecordKey))
+        .filter(Boolean));
+    const stagingMasterKeys = new Set((stagingDataset.records || [])
+        .map(record => normalizeReconciliationValue(getShipmentStagingMasterRecordKey(record)))
+        .filter(Boolean));
+
+    const missingHistoryKeys = archivedMasterRecordKeys.filter(recordKey => !historyMasterKeys.has(recordKey));
+    const remainingStagingKeys = archivedMasterRecordKeys.filter(recordKey => stagingMasterKeys.has(recordKey));
+    const activeMasterKeys = archivedMasterRecordKeys.filter(recordKey => {
+        const record = getMasterDataRecordByKey(recordKey);
+        return !record || getMasterRecordLifecycleState(record) !== MASTER_RECORD_LIFECYCLE_STATES.ARCHIVED;
+    });
+
+    if (missingHistoryKeys.length || remainingStagingKeys.length || activeMasterKeys.length) {
+        throw new Error([
+            'Archive synchronization verification failed.',
+            missingHistoryKeys.length ? 'Missing from Shipment History: ' + missingHistoryKeys.join(', ') + '.' : '',
+            remainingStagingKeys.length ? 'Still present in Shipment Staging: ' + remainingStagingKeys.join(', ') + '.' : '',
+            activeMasterKeys.length ? 'Still active in Operational Master Data: ' + activeMasterKeys.join(', ') + '.' : ''
+        ].filter(Boolean).join(' '));
     }
 }
 

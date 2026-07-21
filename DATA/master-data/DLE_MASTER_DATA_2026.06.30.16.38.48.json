@@ -868,8 +868,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001021-0012035-260707-01"
     },
     {
       "id": "001037|0012028|020",
@@ -1471,8 +1473,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012005-260720-01"
     },
     {
       "id": "001148|0012034|060",
@@ -1506,8 +1510,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012034-260720-01"
     },
     {
       "id": "001148|0012035|040",
@@ -1541,8 +1547,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012035-260720-01"
     },
     {
       "id": "001148|0012040|110",
@@ -1576,8 +1584,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012040-260720-01"
     },
     {
       "id": "001148|0012041|070",
@@ -1611,8 +1621,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012041-260720-01"
     },
     {
       "id": "001148|0012055|090",
@@ -1646,8 +1658,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012055-260720-01"
     },
     {
       "id": "001148|0012082|010",
@@ -1681,8 +1695,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012082-260720-01"
     },
     {
       "id": "001148|0012082|030",
@@ -1716,8 +1732,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012082-260720-01"
     },
     {
       "id": "001148|0012082|050",
@@ -1751,8 +1769,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012082-260720-01"
     },
     {
       "id": "001148|0012082|070",
@@ -1786,8 +1806,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012082-260720-01"
     },
     {
       "id": "001148|0012006|110",
@@ -1821,8 +1843,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001148-0012006-260720-01"
     },
     {
       "id": "565650|0012083|030",
@@ -1963,8 +1987,10 @@
         "importedAt": "6/30/2026, 4:38:48 PM",
         "status": "Active"
       },
-      "lifecycleState": "OPEN",
-      "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+      "lifecycleState": "ARCHIVED",
+      "lifecycleUpdatedAt": "7/21/2026, 1:11:48 PM",
+      "lifecycleReason": "Recovered completed reconciliation archive from Shipment History.",
+      "lifecycleShipmentId": "SHP-001165-0012063-260720-01"
     },
     {
       "id": "839287|0012042|050",

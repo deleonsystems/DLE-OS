@@ -1,8 +1,8 @@
 {
   "schema": "DLE_SHIPMENT_HISTORY_V1",
   "createdAt": "7/6/2026, 8:12:25 PM",
-  "lastUpdated": "7/14/2026, 11:22:54 AM",
-  "recordCount": 10,
+  "lastUpdated": "7/21/2026, 12:10:35 PM",
+  "recordCount": 22,
   "records": [
     {
       "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
@@ -1654,6 +1654,2106 @@
             "drawingNumber": "910781-03",
             "drawingRevision": "-",
             "revisionCode": "-"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012034-260720-01",
+      "masterRecordKey": "001148|0012034|060",
+      "shipmentDateTime": "2026-07-21T01:16:03.754Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00195446",
+      "salesOrder": "0012034",
+      "salesOrderLine": "060",
+      "workOrder": "0115544",
+      "workOrderQuantity": "0",
+      "quantityShipped": 5,
+      "originalOpenQuantity": 5,
+      "quantityOpenAtArchive": "5",
+      "itemNumber": "B7C19PAA",
+      "revision": "",
+      "description": "MASTER CARD",
+      "unitOfMeasure": "",
+      "unitPrice": "129.74",
+      "extendedPrice": "648.70",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012034-260720-01",
+        "masterRecordKey": "001148|0012034|060",
+        "shipmentTransactionId": "SHP-001148-0012034-260720-01-L001"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195446"
+      },
+      "order": {
+        "salesOrder": "0012034",
+        "salesOrderLine": "060",
+        "workOrder": "0115544",
+        "workOrderQuantity": "0",
+        "quantityShipped": 5,
+        "originalOpenQuantity": 5,
+        "quantityOpenAtArchive": "5"
+      },
+      "item": {
+        "partNumber": "B7C19PAA",
+        "revision": "",
+        "description": "MASTER CARD",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "10/21/25",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:16:03.754Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "129.74",
+        "extendedPrice": "648.70",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012034-260720-01-L001",
+          "shipmentId": "SHP-001148-0012034-260720-01",
+          "requestId": "RTS-1784596553419-001",
+          "masterRecordKey": "001148|0012034|060",
+          "shipmentDateTime": "2026-07-21T01:16:03.754Z",
+          "createdTimestamp": "2026-07-21T01:15:53.419Z",
+          "processedTimestamp": "2026-07-21T01:16:03.754Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012034",
+          "salesOrderLine": "060",
+          "workOrder": "0115544",
+          "itemNumber": "B7C19PAA",
+          "assembly": "B7C19PAA",
+          "description": "MASTER CARD",
+          "quantityShipped": 5,
+          "originalOpenQuantity": 5,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012034|060",
+            "sourceIndex": 42,
+            "vpro5": {
+              "orderDate": "10/21/25",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00195446",
+              "salesOrder": "0012034",
+              "sequenceLine": "060",
+              "workOrder": "0115544",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "5",
+              "partNumber": "B7C19PAA",
+              "description": "MASTER CARD",
+              "dueDate": "07/01/26",
+              "price": "129.74",
+              "extendedPrice": "648.70",
+              "billNumber": "B7C19PAA",
+              "drawingNumber": "B7C19PAA",
+              "drawingRevision": "C",
+              "revisionCode": "C"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012034|060",
+          "sourceIndex": 42,
+          "vpro5": {
+            "orderDate": "10/21/25",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00195446",
+            "salesOrder": "0012034",
+            "sequenceLine": "060",
+            "workOrder": "0115544",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "5",
+            "partNumber": "B7C19PAA",
+            "description": "MASTER CARD",
+            "dueDate": "07/01/26",
+            "price": "129.74",
+            "extendedPrice": "648.70",
+            "billNumber": "B7C19PAA",
+            "drawingNumber": "B7C19PAA",
+            "drawingRevision": "C",
+            "revisionCode": "C"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012082-260720-01",
+      "masterRecordKey": "001148|0012082|010",
+      "shipmentDateTime": "2026-07-21T01:18:42.447Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00196695",
+      "salesOrder": "0012082",
+      "salesOrderLine": "010",
+      "workOrder": "0115602",
+      "workOrderQuantity": "5",
+      "quantityShipped": 2,
+      "originalOpenQuantity": 2,
+      "quantityOpenAtArchive": "2",
+      "itemNumber": "B7C91PAA",
+      "revision": "",
+      "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+      "unitOfMeasure": "",
+      "unitPrice": "72.94",
+      "extendedPrice": "145.88",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012082-260720-01",
+        "masterRecordKey": "001148|0012082|010",
+        "shipmentTransactionId": "SHP-001148-0012082-260720-01-L001"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695"
+      },
+      "order": {
+        "salesOrder": "0012082",
+        "salesOrderLine": "010",
+        "workOrder": "0115602",
+        "workOrderQuantity": "5",
+        "quantityShipped": 2,
+        "originalOpenQuantity": 2,
+        "quantityOpenAtArchive": "2"
+      },
+      "item": {
+        "partNumber": "B7C91PAA",
+        "revision": "",
+        "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "05/07/26",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:18:42.447Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "72.94",
+        "extendedPrice": "145.88",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012082-260720-01-L001",
+          "shipmentId": "SHP-001148-0012082-260720-01",
+          "requestId": "RTS-1784596713047-001",
+          "masterRecordKey": "001148|0012082|010",
+          "shipmentDateTime": "2026-07-21T01:18:42.447Z",
+          "createdTimestamp": "2026-07-21T01:18:33.047Z",
+          "processedTimestamp": "2026-07-21T01:18:42.447Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012082",
+          "salesOrderLine": "010",
+          "workOrder": "0115602",
+          "itemNumber": "B7C91PAA",
+          "assembly": "B7C91PAA",
+          "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+          "quantityShipped": 2,
+          "originalOpenQuantity": 2,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012082|010",
+            "sourceIndex": 47,
+            "vpro5": {
+              "orderDate": "05/07/26",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00196695",
+              "salesOrder": "0012082",
+              "sequenceLine": "010",
+              "workOrder": "0115602",
+              "workOrderQuantity": "5",
+              "quantityShipped": "0",
+              "qtyOpen": "2",
+              "partNumber": "B7C91PAA",
+              "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+              "dueDate": "07/01/26",
+              "price": "72.94",
+              "extendedPrice": "145.88",
+              "billNumber": "B7C91PAA",
+              "drawingNumber": "B7C91PAA",
+              "drawingRevision": "NC",
+              "revisionCode": "NC"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012082|010",
+          "sourceIndex": 47,
+          "vpro5": {
+            "orderDate": "05/07/26",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00196695",
+            "salesOrder": "0012082",
+            "sequenceLine": "010",
+            "workOrder": "0115602",
+            "workOrderQuantity": "5",
+            "quantityShipped": "0",
+            "qtyOpen": "2",
+            "partNumber": "B7C91PAA",
+            "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+            "dueDate": "07/01/26",
+            "price": "72.94",
+            "extendedPrice": "145.88",
+            "billNumber": "B7C91PAA",
+            "drawingNumber": "B7C91PAA",
+            "drawingRevision": "NC",
+            "revisionCode": "NC"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012082-260720-01",
+      "masterRecordKey": "001148|0012082|030",
+      "shipmentDateTime": "2026-07-21T01:18:42.447Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00196695",
+      "salesOrder": "0012082",
+      "salesOrderLine": "030",
+      "workOrder": "0115602",
+      "workOrderQuantity": "0",
+      "quantityShipped": 3,
+      "originalOpenQuantity": 3,
+      "quantityOpenAtArchive": "3",
+      "itemNumber": "B7C91PAA",
+      "revision": "",
+      "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+      "unitOfMeasure": "",
+      "unitPrice": "72.94",
+      "extendedPrice": "218.82",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012082-260720-01",
+        "masterRecordKey": "001148|0012082|030",
+        "shipmentTransactionId": "SHP-001148-0012082-260720-01-L002"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695"
+      },
+      "order": {
+        "salesOrder": "0012082",
+        "salesOrderLine": "030",
+        "workOrder": "0115602",
+        "workOrderQuantity": "0",
+        "quantityShipped": 3,
+        "originalOpenQuantity": 3,
+        "quantityOpenAtArchive": "3"
+      },
+      "item": {
+        "partNumber": "B7C91PAA",
+        "revision": "",
+        "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "05/07/26",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:18:42.447Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "72.94",
+        "extendedPrice": "218.82",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012082-260720-01-L002",
+          "shipmentId": "SHP-001148-0012082-260720-01",
+          "requestId": "RTS-1784596713047-001",
+          "masterRecordKey": "001148|0012082|030",
+          "shipmentDateTime": "2026-07-21T01:18:42.447Z",
+          "createdTimestamp": "2026-07-21T01:18:33.047Z",
+          "processedTimestamp": "2026-07-21T01:18:42.447Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012082",
+          "salesOrderLine": "030",
+          "workOrder": "0115602",
+          "itemNumber": "B7C91PAA",
+          "assembly": "B7C91PAA",
+          "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+          "quantityShipped": 3,
+          "originalOpenQuantity": 3,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012082|030",
+            "sourceIndex": 48,
+            "vpro5": {
+              "orderDate": "05/07/26",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00196695",
+              "salesOrder": "0012082",
+              "sequenceLine": "030",
+              "workOrder": "0115602",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "3",
+              "partNumber": "B7C91PAA",
+              "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+              "dueDate": "07/01/26",
+              "price": "72.94",
+              "extendedPrice": "218.82",
+              "billNumber": "B7C91PAA",
+              "drawingNumber": "B7C91PAA",
+              "drawingRevision": "NC",
+              "revisionCode": "NC"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012082|030",
+          "sourceIndex": 48,
+          "vpro5": {
+            "orderDate": "05/07/26",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00196695",
+            "salesOrder": "0012082",
+            "sequenceLine": "030",
+            "workOrder": "0115602",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "3",
+            "partNumber": "B7C91PAA",
+            "description": "CCA, ALARM CARD SEMI 1 CH PCBA",
+            "dueDate": "07/01/26",
+            "price": "72.94",
+            "extendedPrice": "218.82",
+            "billNumber": "B7C91PAA",
+            "drawingNumber": "B7C91PAA",
+            "drawingRevision": "NC",
+            "revisionCode": "NC"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012082-260720-01",
+      "masterRecordKey": "001148|0012082|050",
+      "shipmentDateTime": "2026-07-21T01:18:42.447Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00196695",
+      "salesOrder": "0012082",
+      "salesOrderLine": "050",
+      "workOrder": "0115603",
+      "workOrderQuantity": "50",
+      "quantityShipped": 10,
+      "originalOpenQuantity": 10,
+      "quantityOpenAtArchive": "10",
+      "itemNumber": "B7C24LAA-001",
+      "revision": "",
+      "description": "ALARM BCN-LED 120V",
+      "unitOfMeasure": "",
+      "unitPrice": "132.79",
+      "extendedPrice": "1327.90",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012082-260720-01",
+        "masterRecordKey": "001148|0012082|050",
+        "shipmentTransactionId": "SHP-001148-0012082-260720-01-L003"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695"
+      },
+      "order": {
+        "salesOrder": "0012082",
+        "salesOrderLine": "050",
+        "workOrder": "0115603",
+        "workOrderQuantity": "50",
+        "quantityShipped": 10,
+        "originalOpenQuantity": 10,
+        "quantityOpenAtArchive": "10"
+      },
+      "item": {
+        "partNumber": "B7C24LAA-001",
+        "revision": "",
+        "description": "ALARM BCN-LED 120V",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "05/07/26",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:18:42.447Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "132.79",
+        "extendedPrice": "1327.90",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012082-260720-01-L003",
+          "shipmentId": "SHP-001148-0012082-260720-01",
+          "requestId": "RTS-1784596713047-001",
+          "masterRecordKey": "001148|0012082|050",
+          "shipmentDateTime": "2026-07-21T01:18:42.447Z",
+          "createdTimestamp": "2026-07-21T01:18:33.047Z",
+          "processedTimestamp": "2026-07-21T01:18:42.447Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012082",
+          "salesOrderLine": "050",
+          "workOrder": "0115603",
+          "itemNumber": "B7C24LAA-001",
+          "assembly": "B7C24LAA-001",
+          "description": "ALARM BCN-LED 120V",
+          "quantityShipped": 10,
+          "originalOpenQuantity": 10,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012082|050",
+            "sourceIndex": 49,
+            "vpro5": {
+              "orderDate": "05/07/26",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00196695",
+              "salesOrder": "0012082",
+              "sequenceLine": "050",
+              "workOrder": "0115603",
+              "workOrderQuantity": "50",
+              "quantityShipped": "0",
+              "qtyOpen": "10",
+              "partNumber": "B7C24LAA-001",
+              "description": "ALARM BCN-LED 120V",
+              "dueDate": "07/01/26",
+              "price": "132.79",
+              "extendedPrice": "1327.90",
+              "billNumber": "B7C24LAA-001",
+              "drawingNumber": "B7C24LAA-001",
+              "drawingRevision": "H",
+              "revisionCode": "H"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012082|050",
+          "sourceIndex": 49,
+          "vpro5": {
+            "orderDate": "05/07/26",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00196695",
+            "salesOrder": "0012082",
+            "sequenceLine": "050",
+            "workOrder": "0115603",
+            "workOrderQuantity": "50",
+            "quantityShipped": "0",
+            "qtyOpen": "10",
+            "partNumber": "B7C24LAA-001",
+            "description": "ALARM BCN-LED 120V",
+            "dueDate": "07/01/26",
+            "price": "132.79",
+            "extendedPrice": "1327.90",
+            "billNumber": "B7C24LAA-001",
+            "drawingNumber": "B7C24LAA-001",
+            "drawingRevision": "H",
+            "revisionCode": "H"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012082-260720-01",
+      "masterRecordKey": "001148|0012082|070",
+      "shipmentDateTime": "2026-07-21T01:18:42.447Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00196695",
+      "salesOrder": "0012082",
+      "salesOrderLine": "070",
+      "workOrder": "0115603",
+      "workOrderQuantity": "0",
+      "quantityShipped": 10,
+      "originalOpenQuantity": 10,
+      "quantityOpenAtArchive": "10",
+      "itemNumber": "B7C24LAA-001",
+      "revision": "",
+      "description": "ALARM BCN-LED 120V",
+      "unitOfMeasure": "",
+      "unitPrice": "132.79",
+      "extendedPrice": "1327.90",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012082-260720-01",
+        "masterRecordKey": "001148|0012082|070",
+        "shipmentTransactionId": "SHP-001148-0012082-260720-01-L004"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00196695"
+      },
+      "order": {
+        "salesOrder": "0012082",
+        "salesOrderLine": "070",
+        "workOrder": "0115603",
+        "workOrderQuantity": "0",
+        "quantityShipped": 10,
+        "originalOpenQuantity": 10,
+        "quantityOpenAtArchive": "10"
+      },
+      "item": {
+        "partNumber": "B7C24LAA-001",
+        "revision": "",
+        "description": "ALARM BCN-LED 120V",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "05/07/26",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:18:42.447Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "132.79",
+        "extendedPrice": "1327.90",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012082-260720-01-L004",
+          "shipmentId": "SHP-001148-0012082-260720-01",
+          "requestId": "RTS-1784596713047-001",
+          "masterRecordKey": "001148|0012082|070",
+          "shipmentDateTime": "2026-07-21T01:18:42.447Z",
+          "createdTimestamp": "2026-07-21T01:18:33.047Z",
+          "processedTimestamp": "2026-07-21T01:18:42.447Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012082",
+          "salesOrderLine": "070",
+          "workOrder": "0115603",
+          "itemNumber": "B7C24LAA-001",
+          "assembly": "B7C24LAA-001",
+          "description": "ALARM BCN-LED 120V",
+          "quantityShipped": 10,
+          "originalOpenQuantity": 10,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012082|070",
+            "sourceIndex": 50,
+            "vpro5": {
+              "orderDate": "05/07/26",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00196695",
+              "salesOrder": "0012082",
+              "sequenceLine": "070",
+              "workOrder": "0115603",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "10",
+              "partNumber": "B7C24LAA-001",
+              "description": "ALARM BCN-LED 120V",
+              "dueDate": "07/01/26",
+              "price": "132.79",
+              "extendedPrice": "1327.90",
+              "billNumber": "B7C24LAA-001",
+              "drawingNumber": "B7C24LAA-001",
+              "drawingRevision": "H",
+              "revisionCode": "H"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012082|070",
+          "sourceIndex": 50,
+          "vpro5": {
+            "orderDate": "05/07/26",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00196695",
+            "salesOrder": "0012082",
+            "sequenceLine": "070",
+            "workOrder": "0115603",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "10",
+            "partNumber": "B7C24LAA-001",
+            "description": "ALARM BCN-LED 120V",
+            "dueDate": "07/01/26",
+            "price": "132.79",
+            "extendedPrice": "1327.90",
+            "billNumber": "B7C24LAA-001",
+            "drawingNumber": "B7C24LAA-001",
+            "drawingRevision": "H",
+            "revisionCode": "H"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012035-260720-01",
+      "masterRecordKey": "001148|0012035|040",
+      "shipmentDateTime": "2026-07-21T01:19:37.474Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00195447",
+      "salesOrder": "0012035",
+      "salesOrderLine": "040",
+      "workOrder": "0115545",
+      "workOrderQuantity": "0",
+      "quantityShipped": 5,
+      "originalOpenQuantity": 5,
+      "quantityOpenAtArchive": "5",
+      "itemNumber": "B7C57LAA-001",
+      "revision": "",
+      "description": "ALARM CARD",
+      "unitOfMeasure": "",
+      "unitPrice": "114.17",
+      "extendedPrice": "570.85",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012035-260720-01",
+        "masterRecordKey": "001148|0012035|040",
+        "shipmentTransactionId": "SHP-001148-0012035-260720-01-L001"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195447"
+      },
+      "order": {
+        "salesOrder": "0012035",
+        "salesOrderLine": "040",
+        "workOrder": "0115545",
+        "workOrderQuantity": "0",
+        "quantityShipped": 5,
+        "originalOpenQuantity": 5,
+        "quantityOpenAtArchive": "5"
+      },
+      "item": {
+        "partNumber": "B7C57LAA-001",
+        "revision": "",
+        "description": "ALARM CARD",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "10/31/25",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:19:37.474Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "114.17",
+        "extendedPrice": "570.85",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012035-260720-01-L001",
+          "shipmentId": "SHP-001148-0012035-260720-01",
+          "requestId": "RTS-1784596768372-001",
+          "masterRecordKey": "001148|0012035|040",
+          "shipmentDateTime": "2026-07-21T01:19:37.474Z",
+          "createdTimestamp": "2026-07-21T01:19:28.372Z",
+          "processedTimestamp": "2026-07-21T01:19:37.474Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012035",
+          "salesOrderLine": "040",
+          "workOrder": "0115545",
+          "itemNumber": "B7C57LAA-001",
+          "assembly": "B7C57LAA-001",
+          "description": "ALARM CARD",
+          "quantityShipped": 5,
+          "originalOpenQuantity": 5,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012035|040",
+            "sourceIndex": 43,
+            "vpro5": {
+              "orderDate": "10/31/25",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00195447",
+              "salesOrder": "0012035",
+              "sequenceLine": "040",
+              "workOrder": "0115545",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "5",
+              "partNumber": "B7C57LAA-001",
+              "description": "ALARM CARD",
+              "dueDate": "07/01/26",
+              "price": "114.17",
+              "extendedPrice": "570.85",
+              "billNumber": "B7C57LAA-001",
+              "drawingNumber": "B7C57LAA",
+              "drawingRevision": "H",
+              "revisionCode": "H"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012035|040",
+          "sourceIndex": 43,
+          "vpro5": {
+            "orderDate": "10/31/25",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00195447",
+            "salesOrder": "0012035",
+            "sequenceLine": "040",
+            "workOrder": "0115545",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "5",
+            "partNumber": "B7C57LAA-001",
+            "description": "ALARM CARD",
+            "dueDate": "07/01/26",
+            "price": "114.17",
+            "extendedPrice": "570.85",
+            "billNumber": "B7C57LAA-001",
+            "drawingNumber": "B7C57LAA",
+            "drawingRevision": "H",
+            "revisionCode": "H"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001165-0012063-260720-01",
+      "masterRecordKey": "001165|0012063|030",
+      "shipmentDateTime": "2026-07-21T01:21:18.887Z",
+      "customerNumber": "001165",
+      "customerName": "AERO FLUID PRODUCTS",
+      "customerPo": "P139101",
+      "salesOrder": "0012063",
+      "salesOrderLine": "030",
+      "workOrder": "0115582",
+      "workOrderQuantity": "0",
+      "quantityShipped": 125,
+      "originalOpenQuantity": 125,
+      "quantityOpenAtArchive": "125",
+      "itemNumber": "5372-36-1",
+      "revision": "",
+      "description": "SWITCH HARNESS ASSY",
+      "unitOfMeasure": "",
+      "unitPrice": "54.44",
+      "extendedPrice": "6805.00",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001165-0012063-260720-01",
+        "masterRecordKey": "001165|0012063|030",
+        "shipmentTransactionId": "SHP-001165-0012063-260720-01-L001"
+      },
+      "customer": {
+        "customerNumber": "001165",
+        "customerName": "AERO FLUID PRODUCTS",
+        "customerPo": "P139101"
+      },
+      "order": {
+        "salesOrder": "0012063",
+        "salesOrderLine": "030",
+        "workOrder": "0115582",
+        "workOrderQuantity": "0",
+        "quantityShipped": 125,
+        "originalOpenQuantity": 125,
+        "quantityOpenAtArchive": "125"
+      },
+      "item": {
+        "partNumber": "5372-36-1",
+        "revision": "",
+        "description": "SWITCH HARNESS ASSY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "02/21/26",
+        "dueDate": "07/15/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:21:18.887Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "54.44",
+        "extendedPrice": "6805.00",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001165-0012063-260720-01-L001",
+          "shipmentId": "SHP-001165-0012063-260720-01",
+          "requestId": "RTS-1784596862476-001",
+          "masterRecordKey": "001165|0012063|030",
+          "shipmentDateTime": "2026-07-21T01:21:18.887Z",
+          "createdTimestamp": "2026-07-21T01:21:02.477Z",
+          "processedTimestamp": "2026-07-21T01:21:18.887Z",
+          "customerNumber": "001165",
+          "customerName": "AERO FLUID PRODUCTS",
+          "salesOrder": "0012063",
+          "salesOrderLine": "030",
+          "workOrder": "0115582",
+          "itemNumber": "5372-36-1",
+          "assembly": "5372-36-1",
+          "description": "SWITCH HARNESS ASSY",
+          "quantityShipped": 125,
+          "originalOpenQuantity": 125,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001165|0012063|030",
+            "sourceIndex": 58,
+            "vpro5": {
+              "orderDate": "02/21/26",
+              "customerNumber": "001165",
+              "customer": "AERO FLUID PRODUCTS",
+              "customerPo": "P139101",
+              "salesOrder": "0012063",
+              "sequenceLine": "030",
+              "workOrder": "0115582",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "125",
+              "partNumber": "5372-36-1",
+              "description": "SWITCH HARNESS ASSY",
+              "dueDate": "07/15/26",
+              "price": "54.44",
+              "extendedPrice": "6805.00",
+              "billNumber": "5372-36-1",
+              "drawingNumber": "5372-36-#",
+              "drawingRevision": "B",
+              "revisionCode": "B"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001165|0012063|030",
+          "sourceIndex": 58,
+          "vpro5": {
+            "orderDate": "02/21/26",
+            "customerNumber": "001165",
+            "customer": "AERO FLUID PRODUCTS",
+            "customerPo": "P139101",
+            "salesOrder": "0012063",
+            "sequenceLine": "030",
+            "workOrder": "0115582",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "125",
+            "partNumber": "5372-36-1",
+            "description": "SWITCH HARNESS ASSY",
+            "dueDate": "07/15/26",
+            "price": "54.44",
+            "extendedPrice": "6805.00",
+            "billNumber": "5372-36-1",
+            "drawingNumber": "5372-36-#",
+            "drawingRevision": "B",
+            "revisionCode": "B"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012040-260720-01",
+      "masterRecordKey": "001148|0012040|110",
+      "shipmentDateTime": "2026-07-21T01:22:28.897Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00195568",
+      "salesOrder": "0012040",
+      "salesOrderLine": "110",
+      "workOrder": "0115551",
+      "workOrderQuantity": "0",
+      "quantityShipped": 10,
+      "originalOpenQuantity": 10,
+      "quantityOpenAtArchive": "10",
+      "itemNumber": "B7C14PAA",
+      "revision": "",
+      "description": "MASTER CARD",
+      "unitOfMeasure": "",
+      "unitPrice": "128.84",
+      "extendedPrice": "1288.40",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012040-260720-01",
+        "masterRecordKey": "001148|0012040|110",
+        "shipmentTransactionId": "SHP-001148-0012040-260720-01-L001"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195568"
+      },
+      "order": {
+        "salesOrder": "0012040",
+        "salesOrderLine": "110",
+        "workOrder": "0115551",
+        "workOrderQuantity": "0",
+        "quantityShipped": 10,
+        "originalOpenQuantity": 10,
+        "quantityOpenAtArchive": "10"
+      },
+      "item": {
+        "partNumber": "B7C14PAA",
+        "revision": "",
+        "description": "MASTER CARD",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "11/07/25",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:22:28.897Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "128.84",
+        "extendedPrice": "1288.40",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012040-260720-01-L001",
+          "shipmentId": "SHP-001148-0012040-260720-01",
+          "requestId": "RTS-1784596939108-001",
+          "masterRecordKey": "001148|0012040|110",
+          "shipmentDateTime": "2026-07-21T01:22:28.897Z",
+          "createdTimestamp": "2026-07-21T01:22:19.108Z",
+          "processedTimestamp": "2026-07-21T01:22:28.897Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012040",
+          "salesOrderLine": "110",
+          "workOrder": "0115551",
+          "itemNumber": "B7C14PAA",
+          "assembly": "B7C14PAA",
+          "description": "MASTER CARD",
+          "quantityShipped": 10,
+          "originalOpenQuantity": 10,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012040|110",
+            "sourceIndex": 44,
+            "vpro5": {
+              "orderDate": "11/07/25",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00195568",
+              "salesOrder": "0012040",
+              "sequenceLine": "110",
+              "workOrder": "0115551",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "10",
+              "partNumber": "B7C14PAA",
+              "description": "MASTER CARD",
+              "dueDate": "07/01/26",
+              "price": "128.84",
+              "extendedPrice": "1288.40",
+              "billNumber": "B7C14PAA",
+              "drawingNumber": "B7C14PAA",
+              "drawingRevision": "D",
+              "revisionCode": "D"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012040|110",
+          "sourceIndex": 44,
+          "vpro5": {
+            "orderDate": "11/07/25",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00195568",
+            "salesOrder": "0012040",
+            "sequenceLine": "110",
+            "workOrder": "0115551",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "10",
+            "partNumber": "B7C14PAA",
+            "description": "MASTER CARD",
+            "dueDate": "07/01/26",
+            "price": "128.84",
+            "extendedPrice": "1288.40",
+            "billNumber": "B7C14PAA",
+            "drawingNumber": "B7C14PAA",
+            "drawingRevision": "D",
+            "revisionCode": "D"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012041-260720-01",
+      "masterRecordKey": "001148|0012041|070",
+      "shipmentDateTime": "2026-07-21T01:23:13.193Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00195647",
+      "salesOrder": "0012041",
+      "salesOrderLine": "070",
+      "workOrder": "0115552",
+      "workOrderQuantity": "0",
+      "quantityShipped": 10,
+      "originalOpenQuantity": 10,
+      "quantityOpenAtArchive": "10",
+      "itemNumber": "B7C23LAA-001",
+      "revision": "",
+      "description": "ALARM CARD",
+      "unitOfMeasure": "",
+      "unitPrice": "82.55",
+      "extendedPrice": "825.50",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012041-260720-01",
+        "masterRecordKey": "001148|0012041|070",
+        "shipmentTransactionId": "SHP-001148-0012041-260720-01-L001"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195647"
+      },
+      "order": {
+        "salesOrder": "0012041",
+        "salesOrderLine": "070",
+        "workOrder": "0115552",
+        "workOrderQuantity": "0",
+        "quantityShipped": 10,
+        "originalOpenQuantity": 10,
+        "quantityOpenAtArchive": "10"
+      },
+      "item": {
+        "partNumber": "B7C23LAA-001",
+        "revision": "",
+        "description": "ALARM CARD",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "11/20/25",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:23:13.193Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "82.55",
+        "extendedPrice": "825.50",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012041-260720-01-L001",
+          "shipmentId": "SHP-001148-0012041-260720-01",
+          "requestId": "RTS-1784596984557-001",
+          "masterRecordKey": "001148|0012041|070",
+          "shipmentDateTime": "2026-07-21T01:23:13.193Z",
+          "createdTimestamp": "2026-07-21T01:23:04.557Z",
+          "processedTimestamp": "2026-07-21T01:23:13.193Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012041",
+          "salesOrderLine": "070",
+          "workOrder": "0115552",
+          "itemNumber": "B7C23LAA-001",
+          "assembly": "B7C23LAA-001",
+          "description": "ALARM CARD",
+          "quantityShipped": 10,
+          "originalOpenQuantity": 10,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012041|070",
+            "sourceIndex": 45,
+            "vpro5": {
+              "orderDate": "11/20/25",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00195647",
+              "salesOrder": "0012041",
+              "sequenceLine": "070",
+              "workOrder": "0115552",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "10",
+              "partNumber": "B7C23LAA-001",
+              "description": "ALARM CARD",
+              "dueDate": "07/01/26",
+              "price": "82.55",
+              "extendedPrice": "825.50",
+              "billNumber": "B7C23LAA-001",
+              "drawingNumber": "B7C23LAA-001",
+              "drawingRevision": "E",
+              "revisionCode": "E"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012041|070",
+          "sourceIndex": 45,
+          "vpro5": {
+            "orderDate": "11/20/25",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00195647",
+            "salesOrder": "0012041",
+            "sequenceLine": "070",
+            "workOrder": "0115552",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "10",
+            "partNumber": "B7C23LAA-001",
+            "description": "ALARM CARD",
+            "dueDate": "07/01/26",
+            "price": "82.55",
+            "extendedPrice": "825.50",
+            "billNumber": "B7C23LAA-001",
+            "drawingNumber": "B7C23LAA-001",
+            "drawingRevision": "E",
+            "revisionCode": "E"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012055-260720-01",
+      "masterRecordKey": "001148|0012055|090",
+      "shipmentDateTime": "2026-07-21T01:24:08.901Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00195872",
+      "salesOrder": "0012055",
+      "salesOrderLine": "090",
+      "workOrder": "0115572",
+      "workOrderQuantity": "0",
+      "quantityShipped": 5,
+      "originalOpenQuantity": 5,
+      "quantityOpenAtArchive": "5",
+      "itemNumber": "B7C21LAA-001",
+      "revision": "",
+      "description": "CCA ALARM CARD BCN-LS LED 120V",
+      "unitOfMeasure": "",
+      "unitPrice": "105.93",
+      "extendedPrice": "529.65",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012055-260720-01",
+        "masterRecordKey": "001148|0012055|090",
+        "shipmentTransactionId": "SHP-001148-0012055-260720-01-L001"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00195872"
+      },
+      "order": {
+        "salesOrder": "0012055",
+        "salesOrderLine": "090",
+        "workOrder": "0115572",
+        "workOrderQuantity": "0",
+        "quantityShipped": 5,
+        "originalOpenQuantity": 5,
+        "quantityOpenAtArchive": "5"
+      },
+      "item": {
+        "partNumber": "B7C21LAA-001",
+        "revision": "",
+        "description": "CCA ALARM CARD BCN-LS LED 120V",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "01/27/26",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:24:08.901Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "105.93",
+        "extendedPrice": "529.65",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012055-260720-01-L001",
+          "shipmentId": "SHP-001148-0012055-260720-01",
+          "requestId": "RTS-1784597033186-001",
+          "masterRecordKey": "001148|0012055|090",
+          "shipmentDateTime": "2026-07-21T01:24:08.901Z",
+          "createdTimestamp": "2026-07-21T01:23:53.186Z",
+          "processedTimestamp": "2026-07-21T01:24:08.901Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012055",
+          "salesOrderLine": "090",
+          "workOrder": "0115572",
+          "itemNumber": "B7C21LAA-001",
+          "assembly": "B7C21LAA-001",
+          "description": "CCA ALARM CARD BCN-LS LED 120V",
+          "quantityShipped": 5,
+          "originalOpenQuantity": 5,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012055|090",
+            "sourceIndex": 46,
+            "vpro5": {
+              "orderDate": "01/27/26",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00195872",
+              "salesOrder": "0012055",
+              "sequenceLine": "090",
+              "workOrder": "0115572",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "5",
+              "partNumber": "B7C21LAA-001",
+              "description": "CCA ALARM CARD BCN-LS LED 120V",
+              "dueDate": "07/01/26",
+              "price": "105.93",
+              "extendedPrice": "529.65",
+              "billNumber": "B7C21LAA-001",
+              "drawingNumber": "B7C21LAA",
+              "drawingRevision": "K",
+              "revisionCode": "K"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012055|090",
+          "sourceIndex": 46,
+          "vpro5": {
+            "orderDate": "01/27/26",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00195872",
+            "salesOrder": "0012055",
+            "sequenceLine": "090",
+            "workOrder": "0115572",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "5",
+            "partNumber": "B7C21LAA-001",
+            "description": "CCA ALARM CARD BCN-LS LED 120V",
+            "dueDate": "07/01/26",
+            "price": "105.93",
+            "extendedPrice": "529.65",
+            "billNumber": "B7C21LAA-001",
+            "drawingNumber": "B7C21LAA",
+            "drawingRevision": "K",
+            "revisionCode": "K"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012006-260720-01",
+      "masterRecordKey": "001148|0012006|110",
+      "shipmentDateTime": "2026-07-21T01:25:14.889Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00194880",
+      "salesOrder": "0012006",
+      "salesOrderLine": "110",
+      "workOrder": "0115511",
+      "workOrderQuantity": "0",
+      "quantityShipped": 5,
+      "originalOpenQuantity": 5,
+      "quantityOpenAtArchive": "5",
+      "itemNumber": "277-3261",
+      "revision": "",
+      "description": "ASSY 1 POWER SUPPLY",
+      "unitOfMeasure": "",
+      "unitPrice": "207.09",
+      "extendedPrice": "1035.45",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012006-260720-01",
+        "masterRecordKey": "001148|0012006|110",
+        "shipmentTransactionId": "SHP-001148-0012006-260720-01-L001"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00194880"
+      },
+      "order": {
+        "salesOrder": "0012006",
+        "salesOrderLine": "110",
+        "workOrder": "0115511",
+        "workOrderQuantity": "0",
+        "quantityShipped": 5,
+        "originalOpenQuantity": 5,
+        "quantityOpenAtArchive": "5"
+      },
+      "item": {
+        "partNumber": "277-3261",
+        "revision": "",
+        "description": "ASSY 1 POWER SUPPLY",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "07/07/25",
+        "dueDate": "07/08/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:25:14.889Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "207.09",
+        "extendedPrice": "1035.45",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012006-260720-01-L001",
+          "shipmentId": "SHP-001148-0012006-260720-01",
+          "requestId": "RTS-1784597086681-001",
+          "masterRecordKey": "001148|0012006|110",
+          "shipmentDateTime": "2026-07-21T01:25:14.889Z",
+          "createdTimestamp": "2026-07-21T01:24:46.681Z",
+          "processedTimestamp": "2026-07-21T01:25:14.889Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012006",
+          "salesOrderLine": "110",
+          "workOrder": "0115511",
+          "itemNumber": "277-3261",
+          "assembly": "277-3261",
+          "description": "ASSY 1 POWER SUPPLY",
+          "quantityShipped": 5,
+          "originalOpenQuantity": 5,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012006|110",
+            "sourceIndex": 52,
+            "vpro5": {
+              "orderDate": "07/07/25",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00194880",
+              "salesOrder": "0012006",
+              "sequenceLine": "110",
+              "workOrder": "0115511",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "5",
+              "partNumber": "277-3261",
+              "description": "ASSY 1 POWER SUPPLY",
+              "dueDate": "07/08/26",
+              "price": "207.09",
+              "extendedPrice": "1035.45",
+              "billNumber": "277-3261",
+              "drawingNumber": "",
+              "drawingRevision": "",
+              "revisionCode": "G"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012006|110",
+          "sourceIndex": 52,
+          "vpro5": {
+            "orderDate": "07/07/25",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00194880",
+            "salesOrder": "0012006",
+            "sequenceLine": "110",
+            "workOrder": "0115511",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "5",
+            "partNumber": "277-3261",
+            "description": "ASSY 1 POWER SUPPLY",
+            "dueDate": "07/08/26",
+            "price": "207.09",
+            "extendedPrice": "1035.45",
+            "billNumber": "277-3261",
+            "drawingNumber": "",
+            "drawingRevision": "",
+            "revisionCode": "G"
+          },
+          "dle": {
+            "operationalStatus": ""
+          },
+          "sync": {
+            "sourceSystem": "VPro5",
+            "importedAt": "6/30/2026, 4:38:48 PM",
+            "status": "Active"
+          },
+          "lifecycleState": "OPEN",
+          "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+        }
+      }
+    },
+    {
+      "schema": "DLE_SHIPMENT_HISTORY_RECORD_V1",
+      "shipmentId": "SHP-001148-0012005-260720-01",
+      "masterRecordKey": "001148|0012005|190",
+      "shipmentDateTime": "2026-07-21T01:26:05.359Z",
+      "customerNumber": "001148",
+      "customerName": "HUGHEY & PHILLIPS",
+      "customerPo": "HP00194834",
+      "salesOrder": "0012005",
+      "salesOrderLine": "190",
+      "workOrder": "0115510",
+      "workOrderQuantity": "0",
+      "quantityShipped": 10,
+      "originalOpenQuantity": 10,
+      "quantityOpenAtArchive": "10",
+      "itemNumber": "277-5014-003",
+      "revision": "",
+      "description": "TRIGGER CONTROL BOARD",
+      "unitOfMeasure": "",
+      "unitPrice": "143.55",
+      "extendedPrice": "1435.50",
+      "currency": "",
+      "status": "Archived",
+      "stagingStatus": "Pending Invoice",
+      "archivedAt": "7/21/2026, 10:46:46 AM",
+      "approvalTimestamp": "7/21/2026, 10:46:46 AM",
+      "archiveReason": "Reconciliation Approval",
+      "identifiers": {
+        "shipmentId": "SHP-001148-0012005-260720-01",
+        "masterRecordKey": "001148|0012005|190",
+        "shipmentTransactionId": "SHP-001148-0012005-260720-01-L001"
+      },
+      "customer": {
+        "customerNumber": "001148",
+        "customerName": "HUGHEY & PHILLIPS",
+        "customerPo": "HP00194834"
+      },
+      "order": {
+        "salesOrder": "0012005",
+        "salesOrderLine": "190",
+        "workOrder": "0115510",
+        "workOrderQuantity": "0",
+        "quantityShipped": 10,
+        "originalOpenQuantity": 10,
+        "quantityOpenAtArchive": "10"
+      },
+      "item": {
+        "partNumber": "277-5014-003",
+        "revision": "",
+        "description": "TRIGGER CONTROL BOARD",
+        "unitOfMeasure": ""
+      },
+      "dates": {
+        "orderDate": "07/07/25",
+        "dueDate": "07/01/26",
+        "shipDate": "",
+        "shipmentConfirmationDate": "2026-07-21T01:26:05.359Z",
+        "approvalDate": "7/21/2026, 10:46:46 AM",
+        "archiveTimestamp": "7/21/2026, 10:46:46 AM"
+      },
+      "financial": {
+        "unitPrice": "143.55",
+        "extendedPrice": "1435.50",
+        "currency": ""
+      },
+      "shipment": {
+        "shipmentStatus": "Archived",
+        "stagingStatus": "Pending Invoice",
+        "shipmentNotes": "",
+        "trackingNumber": "",
+        "carrier": ""
+      },
+      "operational": {
+        "user": "Shipping",
+        "approvedBy": "",
+        "archiveReason": "Reconciliation Approval",
+        "source": "Reconciliation Approval"
+      },
+      "sourceSnapshots": {
+        "shipmentStagingRecord": {
+          "schema": "DLE_SHIPMENT_STAGING_RECORD_V1",
+          "shipmentTransactionId": "SHP-001148-0012005-260720-01-L001",
+          "shipmentId": "SHP-001148-0012005-260720-01",
+          "requestId": "RTS-1784597137487-001",
+          "masterRecordKey": "001148|0012005|190",
+          "shipmentDateTime": "2026-07-21T01:26:05.359Z",
+          "createdTimestamp": "2026-07-21T01:25:37.487Z",
+          "processedTimestamp": "2026-07-21T01:26:05.359Z",
+          "customerNumber": "001148",
+          "customerName": "HUGHEY & PHILLIPS",
+          "salesOrder": "0012005",
+          "salesOrderLine": "190",
+          "workOrder": "0115510",
+          "itemNumber": "277-5014-003",
+          "assembly": "277-5014-003",
+          "description": "TRIGGER CONTROL BOARD",
+          "quantityShipped": 10,
+          "originalOpenQuantity": 10,
+          "requestedShipWindow": "Today",
+          "operationalStatus": "Pending Invoice",
+          "status": "Pending Invoice",
+          "user": "Shipping",
+          "masterDataSnapshot": {
+            "id": "001148|0012005|190",
+            "sourceIndex": 41,
+            "vpro5": {
+              "orderDate": "07/07/25",
+              "customerNumber": "001148",
+              "customer": "HUGHEY & PHILLIPS",
+              "customerPo": "HP00194834",
+              "salesOrder": "0012005",
+              "sequenceLine": "190",
+              "workOrder": "0115510",
+              "workOrderQuantity": "0",
+              "quantityShipped": "0",
+              "qtyOpen": "10",
+              "partNumber": "277-5014-003",
+              "description": "TRIGGER CONTROL BOARD",
+              "dueDate": "07/01/26",
+              "price": "143.55",
+              "extendedPrice": "1435.50",
+              "billNumber": "277-5014-003",
+              "drawingNumber": "277-5014",
+              "drawingRevision": "L",
+              "revisionCode": "L"
+            },
+            "dle": {
+              "operationalStatus": ""
+            },
+            "sync": {
+              "sourceSystem": "VPro5",
+              "importedAt": "6/30/2026, 4:38:48 PM",
+              "status": "Active"
+            },
+            "lifecycleState": "OPEN",
+            "lifecycleUpdatedAt": "6/30/2026, 4:38:48 PM"
+          }
+        },
+        "masterDataRecord": {
+          "id": "001148|0012005|190",
+          "sourceIndex": 41,
+          "vpro5": {
+            "orderDate": "07/07/25",
+            "customerNumber": "001148",
+            "customer": "HUGHEY & PHILLIPS",
+            "customerPo": "HP00194834",
+            "salesOrder": "0012005",
+            "sequenceLine": "190",
+            "workOrder": "0115510",
+            "workOrderQuantity": "0",
+            "quantityShipped": "0",
+            "qtyOpen": "10",
+            "partNumber": "277-5014-003",
+            "description": "TRIGGER CONTROL BOARD",
+            "dueDate": "07/01/26",
+            "price": "143.55",
+            "extendedPrice": "1435.50",
+            "billNumber": "277-5014-003",
+            "drawingNumber": "277-5014",
+            "drawingRevision": "L",
+            "revisionCode": "L"
           },
           "dle": {
             "operationalStatus": ""
