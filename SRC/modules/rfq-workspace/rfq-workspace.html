@@ -5,18 +5,18 @@
       <div>
         <p class="rfq2-eyebrow">Generation 2 Workspace</p>
         <h1>RFQ Workspace</h1>
-        <p>Manage an RFQ from the initial customer request through quoting and final disposition.</p>
+        <p>Manage an RFQ from initialization through quoting and final disposition.</p>
       </div>
     </div>
     <div class="rfq2-header-status">
       <span>Phase 1</span>
-      <strong id="rfq2WorkspaceStatus">Ready for Document Intake</strong>
+      <strong id="rfq2WorkspaceStatus">RFQ Initialization</strong>
     </div>
   </header>
 
   <nav class="rfq2-lifecycle" aria-label="RFQ lifecycle stages">
     <ol>
-      <li class="active" aria-current="step"><span>1</span><strong>Document Intake</strong><small>Available</small></li>
+      <li class="active" aria-current="step"><span>1</span><strong>RFQ Initialization</strong><small>Available</small></li>
       <li aria-disabled="true"><span>2</span><strong>RFQ Review</strong><small>Future</small></li>
       <li aria-disabled="true"><span>3</span><strong>Technical Review</strong><small>Future</small></li>
       <li aria-disabled="true"><span>4</span><strong>Engineering Review</strong><small>Future</small></li>
@@ -30,132 +30,128 @@
   </nav>
 
   <main class="rfq2-main">
-    <section class="rfq2-card rfq2-intake-heading" aria-labelledby="rfq2IntakeTitle">
-      <div>
-        <p class="rfq2-eyebrow">Stage 1</p>
-        <h2 id="rfq2IntakeTitle">Document Intake</h2>
-        <p>Receive and organize the customer's quote request as a controlled RFQ package.</p>
-      </div>
-      <div class="rfq2-intake-type">
-        <label for="rfq2IntakeType">Intake Type</label>
-        <select id="rfq2IntakeType" data-rfq-field="intakeType">
-          <option value="">Select intake type...</option>
-          <option value="RFQ / Quote Request">RFQ / Quote Request</option>
-        </select>
-      </div>
-    </section>
+    <div id="rfq2Validation" class="rfq2-validation" role="alert" tabindex="-1" hidden></div>
 
-    <section id="rfq2Welcome" class="rfq2-card rfq2-welcome" aria-labelledby="rfq2WelcomeTitle">
-      <div class="rfq2-welcome-icon" aria-hidden="true">01</div>
-      <div>
-        <h2 id="rfq2WelcomeTitle">Begin a new RFQ</h2>
-        <p>Select <strong>RFQ / Quote Request</strong> to create the package and RFQ lines received from a customer.</p>
-      </div>
-    </section>
-
-    <div id="rfq2Editor" class="rfq2-editor" hidden>
+    <div id="rfq2Editor" class="rfq2-editor">
       <div class="rfq2-editor-toolbar">
         <div class="rfq2-current-intake">
-          <span>Current Intake Type</span>
-          <strong>RFQ / Quote Request</strong>
+          <span>Current RFQ</span>
+          <strong id="rfq2ToolbarRfqNumber">Generating...</strong>
         </div>
-        <div class="rfq2-toolbar-actions">
-          <button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="change-intake">Change Selection</button>
-          <button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="start-over">Start Over</button>
-        </div>
+        <button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="restart-initialization">Restart Initialization</button>
       </div>
 
-      <div id="rfq2Validation" class="rfq2-validation" role="alert" tabindex="-1" hidden></div>
-
-      <section id="rfq2EditView" class="rfq2-edit-view">
-        <section class="rfq2-card" aria-labelledby="rfq2PackageTitle">
-          <div class="rfq2-section-heading">
-            <div>
-              <p class="rfq2-eyebrow">Package Information</p>
-              <h2 id="rfq2PackageTitle">RFQ Package</h2>
-              <p>Organize the customer request as one RFQ package. Package documents apply to the entire RFQ.</p>
-            </div>
-            <span class="rfq2-required-note">Required fields are marked *</span>
-          </div>
-
-          <div class="rfq2-package-grid">
-            <label class="rfq2-field">
-              <span>Customer *</span>
-              <input id="rfq2Customer" data-rfq-field="customer" autocomplete="organization" placeholder="Customer name" />
-            </label>
-            <label class="rfq2-field">
-              <span>Received Date *</span>
-              <input id="rfq2ReceivedDate" data-rfq-field="receivedDate" type="date" />
-            </label>
-            <label class="rfq2-field">
-              <span>Requested Response Date *</span>
-              <input id="rfq2ResponseDate" data-rfq-field="requestedResponseDate" type="date" />
-            </label>
-            <label class="rfq2-field rfq2-wide">
-              <span>Customer Reference (Optional)</span>
-              <input data-rfq-field="customerReference" placeholder="RFQ number, inquiry number, email reference, or customer supplied reference" />
-            </label>
-            <label class="rfq2-field rfq2-wide">
-              <span>General Notes</span>
-              <textarea data-rfq-field="generalNotes" rows="4" placeholder="General requirements, quality clauses, customer notes, or context for this RFQ package."></textarea>
-            </label>
-          </div>
-
-          <div class="rfq2-file-section">
-            <div>
-              <h3>Initial RFQ Email *</h3>
-              <p>This is the original customer communication that started the RFQ and serves as the parent record for the package.</p>
-            </div>
-            <div id="rfq2PackageDropZone" class="rfq2-drop-zone" data-rfq-drop-zone="package" tabindex="0" role="button" aria-controls="rfq2PackageFileInput">
-              <strong>Drop the original customer email here</strong>
-              <span>or select files. No parsing or analysis will be performed.</span>
-              <small>.msg, .eml, .pdf, .txt, or .zip</small>
-            </div>
-            <input id="rfq2PackageFileInput" class="rfq2-file-input" data-rfq-file-input="package" type="file" multiple accept=".msg,.eml,.pdf,.txt,.zip" />
-            <div id="rfq2PackageFiles" class="rfq2-file-list" aria-live="polite"></div>
-          </div>
-        </section>
-
-        <section class="rfq2-card" aria-labelledby="rfq2LinesTitle">
-          <div class="rfq2-section-heading rfq2-lines-heading">
-            <div>
-              <p class="rfq2-eyebrow">Quoted Assemblies</p>
-              <h2 id="rfq2LinesTitle">RFQ Lines</h2>
-              <p>Add one RFQ line for each assembly being quoted within this customer RFQ package.</p>
-            </div>
-            <button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="add-line">Add RFQ Line</button>
-          </div>
-          <div id="rfq2LineList" class="rfq2-line-list" aria-live="polite"></div>
-        </section>
-
-        <div class="rfq2-primary-actions">
-          <button type="button" class="rfq2-button" data-rfq-action="review">Review RFQ</button>
-        </div>
-      </section>
-
-      <section id="rfq2ReviewView" class="rfq2-card rfq2-review-view" aria-labelledby="rfq2ReviewTitle" hidden>
-        <div class="rfq2-section-heading">
+      <section class="rfq2-card rfq2-step-card" aria-labelledby="rfq2CreateTitle">
+        <div class="rfq2-step-heading">
+          <span class="rfq2-step-number">1</span>
           <div>
-            <p class="rfq2-eyebrow">Intake Verification</p>
-            <h2 id="rfq2ReviewTitle" tabindex="-1">Review &amp; Commit</h2>
-            <p>Verify the RFQ package before completing Document Intake.</p>
+            <p class="rfq2-eyebrow">Create RFQ</p>
+            <h2 id="rfq2CreateTitle">RFQ Identity</h2>
+            <p>Create the permanent internal DLE identifier and establish the initialization record.</p>
           </div>
+          <span class="rfq2-step-state complete">Created</span>
         </div>
-        <div id="rfq2ReviewContent" class="rfq2-review-content"></div>
-        <div class="rfq2-primary-actions">
-          <button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="back-to-edit">Back to Edit</button>
-          <button type="button" class="rfq2-button" data-rfq-action="commit">Commit RFQ Intake</button>
+        <div class="rfq2-identity-grid">
+          <div><strong>RFQ Number</strong><span id="rfq2RfqNumber"></span></div>
+          <div><strong>Created Date</strong><span id="rfq2CreatedDate"></span></div>
+          <div><strong>Created By</strong><span id="rfq2CreatedBy"></span></div>
+          <div><strong>Current Status</strong><span id="rfq2CurrentStatus"></span></div>
+        </div>
+        <div class="rfq2-request-grid">
+          <label class="rfq2-field">
+            <span>Requested Response Date *</span>
+            <input id="rfq2ResponseDate" data-rfq-rfq-field="requestedResponseDate" type="date" />
+          </label>
+          <label class="rfq2-field">
+            <span>Customer Reference (Optional)</span>
+            <input data-rfq-rfq-field="customerReference" placeholder="Customer RFQ or inquiry number" />
+          </label>
+          <label class="rfq2-field rfq2-wide">
+            <span>General Notes</span>
+            <textarea data-rfq-rfq-field="generalNotes" rows="3" placeholder="General requirements, quality clauses, or RFQ context."></textarea>
+          </label>
         </div>
       </section>
 
-      <section id="rfq2CompleteView" class="rfq2-card rfq2-complete-view" aria-labelledby="rfq2CompleteTitle" hidden>
-        <span class="rfq2-complete-mark" aria-hidden="true">✓</span>
-        <p class="rfq2-eyebrow">Document Intake Complete</p>
-        <h2 id="rfq2CompleteTitle">RFQ package committed</h2>
-        <p>The package is ready for the future RFQ Review stage. Phase 1 keeps this record in module memory and performs no folder, database, or persistence actions.</p>
-        <div id="rfq2CompleteSummary" class="rfq2-complete-summary"></div>
-        <button type="button" class="rfq2-button" data-rfq-action="new-intake">Start Another RFQ Intake</button>
+      <section class="rfq2-card rfq2-step-card" aria-labelledby="rfq2CustomerTitle">
+        <div class="rfq2-step-heading">
+          <span class="rfq2-step-number">2</span>
+          <div>
+            <p class="rfq2-eyebrow">Customer Resolution</p>
+            <h2 id="rfq2CustomerTitle">Resolve Customer</h2>
+            <p>Find an established ERP customer or create an in-memory Prospective Customer.</p>
+          </div>
+          <span id="rfq2CustomerStepState" class="rfq2-step-state">Required</span>
+        </div>
+        <div id="rfq2CustomerContent"></div>
       </section>
+
+      <section class="rfq2-card rfq2-step-card" aria-labelledby="rfq2AssemblyTitle">
+        <div class="rfq2-step-heading">
+          <span class="rfq2-step-number">3</span>
+          <div>
+            <p class="rfq2-eyebrow">Assembly Resolution</p>
+            <h2 id="rfq2AssemblyTitle">Resolve RFQ Assemblies</h2>
+            <p>Add each RFQ Line, then find an existing assembly or define a new assembly record.</p>
+          </div>
+          <span id="rfq2AssemblyStepState" class="rfq2-step-state locked">Locked</span>
+        </div>
+        <div id="rfq2AssemblyContent"></div>
+      </section>
+
+      <section class="rfq2-card rfq2-step-card" aria-labelledby="rfq2RevisionTitle">
+        <div class="rfq2-step-heading">
+          <span class="rfq2-step-number">4</span>
+          <div>
+            <p class="rfq2-eyebrow">Revision Resolution</p>
+            <h2 id="rfq2RevisionTitle">Set Active Revisions</h2>
+            <p>Assign exactly one active existing or new revision to every RFQ Line.</p>
+          </div>
+          <span id="rfq2RevisionStepState" class="rfq2-step-state locked">Locked</span>
+        </div>
+        <div id="rfq2RevisionContent"></div>
+      </section>
+
+      <section class="rfq2-card rfq2-step-card" aria-labelledby="rfq2DocumentsTitle">
+        <div class="rfq2-step-heading">
+          <span class="rfq2-step-number">5</span>
+          <div>
+            <p class="rfq2-eyebrow">Document Intake</p>
+            <h2 id="rfq2DocumentsTitle">Attach RFQ Documents</h2>
+            <p>Upload documents only after the customer, assemblies, and active revisions are resolved.</p>
+          </div>
+          <span id="rfq2DocumentStepState" class="rfq2-step-state locked">Locked</span>
+        </div>
+        <div id="rfq2DocumentContent"></div>
+      </section>
+
+      <div class="rfq2-primary-actions">
+        <button type="button" class="rfq2-button" data-rfq-action="review">Review RFQ Initialization</button>
+      </div>
     </div>
+
+    <section id="rfq2ReviewView" class="rfq2-card rfq2-review-view" aria-labelledby="rfq2ReviewTitle" hidden>
+      <div class="rfq2-section-heading">
+        <div>
+          <p class="rfq2-eyebrow">Initialization Verification</p>
+          <h2 id="rfq2ReviewTitle" tabindex="-1">Review RFQ Initialization</h2>
+          <p>Verify the RFQ identity, customer, assemblies, revisions, and documents before completion.</p>
+        </div>
+      </div>
+      <div id="rfq2ReviewContent" class="rfq2-review-content"></div>
+      <div class="rfq2-primary-actions">
+        <button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="back-to-edit">Back to Edit</button>
+        <button type="button" class="rfq2-button" data-rfq-action="commit">Complete RFQ Initialization</button>
+      </div>
+    </section>
+
+    <section id="rfq2CompleteView" class="rfq2-card rfq2-complete-view" aria-labelledby="rfq2CompleteTitle" hidden>
+      <span class="rfq2-complete-mark" aria-hidden="true">✓</span>
+      <p class="rfq2-eyebrow">RFQ Initialization Complete</p>
+      <h2 id="rfq2CompleteTitle">RFQ ready for review</h2>
+      <p>The RFQ identity and resolution data are ready for the future RFQ Review phase. Phase 1 remains in memory and performs no persistence actions.</p>
+      <div id="rfq2CompleteSummary" class="rfq2-complete-summary"></div>
+      <button type="button" class="rfq2-button" data-rfq-action="new-rfq">Start Another RFQ</button>
+    </section>
   </main>
 </div>
