@@ -6,7 +6,7 @@
   const MASTER_DATA_PATH = "DATA/master-data/DLE_MASTER_DATA_2026.06.30.16.38.48.json";
   const INITIALIZATION_STATUS = "RFQ Initialization";
   const COMPLETE_STATUS = "RFQ Initialization Complete - Awaiting RFQ Review";
-  let nextTemporaryRfqSequence = 1;
+  let lastDraftIdentitySecond = 0;
   let mount = null;
   let eventsBound = false;
   let committedInitialization = null;
@@ -33,7 +33,7 @@
         currentView: "edit"
       },
       rfq: {
-        rfqId: identity.rfqId || generateTemporaryRfqId(now),
+        draftId: identity.draftId || generateDraftId(now),
         createdDate: identity.createdDate || formatDate(now),
         createdAt: identity.createdAt || now.toISOString(),
         createdBy: identity.createdBy || "DLE-OS User",
@@ -73,9 +73,19 @@
     };
   }
 
-  function generateTemporaryRfqId(date) {
-    const sequence = String(nextTemporaryRfqSequence++).padStart(4, "0");
-    return "RFQ-" + date.getFullYear() + "-" + sequence;
+  function generateDraftId(date) {
+    const requestedSecond = Math.floor(date.getTime() / 1000) * 1000;
+    const identitySecond = Math.max(requestedSecond, lastDraftIdentitySecond + 1000);
+    lastDraftIdentitySecond = identitySecond;
+    const identityDate = new Date(identitySecond);
+    const pad = value => String(value).padStart(2, "0");
+    return "RFQD-" + identityDate.getFullYear()
+      + pad(identityDate.getMonth() + 1)
+      + pad(identityDate.getDate())
+      + "-"
+      + pad(identityDate.getHours())
+      + pad(identityDate.getMinutes())
+      + pad(identityDate.getSeconds());
   }
 
   async function loadRfqWorkspace() {
@@ -332,7 +342,7 @@
 
   function restartInitialization() {
     const identity = {
-      rfqId: state.rfq.rfqId,
+      draftId: state.rfq.draftId,
       createdDate: state.rfq.createdDate,
       createdAt: state.rfq.createdAt,
       createdBy: state.rfq.createdBy
@@ -405,7 +415,7 @@
       return;
     }
     state.customer = {
-      customerId: "PROSPECT-" + state.rfq.rfqId,
+      customerId: "PROSPECT-" + state.rfq.draftId,
       resolution: "prospective",
       companyName: draft.companyName.trim(),
       erpStatus: "Prospective",
@@ -434,7 +444,7 @@
   function addRfqLine() {
     if (!isCustomerResolved()) return;
     const lineNumber = state.ui.nextLineId++;
-    const lineId = state.rfq.rfqId + "-L" + String(lineNumber).padStart(2, "0");
+    const lineId = state.rfq.draftId + "-L" + String(lineNumber).padStart(2, "0");
     state.rfqLines.push({
       lineId,
       requestedQuantities: "",
@@ -516,7 +526,7 @@
       return;
     }
     line.assembly = {
-      assemblyId: state.rfq.rfqId + "-ASM-" + String(state.rfqLines.indexOf(line) + 1).padStart(2, "0"),
+      assemblyId: state.rfq.draftId + "-ASM-" + String(state.rfqLines.indexOf(line) + 1).padStart(2, "0"),
       resolution: "new",
       status: "New",
       assemblyNumber: draft.assemblyNumber.trim(),
@@ -773,7 +783,7 @@
         completedAt
       },
       rfq: {
-        rfqId: state.rfq.rfqId,
+        draftId: state.rfq.draftId,
         createdDate: state.rfq.createdDate,
         createdAt: state.rfq.createdAt,
         createdBy: state.rfq.createdBy,
@@ -836,8 +846,8 @@
   }
 
   function renderIdentity() {
-    setText("rfq2RfqNumber", state.rfq.rfqId);
-    setText("rfq2ToolbarRfqNumber", state.rfq.rfqId);
+    setText("rfq2DraftId", state.rfq.draftId);
+    setText("rfq2ToolbarDraftId", state.rfq.draftId);
     setText("rfq2CreatedDate", state.rfq.createdDate);
     setText("rfq2CreatedBy", state.rfq.createdBy);
     setText("rfq2CurrentStatus", state.rfq.status);
@@ -1119,8 +1129,8 @@
     const target = document.getElementById("rfq2ReviewContent");
     if (!target) return;
     target.innerHTML = [
-      '<section class="rfq2-review-section"><h3>RFQ Identity</h3><div class="rfq2-review-grid">',
-      reviewItem("RFQ Number", state.rfq.rfqId), reviewItem("Created Date", state.rfq.createdDate),
+      '<section class="rfq2-review-section"><h3>Draft Identity</h3><div class="rfq2-review-grid">',
+      reviewItem("Draft ID", state.rfq.draftId), reviewItem("Created Date", state.rfq.createdDate),
       reviewItem("Created By", state.rfq.createdBy), reviewItem("Status", state.rfq.status),
       reviewItem("Requested Response Date", state.rfq.requestedResponseDate),
       reviewItem("Customer Reference", state.rfq.customerReference || "Not provided"),
@@ -1155,7 +1165,7 @@
     const record = committedInitialization;
     if (!target || !record) return;
     target.innerHTML = [
-      completeItem("RFQ Number", record.rfq.rfqId), completeItem("Customer", record.customer.companyName),
+      completeItem("Draft ID", record.rfq.draftId), completeItem("Customer", record.customer.companyName),
       completeItem("Customer Status", record.customer.erpStatus), completeItem("RFQ Lines", String(record.rfqLines.length)),
       completeItem("Documents", String(record.documents.allUploadedDocuments.length)), completeItem("Status", record.rfq.status)
     ].join("");
