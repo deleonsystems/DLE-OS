@@ -6632,7 +6632,7 @@ BOM Viewer</h2>
   <script src="SRC/modules/operations-center/operations-center.js"></script>
   <script src="SRC/modules/sales-order-dashboard/sales-order-dashboard.js"></script>
   <script src="SRC/modules/work-order-dashboard/work-order-dashboard.js"></script>
-  <script src="SRC/modules/shipment-staging/shipment-staging-service.js"></script>
+  <script src="SRC/modules/shipment-staging/shipment-staging-service.js?v=20260721-03"></script>
   <script src="SRC/modules/shipment-staging/shipment-staging.js"></script>
   <script src="SRC/modules/shipment-history/shipment-history.js"></script>
   <script src="SRC/shell/workspace-registry.js"></script>
@@ -7464,7 +7464,8 @@ const reconciliationState = {
     lastSuccessfulReconciliation: 'No Successful Reconciliation',
     currentState: 'Not Ready',
     latestSummary: null,
-    workOrderSyncMigrationMode: false
+    workOrderSyncMigrationMode: false,
+    shipmentArchiveTrace: []
 };
 
 const reconciliationReviewQueueState = {
@@ -8288,11 +8289,13 @@ async function approveReconciliationErpUpdates() {
             (result.enrichedFields || 0) + ' ERP-owned enrichment field value(s) added.',
             result.createdRecords + ' new ERP record(s) added.',
             archiveResult.archivedRecords + ' shipment staging record(s) archived into Shipment History.',
+            (archiveResult.previouslyArchivedRecords || 0) + ' previously archived shipment staging record(s) recovered without duplicating Shipment History.',
             'Master Data records were preserved during shipment archive.',
             (archiveResult.archivedMasterRecords || 0) + ' ERP-invoiced Master Data record(s) marked archived.',
             'DLE Master JSON persisted and verified.',
             archiveResult.archivedTransactions + ' shipment transaction(s) removed from Shipment Staging.',
             (archiveResult.persistedStagingRecords ?? shipmentStagingState.records.length) + ' shipment staging record(s) persisted after archive.',
+            'Archive trace: ' + formatShipmentArchiveTraceForStatus() + '.',
             'DLE-owned fields were preserved.',
             'Reconciliation was rerun automatically with ' + verificationEvents.length + ' event(s) remaining.'
         ].join(' '));
@@ -8309,7 +8312,7 @@ async function approveReconciliationErpUpdates() {
         renderMasterDataDashboardStatus();
         refreshOpenOrdersFromMasterData();
         renderDleMasterDataViewer();
-        setReconciliationActionStatus('Unable to apply approved ERP updates: ' + (error?.message || error));
+        setReconciliationActionStatus('Unable to apply approved ERP updates: ' + (error?.message || error) + ' Archive trace: ' + formatShipmentArchiveTraceForStatus() + '.');
     }
 }
 
@@ -9817,6 +9820,17 @@ function getShipmentStagingArchiveCandidates(shipmentIds) {
 }
 
 async function archiveApprovedShipmentStagingRecords(shipmentIds) {
+    reconciliationState.shipmentArchiveTrace = [];
+    const trace = (stage, details = {}) => recordShipmentArchiveDiagnostic(stage, details);
+    const normalizedApprovedIds = (shipmentIds || []).map(shipmentId => normalizeOrderValue(shipmentId, '')).filter(Boolean);
+    trace('approved-ids', {
+        shipmentIds: normalizedApprovedIds,
+        inMemoryRecordCount: Array.isArray(shipmentStagingState.records) ? shipmentStagingState.records.length : 0
+    });
+    normalizedApprovedIds.forEach(shipmentId => trace('in-memory-match', {
+        shipmentId,
+        matchedRecords: (shipmentStagingState.records || []).filter(record => normalizeOrderValue(record.shipmentId, '') === shipmentId).length
+    }));
     const archiveCandidates = getShipmentStagingArchiveCandidates(shipmentIds);
     if (!archiveCandidates.length) {
         return { archivedRecords: 0, archivedTransactions: 0, removedMasterRecords: 0, removedMasterRecordKeys: [] };
@@ -9854,10 +9868,33 @@ async function archiveApprovedShipmentStagingRecords(shipmentIds) {
             .filter(Boolean)
     );
     const archivedShipmentIds = Array.from(archivedIds);
+    const connectedStagingHandle = shipmentStagingState.persistence?.fileHandle || null;
     const historyFileHandle = await ensureShipmentHistoryWritableFileHandle();
     const stagingFileHandle = await ensureShipmentStagingWritableFileHandle();
+    let sameConnectedStagingEntry = connectedStagingHandle === stagingFileHandle;
+    if (!sameConnectedStagingEntry && connectedStagingHandle?.isSameEntry && stagingFileHandle) {
+        sameConnectedStagingEntry = await connectedStagingHandle.isSameEntry(stagingFileHandle);
+    }
+    const stagingFileBefore = await stagingFileHandle.getFile();
+    trace('staging-handle', {
+        resolvedName: stagingFileHandle.name || '',
+        connectedName: connectedStagingHandle?.name || '',
+        sameConnectedEntry: sameConnectedStagingEntry,
+        sizeBefore: stagingFileBefore.size,
+        lastModifiedBefore: stagingFileBefore.lastModified
+    });
+    if (connectedStagingHandle && !sameConnectedStagingEntry) {
+        throw new Error('Archive transaction aborted. The writable Shipment Staging handle is not the currently connected staging file.');
+    }
     const originalHistoryDataset = await readShipmentHistoryDatasetFromHandle(historyFileHandle);
     const originalStagingDataset = await readShipmentStagingDatasetFromHandle(stagingFileHandle);
+    trace('disk-before-removal', {
+        recordCount: (originalStagingDataset.records || []).length,
+        selectedMatches: archivedShipmentIds.map(shipmentId => ({
+            shipmentId,
+            matchedRecords: (originalStagingDataset.records || []).filter(record => normalizeOrderValue(record.shipmentId, '') === shipmentId).length
+        }))
+    });
 
     const stagingArchiveCandidates = (originalStagingDataset.records || []).filter(record =>
         archivedIds.has(normalizeOrderValue(record.shipmentId, '')) &&
@@ -9874,7 +9911,15 @@ async function archiveApprovedShipmentStagingRecords(shipmentIds) {
             .filter(recordKey => recordKey && !currentErpRecordKeys.has(recordKey))
     ));
 
-    const archivePayload = stagingArchiveCandidates.map(record => {
+    const existingHistoryArchiveIdentities = new Set(
+        (originalHistoryDataset.records || [])
+            .map(record => getShipmentArchiveRecordIdentity(record))
+            .filter(Boolean)
+    );
+    const newStagingArchiveCandidates = stagingArchiveCandidates.filter(record =>
+        !existingHistoryArchiveIdentities.has(getShipmentArchiveRecordIdentity(record))
+    );
+    const archivePayload = newStagingArchiveCandidates.map(record => {
         const recordKey = getShipmentStagingMasterRecordKey(record);
         const masterRecord = getMasterDataRecordByKey(recordKey);
         return {
@@ -9896,29 +9941,105 @@ async function archiveApprovedShipmentStagingRecords(shipmentIds) {
     const nextStagingRecords = (originalStagingDataset.records || []).filter(record =>
         !archivedIds.has(normalizeOrderValue(record.shipmentId, ''))
     );
-    const nextHistoryDataset = buildShipmentHistoryDatasetWithRecords(originalHistoryDataset, nextHistoryRecords, archiveTimestamp);
-    const nextStagingDataset = buildShipmentStagingDatasetWithRecords(originalStagingDataset, nextStagingRecords, 'Reconciliation Archive Shipment', archiveTimestamp);
+    trace('after-filter', {
+        originalRecordCount: (originalStagingDataset.records || []).length,
+        removedRecordCount: (originalStagingDataset.records || []).length - nextStagingRecords.length,
+        nextRecordCount: nextStagingRecords.length,
+        selectedIdsStillPresent: archivedShipmentIds.filter(shipmentId => nextStagingRecords.some(record => normalizeOrderValue(record.shipmentId, '') === shipmentId))
+    });
+    let nextHistoryDataset;
+    let nextStagingDataset;
+    try {
+        trace('history-dataset-build-start', {
+            originalRecordCount: (originalHistoryDataset.records || []).length,
+            recordsToAppend: archivedRecords.length,
+            expectedRecordCount: nextHistoryRecords.length
+        });
+        nextHistoryDataset = buildShipmentHistoryDatasetWithRecords(originalHistoryDataset, nextHistoryRecords, archiveTimestamp);
+        trace('history-dataset-build-complete', { recordCount: nextHistoryDataset.recordCount });
 
-    validateShipmentArchiveMoveDatasets(
-        originalHistoryDataset,
-        originalStagingDataset,
-        nextHistoryDataset,
-        nextStagingDataset,
-        archivedShipmentIds,
-        archivedRecords.length,
-        stagingArchiveCandidates.length
-    );
+        trace('staging-dataset-build-start', { expectedRecordCount: nextStagingRecords.length });
+        nextStagingDataset = buildShipmentStagingDatasetWithRecords(originalStagingDataset, nextStagingRecords, 'Reconciliation Archive Shipment', archiveTimestamp);
+        trace('staging-dataset-build-complete', { recordCount: nextStagingDataset.recordCount });
+
+        trace('archive-validation-start', {
+            historyRecordCount: nextHistoryDataset.recordCount,
+            stagingRecordCount: nextStagingDataset.recordCount,
+            archivedRecordCount: archivedRecords.length,
+            removedStagingRecordCount: stagingArchiveCandidates.length
+        });
+        validateShipmentArchiveMoveDatasets(
+            originalHistoryDataset,
+            originalStagingDataset,
+            nextHistoryDataset,
+            nextStagingDataset,
+            archivedShipmentIds,
+            archivedRecords.length,
+            stagingArchiveCandidates.length
+        );
+        trace('archive-validation-complete', {
+            historyRecordCount: nextHistoryDataset.recordCount,
+            stagingRecordCount: nextStagingDataset.recordCount
+        });
+    } catch (error) {
+        trace('pre-write-dataset-error', {
+            errorName: error?.name || '',
+            errorMessage: error?.message || String(error)
+        });
+        throw error;
+    }
 
     let historyWriteStarted = false;
     let stagingWriteStarted = false;
+    let persistedStagingDataset = null;
     try {
-        historyWriteStarted = true;
-        await writeShipmentHistoryDatasetToHandle(nextHistoryDataset, historyFileHandle, {
-            presentShipmentIds: archivedShipmentIds
-        });
+        if (archivedRecords.length > 0) {
+            trace('history-write-start', {
+                handleName: historyFileHandle.name || '',
+                recordsToAppend: archivedRecords.length,
+                datasetRecordCount: nextHistoryDataset.recordCount
+            });
+            historyWriteStarted = true;
+            await writeShipmentHistoryDatasetToHandle(nextHistoryDataset, historyFileHandle, {
+                presentShipmentIds: archivedShipmentIds
+            });
+            trace('history-write-complete', {
+                handleName: historyFileHandle.name || '',
+                datasetRecordCount: nextHistoryDataset.recordCount
+            });
+        } else {
+            trace('history-write-skipped-already-archived', {
+                handleName: historyFileHandle.name || '',
+                datasetRecordCount: nextHistoryDataset.recordCount
+            });
+        }
         stagingWriteStarted = true;
-        await writeShipmentStagingDatasetToHandle(nextStagingDataset, stagingFileHandle, {
+        applyShipmentStagingDatasetToState(nextStagingDataset, {
+            fileHandle: stagingFileHandle,
+            sourceFile: stagingFileHandle.name || 'shipment-staging.json',
+            mode: 'Writable'
+        });
+        trace('in-memory-before-staging-write', {
+            inMemoryRecordCount: (shipmentStagingState.records || []).length,
+            selectedIdsStillPresent: archivedShipmentIds.filter(shipmentId => (shipmentStagingState.records || []).some(record => normalizeOrderValue(record.shipmentId, '') === shipmentId))
+        });
+        trace('before-staging-write', {
+            datasetRecordCount: nextStagingDataset.recordCount,
+            recordsArrayLength: (nextStagingDataset.records || []).length,
+            selectedIdsStillPresent: archivedShipmentIds.filter(shipmentId => (nextStagingDataset.records || []).some(record => normalizeOrderValue(record.shipmentId, '') === shipmentId))
+        });
+        persistedStagingDataset = await persistShipmentStagingDataset('Reconciliation Archive Shipment', {
+            fileHandle: stagingFileHandle,
             absentShipmentIds: archivedShipmentIds
+        });
+        const stagingFileAfter = await stagingFileHandle.getFile();
+        const stagingDatasetAfterWrite = await readShipmentStagingDatasetFromHandle(stagingFileHandle);
+        trace('disk-after-write', {
+            handleName: stagingFileHandle.name || '',
+            sizeAfter: stagingFileAfter.size,
+            lastModifiedAfter: stagingFileAfter.lastModified,
+            recordCount: (stagingDatasetAfterWrite.records || []).length,
+            selectedIdsStillPresent: archivedShipmentIds.filter(shipmentId => (stagingDatasetAfterWrite.records || []).some(record => normalizeOrderValue(record.shipmentId, '') === shipmentId))
         });
         if (typeof verifyShipmentHistoryShipmentIdsPresent === 'function') {
             await verifyShipmentHistoryShipmentIdsPresent(archivedShipmentIds, historyFileHandle);
@@ -9932,24 +10053,41 @@ async function archiveApprovedShipmentStagingRecords(shipmentIds) {
             originalHistoryDataset,
             originalStagingDataset,
             nextHistoryDataset,
-            nextStagingDataset,
+            persistedStagingDataset,
             archivedShipmentIds,
             archivedRecords.length,
             stagingArchiveCandidates.length
         );
     } catch (error) {
+        trace('archive-transaction-error', {
+            errorName: error?.name || '',
+            errorMessage: error?.message || String(error)
+        });
         const rollbackErrors = [];
         if (historyWriteStarted) {
             try {
                 await writeShipmentHistoryDatasetToHandle(originalHistoryDataset, historyFileHandle);
             } catch (rollbackError) {
+                trace('history-rollback-error', {
+                    errorName: rollbackError?.name || '',
+                    errorMessage: rollbackError?.message || String(rollbackError)
+                });
                 rollbackErrors.push('Shipment History rollback failed: ' + (rollbackError?.message || rollbackError));
             }
         }
         if (stagingWriteStarted) {
             try {
+                applyShipmentStagingDatasetToState(originalStagingDataset, {
+                    fileHandle: stagingFileHandle,
+                    sourceFile: stagingFileHandle.name || 'shipment-staging.json',
+                    mode: 'Writable'
+                });
                 await writeShipmentStagingDatasetToHandle(originalStagingDataset, stagingFileHandle);
             } catch (rollbackError) {
+                trace('staging-rollback-error', {
+                    errorName: rollbackError?.name || '',
+                    errorMessage: rollbackError?.message || String(rollbackError)
+                });
                 rollbackErrors.push('Shipment Staging rollback failed: ' + (rollbackError?.message || rollbackError));
             }
         }
@@ -9969,23 +10107,92 @@ async function archiveApprovedShipmentStagingRecords(shipmentIds) {
         sourceFile: historyFileHandle.name || 'shipment-history.json',
         persistenceMode: 'Project JSON writable file handle'
     });
-    applyShipmentStagingDatasetToState(nextStagingDataset, {
+    applyShipmentStagingDatasetToState(persistedStagingDataset || nextStagingDataset, {
         fileHandle: stagingFileHandle,
         sourceFile: stagingFileHandle.name || 'shipment-staging.json',
         mode: 'Writable'
+    });
+    trace('state-after-refresh', {
+        inMemoryRecordCount: (shipmentStagingState.records || []).length,
+        selectedIdsStillPresent: archivedShipmentIds.filter(shipmentId => (shipmentStagingState.records || []).some(record => normalizeOrderValue(record.shipmentId, '') === shipmentId))
     });
 
     const archivedMasterRecordKeys = archiveMasterRecordsForErpInvoicedShipments(stagingArchiveCandidates, masterRecordKeysToArchive, archiveTimestamp);
 
     return {
         archivedRecords: archivedRecords.length,
+        previouslyArchivedRecords: stagingArchiveCandidates.length - archivedRecords.length,
         archivedTransactions: archivedIds.size,
-        persistedStagingRecords: nextStagingDataset.recordCount,
+        persistedStagingRecords: (persistedStagingDataset || nextStagingDataset).recordCount,
         archivedMasterRecords: archivedMasterRecordKeys.length,
         archivedMasterRecordKeys,
         removedMasterRecords: 0,
         removedMasterRecordKeys: []
     };
+}
+
+function recordShipmentArchiveDiagnostic(stage, details = {}) {
+    const entry = {
+        timestamp: new Date().toISOString(),
+        stage,
+        ...details
+    };
+    if (!Array.isArray(reconciliationState.shipmentArchiveTrace)) {
+        reconciliationState.shipmentArchiveTrace = [];
+    }
+    reconciliationState.shipmentArchiveTrace.push(entry);
+    console.info('[Shipment Archive Trace]', entry);
+    try {
+        localStorage.setItem('DLE_OS_SHIPMENT_ARCHIVE_TRACE', JSON.stringify(reconciliationState.shipmentArchiveTrace));
+    } catch (error) {
+        console.warn('Unable to persist Shipment Archive trace in browser storage.', error);
+    }
+    const traceElement = document.getElementById('shipmentArchiveDiagnosticTrace');
+    if (traceElement) {
+        traceElement.textContent = JSON.stringify(reconciliationState.shipmentArchiveTrace, null, 2);
+    }
+    return entry;
+}
+
+function renderPersistedShipmentArchiveDiagnosticTrace() {
+    const traceElement = document.getElementById('shipmentArchiveDiagnosticTrace');
+    if (!traceElement) return;
+
+    try {
+        const storedTrace = JSON.parse(localStorage.getItem('DLE_OS_SHIPMENT_ARCHIVE_TRACE') || '[]');
+        if (!Array.isArray(storedTrace) || !storedTrace.length) return;
+        reconciliationState.shipmentArchiveTrace = storedTrace;
+        traceElement.textContent = JSON.stringify(storedTrace, null, 2);
+    } catch (error) {
+        traceElement.textContent = 'Unable to reload the saved Shipment Archive trace: ' + (error?.message || error);
+    }
+}
+
+function formatShipmentArchiveTraceForStatus() {
+    const trace = Array.isArray(reconciliationState.shipmentArchiveTrace) ? reconciliationState.shipmentArchiveTrace : [];
+    if (!trace.length) return 'No staging archive stages recorded';
+    return trace.filter(entry => entry.stage !== 'in-memory-match').map(entry => {
+        const count = entry.nextRecordCount ?? entry.datasetRecordCount ?? entry.recordCount ?? entry.inMemoryRecordCount;
+        const remaining = Array.isArray(entry.selectedIdsStillPresent) ? entry.selectedIdsStillPresent.length : null;
+        return entry.stage + (count == null ? '' : '[count=' + count + ']') + (remaining == null ? '' : '[selectedRemaining=' + remaining + ']');
+    }).join(' > ');
+}
+
+function getShipmentArchiveRecordIdentity(record) {
+    const stagingSnapshot = record?.sourceSnapshots?.shipmentStagingRecord || null;
+    const identifiers = record?.identifiers || {};
+    const source = stagingSnapshot || record || {};
+    const masterRecordKey = normalizeOrderValue(record?.masterRecordKey || identifiers.masterRecordKey || source.masterRecordKey, '');
+    const shipmentTransactionId = normalizeOrderValue(
+        record?.shipmentTransactionId || identifiers.shipmentTransactionId || stagingSnapshot?.shipmentTransactionId,
+        ''
+    );
+    if (shipmentTransactionId && masterRecordKey) return ['TX', shipmentTransactionId, masterRecordKey].join('|');
+
+    const shipmentId = normalizeOrderValue(record?.shipmentId || identifiers.shipmentId || source.shipmentId, '');
+    const quantityShipped = normalizeOrderValue(source.quantityShipped ?? record?.quantityShipped ?? record?.order?.quantityShipped, '');
+    if (!shipmentId || !masterRecordKey) return '';
+    return ['SHIP', shipmentId, masterRecordKey, quantityShipped].join('|');
 }
 
 function buildCurrentErpOpenOrderRecordKeySet() {
@@ -10073,12 +10280,23 @@ function validateShipmentArchiveMoveDatasets(
         .filter(Boolean));
     const missingHistoryIds = Array.from(ids).filter(shipmentId => !historyIds.has(shipmentId));
     const remainingStagingIds = Array.from(ids).filter(shipmentId => stagingIds.has(shipmentId));
+    const historyArchiveIdentities = new Set();
+    const duplicateHistoryArchiveIdentities = new Set();
+    (historyDataset.records || []).forEach(record => {
+        const identity = getShipmentArchiveRecordIdentity(record);
+        if (!identity) return;
+        if (historyArchiveIdentities.has(identity)) duplicateHistoryArchiveIdentities.add(identity);
+        historyArchiveIdentities.add(identity);
+    });
 
     if (missingHistoryIds.length) {
         throw new Error('Archive transaction validation failed. Shipment(s) missing from next History dataset: ' + missingHistoryIds.join(', '));
     }
     if (remainingStagingIds.length) {
         throw new Error('Archive transaction validation failed. Shipment(s) still present in next Staging dataset: ' + remainingStagingIds.join(', '));
+    }
+    if (duplicateHistoryArchiveIdentities.size) {
+        throw new Error('Archive transaction validation failed. Duplicate Shipment History archive record(s) detected: ' + Array.from(duplicateHistoryArchiveIdentities).join(', '));
     }
     if (Number(historyDataset.recordCount || 0) !== (historyDataset.records || []).length) {
         throw new Error('Archive transaction validation failed. History record count does not match records array length.');

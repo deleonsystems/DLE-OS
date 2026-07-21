@@ -9,16 +9,22 @@
     const placeholder = document.getElementById('reconciliationWorkspace');
     if (!placeholder || placeholder.dataset.moduleLoaded === 'true') return;
 
-    const response = await fetch('SRC/modules/system-center/reconciliation/reconciliation.html');
+    const response = await fetch('SRC/modules/system-center/reconciliation/reconciliation.html', { cache: 'no-store' });
     if (!response.ok) {
       throw new Error('Unable to load Reconciliation workspace.');
     }
 
     const html = await response.text();
     placeholder.outerHTML = html;
+    if (typeof renderPersistedShipmentArchiveDiagnosticTrace === 'function') {
+      renderPersistedShipmentArchiveDiagnosticTrace();
+    }
   }
 
   function refreshReconciliationWorkspaceContext() {
+    if (typeof renderPersistedShipmentArchiveDiagnosticTrace === 'function') {
+      renderPersistedShipmentArchiveDiagnosticTrace();
+    }
     if (typeof renderMasterDataDashboardStatus === 'function') {
       renderMasterDataDashboardStatus();
     }

@@ -155,12 +155,54 @@
     const dataset = buildShipmentStagingDatasetForWrite(reason);
     validateShipmentStagingDataset(dataset);
     const handle = options.fileHandle || await getWritableShipmentStagingFileHandle();
-    const writable = await handle.createWritable();
-    await writable.write(JSON.stringify(dataset, null, 2));
-    await writable.close();
+    if (typeof window.recordShipmentArchiveDiagnostic === 'function' && reason === 'Reconciliation Archive Shipment') {
+      window.recordShipmentArchiveDiagnostic('staging-persistence-input', {
+        handleName: handle.name || '',
+        datasetRecordCount: dataset.recordCount,
+        recordsArrayLength: dataset.records.length,
+        absentShipmentIds: Array.isArray(options.absentShipmentIds) ? options.absentShipmentIds.slice() : []
+      });
+    }
+    let writable;
+    try {
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function' && reason === 'Reconciliation Archive Shipment') {
+        window.recordShipmentArchiveDiagnostic('staging-create-writable-start', { handleName: handle.name || '' });
+      }
+      writable = await handle.createWritable();
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function' && reason === 'Reconciliation Archive Shipment') {
+        window.recordShipmentArchiveDiagnostic('staging-create-writable-complete', { handleName: handle.name || '' });
+      }
+      await writable.write(JSON.stringify(dataset, null, 2));
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function' && reason === 'Reconciliation Archive Shipment') {
+        window.recordShipmentArchiveDiagnostic('staging-write-complete', { handleName: handle.name || '', datasetRecordCount: dataset.recordCount });
+      }
+      await writable.close();
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function' && reason === 'Reconciliation Archive Shipment') {
+        window.recordShipmentArchiveDiagnostic('staging-close-complete', { handleName: handle.name || '' });
+      }
+    } catch (error) {
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function' && reason === 'Reconciliation Archive Shipment') {
+        window.recordShipmentArchiveDiagnostic('staging-persistence-error', {
+          handleName: handle.name || '',
+          errorName: error?.name || '',
+          errorMessage: error?.message || String(error)
+        });
+      }
+      throw error;
+    }
     await verifyShipmentStagingFileWrite(handle, dataset);
     if (Array.isArray(options.absentShipmentIds) && options.absentShipmentIds.length) {
       await verifyShipmentStagingShipmentIdsAbsent(handle, options.absentShipmentIds);
+    }
+    if (typeof window.recordShipmentArchiveDiagnostic === 'function' && reason === 'Reconciliation Archive Shipment') {
+      const persistedDataset = await readShipmentStagingDatasetFromHandle(handle);
+      window.recordShipmentArchiveDiagnostic('staging-persistence-verified', {
+        handleName: handle.name || '',
+        recordCount: persistedDataset.records.length,
+        selectedIdsStillPresent: (options.absentShipmentIds || []).filter(shipmentId =>
+          persistedDataset.records.some(record => String(record.shipmentId || '').trim() === String(shipmentId || '').trim())
+        )
+      });
     }
     await storeShipmentStagingFileHandle(handle);
     shipmentStagingState.persistence = {
@@ -339,13 +381,56 @@
       throw new Error('Shipment Staging writable file handle is not available.');
     }
 
-    const writable = await handle.createWritable();
-    await writable.write(JSON.stringify(dataset, null, 2));
-    await writable.close();
+    if (typeof window.recordShipmentArchiveDiagnostic === 'function') {
+      window.recordShipmentArchiveDiagnostic('staging-service-write-input', {
+        handleName: handle.name || '',
+        datasetRecordCount: dataset.recordCount,
+        recordsArrayLength: dataset.records.length,
+        absentShipmentIds: Array.isArray(options.absentShipmentIds) ? options.absentShipmentIds.slice() : []
+      });
+    }
+
+    let writable;
+    try {
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function') {
+        window.recordShipmentArchiveDiagnostic('staging-create-writable-start', { handleName: handle.name || '' });
+      }
+      writable = await handle.createWritable();
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function') {
+        window.recordShipmentArchiveDiagnostic('staging-create-writable-complete', { handleName: handle.name || '' });
+      }
+      await writable.write(JSON.stringify(dataset, null, 2));
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function') {
+        window.recordShipmentArchiveDiagnostic('staging-write-complete', { handleName: handle.name || '', datasetRecordCount: dataset.recordCount });
+      }
+      await writable.close();
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function') {
+        window.recordShipmentArchiveDiagnostic('staging-close-complete', { handleName: handle.name || '' });
+      }
+    } catch (error) {
+      if (typeof window.recordShipmentArchiveDiagnostic === 'function') {
+        window.recordShipmentArchiveDiagnostic('staging-persistence-error', {
+          handleName: handle.name || '',
+          errorName: error?.name || '',
+          errorMessage: error?.message || String(error)
+        });
+      }
+      throw error;
+    }
     await verifyShipmentStagingFileWrite(handle, dataset);
 
     if (Array.isArray(options.absentShipmentIds) && options.absentShipmentIds.length) {
       await verifyShipmentStagingShipmentIdsAbsent(handle, options.absentShipmentIds);
+    }
+    if (typeof window.recordShipmentArchiveDiagnostic === 'function') {
+      const persistedDataset = await readShipmentStagingDatasetFromHandle(handle);
+      window.recordShipmentArchiveDiagnostic('staging-service-write-verified', {
+        handleName: handle.name || '',
+        recordCount: persistedDataset.records.length,
+        selectedIdsStillPresent: (options.absentShipmentIds || []).filter(shipmentId =>
+          persistedDataset.records.some(record => String(record.shipmentId || '').trim() === String(shipmentId || '').trim())
+        )
+      });
     }
     await storeShipmentStagingFileHandle(handle);
     return dataset;
