@@ -43,10 +43,12 @@
 
   // Qualified canonical SQL representations:
   // Customer.CustomerNumber is nvarchar(6);
-  // WorkOrder.WorkOrderNumber is nvarchar(7); InventoryItem.ItemNumber
-  // and WorkOrder.ItemNumber are padding-preserved nvarchar(20).
+  // SalesOrder.SalesOrderNumber and WorkOrder.WorkOrderNumber are nvarchar(7);
+  // InventoryItem.ItemNumber and WorkOrder.ItemNumber are padding-preserved
+  // nvarchar(20).
   const CANONICAL_FIELD_WIDTHS = Object.freeze({
     customerNumber: 6,
+    salesOrderNumber: 7,
     workOrderNumber: 7,
     itemNumber: 20
   });
@@ -178,6 +180,9 @@
     const isCustomerNumber =
       endpointKey === 'canonicalSalesOrders' &&
       filterName === 'customerNumber';
+    const isSalesOrderNumber =
+      endpointKey === 'canonicalSalesOrders' &&
+      filterName === 'salesOrderNumber';
     const isWorkOrderNumber =
       endpointKey === 'canonicalWorkOrders' &&
       filterName === 'workOrderNumber';
@@ -187,7 +192,7 @@
         endpointKey === 'canonicalInventoryItems' ||
         endpointKey === 'canonicalWorkOrders'
       );
-    if (!isCustomerNumber && !isWorkOrderNumber && !isItemNumber) {
+    if (!isCustomerNumber && !isSalesOrderNumber && !isWorkOrderNumber && !isItemNumber) {
       return value;
     }
     if (value === undefined || value === null) return value;
@@ -195,6 +200,13 @@
     const normalizedValue = String(value).trim();
     if (isCustomerNumber) {
       const canonicalWidth = CANONICAL_FIELD_WIDTHS.customerNumber;
+      if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
+        return normalizedValue.padStart(canonicalWidth, '0');
+      }
+      return normalizedValue;
+    }
+    if (isSalesOrderNumber) {
+      const canonicalWidth = CANONICAL_FIELD_WIDTHS.salesOrderNumber;
       if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
         return normalizedValue.padStart(canonicalWidth, '0');
       }

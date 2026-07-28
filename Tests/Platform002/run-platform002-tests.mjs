@@ -67,15 +67,28 @@ await browserContext.window.DleApiClient.liveCanonical.getCanonicalSalesOrders(p
 assert.match(requestedUrl, /customerNumber=001148(?:&|$)/);
 assert.equal(paddedInput.customerNumber, "001148");
 
+const paddedSalesOrderInput = {
+  page: 1,
+  pageSize: 50,
+  salesOrderNumber: "0012046"
+};
+await browserContext.window.DleApiClient.liveCanonical.getCanonicalSalesOrders(
+  paddedSalesOrderInput
+);
+assert.match(requestedUrl, /salesOrderNumber=0012046(?:&|$)/);
+assert.equal(paddedSalesOrderInput.salesOrderNumber, "0012046");
+
 await browserContext.window.DleApiClient.liveCanonical.getCanonicalSalesOrders({
   page: 1,
   pageSize: 50,
   customerNumber: " 1148 ",
+  salesOrderNumber: " 12046 ",
   itemNumber: "500144-103",
   negativeQuantity: true
 });
 assert.match(requestedUrl, /customerNumber=001148(?:&|$)/);
+assert.match(requestedUrl, /salesOrderNumber=0012046(?:&|$)/);
 assert.match(requestedUrl, /itemNumber=500144-103(?:&|$)/);
 assert.match(requestedUrl, /negativeQuantity=true(?:&|$)/);
 
-console.log("PLATFORM-002 frontend tests: PASS (20 assertions)");
+console.log("PLATFORM-002 frontend tests: PASS (23 assertions)");
