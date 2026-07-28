@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const viewer = fs.readFileSync(
@@ -33,4 +34,48 @@ assert.match(viewer, /name:\s*"workOrderNumber"/);
 assert.match(viewer, /name:\s*"extendedPrice", label:\s*"Extended Price"/);
 assert.match(viewer, /tab\.hidden = activeProfileKey !== "live"/);
 
-console.log("PLATFORM-002 frontend tests: PASS (15 assertions)");
+let requestedUrl = "";
+const browserContext = {
+  URLSearchParams,
+  encodeURIComponent,
+  localStorage: {
+    getItem() {
+      return null;
+    }
+  },
+  fetch: async url => {
+    requestedUrl = String(url);
+    return {
+      ok: true,
+      async json() {
+        return { items: [], page: 1, pageSize: 50, totalItems: 0, totalPages: 0 };
+      }
+    };
+  },
+  window: {
+    location: {
+      hostname: "dle-os-host",
+      origin: "http://DLE-OS-HOST:5041"
+    }
+  }
+};
+vm.createContext(browserContext);
+vm.runInContext(client, browserContext);
+
+const paddedInput = { page: 1, pageSize: 50, customerNumber: "001148" };
+await browserContext.window.DleApiClient.liveCanonical.getCanonicalSalesOrders(paddedInput);
+assert.match(requestedUrl, /customerNumber=001148(?:&|$)/);
+assert.equal(paddedInput.customerNumber, "001148");
+
+await browserContext.window.DleApiClient.liveCanonical.getCanonicalSalesOrders({
+  page: 1,
+  pageSize: 50,
+  customerNumber: " 1148 ",
+  itemNumber: "500144-103",
+  negativeQuantity: true
+});
+assert.match(requestedUrl, /customerNumber=001148(?:&|$)/);
+assert.match(requestedUrl, /itemNumber=500144-103(?:&|$)/);
+assert.match(requestedUrl, /negativeQuantity=true(?:&|$)/);
+
+console.log("PLATFORM-002 frontend tests: PASS (20 assertions)");
