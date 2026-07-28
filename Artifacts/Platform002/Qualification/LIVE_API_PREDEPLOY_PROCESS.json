@@ -1,0 +1,6 @@
+﻿{
+    "ProcessId":  33304,
+    "Name":  "dotnet.exe",
+    "Owner":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+    "CommandLine":  "\"C:\\Program Files\\dotnet\\dotnet.exe\" \"C:\\Program Files\\DLE-OS\\LiveCanonicalApi\\DLE-OS-Server.dll\" --environment Live "
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "DLE_PLATFORM_SALES_ORDER_EXTENSION_V1",
+  "runId": "PLATFORM002-20260728T163200Z-SALESORDER4",
+  "dataEnvironment": "LIVE",
+  "snapshotYear": 2026,
+  "parentCanonicalPackage": {
+    "runId": "LIVEMIRROR001-20260727T201259Z-43274A71",
+    "manifestSha256": "220F892212AD613D7AD83FEFBD0C4E505064F40DA2DD29824BE466112AEEBD39"
+  },
+  "counts": {
+    "Customer": 380,
+    "SalesOrder": 139,
+    "SalesOrderLine": 109
+  },
+  "validation": {
+    "nonStandardFiltered": 399,
+    "qualifyingLines": 109,
+    "negativeQuantity": 9,
+    "customerResolved": 109,
+    "customerUnresolved": 0,
+    "workOrderResolved": 25,
+    "workOrderUnresolved": 84,
+    "inventoryResolved": 109,
+    "inventoryUnresolved": 0,
+    "bomResolved": 107,
+    "bomUnresolved": 2
+  },
+  "sourceQualification": "VPRO_KEY_RAWRECORD_SHA256_V1 and VPRO_DECODED_RECORD_SHA256_V1"
+}

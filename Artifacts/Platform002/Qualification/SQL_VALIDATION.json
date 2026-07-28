@@ -1,0 +1,20 @@
+﻿{
+    "Verdict":  "PASS",
+    "CustomerCount":  380,
+    "SalesOrderCount":  139,
+    "SalesOrderLineCount":  109,
+    "ViewerRowCount":  109,
+    "NegativeQuantityCount":  9,
+    "CustomerResolutionFailures":  0,
+    "WorkOrderResolved":  25,
+    "WorkOrderUnresolved":  84,
+    "BomResolved":  107,
+    "BomUnresolved":  2,
+    "NonStandardRows":  0,
+    "ExtendedPriceMismatch":  0,
+    "ParentImportRunMismatch":  0,
+    "ApiCanSelect":  1,
+    "ApiCanInsert":  0,
+    "ApiCanUpdate":  0,
+    "ApiCanDelete":  0
+}

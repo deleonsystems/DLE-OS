@@ -1,0 +1,14 @@
+﻿[
+    {
+        "Database":  "DLE_OS",
+        "TotalRows":  8122
+    },
+    {
+        "Database":  "DLE_OS_PLATFORM_LAB",
+        "TotalRows":  35371
+    },
+    {
+        "Database":  "DLE_OS_CANONICAL_LIVE",
+        "TotalRows":  51048
+    }
+]

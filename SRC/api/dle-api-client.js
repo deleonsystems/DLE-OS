@@ -10,7 +10,43 @@
     masterData: '/api/masterdata',
     operationsOverlay: '/api/operations/overlay',
     shipmentStaging: '/api/shipments/staging',
-    shipmentHistory: '/api/shipments/history'
+    shipmentHistory: '/api/shipments/history',
+    platformReadiness: '/api/platform/v1/readiness',
+    platformSnapshot: '/api/platform/v1/snapshot',
+    canonicalWorkOrders: '/api/platform/v1/work-orders',
+    canonicalInventoryItems: '/api/platform/v1/inventory-items',
+    canonicalBillsOfMaterial: '/api/platform/v1/bills-of-material',
+    canonicalGeneralLedgerAccounts: '/api/platform/v1/general-ledger-accounts'
+  });
+  const LIVE_CANONICAL_BASE_URL = 'http://DLE-OS-HOST:5042';
+  const LIVE_CANONICAL_ENDPOINTS = Object.freeze({
+    platformReadiness: '/api/platform/live/v1/readiness',
+    platformSnapshot: '/api/platform/live/v1/snapshot',
+    canonicalWorkOrders: '/api/platform/live/v1/work-orders',
+    canonicalInventoryItems: '/api/platform/live/v1/inventory-items',
+    canonicalBillsOfMaterial: '/api/platform/live/v1/bills-of-material',
+    canonicalGeneralLedgerAccounts: '/api/platform/live/v1/general-ledger-accounts',
+    canonicalSalesOrders: '/api/platform/live/v1/sales-orders'
+  });
+
+  const CANONICAL_FILTERS = Object.freeze({
+    canonicalWorkOrders: Object.freeze(['workOrderNumber', 'itemNumber', 'status']),
+    canonicalInventoryItems: Object.freeze(['itemNumber', 'itemDescription']),
+    canonicalBillsOfMaterial: Object.freeze(['billNumber', 'drawingNumber', 'drawingRevision', 'bomRevision']),
+    canonicalGeneralLedgerAccounts: Object.freeze(['accountNumber', 'accountDescription']),
+    canonicalSalesOrders: Object.freeze([
+      'customerNumber', 'customerName', 'salesOrderNumber',
+      'customerPurchaseOrderNumber', 'itemNumber', 'workOrderNumber',
+      'estimatedShipDate', 'negativeQuantity', 'unresolvedWorkOrder'
+    ])
+  });
+
+  // Qualified Contract v1.1 SQL representations:
+  // WorkOrder.WorkOrderNumber is nvarchar(7); InventoryItem.ItemNumber
+  // and WorkOrder.ItemNumber are padding-preserved nvarchar(20).
+  const CANONICAL_FIELD_WIDTHS = Object.freeze({
+    workOrderNumber: 7,
+    itemNumber: 20
   });
 
   function getConfig() {
@@ -18,7 +54,7 @@
     const storedConfig = readStoredConfig();
     return {
       enabled: runtimeConfig.enabled ?? storedConfig.enabled ?? true,
-      baseUrl: normalizeBaseUrl(runtimeConfig.baseUrl || storedConfig.baseUrl || DEFAULT_BASE_URL),
+      baseUrl: normalizeBaseUrl(runtimeConfig.baseUrl || storedConfig.baseUrl || getLocalDevelopmentBaseUrl() || DEFAULT_BASE_URL),
       endpoints: {
         ...DEFAULT_ENDPOINTS,
         ...(storedConfig.endpoints || {}),
@@ -60,9 +96,23 @@
       throw new Error('DLE API endpoint is not configured for ' + endpointKey + '.');
     }
 
-    const response = await fetch(buildUrl(endpoint), {
+    return requestJson(buildUrl(endpoint), endpointKey, options);
+  }
+
+  function getLiveJson(endpointKey, options = {}) {
+    const endpoint = options.endpoint || LIVE_CANONICAL_ENDPOINTS[endpointKey];
+    if (!endpoint) {
+      throw new Error('LIVE canonical endpoint is not configured for ' + endpointKey + '.');
+    }
+    const url = LIVE_CANONICAL_BASE_URL + '/' + String(endpoint).replace(/^\/+/, '');
+    return requestJson(url, 'liveCanonical.' + endpointKey, options);
+  }
+
+  async function requestJson(url, endpointKey, options) {
+    const response = await fetch(url, {
       method: 'GET',
       cache: 'no-store',
+      signal: options.signal,
       headers: {
         Accept: 'application/json',
         ...(options.headers || {})
@@ -70,10 +120,152 @@
     });
 
     if (!response.ok) {
-      throw new Error('DLE API request failed for ' + endpointKey + '. HTTP ' + response.status + '.');
+      let body = null;
+      try {
+        body = await response.json();
+      } catch (error) {
+        body = null;
+      }
+      const requestError = new Error(
+        typeof body?.message === 'string'
+          ? body.message
+          : 'DLE API request failed for ' + endpointKey + '. HTTP ' + response.status + '.'
+      );
+      requestError.name = 'DleApiError';
+      requestError.status = response.status;
+      requestError.code = typeof body?.code === 'string' ? body.code : 'http_error';
+      throw requestError;
     }
 
     return response.json();
+  }
+
+  function getLocalDevelopmentBaseUrl() {
+    const pageLocation = window.location;
+    if (!pageLocation || !/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(pageLocation.hostname || '')) {
+      return '';
+    }
+    return pageLocation.origin || '';
+  }
+
+  function buildCanonicalListEndpoint(endpointKey, options = {}, endpoints = getConfig().endpoints) {
+    const endpoint = endpoints[endpointKey];
+    const page = options.page ?? 1;
+    const pageSize = options.pageSize ?? 50;
+
+    if (!Number.isInteger(page) || page < 1) {
+      throw new RangeError('Canonical page must be an integer of at least 1.');
+    }
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 200) {
+      throw new RangeError('Canonical pageSize must be an integer between 1 and 200.');
+    }
+
+    const query = new URLSearchParams();
+    query.set('page', String(page));
+    query.set('pageSize', String(pageSize));
+    CANONICAL_FILTERS[endpointKey].forEach(filterName => {
+      const filterValue = normalizeCanonicalFilterValue(endpointKey, filterName, options[filterName]);
+      if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
+        query.set(filterName, String(filterValue));
+      }
+    });
+    return endpoint + '?' + query.toString();
+  }
+
+  function normalizeCanonicalFilterValue(endpointKey, filterName, value) {
+    const isWorkOrderNumber =
+      endpointKey === 'canonicalWorkOrders' &&
+      filterName === 'workOrderNumber';
+    const isItemNumber =
+      filterName === 'itemNumber' &&
+      (
+        endpointKey === 'canonicalInventoryItems' ||
+        endpointKey === 'canonicalWorkOrders'
+      );
+    if (!isWorkOrderNumber && !isItemNumber) {
+      return value;
+    }
+    if (value === undefined || value === null) return value;
+
+    const normalizedValue = String(value).trim();
+    if (isWorkOrderNumber) {
+      const canonicalWidth = CANONICAL_FIELD_WIDTHS.workOrderNumber;
+      if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
+        return normalizedValue.padStart(canonicalWidth, '0');
+      }
+      return normalizedValue;
+    }
+
+    const canonicalWidth = CANONICAL_FIELD_WIDTHS.itemNumber;
+    if (normalizedValue.length > 0 && normalizedValue.length < canonicalWidth) {
+      return normalizedValue.padEnd(canonicalWidth, ' ');
+    }
+    return normalizedValue;
+  }
+
+  function encodeCanonicalIdentifier(value) {
+    if (value === undefined || value === null) {
+      throw new TypeError('A canonical identifier is required.');
+    }
+    return encodeURIComponent(String(value)).replace(/[!'()*]/g, character => (
+      '%' + character.charCodeAt(0).toString(16).toUpperCase()
+    ));
+  }
+
+  function getCanonicalList(endpointKey, options = {}) {
+    return getJson(endpointKey, {
+      endpoint: buildCanonicalListEndpoint(endpointKey, options),
+      signal: options.signal
+    });
+  }
+
+  function getCanonicalRecord(endpointKey, identifier, options = {}) {
+    const endpoint = getConfig().endpoints[endpointKey];
+    const normalizedIdentifier = normalizeCanonicalRecordIdentifier(
+      endpointKey,
+      identifier
+    );
+    return getJson(endpointKey, {
+      endpoint: endpoint + '/' + encodeCanonicalIdentifier(normalizedIdentifier),
+      signal: options.signal
+    });
+  }
+
+  function getLiveCanonicalList(endpointKey, options = {}) {
+    return getLiveJson(endpointKey, {
+      endpoint: buildCanonicalListEndpoint(endpointKey, options, LIVE_CANONICAL_ENDPOINTS),
+      signal: options.signal
+    });
+  }
+
+  function getLiveCanonicalRecord(endpointKey, identifier, options = {}) {
+    const normalizedIdentifier = normalizeCanonicalRecordIdentifier(
+      endpointKey,
+      identifier
+    );
+    return getLiveJson(endpointKey, {
+      endpoint: LIVE_CANONICAL_ENDPOINTS[endpointKey] + '/' +
+        encodeCanonicalIdentifier(normalizedIdentifier),
+      signal: options.signal
+    });
+  }
+
+  function normalizeCanonicalRecordIdentifier(endpointKey, identifier) {
+    if (endpointKey === 'canonicalWorkOrders') {
+      return normalizeCanonicalFilterValue(
+          endpointKey,
+          'workOrderNumber',
+          identifier
+        );
+    }
+    if (endpointKey === 'canonicalInventoryItems') {
+      return normalizeCanonicalFilterValue(
+        endpointKey,
+        'itemNumber',
+        identifier
+      );
+    }
+    return identifier;
   }
 
   async function getJsonWithFallback(endpointKey, fallbackPath, options = {}) {
@@ -99,10 +291,82 @@
     }
   }
 
+  const liveCanonicalClient = Object.freeze({
+    getPlatformReadiness(options = {}) {
+      return getLiveJson('platformReadiness', options);
+    },
+    getPlatformSnapshot(options = {}) {
+      return getLiveJson('platformSnapshot', options);
+    },
+    getCanonicalWorkOrders(options = {}) {
+      return getLiveCanonicalList('canonicalWorkOrders', options);
+    },
+    getCanonicalWorkOrder(workOrderNumber, options = {}) {
+      return getLiveCanonicalRecord('canonicalWorkOrders', workOrderNumber, options);
+    },
+    getCanonicalInventoryItems(options = {}) {
+      return getLiveCanonicalList('canonicalInventoryItems', options);
+    },
+    getCanonicalInventoryItem(itemNumber, options = {}) {
+      return getLiveCanonicalRecord('canonicalInventoryItems', itemNumber, options);
+    },
+    getCanonicalBillsOfMaterial(options = {}) {
+      return getLiveCanonicalList('canonicalBillsOfMaterial', options);
+    },
+    getCanonicalBillOfMaterial(billNumber, options = {}) {
+      return getLiveCanonicalRecord('canonicalBillsOfMaterial', billNumber, options);
+    },
+    getCanonicalGeneralLedgerAccounts(options = {}) {
+      return getLiveCanonicalList('canonicalGeneralLedgerAccounts', options);
+    },
+    getCanonicalGeneralLedgerAccount(accountNumber, options = {}) {
+      return getLiveCanonicalRecord('canonicalGeneralLedgerAccounts', accountNumber, options);
+    },
+    getCanonicalSalesOrders(options = {}) {
+      return getLiveCanonicalList('canonicalSalesOrders', options);
+    },
+    getCanonicalSalesOrder(salesOrderLineId, options = {}) {
+      return getLiveCanonicalRecord('canonicalSalesOrders', salesOrderLineId, options);
+    },
+    baseUrl: LIVE_CANONICAL_BASE_URL,
+    endpoints: LIVE_CANONICAL_ENDPOINTS
+  });
+
   window.DleApiClient = Object.freeze({
     getConfig,
     getJson,
     getJsonWithFallback,
+    getPlatformReadiness(options = {}) {
+      return getJson('platformReadiness', options);
+    },
+    getPlatformSnapshot(options = {}) {
+      return getJson('platformSnapshot', options);
+    },
+    getCanonicalWorkOrders(options = {}) {
+      return getCanonicalList('canonicalWorkOrders', options);
+    },
+    getCanonicalWorkOrder(workOrderNumber, options = {}) {
+      return getCanonicalRecord('canonicalWorkOrders', workOrderNumber, options);
+    },
+    getCanonicalInventoryItems(options = {}) {
+      return getCanonicalList('canonicalInventoryItems', options);
+    },
+    getCanonicalInventoryItem(itemNumber, options = {}) {
+      return getCanonicalRecord('canonicalInventoryItems', itemNumber, options);
+    },
+    getCanonicalBillsOfMaterial(options = {}) {
+      return getCanonicalList('canonicalBillsOfMaterial', options);
+    },
+    getCanonicalBillOfMaterial(billNumber, options = {}) {
+      return getCanonicalRecord('canonicalBillsOfMaterial', billNumber, options);
+    },
+    getCanonicalGeneralLedgerAccounts(options = {}) {
+      return getCanonicalList('canonicalGeneralLedgerAccounts', options);
+    },
+    getCanonicalGeneralLedgerAccount(accountNumber, options = {}) {
+      return getCanonicalRecord('canonicalGeneralLedgerAccounts', accountNumber, options);
+    },
+    liveCanonical: liveCanonicalClient,
     endpoints: DEFAULT_ENDPOINTS
   });
 })();

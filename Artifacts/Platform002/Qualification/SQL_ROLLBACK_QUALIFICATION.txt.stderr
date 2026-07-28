@@ -1,0 +1,7 @@
+PLATFORM-002 controlled transactional rollback qualification.
+At C:\DLE-OS\Repositories\DLE-OS-Server\Tools\Import-Platform002SalesOrders.ps1:162 char:9
++         throw 'PLATFORM-002 controlled transactional rollback qualifi ...
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (PLATFORM-002 co... qualification.:String) [], RuntimeException
+    + FullyQualifiedErrorId : PLATFORM-002 controlled transactional rollback qualification.
+ 

@@ -1,0 +1,54 @@
+{
+  "mission": "PLATFORM-002",
+  "verdict": "PASS WITH UNRESOLVED ITEMS",
+  "qualificationRunId": "PLATFORM002-20260728T163200Z-SALESORDER4",
+  "sourceCounts": {
+    "ARE-03": 1802,
+    "ARE-13": 12074,
+    "ARM-01": 380,
+    "ARM-10": 120,
+    "WOE-03": 370689
+  },
+  "package": {
+    "path": "C:\\DLE-OS\\Canonical\\LiveMirror\\Platform002\\Current",
+    "sha256": "8035F2C5A66C02136C3EADA949904223648B1470838E089C66DD57CBC221B229",
+    "parentImportRunId": "1dd2bfcb-62e5-485a-ad17-1a3f62a4e872",
+    "salesOrderExtensionRunId": "788326d3-2b64-4862-9567-91c5732583bb"
+  },
+  "counts": {
+    "Customer": 380,
+    "SalesOrder": 139,
+    "SalesOrderLine": 109,
+    "ViewerRows": 109,
+    "NegativeQuantity": 9,
+    "CustomerResolved": 109,
+    "CustomerUnresolved": 0,
+    "WorkOrderResolved": 25,
+    "WorkOrderUnresolved": 84,
+    "BomResolved": 107,
+    "BomUnresolved": 2
+  },
+  "tests": {
+    "twoPassStreams": "PASS",
+    "filesystemIdentity": "PASS",
+    "reportParity": "PASS",
+    "sqlImport": "PASS",
+    "sqlRollback": "PASS",
+    "sqlNoOp": "PASS",
+    "apiPermissions": "PASS",
+    "serverBuild": "PASS",
+    "apiRegression": "25/25",
+    "viewerRegression": "40/40",
+    "platform002Frontend": "15/15",
+    "browserLayout": "PASS",
+    "liveHttp": "BLOCKED: approved UAC launcher canceled"
+  },
+  "safety": {
+    "sourceOpenMode": "O_RDONLY",
+    "sourceWrites": 0,
+    "sourceLocks": 0,
+    "reportExecutions": 0,
+    "dleOsModified": false,
+    "historicalDatabaseModified": false
+  }
+}

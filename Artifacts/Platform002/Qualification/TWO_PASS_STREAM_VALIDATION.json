@@ -1,0 +1,112 @@
+{
+  "mission": "PLATFORM-002",
+  "verdict": "PASS",
+  "fingerprintNote": "These are ordered logical record-stream fingerprints, not physical-file byte hashes.",
+  "files": {
+    "ARE-03": {
+      "pass1": {
+        "rowCount": 1802,
+        "firstKeyHex": "3031202030303130303130303033323739303030",
+        "lastKeyHex": "3031202039343634353030303036323938303030",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "70182B004432AC86C630BC94D6DA8E16470AE3814EE737A3A3778EB34EDA4E4F",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "443F4AE7DDC2582BA41E53BD543394486E91D21649BCCADEDB4C59A292528999"
+      },
+      "pass2": {
+        "rowCount": 1802,
+        "firstKeyHex": "3031202030303130303130303033323739303030",
+        "lastKeyHex": "3031202039343634353030303036323938303030",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "70182B004432AC86C630BC94D6DA8E16470AE3814EE737A3A3778EB34EDA4E4F",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "443F4AE7DDC2582BA41E53BD543394486E91D21649BCCADEDB4C59A292528999"
+      },
+      "exactRowComparison": "PASS"
+    },
+    "ARE-13": {
+      "pass1": {
+        "rowCount": 12074,
+        "firstKeyHex": "3031202030303130303130303033323739303130",
+        "lastKeyHex": "3031202039343634353030303036323938303130",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "0DDEA0A8E1E58A7F6E0FBF740AECBA2ECE56042BA7BF421252280FEF5BE0B8AC",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "27A5C0423D511B3EFE271F2F648331C162DB6EA903F79B82B35ABFA4B12D2016"
+      },
+      "pass2": {
+        "rowCount": 12074,
+        "firstKeyHex": "3031202030303130303130303033323739303130",
+        "lastKeyHex": "3031202039343634353030303036323938303130",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "0DDEA0A8E1E58A7F6E0FBF740AECBA2ECE56042BA7BF421252280FEF5BE0B8AC",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "27A5C0423D511B3EFE271F2F648331C162DB6EA903F79B82B35ABFA4B12D2016"
+      },
+      "exactRowComparison": "PASS"
+    },
+    "ARM-01": {
+      "pass1": {
+        "rowCount": 380,
+        "firstKeyHex": "3031303030303031",
+        "lastKeyHex": "3031393939393939",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "40692AD2840E3C3B8FFD6518FFA92FE3B006A1F0D069A5048C1206A4A1635251",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "9755F9449008528119B6BFE7ECD2AC85A08261373865701FD3A8AEC23A6B2A97"
+      },
+      "pass2": {
+        "rowCount": 380,
+        "firstKeyHex": "3031303030303031",
+        "lastKeyHex": "3031393939393939",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "40692AD2840E3C3B8FFD6518FFA92FE3B006A1F0D069A5048C1206A4A1635251",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "9755F9449008528119B6BFE7ECD2AC85A08261373865701FD3A8AEC23A6B2A97"
+      },
+      "exactRowComparison": "PASS"
+    },
+    "ARM-10": {
+      "pass1": {
+        "rowCount": 120,
+        "firstKeyHex": "3031413031",
+        "lastKeyHex": "39394D52544C20",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "F3CBD6D313F9CB6EB1E6C64C44C1BB51E3A64160A0117DE72E81A1C3E500CA53",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "73E6F8B4E3A08AE531B70E213B233E1FBE104B70191D3D42379255AA9B52081F"
+      },
+      "pass2": {
+        "rowCount": 120,
+        "firstKeyHex": "3031413031",
+        "lastKeyHex": "39394D52544C20",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "F3CBD6D313F9CB6EB1E6C64C44C1BB51E3A64160A0117DE72E81A1C3E500CA53",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "73E6F8B4E3A08AE531B70E213B233E1FBE104B70191D3D42379255AA9B52081F"
+      },
+      "exactRowComparison": "PASS"
+    },
+    "WOE-03": {
+      "pass1": {
+        "rowCount": 370689,
+        "firstKeyHex": "3031414E20202030303030303035",
+        "lastKeyHex": "3031452020423157583130302D312F322D4220202020202020202030313135303832303330",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "EB561EEBABACFC00C4A5131A8EE3E6B5BE187F0516BFBA236A8E8E3165D7BF96",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "4109B5B332AD5A01D754A87A922320F26A364BF937069927CA4A211B25A72388"
+      },
+      "pass2": {
+        "rowCount": 370689,
+        "firstKeyHex": "3031414E20202030303030303035",
+        "lastKeyHex": "3031452020423157583130302D312F322D4220202020202020202030313135303832303330",
+        "keyRawRecordFingerprintAlgorithm": "VPRO_KEY_RAWRECORD_SHA256_V1",
+        "keyRawRecordFingerprint": "EB561EEBABACFC00C4A5131A8EE3E6B5BE187F0516BFBA236A8E8E3165D7BF96",
+        "decodedFingerprintAlgorithm": "VPRO_DECODED_RECORD_SHA256_V1",
+        "decodedFingerprint": "4109B5B332AD5A01D754A87A922320F26A364BF937069927CA4A211B25A72388"
+      },
+      "exactRowComparison": "PASS"
+    }
+  }
+}

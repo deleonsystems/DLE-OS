@@ -1,0 +1,23 @@
+﻿[
+    {
+        "Database":  "DLE_OS",
+        "Before":  8122,
+        "After":  8122,
+        "Delta":  0,
+        "ProtectedUnchanged":  true
+    },
+    {
+        "Database":  "DLE_OS_PLATFORM_LAB",
+        "Before":  35371,
+        "After":  35371,
+        "Delta":  0,
+        "ProtectedUnchanged":  true
+    },
+    {
+        "Database":  "DLE_OS_CANONICAL_LIVE",
+        "Before":  51048,
+        "After":  51927,
+        "Delta":  879,
+        "ProtectedUnchanged":  null
+    }
+]

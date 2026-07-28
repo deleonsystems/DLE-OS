@@ -58,6 +58,11 @@
       purpose: "Request to Ship preparation and customer shipment operations."
     },
     {
+      id: "platform",
+      label: "Platform",
+      purpose: "Read-only inspection of governed canonical platform data."
+    },
+    {
       id: "reports",
       label: "Reports",
       purpose: "Reporting, analytics, and historical data."

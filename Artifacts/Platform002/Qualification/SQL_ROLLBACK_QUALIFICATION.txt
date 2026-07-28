@@ -1,0 +1,6 @@
+﻿{
+    "Verdict":  "PASS",
+    "ExitCode":  1,
+    "RemainingRows":  0,
+    "ExpectedFailure":  "PLATFORM-002 controlled transactional rollback qualification."
+}

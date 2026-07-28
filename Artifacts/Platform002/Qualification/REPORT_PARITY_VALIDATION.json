@@ -1,0 +1,13 @@
+{
+  "verdict": "PASS",
+  "reportRows": 109,
+  "canonicalQualifyingRows": 109,
+  "mismatchCount": 0,
+  "mismatches": [],
+  "intentionalDifferences": [
+    "Quantity Ordered replaces the misleading Quantity Open label.",
+    "The hard-coded Quantity Shipped column is omitted.",
+    "Unresolved Work Order relationships are null instead of UNKNOWN.",
+    "Extended Price is derived from Unit Price multiplied by Quantity Ordered."
+  ]
+}

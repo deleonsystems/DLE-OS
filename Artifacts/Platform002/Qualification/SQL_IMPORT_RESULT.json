@@ -1,0 +1,10 @@
+{
+    "Verdict":  "PASS",
+    "Behavior":  "IMPORT",
+    "ParentImportRunId":  "1dd2bfcb-62e5-485a-ad17-1a3f62a4e872",
+    "SalesOrderExtensionRunId":  "788326d3-2b64-4862-9567-91c5732583bb",
+    "ExtensionPackageHash":  "8035F2C5A66C02136C3EADA949904223648B1470838E089C66DD57CBC221B229",
+    "CustomerCount":  380,
+    "SalesOrderCount":  139,
+    "SalesOrderLineCount":  109
+}
