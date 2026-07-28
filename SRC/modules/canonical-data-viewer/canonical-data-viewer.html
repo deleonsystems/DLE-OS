@@ -30,11 +30,19 @@
         <h1 id="canonicalViewerTitle" data-canonical-viewer-title>Canonical Data Viewer — Test Data</h1>
         <p data-canonical-viewer-description>Read-only inspection of Canonical Contract v1.1 data from the historical test SQL snapshot.</p>
       </div>
-      <button class="canonical-viewer__button canonical-viewer__button--secondary"
-              type="button"
-              data-canonical-action="refresh-status">
-        Refresh Status
-      </button>
+      <div class="canonical-viewer__header-actions">
+        <button class="canonical-viewer__button canonical-viewer__button--secondary"
+                type="button"
+                data-canonical-action="refresh-status">
+          Refresh View
+        </button>
+        <button class="canonical-viewer__button canonical-viewer__button--refresh"
+                type="button"
+                data-canonical-action="run-erp-refresh"
+                hidden>
+          Run ERP Snapshot Refresh
+        </button>
+      </div>
     </header>
 
     <section class="canonical-viewer__status-grid"
@@ -88,6 +96,24 @@
               hidden>
         Retry
       </button>
+    </section>
+
+    <section class="canonical-viewer__refresh-control"
+             data-canonical-refresh-control
+             aria-live="polite"
+             hidden>
+      <div>
+        <strong>ERP Snapshot Refresh</strong>
+        <p data-canonical-refresh-message>Checking operator authorization and refresh status.</p>
+      </div>
+      <dl>
+        <div><dt>Status</dt><dd data-canonical-refresh-status>Checking</dd></div>
+        <div><dt>Current phase</dt><dd data-canonical-refresh-phase>—</dd></div>
+        <div><dt>Last source check</dt><dd data-canonical-refresh-last-check>—</dd></div>
+        <div><dt>Last successful refresh</dt><dd data-canonical-refresh-last-success>—</dd></div>
+        <div><dt>Active ImportRunId</dt><dd data-canonical-refresh-import-run-id>—</dd></div>
+        <div><dt>Last result</dt><dd data-canonical-refresh-last-result>—</dd></div>
+      </dl>
     </section>
 
     <details class="canonical-viewer__snapshot" data-canonical-snapshot-details>

@@ -19,6 +19,7 @@
     canonicalGeneralLedgerAccounts: '/api/platform/v1/general-ledger-accounts'
   });
   const LIVE_CANONICAL_BASE_URL = 'http://DLE-OS-HOST:5042';
+  const LIVE_SNAPSHOT_REFRESH_BASE_URL = 'http://DLE-OS-HOST:5043';
   const LIVE_CANONICAL_ENDPOINTS = Object.freeze({
     platformReadiness: '/api/platform/live/v1/readiness',
     platformSnapshot: '/api/platform/live/v1/snapshot',
@@ -110,6 +111,37 @@
     }
     const url = LIVE_CANONICAL_BASE_URL + '/' + String(endpoint).replace(/^\/+/, '');
     return requestJson(url, 'liveCanonical.' + endpointKey, options);
+  }
+
+  async function requestLiveSnapshotRefresh(path, options = {}) {
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/' + String(path).replace(/^\/+/, ''),
+      {
+        method: options.method || 'GET',
+        cache: 'no-store',
+        credentials: 'include',
+        signal: options.signal,
+        headers: { Accept: 'application/json' }
+      }
+    );
+    let body = null;
+    try {
+      body = await response.json();
+    } catch (error) {
+      body = null;
+    }
+    if (!response.ok) {
+      const requestError = new Error(
+        typeof body?.message === 'string'
+          ? body.message
+          : 'The governed ERP snapshot refresh control returned HTTP ' + response.status + '.'
+      );
+      requestError.name = 'DleApiError';
+      requestError.status = response.status;
+      requestError.code = typeof body?.code === 'string' ? body.code : 'http_error';
+      throw requestError;
+    }
+    return body;
   }
 
   async function requestJson(url, endpointKey, options) {
@@ -351,6 +383,15 @@
     },
     getCanonicalSalesOrder(salesOrderLineId, options = {}) {
       return getLiveCanonicalRecord('canonicalSalesOrders', salesOrderLineId, options);
+    },
+    getSnapshotRefreshStatus(options = {}) {
+      return requestLiveSnapshotRefresh('/api/platform/refresh/v1/status', options);
+    },
+    runSnapshotRefresh(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/refresh/v1/run',
+        { ...options, method: 'POST' }
+      );
     },
     baseUrl: LIVE_CANONICAL_BASE_URL,
     endpoints: LIVE_CANONICAL_ENDPOINTS

@@ -243,6 +243,7 @@
   let statusRequest = null;
   let lastFocusedRow = null;
   let workOrderSearchTimer = null;
+  let refreshStatusTimer = null;
 
   const viewerStates = Object.fromEntries(
     Object.keys(VIEWER_PROFILES).map(profileKey => [profileKey, createViewerState()])
@@ -257,6 +258,19 @@
       readinessPayload: null,
       snapshot: "checking",
       snapshotPayload: null,
+      refresh: {
+        authorized: false,
+        available: false,
+        running: false,
+        status: "CHECKING",
+        phase: null,
+        message: "Checking operator authorization and refresh status.",
+        lastSourceCheckUtc: null,
+        lastSuccessfulRefreshUtc: null,
+        activeImportRunId: null,
+        lastResult: null,
+        lastFailureReason: null
+      },
       statusMessage: "Checking the configured canonical API.",
       entities: Object.fromEntries(Object.keys(ENTITIES).map(entityKey => [entityKey, {
         filters: {},
@@ -356,6 +370,7 @@
     const action = event.target.closest("[data-canonical-action]")?.dataset.canonicalAction;
     if (!action) return;
     if (action === "refresh-status" || action === "retry-status") refreshStatus({ loadDefaultEntity: false });
+    if (action === "run-erp-refresh") runErpSnapshotRefresh();
     if (action === "clear-filters") clearFilters();
     if (action === "previous-page") changePage(-1);
     if (action === "go-to-page") goToPage();
@@ -544,6 +559,77 @@
     if (options.loadDefaultEntity && state.readiness === "ready" && currentEntityState().status === "idle") {
       await loadEntity(state.activeEntity);
     }
+    if (activeProfileKey === "live") await loadRefreshStatus();
+  }
+
+  async function loadRefreshStatus() {
+    if (activeProfileKey !== "live" || !currentApi()?.getSnapshotRefreshStatus) return;
+    try {
+      const payload = await currentApi().getSnapshotRefreshStatus();
+      state.refresh = {
+        ...state.refresh,
+        ...payload,
+        authorized: payload?.authorized === true,
+        available: true,
+        running: payload?.running === true || payload?.status === "RUNNING"
+      };
+    } catch (error) {
+      state.refresh = {
+        ...state.refresh,
+        authorized: false,
+        available: false,
+        running: false,
+        status: error?.status === 401 || error?.status === 403 ? "DENIED" : "UNAVAILABLE",
+        message: error?.status === 401 || error?.status === 403
+          ? "The current Windows user is not authorized to run ERP snapshot refresh."
+          : "The governed refresh control is unavailable."
+      };
+    }
+    renderRefreshControl();
+    if (state.refresh.running) scheduleRefreshStatusPoll();
+  }
+
+  async function runErpSnapshotRefresh() {
+    if (activeProfileKey !== "live" || state.refresh.running || !state.refresh.authorized) return;
+    const confirmed = window.confirm(
+      "This will read the qualified ERP source files and create a new Live Snapshot. " +
+      "The current snapshot will remain active unless the refresh completes successfully."
+    );
+    if (!confirmed) return;
+
+    state.refresh.running = true;
+    state.refresh.status = "RUNNING";
+    state.refresh.phase = "STARTING";
+    state.refresh.message =
+      "The governed refresh runner is starting. The current viewer data will not reload automatically.";
+    renderRefreshControl();
+    try {
+      const payload = await currentApi().runSnapshotRefresh();
+      state.refresh = {
+        ...state.refresh,
+        ...payload,
+        authorized: true,
+        available: true,
+        running: payload?.running !== false
+      };
+      scheduleRefreshStatusPoll();
+    } catch (error) {
+      state.refresh.running = false;
+      state.refresh.status = error?.status === 409 ? "ALREADY_RUNNING" : "FAILED";
+      state.refresh.message = error?.status === 409
+        ? "A governed ERP snapshot refresh is already running."
+        : safeErrorMessage(error, "refresh");
+      renderRefreshControl();
+    }
+  }
+
+  function scheduleRefreshStatusPoll() {
+    if (refreshStatusTimer) window.clearTimeout(refreshStatusTimer);
+    refreshStatusTimer = window.setTimeout(async () => {
+      refreshStatusTimer = null;
+      if (!active || activeProfileKey !== "live") return;
+      await loadRefreshStatus();
+    }, 1500);
   }
 
   async function loadEntity(entityKey) {
@@ -757,6 +843,7 @@
   function renderAll() {
     if (!mounted) return;
     renderStatus();
+    renderRefreshControl();
     renderEntity();
   }
 
@@ -801,6 +888,58 @@
     queryAll('[data-canonical-tab="salesOrders"]').forEach(tab => {
       tab.hidden = activeProfileKey !== "live";
     });
+    renderRefreshControl();
+  }
+
+  function renderRefreshControl() {
+    if (!mounted) return;
+    const isLive = activeProfileKey === "live";
+    const control = query("[data-canonical-refresh-control]");
+    const button = query('[data-canonical-action="run-erp-refresh"]');
+    if (!control || !button) return;
+    control.hidden = !isLive;
+    button.hidden = !isLive || !state.refresh.authorized;
+    button.disabled = state.refresh.running || !state.refresh.available;
+    query("[data-canonical-refresh-message]").textContent =
+      state.refresh.message || refreshResultMessage(state.refresh);
+    query("[data-canonical-refresh-status]").textContent =
+      refreshStatusLabel(state.refresh.status);
+    query("[data-canonical-refresh-phase]").textContent =
+      state.refresh.phase || NULL_MARKER;
+    query("[data-canonical-refresh-last-check]").textContent =
+      state.refresh.lastSourceCheckUtc || NULL_MARKER;
+    query("[data-canonical-refresh-last-success]").textContent =
+      state.refresh.lastSuccessfulRefreshUtc || NULL_MARKER;
+    query("[data-canonical-refresh-import-run-id]").textContent =
+      state.refresh.activeImportRunId || NULL_MARKER;
+    query("[data-canonical-refresh-last-result]").textContent =
+      state.refresh.lastResult || NULL_MARKER;
+  }
+
+  function refreshStatusLabel(value) {
+    const labels = {
+      READY: "Ready",
+      RUNNING: "Running",
+      SUCCESS: "Completed",
+      NO_SOURCE_CHANGES: "No Source Changes",
+      ALREADY_RUNNING: "Already Running",
+      FAILED: "Failed",
+      DENIED: "Not Authorized",
+      UNAVAILABLE: "Unavailable",
+      CHECKING: "Checking"
+    };
+    return labels[String(value || "").toUpperCase()] || value || "Ready";
+  }
+
+  function refreshResultMessage(refresh) {
+    if (refresh.lastFailureReason) return refresh.lastFailureReason;
+    if (refresh.status === "SUCCESS") {
+      return "A qualified snapshot was promoted. Select Refresh View when you are ready to load it.";
+    }
+    if (refresh.status === "NO_SOURCE_CHANGES") {
+      return "The qualified ERP source indicators have not changed. The active snapshot was retained.";
+    }
+    return "Ready to run the governed read-only ERP snapshot process.";
   }
 
   function renderStatus() {

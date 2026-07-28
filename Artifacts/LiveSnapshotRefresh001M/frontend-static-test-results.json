@@ -1,0 +1,47 @@
+{
+  "mission": "LIVE-SNAPSHOT-REFRESH-001M2",
+  "testedAtUtc": "2026-07-28T20:44:27.118Z",
+  "verdict": "PASS",
+  "results": [
+    {
+      "name": "01_separate_refresh_actions",
+      "verdict": "PASS"
+    },
+    {
+      "name": "02_confirmation_and_no_forced_reload",
+      "verdict": "PASS"
+    },
+    {
+      "name": "03_windows_auth_and_operator_allowlist",
+      "verdict": "PASS"
+    },
+    {
+      "name": "04_exact_origin_credentialed_control",
+      "verdict": "PASS"
+    },
+    {
+      "name": "05_fixed_sources_and_no_unc",
+      "verdict": "PASS"
+    },
+    {
+      "name": "06_lock_change_and_failure_controls",
+      "verdict": "PASS"
+    },
+    {
+      "name": "07_atomic_protected_boundary",
+      "verdict": "PASS"
+    },
+    {
+      "name": "08_client_request_shape",
+      "verdict": "PASS"
+    },
+    {
+      "name": "09_local_elevated_promotion_boundary",
+      "verdict": "PASS"
+    },
+    {
+      "name": "10_sales_qualifier_literal_paths_and_bounded_timeout",
+      "verdict": "PASS"
+    }
+  ]
+}

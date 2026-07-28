@@ -1,0 +1,28 @@
+﻿{
+    "Mission":  "LIVE-SNAPSHOT-REFRESH-001M2",
+    "CapturedAtUtc":  "2026-07-28T19:53:15.1608452+00:00",
+    "ExecutionIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  false,
+    "FailureRetention":  {
+                             "Verdict":  "PASS",
+                             "RunnerExitCode":  1,
+                             "ActiveImportRunIdBefore":  "1dd2bfcb-62e5-485a-ad17-1a3f62a4e872",
+                             "ActiveImportRunIdAfter":  "1dd2bfcb-62e5-485a-ad17-1a3f62a4e872",
+                             "PackageHashBefore":  "882EFDBD9E1ADC1CF37F346F8D5B9AA8692AB13C6365E13A3B10068E8ED75141",
+                             "PackageHashAfter":  "882EFDBD9E1ADC1CF37F346F8D5B9AA8692AB13C6365E13A3B10068E8ED75141",
+                             "SourceMetadataUnchanged":  true
+                         },
+    "Concurrency":  {
+                        "Verdict":  "PASS",
+                        "PrimaryExitCode":  1,
+                        "OverlapExitCode":  2,
+                        "OverlapResult":  "ALREADY_RUNNING"
+                    },
+    "CandidatePromotionFixture":  {
+                                      "Verdict":  "PASS",
+                                      "ExitCode":  0,
+                                      "ImportRunId":  "1dd2bfcb-62e5-485a-ad17-1a3f62a4e872",
+                                      "PackageHash":  "882EFDBD9E1ADC1CF37F346F8D5B9AA8692AB13C6365E13A3B10068E8ED75141"
+                                  },
+    "LiveSourceWrites":  "NONE"
+}
