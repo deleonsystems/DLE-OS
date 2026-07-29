@@ -1,0 +1,189 @@
+﻿{
+    "TestSuite":  "VPRO-QUALIFICATION-HARNESS-002",
+    "CompletedAtUtc":  "2026-07-29T19:59:50.5293749+00:00",
+    "Total":  30,
+    "Passed":  30,
+    "Failed":  0,
+    "Results":  [
+                    {
+                        "Number":  1,
+                        "Scenario":  "Successful compile and qualifier completion",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\success\\Attempts\\TEST_SUCCESS-20260729T195905670Z-2A1ABC85"
+                    },
+                    {
+                        "Number":  2,
+                        "Scenario":  "Compiler nonzero exit",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\compiler_nonzero\\Attempts\\TEST_COMPILER_NONZERO-20260729T195906956Z-028E44D1"
+                    },
+                    {
+                        "Number":  3,
+                        "Scenario":  "Compiler zero exit with error text",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\compiler_error_text\\Attempts\\TEST_COMPILER_ERROR_TEXT-20260729T195907563Z-181EBB5E"
+                    },
+                    {
+                        "Number":  4,
+                        "Scenario":  "Compiler zero exit with fatal text",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\compiler_fatal_text\\Attempts\\TEST_COMPILER_FATAL_TEXT-20260729T195908097Z-460BE3B9"
+                    },
+                    {
+                        "Number":  5,
+                        "Scenario":  "Missing compiled artifact",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\missing_artifact\\Attempts\\TEST_MISSING_ARTIFACT-20260729T195908725Z-426E2AD7"
+                    },
+                    {
+                        "Number":  6,
+                        "Scenario":  "Stale compiled artifact",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\stale_artifact\\Attempts\\TEST_STALE_ARTIFACT-20260729T195909270Z-C66347F1"
+                    },
+                    {
+                        "Number":  7,
+                        "Scenario":  "Compiled artifact outside attempt is rejected by fixed resolved destination and containment gate",
+                        "Result":  "PASS",
+                        "Evidence":  "static containment gate"
+                    },
+                    {
+                        "Number":  8,
+                        "Scenario":  "Reserved/truncated variable-name warning",
+                        "Result":  "PASS",
+                        "Evidence":  "[{\"Severity\":\"ERROR\",\"Rule\":\"RESERVED_FN_PREFIX\",\"Name\":\"FNUM\",\"EffectiveName\":\"FN\"},{\"Severity\":\"WARNING\",\"Rule\":\"EXCEEDS_EFFECTIVE_LENGTH\",\"Name\":\"FNUM\",\"EffectiveName\":\"FN\"}]"
+                    },
+                    {
+                        "Number":  9,
+                        "Scenario":  "Process exits before first marker",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\exit_before\\Attempts\\TEST_EXIT_BEFORE-20260729T195909910Z-F10F171D"
+                    },
+                    {
+                        "Number":  10,
+                        "Scenario":  "No first marker",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\no_first\\Attempts\\TEST_NO_FIRST-20260729T195910797Z-6FCD2CA7"
+                    },
+                    {
+                        "Number":  11,
+                        "Scenario":  "First marker but no progress",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\no_progress\\Attempts\\TEST_NO_PROGRESS-20260729T195914941Z-B62C76A4"
+                    },
+                    {
+                        "Number":  12,
+                        "Scenario":  "Progress stalls",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\progress_stall\\Attempts\\TEST_PROGRESS_STALL-20260729T195919284Z-A3411D73"
+                    },
+                    {
+                        "Number":  13,
+                        "Scenario":  "Hard runtime timeout",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\hard_runtime\\Attempts\\TEST_HARD_RUNTIME-20260729T195923795Z-9B7E4B67"
+                    },
+                    {
+                        "Number":  14,
+                        "Scenario":  "Malformed JSON Lines output",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\malformed\\Attempts\\TEST_MALFORMED-20260729T195928896Z-947D2F8D"
+                    },
+                    {
+                        "Number":  15,
+                        "Scenario":  "Missing final completion marker",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\missing_complete\\Attempts\\TEST_MISSING_COMPLETE-20260729T195930780Z-7333B87F"
+                    },
+                    {
+                        "Number":  16,
+                        "Scenario":  "Source preflight failure",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\missing_source\\Attempts\\TEST_MISSING_SOURCE-20260729T195931961Z-34AC09FF"
+                    },
+                    {
+                        "Number":  17,
+                        "Scenario":  "Wrong Windows identity",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\wrong_identity\\Attempts\\TEST_WRONG_IDENTITY-20260729T195931986Z-C265B439"
+                    },
+                    {
+                        "Number":  18,
+                        "Scenario":  "Elevated token rejection",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\elevated\\Attempts\\TEST_ELEVATED-20260729T195932022Z-6A66E572"
+                    },
+                    {
+                        "Number":  19,
+                        "Scenario":  "Missing X mapping equivalent",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\missing_mapping\\Attempts\\TEST_MISSING_MAPPING-20260729T195932053Z-D7C53955"
+                    },
+                    {
+                        "Number":  20,
+                        "Scenario":  "Overlap returns ALREADY_RUNNING",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\overlap"
+                    },
+                    {
+                        "Number":  21,
+                        "Scenario":  "Graceful cleanup success",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\graceful_success\\Attempts\\TEST_GRACEFUL_SUCCESS-20260729T195932169Z-2285E468"
+                    },
+                    {
+                        "Number":  22,
+                        "Scenario":  "Graceful failure followed by exact-PID force",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\graceful_force\\Attempts\\TEST_GRACEFUL_FORCE-20260729T195934422Z-B688A4CC"
+                    },
+                    {
+                        "Number":  23,
+                        "Scenario":  "Unrelated VPro-equivalent fixture process not terminated",
+                        "Result":  "PASS",
+                        "Evidence":  "PID 31284"
+                    },
+                    {
+                        "Number":  24,
+                        "Scenario":  "Unrelated PowerShell process not terminated",
+                        "Result":  "PASS",
+                        "Evidence":  "PID 31284"
+                    },
+                    {
+                        "Number":  25,
+                        "Scenario":  "Retryable failure followed by one successful retry",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\retry_once"
+                    },
+                    {
+                        "Number":  26,
+                        "Scenario":  "Non-retryable compiler defect does not retry",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\no_retry_compiler"
+                    },
+                    {
+                        "Number":  27,
+                        "Scenario":  "Source identity-after mismatch blocks pass",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\source_mismatch\\Attempts\\TEST_SOURCE_MISMATCH-20260729T195947055Z-9F05171E"
+                    },
+                    {
+                        "Number":  28,
+                        "Scenario":  "Nonzero write count blocks pass",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\write_count\\Attempts\\TEST_WRITE_COUNT-20260729T195948067Z-1FA25D40"
+                    },
+                    {
+                        "Number":  29,
+                        "Scenario":  "Nonzero lock count blocks pass",
+                        "Result":  "PASS",
+                        "Evidence":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\VProQualificationHarness002\\Generated\\lock_count\\Attempts\\TEST_LOCK_COUNT-20260729T195949127Z-5F861C14"
+                    },
+                    {
+                        "Number":  30,
+                        "Scenario":  "Failed attempts leave zero mission-owned processes",
+                        "Result":  "PASS",
+                        "Evidence":  "182 failed attempts checked"
+                    }
+                ]
+}

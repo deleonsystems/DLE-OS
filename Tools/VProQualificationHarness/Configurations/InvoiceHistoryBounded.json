@@ -1,0 +1,44 @@
+{
+  "ContractVersion": "1.0",
+  "MissionName": "INVOICE_HISTORY_BOUNDED_WRAPPED",
+  "QualifierSource": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\VPro\\INVOICE_HISTORY_BOUNDED_WINDOW_PROBE.src",
+  "RequiredIdentity": "DLE-OS-HOST\\DLE-OS",
+  "RequireNonElevated": true,
+  "RequiredMappedPaths": ["X:\\"],
+  "RequiredSourcePaths": ["X:\\AON\\ADATA\\ART-03", "X:\\AON\\ADATA\\ART-13"],
+  "AttemptRoot": "C:\\Add-On\\Lab\\VProQualificationHarness\\InvoiceHistoryBounded",
+  "VariableEffectiveLength": 16,
+  "SourceReplacements": {
+    "C:\\Add-On\\Lab\\InvoiceHistoryRefresh001\\INVOICEHISTORYREFRESH001-20260729T135205Z\\": "{RUNTIME}\\"
+  },
+  "Retry": { "MaximumAutomaticRetries": 1, "RetryableCategories": ["RUNTIME_EXIT"] },
+  "Compiler": {
+    "Executable": "C:\\BASIS\\VPRO5\\pro5cpl.exe",
+    "Arguments": ["-d{PROGRAMS}", "{SOURCE}"],
+    "EmittedArtifactName": "INVOICE_HISTORY_BOUNDED_WINDOW_PROBE.src",
+    "ExpectedArtifactName": "INVOICE_HISTORY_BOUNDED_WINDOW_PROBE",
+    "MinimumArtifactBytes": 32,
+    "FailurePatterns": ["(?i)\\berror\\b", "(?i)\\bfatal\\b"],
+    "KnownStaleHashes": []
+  },
+  "Runtime": {
+    "Executable": "C:\\BASIS\\VPRO5\\vpro5.exe",
+    "Arguments": ["-tT0", "-nT0", "-m1024", "-c{CONFIG}", "INVOICE_HISTORY_BOUNDED_WINDOW_PROBE"],
+    "ConfigurationLines": [
+      "ALIASES=4", "FCBS=64", "CIBS=64", "STBLEN=12000",
+      "PREFIX {PROGRAMS_POSIX}/ C:/BASIS/VPRO5/",
+      "SETOPTS 0000000000000000", "ALIAS T0 SYSWINDOW \"\""
+    ],
+    "AdapterType": "MARKER_FILES",
+    "StartedMarker": "BOUNDED_SUMMARY.csv",
+    "ProgressMarker": "BOUNDED_SUMMARY.csv",
+    "ProgressPattern": "*",
+    "CompletionMarker": "BOUNDED_SUMMARY.csv",
+    "CompletionSuccessPattern": "(?im)^open_mode,O_RDONLY\\s*$",
+    "FirstMarkerTimeoutSeconds": 30,
+    "RequireProgress": true,
+    "ProgressTimeoutSeconds": 60,
+    "HardRuntimeTimeoutSeconds": 120,
+    "GracefulCloseTimeoutSeconds": 10
+  }
+}

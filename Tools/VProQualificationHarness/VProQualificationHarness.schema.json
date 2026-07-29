@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dle-os.local/contracts/vpro-qualification-harness-1.0.schema.json",
+  "title": "DLE-OS VPro Qualification Harness Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ContractVersion", "MissionName", "QualifierSource", "RequiredIdentity",
+    "RequireNonElevated", "RequiredMappedPaths", "RequiredSourcePaths",
+    "AttemptRoot", "VariableEffectiveLength", "Compiler", "Runtime"
+  ],
+  "properties": {
+    "ContractVersion": { "const": "1.0" },
+    "MissionName": { "type": "string", "pattern": "^[A-Z0-9][A-Z0-9_-]{2,80}$" },
+    "QualifierSource": { "type": "string" },
+    "RequiredIdentity": { "type": "string" },
+    "RequireNonElevated": { "const": true },
+    "RequiredMappedPaths": { "type": "array", "items": { "type": "string" } },
+    "RequiredSourcePaths": { "type": "array", "items": { "type": "string" } },
+    "AttemptRoot": { "type": "string" },
+    "VariableEffectiveLength": { "type": "integer", "minimum": 2, "maximum": 32 },
+    "TestFixture": { "type": "boolean", "default": false },
+    "SourceReplacements": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "TestOverrides": {
+      "type": "object",
+      "description": "Governed local fault-injection only; rejected outside Tests/VProQualificationHarness002.",
+      "properties": {
+        "Identity": { "type": ["string", "null"] },
+        "Elevated": { "type": ["boolean", "null"] }
+      }
+    },
+    "Retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["MaximumAutomaticRetries", "RetryableCategories"],
+      "properties": {
+        "MaximumAutomaticRetries": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "RetryableCategories": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "Compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Executable", "Arguments", "ExpectedArtifactName", "MinimumArtifactBytes", "FailurePatterns", "KnownStaleHashes"],
+      "properties": {
+        "Executable": { "type": "string" },
+        "Arguments": { "type": "array", "items": { "type": "string" } },
+        "ExpectedArtifactName": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "EmittedArtifactName": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "MinimumArtifactBytes": { "type": "integer", "minimum": 1 },
+        "FailurePatterns": { "type": "array", "items": { "type": "string" } },
+        "KnownStaleHashes": { "type": "array", "items": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" } }
+      }
+    },
+    "Runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Executable", "Arguments", "FirstMarkerTimeoutSeconds", "RequireProgress", "ProgressTimeoutSeconds", "HardRuntimeTimeoutSeconds", "GracefulCloseTimeoutSeconds"],
+      "properties": {
+        "Executable": { "type": "string" },
+        "Arguments": { "type": "array", "items": { "type": "string" } },
+        "FirstMarkerTimeoutSeconds": { "type": "number", "exclusiveMinimum": 0 },
+        "RequireProgress": { "type": "boolean" },
+        "ProgressTimeoutSeconds": { "type": "number", "exclusiveMinimum": 0 },
+        "HardRuntimeTimeoutSeconds": { "type": "number", "exclusiveMinimum": 0 },
+        "GracefulCloseTimeoutSeconds": { "type": "number", "minimum": 0 }
+        ,
+        "ConfigurationLines": { "type": "array", "items": { "type": "string" } },
+        "Directories": { "type": "array", "items": { "type": "string" } },
+        "AdapterType": { "enum": ["MARKER_FILES"] },
+        "StartedMarker": { "type": "string" },
+        "ProgressMarker": { "type": "string" },
+        "ProgressPattern": { "type": "string" },
+        "CompletionMarker": { "type": "string" },
+        "CompletionSuccessPattern": { "type": "string" }
+      }
+    }
+  }
+}
