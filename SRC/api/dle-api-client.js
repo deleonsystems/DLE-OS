@@ -432,6 +432,18 @@
         { ...options, method: 'POST' }
       );
     },
+    getInvoiceHistoryRefreshStatus(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/refresh/invoice-history/v1/status',
+        options
+      );
+    },
+    runInvoiceHistoryRefresh(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/refresh/invoice-history/v1/run',
+        { ...options, method: 'POST' }
+      );
+    },
     baseUrl: LIVE_CANONICAL_BASE_URL,
     endpoints: LIVE_CANONICAL_ENDPOINTS
   });

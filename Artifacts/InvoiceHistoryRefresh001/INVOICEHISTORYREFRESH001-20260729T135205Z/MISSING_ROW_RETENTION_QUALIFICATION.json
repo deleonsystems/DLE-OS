@@ -1,0 +1,27 @@
+﻿{
+    "Verdict":  "PASS",
+    "WindowsIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Result":  {
+                   "Verdict":  "PASS",
+                   "Result":  "SUCCESS_WITH_CLARIFICATIONS",
+                   "ChangeCount":  0,
+                   "InvoiceHistoryRefreshRunId":  "9b415468-0f22-4771-9520-4ef9480eb6ee",
+                   "InvoiceHistoryImportRunId":  "5d34047a-8d69-4839-89a9-70658a3db6ee",
+                   "PackageContentHash":  "80DA1E9A96FBD44FB099EA4606E7240E4873AE0A9A4982EA7D3C9817E17DD1D2",
+                   "ExpectedCounts":  {
+                                          "HeaderInsert":  0,
+                                          "HeaderUpdate":  0,
+                                          "HeaderUnchanged":  38,
+                                          "HeaderMissing":  0,
+                                          "LineInsert":  0,
+                                          "LineUpdate":  0,
+                                          "LineUnchanged":  49,
+                                          "LineMissing":  1
+                                      }
+               },
+    "NaturalKey":  "01||001021|0174686|010",
+    "RowCountBefore":  1,
+    "RowCountAfter":  1,
+    "MissingRowRetained":  true,
+    "SourceAccess":  "NONE"
+}

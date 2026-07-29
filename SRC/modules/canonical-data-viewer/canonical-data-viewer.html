@@ -116,6 +116,30 @@
       </dl>
     </section>
 
+    <section class="canonical-viewer__refresh-control"
+             data-invoice-history-refresh-control
+             aria-live="polite"
+             hidden>
+      <div>
+        <strong>Invoice History Refresh</strong>
+        <p data-invoice-history-refresh-message>
+          Checking operator authorization and Invoice History refresh status.
+        </p>
+        <button class="canonical-viewer__button canonical-viewer__button--refresh"
+                type="button"
+                data-canonical-action="run-invoice-history-refresh">
+          Refresh Invoice History
+        </button>
+      </div>
+      <dl>
+        <div><dt>Status</dt><dd data-invoice-history-refresh-status>Checking</dd></div>
+        <div><dt>Window start</dt><dd data-invoice-history-refresh-window-start>â€”</dd></div>
+        <div><dt>Window end</dt><dd data-invoice-history-refresh-window-end>â€”</dd></div>
+        <div><dt>Refresh run ID</dt><dd data-invoice-history-refresh-run-id>â€”</dd></div>
+        <div><dt>Last updated</dt><dd data-invoice-history-refresh-updated>â€”</dd></div>
+      </dl>
+    </section>
+
     <details class="canonical-viewer__snapshot" data-canonical-snapshot-details>
       <summary>Snapshot details</summary>
       <dl>

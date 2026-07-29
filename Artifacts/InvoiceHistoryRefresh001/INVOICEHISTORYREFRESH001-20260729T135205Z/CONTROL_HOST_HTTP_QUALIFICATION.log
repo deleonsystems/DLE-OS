@@ -1,0 +1,114 @@
+{
+    "Verdict":  "PASS",
+    "CapturedAtUtc":  "2026-07-29T16:32:39.6386022+00:00",
+    "WindowsIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  false,
+    "AuthorizedStatus":  {
+                             "StatusCode":  200,
+                             "ReasonPhrase":  "OK",
+                             "Body":  "{\"authorized\":true,\"executionIdentity\":\"DLE-OS-HOST\\\\DLE-OS\",\"running\":false,\"status\":\"NO_SOURCE_CHANGES\",\"message\":\"Invoice History refresh completed.\",\"refreshRunId\":\"INVOICEHISTORYREFRESH-20260729T163047Z-5158C318\",\"windowStart\":\"2026-06-15\",\"windowEnd\":\"2026-07-29\",\"startedAtUtc\":\"2026-07-29T16:30:47.5667909+00:00\",\"updatedAtUtc\":\"2026-07-29T16:31:01.0622725+00:00\",\"details\":{\"SourceElapsedMilliseconds\":4556,\"Package\":{\"contractVersion\":\"1.2\",\"counts\":{\"CustomerInvoice\":38,\"CustomerInvoiceLine\":50},\"createdAtUtc\":\"2026-07-29T16:31:00.756118+00:00\",\"dataEnvironment\":\"LIVE\",\"extraction\":{\"filteredLineCounts\":{\"non_report_line_code\":127,\"zero_quantity\":42},\"physicalHeaderCount\":38,\"physicalLineCount\":219},\"headerClassifications\":{\"Unchanged\":38},\"lineClassifications\":{\"Unchanged\":50},\"manufacturingResolutionCounts\":{\"CurrentMasterResolved\":26,\"HistoricalReconstructed\":21,\"Unavailable\":3},\"missingRowsRetained\":true,\"naturalKey\":[\"FirmId\",\"ArType\",\"CustomerNumber\",\"InvoiceNumber\",\"InvoiceLineNumber\"],\"negativeQuantityCount\":0,\"packageContentSha256\":\"3322BC6B0167A6DC3A3BE2281D68F8F36FC99FAB6372CE865986CD3E03E35AA3\",\"runId\":\"INVOICEHISTORYREFRESH-20260729T163047Z-5158C318\",\"schema\":\"DLE_INVOICE_HISTORY_REFRESH_V1\",\"schemaVersion\":1,\"sourceIdentity\":{\"art03_blank_dates\":\"0\",\"art03_bytes_read\":\"4122552\",\"art03_fid_after_hex\":\"06140000000000C0583A2F414F4E2F41444154412F4152542D3033\",\"art03_fid_before_hex\":\"06140000000000C0583A2F414F4E2F41444154412F4152542D3033\",\"art03_fin_after_hex\":\"00496200FFFFFFFF000180000002033ECEA000000000000000005CFC51D10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004BF6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"art03_fin_before_hex\":\"00496200FFFFFFFF000180000002033ECEA000000000000000005CFC51D10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004BF6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"art03_future_dates\":\"0\",\"art03_headers_examined\":\"19446\",\"art03_headers_selected\":\"38\",\"art03_invalid_dates\":\"0\",\"art03_void_headers\":\"296\",\"art13_bytes_read\":\"53436\",\"art13_exact_key_probes\":\"38000\",\"art13_fid_after_hex\":\"06140000000000E0583A2F414F4E2F41444154412F4152542D3133\",\"art13_fid_before_hex\":\"06140000000000E0583A2F414F4E2F41444154412F4152542D3133\",\"art13_fin_after_hex\":\"01516E00FFFFFFFF000180000002033ECD8000000000000000005CFC51CA000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001349B000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"art13_fin_before_hex\":\"01516E00FFFFFFFF000180000002033ECD8000000000000000005CFC51CA000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001349B000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"art13_lines_examined\":\"219\",\"art13_lines_selected\":\"219\",\"open_mode\":\"O_RDONLY\",\"overlap_end\":\"2026-07-29\",\"overlap_start\":\"2026-06-15\"},\"verdict\":\"PASS\",\"windowEnd\":\"2026-07-29\",\"windowStart\":\"2026-06-15\",\"workOrderResolutionCounts\":{\"Unique\":21,\"Unresolved\":29}},\"Import\":{\"Verdict\":\"PASS\",\"Result\":\"NO_SOURCE_CHANGES\",\"ChangeCount\":0,\"InvoiceHistoryRefreshRunId\":\"a853f9a1-21af-433f-9ecf-da2594b0f57e\",\"InvoiceHistoryImportRunId\":\"5d34047a-8d69-4839-89a9-70658a3db6ee\",\"PackageContentHash\":\"3322BC6B0167A6DC3A3BE2281D68F8F36FC99FAB6372CE865986CD3E03E35AA3\",\"ExpectedCounts\":{\"HeaderInsert\":0,\"HeaderUpdate\":0,\"HeaderUnchanged\":38,\"HeaderMissing\":0,\"LineInsert\":0,\"LineUpdate\":0,\"LineUnchanged\":50,\"LineMissing\":0}},\"SourceOpenMode\":\"O_RDONLY\",\"SourceWrites\":0,\"SourceLocksRequested\":0}}",
+                             "Headers":  {
+                                             "AccessControlAllowOrigin":  [
+                                                                              null
+                                                                          ],
+                                             "AccessControlAllowCredentials":  [
+                                                                                   null
+                                                                               ]
+                                         }
+                         },
+    "AuthorizedTrigger":  {
+                              "StatusCode":  202,
+                              "ReasonPhrase":  "Accepted",
+                              "Body":  "{\"authorized\":true,\"executionIdentity\":\"DLE-OS-HOST\\\\DLE-OS\",\"status\":\"RUNNING\",\"running\":true,\"message\":\"The isolated Invoice History refresh was started.\"}",
+                              "Headers":  {
+                                              "AccessControlAllowOrigin":  [
+                                                                               null
+                                                                           ],
+                                              "AccessControlAllowCredentials":  [
+                                                                                    null
+                                                                                ]
+                                          }
+                          },
+    "OverlapTrigger":  {
+                           "StatusCode":  409,
+                           "ReasonPhrase":  "Conflict",
+                           "Body":  "{\"code\":\"already_running\",\"message\":\"Invoice History refresh is already running.\",\"status\":\"ALREADY_RUNNING\",\"running\":true}",
+                           "Headers":  {
+                                           "AccessControlAllowOrigin":  [
+                                                                            null
+                                                                        ],
+                                           "AccessControlAllowCredentials":  [
+                                                                                 null
+                                                                             ]
+                                       }
+                       },
+    "CompletedStatus":  {
+                            "StatusCode":  200,
+                            "ReasonPhrase":  "OK",
+                            "Body":  "{\"authorized\":true,\"executionIdentity\":\"DLE-OS-HOST\\\\DLE-OS\",\"running\":false,\"status\":\"NO_SOURCE_CHANGES\",\"message\":\"Invoice History refresh completed.\",\"refreshRunId\":\"INVOICEHISTORYREFRESH-20260729T163226Z-862B03E3\",\"windowStart\":\"2026-06-15\",\"windowEnd\":\"2026-07-29\",\"startedAtUtc\":\"2026-07-29T16:32:26.0722708+00:00\",\"updatedAtUtc\":\"2026-07-29T16:32:39.3510761+00:00\",\"details\":{\"SourceElapsedMilliseconds\":4212,\"Package\":{\"contractVersion\":\"1.2\",\"counts\":{\"CustomerInvoice\":38,\"CustomerInvoiceLine\":50},\"createdAtUtc\":\"2026-07-29T16:32:38.935971+00:00\",\"dataEnvironment\":\"LIVE\",\"extraction\":{\"filteredLineCounts\":{\"non_report_line_code\":127,\"zero_quantity\":42},\"physicalHeaderCount\":38,\"physicalLineCount\":219},\"headerClassifications\":{\"Unchanged\":38},\"lineClassifications\":{\"Unchanged\":50},\"manufacturingResolutionCounts\":{\"CurrentMasterResolved\":26,\"HistoricalReconstructed\":21,\"Unavailable\":3},\"missingRowsRetained\":true,\"naturalKey\":[\"FirmId\",\"ArType\",\"CustomerNumber\",\"InvoiceNumber\",\"InvoiceLineNumber\"],\"negativeQuantityCount\":0,\"packageContentSha256\":\"3322BC6B0167A6DC3A3BE2281D68F8F36FC99FAB6372CE865986CD3E03E35AA3\",\"runId\":\"INVOICEHISTORYREFRESH-20260729T163226Z-862B03E3\",\"schema\":\"DLE_INVOICE_HISTORY_REFRESH_V1\",\"schemaVersion\":1,\"sourceIdentity\":{\"art03_blank_dates\":\"0\",\"art03_bytes_read\":\"4122552\",\"art03_fid_after_hex\":\"06140000000000C0583A2F414F4E2F41444154412F4152542D3033\",\"art03_fid_before_hex\":\"06140000000000C0583A2F414F4E2F41444154412F4152542D3033\",\"art03_fin_after_hex\":\"00496200FFFFFFFF0001800000020341CDF800000000000000005CFC51D10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004BF6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"art03_fin_before_hex\":\"00496200FFFFFFFF0001800000020341CDF800000000000000005CFC51D10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004BF6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"art03_future_dates\":\"0\",\"art03_headers_examined\":\"19446\",\"art03_headers_selected\":\"38\",\"art03_invalid_dates\":\"0\",\"art03_void_headers\":\"296\",\"art13_bytes_read\":\"53436\",\"art13_exact_key_probes\":\"38000\",\"art13_fid_after_hex\":\"06140000000000E0583A2F414F4E2F41444154412F4152542D3133\",\"art13_fid_before_hex\":\"06140000000000E0583A2F414F4E2F41444154412F4152542D3133\",\"art13_fin_after_hex\":\"01516E00FFFFFFFF0001800000020341CD2000000000000000005CFC51CA000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001349B000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"art13_fin_before_hex\":\"01516E00FFFFFFFF0001800000020341CD2000000000000000005CFC51CA000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001349B000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"art13_lines_examined\":\"219\",\"art13_lines_selected\":\"219\",\"open_mode\":\"O_RDONLY\",\"overlap_end\":\"2026-07-29\",\"overlap_start\":\"2026-06-15\"},\"verdict\":\"PASS\",\"windowEnd\":\"2026-07-29\",\"windowStart\":\"2026-06-15\",\"workOrderResolutionCounts\":{\"Unique\":21,\"Unresolved\":29}},\"Import\":{\"Verdict\":\"PASS\",\"Result\":\"NO_SOURCE_CHANGES\",\"ChangeCount\":0,\"InvoiceHistoryRefreshRunId\":\"82b3362b-ee60-4970-9726-17f7dc665492\",\"InvoiceHistoryImportRunId\":\"5d34047a-8d69-4839-89a9-70658a3db6ee\",\"PackageContentHash\":\"3322BC6B0167A6DC3A3BE2281D68F8F36FC99FAB6372CE865986CD3E03E35AA3\",\"ExpectedCounts\":{\"HeaderInsert\":0,\"HeaderUpdate\":0,\"HeaderUnchanged\":38,\"HeaderMissing\":0,\"LineInsert\":0,\"LineUpdate\":0,\"LineUnchanged\":50,\"LineMissing\":0}},\"SourceOpenMode\":\"O_RDONLY\",\"SourceWrites\":0,\"SourceLocksRequested\":0}}",
+                            "Headers":  {
+                                            "AccessControlAllowOrigin":  [
+                                                                             null
+                                                                         ],
+                                            "AccessControlAllowCredentials":  [
+                                                                                  null
+                                                                              ]
+                                        }
+                        },
+    "AnonymousStatus":  {
+                            "StatusCode":  401,
+                            "ReasonPhrase":  "Unauthorized",
+                            "Body":  "",
+                            "Headers":  {
+                                            "AccessControlAllowOrigin":  [
+                                                                             null
+                                                                         ],
+                                            "AccessControlAllowCredentials":  [
+                                                                                  null
+                                                                              ]
+                                        }
+                        },
+    "ExactOriginCors":  {
+                            "StatusCode":  204,
+                            "ReasonPhrase":  "No Content",
+                            "Body":  "",
+                            "Headers":  {
+                                            "AccessControlAllowOrigin":  [
+                                                                             "http://dle-os-host:5041"
+                                                                         ],
+                                            "AccessControlAllowCredentials":  [
+                                                                                  "true"
+                                                                              ]
+                                        }
+                        },
+    "DisallowedOriginCors":  {
+                                 "StatusCode":  204,
+                                 "ReasonPhrase":  "No Content",
+                                 "Body":  "",
+                                 "Headers":  {
+                                                 "AccessControlAllowOrigin":  [
+                                                                                  null
+                                                                              ],
+                                                 "AccessControlAllowCredentials":  [
+                                                                                       null
+                                                                                   ]
+                                             }
+                             },
+    "ExistingErpStatus":  {
+                              "StatusCode":  200,
+                              "ReasonPhrase":  "OK",
+                              "Body":  "{\"authorized\":true,\"executionIdentity\":\"DLE-OS-HOST\\\\DLE-OS\",\"running\":false,\"status\":\"NO_SOURCE_CHANGES\",\"phase\":\"COMPLETED\",\"message\":\"No qualified ERP source changes were detected. The active snapshot was retained.\",\"lastSourceCheckUtc\":\"2026-07-28T22:38:58.1298256+00:00\",\"lastSuccessfulRefreshUtc\":\"2026-07-28T22:38:24.1800709+00:00\",\"activeImportRunId\":\"e66391d9-7422-4c6f-9992-feed3d401a75\",\"currentPackageHash\":\"BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77\",\"lastResult\":\"NO_SOURCE_CHANGES\",\"lastFailureReason\":null,\"runId\":\"LIVEREFRESH-20260728T223858Z-1C8B13E6\"}",
+                              "Headers":  {
+                                              "AccessControlAllowOrigin":  [
+                                                                               null
+                                                                           ],
+                                              "AccessControlAllowCredentials":  [
+                                                                                    null
+                                                                                ]
+                                          }
+                          },
+    "AuthenticatedUnauthorized":  "ENFORCED_BY_EXACT_SNAPSHOT_REFRESH_OPERATOR_POLICY",
+    "SourceOpenMode":  "O_RDONLY",
+    "SourceWrites":  0,
+    "SourceLocksRequested":  0
+}

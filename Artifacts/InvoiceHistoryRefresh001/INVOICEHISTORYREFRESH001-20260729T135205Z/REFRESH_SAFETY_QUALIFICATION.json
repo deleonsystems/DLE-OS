@@ -1,0 +1,26 @@
+﻿{
+    "Verdict":  "PASS",
+    "ExecutedAtUtc":  "2026-07-29T14:47:28.4988386+00:00",
+    "WindowsIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  false,
+    "ConcurrencyResult":  "ALREADY_RUNNING",
+    "ConcurrencyExitCode":  2,
+    "RollbackResult":  "PASS",
+    "RollbackError":  "Exception calling \"ExecuteNonQuery\" with \"0\" argument(s): \"Controlled Invoice History refresh rollback qualification.\"",
+    "SqlBefore":  {
+                      "HeaderCount":  19092,
+                      "LineCount":  26036,
+                      "RefreshRunCount":  2,
+                      "ActiveImportRunId":  "5D34047A-8D69-4839-89A9-70658A3DB6EE",
+                      "LineChecksum":  970860266
+                  },
+    "SqlAfter":  {
+                     "HeaderCount":  19092,
+                     "LineCount":  26036,
+                     "RefreshRunCount":  2,
+                     "ActiveImportRunId":  "5D34047A-8D69-4839-89A9-70658A3DB6EE",
+                     "LineChecksum":  970860266
+                 },
+    "SourceAccess":  "NONE",
+    "SourceWrites":  0
+}

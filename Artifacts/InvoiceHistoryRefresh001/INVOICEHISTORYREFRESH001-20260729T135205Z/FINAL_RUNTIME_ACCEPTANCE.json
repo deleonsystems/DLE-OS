@@ -1,0 +1,346 @@
+﻿{
+    "Verdict":  "PASS",
+    "CapturedAtUtc":  "2026-07-29T16:42:22.1857509+00:00",
+    "Deployment":  {
+                       "Verdict":  "PASS",
+                       "DeployedAtUtc":  "2026-07-29T16:39:28.5438288+00:00",
+                       "DeploymentIdentity":  "DLE-OS-HOST\\DLE-OS",
+                       "Elevated":  true,
+                       "StagingRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\InvoiceHistoryRefresh001\\INVOICEHISTORYREFRESH001-20260729T135205Z\\ControlHostPublish-20260729T163922Z",
+                       "RuntimeRoot":  "C:\\Program Files\\DLE-OS\\LiveSnapshotRefreshControl",
+                       "RuntimeBackupRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\InvoiceHistoryRefresh001\\INVOICEHISTORYREFRESH001-20260729T135205Z\\ControlHostRuntimeBackup-20260729T163928Z",
+                       "PreviousProcessIds":  [
+                                                  20032
+                                              ],
+                       "ExistingErpRefreshRoutesPreserved":  true,
+                       "ApiOrQualifiedBoundaryModified":  false,
+                       "SourceAccessPerformed":  false,
+                       "ErpRefreshStateOperatorAccess":  "MODIFY",
+                       "ProcessId":  3364,
+                       "HttpSysProcessId":  4,
+                       "RuntimeProcessPath":  "C:\\Program Files\\DLE-OS\\LiveSnapshotRefreshControl\\DleOs.LiveSnapshotRefresh.ControlHost.exe",
+                       "RuntimeIdentity":  "DLE-OS-HOST\\DLE-OS",
+                       "Port5043Listening":  true,
+                       "HttpQualification":  "PENDING_WINDOWS_AUTHENTICATED_BROWSER_ACCEPTANCE"
+                   },
+    "RuntimeAssemblySha256":  "06A05F18C2EE8F3DA7356558802CC80D160FEAECE2FF775B9B0925B47D2BE3D7",
+    "Listeners":  [
+                      "TCP    0.0.0.0:5041           0.0.0.0:0              LISTENING       3096",
+                      "TCP    0.0.0.0:5042           0.0.0.0:0              LISTENING       19148",
+                      "TCP    0.0.0.0:5043           0.0.0.0:0              LISTENING       4",
+                      "TCP    0.0.0.0:5044           0.0.0.0:0              LISTENING       4",
+                      "TCP    [::]:5042              [::]:0                 LISTENING       19148",
+                      "TCP    [::]:5043              [::]:0                 LISTENING       4",
+                      "TCP    [::]:5044              [::]:0                 LISTENING       4"
+                  ],
+    "HistoricalReadiness":  {
+                                "status":  "Ready",
+                                "contractVersion":  "V1.2",
+                                "checks":  [
+                                               {
+                                                   "name":  "apiProcess",
+                                                   "passed":  true,
+                                                   "message":  "API process is running."
+                                               },
+                                               {
+                                                   "name":  "platformDatabase",
+                                                   "passed":  true,
+                                                   "message":  "Connected to the configured local platform lab database."
+                                               },
+                                               {
+                                                   "name":  "requiredSchemas",
+                                                   "passed":  true,
+                                                   "message":  "2 of 2 required schemas are present."
+                                               },
+                                               {
+                                                   "name":  "canonicalTables",
+                                                   "passed":  true,
+                                                   "message":  "4 required canonical tables are present; 4 total canonical tables exist."
+                                               },
+                                               {
+                                                   "name":  "canonicalColumns",
+                                                   "passed":  true,
+                                                   "message":  "35 of 35 required v1.2 members match their SQL representations."
+                                               },
+                                               {
+                                                   "name":  "latestCommittedImport",
+                                                   "passed":  true,
+                                                   "message":  "Latest committed snapshot is SUCCESS under V1.2."
+                                               },
+                                               {
+                                                   "name":  "entityCounts",
+                                                   "passed":  true,
+                                                   "message":  "Counts are BOM=523, Inventory=20257, WorkOrder=5868, GL=254."
+                                               },
+                                               {
+                                                   "name":  "partialImport",
+                                                   "passed":  true,
+                                                   "message":  "No active partial import exists."
+                                               },
+                                               {
+                                                   "name":  "snapshotConsistency",
+                                                   "passed":  true,
+                                                   "message":  "All canonical rows belong to the latest committed V1.2 snapshot."
+                                               }
+                                           ]
+                            },
+    "LiveReadiness":  {
+                          "dataEnvironment":  "LIVE",
+                          "database":  "DLE_OS_CANONICAL_LIVE",
+                          "contractVersion":  "1.2",
+                          "readinessVerdict":  "Ready",
+                          "currentImportRunId":  "e66391d9-7422-4c6f-9992-feed3d401a75",
+                          "mirrorRunId":  "LIVEMIRROR001-20260728T214128Z-FD926C24",
+                          "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                          "snapshotTimestampUtc":  "2026-07-28T22:38:20.784774Z",
+                          "snapshotAgeSeconds":  65039,
+                          "freshnessStatus":  "Fresh",
+                          "entityCounts":  {
+                                               "billOfMaterial":  1290,
+                                               "inventoryItem":  28662,
+                                               "workOrder":  12113,
+                                               "generalLedgerAccount":  257
+                                           },
+                          "totalCount":  42322,
+                          "checks":  [
+                                         {
+                                             "name":  "dataEnvironment",
+                                             "passed":  true,
+                                             "message":  "Snapshot environment is LIVE."
+                                         },
+                                         {
+                                             "name":  "database",
+                                             "passed":  true,
+                                             "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                         },
+                                         {
+                                             "name":  "contractVersion",
+                                             "passed":  true,
+                                             "message":  "Stored contract version is V1.2."
+                                         },
+                                         {
+                                             "name":  "importRun",
+                                             "passed":  true,
+                                             "message":  "Current ImportRunId is e66391d9-7422-4c6f-9992-feed3d401a75."
+                                         },
+                                         {
+                                             "name":  "mirrorRun",
+                                             "passed":  true,
+                                             "message":  "Current MirrorRunId is LIVEMIRROR001-20260728T214128Z-FD926C24."
+                                         },
+                                         {
+                                             "name":  "packageHash",
+                                             "passed":  true,
+                                             "message":  "Current package hash matches the qualified package."
+                                         },
+                                         {
+                                             "name":  "entityCounts",
+                                             "passed":  true,
+                                             "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                         },
+                                         {
+                                             "name":  "freshness",
+                                             "passed":  true,
+                                             "message":  "Snapshot age is 65039 seconds."
+                                         }
+                                     ]
+                      },
+    "InvoiceHistoryMetadata":  {
+                                   "invoiceHistoryImportRunId":  "5d34047a-8d69-4839-89a9-70658a3db6ee",
+                                   "sourceExtractionRunId":  "INVOICEHISTORYPLATFORM001-20260729T001740Z",
+                                   "sourceQualificationRunId":  "INVOICEHISTORY001-20260728T233255Z",
+                                   "packageContentHash":  "DA7EDC4C540750318A2AA73A938F14B5B820A7B482DAB2B29C94CE8555046DA8",
+                                   "packageSchema":  "DLE_INVOICE_HISTORY_BASELINE_V1",
+                                   "packageSchemaVersion":  1,
+                                   "contractVersion":  "1.2",
+                                   "activatedAtUtc":  "2026-07-29T00:18:07.21796",
+                                   "customerInvoiceCount":  19092,
+                                   "customerInvoiceLineCount":  26036,
+                                   "uniqueWorkOrderCount":  16465,
+                                   "unresolvedWorkOrderCount":  9466,
+                                   "ambiguousWorkOrderCount":  105,
+                                   "negativeQuantityCount":  415
+                               },
+    "KnownSample":  {
+                        "items":  [
+                                      {
+                                          "invoiceHistoryLineId":  "01  0011480169292030",
+                                          "firmId":  "01",
+                                          "arType":  "  ",
+                                          "customerNumber":  "001148",
+                                          "customerName":  "HUGHEY \u0026 PHILLIPS",
+                                          "customerNameResolutionType":  "CurrentMasterResolved",
+                                          "invoiceNumber":  "0169292",
+                                          "invoiceLineNumber":  "030",
+                                          "invoiceDate":  "2016-03-25",
+                                          "accountsReceivablePurchaseOrderNumber":  "HP00013215",
+                                          "salesOrderNumber":  "0009422",
+                                          "salesOrderLineNumber":  "030",
+                                          "lineCode":  "S",
+                                          "itemNumber":  "277-4169",
+                                          "itemDescription":  "TRIGGER CONTROL PCBA          DUAL BEACON",
+                                          "itemDescriptionResolutionType":  "CurrentMasterResolved",
+                                          "estimatedShipDate":  "2016-03-18",
+                                          "onTimeIndicator":  "N",
+                                          "quantityShipped":  4.0000000000,
+                                          "unitPrice":  59.7500000000,
+                                          "extendedPrice":  239.0000000000,
+                                          "workOrderNumber":  "0111450",
+                                          "workOrderResolutionStatus":  "Unique",
+                                          "workOrderCandidateCount":  1,
+                                          "billNumber":  "277-4169",
+                                          "bomRevision":  "E",
+                                          "drawingNumber":  null,
+                                          "drawingRevision":  "E",
+                                          "revisionCode":  null,
+                                          "manufacturingResolutionType":  "HistoricalReconstructed",
+                                          "invoiceHistoryImportRunId":  "5d34047a-8d69-4839-89a9-70658a3db6ee",
+                                          "sourceExtractionRunId":  "INVOICEHISTORYPLATFORM001-20260729T001740Z",
+                                          "sourceQualificationRunId":  "INVOICEHISTORY001-20260728T233255Z",
+                                          "packageContentHash":  "DA7EDC4C540750318A2AA73A938F14B5B820A7B482DAB2B29C94CE8555046DA8",
+                                          "activatedAtUtc":  "2026-07-29T00:18:07.21796"
+                                      }
+                                  ],
+                        "page":  1,
+                        "pageSize":  50,
+                        "totalItems":  1,
+                        "totalPages":  1,
+                        "hasPreviousPage":  false,
+                        "hasNextPage":  false
+                    },
+    "InvoiceHistoryRefreshStatus":  {
+                                        "Result":  "NO_SOURCE_CHANGES",
+                                        "Message":  "Invoice History refresh completed.",
+                                        "RefreshRunId":  "INVOICEHISTORYREFRESH-20260729T163226Z-862B03E3",
+                                        "WindowStart":  "2026-06-15",
+                                        "WindowEnd":  "2026-07-29",
+                                        "StartedAtUtc":  "2026-07-29T16:32:26.0722708+00:00",
+                                        "UpdatedAtUtc":  "2026-07-29T16:32:39.3510761+00:00",
+                                        "ExecutionIdentity":  "DLE-OS-HOST\\DLE-OS",
+                                        "Elevated":  false,
+                                        "Details":  {
+                                                        "SourceElapsedMilliseconds":  4212,
+                                                        "Package":  {
+                                                                        "contractVersion":  "1.2",
+                                                                        "counts":  {
+                                                                                       "CustomerInvoice":  38,
+                                                                                       "CustomerInvoiceLine":  50
+                                                                                   },
+                                                                        "createdAtUtc":  "2026-07-29T16:32:38.935971+00:00",
+                                                                        "dataEnvironment":  "LIVE",
+                                                                        "extraction":  {
+                                                                                           "filteredLineCounts":  {
+                                                                                                                      "non_report_line_code":  127,
+                                                                                                                      "zero_quantity":  42
+                                                                                                                  },
+                                                                                           "physicalHeaderCount":  38,
+                                                                                           "physicalLineCount":  219
+                                                                                       },
+                                                                        "headerClassifications":  {
+                                                                                                      "Unchanged":  38
+                                                                                                  },
+                                                                        "lineClassifications":  {
+                                                                                                    "Unchanged":  50
+                                                                                                },
+                                                                        "manufacturingResolutionCounts":  {
+                                                                                                              "CurrentMasterResolved":  26,
+                                                                                                              "HistoricalReconstructed":  21,
+                                                                                                              "Unavailable":  3
+                                                                                                          },
+                                                                        "missingRowsRetained":  true,
+                                                                        "naturalKey":  [
+                                                                                           "FirmId",
+                                                                                           "ArType",
+                                                                                           "CustomerNumber",
+                                                                                           "InvoiceNumber",
+                                                                                           "InvoiceLineNumber"
+                                                                                       ],
+                                                                        "negativeQuantityCount":  0,
+                                                                        "packageContentSha256":  "3322BC6B0167A6DC3A3BE2281D68F8F36FC99FAB6372CE865986CD3E03E35AA3",
+                                                                        "runId":  "INVOICEHISTORYREFRESH-20260729T163226Z-862B03E3",
+                                                                        "schema":  "DLE_INVOICE_HISTORY_REFRESH_V1",
+                                                                        "schemaVersion":  1,
+                                                                        "sourceIdentity":  {
+                                                                                               "art03_blank_dates":  "0",
+                                                                                               "art03_bytes_read":  "4122552",
+                                                                                               "art03_fid_after_hex":  "06140000000000C0583A2F414F4E2F41444154412F4152542D3033",
+                                                                                               "art03_fid_before_hex":  "06140000000000C0583A2F414F4E2F41444154412F4152542D3033",
+                                                                                               "art03_fin_after_hex":  "00496200FFFFFFFF0001800000020341CDF800000000000000005CFC51D10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004BF6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+                                                                                               "art03_fin_before_hex":  "00496200FFFFFFFF0001800000020341CDF800000000000000005CFC51D10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004BF6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+                                                                                               "art03_future_dates":  "0",
+                                                                                               "art03_headers_examined":  "19446",
+                                                                                               "art03_headers_selected":  "38",
+                                                                                               "art03_invalid_dates":  "0",
+                                                                                               "art03_void_headers":  "296",
+                                                                                               "art13_bytes_read":  "53436",
+                                                                                               "art13_exact_key_probes":  "38000",
+                                                                                               "art13_fid_after_hex":  "06140000000000E0583A2F414F4E2F41444154412F4152542D3133",
+                                                                                               "art13_fid_before_hex":  "06140000000000E0583A2F414F4E2F41444154412F4152542D3133",
+                                                                                               "art13_fin_after_hex":  "01516E00FFFFFFFF0001800000020341CD2000000000000000005CFC51CA000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001349B000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+                                                                                               "art13_fin_before_hex":  "01516E00FFFFFFFF0001800000020341CD2000000000000000005CFC51CA000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001349B000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+                                                                                               "art13_lines_examined":  "219",
+                                                                                               "art13_lines_selected":  "219",
+                                                                                               "open_mode":  "O_RDONLY",
+                                                                                               "overlap_end":  "2026-07-29",
+                                                                                               "overlap_start":  "2026-06-15"
+                                                                                           },
+                                                                        "verdict":  "PASS",
+                                                                        "windowEnd":  "2026-07-29",
+                                                                        "windowStart":  "2026-06-15",
+                                                                        "workOrderResolutionCounts":  {
+                                                                                                          "Unique":  21,
+                                                                                                          "Unresolved":  29
+                                                                                                      }
+                                                                    },
+                                                        "Import":  {
+                                                                       "Verdict":  "PASS",
+                                                                       "Result":  "NO_SOURCE_CHANGES",
+                                                                       "ChangeCount":  0,
+                                                                       "InvoiceHistoryRefreshRunId":  "82b3362b-ee60-4970-9726-17f7dc665492",
+                                                                       "InvoiceHistoryImportRunId":  "5d34047a-8d69-4839-89a9-70658a3db6ee",
+                                                                       "PackageContentHash":  "3322BC6B0167A6DC3A3BE2281D68F8F36FC99FAB6372CE865986CD3E03E35AA3",
+                                                                       "ExpectedCounts":  {
+                                                                                              "HeaderInsert":  0,
+                                                                                              "HeaderUpdate":  0,
+                                                                                              "HeaderUnchanged":  38,
+                                                                                              "HeaderMissing":  0,
+                                                                                              "LineInsert":  0,
+                                                                                              "LineUpdate":  0,
+                                                                                              "LineUnchanged":  50,
+                                                                                              "LineMissing":  0
+                                                                                          }
+                                                                   },
+                                                        "SourceOpenMode":  "O_RDONLY",
+                                                        "SourceWrites":  0,
+                                                        "SourceLocksRequested":  0
+                                                    }
+                                    },
+    "ErpRefreshStatus":  {
+                             "LastFailureReason":  null,
+                             "Message":  "No qualified ERP source changes were detected. The active snapshot was retained.",
+                             "StartedAtUtc":  "2026-07-29T16:40:54.3945593+00:00",
+                             "RunId":  "LIVEREFRESH-20260729T164054Z-40D9079F",
+                             "Running":  false,
+                             "Phase":  "COMPLETED",
+                             "Status":  "NO_SOURCE_CHANGES",
+                             "CurrentPackageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                             "LastSourceCheckUtc":  "2026-07-29T16:40:54.4510866+00:00",
+                             "Recovery":  [
+
+                                          ],
+                             "LastResult":  "NO_SOURCE_CHANGES",
+                             "CompletedAtUtc":  "2026-07-29T16:40:54.5822081+00:00",
+                             "ActiveImportRunId":  "e66391d9-7422-4c6f-9992-feed3d401a75",
+                             "LastSuccessfulRefreshUtc":  "2026-07-28T22:38:24.1800709+00:00"
+                         },
+    "ErpRefreshStateAcl":  {
+                               "IdentityReference":  {
+                                                         "Value":  "DLE-OS-HOST\\DLE-OS"
+                                                     },
+                               "FileSystemRights":  1245631,
+                               "AccessControlType":  0,
+                               "IsInherited":  false
+                           },
+    "SourceWrites":  0,
+    "SourceLocksRequested":  0
+}

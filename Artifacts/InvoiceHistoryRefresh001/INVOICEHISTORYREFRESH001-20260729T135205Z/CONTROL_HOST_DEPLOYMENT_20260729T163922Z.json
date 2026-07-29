@@ -1,0 +1,22 @@
+﻿{
+    "Verdict":  "PASS",
+    "DeployedAtUtc":  "2026-07-29T16:39:28.5438288+00:00",
+    "DeploymentIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "StagingRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\InvoiceHistoryRefresh001\\INVOICEHISTORYREFRESH001-20260729T135205Z\\ControlHostPublish-20260729T163922Z",
+    "RuntimeRoot":  "C:\\Program Files\\DLE-OS\\LiveSnapshotRefreshControl",
+    "RuntimeBackupRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\InvoiceHistoryRefresh001\\INVOICEHISTORYREFRESH001-20260729T135205Z\\ControlHostRuntimeBackup-20260729T163928Z",
+    "PreviousProcessIds":  [
+                               20032
+                           ],
+    "ExistingErpRefreshRoutesPreserved":  true,
+    "ApiOrQualifiedBoundaryModified":  false,
+    "SourceAccessPerformed":  false,
+    "ErpRefreshStateOperatorAccess":  "MODIFY",
+    "ProcessId":  3364,
+    "HttpSysProcessId":  4,
+    "RuntimeProcessPath":  "C:\\Program Files\\DLE-OS\\LiveSnapshotRefreshControl\\DleOs.LiveSnapshotRefresh.ControlHost.exe",
+    "RuntimeIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Port5043Listening":  true,
+    "HttpQualification":  "PENDING_WINDOWS_AUTHENTICATED_BROWSER_ACCEPTANCE"
+}

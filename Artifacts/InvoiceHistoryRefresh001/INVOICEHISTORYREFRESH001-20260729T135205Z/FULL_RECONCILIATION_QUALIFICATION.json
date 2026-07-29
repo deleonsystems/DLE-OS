@@ -1,0 +1,43 @@
+﻿{
+    "Verdict":  "PASS",
+    "ReconciledAtUtc":  "2026-07-29T14:58:18.5195094+00:00",
+    "Operation":  "SEPARATE_DELIBERATE_FULL_RECONCILIATION",
+    "SourceAccess":  "NONE",
+    "SqlAccess":  "SELECT_ONLY",
+    "QualifiedPackageRoot":  "C:\\DLE-OS\\Canonical\\InvoiceHistory\\Candidate",
+    "QualifiedPackageHash":  "DA7EDC4C540750318A2AA73A938F14B5B820A7B482DAB2B29C94CE8555046DA8",
+    "QualifiedPackageRunId":  "INVOICEHISTORYPLATFORM001-20260729T001740Z",
+    "CustomerInvoice":  {
+                            "QualifiedCount":  19092,
+                            "ActiveCount":  19092,
+                            "MissingCount":  0,
+                            "ExtraCount":  0,
+                            "FieldMismatchCount":  0,
+                            "MissingKeys":  [
+
+                                            ],
+                            "ExtraKeys":  [
+
+                                          ],
+                            "FieldMismatches":  [
+
+                                                ]
+                        },
+    "CustomerInvoiceLine":  {
+                                "QualifiedCount":  26036,
+                                "ActiveCount":  26036,
+                                "MissingCount":  0,
+                                "ExtraCount":  0,
+                                "FieldMismatchCount":  0,
+                                "MissingKeys":  [
+
+                                                ],
+                                "ExtraKeys":  [
+
+                                              ],
+                                "FieldMismatches":  [
+
+                                                    ]
+                            },
+    "MutationPerformed":  false
+}

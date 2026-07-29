@@ -364,6 +364,7 @@
   let lastFocusedRow = null;
   let workOrderSearchTimer = null;
   let refreshStatusTimer = null;
+  let invoiceRefreshStatusTimer = null;
 
   const viewerStates = Object.fromEntries(
     Object.keys(VIEWER_PROFILES).map(profileKey => [profileKey, createViewerState()])
@@ -391,6 +392,17 @@
         activeImportRunId: null,
         lastResult: null,
         lastFailureReason: null
+      },
+      invoiceRefresh: {
+        authorized: false,
+        available: false,
+        running: false,
+        status: "CHECKING",
+        message: "Checking Invoice History refresh status.",
+        refreshRunId: null,
+        windowStart: null,
+        windowEnd: null,
+        updatedAtUtc: null
       },
       statusMessage: "Checking the configured canonical API.",
       entities: Object.fromEntries(Object.keys(ENTITIES).map(entityKey => [entityKey, {
@@ -492,6 +504,7 @@
     if (!action) return;
     if (action === "refresh-status" || action === "retry-status") refreshStatus({ loadDefaultEntity: false });
     if (action === "run-erp-refresh") runErpSnapshotRefresh();
+    if (action === "run-invoice-history-refresh") runInvoiceHistoryRefresh();
     if (action === "clear-filters") clearFilters();
     if (action === "previous-page") changePage(-1);
     if (action === "go-to-page") goToPage();
@@ -692,7 +705,10 @@
     if (options.loadDefaultEntity && state.readiness === "ready" && currentEntityState().status === "idle") {
       await loadEntity(state.activeEntity);
     }
-    if (activeProfileKey === "live") await loadRefreshStatus();
+    if (activeProfileKey === "live") {
+      await loadRefreshStatus();
+      await loadInvoiceHistoryRefreshStatus();
+    }
   }
 
   async function loadRefreshStatus() {
@@ -762,6 +778,95 @@
       refreshStatusTimer = null;
       if (!active || activeProfileKey !== "live") return;
       await loadRefreshStatus();
+    }, 1500);
+  }
+
+  async function loadInvoiceHistoryRefreshStatus() {
+    if (
+      activeProfileKey !== "live" ||
+      state.activeEntity !== "invoiceHistory" ||
+      !currentApi()?.getInvoiceHistoryRefreshStatus
+    ) {
+      renderInvoiceHistoryRefreshControl();
+      return;
+    }
+    try {
+      const payload = await currentApi().getInvoiceHistoryRefreshStatus();
+      state.invoiceRefresh = {
+        ...state.invoiceRefresh,
+        ...payload,
+        authorized: payload?.authorized === true,
+        available: true,
+        running: payload?.running === true || payload?.status === "RUNNING"
+      };
+    } catch (error) {
+      state.invoiceRefresh = {
+        ...state.invoiceRefresh,
+        authorized: false,
+        available: false,
+        running: false,
+        status: error?.status === 401 || error?.status === 403
+          ? "DENIED"
+          : "UNAVAILABLE",
+        message: error?.status === 401 || error?.status === 403
+          ? "The current Windows user is not authorized to refresh Invoice History."
+          : "The governed Invoice History refresh control is unavailable."
+      };
+    }
+    renderInvoiceHistoryRefreshControl();
+    if (state.invoiceRefresh.running) scheduleInvoiceRefreshStatusPoll();
+  }
+
+  async function runInvoiceHistoryRefresh() {
+    const refresh = state.invoiceRefresh;
+    if (
+      activeProfileKey !== "live" ||
+      state.activeEntity !== "invoiceHistory" ||
+      refresh.running ||
+      !refresh.authorized
+    ) return;
+    const confirmed = window.confirm(
+      "Refresh only Invoice History from the qualified 45-day ERP window? " +
+      "Missing source rows will be retained and the active dataset will remain available on failure."
+    );
+    if (!confirmed) return;
+    refresh.running = true;
+    refresh.status = "RUNNING";
+    refresh.message =
+      "The isolated Invoice History refresh is starting. Viewer rows will not reload automatically.";
+    renderInvoiceHistoryRefreshControl();
+    try {
+      const payload = await currentApi().runInvoiceHistoryRefresh();
+      state.invoiceRefresh = {
+        ...refresh,
+        ...payload,
+        authorized: true,
+        available: true,
+        running: payload?.running !== false
+      };
+      scheduleInvoiceRefreshStatusPoll();
+    } catch (error) {
+      refresh.running = false;
+      refresh.status = error?.status === 409 ? "ALREADY_RUNNING" : "FAILED";
+      refresh.message = error?.status === 409
+        ? "An Invoice History refresh is already running."
+        : safeErrorMessage(error, "Invoice History refresh");
+      renderInvoiceHistoryRefreshControl();
+    }
+  }
+
+  function scheduleInvoiceRefreshStatusPoll() {
+    if (invoiceRefreshStatusTimer) {
+      window.clearTimeout(invoiceRefreshStatusTimer);
+    }
+    invoiceRefreshStatusTimer = window.setTimeout(async () => {
+      invoiceRefreshStatusTimer = null;
+      if (
+        !active ||
+        activeProfileKey !== "live" ||
+        state.activeEntity !== "invoiceHistory"
+      ) return;
+      await loadInvoiceHistoryRefreshStatus();
     }, 1500);
   }
 
@@ -906,10 +1011,14 @@
     closeDetail({ restoreFocus: false });
     state.activeEntity = entityKey;
     renderEntity();
+    renderInvoiceHistoryRefreshControl();
     const tab = query('[data-canonical-tab="' + entityKey + '"]');
     if (options.focusTab) tab?.focus();
     if (state.readiness === "ready" && state.entities[entityKey].status === "idle") {
       loadEntity(entityKey);
+    }
+    if (entityKey === "invoiceHistory") {
+      loadInvoiceHistoryRefreshStatus();
     }
   }
 
@@ -977,6 +1086,7 @@
     if (!mounted) return;
     renderStatus();
     renderRefreshControl();
+    renderInvoiceHistoryRefreshControl();
     renderEntity();
   }
 
@@ -1026,6 +1136,7 @@
         activeProfileKey !== "live" || !state.invoiceHistoryAvailable;
     });
     renderRefreshControl();
+    renderInvoiceHistoryRefreshControl();
   }
 
   function renderRefreshControl() {
@@ -1051,6 +1162,36 @@
       state.refresh.activeImportRunId || NULL_MARKER;
     query("[data-canonical-refresh-last-result]").textContent =
       state.refresh.lastResult || NULL_MARKER;
+  }
+
+  function renderInvoiceHistoryRefreshControl() {
+    if (!mounted) return;
+    const control = query("[data-invoice-history-refresh-control]");
+    const button = query(
+      '[data-canonical-action="run-invoice-history-refresh"]'
+    );
+    if (!control || !button) return;
+    const visible =
+      activeProfileKey === "live" &&
+      state.activeEntity === "invoiceHistory" &&
+      state.invoiceHistoryAvailable;
+    control.hidden = !visible;
+    if (!visible) return;
+    const refresh = state.invoiceRefresh;
+    button.hidden = !refresh.authorized;
+    button.disabled = refresh.running || !refresh.available;
+    query("[data-invoice-history-refresh-message]").textContent =
+      refresh.message || "Ready to refresh the bounded Invoice History window.";
+    query("[data-invoice-history-refresh-status]").textContent =
+      refreshStatusLabel(refresh.status);
+    query("[data-invoice-history-refresh-window-start]").textContent =
+      refresh.windowStart || NULL_MARKER;
+    query("[data-invoice-history-refresh-window-end]").textContent =
+      refresh.windowEnd || NULL_MARKER;
+    query("[data-invoice-history-refresh-run-id]").textContent =
+      refresh.refreshRunId || NULL_MARKER;
+    query("[data-invoice-history-refresh-updated]").textContent =
+      refresh.updatedAtUtc || NULL_MARKER;
   }
 
   function refreshStatusLabel(value) {

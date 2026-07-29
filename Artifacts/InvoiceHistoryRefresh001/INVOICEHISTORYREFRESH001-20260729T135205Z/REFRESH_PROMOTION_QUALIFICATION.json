@@ -1,0 +1,61 @@
+﻿{
+    "Verdict":  "PASS",
+    "WindowsIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  false,
+    "NaturalKey":  "01||001021|0174686|010",
+    "UpdateResult":  {
+                         "Verdict":  "PASS",
+                         "Result":  "SUCCESS",
+                         "ChangeCount":  1,
+                         "InvoiceHistoryRefreshRunId":  "3d74de0a-cbc7-461b-b733-0820a68e47d6",
+                         "InvoiceHistoryImportRunId":  "5d34047a-8d69-4839-89a9-70658a3db6ee",
+                         "PackageContentHash":  "C97BB8649E78CF299644EBF53938A97FC8FC012F46B0B01CB18E6592B038DD53",
+                         "ExpectedCounts":  {
+                                                "HeaderInsert":  0,
+                                                "HeaderUpdate":  0,
+                                                "HeaderUnchanged":  38,
+                                                "HeaderMissing":  0,
+                                                "LineInsert":  0,
+                                                "LineUpdate":  1,
+                                                "LineUnchanged":  49,
+                                                "LineMissing":  0
+                                            }
+                     },
+    "RestoreResult":  {
+                          "Verdict":  "PASS",
+                          "Result":  "SUCCESS",
+                          "ChangeCount":  1,
+                          "InvoiceHistoryRefreshRunId":  "4f59d202-6aed-4d3f-99ee-e8adafd59a68",
+                          "InvoiceHistoryImportRunId":  "5d34047a-8d69-4839-89a9-70658a3db6ee",
+                          "PackageContentHash":  "C83DF6E4B83F3526D85C94825A0AA50EE14FD7CD4C485F817DE91364BA47A4D8",
+                          "ExpectedCounts":  {
+                                                 "HeaderInsert":  0,
+                                                 "HeaderUpdate":  0,
+                                                 "HeaderUnchanged":  38,
+                                                 "HeaderMissing":  0,
+                                                 "LineInsert":  0,
+                                                 "LineUpdate":  1,
+                                                 "LineUnchanged":  49,
+                                                 "LineMissing":  0
+                                             }
+                      },
+    "Before":  {
+                   "HeaderCount":  19092,
+                   "LineCount":  26036,
+                   "BusinessChecksum":  -1549933970,
+                   "ItemDescription":  "HARNESS ASSEMBLY",
+                   "LastRefreshRunId":  "",
+                   "UpdatedAtUtc":  "2026-07-29T00:18:05.3782389"
+               },
+    "After":  {
+                  "HeaderCount":  19092,
+                  "LineCount":  26036,
+                  "BusinessChecksum":  -1549933970,
+                  "ItemDescription":  "HARNESS ASSEMBLY",
+                  "LastRefreshRunId":  "4F59D202-6AED-4D3F-99EE-E8ADAFD59A68",
+                  "UpdatedAtUtc":  "2026-07-29T14:50:14.5242221"
+              },
+    "ActiveDatasetRestored":  true,
+    "SourceAccess":  "NONE",
+    "SourceWrites":  0
+}

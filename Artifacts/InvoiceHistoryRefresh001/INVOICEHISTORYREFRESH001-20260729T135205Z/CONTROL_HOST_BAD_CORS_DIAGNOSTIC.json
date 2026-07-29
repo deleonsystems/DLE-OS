@@ -1,0 +1,13 @@
+﻿{
+    "StatusCode":  204,
+    "ReasonPhrase":  "No Content",
+    "Body":  "",
+    "Headers":  {
+                    "AccessControlAllowOrigin":  [
+                                                     null
+                                                 ],
+                    "AccessControlAllowCredentials":  [
+                                                          null
+                                                      ]
+                }
+}

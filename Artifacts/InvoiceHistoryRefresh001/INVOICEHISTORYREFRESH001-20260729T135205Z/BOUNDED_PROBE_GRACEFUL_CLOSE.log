@@ -1,0 +1,6 @@
+Expected one owned bounded-probe VPro process; found 0.
+At C:\DLE-OS\Repositories\DLE-OS\Tools\InvoiceHistory\Complete-InvoiceHistoryBoundedWindowProbe.ps1:41 char:5
++     throw "Expected one owned bounded-probe VPro process; found $($ma ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Expected one ow...ocess; found 0.:String) [], RuntimeException
+    + FullyQualifiedErrorId : Expected one owned bounded-probe VPro process; found 0.

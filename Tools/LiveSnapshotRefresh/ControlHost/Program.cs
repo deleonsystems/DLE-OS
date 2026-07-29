@@ -9,8 +9,14 @@ const string allowedOrigin = "http://dle-os-host:5041";
 const string controlPrefix = "http://dle-os-host:5043";
 const string runnerPath =
     @"C:\DLE-OS\Canonical\LiveMirror\Refresh\Invoke-LiveSnapshotRefresh.ps1";
+const string erpRefreshLauncherPath =
+    @"C:\DLE-OS\Repositories\DLE-OS\Tools\LiveSnapshotRefresh\Start-LiveSnapshotRefresh.cmd";
 const string statePath =
     @"C:\ProgramData\DLE-OS\LiveSnapshotRefresh\State\status.json";
+const string invoiceRefreshLauncherPath =
+    @"C:\DLE-OS\Repositories\DLE-OS\Tools\InvoiceHistory\Start-InvoiceHistoryRefresh.cmd";
+const string invoiceRefreshStatePath =
+    @"C:\DLE-OS\Canonical\InvoiceHistory\Refresh\State\status.json";
 const string corsPolicy = "HistoricalViewerExactOrigin";
 
 var builder = WebApplication.CreateBuilder(args);
@@ -114,6 +120,89 @@ object ReadStatus(HttpContext context)
     };
 }
 
+object ReadInvoiceRefreshStatus(HttpContext context)
+{
+    InvoiceRefreshState state;
+    try
+    {
+        state = File.Exists(invoiceRefreshStatePath)
+            ? JsonSerializer.Deserialize<InvoiceRefreshState>(
+                File.ReadAllText(invoiceRefreshStatePath),
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new InvoiceRefreshState()
+            : new InvoiceRefreshState();
+    }
+    catch
+    {
+        state = new InvoiceRefreshState
+        {
+            Result = "FAILED",
+            Message = "The protected Invoice History status could not be read."
+        };
+    }
+    return new
+    {
+        authorized = string.Equals(
+            context.User.Identity?.Name,
+            authorizedOperator,
+            StringComparison.OrdinalIgnoreCase),
+        executionIdentity = authorizedOperator,
+        running = string.Equals(
+            state.Result, "RUNNING", StringComparison.OrdinalIgnoreCase),
+        status = state.Result,
+        state.Message,
+        state.RefreshRunId,
+        state.WindowStart,
+        state.WindowEnd,
+        state.StartedAtUtc,
+        state.UpdatedAtUtc,
+        state.Details
+    };
+}
+
+bool InvoiceRefreshIsRunning()
+{
+    try
+    {
+        if (!File.Exists(invoiceRefreshStatePath))
+        {
+            return false;
+        }
+        var state = JsonSerializer.Deserialize<InvoiceRefreshState>(
+            File.ReadAllText(invoiceRefreshStatePath),
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        return string.Equals(
+            state?.Result, "RUNNING", StringComparison.OrdinalIgnoreCase);
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+bool ErpRefreshIsRunning()
+{
+    try
+    {
+        if (!File.Exists(statePath))
+        {
+            return false;
+        }
+        var state = JsonSerializer.Deserialize<RefreshState>(
+            File.ReadAllText(statePath),
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        return state?.Running == true ||
+            string.Equals(
+                state?.Status, "RUNNING", StringComparison.OrdinalIgnoreCase);
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 app.MapGet(
         "/api/platform/refresh/v1/status",
         (HttpContext context) => Results.Json(ReadStatus(context)))
@@ -125,7 +214,10 @@ app.MapPost(
         {
             lock (processGate)
             {
-                if (currentProcess is { HasExited: false })
+                if (
+                    currentProcess is { HasExited: false } ||
+                    ErpRefreshIsRunning()
+                )
                 {
                     return Results.Conflict(new
                     {
@@ -135,7 +227,10 @@ app.MapPost(
                         running = true
                     });
                 }
-                if (!File.Exists(runnerPath))
+                if (
+                    !File.Exists(runnerPath) ||
+                    !File.Exists(erpRefreshLauncherPath)
+                )
                 {
                     return Results.Problem(
                         statusCode: StatusCodes.Status503ServiceUnavailable,
@@ -149,18 +244,12 @@ app.MapPost(
                 currentProcess?.Dispose();
                 currentProcess = Process.Start(new ProcessStartInfo
                 {
-                    FileName =
-                        Path.Combine(
-                            Environment.GetFolderPath(
-                                Environment.SpecialFolder.System),
-                            @"WindowsPowerShell\v1.0\powershell.exe"),
-                    Arguments =
-                        "-NoLogo -NoProfile -NonInteractive " +
-                        "-ExecutionPolicy Bypass -File " +
-                        $"\"{runnerPath}\"",
-                    WorkingDirectory = Path.GetDirectoryName(runnerPath)!,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
+                    FileName = Path.Combine(
+                        Environment.GetFolderPath(
+                            Environment.SpecialFolder.Windows),
+                        "explorer.exe"),
+                    Arguments = $"\"{erpRefreshLauncherPath}\"",
+                    UseShellExecute = true
                 });
                 if (currentProcess is null)
                 {
@@ -175,12 +264,64 @@ app.MapPost(
                 new
                 {
                     authorized = true,
-                    executionIdentity = WindowsIdentity.GetCurrent().Name,
+                    executionIdentity = authorizedOperator,
                     status = "RUNNING",
                     phase = "STARTING",
                     running = true,
                     message =
                         "The governed ERP snapshot refresh runner was started."
+                });
+        })
+    .RequireAuthorization("SnapshotRefreshOperator");
+
+app.MapGet(
+        "/api/platform/refresh/invoice-history/v1/status",
+        (HttpContext context) =>
+            Results.Json(ReadInvoiceRefreshStatus(context)))
+    .RequireAuthorization("SnapshotRefreshOperator");
+
+app.MapPost(
+        "/api/platform/refresh/invoice-history/v1/run",
+        (HttpContext context) =>
+        {
+            if (InvoiceRefreshIsRunning())
+            {
+                return Results.Conflict(new
+                {
+                    code = "already_running",
+                    message = "Invoice History refresh is already running.",
+                    status = "ALREADY_RUNNING",
+                    running = true
+                });
+            }
+            if (!File.Exists(invoiceRefreshLauncherPath))
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status503ServiceUnavailable,
+                    title: "The Invoice History refresh launcher is unavailable.",
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["code"] = "invoice_refresh_launcher_unavailable"
+                    });
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                    "explorer.exe"),
+                Arguments = $"\"{invoiceRefreshLauncherPath}\"",
+                UseShellExecute = true
+            });
+            return Results.Accepted(
+                "/api/platform/refresh/invoice-history/v1/status",
+                new
+                {
+                    authorized = true,
+                    executionIdentity = authorizedOperator,
+                    status = "RUNNING",
+                    running = true,
+                    message = "The isolated Invoice History refresh was started."
                 });
         })
     .RequireAuthorization("SnapshotRefreshOperator");
@@ -214,4 +355,16 @@ internal sealed class RefreshState
     public string? LastResult { get; set; }
     public string? LastFailureReason { get; set; }
     public string? RunId { get; set; }
+}
+
+internal sealed class InvoiceRefreshState
+{
+    public string Result { get; set; } = "READY";
+    public string? Message { get; set; }
+    public string? RefreshRunId { get; set; }
+    public string? WindowStart { get; set; }
+    public string? WindowEnd { get; set; }
+    public string? StartedAtUtc { get; set; }
+    public string? UpdatedAtUtc { get; set; }
+    public JsonElement? Details { get; set; }
 }

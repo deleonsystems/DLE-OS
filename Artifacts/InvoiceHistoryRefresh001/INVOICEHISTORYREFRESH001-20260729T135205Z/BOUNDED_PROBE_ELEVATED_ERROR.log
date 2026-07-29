@@ -1,0 +1,5 @@
+﻿{
+    "FailedAtUtc":  "2026-07-29T13:58:51.6956438+00:00",
+    "WindowsIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Error":  "Required fixed path is unavailable: X:\\AON\\ADATA\\ART-03\r\nAt C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\Invoke-InvoiceHistoryBoundedWindowQualification.ps1:59 char:9\r\n+         throw \"Required fixed path is unavailable: $requiredPath\"\r\n+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : OperationStopped: (Required fixed ...ON\\ADATA\\ART-03:String) [], RuntimeException\r\n    + FullyQualifiedErrorId : Required fixed path is unavailable: X:\\AON\\ADATA\\ART-03"
+}

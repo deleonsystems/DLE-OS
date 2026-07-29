@@ -1,0 +1,7 @@
+﻿{
+    "Verdict":  "BLOCKED_UAC",
+    "FailedAtUtc":  "2026-07-29T16:20:22.7606834+00:00",
+    "Error":  "This command cannot be run due to the error: The operation was canceled by the user.",
+    "StagingRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\InvoiceHistoryRefresh001\\INVOICEHISTORYREFRESH001-20260729T135205Z\\ControlHostPublish-20260729T151232Z",
+    "ElevatedEvidencePath":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\InvoiceHistoryRefresh001\\INVOICEHISTORYREFRESH001-20260729T135205Z\\CONTROL_HOST_DEPLOYMENT_20260729T151232Z.json"
+}

@@ -1,0 +1,10 @@
+﻿{
+    "StoppedAtUtc":  "2026-07-29T14:24:56.1217734+00:00",
+    "WindowsIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  false,
+    "ProcessId":  25212,
+    "CommandLine":  "powershell.exe  -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\Invoke-InvoiceHistoryBoundedWindowQualification.ps1\" ",
+    "VproProcessesActive":  0,
+    "SourceProcessTerminated":  false,
+    "Reason":  "VPro exited normally; stale PowerShell WaitForExit wrapper remained."
+}
