@@ -1,0 +1,18 @@
+﻿{
+    "Verdict":  "FAIL",
+    "DeployedAtUtc":  "2026-07-29T19:04:25.4220954+00:00",
+    "DeploymentIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "HistoricalProcessId":  3096,
+    "LiveProcessId":  23140,
+    "RefreshControlProcessId":  4,
+    "PromotionBrokerProcessId":  4,
+    "SourceAccessPerformed":  false,
+    "ExistingRefreshPipelinesModified":  false,
+    "PublishOutput":  "Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  DLE-OS-Server -\u003e C:\\DLE-OS\\Repositories\\DLE-OS-Server\\Artifacts\\LiveApi001\\Publish\\Build\\Release\\net8.0\\DLE-OS-Server.dll\r\n  DLE-OS-Server -\u003e C:\\DLE-OS\\Repositories\\DLE-OS-Server\\Artifacts\\LiveApi001\\Publish\\LIVEAPI001-PUBLISH-20260729T190427Z\\\r\n{\r\n    \"Mission\":  \"LIVE-API-001\",\r\n    \"PublishedAtUtc\":  \"2026-07-29T19:04:32.4358391+00:00\",\r\n    \"RunId\":  \"LIVEAPI001-PUBLISH-20260729T190427Z\",\r\n    \"StagingPath\":  \"C:\\\\DLE-OS\\\\Repositories\\\\DLE-OS-Server\\\\Artifacts\\\\LiveApi001\\\\Publish\\\\LIVEAPI001-PUBLISH-20260729T190427Z\",\r\n    \"RuntimePath\":  \"C:\\\\Program Files\\\\DLE-OS\\\\LiveCanonicalApi\",\r\n    \"RuntimeProfile\":  \"LIVE\",\r\n    \"RuntimeDatabase\":  \"DLE_OS_CANONICAL_LIVE\",\r\n    \"RuntimeIdentity\":  \"DLE-OS-HOST\\\\DLE-OS-LIVE-API\",\r\n    \"AssemblySha256\":  \"BA7FCB188E414AC67D08EF8B2132D9E0D17D5682586A73373445D560F589F043\",\r\n    \"BaseConfigurationSha256\":  \"1B4F61DD2023D873948D6B53328ED3A13D500FCD58D2C230D0D650837BEC943C\",\r\n    \"LiveConfigurationSha256\":  \"5EBE2D6FAD7C5FF9773426D583A5FFE0040282EDC371036E11443DEA72D77ACA\",\r\n    \"QualifiedBoundarySha256\":  \"5100464E07AAE97D51F82F22716924222856A4A6362AA3FC34F5D02031DB1DAC\",\r\n    \"RuntimeIdentityFileSystemRights\":  \"ReadAndExecute, Synchronize\",\r\n    \"HistoricalConnectionConfigurationPresent\":  false,\r\n    \"FrontendConfigurationPresent\":  false,\r\n    \"Verdict\":  \"PASS\"\r\n}",
+    "LaunchOutput":  "ProcessId        : 23140\r\nWindowsIdentity  : DLE-OS-HOST\\DLE-OS-LIVE-API\r\nRuntimeProfile   : LIVE\r\nEndpoint         : http://DLE-OS-HOST:5042\r\nReadinessVerdict : Ready\r\nImportRunId      : e66391d9-7422-4c6f-9992-feed3d401a75\r\nPackageHash      : BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+    "LiveRuntimeOwner":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+    "RefreshControlOwner":  "\\",
+    "PromotionBrokerOwner":  "\\",
+    "Error":  "One or more runtime identities are outside the approved boundary."
+}

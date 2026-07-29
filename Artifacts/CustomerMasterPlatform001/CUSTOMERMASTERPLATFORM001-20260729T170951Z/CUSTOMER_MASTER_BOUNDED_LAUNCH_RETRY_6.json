@@ -1,0 +1,10 @@
+﻿{
+    "Verdict":  "PASS",
+    "CompletedAtUtc":  "2026-07-29T18:43:31.1223899+00:00",
+    "AttemptId":  "Attempt-20260729T184319Z",
+    "ProcessId":  23452,
+    "ExitCode":  0,
+    "StartupOutputObserved":  true,
+    "CleanupRequired":  false,
+    "ProgramSha256":  "60F5A85629C2233127D508A6927D5A04A40924F93523A91402CF69F28D081C30"
+}

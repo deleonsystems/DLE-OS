@@ -1,0 +1,122 @@
+﻿{
+    "Verdict":  "PASS",
+    "DeployedAtUtc":  "2026-07-29T19:08:12.0197432+00:00",
+    "DeploymentIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "HistoricalProcessId":  3096,
+    "LiveProcessId":  23140,
+    "RefreshControlProcessId":  3364,
+    "PromotionBrokerProcessId":  22212,
+    "SourceAccessPerformed":  false,
+    "ExistingRefreshPipelinesModified":  false,
+    "LiveRuntimeOwner":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+    "RefreshControlOwner":  "DLE-OS-HOST\\DLE-OS",
+    "PromotionBrokerOwner":  "DLE-OS-HOST\\DLE-OS",
+    "Readiness":  {
+                      "dataEnvironment":  "LIVE",
+                      "database":  "DLE_OS_CANONICAL_LIVE",
+                      "contractVersion":  "1.2",
+                      "readinessVerdict":  "Ready",
+                      "currentImportRunId":  "e66391d9-7422-4c6f-9992-feed3d401a75",
+                      "mirrorRunId":  "LIVEMIRROR001-20260728T214128Z-FD926C24",
+                      "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                      "snapshotTimestampUtc":  "2026-07-28T22:38:20.784774Z",
+                      "snapshotAgeSeconds":  73792,
+                      "freshnessStatus":  "Fresh",
+                      "entityCounts":  {
+                                           "billOfMaterial":  1290,
+                                           "inventoryItem":  28662,
+                                           "workOrder":  12113,
+                                           "generalLedgerAccount":  257
+                                       },
+                      "totalCount":  42322,
+                      "checks":  [
+                                     {
+                                         "name":  "dataEnvironment",
+                                         "passed":  true,
+                                         "message":  "Snapshot environment is LIVE."
+                                     },
+                                     {
+                                         "name":  "database",
+                                         "passed":  true,
+                                         "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                     },
+                                     {
+                                         "name":  "contractVersion",
+                                         "passed":  true,
+                                         "message":  "Stored contract version is V1.2."
+                                     },
+                                     {
+                                         "name":  "importRun",
+                                         "passed":  true,
+                                         "message":  "Current ImportRunId is e66391d9-7422-4c6f-9992-feed3d401a75."
+                                     },
+                                     {
+                                         "name":  "mirrorRun",
+                                         "passed":  true,
+                                         "message":  "Current MirrorRunId is LIVEMIRROR001-20260728T214128Z-FD926C24."
+                                     },
+                                     {
+                                         "name":  "packageHash",
+                                         "passed":  true,
+                                         "message":  "Current package hash matches the qualified package."
+                                     },
+                                     {
+                                         "name":  "entityCounts",
+                                         "passed":  true,
+                                         "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                     },
+                                     {
+                                         "name":  "freshness",
+                                         "passed":  true,
+                                         "message":  "Snapshot age is 73792 seconds."
+                                     }
+                                 ]
+                  },
+    "CustomerMasterMetadata":  {
+                                   "customerMasterImportRunId":  "e26775b9-1ada-4b46-92a8-4dd6cd9a2819",
+                                   "sourceQualificationRunId":  "CUSTOMERMASTERPLATFORM001-20260729T170951Z",
+                                   "packageSha256":  "B10C5137D81B8BE45A30E877A085E85A05B5C50AEEF620222BEF4217140C80C7",
+                                   "contractVersion":  "CUSTOMER_MASTER_1.0",
+                                   "snapshotAsOfUtc":  "2026-07-29T18:50:57.378",
+                                   "customerCount":  380,
+                                   "customerAddressCount":  28,
+                                   "orphanAddressCount":  1,
+                                   "importStatus":  "SUCCESS"
+                               },
+    "KnownCustomer":  {
+                          "customerMasterId":  "01001148",
+                          "firmId":  "01",
+                          "customerNumber":  "001148",
+                          "customerName":  "HUGHEY \u0026 PHILLIPS",
+                          "customerStatus":  null,
+                          "isActive":  null,
+                          "addressLine1":  "240 TWAIN AVENUE",
+                          "addressLine2":  "URBANA, OH",
+                          "addressLine3":  null,
+                          "addressLine4":  null,
+                          "addressLine5":  null,
+                          "postalCode":  "43078",
+                          "country":  null,
+                          "primaryContactName":  null,
+                          "primaryPhone":  "9376523500",
+                          "primaryPhoneExtension":  null,
+                          "salespersonCode":  "001",
+                          "salespersonName":  "4",
+                          "territoryCode":  "001",
+                          "territoryName":  null,
+                          "paymentTermsCode":  "60",
+                          "paymentTermsDescription":  "2",
+                          "shippingMethodCode":  "UPS A054E8",
+                          "freightTerms":  null,
+                          "orderFreightTermsCode":  null,
+                          "customerTypeCode":  null,
+                          "customerTypeDescription":  null,
+                          "pricingClassCode":  null,
+                          "pricingClassDescription":  null,
+                          "sourceRecordIdentity":  "3031303031313438",
+                          "customerMasterImportRunId":  "e26775b9-1ada-4b46-92a8-4dd6cd9a2819",
+                          "importedAtUtc":  "2026-07-29T18:50:57.357",
+                          "alternateShipToCount":  1
+                      }
+}

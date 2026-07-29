@@ -29,7 +29,9 @@
     canonicalGeneralLedgerAccounts: '/api/platform/live/v1/general-ledger-accounts',
     canonicalSalesOrders: '/api/platform/live/v1/sales-orders',
     canonicalInvoiceHistory: '/api/platform/live/v1/invoice-history',
-    canonicalInvoiceHistoryMetadata: '/api/platform/live/v1/invoice-history/metadata'
+    canonicalInvoiceHistoryMetadata: '/api/platform/live/v1/invoice-history/metadata',
+    canonicalCustomerMaster: '/api/platform/live/v1/customer-master',
+    canonicalCustomerMasterMetadata: '/api/platform/live/v1/customer-master/metadata'
   });
 
   const CANONICAL_FILTERS = Object.freeze({
@@ -45,6 +47,10 @@
     canonicalInvoiceHistory: Object.freeze([
       'invoiceDateFrom', 'invoiceDateTo', 'customerNumber',
       'invoiceNumber', 'salesOrderNumber', 'itemNumber', 'workOrderNumber'
+    ]),
+    canonicalCustomerMaster: Object.freeze([
+      'customerNumber', 'customerName', 'postalCode', 'contactName',
+      'salespersonCode', 'territoryCode'
     ])
   });
 
@@ -218,7 +224,8 @@
     const isCustomerNumber =
       (
         endpointKey === 'canonicalSalesOrders' ||
-        endpointKey === 'canonicalInvoiceHistory'
+        endpointKey === 'canonicalInvoiceHistory' ||
+        endpointKey === 'canonicalCustomerMaster'
       ) &&
       filterName === 'customerNumber';
     const isSalesOrderNumber =
@@ -244,6 +251,10 @@
       );
     if (!isCustomerNumber && !isSalesOrderNumber && !isInvoiceNumber &&
         !isWorkOrderNumber && !isItemNumber) {
+      if (endpointKey === 'canonicalCustomerMaster' &&
+          value !== undefined && value !== null) {
+        return String(value).trim();
+      }
       return value;
     }
     if (value === undefined || value === null) return value;
@@ -422,6 +433,26 @@
     },
     getCanonicalInvoiceHistoryMetadata(options = {}) {
       return getLiveJson('canonicalInvoiceHistoryMetadata', options);
+    },
+    getCanonicalCustomerMaster(options = {}) {
+      return getLiveCanonicalList('canonicalCustomerMaster', options);
+    },
+    getCanonicalCustomer(customerMasterId, options = {}) {
+      return getLiveCanonicalRecord(
+        'canonicalCustomerMaster',
+        customerMasterId,
+        options
+      );
+    },
+    getCanonicalCustomerAddresses(customerMasterId, options = {}) {
+      return getLiveJson('canonicalCustomerMaster', {
+        ...options,
+        endpoint: LIVE_CANONICAL_ENDPOINTS.canonicalCustomerMaster + '/' +
+          encodeCanonicalIdentifier(customerMasterId) + '/addresses'
+      });
+    },
+    getCanonicalCustomerMasterMetadata(options = {}) {
+      return getLiveJson('canonicalCustomerMasterMetadata', options);
     },
     getSnapshotRefreshStatus(options = {}) {
       return requestLiveSnapshotRefresh('/api/platform/refresh/v1/status', options);

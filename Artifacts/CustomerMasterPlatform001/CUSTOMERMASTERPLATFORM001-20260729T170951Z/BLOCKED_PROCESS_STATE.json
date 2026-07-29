@@ -1,0 +1,27 @@
+{
+  "CapturedAtUtc": "2026-07-29T18:12:18.8811292Z",
+  "Attempt": "Attempt-20260729T180728Z",
+  "CompileGate": "PASS",
+  "CompiledProgramSha256": "33CAD7A53B399AA70A621CC940773C1FA7C7D17CB58EFE64BBE6D39F963EB775",
+  "Processes": [
+    {
+      "Id": 1668,
+      "ProcessName": "powershell",
+      "Responding": true,
+      "StartTime": "2026-07-29T11:07:28-07:00",
+      "CPU": 0.515625,
+      "Path": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    },
+    {
+      "Id": 11388,
+      "ProcessName": "vpro5",
+      "Responding": true,
+      "StartTime": "2026-07-29T11:07:30-07:00",
+      "CPU": 0.140625,
+      "Path": "C:\\BASIS\\VPRO5\\vpro5.exe"
+    }
+  ],
+  "RuntimeOutputs": 0,
+  "SourceReadVerdict": "NOT_STARTED_OR_NOT_EVIDENCED",
+  "Reason": "The corrected fresh-directory compile gate passed, but its VPro child and parent PowerShell process remain active with no runtime evidence. The no-overlap gate prohibits retry, implementation, or forced termination."
+}

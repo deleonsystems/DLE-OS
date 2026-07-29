@@ -1,0 +1,20 @@
+﻿{
+    "Verdict":  "PASS",
+    "AttemptId":  "Attempt-20260729T180728Z",
+    "AttemptRoot":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T180728Z",
+    "CompilerProcessId":  13276,
+    "CompilerExitCode":  0,
+    "CompilerOutputContainsError":  false,
+    "CompilerOutputContainsFatal":  false,
+    "CompileStartedAtUtc":  "2026-07-29T18:07:28.9509564Z",
+    "CompiledArtifact":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T180728Z\\Programs\\CUSTOMER_MASTER_QUALIFIER",
+    "CompiledArtifactLastWriteTimeUtc":  "2026-07-29T18:07:29.0839508Z",
+    "CompiledArtifactLength":  6256,
+    "CompiledArtifactSha256":  "33CAD7A53B399AA70A621CC940773C1FA7C7D17CB58EFE64BBE6D39F963EB775",
+    "KnownStaleProgramHashes":  [
+                                    "49ABFC6F46E4BAEE3EF0EABD5C90DE5543E3C2D02695B60D106E0D43B4C1C32F",
+                                    "61582EB20B1DC994D858DC3404C1879B1754BF9B8DDA33C7F05DECBE172DE86F"
+                                ],
+    "FreshDirectory":  true,
+    "PriorArtifactReused":  false
+}

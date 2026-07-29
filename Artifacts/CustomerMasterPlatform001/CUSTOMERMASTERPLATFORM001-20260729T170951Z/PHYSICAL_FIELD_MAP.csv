@@ -1,0 +1,36 @@
+CanonicalField,PhysicalSource,PhysicalLocation,Mapping,Qualification
+Customer.FirmId,ARM-01,Key bytes 1-2,Direct,PASS
+Customer.CustomerNumber,ARM-01,Key bytes 3-8,Direct fixed-width string,PASS
+Customer.CustomerName,ARM-01,Record string 1 bytes 1-30,Direct,PASS
+Customer.AddressLine1,ARM-01,Record string 1 bytes 31-54,Direct free-form,PASS
+Customer.AddressLine2,ARM-01,Record string 1 bytes 55-78,Direct free-form,PASS
+Customer.AddressLine3,ARM-01,Record string 1 bytes 79-102,Direct free-form,PASS
+Customer.PostalCode,ARM-01,Record string 1 bytes 103-111,Direct,PASS
+Customer.PrimaryPhone,ARM-01,Record string 1 bytes 112-121,Direct,PASS
+Customer.PrimaryPhoneExtension,ARM-01,Record string 1 bytes 122-125,Direct,PASS
+Customer.ShippingMethodCode,ARM-01,Record string 1 bytes 159-168,Direct,PASS
+Customer.AddressLine4,ARM-01,Record string 1 bytes 179-202,Direct free-form,PASS
+Customer.AddressLine5,ARM-01,Record string 1 bytes 203-226,Direct free-form,PASS
+Customer.PrimaryContactName,ARM-01,Record string 1 bytes 228-247,Direct,PASS
+Customer.Country,ARM-01,Record string 1 bytes 265-288,Direct,PASS
+Customer.FreightTerms,ARM-01,Record string 1 bytes 289-303,Direct,PASS
+Customer.OrderFreightTermsCode,ARM-01,Record string 1 bytes 304-305,Direct,PASS
+Customer.SalespersonCode,ARM-02,Record string 1 bytes 1-3,Direct,PASS
+Customer.PaymentTermsCode,ARM-02,Record string 1 bytes 4-5,Direct,PASS
+Customer.TerritoryCode,ARM-02,Record string 1 bytes 20-22,Direct,PASS
+Customer.PricingClassCode,ARM-02,Record string 1 bytes 23-26,Direct,PASS
+Customer.CustomerTypeCode,ARM-02,Record string 1 bytes 35-37,Direct,PASS
+Customer.*Description,ARM-10,Raw record after exact key,Reference resolution by firm/layout/code,PASS
+Customer.CustomerStatus,N/A,N/A,Unavailable,NULL
+Customer.IsActive,N/A,N/A,Unavailable,NULL
+CustomerAddress.AddressCode,ARM-03,Key bytes 9-14,Direct,PASS
+CustomerAddress.AddressName,ARM-03,Record string 1 bytes 1-30,Direct,PASS
+CustomerAddress.AddressLine1,ARM-03,Record string 1 bytes 31-54,Direct free-form,PASS
+CustomerAddress.AddressLine2,ARM-03,Record string 1 bytes 55-78,Direct free-form,PASS
+CustomerAddress.AddressLine3,ARM-03,Record string 1 bytes 79-102,Direct free-form,PASS
+CustomerAddress.PostalCode,ARM-03,Record string 1 bytes 103-111,Direct,PASS
+CustomerAddress.Phone,ARM-03,Record string 1 bytes 112-121,Direct,PASS
+CustomerAddress.PhoneExtension,ARM-03,Record string 1 bytes 122-125,Direct,PASS
+CustomerAddress.ContactName,ARM-03,Record string 1 bytes 126-145,Direct,PASS
+CustomerAddress.SalespersonCode,ARM-03,Record string 1 bytes 146-148,Direct,PASS
+CustomerAddress.TerritoryCode,ARM-03,Record string 1 bytes 149-151,Direct,PASS

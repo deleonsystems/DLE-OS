@@ -354,6 +354,71 @@
         Object.freeze({ name: "packageContentHash", label: "Package SHA-256" }),
         Object.freeze({ name: "activatedAtUtc", label: "Baseline Activated At" })
       ])
+    }),
+    customerMaster: Object.freeze({
+      title: "Customer Master",
+      singular: "Customer",
+      identifier: "customerMasterId",
+      listMethod: "getCanonicalCustomerMaster",
+      lookupMethod: "getCanonicalCustomer",
+      liveOnly: true,
+      filters: Object.freeze([
+        Object.freeze({
+          name: "customerNumber",
+          label: "Customer Number",
+          placeholder: "Leading zeros optional, e.g. 1148 or 001148"
+        }),
+        Object.freeze({ name: "customerName", label: "Customer Name" }),
+        Object.freeze({ name: "postalCode", label: "Postal Code" }),
+        Object.freeze({ name: "contactName", label: "Primary Contact" }),
+        Object.freeze({ name: "salespersonCode", label: "Salesperson Code" }),
+        Object.freeze({ name: "territoryCode", label: "Territory Code" })
+      ]),
+      columns: Object.freeze([
+        Object.freeze({ name: "customerNumber", label: "Customer Number" }),
+        Object.freeze({ name: "customerName", label: "Customer Name" }),
+        Object.freeze({ name: "addressLine1", label: "Address" }),
+        Object.freeze({ name: "postalCode", label: "Postal Code" }),
+        Object.freeze({ name: "primaryContactName", label: "Primary Contact" }),
+        Object.freeze({ name: "primaryPhone", label: "Phone" }),
+        Object.freeze({ name: "salespersonName", label: "Salesperson" }),
+        Object.freeze({ name: "territoryName", label: "Territory" }),
+        Object.freeze({ name: "alternateShipToCount", label: "Alternate Ship-Tos" })
+      ]),
+      fields: Object.freeze([
+        Object.freeze({ name: "firmId", label: "Firm ID" }),
+        Object.freeze({ name: "customerNumber", label: "Customer Number" }),
+        Object.freeze({ name: "customerName", label: "Customer Name" }),
+        Object.freeze({ name: "customerStatus", label: "Customer Status" }),
+        Object.freeze({ name: "isActive", label: "Active" }),
+        Object.freeze({ name: "addressLine1", label: "Address Line 1" }),
+        Object.freeze({ name: "addressLine2", label: "Address Line 2" }),
+        Object.freeze({ name: "addressLine3", label: "Address Line 3" }),
+        Object.freeze({ name: "addressLine4", label: "Address Line 4" }),
+        Object.freeze({ name: "addressLine5", label: "Address Line 5" }),
+        Object.freeze({ name: "postalCode", label: "Postal Code" }),
+        Object.freeze({ name: "country", label: "Country" }),
+        Object.freeze({ name: "primaryContactName", label: "Primary Contact" }),
+        Object.freeze({ name: "primaryPhone", label: "Primary Phone" }),
+        Object.freeze({ name: "primaryPhoneExtension", label: "Phone Extension" }),
+        Object.freeze({ name: "salespersonCode", label: "Salesperson Code" }),
+        Object.freeze({ name: "salespersonName", label: "Salesperson Name" }),
+        Object.freeze({ name: "territoryCode", label: "Territory Code" }),
+        Object.freeze({ name: "territoryName", label: "Territory Name" }),
+        Object.freeze({ name: "paymentTermsCode", label: "Payment Terms Code" }),
+        Object.freeze({ name: "paymentTermsDescription", label: "Payment Terms" }),
+        Object.freeze({ name: "shippingMethodCode", label: "Shipping Method" }),
+        Object.freeze({ name: "freightTerms", label: "Freight Terms" }),
+        Object.freeze({ name: "orderFreightTermsCode", label: "Order Freight Terms Code" }),
+        Object.freeze({ name: "customerTypeCode", label: "Customer Type Code" }),
+        Object.freeze({ name: "customerTypeDescription", label: "Customer Type" }),
+        Object.freeze({ name: "pricingClassCode", label: "Pricing Class Code" }),
+        Object.freeze({ name: "pricingClassDescription", label: "Pricing Class" }),
+        Object.freeze({ name: "alternateShipToCount", label: "Alternate Ship-To Count" }),
+        Object.freeze({ name: "sourceRecordIdentity", label: "Source Record Identity" }),
+        Object.freeze({ name: "customerMasterImportRunId", label: "Customer Master Import Run ID" }),
+        Object.freeze({ name: "importedAtUtc", label: "Imported At" })
+      ])
     })
   });
 
@@ -380,6 +445,7 @@
       snapshot: "checking",
       snapshotPayload: null,
       invoiceHistoryAvailable: false,
+      customerMasterAvailable: false,
       refresh: {
         authorized: false,
         available: false,
@@ -646,13 +712,19 @@
       return;
     }
 
-    const [readinessResult, snapshotResult, invoiceHistoryResult] =
+    const [readinessResult, snapshotResult, invoiceHistoryResult, customerMasterResult] =
       await Promise.allSettled([
       api.getPlatformReadiness({ signal: request.controller.signal }),
       api.getPlatformSnapshot({ signal: request.controller.signal }),
       activeProfileKey === "live" &&
         api.getCanonicalInvoiceHistoryMetadata
         ? api.getCanonicalInvoiceHistoryMetadata({
+            signal: request.controller.signal
+          })
+        : Promise.resolve(null),
+      activeProfileKey === "live" &&
+        api.getCanonicalCustomerMasterMetadata
+        ? api.getCanonicalCustomerMasterMetadata({
             signal: request.controller.signal
           })
         : Promise.resolve(null)
@@ -681,6 +753,10 @@
       activeProfileKey === "live" &&
       invoiceHistoryResult.status === "fulfilled" &&
       Number(invoiceHistoryResult.value?.customerInvoiceLineCount) > 0;
+    state.customerMasterAvailable =
+      activeProfileKey === "live" &&
+      customerMasterResult.status === "fulfilled" &&
+      Number(customerMasterResult.value?.customerCount) > 0;
 
     const freshness = snapshotFreshness();
     if (state.readiness === "ready" && state.snapshot === "ready" && activeProfileKey === "live" && freshness === "Stale") {
@@ -1134,6 +1210,10 @@
     queryAll('[data-canonical-tab="invoiceHistory"]').forEach(tab => {
       tab.hidden =
         activeProfileKey !== "live" || !state.invoiceHistoryAvailable;
+    });
+    queryAll('[data-canonical-tab="customerMaster"]').forEach(tab => {
+      tab.hidden =
+        activeProfileKey !== "live" || !state.customerMasterAvailable;
     });
     renderRefreshControl();
     renderInvoiceHistoryRefreshControl();

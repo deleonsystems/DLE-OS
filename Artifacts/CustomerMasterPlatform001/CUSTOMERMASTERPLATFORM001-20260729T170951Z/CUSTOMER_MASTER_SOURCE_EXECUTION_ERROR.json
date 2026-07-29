@@ -1,0 +1,12 @@
+﻿{
+    "Verdict":  "FAIL",
+    "FailedAtUtc":  "2026-07-29T18:41:48.4046217+00:00",
+    "WindowsIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Error":  "Two-pass decoded stream mismatch for ARM-01.\r\nAt C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\CustomerMaster\\Invoke-CustomerMasterSourceQualification.ps1:388 char:9\r\n+         throw \"Two-pass decoded stream mismatch for $name.\"\r\n+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : OperationStopped: (Two-pass decode...tch for ARM-01.:String) [], RuntimeException\r\n    + FullyQualifiedErrorId : Two-pass decoded stream mismatch for ARM-01.",
+    "AttemptId":  "Attempt-20260729T184137Z",
+    "ProcessId":  24868,
+    "ProcessStillPresent":  false,
+    "TerminationReason":  null,
+    "SourceWrites":  0,
+    "SourceLocksRequested":  0
+}

@@ -1,0 +1,19 @@
+﻿{
+    "Verdict":  "RUNNING",
+    "StartedAtUtc":  "2026-07-29T18:37:36.1163485+00:00",
+    "AttemptId":  "Attempt-20260729T183734Z",
+    "ProcessId":  15048,
+    "Arguments":  [
+                      "-tT0",
+                      "-nT0",
+                      "-m1024",
+                      "-cC:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T183734Z\\Programs\\configCUSTOMERMASTERPLATFORM001.aon",
+                      "CUSTOMER_MASTER_QUALIFIER"
+                  ],
+    "UseShellExecute":  true,
+    "ProgramSha256":  "D8270A2995339C63846C75146B6C6F6734D7BE8C15D37DCC5169AAE77354E7B3",
+    "StartupTimeoutSeconds":  30,
+    "ProgressTimeoutSeconds":  120,
+    "HardRuntimeSeconds":  900,
+    "CleanupScope":  "STARTED_PROCESS_ID_ONLY"
+}

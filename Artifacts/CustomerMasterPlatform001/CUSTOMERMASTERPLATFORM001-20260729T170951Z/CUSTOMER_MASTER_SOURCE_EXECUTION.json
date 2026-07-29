@@ -1,0 +1,179 @@
+﻿{
+    "Verdict":  "PASS",
+    "RunId":  "CUSTOMERMASTERPLATFORM001-20260729T170951Z",
+    "StartedAtUtc":  "2026-07-29T18:43:21.0684262+00:00",
+    "CompletedAtUtc":  "2026-07-29T18:43:31.1117702+00:00",
+    "ElapsedMilliseconds":  9916,
+    "WindowsIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  false,
+    "SourceOpenMode":  "O_RDONLY",
+    "SourceIdentityBefore":  [
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\ARM-01",
+                                     "Length":  147456,
+                                     "LastWriteTimeUtc":  "2026-07-21T22:43:40.2890000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\ARM-02",
+                                     "Length":  74240,
+                                     "LastWriteTimeUtc":  "2026-07-28T17:14:34.0580000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\ARM-03",
+                                     "Length":  9216,
+                                     "LastWriteTimeUtc":  "2022-06-09T13:23:47.1580000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\ARM-05",
+                                     "Length":  9728,
+                                     "LastWriteTimeUtc":  "2023-01-27T20:33:07.5280000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\ARM-06",
+                                     "Length":  65024,
+                                     "LastWriteTimeUtc":  "2026-07-28T17:14:34.0800000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\ARM-09",
+                                     "Length":  512,
+                                     "LastWriteTimeUtc":  "2011-10-07T18:20:46.0000000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\ARM-10",
+                                     "Length":  61440,
+                                     "LastWriteTimeUtc":  "2025-10-06T16:40:07.9890000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\ARM-14",
+                                     "Length":  512,
+                                     "LastWriteTimeUtc":  "2011-10-07T18:20:40.0000000Z",
+                                     "Attributes":  "Archive"
+                                 }
+                             ],
+    "SourceIdentityAfter":  [
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\ARM-01",
+                                    "Length":  147456,
+                                    "LastWriteTimeUtc":  "2026-07-21T22:43:40.2890000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\ARM-02",
+                                    "Length":  74240,
+                                    "LastWriteTimeUtc":  "2026-07-28T17:14:34.0580000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\ARM-03",
+                                    "Length":  9216,
+                                    "LastWriteTimeUtc":  "2022-06-09T13:23:47.1580000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\ARM-05",
+                                    "Length":  9728,
+                                    "LastWriteTimeUtc":  "2023-01-27T20:33:07.5280000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\ARM-06",
+                                    "Length":  65024,
+                                    "LastWriteTimeUtc":  "2026-07-28T17:14:34.0800000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\ARM-09",
+                                    "Length":  512,
+                                    "LastWriteTimeUtc":  "2011-10-07T18:20:46.0000000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\ARM-10",
+                                    "Length":  61440,
+                                    "LastWriteTimeUtc":  "2025-10-06T16:40:07.9890000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\ARM-14",
+                                    "Length":  512,
+                                    "LastWriteTimeUtc":  "2011-10-07T18:20:40.0000000Z",
+                                    "Attributes":  "Archive"
+                                }
+                            ],
+    "SourceIdentityStable":  true,
+    "TwoPassComparisons":  {
+                               "ARM-01":  {
+                                              "Count":  380,
+                                              "Pass1Sha256":  "8D737278C261FCCA1DE70D32DB4446B1E0A90A8F1E0E5EA4D1CF9F8A8101F80F",
+                                              "Pass2Sha256":  "498A6A60E24D5DBEB85D79E4783DD6E56C0348ABDE656A1D9C6368E30DF87F37",
+                                              "NormalizedRecordStreamSha256":  "6F7C94C32F7908CBB34BDF36B09356F71473CA58BA5CEA410D5209AE38AB49BD",
+                                              "Match":  true
+                                          },
+                               "ARM-02":  {
+                                              "Count":  380,
+                                              "Pass1Sha256":  "EB55475403F979AD66929F3387D7498DF542AD2BA0132CE723928FD2C1E9ED2B",
+                                              "Pass2Sha256":  "D8678069F47C152CC788952B3A7190CB1C31C737BA920088E8A3CDCAE1EFFDB8",
+                                              "NormalizedRecordStreamSha256":  "96C56BBCE245EC820BA6499BCCCA08708BBBDDAB805C3A862608BF93004E3941",
+                                              "Match":  true
+                                          },
+                               "ARM-03":  {
+                                              "Count":  29,
+                                              "Pass1Sha256":  "F7E367904C500A55EB4FA426FFB25FB5B48F2FD7E71DDCCD415BF46A2326E4C8",
+                                              "Pass2Sha256":  "02332E82F56C04999D07C1FB9F4A93B89E47E801DE95B5C9C5120365A2935CDD",
+                                              "NormalizedRecordStreamSha256":  "DD45B53E2E1E5592D51AFC849BC8AFEA274CBDE8956ED73CB731565519AC49F6",
+                                              "Match":  true
+                                          },
+                               "ARM-05":  {
+                                              "Count":  94,
+                                              "Pass1Sha256":  "AF5CA6EFFA2425A7798DE20C3F9B7D280A07B4B1A033E7C29D148B8EA2B91E86",
+                                              "Pass2Sha256":  "5E0FA28E44F34ABA3FC4ED7194D573483E75165CB497B529A0C1A4920A6E9A4F",
+                                              "NormalizedRecordStreamSha256":  "E49F78C98F81528986C297E21EB70DC53419C1CE6469C4E46C6FA9AD689C9F70",
+                                              "Match":  true
+                                          },
+                               "ARM-06":  {
+                                              "Count":  259,
+                                              "Pass1Sha256":  "6270988A8D53BC58C7934BEC098898D112E07A60D749E2BA0AF71C90069E090A",
+                                              "Pass2Sha256":  "A8D6F4BC28980AFB7E5CAA61EFD047409E01F11E20F5FFE2D4914A9AADE1E5DB",
+                                              "NormalizedRecordStreamSha256":  "95BE0CDE256AAF0D07515AA79A429F37DAD7C528C22BA48DD9A349445E27B2CE",
+                                              "Match":  true
+                                          },
+                               "ARM-09":  {
+                                              "Count":  0,
+                                              "Pass1Sha256":  "6A83907A2D71CF282F45906FCA709711FF8998CEFDDAD7B3619ED0F8AE020CEA",
+                                              "Pass2Sha256":  "6A83907A2D71CF282F45906FCA709711FF8998CEFDDAD7B3619ED0F8AE020CEA",
+                                              "NormalizedRecordStreamSha256":  "EF5A4F538B18ADC8BD8DA947AE5C26EBC2FFDC8E66F3D2B3AE23313DC5070572",
+                                              "Match":  true
+                                          },
+                               "ARM-10":  {
+                                              "Count":  120,
+                                              "Pass1Sha256":  "8B490F4B24C322C93F047EC964C33F94FC28F1056009F845C9E282F2A76FD489",
+                                              "Pass2Sha256":  "3B4B77A7FBA8B55AB5BE7917A481D23A9066C75B12657AE090FF1A41A52C3972",
+                                              "NormalizedRecordStreamSha256":  "286B175ABCDDA601C3948480059F576AD14F477A1D2E36CD8A4189920AB01A89",
+                                              "Match":  true
+                                          },
+                               "ARM-14":  {
+                                              "Count":  0,
+                                              "Pass1Sha256":  "6A83907A2D71CF282F45906FCA709711FF8998CEFDDAD7B3619ED0F8AE020CEA",
+                                              "Pass2Sha256":  "6A83907A2D71CF282F45906FCA709711FF8998CEFDDAD7B3619ED0F8AE020CEA",
+                                              "NormalizedRecordStreamSha256":  "EF5A4F538B18ADC8BD8DA947AE5C26EBC2FFDC8E66F3D2B3AE23313DC5070572",
+                                              "Match":  true
+                                          }
+                           },
+    "VproSha256":  "D490A866BCF7A34079CD9A38D81E04208A192AA94A16712BE67F65E686E0DEBE",
+    "ProgramSha256":  "60F5A85629C2233127D508A6927D5A04A40924F93523A91402CF69F28D081C30",
+    "AttemptId":  "Attempt-20260729T184319Z",
+    "AttemptRoot":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T184319Z",
+    "CompilerStdout":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T184319Z\\compiler.stdout.log",
+    "CompilerStderr":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T184319Z\\compiler.stderr.log",
+    "ProgramListing":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T184319Z\\Listings",
+    "SourceWrites":  0,
+    "SourceLocksRequested":  0,
+    "OutputRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\QualifiedSource"
+}

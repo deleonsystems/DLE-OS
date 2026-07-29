@@ -1,0 +1,136 @@
+﻿{
+    "Verdict":  "PASS",
+    "CompletedAtUtc":  "2026-07-29T19:11:29.5667373+00:00",
+    "AssertionsPassed":  25,
+    "MetadataLatencyMs":  209.28,
+    "ListLatencyMs":  11.63,
+    "CustomerMasterImportRunId":  "b3ec1b7c-7806-49f5-b589-62ddb093e6a8",
+    "PackageSha256":  "926160D5BFBEAD171BE6DA481016B6810DF20BE6CA7577EF82AA8421C173D608",
+    "Results":  [
+                    {
+                        "Name":  "metadata-customer-count",
+                        "Passed":  true,
+                        "Evidence":  "count=380"
+                    },
+                    {
+                        "Name":  "metadata-address-count",
+                        "Passed":  true,
+                        "Evidence":  "count=28"
+                    },
+                    {
+                        "Name":  "metadata-orphan-count",
+                        "Passed":  true,
+                        "Evidence":  "count=1"
+                    },
+                    {
+                        "Name":  "metadata-import-run",
+                        "Passed":  true,
+                        "Evidence":  "b3ec1b7c-7806-49f5-b589-62ddb093e6a8"
+                    },
+                    {
+                        "Name":  "metadata-package-hash",
+                        "Passed":  true,
+                        "Evidence":  "926160D5BFBEAD171BE6DA481016B6810DF20BE6CA7577EF82AA8421C173D608"
+                    },
+                    {
+                        "Name":  "list-total",
+                        "Passed":  true,
+                        "Evidence":  "total=380"
+                    },
+                    {
+                        "Name":  "list-page-size",
+                        "Passed":  true,
+                        "Evidence":  "rows=25"
+                    },
+                    {
+                        "Name":  "list-total-pages",
+                        "Passed":  true,
+                        "Evidence":  "pages=16"
+                    },
+                    {
+                        "Name":  "customer-number-unpadded",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "customer-number-padded",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "customer-name-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "postal-code-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=2"
+                    },
+                    {
+                        "Name":  "salesperson-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=146"
+                    },
+                    {
+                        "Name":  "territory-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=376"
+                    },
+                    {
+                        "Name":  "known-customer-detail",
+                        "Passed":  true,
+                        "Evidence":  "HUGHEY \u0026 PHILLIPS; RAY PAYNE"
+                    },
+                    {
+                        "Name":  "alternate-address-detail",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "restricted-fields-absent",
+                        "Passed":  true,
+                        "Evidence":  "No restricted property names in DTO."
+                    },
+                    {
+                        "Name":  "invalid-page",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "invalid-page-size",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "write-endpoint-absent",
+                        "Passed":  true,
+                        "Evidence":  "POST returned HTTP 405"
+                    },
+                    {
+                        "Name":  "cors-exact-origin",
+                        "Passed":  true,
+                        "Evidence":  "http://dle-os-host:5041"
+                    },
+                    {
+                        "Name":  "cors-arbitrary-origin-denied",
+                        "Passed":  true,
+                        "Evidence":  "No allow-origin header."
+                    },
+                    {
+                        "Name":  "historical-readiness",
+                        "Passed":  true,
+                        "Evidence":  "Ready"
+                    },
+                    {
+                        "Name":  "historical-count",
+                        "Passed":  true,
+                        "Evidence":  "total=26902"
+                    },
+                    {
+                        "Name":  "historical-customer-route-absent",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 404; no cross-profile fallback."
+                    }
+                ]
+}

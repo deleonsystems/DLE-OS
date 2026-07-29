@@ -1,0 +1,26 @@
+﻿{
+    "Verdict":  "PASS",
+    "AttemptId":  "Attempt-20260729T184319Z",
+    "AttemptRoot":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T184319Z",
+    "CompilerProcessId":  17140,
+    "CompilerExitCode":  0,
+    "CompilerOutputContainsError":  false,
+    "CompilerOutputContainsFatal":  false,
+    "CompileStartedAtUtc":  "2026-07-29T18:43:19.9073750Z",
+    "CompiledArtifact":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T184319Z\\Programs\\CUSTOMER_MASTER_QUALIFIER",
+    "CompiledArtifactLastWriteTimeUtc":  "2026-07-29T18:43:19.9869478Z",
+    "CompiledArtifactLength":  5973,
+    "CompiledArtifactSha256":  "60F5A85629C2233127D508A6927D5A04A40924F93523A91402CF69F28D081C30",
+    "KnownStaleProgramHashes":  [
+                                    "33CAD7A53B399AA70A621CC940773C1FA7C7D17CB58EFE64BBE6D39F963EB775",
+                                    "49ABFC6F46E4BAEE3EF0EABD5C90DE5543E3C2D02695B60D106E0D43B4C1C32F",
+                                    "61582EB20B1DC994D858DC3404C1879B1754BF9B8DDA33C7F05DECBE172DE86F",
+                                    "CBF79B1AA631AF6500385FECFC7D9B21A1114C81DFF3FAEF14F45F046C2ABF5D",
+                                    "CE93B93ADBB024333225F6FE28F7A6552100F00AE27187EEE1AD0530BDA0D8F7",
+                                    "D8270A2995339C63846C75146B6C6F6734D7BE8C15D37DCC5169AAE77354E7B3",
+                                    "DDB94CFC617B60B0A401A3F9B0D031DD80AAAC909075530164EFABA5587A137E",
+                                    "E7FAB0F66162DA03AEB004F487FFA049B2C842743FA03071425948505288E89F"
+                                ],
+    "FreshDirectory":  true,
+    "PriorArtifactReused":  false
+}

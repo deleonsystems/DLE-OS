@@ -1,0 +1,31 @@
+﻿{
+    "Verdict":  "BLOCKED",
+    "CapturedAtUtc":  "2026-07-29T17:37:42.9507589+00:00",
+    "PriorPidsAbsent":  false,
+    "Processes":  [
+                      {
+                          "Id":  26148,
+                          "ProcessName":  "vpro5",
+                          "Responding":  true,
+                          "StartTime":  "\/Date(1785345829302)\/",
+                          "CPU":  0.984375,
+                          "Path":  "C:\\BASIS\\VPRO5\\vpro5.exe"
+                      },
+                      {
+                          "Id":  31148,
+                          "ProcessName":  "powershell",
+                          "Responding":  true,
+                          "StartTime":  "\/Date(1785345828900)\/",
+                          "CPU":  0.59375,
+                          "Path":  "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+                      }
+                  ],
+    "CompileAttemptStarted":  false,
+    "VproLaunched":  false,
+    "SourcesOpened":  [
+
+                      ],
+    "SourceWrites":  0,
+    "SourceLocks":  0,
+    "Reason":  "Required prior process-exit preflight failed; no automatic termination permitted."
+}

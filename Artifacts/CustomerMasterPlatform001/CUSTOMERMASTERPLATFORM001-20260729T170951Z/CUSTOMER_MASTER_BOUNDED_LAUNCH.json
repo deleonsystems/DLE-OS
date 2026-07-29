@@ -1,0 +1,26 @@
+﻿{
+    "Verdict":  "RUNNING",
+    "RunId":  "CUSTOMERMASTERPLATFORM001-20260729T170951Z",
+    "AttemptId":  "Attempt-20260729T180728Z",
+    "StartedAtUtc":  "2026-07-29T18:27:35.0637826+00:00",
+    "ProcessId":  28468,
+    "Executable":  "C:\\BASIS\\VPRO5\\vpro5.exe",
+    "WorkingDirectory":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T180728Z\\Programs",
+    "Arguments":  [
+                      "-tT0",
+                      "-nT0",
+                      "-m1024",
+                      "-cC:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T180728Z\\Programs\\configCUSTOMERMASTERPLATFORM001.aon",
+                      "CUSTOMER_MASTER_QUALIFIER"
+                  ],
+    "UseShellExecute":  true,
+    "StandardStreamsRedirected":  false,
+    "ProgramSha256":  "33CAD7A53B399AA70A621CC940773C1FA7C7D17CB58EFE64BBE6D39F963EB775",
+    "ConfigPath":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T180728Z\\Programs\\configCUSTOMERMASTERPLATFORM001.aon",
+    "ConfigSha256":  "C7D657CCB3598C771E26AD929E9EC855398C219BA376751CF0210F3B7E011D1E",
+    "StartupOutput":  "C:\\Add-On\\Lab\\CustomerMasterPlatform001\\CUSTOMERMASTERPLATFORM001-20260729T170951Z\\Attempt-20260729T180728Z\\Runtime\\SOURCE_PASS_SUMMARY.csv",
+    "StartupTimeoutSeconds":  30,
+    "ProgressTimeoutSeconds":  120,
+    "HardRuntimeSeconds":  900,
+    "CleanupScope":  "STARTED_PROCESS_ID_ONLY"
+}

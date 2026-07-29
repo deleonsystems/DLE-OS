@@ -1,0 +1,16 @@
+SourceOrField,Classification,PlatformAction,Reason
+ARM-01 operational identity/address/contact,General operational,Include,Required for customer lookup and operational contact
+ARM-02 salesperson/terms/territory/type/pricing codes,General operational,Include,Required operational classifications
+ARM-03 alternate ship-to address/contact,General operational,Include when parent exists,Operational shipping location
+ARM-05 internal comments,Restricted,Exclude,Free-form internal content
+ARM-06 payment summary/accounting,Restricted,Exclude,Financial/accounting detail
+CreditHoldFlag,Restricted,Exclude,Credit control
+Credit limits balances and aging,Restricted,Exclude,Financial/accounting detail
+TaxCode and tax identifiers,Restricted,Exclude,Tax-sensitive
+ResaleNumber,Restricted,Exclude,Tax/compliance identifier
+DunnBradstreetNumber,Restricted,Exclude,External credit identifier
+SicCode,Restricted,Exclude,Internal/commercial classification not required by viewer
+FaxNumber,Not required,Exclude,Not required by approved general viewer
+CustomerStatus and IsActive,Unavailable,Null,No proven business source
+City and State,Unavailable,Do not fabricate,Embedded in free-form address lines
+Email and repeatable contacts,Unavailable,Do not fabricate,No qualified populated source

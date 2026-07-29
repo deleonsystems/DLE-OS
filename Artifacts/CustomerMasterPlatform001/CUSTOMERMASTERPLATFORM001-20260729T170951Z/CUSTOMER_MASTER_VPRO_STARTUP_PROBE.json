@@ -1,0 +1,18 @@
+﻿{
+    "Verdict":  "PASS",
+    "CompletedAtUtc":  "2026-07-29T18:36:15.4722678+00:00",
+    "WindowsIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "SessionId":  2,
+    "ProcessId":  21356,
+    "ExitCode":  0,
+    "UseShellExecute":  true,
+    "WindowStyle":  "Normal",
+    "Arguments":  "-tT0 -nT0 -m1024 -cC:\\Add-On\\Lab\\CMProbe\\Programs\\configCMProbe.aon CUSTOMER_MASTER_LOCAL_STARTUP_PROBE",
+    "ProgramSha256":  "FE605D898E6990BD8342D2FEF41A2EA88D92143CB757AC6AE511EA99DE1DF572",
+    "ProgramListing":  "C:\\Add-On\\Lab\\CMProbe\\Listings",
+    "Marker":  "C:\\Add-On\\Lab\\CMProbe\\STARTED.txt",
+    "MarkerContent":  "startup=PASS",
+    "LongPathResult":  "preopen=PASS",
+    "SourceAccess":  "NONE",
+    "ProcessStillPresent":  false
+}
