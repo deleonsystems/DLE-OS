@@ -27,7 +27,9 @@
     canonicalInventoryItems: '/api/platform/live/v1/inventory-items',
     canonicalBillsOfMaterial: '/api/platform/live/v1/bills-of-material',
     canonicalGeneralLedgerAccounts: '/api/platform/live/v1/general-ledger-accounts',
-    canonicalSalesOrders: '/api/platform/live/v1/sales-orders'
+    canonicalSalesOrders: '/api/platform/live/v1/sales-orders',
+    canonicalInvoiceHistory: '/api/platform/live/v1/invoice-history',
+    canonicalInvoiceHistoryMetadata: '/api/platform/live/v1/invoice-history/metadata'
   });
 
   const CANONICAL_FILTERS = Object.freeze({
@@ -39,6 +41,10 @@
       'customerNumber', 'customerName', 'salesOrderNumber',
       'customerPurchaseOrderNumber', 'itemNumber', 'workOrderNumber',
       'estimatedShipDate', 'negativeQuantity', 'unresolvedWorkOrder'
+    ]),
+    canonicalInvoiceHistory: Object.freeze([
+      'invoiceDateFrom', 'invoiceDateTo', 'customerNumber',
+      'invoiceNumber', 'salesOrderNumber', 'itemNumber', 'workOrderNumber'
     ])
   });
 
@@ -210,13 +216,25 @@
 
   function normalizeCanonicalFilterValue(endpointKey, filterName, value) {
     const isCustomerNumber =
-      endpointKey === 'canonicalSalesOrders' &&
+      (
+        endpointKey === 'canonicalSalesOrders' ||
+        endpointKey === 'canonicalInvoiceHistory'
+      ) &&
       filterName === 'customerNumber';
     const isSalesOrderNumber =
-      endpointKey === 'canonicalSalesOrders' &&
+      (
+        endpointKey === 'canonicalSalesOrders' ||
+        endpointKey === 'canonicalInvoiceHistory'
+      ) &&
       filterName === 'salesOrderNumber';
+    const isInvoiceNumber =
+      endpointKey === 'canonicalInvoiceHistory' &&
+      filterName === 'invoiceNumber';
     const isWorkOrderNumber =
-      endpointKey === 'canonicalWorkOrders' &&
+      (
+        endpointKey === 'canonicalWorkOrders' ||
+        endpointKey === 'canonicalInvoiceHistory'
+      ) &&
       filterName === 'workOrderNumber';
     const isItemNumber =
       filterName === 'itemNumber' &&
@@ -224,7 +242,8 @@
         endpointKey === 'canonicalInventoryItems' ||
         endpointKey === 'canonicalWorkOrders'
       );
-    if (!isCustomerNumber && !isSalesOrderNumber && !isWorkOrderNumber && !isItemNumber) {
+    if (!isCustomerNumber && !isSalesOrderNumber && !isInvoiceNumber &&
+        !isWorkOrderNumber && !isItemNumber) {
       return value;
     }
     if (value === undefined || value === null) return value;
@@ -238,6 +257,13 @@
       return normalizedValue;
     }
     if (isSalesOrderNumber) {
+      const canonicalWidth = CANONICAL_FIELD_WIDTHS.salesOrderNumber;
+      if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
+        return normalizedValue.padStart(canonicalWidth, '0');
+      }
+      return normalizedValue;
+    }
+    if (isInvoiceNumber) {
       const canonicalWidth = CANONICAL_FIELD_WIDTHS.salesOrderNumber;
       if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
         return normalizedValue.padStart(canonicalWidth, '0');
@@ -383,6 +409,19 @@
     },
     getCanonicalSalesOrder(salesOrderLineId, options = {}) {
       return getLiveCanonicalRecord('canonicalSalesOrders', salesOrderLineId, options);
+    },
+    getCanonicalInvoiceHistory(options = {}) {
+      return getLiveCanonicalList('canonicalInvoiceHistory', options);
+    },
+    getCanonicalInvoiceHistoryLine(invoiceHistoryLineId, options = {}) {
+      return getLiveCanonicalRecord(
+        'canonicalInvoiceHistory',
+        invoiceHistoryLineId,
+        options
+      );
+    },
+    getCanonicalInvoiceHistoryMetadata(options = {}) {
+      return getLiveJson('canonicalInvoiceHistoryMetadata', options);
     },
     getSnapshotRefreshStatus(options = {}) {
       return requestLiveSnapshotRefresh('/api/platform/refresh/v1/status', options);

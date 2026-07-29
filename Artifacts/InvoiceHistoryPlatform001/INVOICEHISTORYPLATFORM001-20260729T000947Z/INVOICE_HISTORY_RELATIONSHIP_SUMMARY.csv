@@ -1,0 +1,10 @@
+classification,count
+WorkOrder.Unique,16465
+WorkOrder.Unresolved,9466
+WorkOrder.Ambiguous,105
+Manufacturing.HistoricalReconstructed,16465
+Manufacturing.CurrentMasterResolved,6389
+Manufacturing.Unavailable,3182
+ItemDescription.HistoricalStored,1280
+ItemDescription.CurrentMasterResolved,24414
+ItemDescription.Unavailable,342

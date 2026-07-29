@@ -234,6 +234,126 @@
         Object.freeze({ name: "drawingRevision", label: "Drawing Revision" }),
         Object.freeze({ name: "bomRevision", label: "BOM Revision" })
       ])
+    }),
+    invoiceHistory: Object.freeze({
+      title: "Invoice History",
+      singular: "Invoice History Line",
+      identifier: "invoiceHistoryLineId",
+      listMethod: "getCanonicalInvoiceHistory",
+      lookupMethod: "getCanonicalInvoiceHistoryLine",
+      liveOnly: true,
+      filters: Object.freeze([
+        Object.freeze({ name: "invoiceDateFrom", label: "Invoice Date From (YYYY-MM-DD)" }),
+        Object.freeze({ name: "invoiceDateTo", label: "Invoice Date To (YYYY-MM-DD)" }),
+        Object.freeze({
+          name: "customerNumber",
+          label: "Customer Number",
+          placeholder: "Leading zeros optional, e.g. 1148 or 001148"
+        }),
+        Object.freeze({
+          name: "invoiceNumber",
+          label: "Invoice Number",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({
+          name: "salesOrderNumber",
+          label: "Sales Order Number",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({ name: "itemNumber", label: "Item Number" }),
+        Object.freeze({
+          name: "workOrderNumber",
+          label: "Work Order Number",
+          placeholder: "Leading zeros optional"
+        })
+      ]),
+      columns: Object.freeze([
+        Object.freeze({ name: "customerNumber", label: "Customer" }),
+        Object.freeze({ name: "invoiceNumber", label: "Invoice Number" }),
+        Object.freeze({ name: "invoiceDate", label: "Invoice Date", isoDate: true }),
+        Object.freeze({
+          name: "accountsReceivablePurchaseOrderNumber",
+          label: "Customer PO"
+        }),
+        Object.freeze({ name: "salesOrderNumber", label: "Sales Order" }),
+        Object.freeze({ name: "salesOrderLineNumber", label: "SO Line" }),
+        Object.freeze({ name: "itemNumber", label: "Item Number" }),
+        Object.freeze({ name: "itemDescription", label: "Description" }),
+        Object.freeze({ name: "quantityShipped", label: "Quantity Shipped" }),
+        Object.freeze({ name: "unitPrice", label: "Unit Price" }),
+        Object.freeze({ name: "extendedPrice", label: "Extended Price" }),
+        Object.freeze({ name: "workOrderNumber", label: "Work Order" }),
+        Object.freeze({ name: "billNumber", label: "Bill Number" }),
+        Object.freeze({ name: "drawingNumber", label: "Drawing Number" }),
+        Object.freeze({ name: "drawingRevision", label: "Drawing Revision" })
+      ]),
+      fields: Object.freeze([
+        Object.freeze({ name: "firmId", label: "Firm ID" }),
+        Object.freeze({ name: "arType", label: "A/R Type" }),
+        Object.freeze({ name: "customerNumber", label: "Customer Number" }),
+        Object.freeze({ name: "customerName", label: "Customer Name" }),
+        Object.freeze({
+          name: "customerNameResolutionType",
+          label: "Customer Name Source"
+        }),
+        Object.freeze({ name: "invoiceNumber", label: "Invoice Number" }),
+        Object.freeze({ name: "invoiceLineNumber", label: "Invoice Line Number" }),
+        Object.freeze({ name: "invoiceDate", label: "Invoice Date", isoDate: true }),
+        Object.freeze({
+          name: "accountsReceivablePurchaseOrderNumber",
+          label: "Customer Purchase Order Number"
+        }),
+        Object.freeze({ name: "salesOrderNumber", label: "Sales Order Number" }),
+        Object.freeze({ name: "salesOrderLineNumber", label: "Sales Order Line" }),
+        Object.freeze({ name: "lineCode", label: "Line Code" }),
+        Object.freeze({ name: "itemNumber", label: "Item Number" }),
+        Object.freeze({ name: "itemDescription", label: "Item Description" }),
+        Object.freeze({
+          name: "itemDescriptionResolutionType",
+          label: "Item Description Source"
+        }),
+        Object.freeze({
+          name: "estimatedShipDate",
+          label: "Estimated Ship Date",
+          isoDate: true
+        }),
+        Object.freeze({ name: "onTimeIndicator", label: "On-Time Indicator" }),
+        Object.freeze({ name: "quantityShipped", label: "Quantity Shipped" }),
+        Object.freeze({ name: "unitPrice", label: "Unit Price" }),
+        Object.freeze({ name: "extendedPrice", label: "Extended Price" }),
+        Object.freeze({ name: "workOrderNumber", label: "Work Order Number" }),
+        Object.freeze({
+          name: "workOrderResolutionStatus",
+          label: "Work Order Resolution"
+        }),
+        Object.freeze({
+          name: "workOrderCandidateCount",
+          label: "Work Order Candidate Count"
+        }),
+        Object.freeze({ name: "billNumber", label: "Bill Number" }),
+        Object.freeze({ name: "bomRevision", label: "BOM Revision" }),
+        Object.freeze({ name: "drawingNumber", label: "Drawing Number" }),
+        Object.freeze({ name: "drawingRevision", label: "Drawing Revision" }),
+        Object.freeze({ name: "revisionCode", label: "Revision Code" }),
+        Object.freeze({
+          name: "manufacturingResolutionType",
+          label: "Manufacturing Source"
+        }),
+        Object.freeze({
+          name: "invoiceHistoryImportRunId",
+          label: "Invoice History Import Run ID"
+        }),
+        Object.freeze({
+          name: "sourceExtractionRunId",
+          label: "Source Extraction Run ID"
+        }),
+        Object.freeze({
+          name: "sourceQualificationRunId",
+          label: "Source Qualification Run ID"
+        }),
+        Object.freeze({ name: "packageContentHash", label: "Package SHA-256" }),
+        Object.freeze({ name: "activatedAtUtc", label: "Baseline Activated At" })
+      ])
     })
   });
 
@@ -258,6 +378,7 @@
       readinessPayload: null,
       snapshot: "checking",
       snapshotPayload: null,
+      invoiceHistoryAvailable: false,
       refresh: {
         authorized: false,
         available: false,
@@ -512,10 +633,17 @@
       return;
     }
 
-    const [readinessResult, snapshotResult] = await Promise.allSettled([
+    const [readinessResult, snapshotResult, invoiceHistoryResult] =
+      await Promise.allSettled([
       api.getPlatformReadiness({ signal: request.controller.signal }),
-      api.getPlatformSnapshot({ signal: request.controller.signal })
-    ]);
+      api.getPlatformSnapshot({ signal: request.controller.signal }),
+      activeProfileKey === "live" &&
+        api.getCanonicalInvoiceHistoryMetadata
+        ? api.getCanonicalInvoiceHistoryMetadata({
+            signal: request.controller.signal
+          })
+        : Promise.resolve(null)
+      ]);
 
     if (statusRequest !== request || request.controller.signal.aborted) return;
     request.finish();
@@ -536,6 +664,10 @@
       state.snapshotPayload = null;
       state.snapshot = "unavailable";
     }
+    state.invoiceHistoryAvailable =
+      activeProfileKey === "live" &&
+      invoiceHistoryResult.status === "fulfilled" &&
+      Number(invoiceHistoryResult.value?.customerInvoiceLineCount) > 0;
 
     const freshness = snapshotFreshness();
     if (state.readiness === "ready" && state.snapshot === "ready" && activeProfileKey === "live" && freshness === "Stale") {
@@ -553,6 +685,7 @@
         ? "The LIVE API is unavailable. Entity requests are disabled; no historical fallback is available."
         : "The canonical API is unavailable. Entity requests are disabled; no fallback source is available.";
     }
+    renderProfile();
     renderStatus();
     renderEntity();
 
@@ -887,6 +1020,10 @@
     );
     queryAll('[data-canonical-tab="salesOrders"]').forEach(tab => {
       tab.hidden = activeProfileKey !== "live";
+    });
+    queryAll('[data-canonical-tab="invoiceHistory"]').forEach(tab => {
+      tab.hidden =
+        activeProfileKey !== "live" || !state.invoiceHistoryAvailable;
     });
     renderRefreshControl();
   }
@@ -1292,6 +1429,7 @@
         .filter(entity => !entity.liveOnly)
         .reduce((sum, entity) => sum + entity.fields.length, 0),
       salesOrderMemberCount: ENTITIES.salesOrders.fields.length,
+      invoiceHistoryMemberCount: ENTITIES.invoiceHistory.fields.length,
       profiles: Object.keys(VIEWER_PROFILES)
     };
   }
