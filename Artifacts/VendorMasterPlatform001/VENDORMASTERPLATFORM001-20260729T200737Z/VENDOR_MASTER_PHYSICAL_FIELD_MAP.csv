@@ -1,0 +1,33 @@
+CanonicalName,PhysicalSource,Layout,OffsetOrKey,Type,Length,NullBehavior,Key,Meaning,Classification,Viewer
+FirmId,APM-01,key,1-2,string,2,required,yes,Company/firm identifier,GeneralOperational,yes
+VendorNumber,APM-01,key,3-8,string,6,required,yes,Vendor identifier,GeneralOperational,yes
+VendorName,APM-01,string,1-30,string,30,blank allowed,no,Current Vendor name,GeneralOperational,yes
+AddressLine1,APM-01,string,31-54,string,24,blank to null,no,Free-form address line,GeneralOperational,yes
+AddressLine2,APM-01,string,55-78,string,24,blank to null,no,Free-form address line,GeneralOperational,detail
+AddressLine3,APM-01,string,79-102,string,24,blank to null,no,Free-form address line,GeneralOperational,detail
+PostalCode,APM-01,string,103-111,string,9,blank to null,no,Postal code as stored,GeneralOperational,yes
+PrimaryPhone,APM-01,string,112-121,string,10,blank to null,no,Primary phone,SensitiveContact,yes
+PrimaryPhoneExtension,APM-01,string,122-125,string,4,blank to null,no,Phone extension,SensitiveContact,detail
+PrimaryContactName,APM-01,string,126-145,string,20,blank to null,no,Embedded primary contact,SensitiveContact,yes
+OpenedDateRaw,APM-01,string,156-158,encoded,3,blank possible,no,Vendor opened date,AdministrativeRestricted,no
+HoldInvoices,APM-01,string,159,string,1,blank/N/Y,no,Accounting invoice hold,AccountingRestricted,no
+FederalTaxId,APM-01,string,160-174,string,15,blank to null,no,Federal tax identifier,AccountingRestricted,no
+Print1099,APM-01,string,175,string,1,blank possible,no,1099 configuration,AccountingRestricted,no
+VendorAccountNumber,APM-01,string,176-185,string,10,blank possible,no,Internal account number,AccountingRestricted,no
+FaxNumber,APM-01,string,186-195,string,10,blank possible,no,Fax,NotRecommended,no
+PaymentTermsCode,APM-02,string,5-6,string,2,consensus or null,no,Terms shared across current AP profiles,PurchasingOperational,yes
+PaymentTermsDescription,APM-10,layout C,1-20,string,20,blank to null,no,Terms description,PurchasingOperational,yes
+LastInvoiceDateRaw,APM-02,string,7-9,encoded,3,blank possible,no,Last invoice date,AccountingRestricted,no
+LastPaymentDateRaw,APM-02,string,10-12,encoded,3,blank possible,no,Last payment date,AccountingRestricted,no
+AddressCode,APM-05,key,9-10,string,2,required,yes,Purchasing-address identifier,PurchasingOperational,yes
+AddressName,APM-05,string,1-30,string,30,blank to null,no,Purchasing-address name,PurchasingOperational,yes
+VendorAddressLines,APM-05,string,31-102,string,72,blank to null,no,Three purchasing-address lines,PurchasingOperational,yes
+VendorAddressPostalCode,APM-05,string,103-111,string,9,blank to null,no,Purchasing-address postal code,PurchasingOperational,yes
+VendorAddressPhone,APM-05,string,112-121,string,10,blank to null,no,Purchasing-address phone,SensitiveContact,yes
+VendorAddressExtension,APM-05,string,122-125,string,4,blank to null,no,Purchasing-address extension,SensitiveContact,detail
+VendorAddressContact,APM-05,string,126-145,string,20,blank to null,no,Embedded purchasing-address contact,SensitiveContact,yes
+VendorStatus,unavailable,none,none,string,,always null,no,No proven ERP status field,GeneralOperational,explicit null
+IsActive,unavailable,none,none,boolean,,always null,no,No proven retained-active flag,GeneralOperational,explicit null
+VendorType,unavailable,none,none,string,,always null,no,No proven general Vendor type,GeneralOperational,explicit null
+VendorClass,unavailable,none,none,string,,always null,no,No proven Vendor class,GeneralOperational,explicit null
+ApprovedSupplierStatus,unavailable,none,none,string,,always null,no,No proven quality approval field,QualityOperational,explicit null

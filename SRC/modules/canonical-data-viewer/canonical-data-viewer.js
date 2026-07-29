@@ -419,6 +419,68 @@
         Object.freeze({ name: "customerMasterImportRunId", label: "Customer Master Import Run ID" }),
         Object.freeze({ name: "importedAtUtc", label: "Imported At" })
       ])
+    }),
+    vendorMaster: Object.freeze({
+      title: "Vendor Master",
+      singular: "Vendor",
+      identifier: "vendorMasterId",
+      listMethod: "getCanonicalVendorMaster",
+      lookupMethod: "getCanonicalVendor",
+      liveOnly: true,
+      filters: Object.freeze([
+        Object.freeze({
+          name: "vendorNumber",
+          label: "Vendor Number",
+          placeholder: "Leading zeros optional, e.g. 34 or 000034"
+        }),
+        Object.freeze({ name: "vendorName", label: "Vendor Name" }),
+        Object.freeze({ name: "postalCode", label: "Postal Code" }),
+        Object.freeze({ name: "contactName", label: "Primary Contact" }),
+        Object.freeze({ name: "paymentTermsCode", label: "Payment Terms Code" })
+      ]),
+      columns: Object.freeze([
+        Object.freeze({ name: "vendorNumber", label: "Vendor Number" }),
+        Object.freeze({ name: "vendorName", label: "Vendor Name" }),
+        Object.freeze({ name: "addressLine1", label: "Address" }),
+        Object.freeze({ name: "postalCode", label: "Postal Code" }),
+        Object.freeze({ name: "primaryContactName", label: "Primary Contact" }),
+        Object.freeze({ name: "primaryPhone", label: "Phone" }),
+        Object.freeze({ name: "paymentTermsDescription", label: "Payment Terms" }),
+        Object.freeze({ name: "purchasingAddressCount", label: "Purchasing Addresses" })
+      ]),
+      fields: Object.freeze([
+        Object.freeze({ name: "firmId", label: "Firm ID" }),
+        Object.freeze({ name: "vendorNumber", label: "Vendor Number" }),
+        Object.freeze({ name: "vendorName", label: "Vendor Name" }),
+        Object.freeze({ name: "vendorStatus", label: "Vendor Status (Unavailable)" }),
+        Object.freeze({ name: "isActive", label: "Active (Unavailable)" }),
+        Object.freeze({ name: "vendorType", label: "Vendor Type (Unavailable)" }),
+        Object.freeze({ name: "vendorClass", label: "Vendor Class (Unavailable)" }),
+        Object.freeze({ name: "addressLine1", label: "Address Line 1" }),
+        Object.freeze({ name: "addressLine2", label: "Address Line 2" }),
+        Object.freeze({ name: "addressLine3", label: "Address Line 3" }),
+        Object.freeze({ name: "postalCode", label: "Postal Code" }),
+        Object.freeze({ name: "country", label: "Country" }),
+        Object.freeze({ name: "primaryContactName", label: "Primary Contact" }),
+        Object.freeze({ name: "primaryPhone", label: "Primary Phone" }),
+        Object.freeze({ name: "primaryPhoneExtension", label: "Phone Extension" }),
+        Object.freeze({ name: "paymentTermsCode", label: "Payment Terms Code" }),
+        Object.freeze({ name: "paymentTermsDescription", label: "Payment Terms" }),
+        Object.freeze({
+          name: "approvedSupplierStatus",
+          label: "Approved Supplier Status (Unavailable)"
+        }),
+        Object.freeze({
+          name: "purchasingAddressCount",
+          label: "Purchasing Address Count"
+        }),
+        Object.freeze({ name: "sourceRecordIdentity", label: "Source Record Identity" }),
+        Object.freeze({
+          name: "vendorMasterImportRunId",
+          label: "Vendor Master Import Run ID"
+        }),
+        Object.freeze({ name: "importedAtUtc", label: "Imported At" })
+      ])
     })
   });
 
@@ -446,6 +508,7 @@
       snapshotPayload: null,
       invoiceHistoryAvailable: false,
       customerMasterAvailable: false,
+      vendorMasterAvailable: false,
       refresh: {
         authorized: false,
         available: false,
@@ -712,7 +775,13 @@
       return;
     }
 
-    const [readinessResult, snapshotResult, invoiceHistoryResult, customerMasterResult] =
+    const [
+      readinessResult,
+      snapshotResult,
+      invoiceHistoryResult,
+      customerMasterResult,
+      vendorMasterResult
+    ] =
       await Promise.allSettled([
       api.getPlatformReadiness({ signal: request.controller.signal }),
       api.getPlatformSnapshot({ signal: request.controller.signal }),
@@ -725,6 +794,12 @@
       activeProfileKey === "live" &&
         api.getCanonicalCustomerMasterMetadata
         ? api.getCanonicalCustomerMasterMetadata({
+            signal: request.controller.signal
+          })
+        : Promise.resolve(null),
+      activeProfileKey === "live" &&
+        api.getCanonicalVendorMasterMetadata
+        ? api.getCanonicalVendorMasterMetadata({
             signal: request.controller.signal
           })
         : Promise.resolve(null)
@@ -757,6 +832,10 @@
       activeProfileKey === "live" &&
       customerMasterResult.status === "fulfilled" &&
       Number(customerMasterResult.value?.customerCount) > 0;
+    state.vendorMasterAvailable =
+      activeProfileKey === "live" &&
+      vendorMasterResult.status === "fulfilled" &&
+      Number(vendorMasterResult.value?.vendorCount) > 0;
 
     const freshness = snapshotFreshness();
     if (state.readiness === "ready" && state.snapshot === "ready" && activeProfileKey === "live" && freshness === "Stale") {
@@ -1214,6 +1293,10 @@
     queryAll('[data-canonical-tab="customerMaster"]').forEach(tab => {
       tab.hidden =
         activeProfileKey !== "live" || !state.customerMasterAvailable;
+    });
+    queryAll('[data-canonical-tab="vendorMaster"]').forEach(tab => {
+      tab.hidden =
+        activeProfileKey !== "live" || !state.vendorMasterAvailable;
     });
     renderRefreshControl();
     renderInvoiceHistoryRefreshControl();

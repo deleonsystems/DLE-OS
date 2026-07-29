@@ -1,0 +1,137 @@
+{
+  "verdict": "PASS",
+  "testsPassed": 26,
+  "testsFailed": 0,
+  "results": [
+    {
+      "name": "01-harness-configuration",
+      "passed": true,
+      "evidence": "VENDOR_MASTER_PLATFORM_001"
+    },
+    {
+      "name": "02-source-contract",
+      "passed": true,
+      "evidence": "APM-01 -> 805 Vendor rows"
+    },
+    {
+      "name": "03-natural-key-uniqueness",
+      "passed": true,
+      "evidence": "805/805 unique"
+    },
+    {
+      "name": "04-duplicate-rejection",
+      "passed": true,
+      "evidence": "fail-closed guard present"
+    },
+    {
+      "name": "05-null-blank-handling",
+      "passed": true,
+      "evidence": "4 blank names retained"
+    },
+    {
+      "name": "06-status-handling",
+      "passed": true,
+      "evidence": "unproven status is null"
+    },
+    {
+      "name": "07-address-relationship",
+      "passed": true,
+      "evidence": "all 106 parents exist"
+    },
+    {
+      "name": "08-contact-relationship",
+      "passed": true,
+      "evidence": "embedded contacts; no forced entity"
+    },
+    {
+      "name": "09-orphan-handling",
+      "passed": true,
+      "evidence": "1 address; 44 detail profiles classified"
+    },
+    {
+      "name": "10-restricted-field-exclusion",
+      "passed": true,
+      "evidence": "restricted columns absent"
+    },
+    {
+      "name": "11-transaction-rollback",
+      "passed": true,
+      "evidence": "805/106 retained"
+    },
+    {
+      "name": "12-identical-reimport-no-op",
+      "passed": true,
+      "evidence": "c5fb45a4-ef13-4d7f-ae16-9bcac4945571"
+    },
+    {
+      "name": "13-api-read-only-identity",
+      "passed": true,
+      "evidence": "DLE-OS-HOST\\DLE-OS-LIVE-API"
+    },
+    {
+      "name": "14-api-pagination",
+      "passed": true,
+      "evidence": "33 pages at size 25"
+    },
+    {
+      "name": "15-api-filters",
+      "passed": true,
+      "evidence": "number/name/postal/terms"
+    },
+    {
+      "name": "16-api-null-behavior",
+      "passed": true,
+      "evidence": "explicit null labels"
+    },
+    {
+      "name": "17-viewer-registration",
+      "passed": true,
+      "evidence": "eighth tab registered"
+    },
+    {
+      "name": "18-viewer-filtering",
+      "passed": true,
+      "evidence": "six-character normalization"
+    },
+    {
+      "name": "19-viewer-restricted-exclusion",
+      "passed": true,
+      "evidence": "restricted fields absent"
+    },
+    {
+      "name": "20-known-record-parity",
+      "passed": true,
+      "evidence": "000034 parity"
+    },
+    {
+      "name": "21-existing-seven-section-regression",
+      "passed": true,
+      "evidence": "all seven retained"
+    },
+    {
+      "name": "22-existing-erp-refresh-regression",
+      "passed": true,
+      "evidence": "independent and healthy"
+    },
+    {
+      "name": "23-invoice-refresh-regression",
+      "passed": true,
+      "evidence": "independent and healthy"
+    },
+    {
+      "name": "24-customer-master-regression",
+      "passed": true,
+      "evidence": "Customer Master retained"
+    },
+    {
+      "name": "25-cors-authentication-regression",
+      "passed": true,
+      "evidence": "exact origin only"
+    },
+    {
+      "name": "26-harness-process-cleanup",
+      "passed": true,
+      "evidence": "zero remaining"
+    }
+  ]
+}

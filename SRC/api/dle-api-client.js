@@ -31,7 +31,9 @@
     canonicalInvoiceHistory: '/api/platform/live/v1/invoice-history',
     canonicalInvoiceHistoryMetadata: '/api/platform/live/v1/invoice-history/metadata',
     canonicalCustomerMaster: '/api/platform/live/v1/customer-master',
-    canonicalCustomerMasterMetadata: '/api/platform/live/v1/customer-master/metadata'
+    canonicalCustomerMasterMetadata: '/api/platform/live/v1/customer-master/metadata',
+    canonicalVendorMaster: '/api/platform/live/v1/vendor-master',
+    canonicalVendorMasterMetadata: '/api/platform/live/v1/vendor-master/metadata'
   });
 
   const CANONICAL_FILTERS = Object.freeze({
@@ -51,6 +53,10 @@
     canonicalCustomerMaster: Object.freeze([
       'customerNumber', 'customerName', 'postalCode', 'contactName',
       'salespersonCode', 'territoryCode'
+    ]),
+    canonicalVendorMaster: Object.freeze([
+      'vendorNumber', 'vendorName', 'postalCode', 'contactName',
+      'paymentTermsCode'
     ])
   });
 
@@ -61,6 +67,7 @@
   // nvarchar(20).
   const CANONICAL_FIELD_WIDTHS = Object.freeze({
     customerNumber: 6,
+    vendorNumber: 6,
     salesOrderNumber: 7,
     workOrderNumber: 7,
     itemNumber: 20
@@ -228,6 +235,9 @@
         endpointKey === 'canonicalCustomerMaster'
       ) &&
       filterName === 'customerNumber';
+    const isVendorNumber =
+      endpointKey === 'canonicalVendorMaster' &&
+      filterName === 'vendorNumber';
     const isSalesOrderNumber =
       (
         endpointKey === 'canonicalSalesOrders' ||
@@ -249,9 +259,11 @@
         endpointKey === 'canonicalInventoryItems' ||
         endpointKey === 'canonicalWorkOrders'
       );
-    if (!isCustomerNumber && !isSalesOrderNumber && !isInvoiceNumber &&
+    if (!isCustomerNumber && !isVendorNumber &&
+        !isSalesOrderNumber && !isInvoiceNumber &&
         !isWorkOrderNumber && !isItemNumber) {
-      if (endpointKey === 'canonicalCustomerMaster' &&
+      if ((endpointKey === 'canonicalCustomerMaster' ||
+           endpointKey === 'canonicalVendorMaster') &&
           value !== undefined && value !== null) {
         return String(value).trim();
       }
@@ -262,6 +274,13 @@
     const normalizedValue = String(value).trim();
     if (isCustomerNumber) {
       const canonicalWidth = CANONICAL_FIELD_WIDTHS.customerNumber;
+      if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
+        return normalizedValue.padStart(canonicalWidth, '0');
+      }
+      return normalizedValue;
+    }
+    if (isVendorNumber) {
+      const canonicalWidth = CANONICAL_FIELD_WIDTHS.vendorNumber;
       if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
         return normalizedValue.padStart(canonicalWidth, '0');
       }
@@ -453,6 +472,26 @@
     },
     getCanonicalCustomerMasterMetadata(options = {}) {
       return getLiveJson('canonicalCustomerMasterMetadata', options);
+    },
+    getCanonicalVendorMaster(options = {}) {
+      return getLiveCanonicalList('canonicalVendorMaster', options);
+    },
+    getCanonicalVendor(vendorMasterId, options = {}) {
+      return getLiveCanonicalRecord(
+        'canonicalVendorMaster',
+        vendorMasterId,
+        options
+      );
+    },
+    getCanonicalVendorAddresses(vendorMasterId, options = {}) {
+      return getLiveJson('canonicalVendorMaster', {
+        ...options,
+        endpoint: LIVE_CANONICAL_ENDPOINTS.canonicalVendorMaster + '/' +
+          encodeCanonicalIdentifier(vendorMasterId) + '/addresses'
+      });
+    },
+    getCanonicalVendorMasterMetadata(options = {}) {
+      return getLiveJson('canonicalVendorMasterMetadata', options);
     },
     getSnapshotRefreshStatus(options = {}) {
       return requestLiveSnapshotRefresh('/api/platform/refresh/v1/status', options);

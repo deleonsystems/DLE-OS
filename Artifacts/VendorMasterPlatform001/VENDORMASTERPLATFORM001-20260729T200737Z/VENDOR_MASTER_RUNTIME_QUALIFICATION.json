@@ -1,0 +1,29 @@
+{
+  "verdict": "PASS WITH DOCUMENTED WRAPPER CORRECTION",
+  "qualifiedAtUtc": "2026-07-29T20:36:21Z",
+  "ports": {
+    "5041": "Ready",
+    "5042": "Ready",
+    "5043": "Ready",
+    "5044": "Ready"
+  },
+  "liveRuntime": {
+    "processId": 24724,
+    "identity": "DLE-OS-HOST\\DLE-OS-LIVE-API",
+    "publisherVerdict": "PASS",
+    "assemblySha256": "C3A1B376684859F05871476C546E83869A1DF62AE47B163CFD4513D5A0D2FD82"
+  },
+  "refreshControl": {
+    "identity": "DLE-OS-HOST\\DLE-OS",
+    "authorized": true,
+    "erpStatus": "NO_SOURCE_CHANGES",
+    "invoiceHistoryStatus": "NO_SOURCE_CHANGES"
+  },
+  "promotionBroker": {
+    "identity": "DLE-OS-HOST\\DLE-OS",
+    "elevated": true,
+    "browserCorsEnabled": false,
+    "sourceAccess": "NONE"
+  },
+  "deploymentNote": "The governed publisher and dedicated-identity launcher passed. The outer post-publication wrapper initially expected the purchasing-address name IEC WALKER as the Vendor name; direct HTTP qualification proved the canonical Vendor name is WALKER COMPONENT GROUP. The expectation and evidence filename were corrected without republishing."
+}

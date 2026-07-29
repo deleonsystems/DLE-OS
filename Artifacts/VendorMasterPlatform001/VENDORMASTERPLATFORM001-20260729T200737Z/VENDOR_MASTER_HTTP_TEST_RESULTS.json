@@ -1,0 +1,131 @@
+﻿{
+    "Verdict":  "PASS",
+    "CompletedAtUtc":  "2026-07-29T20:32:17.1248358+00:00",
+    "AssertionsPassed":  24,
+    "MetadataLatencyMs":  236.95,
+    "ListLatencyMs":  14.54,
+    "VendorMasterImportRunId":  "c5fb45a4-ef13-4d7f-ae16-9bcac4945571",
+    "PackageSha256":  "15BA2F0152940D80DDF7AF7B88427D8E8A9850931983B290785C79FCDD527FE7",
+    "Results":  [
+                    {
+                        "Name":  "metadata-vendor-count",
+                        "Passed":  true,
+                        "Evidence":  "count=805"
+                    },
+                    {
+                        "Name":  "metadata-address-count",
+                        "Passed":  true,
+                        "Evidence":  "count=106"
+                    },
+                    {
+                        "Name":  "metadata-orphan-count",
+                        "Passed":  true,
+                        "Evidence":  "count=1"
+                    },
+                    {
+                        "Name":  "metadata-import-run",
+                        "Passed":  true,
+                        "Evidence":  "c5fb45a4-ef13-4d7f-ae16-9bcac4945571"
+                    },
+                    {
+                        "Name":  "metadata-package-hash",
+                        "Passed":  true,
+                        "Evidence":  "15BA2F0152940D80DDF7AF7B88427D8E8A9850931983B290785C79FCDD527FE7"
+                    },
+                    {
+                        "Name":  "list-total",
+                        "Passed":  true,
+                        "Evidence":  "total=805"
+                    },
+                    {
+                        "Name":  "list-page-size",
+                        "Passed":  true,
+                        "Evidence":  "rows=25"
+                    },
+                    {
+                        "Name":  "list-total-pages",
+                        "Passed":  true,
+                        "Evidence":  "pages=33"
+                    },
+                    {
+                        "Name":  "vendor-number-unpadded",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "vendor-number-padded",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "vendor-name-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "postal-code-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "payment-terms-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=721"
+                    },
+                    {
+                        "Name":  "known-vendor-detail",
+                        "Passed":  true,
+                        "Evidence":  "WALKER COMPONENT GROUP; TOM"
+                    },
+                    {
+                        "Name":  "purchasing-address-detail",
+                        "Passed":  true,
+                        "Evidence":  "rows=3"
+                    },
+                    {
+                        "Name":  "restricted-fields-absent",
+                        "Passed":  true,
+                        "Evidence":  "No restricted property names in DTO."
+                    },
+                    {
+                        "Name":  "invalid-page",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "invalid-page-size",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "write-endpoint-absent",
+                        "Passed":  true,
+                        "Evidence":  "POST returned HTTP 405"
+                    },
+                    {
+                        "Name":  "cors-exact-origin",
+                        "Passed":  true,
+                        "Evidence":  "http://dle-os-host:5041"
+                    },
+                    {
+                        "Name":  "cors-arbitrary-origin-denied",
+                        "Passed":  true,
+                        "Evidence":  "No allow-origin header."
+                    },
+                    {
+                        "Name":  "historical-readiness",
+                        "Passed":  true,
+                        "Evidence":  "Ready"
+                    },
+                    {
+                        "Name":  "historical-count",
+                        "Passed":  true,
+                        "Evidence":  "total=26902"
+                    },
+                    {
+                        "Name":  "historical-vendor-route-absent",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 404; no cross-profile fallback."
+                    }
+                ]
+}

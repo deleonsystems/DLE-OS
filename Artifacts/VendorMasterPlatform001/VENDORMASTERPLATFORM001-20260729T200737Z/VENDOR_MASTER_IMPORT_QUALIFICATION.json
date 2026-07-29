@@ -1,0 +1,22 @@
+{
+  "verdict": "PASS",
+  "vendorMasterImportRunId": "c5fb45a4-ef13-4d7f-ae16-9bcac4945571",
+  "packageSha256": "15BA2F0152940D80DDF7AF7B88427D8E8A9850931983B290785C79FCDD527FE7",
+  "initialImport": {
+    "behavior": "IMPORTED",
+    "vendorCount": 805,
+    "vendorAddressCount": 106
+  },
+  "identicalReimport": {
+    "behavior": "NO-OP",
+    "vendorMasterImportRunId": "c5fb45a4-ef13-4d7f-ae16-9bcac4945571"
+  },
+  "inducedFailure": {
+    "point": "after transactional DELETE and before bulk copy",
+    "expectedError": "QUALIFICATION_INDUCED_FAILURE_AFTER_DELETE",
+    "rollbackVerified": true,
+    "retainedVendorCount": 805,
+    "retainedVendorAddressCount": 106,
+    "retainedCommittedRunCount": 1
+  }
+}

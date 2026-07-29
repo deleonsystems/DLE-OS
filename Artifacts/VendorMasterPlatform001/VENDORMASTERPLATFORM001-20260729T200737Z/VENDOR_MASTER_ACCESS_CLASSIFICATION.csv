@@ -1,0 +1,16 @@
+FieldGroup,Classification,EndpointDisposition,Reason
+Firm and Vendor identity,GeneralOperational,Included,Required canonical identity
+Current name and free-form address,GeneralOperational,Included,Normal operational use
+Primary phone/contact,SensitiveContact,Included,Existing internal operational viewer boundary
+Purchasing addresses,PurchasingOperational,Included,Repeatable APM-05 relationship proven
+Payment terms,PurchasingOperational,Included,Consensus resolution and APM-10 description proven
+Buyer,BuyingOperational,Omitted,APM-06 has zero rows
+Status/type/class,GeneralOperational,Explicit null,Physical meaning not proven
+Approved supplier/quality state,QualityOperational,Explicit null,No AS9100 or ERP quality approval source proven
+Tax ID and 1099,AccountingRestricted,Omitted,Sensitive accounting configuration
+Vendor account and GL values,AccountingRestricted,Omitted,Restricted account information
+Balances and accounting numerics,AccountingRestricted,Omitted,Not required for general Vendor viewer
+Payment/invoice history,AccountingRestricted,Omitted,Historical financial activity
+Invoice hold,AccountingRestricted,Omitted,Not a general active/status field
+Internal comments,InternalOnly,Omitted,APM-09 restricted content
+Fax,NotRecommended,Omitted,Not required for qualified operational scope
