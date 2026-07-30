@@ -1,0 +1,10 @@
+# Ephemeral task and tool working directories
+/.tmp/
+/outputs/
+
+# Python bytecode caches
+**/**pycache**/
+
+# .NET build outputs
+**/bin/
+**/obj/

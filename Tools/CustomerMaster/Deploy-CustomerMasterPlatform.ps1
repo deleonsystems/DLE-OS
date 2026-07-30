@@ -14,6 +14,12 @@ $files = [ordered]@{
         'Data\Platform\CustomerMasterRepository.cs'
     'Controllers\Platform\LiveCustomerMasterController.cs' =
         'Controllers\Platform\LiveCustomerMasterController.cs'
+    'Contracts\Platform\CustomerDirectoryDtos.cs' =
+        'Contracts\Platform\CustomerDirectoryDtos.cs'
+    'Data\Platform\CustomerDirectoryRepository.cs' =
+        'Data\Platform\CustomerDirectoryRepository.cs'
+    'Controllers\Platform\LiveCustomerDirectoryController.cs' =
+        'Controllers\Platform\LiveCustomerDirectoryController.cs'
 }
 
 foreach ($relative in $files.Keys) {

@@ -32,6 +32,7 @@
     canonicalInvoiceHistoryMetadata: '/api/platform/live/v1/invoice-history/metadata',
     canonicalCustomerMaster: '/api/platform/live/v1/customer-master',
     canonicalCustomerMasterMetadata: '/api/platform/live/v1/customer-master/metadata',
+    canonicalCustomerDirectory: '/api/platform/live/v1/customer-directory/search',
     canonicalVendorMaster: '/api/platform/live/v1/vendor-master',
     canonicalVendorMasterMetadata: '/api/platform/live/v1/vendor-master/metadata',
     canonicalPurchaseOrders: '/api/platform/live/v1/purchase-orders',
@@ -159,7 +160,9 @@
     if (!endpoint) {
       throw new Error('LIVE canonical endpoint is not configured for ' + endpointKey + '.');
     }
-    const url = LIVE_CANONICAL_BASE_URL + '/' + String(endpoint).replace(/^\/+/, '');
+    const configuredBaseUrl = window.DLE_API_CONFIG?.liveCanonicalBaseUrl;
+    const baseUrl = normalizeBaseUrl(configuredBaseUrl || LIVE_CANONICAL_BASE_URL);
+    const url = baseUrl + '/' + String(endpoint).replace(/^\/+/, '');
     return requestJson(url, 'liveCanonical.' + endpointKey, options);
   }
 
@@ -566,6 +569,24 @@
     getCanonicalCustomerMasterMetadata(options = {}) {
       return getLiveJson('canonicalCustomerMasterMetadata', options);
     },
+    searchCanonicalCustomers(query, options = {}) {
+      const normalizedQuery = String(query || '').trim();
+      const page = options.page === undefined ? 1 : Number(options.page);
+      const pageSize = options.pageSize === undefined ? 25 : Number(options.pageSize);
+      if (!Number.isInteger(page) || page < 1) {
+        throw new RangeError('Customer directory page must be at least 1.');
+      }
+      if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50) {
+        throw new RangeError('Customer directory page size must be between 1 and 50.');
+      }
+      const parameters = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      if (normalizedQuery) parameters.set('q', normalizedQuery);
+      return getLiveJson('canonicalCustomerDirectory', {
+        ...options,
+        endpoint: LIVE_CANONICAL_ENDPOINTS.canonicalCustomerDirectory +
+          '?' + parameters.toString()
+      });
+    },
     getCanonicalVendorMaster(options = {}) {
       return getLiveCanonicalList('canonicalVendorMaster', options);
     },
@@ -806,6 +827,9 @@
     },
     getCanonicalGeneralLedgerAccount(accountNumber, options = {}) {
       return getCanonicalRecord('canonicalGeneralLedgerAccounts', accountNumber, options);
+    },
+    searchCanonicalCustomers(query, options = {}) {
+      return liveCanonicalClient.searchCanonicalCustomers(query, options);
     },
     liveCanonical: liveCanonicalClient,
     endpoints: DEFAULT_ENDPOINTS
