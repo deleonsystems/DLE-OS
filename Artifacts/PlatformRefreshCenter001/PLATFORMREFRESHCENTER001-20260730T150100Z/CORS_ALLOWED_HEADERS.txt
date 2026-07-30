@@ -1,0 +1,7 @@
+HTTP/1.1 204 No Content
+Server: Microsoft-HTTPAPI/2.0
+Access-Control-Allow-Origin: http://dle-os-host:5041
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: Accept,Content-Type
+Access-Control-Allow-Methods: GET,POST
+Date: Thu, 30 Jul 2026 15:16:16 GMT

@@ -2,6 +2,7 @@
   'use strict';
 
   const SHIPMENT_HISTORY_VIEWER_PATH = 'DATA/shipment-history/shipment-history.json';
+  let platformRefreshCenterBusy = false;
 
   const shipmentHistoryDataViewerState = {
     dataset: null,
@@ -44,7 +45,181 @@
       await loadSystemCenterReconciliationWorkspace();
     }
 
+    await refreshPlatformRefreshCenter();
     refreshShipmentHistoryDataViewer();
+  }
+
+  async function refreshPlatformRefreshCenter() {
+    const summary = document.getElementById('platformRefreshCenterSummary');
+    const grid = document.getElementById('platformRefreshCenterGrid');
+    const warnings = document.getElementById('platformRefreshCenterWarnings');
+    if (!summary || !grid || !warnings) return;
+    summary.textContent = 'Loading governed refresh status…';
+    try {
+      const client = window.DleApiClient?.liveCanonical;
+      if (!client?.getRefreshCenterStatus) {
+        throw new Error('Refresh Center API client is unavailable.');
+      }
+      const [status, runs] = await Promise.all([
+        client.getRefreshCenterStatus(),
+        client.getRefreshCenterRuns().catch(() => [])
+      ]);
+      summary.textContent = [
+        `Platform: ${status.overallPlatformState || 'Unavailable'}`,
+        `Registry ${status.registryVersion || '—'}`,
+        `Frontend ${status.frontendBuildId || 'Unavailable'}`,
+        `Generated ${formatRefreshCenterDate(status.generatedAtUtc)}`
+      ].join(' · ');
+      const warningItems = Array.isArray(status.warnings) ? status.warnings : [];
+      warnings.hidden = warningItems.length === 0;
+      warnings.textContent = warningItems.length
+        ? `Operator attention: ${warningItems.join(' · ')}`
+        : '';
+      renderPlatformRefreshDatasets(status.datasets || [], grid);
+      renderPlatformRefreshRuns(runs || []);
+    } catch (error) {
+      summary.textContent = `Refresh Center unavailable: ${error.message || error}`;
+      grid.innerHTML = '<div class="refresh-center-empty">Governed status could not be loaded. Existing Platform data remains read-only and unchanged.</div>';
+      warnings.hidden = true;
+    }
+  }
+
+  function renderPlatformRefreshDatasets(datasets, container) {
+    container.innerHTML = datasets.map((dataset) => {
+      const rowCount = totalRefreshCenterRows(dataset.rowCounts);
+      const state = escapeShipmentHistoryViewerHtml(dataset.state || 'Unavailable');
+      const sourceButton = dataset.supportsSourceCheck
+        ? `<button type="button" onclick="runPlatformDatasetAction('${escapeShipmentHistoryViewerHtml(dataset.datasetId)}','check-source')">Check Source</button>`
+        : '<button type="button" disabled title="This action requires separate qualification.">Check Source</button>';
+      const refreshButton = dataset.supportsRoutineRefresh
+        ? `<button type="button" onclick="runPlatformDatasetAction('${escapeShipmentHistoryViewerHtml(dataset.datasetId)}','refresh')">Refresh</button>`
+        : '<button type="button" disabled title="Routine refresh is not qualified for this dataset.">Refresh</button>';
+      return `
+        <article class="refresh-center-dataset" data-refresh-dataset="${escapeShipmentHistoryViewerHtml(dataset.datasetId)}">
+          <div class="refresh-center-dataset-header">
+            <h4>${escapeShipmentHistoryViewerHtml(dataset.displayName)}</h4>
+            <span class="refresh-center-state">${state}</span>
+          </div>
+          <p>${escapeShipmentHistoryViewerHtml(dataset.stateReason || dataset.operatorMessage || '')}</p>
+          <div class="refresh-center-facts">
+            <div><span>Rows</span><strong>${escapeShipmentHistoryViewerHtml(rowCount)}</strong></div>
+            <div><span>Method</span><strong>${escapeShipmentHistoryViewerHtml(dataset.refreshMethod || '—')}</strong></div>
+            <div><span>Snapshot/import</span><strong>${escapeShipmentHistoryViewerHtml(formatRefreshCenterDate(dataset.snapshotAsOfUtc))}</strong></div>
+            <div><span>Source checked</span><strong>${escapeShipmentHistoryViewerHtml(formatRefreshCenterDate(dataset.lastSuccessfulSourceCheckUtc))}</strong></div>
+            <div><span>Last result</span><strong>${escapeShipmentHistoryViewerHtml(dataset.lastResult || '—')}</strong></div>
+            <div><span>Warnings</span><strong>${escapeShipmentHistoryViewerHtml(String(dataset.warningCount ?? 0))}</strong></div>
+          </div>
+          <div class="refresh-center-actions">
+            ${sourceButton}
+            ${refreshButton}
+            <button type="button" disabled title="Reconciliation is not qualified for this dataset.">Reconcile</button>
+          </div>
+          <details class="refresh-center-details">
+            <summary>Details</summary>
+            <pre>${escapeShipmentHistoryViewerHtml(JSON.stringify({
+              importRunId: dataset.activeImportRunId || null,
+              packageHash: dataset.activePackageHash || null,
+              lastQualification: dataset.lastFullQualificationUtc || null,
+              unresolved: dataset.unresolvedCount || 0,
+              ambiguous: dataset.ambiguousCount || 0,
+              dependencies: dataset.dependencies || [],
+              expectedDuration: dataset.estimatedDurationClass,
+              sourceAccess: dataset.sourceAccessMode,
+              quietWindowRecommended: Boolean(dataset.requiresQuietWindow),
+              followOnMilestone: dataset.followOnMilestone || null
+            }, null, 2))}</pre>
+          </details>
+        </article>`;
+    }).join('');
+  }
+
+  async function runPlatformDatasetAction(datasetId, action) {
+    if (platformRefreshCenterBusy) return;
+    const isInvoice = datasetId === 'invoice-history' && action === 'refresh';
+    const prompt = isInvoice
+      ? 'Run the qualified 45-day overlapping Invoice History refresh? ERP access remains read-only and prior qualified data remains active on failure.'
+      : 'Check the qualified core ERP sources? If source metadata changed, this proceeds through the complete governed extraction and promotion path.';
+    if (!window.confirm(prompt)) return;
+    platformRefreshCenterBusy = true;
+    try {
+      const client = window.DleApiClient.liveCanonical;
+      if (action === 'check-source') {
+        await client.checkRefreshCenterDatasetSource(datasetId);
+      } else {
+        await client.refreshRefreshCenterDataset(datasetId, {
+          quietWindowReady: false
+        });
+      }
+      window.alert('The governed operation was accepted. Refresh Center status will show its independent result.');
+    } catch (error) {
+      window.alert(`The governed operation was not started.\n\n${error.message || error}`);
+    } finally {
+      platformRefreshCenterBusy = false;
+      await refreshPlatformRefreshCenter();
+    }
+  }
+
+  async function runPlatformForceFullRefresh() {
+    if (platformRefreshCenterBusy) return;
+    const warning = [
+      'Force-Full Core Snapshot',
+      '',
+      'This resource-intensive read-only ERP operation includes two complete WOE-03 passes.',
+      'A quiet window is required. The prior snapshot stays active until validated promotion.',
+      '',
+      'Select OK only when the quiet window is ready.'
+    ].join('\n');
+    if (!window.confirm(warning)) return;
+    const confirmation = window.prompt(
+      'Type FORCE FULL ERP SNAPSHOT to confirm explicit force-full intent.'
+    );
+    if (confirmation !== 'FORCE FULL ERP SNAPSHOT') {
+      window.alert('Force-full was not started. The exact confirmation was not entered.');
+      return;
+    }
+    platformRefreshCenterBusy = true;
+    try {
+      await window.DleApiClient.liveCanonical.runRefreshCenterForceFull({
+        forceFullIntent: true,
+        quietWindowReady: true,
+        confirmation
+      });
+      window.alert('The explicit governed force-full operation was accepted.');
+    } catch (error) {
+      window.alert(`Force-full was not started.\n\n${error.message || error}`);
+    } finally {
+      platformRefreshCenterBusy = false;
+      await refreshPlatformRefreshCenter();
+    }
+  }
+
+  function renderPlatformRefreshRuns(runs) {
+    const container = document.getElementById('platformRefreshCenterRuns');
+    if (!container) return;
+    container.innerHTML = runs.length
+      ? runs.slice(0, 20).map((run) => `
+          <div class="refresh-center-run">
+            <strong>${escapeShipmentHistoryViewerHtml(run.datasetId || 'core')}</strong>
+            · ${escapeShipmentHistoryViewerHtml(run.action || 'operation')}
+            · ${escapeShipmentHistoryViewerHtml(run.result || 'Unknown')}
+            · ${escapeShipmentHistoryViewerHtml(formatRefreshCenterDate(run.requestedAtUtc))}
+            · ${escapeShipmentHistoryViewerHtml(run.requestedBy || 'Unknown identity')}
+          </div>`).join('')
+      : 'No Refresh Center requests recorded.';
+  }
+
+  function totalRefreshCenterRows(counts) {
+    if (!counts || typeof counts !== 'object') return '—';
+    const values = Object.values(counts)
+      .map(Number)
+      .filter(Number.isFinite);
+    return values.length ? values.reduce((sum, value) => sum + value, 0).toLocaleString() : '—';
+  }
+
+  function formatRefreshCenterDate(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
   }
 
   async function refreshShipmentHistoryDataViewer() {
@@ -432,5 +607,8 @@
   window.refreshShipmentHistoryDataViewer = refreshShipmentHistoryDataViewer;
   window.selectShipmentHistoryDataViewerRecord = selectShipmentHistoryDataViewerRecord;
   window.deleteSelectedShipmentHistoryDataViewerRecord = deleteSelectedShipmentHistoryDataViewerRecord;
+  window.refreshPlatformRefreshCenter = refreshPlatformRefreshCenter;
+  window.runPlatformDatasetAction = runPlatformDatasetAction;
+  window.runPlatformForceFullRefresh = runPlatformForceFullRefresh;
 })();
 

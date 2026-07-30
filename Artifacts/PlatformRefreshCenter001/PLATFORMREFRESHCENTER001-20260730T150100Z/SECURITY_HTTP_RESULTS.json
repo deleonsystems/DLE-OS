@@ -1,0 +1,18 @@
+{
+  "UnsupportedRefreshHttpStatus": 409,
+  "UnconfirmedForceFullHttpStatus": 400,
+  "AnonymousStatusHttpStatus": 401,
+  "ForceFullInvoked": false,
+  "AllowedCors": {
+    "HttpStatus": 204,
+    "AccessControlAllowOrigin": "http://dle-os-host:5041",
+    "AccessControlAllowCredentials": true,
+    "AccessControlAllowHeaders": "Accept,Content-Type",
+    "AccessControlAllowMethods": "GET,POST"
+  },
+  "DeniedCors": {
+    "HttpStatus": 204,
+    "AccessControlAllowOrigin": null,
+    "AccessControlAllowCredentials": null
+  }
+}

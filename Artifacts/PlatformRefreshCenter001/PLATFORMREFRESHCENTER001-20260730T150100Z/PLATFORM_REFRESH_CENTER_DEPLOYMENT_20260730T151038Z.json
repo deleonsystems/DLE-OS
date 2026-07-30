@@ -1,0 +1,32 @@
+﻿{
+    "Verdict":  "PASS",
+    "DeployedAtUtc":  "2026-07-30T15:10:43.5329003+00:00",
+    "DeploymentIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "PreviousProcessIds":  [
+                               26416
+                           ],
+    "ControlHostRuntime":  "C:\\Program Files\\DLE-OS\\LiveSnapshotRefreshControl",
+    "RuntimeBackup":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PlatformRefreshCenter001\\PLATFORMREFRESHCENTER001-20260730T150100Z\\ControlHostRuntimeBackup-20260730T151043Z",
+    "FrontendPromoted":  true,
+    "ExistingQualifiedRunnersModified":  false,
+    "LiveApiModified":  false,
+    "VProSourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "Frontend":  {
+                     "Verdict":  "PASS",
+                     "FrontendBuildId":  "20260730T151045Z-5B1E030B115F",
+                     "PublishedAtUtc":  "2026-07-30T15:10:45.4627496+00:00",
+                     "SourceManifestSha256":  "5B1E030B115F142B31ACCDDDED8E0D305D69BF1AA4959032AD92752D725AAD82",
+                     "AssetManifestSha256":  "D26D7307E549904B1D05774FF0A0550DA33E0C368498BBDA1AE691B08C9049EA",
+                     "AssetCount":  72,
+                     "BuildPath":  "C:\\ProgramData\\DLE-OS\\Frontend\\Builds\\20260730T151045Z-5B1E030B115F",
+                     "Promoted":  true
+                 },
+    "Port5041ProcessId":  25672,
+    "Port5042ProcessId":  33084,
+    "Port5043ProcessId":  4,
+    "Port5044ProcessId":  4,
+    "ControlHostProcessId":  30032,
+    "ControlHostOwner":  "DLE-OS-HOST\\DLE-OS"
+}

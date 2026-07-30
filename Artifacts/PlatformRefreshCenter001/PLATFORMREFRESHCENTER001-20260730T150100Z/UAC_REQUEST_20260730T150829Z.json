@@ -1,0 +1,7 @@
+﻿{
+    "Verdict":  "AWAITING_UAC",
+    "RequestedAtUtc":  "2026-07-30T15:08:30.3427636+00:00",
+    "RequestingIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "ControlHostStagingRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PlatformRefreshCenter001\\PLATFORMREFRESHCENTER001-20260730T150100Z\\ControlHostPublish-20260730T150829Z",
+    "EvidencePath":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PlatformRefreshCenter001\\PLATFORMREFRESHCENTER001-20260730T150100Z\\PLATFORM_REFRESH_CENTER_DEPLOYMENT_20260730T150829Z.json"
+}

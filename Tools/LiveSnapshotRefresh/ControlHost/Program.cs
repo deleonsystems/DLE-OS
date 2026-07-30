@@ -50,7 +50,7 @@ builder.Services.AddCors(options =>
         policy => policy
             .WithOrigins(allowedOrigin)
             .WithMethods(HttpMethods.Get, HttpMethods.Post)
-            .WithHeaders("Accept")
+            .WithHeaders("Accept", "Content-Type")
             .AllowCredentials());
 });
 
@@ -339,6 +339,10 @@ app.MapGet(
             executionIdentity = WindowsIdentity.GetCurrent().Name
         }))
     .RequireAuthorization("SnapshotRefreshOperator");
+
+app.MapPlatformRefreshCenter(
+    authorizedOperator,
+    "SnapshotRefreshOperator");
 
 app.Run();
 

@@ -1,0 +1,1039 @@
+﻿{
+    "contractVersion":  "platform-refresh-center-v1",
+    "registryVersion":  "1.0.0",
+    "generatedAtUtc":  "2026-07-30T15:09:06.6281291+00:00",
+    "overallPlatformState":  "Ready",
+    "datasets":  [
+                     {
+                         "datasetId":  "bill-of-material",
+                         "displayName":  "Bills of Material",
+                         "state":  "Ready",
+                         "stateReason":  "The normal core action checks source metadata and performs the complete governed snapshot only when source indicators changed.",
+                         "refreshCapability":  "QualifiedFullRefresh",
+                         "refreshMethod":  "FullGovernedSnapshot",
+                         "estimatedDurationClass":  "Long",
+                         "supportsSourceCheck":  true,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  true,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  false,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "CORE-OPERATIONAL-REFRESH-001",
+                         "operatorMessage":  "The normal core action checks source metadata and performs the complete governed snapshot only when source indicators changed.",
+                         "metadata":  {
+                                          "dataEnvironment":  "LIVE",
+                                          "database":  "DLE_OS_CANONICAL_LIVE",
+                                          "contractVersion":  "1.2",
+                                          "apiContractVersion":  "live-readiness-v2",
+                                          "readinessVerdict":  "Ready",
+                                          "readinessState":  "ReadyFresh",
+                                          "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                                          "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                                          "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                                          "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                                          "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAgeSeconds":  52274,
+                                          "sourceCheckedAtUtc":  "2026-07-30T02:34:18.0112735Z",
+                                          "sourceCheckAgeSeconds":  45286,
+                                          "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                                          "qualificationAgeSeconds":  52185,
+                                          "sourceChangeStatus":  "Unchanged",
+                                          "lastSourceCheckResult":  "NO_SOURCE_CHANGES",
+                                          "freshnessStatus":  "Fresh",
+                                          "warnings":  [
+
+                                                       ],
+                                          "hardFailures":  [
+
+                                                           ],
+                                          "entityCounts":  {
+                                                               "billOfMaterial":  1290,
+                                                               "inventoryItem":  28662,
+                                                               "workOrder":  12113,
+                                                               "generalLedgerAccount":  257
+                                                           },
+                                          "totalCount":  42322,
+                                          "checks":  [
+                                                         {
+                                                             "name":  "dataEnvironment",
+                                                             "passed":  true,
+                                                             "message":  "Snapshot environment is LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "database",
+                                                             "passed":  true,
+                                                             "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "contractVersion",
+                                                             "passed":  true,
+                                                             "message":  "Stored contract version is V1.2."
+                                                         },
+                                                         {
+                                                             "name":  "importRun",
+                                                             "passed":  true,
+                                                             "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                                         },
+                                                         {
+                                                             "name":  "mirrorRun",
+                                                             "passed":  true,
+                                                             "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                                         },
+                                                         {
+                                                             "name":  "packageHash",
+                                                             "passed":  true,
+                                                             "message":  "Current package hash matches the qualified package."
+                                                         },
+                                                         {
+                                                             "name":  "entityCounts",
+                                                             "passed":  true,
+                                                             "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                                         },
+                                                         {
+                                                             "name":  "operationalStatus",
+                                                             "passed":  true,
+                                                             "message":  "Separated snapshot/source-check/qualification status is present."
+                                                         }
+                                                     ]
+                                      },
+                         "rowCounts":  {
+                                           "BillOfMaterial":  1290
+                                       },
+                         "activeImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                         "activePackageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                         "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulImportUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulSourceCheckUtc":  "2026-07-30T02:34:18.0112735Z",
+                         "lastFullQualificationUtc":  "2026-07-30T00:39:19.5486219Z",
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "No action required",
+                         "lastAttemptedOperation":  "COMPLETED",
+                         "lastResult":  "NO_SOURCE_CHANGES",
+                         "currentRunningPhase":  "COMPLETED",
+                         "failureReason":  null,
+                         "runningProgress":  "No qualified ERP source changes were detected. The active snapshot was retained."
+                     },
+                     {
+                         "datasetId":  "inventory-item",
+                         "displayName":  "Inventory",
+                         "state":  "Ready",
+                         "stateReason":  "Inventory participates in the indivisible qualified core snapshot; focused refresh is not implemented.",
+                         "refreshCapability":  "QualifiedFullRefresh",
+                         "refreshMethod":  "FullGovernedSnapshot",
+                         "estimatedDurationClass":  "Long",
+                         "supportsSourceCheck":  true,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  true,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  false,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "CORE-OPERATIONAL-REFRESH-001",
+                         "operatorMessage":  "Inventory participates in the indivisible qualified core snapshot; focused refresh is not implemented.",
+                         "metadata":  {
+                                          "dataEnvironment":  "LIVE",
+                                          "database":  "DLE_OS_CANONICAL_LIVE",
+                                          "contractVersion":  "1.2",
+                                          "apiContractVersion":  "live-readiness-v2",
+                                          "readinessVerdict":  "Ready",
+                                          "readinessState":  "ReadyFresh",
+                                          "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                                          "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                                          "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                                          "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                                          "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAgeSeconds":  52274,
+                                          "sourceCheckedAtUtc":  "2026-07-30T02:34:18.0112735Z",
+                                          "sourceCheckAgeSeconds":  45286,
+                                          "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                                          "qualificationAgeSeconds":  52185,
+                                          "sourceChangeStatus":  "Unchanged",
+                                          "lastSourceCheckResult":  "NO_SOURCE_CHANGES",
+                                          "freshnessStatus":  "Fresh",
+                                          "warnings":  [
+
+                                                       ],
+                                          "hardFailures":  [
+
+                                                           ],
+                                          "entityCounts":  {
+                                                               "billOfMaterial":  1290,
+                                                               "inventoryItem":  28662,
+                                                               "workOrder":  12113,
+                                                               "generalLedgerAccount":  257
+                                                           },
+                                          "totalCount":  42322,
+                                          "checks":  [
+                                                         {
+                                                             "name":  "dataEnvironment",
+                                                             "passed":  true,
+                                                             "message":  "Snapshot environment is LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "database",
+                                                             "passed":  true,
+                                                             "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "contractVersion",
+                                                             "passed":  true,
+                                                             "message":  "Stored contract version is V1.2."
+                                                         },
+                                                         {
+                                                             "name":  "importRun",
+                                                             "passed":  true,
+                                                             "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                                         },
+                                                         {
+                                                             "name":  "mirrorRun",
+                                                             "passed":  true,
+                                                             "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                                         },
+                                                         {
+                                                             "name":  "packageHash",
+                                                             "passed":  true,
+                                                             "message":  "Current package hash matches the qualified package."
+                                                         },
+                                                         {
+                                                             "name":  "entityCounts",
+                                                             "passed":  true,
+                                                             "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                                         },
+                                                         {
+                                                             "name":  "operationalStatus",
+                                                             "passed":  true,
+                                                             "message":  "Separated snapshot/source-check/qualification status is present."
+                                                         }
+                                                     ]
+                                      },
+                         "rowCounts":  {
+                                           "InventoryItem":  28662
+                                       },
+                         "activeImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                         "activePackageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                         "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulImportUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulSourceCheckUtc":  "2026-07-30T02:34:18.0112735Z",
+                         "lastFullQualificationUtc":  "2026-07-30T00:39:19.5486219Z",
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "No action required",
+                         "lastAttemptedOperation":  "COMPLETED",
+                         "lastResult":  "NO_SOURCE_CHANGES",
+                         "currentRunningPhase":  "COMPLETED",
+                         "failureReason":  null,
+                         "runningProgress":  "No qualified ERP source changes were detected. The active snapshot was retained."
+                     },
+                     {
+                         "datasetId":  "work-order",
+                         "displayName":  "Work Orders",
+                         "state":  "Ready",
+                         "stateReason":  "Work Orders participate in the indivisible qualified core snapshot; focused open-transaction refresh is not implemented.",
+                         "refreshCapability":  "QualifiedFullRefresh",
+                         "refreshMethod":  "FullGovernedSnapshot",
+                         "estimatedDurationClass":  "Long",
+                         "supportsSourceCheck":  true,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  true,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  false,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "inventory-item",
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "CORE-OPERATIONAL-REFRESH-001",
+                         "operatorMessage":  "Work Orders participate in the indivisible qualified core snapshot; focused open-transaction refresh is not implemented.",
+                         "metadata":  {
+                                          "dataEnvironment":  "LIVE",
+                                          "database":  "DLE_OS_CANONICAL_LIVE",
+                                          "contractVersion":  "1.2",
+                                          "apiContractVersion":  "live-readiness-v2",
+                                          "readinessVerdict":  "Ready",
+                                          "readinessState":  "ReadyFresh",
+                                          "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                                          "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                                          "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                                          "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                                          "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAgeSeconds":  52274,
+                                          "sourceCheckedAtUtc":  "2026-07-30T02:34:18.0112735Z",
+                                          "sourceCheckAgeSeconds":  45286,
+                                          "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                                          "qualificationAgeSeconds":  52185,
+                                          "sourceChangeStatus":  "Unchanged",
+                                          "lastSourceCheckResult":  "NO_SOURCE_CHANGES",
+                                          "freshnessStatus":  "Fresh",
+                                          "warnings":  [
+
+                                                       ],
+                                          "hardFailures":  [
+
+                                                           ],
+                                          "entityCounts":  {
+                                                               "billOfMaterial":  1290,
+                                                               "inventoryItem":  28662,
+                                                               "workOrder":  12113,
+                                                               "generalLedgerAccount":  257
+                                                           },
+                                          "totalCount":  42322,
+                                          "checks":  [
+                                                         {
+                                                             "name":  "dataEnvironment",
+                                                             "passed":  true,
+                                                             "message":  "Snapshot environment is LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "database",
+                                                             "passed":  true,
+                                                             "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "contractVersion",
+                                                             "passed":  true,
+                                                             "message":  "Stored contract version is V1.2."
+                                                         },
+                                                         {
+                                                             "name":  "importRun",
+                                                             "passed":  true,
+                                                             "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                                         },
+                                                         {
+                                                             "name":  "mirrorRun",
+                                                             "passed":  true,
+                                                             "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                                         },
+                                                         {
+                                                             "name":  "packageHash",
+                                                             "passed":  true,
+                                                             "message":  "Current package hash matches the qualified package."
+                                                         },
+                                                         {
+                                                             "name":  "entityCounts",
+                                                             "passed":  true,
+                                                             "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                                         },
+                                                         {
+                                                             "name":  "operationalStatus",
+                                                             "passed":  true,
+                                                             "message":  "Separated snapshot/source-check/qualification status is present."
+                                                         }
+                                                     ]
+                                      },
+                         "rowCounts":  {
+                                           "WorkOrder":  12113
+                                       },
+                         "activeImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                         "activePackageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                         "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulImportUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulSourceCheckUtc":  "2026-07-30T02:34:18.0112735Z",
+                         "lastFullQualificationUtc":  "2026-07-30T00:39:19.5486219Z",
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "No action required",
+                         "lastAttemptedOperation":  "COMPLETED",
+                         "lastResult":  "NO_SOURCE_CHANGES",
+                         "currentRunningPhase":  "COMPLETED",
+                         "failureReason":  null,
+                         "runningProgress":  "No qualified ERP source changes were detected. The active snapshot was retained."
+                     },
+                     {
+                         "datasetId":  "general-ledger-account",
+                         "displayName":  "General Ledger",
+                         "state":  "Ready",
+                         "stateReason":  "General Ledger accounts participate in the indivisible qualified core snapshot.",
+                         "refreshCapability":  "QualifiedFullRefresh",
+                         "refreshMethod":  "FullGovernedSnapshot",
+                         "estimatedDurationClass":  "Long",
+                         "supportsSourceCheck":  true,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  true,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  false,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "CORE-OPERATIONAL-REFRESH-001",
+                         "operatorMessage":  "General Ledger accounts participate in the indivisible qualified core snapshot.",
+                         "metadata":  {
+                                          "dataEnvironment":  "LIVE",
+                                          "database":  "DLE_OS_CANONICAL_LIVE",
+                                          "contractVersion":  "1.2",
+                                          "apiContractVersion":  "live-readiness-v2",
+                                          "readinessVerdict":  "Ready",
+                                          "readinessState":  "ReadyFresh",
+                                          "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                                          "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                                          "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                                          "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                                          "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAgeSeconds":  52274,
+                                          "sourceCheckedAtUtc":  "2026-07-30T02:34:18.0112735Z",
+                                          "sourceCheckAgeSeconds":  45286,
+                                          "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                                          "qualificationAgeSeconds":  52185,
+                                          "sourceChangeStatus":  "Unchanged",
+                                          "lastSourceCheckResult":  "NO_SOURCE_CHANGES",
+                                          "freshnessStatus":  "Fresh",
+                                          "warnings":  [
+
+                                                       ],
+                                          "hardFailures":  [
+
+                                                           ],
+                                          "entityCounts":  {
+                                                               "billOfMaterial":  1290,
+                                                               "inventoryItem":  28662,
+                                                               "workOrder":  12113,
+                                                               "generalLedgerAccount":  257
+                                                           },
+                                          "totalCount":  42322,
+                                          "checks":  [
+                                                         {
+                                                             "name":  "dataEnvironment",
+                                                             "passed":  true,
+                                                             "message":  "Snapshot environment is LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "database",
+                                                             "passed":  true,
+                                                             "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "contractVersion",
+                                                             "passed":  true,
+                                                             "message":  "Stored contract version is V1.2."
+                                                         },
+                                                         {
+                                                             "name":  "importRun",
+                                                             "passed":  true,
+                                                             "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                                         },
+                                                         {
+                                                             "name":  "mirrorRun",
+                                                             "passed":  true,
+                                                             "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                                         },
+                                                         {
+                                                             "name":  "packageHash",
+                                                             "passed":  true,
+                                                             "message":  "Current package hash matches the qualified package."
+                                                         },
+                                                         {
+                                                             "name":  "entityCounts",
+                                                             "passed":  true,
+                                                             "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                                         },
+                                                         {
+                                                             "name":  "operationalStatus",
+                                                             "passed":  true,
+                                                             "message":  "Separated snapshot/source-check/qualification status is present."
+                                                         }
+                                                     ]
+                                      },
+                         "rowCounts":  {
+                                           "GeneralLedgerAccount":  257
+                                       },
+                         "activeImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                         "activePackageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                         "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulImportUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulSourceCheckUtc":  "2026-07-30T02:34:18.0112735Z",
+                         "lastFullQualificationUtc":  "2026-07-30T00:39:19.5486219Z",
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "No action required",
+                         "lastAttemptedOperation":  "COMPLETED",
+                         "lastResult":  "NO_SOURCE_CHANGES",
+                         "currentRunningPhase":  "COMPLETED",
+                         "failureReason":  null,
+                         "runningProgress":  "No qualified ERP source changes were detected. The active snapshot was retained."
+                     },
+                     {
+                         "datasetId":  "sales-order",
+                         "displayName":  "Sales Orders",
+                         "state":  "Ready",
+                         "stateReason":  "Sales Orders participate in the core snapshot and retain the qualified two-pass WOE-03 behavior.",
+                         "refreshCapability":  "QualifiedFullRefresh",
+                         "refreshMethod":  "FullGovernedSnapshot",
+                         "estimatedDurationClass":  "Long",
+                         "supportsSourceCheck":  true,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  true,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  true,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "customer-master",
+                                              "inventory-item",
+                                              "work-order",
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "CORE-OPERATIONAL-REFRESH-001",
+                         "operatorMessage":  "Sales Orders participate in the core snapshot and retain the qualified two-pass WOE-03 behavior.",
+                         "metadata":  {
+                                          "dataEnvironment":  "LIVE",
+                                          "database":  "DLE_OS_CANONICAL_LIVE",
+                                          "contractVersion":  "1.2",
+                                          "apiContractVersion":  "live-readiness-v2",
+                                          "readinessVerdict":  "Ready",
+                                          "readinessState":  "ReadyFresh",
+                                          "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                                          "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                                          "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                                          "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                                          "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                                          "snapshotAgeSeconds":  52274,
+                                          "sourceCheckedAtUtc":  "2026-07-30T02:34:18.0112735Z",
+                                          "sourceCheckAgeSeconds":  45286,
+                                          "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                                          "qualificationAgeSeconds":  52185,
+                                          "sourceChangeStatus":  "Unchanged",
+                                          "lastSourceCheckResult":  "NO_SOURCE_CHANGES",
+                                          "freshnessStatus":  "Fresh",
+                                          "warnings":  [
+
+                                                       ],
+                                          "hardFailures":  [
+
+                                                           ],
+                                          "entityCounts":  {
+                                                               "billOfMaterial":  1290,
+                                                               "inventoryItem":  28662,
+                                                               "workOrder":  12113,
+                                                               "generalLedgerAccount":  257
+                                                           },
+                                          "totalCount":  42322,
+                                          "checks":  [
+                                                         {
+                                                             "name":  "dataEnvironment",
+                                                             "passed":  true,
+                                                             "message":  "Snapshot environment is LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "database",
+                                                             "passed":  true,
+                                                             "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                                         },
+                                                         {
+                                                             "name":  "contractVersion",
+                                                             "passed":  true,
+                                                             "message":  "Stored contract version is V1.2."
+                                                         },
+                                                         {
+                                                             "name":  "importRun",
+                                                             "passed":  true,
+                                                             "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                                         },
+                                                         {
+                                                             "name":  "mirrorRun",
+                                                             "passed":  true,
+                                                             "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                                         },
+                                                         {
+                                                             "name":  "packageHash",
+                                                             "passed":  true,
+                                                             "message":  "Current package hash matches the qualified package."
+                                                         },
+                                                         {
+                                                             "name":  "entityCounts",
+                                                             "passed":  true,
+                                                             "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                                         },
+                                                         {
+                                                             "name":  "operationalStatus",
+                                                             "passed":  true,
+                                                             "message":  "Separated snapshot/source-check/qualification status is present."
+                                                         }
+                                                     ]
+                                      },
+                         "rowCounts":  {
+                                           "SalesOrder":  null
+                                       },
+                         "activeImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                         "activePackageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                         "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulImportUtc":  "2026-07-30T00:37:50.691511Z",
+                         "lastSuccessfulSourceCheckUtc":  "2026-07-30T02:34:18.0112735Z",
+                         "lastFullQualificationUtc":  "2026-07-30T00:39:19.5486219Z",
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "No action required",
+                         "lastAttemptedOperation":  "COMPLETED",
+                         "lastResult":  "NO_SOURCE_CHANGES",
+                         "currentRunningPhase":  "COMPLETED",
+                         "failureReason":  null,
+                         "runningProgress":  "No qualified ERP source changes were detected. The active snapshot was retained."
+                     },
+                     {
+                         "datasetId":  "invoice-history",
+                         "displayName":  "Invoice History",
+                         "state":  "Ready",
+                         "stateReason":  "Qualified 45-day overlap refresh with transactional upsert and missing-row retention.",
+                         "refreshCapability":  "QualifiedRoutineRefresh",
+                         "refreshMethod":  "BoundedOverlapUpsert",
+                         "estimatedDurationClass":  "Short",
+                         "supportsSourceCheck":  false,
+                         "supportsRoutineRefresh":  true,
+                         "supportsForceFull":  false,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  false,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "customer-master",
+                                              "inventory-item",
+                                              "work-order"
+                                          ],
+                         "followOnMilestone":  "INVOICE-HISTORY-RECONCILIATION-001",
+                         "operatorMessage":  "Qualified 45-day overlap refresh with transactional upsert and missing-row retention.",
+                         "metadata":  {
+                                          "invoiceHistoryImportRunId":  "5d34047a-8d69-4839-89a9-70658a3db6ee",
+                                          "sourceExtractionRunId":  "INVOICEHISTORYPLATFORM001-20260729T001740Z",
+                                          "sourceQualificationRunId":  "INVOICEHISTORY001-20260728T233255Z",
+                                          "packageContentHash":  "DA7EDC4C540750318A2AA73A938F14B5B820A7B482DAB2B29C94CE8555046DA8",
+                                          "packageSchema":  "DLE_INVOICE_HISTORY_BASELINE_V1",
+                                          "packageSchemaVersion":  1,
+                                          "contractVersion":  "1.2",
+                                          "activatedAtUtc":  "2026-07-29T00:18:07.21796",
+                                          "customerInvoiceCount":  19092,
+                                          "customerInvoiceLineCount":  26036,
+                                          "uniqueWorkOrderCount":  16465,
+                                          "unresolvedWorkOrderCount":  9466,
+                                          "ambiguousWorkOrderCount":  105,
+                                          "negativeQuantityCount":  415
+                                      },
+                         "rowCounts":  {
+                                           "CustomerInvoice":  19092,
+                                           "CustomerInvoiceLine":  26036
+                                       },
+                         "activeImportRunId":  null,
+                         "activePackageHash":  null,
+                         "snapshotAsOfUtc":  "2026-07-29T00:18:07.21796",
+                         "lastSuccessfulImportUtc":  "2026-07-29T00:18:07.21796",
+                         "lastSuccessfulSourceCheckUtc":  null,
+                         "lastFullQualificationUtc":  null,
+                         "warningCount":  0,
+                         "unresolvedCount":  9466,
+                         "ambiguousCount":  105,
+                         "recommendedOperatorAction":  "No action required",
+                         "lastAttemptedOperation":  null,
+                         "lastResult":  "NO_SOURCE_CHANGES",
+                         "currentRunningPhase":  null,
+                         "failureReason":  null,
+                         "runningProgress":  "Invoice History refresh completed."
+                     },
+                     {
+                         "datasetId":  "customer-master",
+                         "displayName":  "Customer Master",
+                         "state":  "ReadyWithWarning",
+                         "stateReason":  "Baseline is qualified; repeated live extraction and deletion detection require separate refresh qualification.",
+                         "refreshCapability":  "RefreshQualificationRequired",
+                         "refreshMethod":  "CompleteMasterRead",
+                         "estimatedDurationClass":  "Short",
+                         "supportsSourceCheck":  false,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  false,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  false,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "MASTER-DATA-REFRESH-001",
+                         "operatorMessage":  "Baseline is qualified; repeated live extraction and deletion detection require separate refresh qualification.",
+                         "metadata":  {
+                                          "customerMasterImportRunId":  "b3ec1b7c-7806-49f5-b589-62ddb093e6a8",
+                                          "sourceQualificationRunId":  "CUSTOMERMASTERPLATFORM001-20260729T170951Z",
+                                          "packageSha256":  "926160D5BFBEAD171BE6DA481016B6810DF20BE6CA7577EF82AA8421C173D608",
+                                          "contractVersion":  "CUSTOMER_MASTER_1.0",
+                                          "snapshotAsOfUtc":  "2026-07-29T19:09:58.83",
+                                          "customerCount":  380,
+                                          "customerAddressCount":  28,
+                                          "orphanAddressCount":  1,
+                                          "importStatus":  "SUCCESS"
+                                      },
+                         "rowCounts":  {
+                                           "Customer":  380,
+                                           "CustomerAddress":  28
+                                       },
+                         "activeImportRunId":  null,
+                         "activePackageHash":  null,
+                         "snapshotAsOfUtc":  "2026-07-29T19:09:58.83",
+                         "lastSuccessfulImportUtc":  null,
+                         "lastSuccessfulSourceCheckUtc":  null,
+                         "lastFullQualificationUtc":  null,
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "Qualification required: MASTER-DATA-REFRESH-001"
+                     },
+                     {
+                         "datasetId":  "vendor-master",
+                         "displayName":  "Vendor Master",
+                         "state":  "ReadyWithWarning",
+                         "stateReason":  "Baseline is qualified; repeated live extraction and deletion detection require separate refresh qualification.",
+                         "refreshCapability":  "RefreshQualificationRequired",
+                         "refreshMethod":  "CompleteMasterRead",
+                         "estimatedDurationClass":  "Short",
+                         "supportsSourceCheck":  false,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  false,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  false,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "MASTER-DATA-REFRESH-001",
+                         "operatorMessage":  "Baseline is qualified; repeated live extraction and deletion detection require separate refresh qualification.",
+                         "metadata":  {
+                                          "vendorMasterImportRunId":  "c5fb45a4-ef13-4d7f-ae16-9bcac4945571",
+                                          "sourceQualificationRunId":  "VENDOR_MASTER_PLATFORM_001-20260729T201141580Z-F29F00F3",
+                                          "packageSha256":  "15BA2F0152940D80DDF7AF7B88427D8E8A9850931983B290785C79FCDD527FE7",
+                                          "contractVersion":  "VENDOR_MASTER_1.0",
+                                          "snapshotAsOfUtc":  "2026-07-29T20:22:47.045",
+                                          "vendorCount":  805,
+                                          "vendorAddressCount":  106,
+                                          "orphanAddressCount":  1,
+                                          "orphanDetailCount":  44,
+                                          "importStatus":  "SUCCESS"
+                                      },
+                         "rowCounts":  {
+                                           "Vendor":  805,
+                                           "VendorAddress":  106
+                                       },
+                         "activeImportRunId":  null,
+                         "activePackageHash":  null,
+                         "snapshotAsOfUtc":  "2026-07-29T20:22:47.045",
+                         "lastSuccessfulImportUtc":  null,
+                         "lastSuccessfulSourceCheckUtc":  null,
+                         "lastFullQualificationUtc":  null,
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "Qualification required: MASTER-DATA-REFRESH-001"
+                     },
+                     {
+                         "datasetId":  "purchase-order",
+                         "displayName":  "Purchase Orders",
+                         "state":  "ReadyWithWarning",
+                         "stateReason":  "Focused Purchase Order refresh is intentionally disabled pending source-selection and reconciliation qualification.",
+                         "refreshCapability":  "RefreshQualificationRequired",
+                         "refreshMethod":  "OpenTransactionRefresh",
+                         "estimatedDurationClass":  "Medium",
+                         "supportsSourceCheck":  false,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  false,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  true,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "vendor-master",
+                                              "inventory-item",
+                                              "work-order",
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "PURCHASE-ORDER-REFRESH-001",
+                         "operatorMessage":  "Focused Purchase Order refresh is intentionally disabled pending source-selection and reconciliation qualification.",
+                         "metadata":  {
+                                          "purchaseOrderImportRunId":  "7f8e76b9-7489-41ef-8128-fcd23270efdd",
+                                          "sourceQualificationRunId":  "PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4",
+                                          "packageSha256":  "37690EB343DBA99D5F8F6CCD59C930F1E3456BD8AF73B6D0589D539CF4AF23A3",
+                                          "contractVersion":  "PURCHASE_ORDER_1.0",
+                                          "snapshotAsOfUtc":  "2026-07-29T22:14:45.826",
+                                          "headerCount":  518,
+                                          "lineCount":  1384,
+                                          "sourceOrphanLineCount":  20,
+                                          "importStatus":  "SUCCESS"
+                                      },
+                         "rowCounts":  {
+                                           "PurchaseOrder":  null,
+                                           "PurchaseOrderLine":  null
+                                       },
+                         "activeImportRunId":  null,
+                         "activePackageHash":  null,
+                         "snapshotAsOfUtc":  "2026-07-29T22:14:45.826",
+                         "lastSuccessfulImportUtc":  null,
+                         "lastSuccessfulSourceCheckUtc":  null,
+                         "lastFullQualificationUtc":  null,
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "Qualification required: PURCHASE-ORDER-REFRESH-001"
+                     },
+                     {
+                         "datasetId":  "receiving-history",
+                         "displayName":  "Receiving History",
+                         "state":  "ReadyWithWarning",
+                         "stateReason":  "Historical baseline is qualified; bounded overlap refresh remains unimplemented.",
+                         "refreshCapability":  "RefreshQualificationRequired",
+                         "refreshMethod":  "BoundedOverlapUpsert",
+                         "estimatedDurationClass":  "Long",
+                         "supportsSourceCheck":  false,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  false,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  true,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "vendor-master",
+                                              "purchase-order",
+                                              "employee-reference",
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "RECEIVING-HISTORY-REFRESH-001",
+                         "operatorMessage":  "Historical baseline is qualified; bounded overlap refresh remains unimplemented.",
+                         "metadata":  {
+                                          "receivingHistoryImportRunId":  "034f0f72-8713-4163-b20d-fb9d421a7961",
+                                          "sourceQualificationRunId":  "RECEIVING_HISTORY_PLATFORM_001_POLICY-20260730T050803031Z-14EAF6C9",
+                                          "packageSha256":  "84A4267E17412B373DC8868B98C1775134ED497FF1A5EF4EB2930BA4B9CC492E",
+                                          "contractVersion":  "RECEIVING_HISTORY_CANONICAL_V1",
+                                          "snapshotAsOfUtc":  "2026-07-30T08:36:08.636",
+                                          "headerCount":  39564,
+                                          "lineCount":  189272,
+                                          "rejectionCount":  0,
+                                          "malformedOrderDateCount":  5,
+                                          "malformedReceiptDateCount":  1,
+                                          "malformedRequiredDateCount":  26,
+                                          "missingPurchaseOrderCount":  1,
+                                          "importStatus":  "SUCCESS"
+                                      },
+                         "rowCounts":  {
+                                           "ReceivingHeader":  null,
+                                           "ReceivingLine":  null,
+                                           "ReceivingRejection":  null
+                                       },
+                         "activeImportRunId":  null,
+                         "activePackageHash":  null,
+                         "snapshotAsOfUtc":  "2026-07-30T08:36:08.636",
+                         "lastSuccessfulImportUtc":  null,
+                         "lastSuccessfulSourceCheckUtc":  null,
+                         "lastFullQualificationUtc":  null,
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "Qualification required: RECEIVING-HISTORY-REFRESH-001"
+                     },
+                     {
+                         "datasetId":  "employee-reference",
+                         "displayName":  "Employee Reference",
+                         "state":  "ReadyWithWarning",
+                         "stateReason":  "Operational baseline is qualified; payroll and security content remain excluded and repeated refresh requires qualification.",
+                         "refreshCapability":  "RefreshQualificationRequired",
+                         "refreshMethod":  "CompleteMasterRead",
+                         "estimatedDurationClass":  "Short",
+                         "supportsSourceCheck":  false,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  false,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  false,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+                                              "reference-code"
+                                          ],
+                         "followOnMilestone":  "MASTER-DATA-REFRESH-001",
+                         "operatorMessage":  "Operational baseline is qualified; payroll and security content remain excluded and repeated refresh requires qualification.",
+                         "metadata":  {
+                                          "employeeReferenceImportRunId":  "783a4bc2-1871-4dfb-ad7a-e0beea797841",
+                                          "sourceQualificationRunId":  "EMPLOYEE_REFERENCE_PLATFORM_001-20260730T131048478Z-DFA23999",
+                                          "packageSha256":  "515C6C8F66FECC4B33406D02B7AB66C1B9FD6171F6B0FD1FE5329687115ED369",
+                                          "contractVersion":  "EMPLOYEE_REFERENCE_1.0",
+                                          "snapshotAsOfUtc":  "2026-07-30T13:13:29.565",
+                                          "employeeCount":  11,
+                                          "operationalCodeCount":  18,
+                                          "departmentCount":  10,
+                                          "jobTitleCount":  24,
+                                          "activeEmployeeCount":  11,
+                                          "inactiveEmployeeCount":  0,
+                                          "unresolvedCodeCount":  9,
+                                          "ambiguousCodeCount":  1,
+                                          "genericSystemCodeCount":  4,
+                                          "importStatus":  "SUCCESS"
+                                      },
+                         "rowCounts":  {
+                                           "EmployeeReference":  null,
+                                           "EmployeeOperationalCode":  null
+                                       },
+                         "activeImportRunId":  null,
+                         "activePackageHash":  null,
+                         "snapshotAsOfUtc":  "2026-07-30T13:13:29.565",
+                         "lastSuccessfulImportUtc":  null,
+                         "lastSuccessfulSourceCheckUtc":  null,
+                         "lastFullQualificationUtc":  null,
+                         "warningCount":  0,
+                         "unresolvedCount":  null,
+                         "ambiguousCount":  null,
+                         "recommendedOperatorAction":  "Qualification required: MASTER-DATA-REFRESH-001"
+                     },
+                     {
+                         "datasetId":  "reference-code",
+                         "displayName":  "Code References",
+                         "state":  "ReadyWithWarning",
+                         "stateReason":  "Baseline is qualified; repeated complete-source refresh requires a separately qualified runner.",
+                         "refreshCapability":  "RefreshQualificationRequired",
+                         "refreshMethod":  "CompleteMasterRead",
+                         "estimatedDurationClass":  "Short",
+                         "supportsSourceCheck":  false,
+                         "supportsRoutineRefresh":  false,
+                         "supportsForceFull":  false,
+                         "supportsReconciliation":  false,
+                         "requiresQuietWindow":  false,
+                         "sourceAccessMode":  "MODE=\"O_RDONLY\"",
+                         "dependencies":  [
+
+                                          ],
+                         "followOnMilestone":  "MASTER-DATA-REFRESH-001",
+                         "operatorMessage":  "Baseline is qualified; repeated complete-source refresh requires a separately qualified runner.",
+                         "metadata":  {
+                                          "referenceCodeImportRunId":  "36c23ba1-b09d-4df8-a794-6e324f46b483",
+                                          "sourceQualificationRunId":  "SUPPORTING_CODE_TABLES_PLATFORM_001-20260730T134103634Z-A0F9F84F",
+                                          "packageSha256":  "1372431D5A281E0104D1D54B1F3C2013E3BCA0488A804FA05ABC831C088E8EAD",
+                                          "contractVersion":  "REFERENCE_CODE_1.0",
+                                          "snapshotAsOfUtc":  "2026-07-30T13:52:16.374",
+                                          "referenceCodeCount":  1209,
+                                          "relationshipCount":  0,
+                                          "usageEvidenceCount":  1448,
+                                          "resolvedCount":  246,
+                                          "unresolvedCount":  868,
+                                          "ambiguousCount":  0,
+                                          "genericSystemCount":  76,
+                                          "canonicalEnumCount":  19,
+                                          "restrictedSourceRecordCount":  4,
+                                          "importStatus":  "COMMITTED"
+                                      },
+                         "rowCounts":  {
+                                           "ReferenceCode":  1209,
+                                           "ReferenceCodeRelationship":  null
+                                       },
+                         "activeImportRunId":  null,
+                         "activePackageHash":  null,
+                         "snapshotAsOfUtc":  "2026-07-30T13:52:16.374",
+                         "lastSuccessfulImportUtc":  null,
+                         "lastSuccessfulSourceCheckUtc":  null,
+                         "lastFullQualificationUtc":  null,
+                         "warningCount":  0,
+                         "unresolvedCount":  868,
+                         "ambiguousCount":  0,
+                         "recommendedOperatorAction":  "Qualification required: MASTER-DATA-REFRESH-001"
+                     }
+                 ],
+    "runningOperations":  [
+
+                          ],
+    "sharedRuntimeHealth":  {
+                                "liveApi":  "Reachable",
+                                "refreshControlHost":  "Ready",
+                                "frontend":  "Reachable"
+                            },
+    "ports":  {
+                  "frontend":  5041,
+                  "liveApi":  5042,
+                  "refreshControlHost":  5043,
+                  "promotionBroker":  5044
+              },
+    "frontendBuildId":  "20260730T150842Z-5B1E030B115F",
+    "liveApiContractVersion":  "live-readiness-v2",
+    "sourceCheckReadiness":  {
+                                 "dataEnvironment":  "LIVE",
+                                 "database":  "DLE_OS_CANONICAL_LIVE",
+                                 "contractVersion":  "1.2",
+                                 "apiContractVersion":  "live-readiness-v2",
+                                 "readinessVerdict":  "Ready",
+                                 "readinessState":  "ReadyFresh",
+                                 "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                                 "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                                 "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                                 "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                                 "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                                 "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                                 "snapshotAgeSeconds":  52274,
+                                 "sourceCheckedAtUtc":  "2026-07-30T02:34:18.0112735Z",
+                                 "sourceCheckAgeSeconds":  45286,
+                                 "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                                 "qualificationAgeSeconds":  52185,
+                                 "sourceChangeStatus":  "Unchanged",
+                                 "lastSourceCheckResult":  "NO_SOURCE_CHANGES",
+                                 "freshnessStatus":  "Fresh",
+                                 "warnings":  [
+
+                                              ],
+                                 "hardFailures":  [
+
+                                                  ],
+                                 "entityCounts":  {
+                                                      "billOfMaterial":  1290,
+                                                      "inventoryItem":  28662,
+                                                      "workOrder":  12113,
+                                                      "generalLedgerAccount":  257
+                                                  },
+                                 "totalCount":  42322,
+                                 "checks":  [
+                                                {
+                                                    "name":  "dataEnvironment",
+                                                    "passed":  true,
+                                                    "message":  "Snapshot environment is LIVE."
+                                                },
+                                                {
+                                                    "name":  "database",
+                                                    "passed":  true,
+                                                    "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                                },
+                                                {
+                                                    "name":  "contractVersion",
+                                                    "passed":  true,
+                                                    "message":  "Stored contract version is V1.2."
+                                                },
+                                                {
+                                                    "name":  "importRun",
+                                                    "passed":  true,
+                                                    "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                                },
+                                                {
+                                                    "name":  "mirrorRun",
+                                                    "passed":  true,
+                                                    "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                                },
+                                                {
+                                                    "name":  "packageHash",
+                                                    "passed":  true,
+                                                    "message":  "Current package hash matches the qualified package."
+                                                },
+                                                {
+                                                    "name":  "entityCounts",
+                                                    "passed":  true,
+                                                    "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                                },
+                                                {
+                                                    "name":  "operationalStatus",
+                                                    "passed":  true,
+                                                    "message":  "Separated snapshot/source-check/qualification status is present."
+                                                }
+                                            ]
+                             },
+    "warnings":  [
+                     "Customer Master: Baseline is qualified; repeated live extraction and deletion detection require separate refresh qualification.",
+                     "Vendor Master: Baseline is qualified; repeated live extraction and deletion detection require separate refresh qualification.",
+                     "Purchase Orders: Focused Purchase Order refresh is intentionally disabled pending source-selection and reconciliation qualification.",
+                     "Receiving History: Historical baseline is qualified; bounded overlap refresh remains unimplemented.",
+                     "Employee Reference: Operational baseline is qualified; payroll and security content remain excluded and repeated refresh requires qualification.",
+                     "Code References: Baseline is qualified; repeated complete-source refresh requires a separately qualified runner."
+                 ]
+}

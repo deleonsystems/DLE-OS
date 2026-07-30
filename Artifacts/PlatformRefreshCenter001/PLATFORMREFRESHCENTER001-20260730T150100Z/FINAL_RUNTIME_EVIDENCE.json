@@ -1,0 +1,124 @@
+﻿{
+    "CapturedAtUtc":  "2026-07-30T15:19:48.5326567+00:00",
+    "Ports":  [
+                  {
+                      "Port":  5041,
+                      "ListenerPid":  25672
+                  },
+                  {
+                      "Port":  5042,
+                      "ListenerPid":  33084
+                  },
+                  {
+                      "Port":  5043,
+                      "ListenerPid":  4
+                  },
+                  {
+                      "Port":  5044,
+                      "ListenerPid":  4
+                  }
+              ],
+    "NamedProcesses":  [
+                           {
+                               "Name":  "DleOs.LiveSnapshotRefresh.ControlHost.exe",
+                               "Pid":  31116,
+                               "Owner":  "DLE-OS-HOST\\DLE-OS",
+                               "Started":  "\/Date(1785424517024)\/"
+                           },
+                           {
+                               "Name":  "DleOs.LiveSnapshotRefresh.PromotionHost.exe",
+                               "Pid":  22212,
+                               "Owner":  "DLE-OS-HOST\\DLE-OS",
+                               "Started":  "\/Date(1785267949647)\/"
+                           }
+                       ],
+    "LiveApi":  {
+                    "Owner":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+                    "Pid":  33084
+                },
+    "Readiness":  {
+                      "dataEnvironment":  "LIVE",
+                      "database":  "DLE_OS_CANONICAL_LIVE",
+                      "contractVersion":  "1.2",
+                      "apiContractVersion":  "live-readiness-v2",
+                      "readinessVerdict":  "Ready",
+                      "readinessState":  "ReadyFresh",
+                      "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                      "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                      "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                      "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                      "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                      "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                      "snapshotAgeSeconds":  52916,
+                      "sourceCheckedAtUtc":  "2026-07-30T15:12:09.3277821Z",
+                      "sourceCheckAgeSeconds":  457,
+                      "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                      "qualificationAgeSeconds":  52827,
+                      "sourceChangeStatus":  "Unchanged",
+                      "lastSourceCheckResult":  "NO_SOURCE_CHANGES",
+                      "freshnessStatus":  "Fresh",
+                      "warnings":  [
+
+                                   ],
+                      "hardFailures":  [
+
+                                       ],
+                      "entityCounts":  {
+                                           "billOfMaterial":  1290,
+                                           "inventoryItem":  28662,
+                                           "workOrder":  12113,
+                                           "generalLedgerAccount":  257
+                                       },
+                      "totalCount":  42322,
+                      "checks":  [
+                                     {
+                                         "name":  "dataEnvironment",
+                                         "passed":  true,
+                                         "message":  "Snapshot environment is LIVE."
+                                     },
+                                     {
+                                         "name":  "database",
+                                         "passed":  true,
+                                         "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                     },
+                                     {
+                                         "name":  "contractVersion",
+                                         "passed":  true,
+                                         "message":  "Stored contract version is V1.2."
+                                     },
+                                     {
+                                         "name":  "importRun",
+                                         "passed":  true,
+                                         "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                     },
+                                     {
+                                         "name":  "mirrorRun",
+                                         "passed":  true,
+                                         "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                     },
+                                     {
+                                         "name":  "packageHash",
+                                         "passed":  true,
+                                         "message":  "Current package hash matches the qualified package."
+                                     },
+                                     {
+                                         "name":  "entityCounts",
+                                         "passed":  true,
+                                         "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                     },
+                                     {
+                                         "name":  "operationalStatus",
+                                         "passed":  true,
+                                         "message":  "Separated snapshot/source-check/qualification status is present."
+                                     }
+                                 ]
+                  },
+    "Frontend":  {
+                     "frontendBuildId":  "20260730T151518Z-5B1E030B115F",
+                     "publishedAtUtc":  "2026-07-30T15:15:18.2379918+00:00",
+                     "manifestSha256":  "E923A816F0675BD5ED9AB7EE65A79491FF7B640E74A5CFD7BED7CB2843F18CCF"
+                 },
+    "MissionRefreshProcesses":  [
+
+                                ]
+}

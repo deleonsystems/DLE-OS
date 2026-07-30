@@ -171,7 +171,15 @@
         cache: 'no-store',
         credentials: 'include',
         signal: options.signal,
-        headers: { Accept: 'application/json' }
+        headers: {
+          Accept: 'application/json',
+          ...(options.body === undefined
+            ? {}
+            : { 'Content-Type': 'application/json' })
+        },
+        body: options.body === undefined
+          ? undefined
+          : JSON.stringify(options.body)
       }
     );
     let body = null;
@@ -689,6 +697,45 @@
       return requestLiveSnapshotRefresh(
         '/api/platform/refresh/invoice-history/v1/run',
         { ...options, method: 'POST' }
+      );
+    },
+    getRefreshCenterStatus(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/refresh-center/v1/status',
+        options
+      );
+    },
+    getRefreshCenterDataset(datasetId, options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/refresh-center/v1/datasets/' +
+          encodeURIComponent(String(datasetId || '')),
+        options
+      );
+    },
+    getRefreshCenterRuns(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/refresh-center/v1/runs',
+        options
+      );
+    },
+    checkRefreshCenterDatasetSource(datasetId, options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/refresh-center/v1/datasets/' +
+          encodeURIComponent(String(datasetId || '')) + '/check-source',
+        { ...options, method: 'POST' }
+      );
+    },
+    refreshRefreshCenterDataset(datasetId, request = {}, options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/refresh-center/v1/datasets/' +
+          encodeURIComponent(String(datasetId || '')) + '/refresh',
+        { ...options, method: 'POST', body: request }
+      );
+    },
+    runRefreshCenterForceFull(request, options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/refresh-center/v1/core/force-full',
+        { ...options, method: 'POST', body: request }
       );
     },
     baseUrl: LIVE_CANONICAL_BASE_URL,

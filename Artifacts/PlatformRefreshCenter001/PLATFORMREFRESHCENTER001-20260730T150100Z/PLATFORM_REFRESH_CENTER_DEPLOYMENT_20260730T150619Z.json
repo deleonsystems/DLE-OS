@@ -1,0 +1,18 @@
+﻿{
+    "Verdict":  "FAIL",
+    "DeployedAtUtc":  "2026-07-30T15:08:03.6089059+00:00",
+    "DeploymentIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "PreviousProcessIds":  [
+                               3364
+                           ],
+    "ControlHostRuntime":  "C:\\Program Files\\DLE-OS\\LiveSnapshotRefreshControl",
+    "RuntimeBackup":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PlatformRefreshCenter001\\PLATFORMREFRESHCENTER001-20260730T150100Z\\ControlHostRuntimeBackup-20260730T150803Z",
+    "FrontendPromoted":  false,
+    "ExistingQualifiedRunnersModified":  false,
+    "LiveApiModified":  false,
+    "VProSourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "Error":  "The process cannot access the file \u0027C:\\Program Files\\DLE-OS\\LiveSnapshotRefreshControl\\DleOs.LiveSnapshotRefresh.ControlHost.dll\u0027 because it is being used by another process.",
+    "ControlHostRollback":  "PASS"
+}

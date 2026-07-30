@@ -1,0 +1,13 @@
+DatasetId,Dataset,ExistingQualifiedCapability,Method,OperatorAction,FollowOn
+bill-of-material,Bills of Material,Core governed refresh,MetadataSourceCheck then FullGovernedSnapshot,Check Source,CORE-OPERATIONAL-REFRESH-001
+inventory-item,Inventory Items,Core governed refresh,MetadataSourceCheck then FullGovernedSnapshot,Check Source,CORE-OPERATIONAL-REFRESH-001
+work-order,Work Orders,Core governed refresh,MetadataSourceCheck then FullGovernedSnapshot,Check Source,CORE-OPERATIONAL-REFRESH-001
+general-ledger-account,General Ledger Accounts,Core governed refresh,MetadataSourceCheck then FullGovernedSnapshot,Check Source,CORE-OPERATIONAL-REFRESH-001
+sales-order,Sales Orders,Core governed refresh with two-pass WOE-03,MetadataSourceCheck then FullGovernedSnapshot,Check Source,CORE-OPERATIONAL-REFRESH-001
+invoice-history,Invoice History,Qualified routine refresh,BoundedOverlapUpsert,Refresh,INVOICE-HISTORY-RECONCILIATION-001
+customer-master,Customer Master,Baseline import only,CompleteMasterRead,Disabled,MASTER-DATA-REFRESH-001
+vendor-master,Vendor Master,Baseline import only,CompleteMasterRead,Disabled,MASTER-DATA-REFRESH-001
+purchase-order,Purchase Orders,Baseline import only,OpenTransactionRefresh,Disabled,PURCHASE-ORDER-REFRESH-001
+receiving-history,Receiving History,Baseline import only,BoundedOverlapUpsert,Disabled,RECEIVING-HISTORY-REFRESH-001
+employee-reference,Employee Reference,Baseline import only,CompleteMasterRead,Disabled,MASTER-DATA-REFRESH-001
+reference-code,Code References,Baseline import only,CompleteMasterRead,Disabled,MASTER-DATA-REFRESH-001

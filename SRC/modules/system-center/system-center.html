@@ -8,6 +8,34 @@
       </div>
     </div>
 
+    <!-- SECTION 505: HTML - PLATFORM REFRESH CENTER -->
+    <section class="platform-refresh-center" aria-labelledby="platformRefreshCenterTitle">
+      <div class="system-center-section-header">
+        <div>
+          <div class="module-eyebrow">Governed Platform Operations</div>
+          <h3 id="platformRefreshCenterTitle">Refresh Center</h3>
+          <p>Monitor the twelve qualified Platform datasets and start only explicitly approved read-only ERP refresh operations.</p>
+        </div>
+        <div class="system-center-section-actions">
+          <button type="button" onclick="refreshPlatformRefreshCenter()">Refresh Status</button>
+          <button type="button" class="refresh-center-force-button" onclick="runPlatformForceFullRefresh()">Force-Full Core Snapshot…</button>
+        </div>
+      </div>
+
+      <div id="platformRefreshCenterSummary" class="refresh-center-summary" role="status" aria-live="polite">
+        Loading governed refresh status…
+      </div>
+      <div id="platformRefreshCenterWarnings" class="refresh-center-warnings" hidden></div>
+      <div id="platformRefreshCenterGrid" class="refresh-center-grid">
+        <div class="refresh-center-empty">Refresh status has not loaded.</div>
+      </div>
+
+      <details class="refresh-center-runs">
+        <summary>Recent governed refresh requests</summary>
+        <div id="platformRefreshCenterRuns">No Refresh Center requests recorded.</div>
+      </details>
+    </section>
+
     <!-- SECTION 510: HTML - MASTER DATA DASHBOARD AND VIEWER -->
     <section class="system-center-master-data-section">
       <h3>Master Data</h3>

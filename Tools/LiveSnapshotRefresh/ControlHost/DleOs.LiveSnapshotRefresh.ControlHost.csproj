@@ -5,4 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>DleOs.LiveSnapshotRefresh.ControlHost</AssemblyName>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Include="..\..\PlatformRefreshCenter\PlatformRefreshRegistry.json"
+             Link="PlatformRefreshRegistry.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
