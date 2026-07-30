@@ -1,0 +1,66 @@
+﻿{
+    "Experiment":  "A",
+    "StartedBy":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  false,
+    "HarnessExitCode":  0,
+    "AttemptId":  "RECEIVING_HISTORY_SOURCE_IDENTITY_A-20260730T042817137Z-93D6D5E0",
+    "AttemptRoot":  "C:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistorySourceIdentity\\Attempts\\RECEIVING_HISTORY_SOURCE_IDENTITY_A-20260730T042817137Z-93D6D5E0",
+    "Verdict":  "PASS",
+    "FailureCategory":  null,
+    "SourceAccessMode":  "NOT_OPENED",
+    "SourceWrites":  0,
+    "SourceLocks":  0,
+    "MissionOwnedProcessesRemaining":  0,
+    "FileSystemIdentityBefore":  [
+                                     {
+                                         "Path":  "X:\\AON\\ADATA\\POT-03",
+                                         "Length":  512,
+                                         "CreationTimeUtc":  "2011-10-07T18:35:24.9750000Z",
+                                         "LastWriteTimeUtc":  "2011-10-07T18:25:44.0000000Z",
+                                         "Attributes":  "Archive",
+                                         "ObservedAtUtc":  "2026-07-30T04:28:11.8166640+00:00"
+                                     },
+                                     {
+                                         "Path":  "X:\\AON\\ADATA\\POT-04",
+                                         "Length":  12362240,
+                                         "CreationTimeUtc":  "2011-10-07T18:35:24.9800000Z",
+                                         "LastWriteTimeUtc":  "2026-07-28T18:28:04.1270000Z",
+                                         "Attributes":  "Archive",
+                                         "ObservedAtUtc":  "2026-07-30T04:28:11.8186717+00:00"
+                                     },
+                                     {
+                                         "Path":  "X:\\AON\\ADATA\\POT-14",
+                                         "Length":  61265408,
+                                         "CreationTimeUtc":  "2011-10-07T18:35:25.8910000Z",
+                                         "LastWriteTimeUtc":  "2026-07-28T18:28:04.1840000Z",
+                                         "Attributes":  "Archive",
+                                         "ObservedAtUtc":  "2026-07-30T04:28:11.8206787+00:00"
+                                     }
+                                 ],
+    "FileSystemIdentityAfter":  [
+                                    {
+                                        "Path":  "X:\\AON\\ADATA\\POT-03",
+                                        "Length":  512,
+                                        "CreationTimeUtc":  "2011-10-07T18:35:24.9750000Z",
+                                        "LastWriteTimeUtc":  "2011-10-07T18:25:44.0000000Z",
+                                        "Attributes":  "Archive",
+                                        "ObservedAtUtc":  "2026-07-30T04:28:18.8912756+00:00"
+                                    },
+                                    {
+                                        "Path":  "X:\\AON\\ADATA\\POT-04",
+                                        "Length":  12362240,
+                                        "CreationTimeUtc":  "2011-10-07T18:35:24.9800000Z",
+                                        "LastWriteTimeUtc":  "2026-07-28T18:28:04.1270000Z",
+                                        "Attributes":  "Archive",
+                                        "ObservedAtUtc":  "2026-07-30T04:28:18.8912756+00:00"
+                                    },
+                                    {
+                                        "Path":  "X:\\AON\\ADATA\\POT-14",
+                                        "Length":  61265408,
+                                        "CreationTimeUtc":  "2011-10-07T18:35:25.8910000Z",
+                                        "LastWriteTimeUtc":  "2026-07-28T18:28:04.1840000Z",
+                                        "Attributes":  "Archive",
+                                        "ObservedAtUtc":  "2026-07-30T04:28:18.8932820+00:00"
+                                    }
+                                ]
+}

@@ -1,0 +1,98 @@
+{
+    "Verdict":  "PASS",
+    "FailureCategory":  null,
+    "Error":  null,
+    "Mission":  "RECEIVING_HISTORY_SOURCE_IDENTITY_G",
+    "AttemptId":  "RECEIVING_HISTORY_SOURCE_IDENTITY_G-20260730T050316102Z-8D934ED1",
+    "AttemptRoot":  "C:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistorySourceIdentity\\Attempts\\RECEIVING_HISTORY_SOURCE_IDENTITY_G-20260730T050316102Z-8D934ED1",
+    "StartedAtUtc":  "2026-07-30T05:03:16.1095552+00:00",
+    "CompletedAtUtc":  "2026-07-30T05:03:17.5825775+00:00",
+    "Identity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  false,
+    "SourceAccessMode":  "O_RDONLY",
+    "SourceIdentityBefore":  [
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\POT-03",
+                                     "Length":  512,
+                                     "LastWriteTimeUtc":  "2011-10-07T18:25:44.0000000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\POT-04",
+                                     "Length":  12362240,
+                                     "LastWriteTimeUtc":  "2026-07-28T18:28:04.1270000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\POT-14",
+                                     "Length":  61265408,
+                                     "LastWriteTimeUtc":  "2026-07-28T18:28:04.1840000Z",
+                                     "Attributes":  "Archive"
+                                 }
+                             ],
+    "SourceIdentityAfter":  [
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\POT-03",
+                                    "Length":  512,
+                                    "LastWriteTimeUtc":  "2011-10-07T18:25:44.0000000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\POT-04",
+                                    "Length":  12362240,
+                                    "LastWriteTimeUtc":  "2026-07-28T18:28:04.1270000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\POT-14",
+                                    "Length":  61265408,
+                                    "LastWriteTimeUtc":  "2026-07-28T18:28:04.1840000Z",
+                                    "Attributes":  "Archive"
+                                }
+                            ],
+    "SourceIdentityStable":  true,
+    "SourceWrites":  0,
+    "SourceLocks":  0,
+    "MissionOwnedProcessesRemaining":  0,
+    "Processes":  [
+                      {
+                          "AttemptId":  "RECEIVING_HISTORY_SOURCE_IDENTITY_G-20260730T050316102Z-8D934ED1",
+                          "Role":  "COMPILER",
+                          "ProcessId":  24720,
+                          "ParentProcessId":  30420,
+                          "Executable":  "C:\\BASIS\\VPRO5\\pro5cpl.exe",
+                          "Arguments":  [
+                                            "-dC:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistorySourceIdentity\\Attempts\\RECEIVING_HISTORY_SOURCE_IDENTITY_G-20260730T050316102Z-8D934ED1\\Programs",
+                                            "C:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistorySourceIdentity\\Attempts\\RECEIVING_HISTORY_SOURCE_IDENTITY_G-20260730T050316102Z-8D934ED1\\Compile\\RECEIVING_HISTORY_SOURCE_IDENTITY_EXPERIMENT.src"
+                                        ],
+                          "StartTimeUtc":  "2026-07-30T05:03:16.2316775Z",
+                          "CapturedDirectlyAtLaunch":  true
+                      },
+                      {
+                          "AttemptId":  "RECEIVING_HISTORY_SOURCE_IDENTITY_G-20260730T050316102Z-8D934ED1",
+                          "Role":  "QUALIFIER",
+                          "ProcessId":  28208,
+                          "ParentProcessId":  30420,
+                          "Executable":  "C:\\BASIS\\VPRO5\\vpro5.exe",
+                          "Arguments":  [
+                                            "-tT0",
+                                            "-nT0",
+                                            "-m1024",
+                                            "-cC:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistorySourceIdentity\\Attempts\\RECEIVING_HISTORY_SOURCE_IDENTITY_G-20260730T050316102Z-8D934ED1\\Programs\\config.aon",
+                                            "RECEIVING_HISTORY_SOURCE_IDENTITY_EXPERIMENT"
+                                        ],
+                          "StartTimeUtc":  "2026-07-30T05:03:16.3047548Z",
+                          "CapturedDirectlyAtLaunch":  true
+                      }
+                  ],
+    "Cleanup":  [
+
+                ],
+    "RetryHistory":  [
+                         {
+                             "AttemptId":  "RECEIVING_HISTORY_SOURCE_IDENTITY_G-20260730T050316102Z-8D934ED1",
+                             "Verdict":  "PASS",
+                             "FailureCategory":  null
+                         }
+                     ]
+}
