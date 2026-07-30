@@ -62,7 +62,14 @@ $runRoot = Join-Path $runs $runId
 $package = Join-Path $runRoot 'Package'
 $started = [DateTimeOffset]::UtcNow
 
-function Write-Status([string] $Result, [string] $Message, [object] $Details) {
+function Write-Status(
+    [string] $Result,
+    [string] $Message,
+    [object] $Details,
+    [string] $CurrentPhase = '',
+    [object] $RecordsProcessed = $null,
+    [object] $RecordsExpected = $null
+) {
     $value = [ordered]@{
         Result = $Result
         Message = $Message
@@ -74,6 +81,9 @@ function Write-Status([string] $Result, [string] $Message, [object] $Details) {
         SourceOpenMode = 'O_RDONLY'
         SourceWrites = 0
         SourceLocksRequested = 0
+        CurrentPhase = $CurrentPhase
+        RecordsProcessed = $RecordsProcessed
+        RecordsExpected = $RecordsExpected
         Details = $Details
     }
     $stage = Join-Path $stateRoot ".$runId.status"
@@ -84,7 +94,9 @@ function Write-Status([string] $Result, [string] $Message, [object] $Details) {
 }
 
 try {
-    Write-Status 'RUNNING' 'Reading the complete qualified Customer Master.' $null
+    Write-Status 'RUNNING' (
+        'Reading the complete qualified Customer Master.') $null `
+        'Reading Customers'
     if ($QualificationHoldLockSeconds -gt 0) {
         Start-Sleep -Seconds $QualificationHoldLockSeconds
     }
@@ -97,6 +109,14 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Customer package builder returned $LASTEXITCODE."
     }
+    $packageMetadata =
+        Get-Content -LiteralPath (Join-Path $package 'metadata.json') -Raw |
+        ConvertFrom-Json
+    $customerRecordCount =
+        [long]$packageMetadata.counts.Customer +
+        [long]$packageMetadata.counts.CustomerAddress
+    Write-Status 'RUNNING' 'Comparing Customer Master package.' $null `
+        'Comparing Customers' $customerRecordCount $customerRecordCount
     $comparisonRoot = if (Test-Path -LiteralPath $current) {
         $current
     } else {
@@ -117,7 +137,8 @@ try {
             Counts = $comparison
             PriorDataRetained = $true
         }
-        Write-Status $result.Result 'Customer Master is unchanged.' $result
+        Write-Status $result.Result 'Customer Master is unchanged.' $result `
+            'Complete' $customerRecordCount $customerRecordCount
         $result | ConvertTo-Json -Depth 10
         exit 0
     }
@@ -125,6 +146,8 @@ try {
     if ($QualificationInduceFailure) {
         $importArgs.QualificationInduceFailure = $true
     }
+    Write-Status 'RUNNING' 'Updating Customer Master.' $null `
+        'Updating Customer Master' $customerRecordCount $customerRecordCount
     $importResult = & $importer @importArgs | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) {
         throw "Customer importer returned $LASTEXITCODE."
@@ -142,7 +165,8 @@ try {
         Counts = $comparison
         PriorDataRetained = $true
     }
-    Write-Status $result.Result 'Customer Master refresh completed.' $result
+    Write-Status $result.Result 'Customer Master refresh completed.' $result `
+        'Complete' $customerRecordCount $customerRecordCount
     $result | ConvertTo-Json -Depth 10
 }
 catch {

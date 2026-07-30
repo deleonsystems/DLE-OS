@@ -93,7 +93,9 @@ check(
 )
 check(
     "coordinator import ID scalar",
-    "$afterImportRunId = @(" in COORDINATOR
+    "$afterImportCandidates = @(" in COORDINATOR
+    and "@(" in COORDINATOR
+    and "[string]$afterImportCandidates[0]" in COORDINATOR
     and "AfterImportRunId = $afterImportRunId" in COORDINATOR,
 )
 check("coordinator no force full", "ForceFullExtraction" not in COORDINATOR)

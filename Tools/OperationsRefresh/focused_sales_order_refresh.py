@@ -11,12 +11,14 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 
 REPO = Path(r"C:\DLE-OS\Repositories\DLE-OS")
 ROOT = Path(r"C:\DLE-OS\Canonical\OpenSalesOrders\Refresh")
 RUNS = ROOT / "Runs"
+STATUS = ROOT / "State/status.json"
 TEMPLATE = REPO / "Tools/OperationsRefresh/VPro/OPEN_SALES_ORDER_BASE_QUALIFIER.src"
 ASSETS = Path(r"C:\DLE-OS\Canonical\LiveMirror\Refresh\Assets")
 BUILDER = ASSETS / "build_sales_order_package.py"
@@ -41,6 +43,23 @@ def identity() -> list[dict[str, object]]:
         "length": path.stat().st_size,
         "lastWriteTimeNs": path.stat().st_mtime_ns,
     } for path in SOURCES]
+
+
+def write_progress(
+        run_id: str,
+        phase: str,
+        processed: int | None = None,
+        expected: int | None = None) -> None:
+    current = json.loads(STATUS.read_text(encoding="utf-8-sig"))
+    if current.get("RefreshRunId") != run_id:
+        raise RuntimeError("focused progress status run identity mismatch")
+    current["CurrentPhase"] = phase
+    current["RecordsProcessed"] = processed
+    current["RecordsExpected"] = expected
+    current["UpdatedAtUtc"] = datetime.now(timezone.utc).isoformat()
+    stage = STATUS.with_name(f".{run_id}.progress")
+    stage.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
+    stage.replace(STATUS)
 
 
 def compile_and_run(source: Path, program_dir: Path, config: Path) -> None:
@@ -174,11 +193,16 @@ def main() -> int:
             runtime / "RUNTIME_VERDICT.txt").read_text(encoding="utf-8"):
         raise RuntimeError("focused base reader did not return PASS")
 
+    write_progress(args.run_id, "Reading Open Order Lines")
     prefixes = open_prefixes(runtime)
+    write_progress(
+        args.run_id, "Resolving Work Orders", 0, len(prefixes))
     bounded = compile_root / "OPEN_SALES_ORDER_WOE_BOUNDED.src"
     bounded.write_text(
         bounded_source(args.run_id, runtime, prefixes), encoding="ascii")
     compile_and_run(bounded, programs, config)
+    write_progress(
+        args.run_id, "Resolving Work Orders", len(prefixes), len(prefixes))
     after = identity()
     if before != after:
         raise RuntimeError("source identity changed during focused extraction")

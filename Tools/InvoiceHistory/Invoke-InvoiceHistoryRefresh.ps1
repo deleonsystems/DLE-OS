@@ -84,7 +84,10 @@ function Write-Status {
     param(
         [string] $Result,
         [string] $Message,
-        [object] $Details
+        [object] $Details,
+        [string] $CurrentPhase = '',
+        [object] $RecordsProcessed = $null,
+        [object] $RecordsExpected = $null
     )
     [ordered]@{
         Result = $Result
@@ -96,6 +99,9 @@ function Write-Status {
         UpdatedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
         ExecutionIdentity = $identity.Name
         Elevated = $false
+        CurrentPhase = $CurrentPhase
+        RecordsProcessed = $RecordsProcessed
+        RecordsExpected = $RecordsExpected
         Details = $Details
     } |
         ConvertTo-Json -Depth 8 |
@@ -105,7 +111,8 @@ function Write-Status {
 try {
     New-Item -ItemType Directory -Path $extractionRoot -Force | Out-Null
     New-Item -ItemType Directory -Path $programRoot -Force | Out-Null
-    Write-Status 'RUNNING' 'Reading the bounded Invoice History window.' $null
+    Write-Status 'RUNNING' 'Reading the bounded Invoice History window.' `
+        $null 'Reading 45-Day Window'
 
     $source = Get-Content -LiteralPath $template -Raw
     $source = $source -replace (
@@ -209,6 +216,8 @@ try {
     }
 
     $activeResult = & $exporter -RunRoot $runRoot
+    Write-Status 'RUNNING' 'Comparing recent Invoice History.' $null `
+        'Comparing Invoice History'
     $builderOutput = & $python $builder `
         --run-id $runId `
         --input-root $extractionRoot `
@@ -222,6 +231,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'Refresh package validation or comparison failed.'
     }
+    $packageProgress = $builderOutput | ConvertFrom-Json
+    $invoiceLineCount = [long]$packageProgress.counts.CustomerInvoiceLine
+    Write-Status 'RUNNING' 'Updating recent Invoice History.' $null `
+        'Updating Invoice History' $invoiceLineCount $invoiceLineCount
 
     $importArguments = @{ PackagePath = $packageRoot }
     if ($QualificationInduceFailure) {
@@ -232,12 +245,12 @@ try {
     $result = [string]$importResult.Result
     Write-Status $result 'Invoice History refresh completed.' ([ordered]@{
         SourceElapsedMilliseconds = $sourceStopwatch.ElapsedMilliseconds
-        Package = $builderOutput | ConvertFrom-Json
+        Package = $packageProgress
         Import = $importResult
         SourceOpenMode = 'O_RDONLY'
         SourceWrites = 0
         SourceLocksRequested = 0
-    })
+    }) 'Complete' $invoiceLineCount $invoiceLineCount
     Get-Content -LiteralPath $statusPath -Raw
 }
 catch {

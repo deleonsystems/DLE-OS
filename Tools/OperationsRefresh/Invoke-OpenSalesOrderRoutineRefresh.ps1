@@ -58,7 +58,14 @@ $runRoot = Join-Path $runs $runId
 $candidate = Join-Path $runRoot 'Package'
 $started = [DateTimeOffset]::UtcNow
 
-function Write-Status([string] $Result, [string] $Message, [object] $Details) {
+function Write-Status(
+    [string] $Result,
+    [string] $Message,
+    [object] $Details,
+    [string] $CurrentPhase = '',
+    [object] $RecordsProcessed = $null,
+    [object] $RecordsExpected = $null
+) {
     $value = [ordered]@{
         Result = $Result
         Message = $Message
@@ -70,6 +77,9 @@ function Write-Status([string] $Result, [string] $Message, [object] $Details) {
         SourceOpenMode = 'O_RDONLY'
         SourceWrites = 0
         SourceLocksRequested = 0
+        CurrentPhase = $CurrentPhase
+        RecordsProcessed = $RecordsProcessed
+        RecordsExpected = $RecordsExpected
         Details = $Details
     }
     $stage = Join-Path $stateRoot ".$runId.status"
@@ -81,7 +91,8 @@ function Write-Status([string] $Result, [string] $Message, [object] $Details) {
 
 $rollback = Join-Path $platformRoot ".RoutineRollback-$runId"
 try {
-    Write-Status 'RUNNING' 'Reading focused Open Sales Order sources.' $null
+    Write-Status 'RUNNING' 'Reading focused Open Sales Order sources.' $null `
+        'Reading Open Orders'
     if ($QualificationHoldLockSeconds -gt 0) {
         Start-Sleep -Seconds $QualificationHoldLockSeconds
     }
@@ -91,6 +102,9 @@ try {
     if ($LASTEXITCODE -ne 0 -or $extraction.result -cne 'PASS') {
         throw 'Focused Open Sales Order extraction did not pass.'
     }
+    $openLineCount = [long]$extraction.qualifyingLinePrefixCount
+    Write-Status 'RUNNING' 'Comparing focused Open Sales Orders.' $null `
+        'Comparing Sales Orders' $openLineCount $openLineCount
     $comparison = & $python $comparer --dataset sales-order `
         --candidate $candidate --current $current | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) {
@@ -103,7 +117,8 @@ try {
             Counts = $comparison
             PriorDataRetained = $true
         }
-        Write-Status $result.Result 'Open Sales Orders are unchanged.' $result
+        Write-Status $result.Result 'Open Sales Orders are unchanged.' $result `
+            'Complete' $openLineCount $openLineCount
         $result | ConvertTo-Json -Depth 12
         exit 0
     }
@@ -114,6 +129,8 @@ try {
     Move-Item -LiteralPath $current -Destination $rollback
     Move-Item -LiteralPath $candidate -Destination $current
     try {
+        Write-Status 'RUNNING' 'Updating Open Sales Orders.' $null `
+            'Updating Sales Orders' $openLineCount $openLineCount
         $importArgs = @{}
         if ($QualificationInduceFailure) {
             $importArgs.QualificationInduceFailure = $true
@@ -139,7 +156,8 @@ try {
         Counts = $comparison
         PriorDataRetained = $true
     }
-    Write-Status $result.Result 'Open Sales Order refresh completed.' $result
+    Write-Status $result.Result 'Open Sales Order refresh completed.' $result `
+        'Complete' $openLineCount $openLineCount
     $result | ConvertTo-Json -Depth 12
 }
 catch {

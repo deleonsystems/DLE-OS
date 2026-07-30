@@ -17,6 +17,16 @@ internal static class OperationsRefreshCenter
         @"C:\DLE-OS\Canonical\CustomerMaster\Refresh\State\status.json",
         @"C:\DLE-OS\Canonical\OpenSalesOrders\Refresh\State\status.json"
     ];
+    private static readonly IReadOnlyDictionary<string, string> StepStatusPaths =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["customer-master"] =
+                @"C:\DLE-OS\Canonical\CustomerMaster\Refresh\State\status.json",
+            ["sales-order"] =
+                @"C:\DLE-OS\Canonical\OpenSalesOrders\Refresh\State\status.json",
+            ["invoice-history"] =
+                @"C:\DLE-OS\Canonical\InvoiceHistory\Refresh\State\status.json"
+        };
     private static readonly object Gate = new();
 
     internal static void MapOperationsRefresh(
@@ -155,7 +165,68 @@ internal static class OperationsRefreshCenter
         current["nextScheduledRun"] =
             schedule["nextScheduledRunUtc"]?.DeepClone();
         current["generatedAtUtc"] = DateTimeOffset.UtcNow.ToString("O");
+        EnrichActiveProgress(current);
         return current;
+    }
+
+    private static void EnrichActiveProgress(JsonObject current)
+    {
+        var overall =
+            current["OverallStatus"]?.ToString() ??
+            current["OverallState"]?.ToString() ??
+            current["overallStatus"]?.ToString() ??
+            current["overallState"]?.ToString();
+        if (!string.Equals(overall, "Running", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+        var startedText =
+            current["StartedAt"]?.ToString() ??
+            current["StartedAtUtc"]?.ToString() ??
+            current["startedAt"]?.ToString() ??
+            current["startedAtUtc"]?.ToString();
+        if (DateTimeOffset.TryParse(startedText, out var started))
+        {
+            current["ElapsedSeconds"] = Math.Max(
+                0, (long)Math.Floor(
+                    (DateTimeOffset.UtcNow - started).TotalSeconds));
+        }
+        var stepId =
+            current["CurrentStep"]?.ToString() ??
+            current["currentStep"]?.ToString() ??
+            current["currentDatasetId"]?.ToString();
+        if (string.IsNullOrWhiteSpace(stepId) ||
+            !StepStatusPaths.TryGetValue(stepId, out var childPath))
+        {
+            return;
+        }
+        var child = ReadObject(childPath);
+        if (child is null ||
+            !string.Equals(
+                child["Result"]?.ToString() ?? child["result"]?.ToString(),
+                "RUNNING",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+        CopyProgress(child, current, "CurrentPhase");
+        CopyProgress(child, current, "RecordsProcessed");
+        CopyProgress(child, current, "RecordsExpected");
+        if ((child["UpdatedAtUtc"] ?? child["updatedAtUtc"]) is JsonNode updated)
+        {
+            current["LastProgressAt"] = updated.DeepClone();
+        }
+    }
+
+    private static void CopyProgress(
+        JsonObject source,
+        JsonObject destination,
+        string name)
+    {
+        if (source[name] is JsonNode value)
+        {
+            destination[name] = value.DeepClone();
+        }
     }
 
     private static JsonObject ReadSchedule()

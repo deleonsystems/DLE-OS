@@ -52,7 +52,7 @@ $steps = @(
     },
     [ordered]@{
         Id = 'invoice-history'
-        Name = 'Invoice History'
+        Name = 'Recent Invoice / Shipment History'
         Runner = Join-Path $repo (
             'Tools\InvoiceHistory\Invoke-InvoiceHistoryRefresh.ps1')
         Status = $invoiceStatus
@@ -142,6 +142,71 @@ $runId = 'OPERATIONSREFRESH-' +
 $runRoot = Join-Path $runsRoot $runId
 New-Item -ItemType Directory -Path $runRoot | Out-Null
 $stepResults = [Collections.Generic.List[object]]::new()
+$currentStepNumber = 0
+$currentDataset = ''
+$currentPhase = ''
+$recordsProcessed = $null
+$recordsExpected = $null
+$lastProgressAt = $nowUtc
+
+function Get-LastCompletedRunDurationSeconds {
+    if (-not (Test-Path -LiteralPath $historyPath -PathType Leaf)) {
+        return $null
+    }
+    $lines = @(Get-Content -LiteralPath $historyPath |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    for ($index = $lines.Count - 1; $index -ge 0; $index--) {
+        try {
+            $prior = $lines[$index] | ConvertFrom-Json
+            $priorStateProperty = @(
+                $prior.PSObject.Properties['OverallStatus'],
+                $prior.PSObject.Properties['OverallState']
+            ) | Where-Object { $null -ne $_ } | Select-Object -First 1
+            if (
+                $null -eq $priorStateProperty -or
+                [string]$priorStateProperty.Value -notin @(
+                    'Completed', 'NoSourceChanges',
+                    'PartialSuccess', 'Failed')
+            ) {
+                continue
+            }
+            $startedProperty = @(
+                $prior.PSObject.Properties['StartedAt'],
+                $prior.PSObject.Properties['StartedAtUtc']
+            ) | Where-Object {
+                $null -ne $_ -and
+                -not [string]::IsNullOrWhiteSpace([string]$_.Value)
+            } | Select-Object -First 1
+            $completedProperty = @(
+                $prior.PSObject.Properties['CompletedAt'],
+                $prior.PSObject.Properties['CompletedAtUtc']
+            ) | Where-Object {
+                $null -ne $_ -and
+                -not [string]::IsNullOrWhiteSpace([string]$_.Value)
+            } | Select-Object -First 1
+            $startedText = if ($null -ne $startedProperty) {
+                $startedProperty.Value
+            } else { $null }
+            $completedText = if ($null -ne $completedProperty) {
+                $completedProperty.Value
+            } else { $null }
+            if ($null -ne $startedText -and $null -ne $completedText) {
+                $priorStarted = [DateTimeOffset]::Parse([string]$startedText)
+                $priorCompleted = [DateTimeOffset]::Parse([string]$completedText)
+                return [long][Math]::Max(
+                    0, [Math]::Round(
+                        ($priorCompleted - $priorStarted).TotalSeconds))
+            }
+        }
+        catch {
+            continue
+        }
+    }
+    return $null
+}
+
+$lastCompletedRunDurationSeconds =
+    Get-LastCompletedRunDurationSeconds
 
 function Read-Json([string] $Path) {
     if (Test-Path -LiteralPath $Path -PathType Leaf) {
@@ -166,9 +231,22 @@ function Write-OperationsStatus(
     [string] $CurrentStep,
     [Nullable[DateTimeOffset]] $CompletedAt
 ) {
+    $statusNow = [DateTimeOffset]::UtcNow
     $value = [ordered]@{
         ContractVersion = 'operations-refresh-v1'
         OperationsRefreshRunId = $runId
+        OverallStatus = $State
+        CurrentStepNumber = $currentStepNumber
+        TotalSteps = $steps.Count
+        CurrentDataset = $currentDataset
+        CurrentPhase = $currentPhase
+        RecordsProcessed = $recordsProcessed
+        RecordsExpected = $recordsExpected
+        StartedAt = $nowUtc.ToString('O')
+        LastProgressAt = $lastProgressAt.ToString('O')
+        ElapsedSeconds = [long][Math]::Max(
+            0, [Math]::Floor(($statusNow - $nowUtc).TotalSeconds))
+        LastCompletedRunDurationSeconds = $lastCompletedRunDurationSeconds
         TriggerType = $Trigger
         RequestedBy = $identity.Name
         QuietWindowStatus = if ($insideApprovedWindow) {
@@ -193,8 +271,18 @@ function Write-OperationsStatus(
 }
 
 try {
+    $currentStepNumber = 1
+    $currentDataset = $steps[0].Name
+    $currentPhase = 'Starting'
     Write-OperationsStatus 'Running' 'customer-master' $null
-    foreach ($step in $steps) {
+    for ($stepIndex = 0; $stepIndex -lt $steps.Count; $stepIndex++) {
+        $step = $steps[$stepIndex]
+        $currentStepNumber = $stepIndex + 1
+        $currentDataset = $step.Name
+        $currentPhase = 'Starting'
+        $recordsProcessed = $null
+        $recordsExpected = $null
+        $lastProgressAt = [DateTimeOffset]::UtcNow
         Write-OperationsStatus 'Running' $step.Id $null
         $stepStarted = [DateTimeOffset]::UtcNow
         $log = Join-Path $runRoot "$($step.Id).log"
@@ -214,20 +302,28 @@ try {
         } else {
             'FAILED'
         }
-        $afterImportRunId = @(
-            Get-JsonProperty $state @(
-                'Details','Import','CustomerMasterImportRunId')
-            Get-JsonProperty $state @(
-                'Details','Import','SalesOrderExtensionRunId')
-            Get-JsonProperty $state @(
-                'Details','Import','InvoiceHistoryImportRunId')
-        ) | Where-Object { $null -ne $_ } | Select-Object -First 1
+        $afterImportCandidates = @(
+            @(
+                Get-JsonProperty $state @(
+                    'Details','Import','CustomerMasterImportRunId')
+                Get-JsonProperty $state @(
+                    'Details','Import','SalesOrderExtensionRunId')
+                Get-JsonProperty $state @(
+                    'Details','Import','InvoiceHistoryImportRunId')
+            ) | Where-Object { $null -ne $_ }
+        )
+        $afterImportRunId = if ($afterImportCandidates.Count -gt 0) {
+            [string]$afterImportCandidates[0]
+        } else {
+            $null
+        }
+        $stepCompleted = [DateTimeOffset]::UtcNow
         $stepResults.Add([ordered]@{
             Dataset = $step.Id
             StartedAtUtc = $stepStarted.ToString('O')
-            CompletedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
+            CompletedAtUtc = $stepCompleted.ToString('O')
             DurationMilliseconds = [long](
-                ([DateTimeOffset]::UtcNow - $stepStarted).TotalMilliseconds)
+                ($stepCompleted - $stepStarted).TotalMilliseconds)
             Result = $result
             ExitCode = $exitCode
             BeforeImportRunId = $null
@@ -245,6 +341,9 @@ try {
             FailureReason =
                 Get-JsonProperty $state @('Details','FailureReason')
         })
+        $currentPhase = 'Complete'
+        $lastProgressAt = $stepCompleted
+        Write-OperationsStatus 'Running' $step.Id $null
     }
     $failed = @($stepResults | Where-Object Result -in @('FAILED', 'BLOCKED'))
     $successful = @($stepResults | Where-Object Result -in @(
@@ -260,12 +359,33 @@ try {
         'Completed'
     }
     $completed = [DateTimeOffset]::UtcNow
+    $currentStepNumber = 0
+    $currentDataset = ''
+    $currentPhase = 'Complete'
+    $recordsProcessed = $null
+    $recordsExpected = $null
+    $lastProgressAt = $completed
+    $lastCompletedRunDurationSeconds = [long][Math]::Max(
+        0, [Math]::Round(($completed - $nowUtc).TotalSeconds))
     Write-OperationsStatus $overall '' $completed
     $final = Read-Json $statusPath
     $final | ConvertTo-Json -Depth 14 -Compress |
         Add-Content -LiteralPath $historyPath -Encoding UTF8
     $final | ConvertTo-Json -Depth 14
     if ($overall -in @('Failed', 'PartialSuccess')) { exit 1 }
+}
+catch {
+    $failedAt = [DateTimeOffset]::UtcNow
+    $currentPhase = 'Failed'
+    $lastProgressAt = $failedAt
+    $lastCompletedRunDurationSeconds = [long][Math]::Max(
+        0, [Math]::Round(($failedAt - $nowUtc).TotalSeconds))
+    Write-OperationsStatus 'Failed' $steps[
+        [Math]::Max(0, $currentStepNumber - 1)].Id $failedAt
+    $failedStatus = Read-Json $statusPath
+    $failedStatus | ConvertTo-Json -Depth 14 -Compress |
+        Add-Content -LiteralPath $historyPath -Encoding UTF8
+    throw
 }
 finally {
     if ($lock) { $lock.Dispose() }

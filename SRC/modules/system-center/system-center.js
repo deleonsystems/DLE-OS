@@ -2,8 +2,10 @@
   'use strict';
 
   const SHIPMENT_HISTORY_VIEWER_PATH = 'DATA/shipment-history/shipment-history.json';
+  const OPERATIONS_REFRESH_POLL_INTERVAL_MS = 3000;
   let platformRefreshCenterBusy = false;
   let operationsRefreshScheduleEnabled = false;
+  let operationsRefreshPollTimer = null;
 
   const shipmentHistoryDataViewerState = {
     dataset: null,
@@ -95,9 +97,31 @@
     try {
       const status = await window.DleApiClient.liveCanonical.getOperationsRefreshStatus();
       const schedule = status.schedule || status.Schedule || {};
-      const overallState = status.overallState || status.OverallState || 'NeverRun';
+      const overallState =
+        status.overallStatus || status.OverallStatus ||
+        status.overallState || status.OverallState || 'NeverRun';
       const nextScheduledRun = status.nextScheduledRun || status.NextScheduledRun;
       const currentStep = status.currentStep || status.CurrentStep || '—';
+      const currentStepNumber =
+        Number(status.currentStepNumber ?? status.CurrentStepNumber ?? 0);
+      const totalSteps = Number(status.totalSteps ?? status.TotalSteps ?? 3);
+      const currentDataset =
+        status.currentDataset || status.CurrentDataset || currentStep;
+      const currentPhase = status.currentPhase || status.CurrentPhase || '—';
+      const recordsProcessed =
+        status.recordsProcessed ?? status.RecordsProcessed;
+      const recordsExpected =
+        status.recordsExpected ?? status.RecordsExpected;
+      const elapsedSeconds =
+        status.elapsedSeconds ?? status.ElapsedSeconds;
+      const lastProgressAt =
+        status.lastProgressAt || status.LastProgressAt;
+      const startedAt = status.startedAt || status.StartedAt ||
+        status.startedAtUtc || status.StartedAtUtc;
+      const lastDuration =
+        status.lastCompletedRunDurationSeconds ??
+        status.LastCompletedRunDurationSeconds;
+      const running = overallState.toLowerCase() === 'running';
       const operationsRefreshRunId =
         status.operationsRefreshRunId || status.OperationsRefreshRunId || '—';
       operationsRefreshScheduleEnabled = Boolean(schedule.automaticEnabled);
@@ -109,27 +133,93 @@
         <div><span>Next run</span><strong>${escapeShipmentHistoryViewerHtml(formatRefreshCenterDate(nextScheduledRun))}</strong></div>
         <div><span>Run ID</span><strong>${escapeShipmentHistoryViewerHtml(operationsRefreshRunId)}</strong></div>
         <div><span>Last result</span><strong>${escapeShipmentHistoryViewerHtml(overallState)}</strong></div>
-        <div><span>Current step</span><strong>${escapeShipmentHistoryViewerHtml(currentStep)}</strong></div>`;
+        <div><span>${running ? 'Started' : 'Last run'}</span><strong>${escapeShipmentHistoryViewerHtml(formatRefreshCenterDate(startedAt))}</strong></div>
+        <div><span>${running ? 'Previous run duration' : 'Duration'}</span><strong>${escapeShipmentHistoryViewerHtml(formatOperationsRefreshDuration(lastDuration))}</strong></div>
+        ${running ? `
+          <div><span>Current step</span><strong>${escapeShipmentHistoryViewerHtml(`Step ${currentStepNumber} of ${totalSteps}: ${currentDataset}`)}</strong></div>
+          <div><span>Phase</span><strong>${escapeShipmentHistoryViewerHtml(currentPhase)}</strong></div>
+          <div><span>Records</span><strong>${escapeShipmentHistoryViewerHtml(formatOperationsRefreshRecords(recordsProcessed, recordsExpected))}</strong></div>
+          <div><span>Elapsed</span><strong>${escapeShipmentHistoryViewerHtml(formatOperationsRefreshDuration(elapsedSeconds))}</strong></div>
+          <div><span>Last progress</span><strong>${escapeShipmentHistoryViewerHtml(formatOperationsRefreshAge(lastProgressAt))}</strong></div>`
+          : ''}`;
       toggle.textContent = operationsRefreshScheduleEnabled
         ? 'Disable Automatic Refresh'
         : 'Enable Automatic Refresh';
       const results = Array.isArray(status.stepResults)
         ? status.stepResults
         : (Array.isArray(status.StepResults) ? status.StepResults : []);
-      steps.innerHTML = results.length
-        ? results.map((result) => `
+      const completedByDataset = new Map(results.map((result) => [
+        result.dataset || result.Dataset,
+        result
+      ]));
+      const datasets = [
+        ['customer-master', 'Customer Master'],
+        ['sales-order', 'Open Sales Orders'],
+        ['invoice-history', 'Recent Invoice / Shipment History']
+      ];
+      steps.innerHTML = datasets.map(([id, label], index) => {
+        const result = completedByDataset.get(id);
+        if (result) {
+          return `
             <div class="operations-refresh-step">
-              <strong>${escapeShipmentHistoryViewerHtml(result.dataset || result.Dataset || 'Dataset')}</strong>
+              <strong>${escapeShipmentHistoryViewerHtml(label)}</strong>
               <span>${escapeShipmentHistoryViewerHtml(result.result || result.Result || 'Unknown')}</span>
-              <span>${escapeShipmentHistoryViewerHtml(String(result.inserted ?? result.Inserted ?? 0))} inserted</span>
-              <span>${escapeShipmentHistoryViewerHtml(String(result.updated ?? result.Updated ?? 0))} updated</span>
-              <span>${escapeShipmentHistoryViewerHtml(String(result.missing ?? result.Missing ?? 0))} missing</span>
-            </div>`).join('')
-        : 'No coordinated run recorded.';
+              <span>${escapeShipmentHistoryViewerHtml(formatOperationsRefreshDuration(
+                Number(result.durationMilliseconds ?? result.DurationMilliseconds ?? 0) / 1000
+              ))}</span>
+            </div>`;
+        }
+        const isCurrent = running && currentStepNumber === index + 1;
+        return `
+          <div class="operations-refresh-step">
+            <strong>${escapeShipmentHistoryViewerHtml(label)}</strong>
+            <span>${isCurrent ? 'Running' : 'Waiting'}</span>
+            ${isCurrent ? `<span>${escapeShipmentHistoryViewerHtml(currentPhase)}</span>` : ''}
+          </div>`;
+      }).join('');
+      scheduleOperationsRefreshPoll(running);
     } catch (error) {
       state.textContent = 'Unavailable';
       steps.textContent = `Operations Refresh status unavailable: ${error.message || error}`;
+      scheduleOperationsRefreshPoll(true);
     }
+  }
+
+  function scheduleOperationsRefreshPoll(active) {
+    if (operationsRefreshPollTimer !== null) {
+      window.clearTimeout(operationsRefreshPollTimer);
+      operationsRefreshPollTimer = null;
+    }
+    if (!active || !document.getElementById('operationsRefreshState')) return;
+    operationsRefreshPollTimer = window.setTimeout(() => {
+      operationsRefreshPollTimer = null;
+      refreshOperationsRefreshStatus();
+    }, OPERATIONS_REFRESH_POLL_INTERVAL_MS);
+  }
+
+  function formatOperationsRefreshDuration(value) {
+    const seconds = Math.max(0, Math.floor(Number(value)));
+    if (!Number.isFinite(seconds)) return '—';
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    return minutes > 0 ? `${minutes}m ${remainder}s` : `${remainder}s`;
+  }
+
+  function formatOperationsRefreshAge(value) {
+    if (!value) return '—';
+    const age = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+    return Number.isFinite(age) ? `${age} seconds ago` : '—';
+  }
+
+  function formatOperationsRefreshRecords(processed, expected) {
+    if (processed === null || processed === undefined || processed === '') {
+      return '—';
+    }
+    const current = Number(processed).toLocaleString();
+    if (expected === null || expected === undefined || expected === '') {
+      return `${current} processed`;
+    }
+    return `${current} of ${Number(expected).toLocaleString()} processed`;
   }
 
   async function runOperationsRefresh() {
