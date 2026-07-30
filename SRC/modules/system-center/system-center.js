@@ -3,6 +3,7 @@
 
   const SHIPMENT_HISTORY_VIEWER_PATH = 'DATA/shipment-history/shipment-history.json';
   let platformRefreshCenterBusy = false;
+  let operationsRefreshScheduleEnabled = false;
 
   const shipmentHistoryDataViewerState = {
     dataset: null,
@@ -77,10 +78,97 @@
         : '';
       renderPlatformRefreshDatasets(status.datasets || [], grid);
       renderPlatformRefreshRuns(runs || []);
+      await refreshOperationsRefreshStatus();
     } catch (error) {
       summary.textContent = `Refresh Center unavailable: ${error.message || error}`;
       grid.innerHTML = '<div class="refresh-center-empty">Governed status could not be loaded. Existing Platform data remains read-only and unchanged.</div>';
       warnings.hidden = true;
+    }
+  }
+
+  async function refreshOperationsRefreshStatus() {
+    const state = document.getElementById('operationsRefreshState');
+    const facts = document.getElementById('operationsRefreshFacts');
+    const steps = document.getElementById('operationsRefreshSteps');
+    const toggle = document.getElementById('operationsRefreshScheduleToggle');
+    if (!state || !facts || !steps || !toggle) return;
+    try {
+      const status = await window.DleApiClient.liveCanonical.getOperationsRefreshStatus();
+      const schedule = status.schedule || status.Schedule || {};
+      const overallState = status.overallState || status.OverallState || 'NeverRun';
+      const nextScheduledRun = status.nextScheduledRun || status.NextScheduledRun;
+      const currentStep = status.currentStep || status.CurrentStep || '—';
+      const operationsRefreshRunId =
+        status.operationsRefreshRunId || status.OperationsRefreshRunId || '—';
+      operationsRefreshScheduleEnabled = Boolean(schedule.automaticEnabled);
+      state.textContent = overallState;
+      facts.innerHTML = `
+        <div><span>Schedule</span><strong>${escapeShipmentHistoryViewerHtml(schedule.schedule || '2:00 AM Monday–Friday')}</strong></div>
+        <div><span>Quiet window</span><strong>${escapeShipmentHistoryViewerHtml(schedule.quietWindow || '00:00–05:59 Pacific')}</strong></div>
+        <div><span>Automatic</span><strong>${operationsRefreshScheduleEnabled ? 'Enabled' : 'Disabled'}</strong></div>
+        <div><span>Next run</span><strong>${escapeShipmentHistoryViewerHtml(formatRefreshCenterDate(nextScheduledRun))}</strong></div>
+        <div><span>Run ID</span><strong>${escapeShipmentHistoryViewerHtml(operationsRefreshRunId)}</strong></div>
+        <div><span>Last result</span><strong>${escapeShipmentHistoryViewerHtml(overallState)}</strong></div>
+        <div><span>Current step</span><strong>${escapeShipmentHistoryViewerHtml(currentStep)}</strong></div>`;
+      toggle.textContent = operationsRefreshScheduleEnabled
+        ? 'Disable Automatic Refresh'
+        : 'Enable Automatic Refresh';
+      const results = Array.isArray(status.stepResults)
+        ? status.stepResults
+        : (Array.isArray(status.StepResults) ? status.StepResults : []);
+      steps.innerHTML = results.length
+        ? results.map((result) => `
+            <div class="operations-refresh-step">
+              <strong>${escapeShipmentHistoryViewerHtml(result.dataset || result.Dataset || 'Dataset')}</strong>
+              <span>${escapeShipmentHistoryViewerHtml(result.result || result.Result || 'Unknown')}</span>
+              <span>${escapeShipmentHistoryViewerHtml(String(result.inserted ?? result.Inserted ?? 0))} inserted</span>
+              <span>${escapeShipmentHistoryViewerHtml(String(result.updated ?? result.Updated ?? 0))} updated</span>
+              <span>${escapeShipmentHistoryViewerHtml(String(result.missing ?? result.Missing ?? 0))} missing</span>
+            </div>`).join('')
+        : 'No coordinated run recorded.';
+    } catch (error) {
+      state.textContent = 'Unavailable';
+      steps.textContent = `Operations Refresh status unavailable: ${error.message || error}`;
+    }
+  }
+
+  async function runOperationsRefresh() {
+    if (platformRefreshCenterBusy) return;
+    const prompt = [
+      'Run Operations Refresh now?',
+      '',
+      'Customer Master, focused Open Sales Orders, and the qualified 45-day Invoice History refresh run independently.',
+      'This is not the force-full Core ERP qualification. Prior qualified data is retained if a step fails.',
+      '',
+      'Outside the automatic window, continue only when current ERP activity permits a consistent Open Sales Order read.'
+    ].join('\n');
+    if (!window.confirm(prompt)) return;
+    platformRefreshCenterBusy = true;
+    try {
+      await window.DleApiClient.liveCanonical.runOperationsRefresh({
+        quietWindowReady: true
+      });
+      window.alert('Operations Refresh was accepted. The status card will report each independent step.');
+    } catch (error) {
+      window.alert(`Operations Refresh was not started.\n\n${error.message || error}`);
+    } finally {
+      platformRefreshCenterBusy = false;
+      await refreshOperationsRefreshStatus();
+    }
+  }
+
+  async function toggleOperationsRefreshSchedule() {
+    if (platformRefreshCenterBusy) return;
+    const next = !operationsRefreshScheduleEnabled;
+    if (!window.confirm(`${next ? 'Enable' : 'Disable'} the governed 2:00 AM Pacific weekday Operations Refresh schedule?`)) return;
+    platformRefreshCenterBusy = true;
+    try {
+      await window.DleApiClient.liveCanonical.setOperationsRefreshScheduleEnabled(next);
+    } catch (error) {
+      window.alert(`The schedule was not changed.\n\n${error.message || error}`);
+    } finally {
+      platformRefreshCenterBusy = false;
+      await refreshOperationsRefreshStatus();
     }
   }
 
@@ -135,9 +223,13 @@
 
   async function runPlatformDatasetAction(datasetId, action) {
     if (platformRefreshCenterBusy) return;
-    const isInvoice = datasetId === 'invoice-history' && action === 'refresh';
-    const prompt = isInvoice
-      ? 'Run the qualified 45-day overlapping Invoice History refresh? ERP access remains read-only and prior qualified data remains active on failure.'
+    const prompts = {
+      'customer-master': 'Refresh Customer Master with the qualified complete read? Prior qualified data remains active on failure.',
+      'sales-order': 'Refresh Open Sales Orders with the focused indexed routine? This is not the force-full Core ERP qualification. Confirm the source window is suitable.',
+      'invoice-history': 'Run the qualified 45-day overlapping Invoice History refresh? ERP access remains read-only and prior qualified data remains active on failure.'
+    };
+    const prompt = action === 'refresh'
+      ? prompts[datasetId]
       : 'Check the qualified core ERP sources? If source metadata changed, this proceeds through the complete governed extraction and promotion path.';
     if (!window.confirm(prompt)) return;
     platformRefreshCenterBusy = true;
@@ -147,7 +239,7 @@
         await client.checkRefreshCenterDatasetSource(datasetId);
       } else {
         await client.refreshRefreshCenterDataset(datasetId, {
-          quietWindowReady: false
+          quietWindowReady: datasetId === 'sales-order'
         });
       }
       window.alert('The governed operation was accepted. Refresh Center status will show its independent result.');
@@ -610,5 +702,7 @@
   window.refreshPlatformRefreshCenter = refreshPlatformRefreshCenter;
   window.runPlatformDatasetAction = runPlatformDatasetAction;
   window.runPlatformForceFullRefresh = runPlatformForceFullRefresh;
+  window.runOperationsRefresh = runOperationsRefresh;
+  window.toggleOperationsRefreshSchedule = toggleOperationsRefreshSchedule;
 })();
 

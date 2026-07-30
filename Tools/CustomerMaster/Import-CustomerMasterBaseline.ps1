@@ -1,15 +1,31 @@
 [CmdletBinding()]
 param(
-    [switch]$QualificationInduceFailure
+    [switch]$QualificationInduceFailure,
+    [string] $PackageRoot
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $repository = 'C:\DLE-OS\Repositories\DLE-OS'
-$packageRoot = Join-Path $repository (
-    'Artifacts\CustomerMasterPlatform001\' +
-    'CUSTOMERMASTERPLATFORM001-20260729T170951Z\BaselinePackage')
+if ([string]::IsNullOrWhiteSpace($PackageRoot)) {
+    $packageRoot = Join-Path $repository (
+        'Artifacts\CustomerMasterPlatform001\' +
+        'CUSTOMERMASTERPLATFORM001-20260729T170951Z\BaselinePackage')
+}
+else {
+    $packageRoot = [IO.Path]::GetFullPath($PackageRoot)
+    $approvedRoutineRoot =
+        'C:\DLE-OS\Canonical\CustomerMaster\Refresh\Runs\'
+    if (
+        -not $packageRoot.StartsWith(
+            $approvedRoutineRoot,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        (Split-Path -Leaf $packageRoot) -cne 'Package'
+    ) {
+        throw 'Customer Master package path is outside the fixed routine boundary.'
+    }
+}
 $database = 'DLE_OS_CANONICAL_LIVE'
 $server = 'lpc:.\SQLEXPRESS'
 $manifestPath = Join-Path $packageRoot 'manifest.json'

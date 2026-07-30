@@ -1,0 +1,21 @@
+{
+  "contractVersion": "operations-refresh-v1",
+  "taskName": "DLE-OS Operations Refresh",
+  "timeZone": "America/Los_Angeles",
+  "windowsTimeZoneId": "Pacific Standard Time",
+  "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+  "startLocalTime": "02:00:00",
+  "approvedQuietWindow": {
+    "startLocalTime": "00:00:00",
+    "endLocalTimeExclusive": "06:00:00",
+    "latestAutomaticStartLocalTime": "04:30:00"
+  },
+  "identity": "DLE-OS-HOST\\DLE-OS",
+  "logonType": "InteractiveToken",
+  "runLevel": "Limited",
+  "startWhenAvailable": false,
+  "multipleInstances": "IgnoreNew",
+  "launcher": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\OperationsRefresh\\Start-ScheduledOperationsRefresh.cmd",
+  "storesCredentials": false,
+  "requiresMappedX": true
+}

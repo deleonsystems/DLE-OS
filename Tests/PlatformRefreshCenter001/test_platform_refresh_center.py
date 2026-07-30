@@ -32,7 +32,7 @@ css = CSS_PATH.read_text(encoding="utf-8")
 
 # Registry and model (1-20)
 check("registry contract version", registry["contractVersion"] == "platform-refresh-center-v1")
-check("registry version", registry["registryVersion"] == "1.0.0")
+check("registry version", registry["registryVersion"] == "1.1.0")
 check("exact dataset count", len(datasets) == 12)
 check("unique dataset IDs", len(by_id) == len(datasets))
 check("all dataset IDs bounded", all(re.fullmatch(r"[a-z]+(?:-[a-z]+)*", item["datasetId"]) for item in datasets))
@@ -55,9 +55,9 @@ check("no wildcard origin", "*" not in registry["allowedBrowserOrigin"])
 # Capability truthfulness (21-35)
 core_ids = {
     "bill-of-material", "inventory-item", "work-order",
-    "general-ledger-account", "sales-order",
+    "general-ledger-account",
 }
-check("five core members", sum(item["datasetId"] in core_ids for item in datasets) == 5)
+check("four indivisible core members", sum(item["datasetId"] in core_ids for item in datasets) == 4)
 check("core source check qualified", all(by_id[item]["supportsSourceCheck"] for item in core_ids))
 check("core routine focused refresh disabled", all(not by_id[item]["supportsRoutineRefresh"] for item in core_ids))
 check("core force full relationship", all(by_id[item]["supportsForceFull"] for item in core_ids))
@@ -65,7 +65,8 @@ check("sales order quiet window", by_id["sales-order"]["requiresQuietWindow"])
 check("invoice routine refresh qualified", by_id["invoice-history"]["supportsRoutineRefresh"])
 check("invoice method bounded overlap", by_id["invoice-history"]["refreshMethod"] == "BoundedOverlapUpsert")
 check("invoice force full disabled", not by_id["invoice-history"]["supportsForceFull"])
-check("customer master refresh disabled", not by_id["customer-master"]["supportsRoutineRefresh"])
+check("customer master refresh enabled", by_id["customer-master"]["supportsRoutineRefresh"])
+check("sales order focused refresh enabled", by_id["sales-order"]["supportsRoutineRefresh"])
 check("vendor master refresh disabled", not by_id["vendor-master"]["supportsRoutineRefresh"])
 check("purchase order refresh disabled", not by_id["purchase-order"]["supportsRoutineRefresh"])
 check("receiving refresh disabled", not by_id["receiving-history"]["supportsRoutineRefresh"])

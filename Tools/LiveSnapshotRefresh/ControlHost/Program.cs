@@ -343,6 +343,9 @@ app.MapGet(
 app.MapPlatformRefreshCenter(
     authorizedOperator,
     "SnapshotRefreshOperator");
+app.MapOperationsRefresh(
+    authorizedOperator,
+    "SnapshotRefreshOperator");
 
 app.Run();
 

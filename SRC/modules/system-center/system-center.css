@@ -26,6 +26,45 @@
   color: var(--text);
 }
 
+.operations-refresh-card {
+  margin-top: 14px;
+  padding: 15px;
+  border: 1px solid rgba(80, 203, 156, .5);
+  border-radius: 9px;
+  background: rgba(25, 110, 80, .12);
+}
+
+.operations-refresh-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.operations-refresh-heading h4 {
+  margin: 2px 0 6px;
+  color: var(--text);
+}
+
+.operations-refresh-heading p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.operations-refresh-steps {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.operations-refresh-step {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
 .refresh-center-warnings {
   border-color: rgba(242,180,60,.45);
   color: #ffd68a;

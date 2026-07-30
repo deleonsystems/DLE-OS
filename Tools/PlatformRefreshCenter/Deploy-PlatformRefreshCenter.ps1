@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [switch] $ElevatedStage,
+    [switch] $InstallOperationsSchedule,
     [string] $ControlHostStagingRoot,
     [string] $EvidencePath
 )
@@ -27,6 +28,9 @@ $frontendPublisher = Join-Path $repository (
 $frontendRollback = Join-Path $repository (
     'Tools\PlatformFreshnessCache\Rollback-VersionedFrontend.ps1')
 $frontendRoot = 'C:\ProgramData\DLE-OS\Frontend'
+$operationsTaskName = 'DLE-OS Operations Refresh'
+$operationsLauncher = Join-Path $repository (
+    'Tools\OperationsRefresh\Start-ScheduledOperationsRefresh.cmd')
 
 function Test-Elevated {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -94,6 +98,9 @@ if (-not $ElevatedStage) {
         '-ControlHostStagingRoot', "`"$staging`"",
         '-EvidencePath', "`"$childEvidence`""
     )
+    if ($InstallOperationsSchedule) {
+        $arguments += '-InstallOperationsSchedule'
+    }
     $uac = [ordered]@{
         Verdict = 'AWAITING_UAC'
         RequestedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
@@ -170,7 +177,10 @@ $evidence = [ordered]@{
     LiveApiModified = $false
     VProSourceAccessPerformed = $false
     XDriveWrites = 0
+    OperationsScheduleRequested = [bool]$InstallOperationsSchedule
 }
+$taskBackup = $null
+$taskCreated = $false
 try {
     New-Item -ItemType Directory -Path $runtimeBackup -Force | Out-Null
     if (Test-Path -LiteralPath $controlRuntime) {
@@ -219,10 +229,88 @@ try {
     if ($evidence.ControlHostOwner -ine $operator) {
         throw 'The Refresh Center control host is not running as the approved operator.'
     }
+    if ($InstallOperationsSchedule) {
+        if (-not (Test-Path -LiteralPath $operationsLauncher -PathType Leaf)) {
+            throw 'The fixed Operations Refresh scheduled launcher is absent.'
+        }
+        $taskBackup = Join-Path $artifactRoot (
+            "OperationsRefreshTaskBackup-$stamp.xml")
+        $existingTask = Get-ScheduledTask -TaskName $operationsTaskName `
+            -ErrorAction SilentlyContinue
+        if ($null -ne $existingTask) {
+            Export-ScheduledTask -TaskName $operationsTaskName |
+                Set-Content -LiteralPath $taskBackup -Encoding Unicode
+            Unregister-ScheduledTask -TaskName $operationsTaskName `
+                -Confirm:$false
+        }
+        $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument (
+            '/d /c "' + $operationsLauncher + '"')
+        $trigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 `
+            -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday `
+            -At '2:00 AM'
+        $principal = New-ScheduledTaskPrincipal -UserId $operator `
+            -LogonType Interactive -RunLevel Limited
+        $settings = New-ScheduledTaskSettingsSet `
+            -MultipleInstances IgnoreNew `
+            -StartWhenAvailable:$false `
+            -AllowStartIfOnBatteries `
+            -DontStopIfGoingOnBatteries
+        Register-ScheduledTask -TaskName $operationsTaskName `
+            -Action $action -Trigger $trigger -Principal $principal `
+            -Settings $settings `
+            -Description (
+                'Governed DLE-OS Operations Refresh at 2:00 AM Pacific, ' +
+                'Monday-Friday; runner enforces the quiet-window cutoff.') |
+            Out-Null
+        $taskCreated = $true
+        Disable-ScheduledTask -TaskName $operationsTaskName | Out-Null
+        $taskXml = Export-ScheduledTask -TaskName $operationsTaskName
+        $taskEvidence = Join-Path $artifactRoot (
+            "OperationsRefreshTask-$stamp.xml")
+        $taskXml | Set-Content -LiteralPath $taskEvidence -Encoding Unicode
+        $task = Get-ScheduledTask -TaskName $operationsTaskName
+        $evidence.OperationsSchedule = [ordered]@{
+            TaskName = $operationsTaskName
+            State = $task.State.ToString()
+            Identity = $task.Principal.UserId
+            LogonType = $task.Principal.LogonType.ToString()
+            RunLevel = $task.Principal.RunLevel.ToString()
+            CredentialStored = $false
+            Launcher = $operationsLauncher
+            DefinitionEvidence = $taskEvidence
+            PriorDefinitionBackup = if (Test-Path -LiteralPath $taskBackup) {
+                $taskBackup
+            } else { $null }
+            InitiallyEnabled = $false
+        }
+    }
     $evidence.Verdict = 'PASS'
 }
 catch {
     $evidence.Error = $_.Exception.Message
+    if ($InstallOperationsSchedule -and $taskCreated) {
+        try {
+            Unregister-ScheduledTask -TaskName $operationsTaskName `
+                -Confirm:$false -ErrorAction SilentlyContinue
+            if (
+                -not [string]::IsNullOrWhiteSpace($taskBackup) -and
+                (Test-Path -LiteralPath $taskBackup -PathType Leaf)
+            ) {
+                Register-ScheduledTask -TaskName $operationsTaskName `
+                    -Xml (Get-Content -LiteralPath $taskBackup -Raw) |
+                    Out-Null
+                $evidence.OperationsScheduleRollback = 'RESTORED_PRIOR_TASK'
+            }
+            else {
+                $evidence.OperationsScheduleRollback = 'REMOVED_NEW_TASK'
+            }
+        }
+        catch {
+            $evidence.OperationsScheduleRollback = 'FAIL'
+            $evidence.OperationsScheduleRollbackError =
+                $_.Exception.Message
+        }
+    }
     foreach ($process in @(Get-ControlProcesses)) {
         Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
     }

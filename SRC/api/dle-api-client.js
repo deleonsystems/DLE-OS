@@ -738,6 +738,37 @@
         { ...options, method: 'POST', body: request }
       );
     },
+    getOperationsRefreshStatus(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/operations-refresh/v1/status',
+        options
+      );
+    },
+    getOperationsRefreshRuns(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/operations-refresh/v1/runs',
+        options
+      );
+    },
+    runOperationsRefresh(request = {}, options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/operations-refresh/v1/run',
+        { ...options, method: 'POST', body: request }
+      );
+    },
+    getOperationsRefreshSchedule(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/operations-refresh/v1/schedule',
+        options
+      );
+    },
+    setOperationsRefreshScheduleEnabled(enabled, options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/operations-refresh/v1/schedule/' +
+          (enabled ? 'enable' : 'disable'),
+        { ...options, method: 'POST' }
+      );
+    },
     baseUrl: LIVE_CANONICAL_BASE_URL,
     endpoints: LIVE_CANONICAL_ENDPOINTS
   });

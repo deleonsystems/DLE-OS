@@ -14,12 +14,22 @@ internal static class PlatformRefreshCenter
         @"C:\ProgramData\DLE-OS\LiveSnapshotRefresh\State\status.json";
     private const string InvoiceStatePath =
         @"C:\DLE-OS\Canonical\InvoiceHistory\Refresh\State\status.json";
+    private const string CustomerStatePath =
+        @"C:\DLE-OS\Canonical\CustomerMaster\Refresh\State\status.json";
+    private const string SalesStatePath =
+        @"C:\DLE-OS\Canonical\OpenSalesOrders\Refresh\State\status.json";
+    private const string OperationsStatePath =
+        @"C:\DLE-OS\Canonical\OperationsRefresh\State\status.json";
     private const string NormalLauncher =
         @"C:\DLE-OS\Repositories\DLE-OS\Tools\LiveSnapshotRefresh\Start-LiveSnapshotRefresh.cmd";
     private const string ForceFullLauncher =
         @"C:\DLE-OS\Repositories\DLE-OS\Tools\LiveSnapshotRefresh\Start-LiveSnapshotForceFullRefresh.ps1";
     private const string InvoiceLauncher =
         @"C:\DLE-OS\Repositories\DLE-OS\Tools\InvoiceHistory\Start-InvoiceHistoryRefresh.cmd";
+    private const string CustomerLauncher =
+        @"C:\DLE-OS\Repositories\DLE-OS\Tools\OperationsRefresh\Start-CustomerMasterRefresh.cmd";
+    private const string SalesLauncher =
+        @"C:\DLE-OS\Repositories\DLE-OS\Tools\OperationsRefresh\Start-OpenSalesOrderRefresh.cmd";
     private const string AuditRoot =
         @"C:\ProgramData\DLE-OS\PlatformRefreshCenter";
     private const string AuditPath =
@@ -184,13 +194,11 @@ internal static class PlatformRefreshCenter
                     "A refresh registry entry is incomplete.");
             }
             if (dataset.SupportsRoutineRefresh &&
-                !string.Equals(
-                    dataset.DatasetId,
-                    "invoice-history",
-                    StringComparison.OrdinalIgnoreCase))
+                dataset.DatasetId is not (
+                    "invoice-history" or "customer-master" or "sales-order"))
             {
                 throw new InvalidOperationException(
-                    "Only Invoice History has a qualified routine refresh.");
+                    "An unexpected dataset claims a qualified routine refresh.");
             }
         }
     }
@@ -299,6 +307,10 @@ internal static class PlatformRefreshCenter
         result["metadata"] = metadata.DeepClone();
         result["rowCounts"] = dataset.StatusProvider.StartsWith(
                 "core:",
+                StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(
+                dataset.DatasetId,
+                "sales-order",
                 StringComparison.OrdinalIgnoreCase)
             ? await BuildCoreRowCountAsync(dataset, metadata)
             : BuildMetadataRowCounts(dataset, metadata);
@@ -429,7 +441,13 @@ internal static class PlatformRefreshCenter
         }
         var launcher = action == "check-source"
             ? NormalLauncher
-            : InvoiceLauncher;
+            : dataset.DatasetId switch
+            {
+                "customer-master" => CustomerLauncher,
+                "sales-order" => SalesLauncher,
+                "invoice-history" => InvoiceLauncher,
+                _ => ""
+            };
         if (dataset.RequiresQuietWindow && !quietWindowReady)
         {
             return Results.BadRequest(new
@@ -621,20 +639,25 @@ internal static class PlatformRefreshCenter
     {
         var core = ReadJsonFile(CoreStatePath);
         var invoice = ReadJsonFile(InvoiceStatePath);
-        return StateIsRunning(core) || StateIsRunning(invoice);
+        var customer = ReadJsonFile(CustomerStatePath);
+        var sales = ReadJsonFile(SalesStatePath);
+        var operations = ReadJsonFile(OperationsStatePath);
+        return StateIsRunning(core) || StateIsRunning(invoice) ||
+            StateIsRunning(customer) || StateIsRunning(sales) ||
+            StateIsRunning(operations);
     }
 
     private static JsonNode? ReadStateForDataset(string datasetId) =>
-        string.Equals(
-            datasetId,
-            "invoice-history",
-            StringComparison.OrdinalIgnoreCase)
-            ? ReadJsonFile(InvoiceStatePath)
-            : datasetId is
+        datasetId switch
+        {
+            "invoice-history" => ReadJsonFile(InvoiceStatePath),
+            "customer-master" => ReadJsonFile(CustomerStatePath),
+            "sales-order" => ReadJsonFile(SalesStatePath),
+            _ when datasetId is
                 "bill-of-material" or "inventory-item" or "work-order" or
-                "general-ledger-account" or "sales-order"
-                ? ReadJsonFile(CoreStatePath)
-                : null;
+                "general-ledger-account" => ReadJsonFile(CoreStatePath),
+            _ => null
+        };
 
     private static JsonNode? ReadJsonFile(string path)
     {

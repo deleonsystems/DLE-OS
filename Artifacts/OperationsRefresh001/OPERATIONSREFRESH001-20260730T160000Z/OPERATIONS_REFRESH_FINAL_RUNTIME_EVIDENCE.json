@@ -1,0 +1,50 @@
+{
+  "verdict": "PASS",
+  "capturedAtUtc": "2026-07-30T17:48:24Z",
+  "deployment": {
+    "deployedAtUtc": "2026-07-30T17:47:58.2656825Z",
+    "controlHostProcessId": 27408,
+    "controlHostOwner": "DLE-OS-HOST\\DLE-OS",
+    "frontendBuildId": "20260730T174759Z-454253323EB7",
+    "frontendSourceManifestSha256": "454253323EB7E393D670481D6582FD4C4015C6326EE14D46D54707EC1D66390A",
+    "frontendAssetManifestSha256": "B1310F667C7150F9EE1559E69F750A9B5110E8D2C5233C59C6F654F7C7705B62"
+  },
+  "schedule": {
+    "installed": true,
+    "enabledByWindowsTaskScheduler": true,
+    "enabledByApi": true,
+    "state": "Ready",
+    "schedule": "02:00 Monday-Friday",
+    "timeZone": "America/Los_Angeles",
+    "quietWindow": "00:00-05:59",
+    "latestAutomaticStart": "04:30",
+    "nextScheduledRunPacific": "2026-07-31T02:00:00-07:00",
+    "identity": "DLE-OS-HOST\\DLE-OS",
+    "logonType": "Interactive",
+    "runLevel": "Limited",
+    "credentialStored": false
+  },
+  "coordinatedRun": {
+    "operationsRefreshRunId": "OPERATIONSREFRESH-20260730T170341Z-72143A35",
+    "overallState": "NoSourceChanges",
+    "steps": [
+      {"dataset": "customer-master", "result": "NO_SOURCE_CHANGES"},
+      {"dataset": "sales-order", "result": "NO_SOURCE_CHANGES"},
+      {"dataset": "invoice-history", "result": "NO_SOURCE_CHANGES"}
+    ],
+    "visibleInBrowser": true
+  },
+  "browser": {
+    "refreshCenterReady": true,
+    "datasetCardCount": 12,
+    "platformSectionsLoaded": 12,
+    "consoleErrorCount": 0,
+    "corsErrorCount": 0
+  },
+  "sourceSafety": {
+    "mode": "O_RDONLY",
+    "xDriveWrites": 0,
+    "sourceLocksRequested": 0,
+    "forceFullInvoked": false
+  }
+}

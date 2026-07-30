@@ -1,14 +1,29 @@
 [CmdletBinding()]
-param()
+param(
+    [ValidatePattern(
+        '^(CUSTOMERMASTERPLATFORM001-[0-9]{8}T[0-9]{6}Z|CUSTOMERREFRESH-[0-9]{8}T[0-9]{6}Z-[A-F0-9]{8})$')]
+    [string] $RunId = 'CUSTOMERMASTERPLATFORM001-20260729T170951Z',
+    [switch] $RoutineRefresh
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$runId = 'CUSTOMERMASTERPLATFORM001-20260729T170951Z'
+$runId = $RunId
 $repository = 'C:\DLE-OS\Repositories\DLE-OS'
-$artifactRoot = Join-Path $repository (
-    "Artifacts\CustomerMasterPlatform001\$runId")
-$labRoot = "C:\Add-On\Lab\CustomerMasterPlatform001\$runId"
+if ($RoutineRefresh) {
+    if (-not $runId.StartsWith('CUSTOMERREFRESH-')) {
+        throw 'Routine refresh requires a CUSTOMERREFRESH run ID.'
+    }
+    $artifactRoot =
+        "C:\DLE-OS\Canonical\CustomerMaster\Refresh\Runs\$runId\Evidence"
+    $labRoot = "C:\Add-On\Lab\CustomerMasterRefresh\$runId"
+}
+else {
+    $artifactRoot = Join-Path $repository (
+        "Artifacts\CustomerMasterPlatform001\$runId")
+    $labRoot = "C:\Add-On\Lab\CustomerMasterPlatform001\$runId"
+}
 $attemptId = 'Attempt-' + [DateTimeOffset]::UtcNow.ToString(
     'yyyyMMddTHHmmssZ')
 $attemptRoot = Join-Path $labRoot $attemptId

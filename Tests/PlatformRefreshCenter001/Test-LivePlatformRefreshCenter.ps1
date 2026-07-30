@@ -59,7 +59,7 @@ $runs =
 
 Test-Check 'contract' (
     $status.contractVersion -ceq 'platform-refresh-center-v1')
-Test-Check 'registry version' ($status.registryVersion -ceq '1.0.0')
+Test-Check 'registry version' ($status.registryVersion -ceq '1.1.0')
 Test-Check 'platform ready' ($status.overallPlatformState -ceq 'Ready')
 Test-Check 'readiness v2' (
     $status.liveApiContractVersion -ceq 'live-readiness-v2')

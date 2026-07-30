@@ -1,0 +1,69 @@
+{
+    "ContractVersion":  "operations-refresh-v1",
+    "OperationsRefreshRunId":  "OPERATIONSREFRESH-20260730T170341Z-72143A35",
+    "TriggerType":  "Manual",
+    "RequestedBy":  "DLE-OS-HOST\\DLE-OS",
+    "QuietWindowStatus":  "OperatorAcknowledged",
+    "StartedAtUtc":  "2026-07-30T17:03:41.8140782+00:00",
+    "CompletedAtUtc":  "2026-07-30T17:06:35.7869226+00:00",
+    "OverallState":  "NoSourceChanges",
+    "CurrentStep":  "",
+    "StepResults":  [
+                        {
+                            "Dataset":  "customer-master",
+                            "StartedAtUtc":  "2026-07-30T17:03:41.9273718+00:00",
+                            "CompletedAtUtc":  "2026-07-30T17:03:53.4241757+00:00",
+                            "DurationMilliseconds":  11499,
+                            "Result":  "NO_SOURCE_CHANGES",
+                            "ExitCode":  0,
+                            "BeforeImportRunId":  null,
+                            "AfterImportRunId":  {
+
+                                                 },
+                            "Inserted":  0,
+                            "Updated":  0,
+                            "Unchanged":  408,
+                            "Missing":  0,
+                            "PriorDataRetained":  true,
+                            "EvidenceIdentity":  "C:\\DLE-OS\\Canonical\\CustomerMaster\\Refresh\\State\\status.json",
+                            "FailureReason":  null
+                        },
+                        {
+                            "Dataset":  "sales-order",
+                            "StartedAtUtc":  "2026-07-30T17:03:53.4402094+00:00",
+                            "CompletedAtUtc":  "2026-07-30T17:06:21.3149601+00:00",
+                            "DurationMilliseconds":  147875,
+                            "Result":  "NO_SOURCE_CHANGES",
+                            "ExitCode":  0,
+                            "BeforeImportRunId":  null,
+                            "AfterImportRunId":  {
+
+                                                 },
+                            "Inserted":  0,
+                            "Updated":  0,
+                            "Unchanged":  621,
+                            "Missing":  0,
+                            "PriorDataRetained":  true,
+                            "EvidenceIdentity":  "C:\\DLE-OS\\Canonical\\OpenSalesOrders\\Refresh\\State\\status.json",
+                            "FailureReason":  null
+                        },
+                        {
+                            "Dataset":  "invoice-history",
+                            "StartedAtUtc":  "2026-07-30T17:06:21.3169679+00:00",
+                            "CompletedAtUtc":  "2026-07-30T17:06:35.7811746+00:00",
+                            "DurationMilliseconds":  14464,
+                            "Result":  "NO_SOURCE_CHANGES",
+                            "ExitCode":  0,
+                            "BeforeImportRunId":  null,
+                            "AfterImportRunId":  "5d34047a-8d69-4839-89a9-70658a3db6ee",
+                            "Inserted":  null,
+                            "Updated":  null,
+                            "Unchanged":  null,
+                            "Missing":  null,
+                            "PriorDataRetained":  true,
+                            "EvidenceIdentity":  "C:\\DLE-OS\\Canonical\\InvoiceHistory\\Refresh\\State\\status.json",
+                            "FailureReason":  null
+                        }
+                    ],
+    "NextScheduledRun":  null
+}
