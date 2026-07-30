@@ -44,15 +44,58 @@ WHERE (@PurchaseOrderNumber IS NULL
 SELECT
     PurchaseOrderLineId, FirmId, VendorNumber, VendorName,
     PurchaseOrderNumber, PurchaseOrderLineNumber, OrderDateIso,
-    PurchaseOrderStatus, HoldFlag, PaymentTermsCode, FreightTerms,
-    ShippingMethod, Fob, LineCode, LineType, ItemNumber, ItemDescription,
-    OrderMemo, UnitOfMeasure, QuantityOrdered, QuantityReceived,
+    PurchaseOrderStatus, HoldFlag, PaymentTermsCode,
+    terms.CodeDescription AS PaymentTermsDescription,
+    CASE WHEN PaymentTermsCode IS NULL THEN NULL
+         ELSE COALESCE(terms.ResolutionStatus, N'Unresolved') END
+        AS PaymentTermsResolutionStatus,
+    FreightTerms, ShippingMethod, Fob, LineCode,
+    lineCode.CodeDescription AS LineCodeDescription,
+    CASE WHEN LineCode IS NULL THEN NULL
+         ELSE COALESCE(lineCode.ResolutionStatus, N'Unresolved') END
+        AS LineCodeResolutionStatus,
+    LineType, ItemNumber, ItemDescription, OrderMemo, UnitOfMeasure,
+    unitCode.CodeDescription AS UnitOfMeasureDescription,
+    CASE WHEN UnitOfMeasure IS NULL THEN NULL
+         ELSE COALESCE(unitCode.ResolutionStatus, N'Unresolved') END
+        AS UnitOfMeasureResolutionStatus,
+    QuantityOrdered, QuantityReceived,
     QuantityOpen, RequiredDateIso, PromisedDateIso, WorkOrderNumber,
     CustomerNumber, SalesOrderNumber, SalesOrderLineNumber, LineStatus,
     IsOpen, IsClosed, IsCanceled, VendorResolutionStatus,
     InventoryResolutionStatus, WorkOrderResolutionStatus,
     SalesOrderResolutionStatus, PurchaseOrderImportRunId, ImportedAtUtc
-FROM canonical.PurchaseOrderViewer
+FROM canonical.PurchaseOrderViewer AS purchaseOrder
+OUTER APPLY
+(
+    SELECT TOP (1) CodeDescription, ResolutionStatus
+    FROM canonical.ReferenceCodeViewer
+    WHERE FirmId = purchaseOrder.FirmId
+      AND CodeDomain = N'Purchasing'
+      AND CodeType = N'PaymentTerms'
+      AND CodeValue =
+          purchaseOrder.PaymentTermsCode COLLATE Latin1_General_100_BIN2
+) AS terms
+OUTER APPLY
+(
+    SELECT TOP (1) CodeDescription, ResolutionStatus
+    FROM canonical.ReferenceCodeViewer
+    WHERE FirmId = purchaseOrder.FirmId
+      AND CodeDomain = N'Purchasing'
+      AND CodeType = N'PurchaseOrderLineType'
+      AND CodeValue =
+          purchaseOrder.LineCode COLLATE Latin1_General_100_BIN2
+) AS lineCode
+OUTER APPLY
+(
+    SELECT TOP (1) CodeDescription, ResolutionStatus
+    FROM canonical.ReferenceCodeViewer
+    WHERE FirmId = purchaseOrder.FirmId
+      AND CodeDomain = N'Inventory'
+      AND CodeType = N'UnitOfMeasure'
+      AND CodeValue =
+          purchaseOrder.UnitOfMeasure COLLATE Latin1_General_100_BIN2
+) AS unitCode
 """;
 
     private readonly LivePlatformSqlConnectionFactory _connectionFactory;
@@ -115,16 +158,45 @@ FROM canonical.PurchaseOrderViewer
     {
         const string sql = """
 SELECT
-    FirmId, VendorNumber, PurchaseOrderNumber, VendorName, WarehouseId,
+    purchaseOrder.FirmId, VendorNumber, PurchaseOrderNumber, VendorName,
+    WarehouseId, warehouse.CodeDescription AS WarehouseDescription,
+    CASE WHEN WarehouseId IS NULL THEN NULL
+         ELSE COALESCE(warehouse.ResolutionStatus, N'Unresolved') END
+        AS WarehouseResolutionStatus,
     PurchasingAddressCode, OrderDateRaw, OrderDateIso, PromisedDateRaw,
     PromisedDateIso, NotBeforeDateRaw, NotBeforeDateIso, RequiredDateRaw,
     RequiredDateIso, LastReceiptDateRaw, LastReceiptDateIso, HoldFlag,
-    PrintStatus, PaymentTermsCode, FreightTerms, ShippingMethod,
+    PrintStatus, PaymentTermsCode,
+    terms.CodeDescription AS PaymentTermsDescription,
+    CASE WHEN PaymentTermsCode IS NULL THEN NULL
+         ELSE COALESCE(terms.ResolutionStatus, N'Unresolved') END
+        AS PaymentTermsResolutionStatus,
+    FreightTerms, ShippingMethod,
     Acknowledgment, Fob, MessageCode, RequisitionNumber,
     PurchaseOrderStatus, IsOpen, IsClosed, IsCanceled,
     VendorResolutionStatus, PurchaseOrderImportRunId, ImportedAtUtc
-FROM canonical.PurchaseOrder
-WHERE FirmId = @FirmId
+FROM canonical.PurchaseOrder AS purchaseOrder
+OUTER APPLY
+(
+    SELECT TOP (1) CodeDescription, ResolutionStatus
+    FROM canonical.ReferenceCodeViewer
+    WHERE FirmId = purchaseOrder.FirmId
+      AND CodeDomain = N'Inventory'
+      AND CodeType = N'Warehouse'
+      AND CodeValue =
+          purchaseOrder.WarehouseId COLLATE Latin1_General_100_BIN2
+) AS warehouse
+OUTER APPLY
+(
+    SELECT TOP (1) CodeDescription, ResolutionStatus
+    FROM canonical.ReferenceCodeViewer
+    WHERE FirmId = purchaseOrder.FirmId
+      AND CodeDomain = N'Purchasing'
+      AND CodeType = N'PaymentTerms'
+      AND CodeValue =
+          purchaseOrder.PaymentTermsCode COLLATE Latin1_General_100_BIN2
+) AS terms
+WHERE purchaseOrder.FirmId = @FirmId
   AND VendorNumber = @VendorNumber
   AND PurchaseOrderNumber = @PurchaseOrderNumber;
 """;

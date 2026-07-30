@@ -12,15 +12,21 @@ public sealed class PurchaseOrderLineDto
     public string? PurchaseOrderStatus { get; init; }
     public string? HoldFlag { get; init; }
     public string? PaymentTermsCode { get; init; }
+    public string? PaymentTermsDescription { get; init; }
+    public string? PaymentTermsResolutionStatus { get; init; }
     public string? FreightTerms { get; init; }
     public string? ShippingMethod { get; init; }
     public string? Fob { get; init; }
     public string? LineCode { get; init; }
+    public string? LineCodeDescription { get; init; }
+    public string? LineCodeResolutionStatus { get; init; }
     public string? LineType { get; init; }
     public string? ItemNumber { get; init; }
     public string? ItemDescription { get; init; }
     public string? OrderMemo { get; init; }
     public string? UnitOfMeasure { get; init; }
+    public string? UnitOfMeasureDescription { get; init; }
+    public string? UnitOfMeasureResolutionStatus { get; init; }
     public decimal QuantityOrdered { get; init; }
     public decimal QuantityReceived { get; init; }
     public decimal QuantityOpen { get; init; }
@@ -49,6 +55,8 @@ public sealed class PurchaseOrderDto
     public string? PurchaseOrderNumber { get; init; }
     public string? VendorName { get; init; }
     public string? WarehouseId { get; init; }
+    public string? WarehouseDescription { get; init; }
+    public string? WarehouseResolutionStatus { get; init; }
     public string? PurchasingAddressCode { get; init; }
     public string? OrderDateRaw { get; init; }
     public DateTime? OrderDateIso { get; init; }
@@ -63,6 +71,8 @@ public sealed class PurchaseOrderDto
     public string? HoldFlag { get; init; }
     public string? PrintStatus { get; init; }
     public string? PaymentTermsCode { get; init; }
+    public string? PaymentTermsDescription { get; init; }
+    public string? PaymentTermsResolutionStatus { get; init; }
     public string? FreightTerms { get; init; }
     public string? ShippingMethod { get; init; }
     public string? Acknowledgment { get; init; }

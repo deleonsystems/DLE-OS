@@ -559,11 +559,24 @@
         Object.freeze({ name: "shippingMethod", label: "Shipping Method" }),
         Object.freeze({ name: "fob", label: "FOB" }),
         Object.freeze({ name: "lineCode", label: "Line Code" }),
+        Object.freeze({ name: "lineCodeDescription", label: "Line Code Description" }),
+        Object.freeze({
+          name: "lineCodeResolutionStatus",
+          label: "Line Code Resolution"
+        }),
         Object.freeze({ name: "lineType", label: "Line Type" }),
         Object.freeze({ name: "itemNumber", label: "Item Number" }),
         Object.freeze({ name: "itemDescription", label: "Current Inventory Description" }),
         Object.freeze({ name: "orderMemo", label: "Purchase Order Memo" }),
         Object.freeze({ name: "unitOfMeasure", label: "Unit of Measure" }),
+        Object.freeze({
+          name: "unitOfMeasureDescription",
+          label: "Unit of Measure Description"
+        }),
+        Object.freeze({
+          name: "unitOfMeasureResolutionStatus",
+          label: "Unit of Measure Resolution"
+        }),
         Object.freeze({ name: "quantityOrdered", label: "Quantity Ordered", decimalText: true }),
         Object.freeze({ name: "quantityReceived", label: "Quantity Received", decimalText: true }),
         Object.freeze({ name: "quantityOpen", label: "Quantity Open", decimalText: true }),
@@ -875,6 +888,68 @@
         }),
         Object.freeze({ name: "importedAtUtc", label: "Imported At" })
       ])
+    }),
+    referenceCodes: Object.freeze({
+      title: "Code References",
+      singular: "Reference Code",
+      identifier: "referenceCodeId",
+      listMethod: "getCanonicalReferenceCodes",
+      lookupMethod: "getCanonicalReferenceCode",
+      liveOnly: true,
+      filters: Object.freeze([
+        Object.freeze({ name: "codeDomain", label: "Domain" }),
+        Object.freeze({ name: "codeType", label: "Code Type" }),
+        Object.freeze({ name: "codeValue", label: "Code" }),
+        Object.freeze({ name: "description", label: "Description" }),
+        Object.freeze({
+          name: "resolutionStatus",
+          label: "Resolution Status",
+          options: Object.freeze([
+            Object.freeze({ value: "", label: "All statuses" }),
+            Object.freeze({ value: "Resolved", label: "Resolved" }),
+            Object.freeze({ value: "Unresolved", label: "Unresolved" }),
+            Object.freeze({ value: "Ambiguous", label: "Ambiguous" }),
+            Object.freeze({ value: "GenericSystem", label: "Generic / System" }),
+            Object.freeze({ value: "CanonicalEnum", label: "Canonical enum" })
+          ])
+        })
+      ]),
+      columns: Object.freeze([
+        Object.freeze({ name: "codeDomain", label: "Domain" }),
+        Object.freeze({ name: "codeType", label: "Code Type" }),
+        Object.freeze({ name: "codeValue", label: "Code" }),
+        Object.freeze({ name: "codeDescription", label: "Description" }),
+        Object.freeze({ name: "resolutionStatus", label: "Resolution Status" }),
+        Object.freeze({ name: "sourceType", label: "Source Type" }),
+        Object.freeze({ name: "usageCount", label: "Usage Count" })
+      ]),
+      fields: Object.freeze([
+        Object.freeze({ name: "firmId", label: "Firm ID" }),
+        Object.freeze({ name: "codeDomain", label: "Domain" }),
+        Object.freeze({ name: "codeType", label: "Code Type" }),
+        Object.freeze({ name: "codeValue", label: "Code" }),
+        Object.freeze({ name: "codeDescription", label: "Description" }),
+        Object.freeze({ name: "shortDescription", label: "Short Description" }),
+        Object.freeze({ name: "parentCodeValue", label: "Parent Code" }),
+        Object.freeze({ name: "sortOrder", label: "Sort Order" }),
+        Object.freeze({ name: "isActive", label: "Active" }),
+        Object.freeze({ name: "resolutionStatus", label: "Resolution Status" }),
+        Object.freeze({ name: "sourceType", label: "Source Type" }),
+        Object.freeze({
+          name: "accessClassification",
+          label: "Access Classification"
+        }),
+        Object.freeze({ name: "usageCount", label: "Usage Count" }),
+        Object.freeze({
+          name: "sourceRecordIdentity",
+          label: "Source Record Identity"
+        }),
+        Object.freeze({
+          name: "referenceCodeImportRunId",
+          label: "Reference Code Import Run ID"
+        }),
+        Object.freeze({ name: "importedAtUtc", label: "Imported At" })
+      ])
     })
   });
 
@@ -906,6 +981,7 @@
       purchaseOrderAvailable: false,
       receivingHistoryAvailable: false,
       employeeReferenceAvailable: false,
+      referenceCodesAvailable: false,
       refresh: {
         authorized: false,
         available: false,
@@ -1188,7 +1264,8 @@
       vendorMasterResult,
       purchaseOrderResult,
       receivingHistoryResult,
-      employeeReferenceResult
+      employeeReferenceResult,
+      referenceCodeResult
     ] =
       await Promise.allSettled([
       api.getPlatformReadiness({ signal: request.controller.signal }),
@@ -1226,6 +1303,12 @@
       activeProfileKey === "live" &&
         api.getCanonicalEmployeeReferenceMetadata
         ? api.getCanonicalEmployeeReferenceMetadata({
+            signal: request.controller.signal
+          })
+        : Promise.resolve(null),
+      activeProfileKey === "live" &&
+        api.getCanonicalReferenceCodeMetadata
+        ? api.getCanonicalReferenceCodeMetadata({
             signal: request.controller.signal
           })
         : Promise.resolve(null)
@@ -1274,6 +1357,10 @@
       activeProfileKey === "live" &&
       employeeReferenceResult.status === "fulfilled" &&
       Number(employeeReferenceResult.value?.employeeCount) > 0;
+    state.referenceCodesAvailable =
+      activeProfileKey === "live" &&
+      referenceCodeResult.status === "fulfilled" &&
+      Number(referenceCodeResult.value?.referenceCodeCount) > 0;
 
     const readinessState = state.readinessPayload?.readinessState;
     const readinessReason = state.readinessPayload?.readinessReason;
@@ -1789,6 +1876,10 @@
     queryAll('[data-canonical-tab="employeeReference"]').forEach(tab => {
       tab.hidden =
         activeProfileKey !== "live" || !state.employeeReferenceAvailable;
+    });
+    queryAll('[data-canonical-tab="referenceCodes"]').forEach(tab => {
+      tab.hidden =
+        activeProfileKey !== "live" || !state.referenceCodesAvailable;
     });
     renderRefreshControl();
     renderInvoiceHistoryRefreshControl();

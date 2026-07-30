@@ -1,0 +1,39 @@
+﻿{
+    "TestedAtUtc":  "2026-07-30T14:07:09.0858027+00:00",
+    "Login":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+    "Verdict":  "PASS",
+    "Select":  {
+                   "Result":  "ALLOWED",
+                   "Value":  1209
+               },
+    "Insert":  {
+                   "Result":  "DENIED",
+                   "ErrorNumber":  229,
+                   "Message":  "Exception calling \"ExecuteScalar\" with \"0\" argument(s): \"The INSERT permission was denied on the object \u0027ReferenceCode\u0027, database \u0027DLE_OS_CANONICAL_LIVE\u0027, schema \u0027canonical\u0027.\""
+               },
+    "Update":  {
+                   "Result":  "DENIED",
+                   "ErrorNumber":  229,
+                   "Message":  "Exception calling \"ExecuteScalar\" with \"0\" argument(s): \"The SELECT permission was denied on the object \u0027ReferenceCode\u0027, database \u0027DLE_OS_CANONICAL_LIVE\u0027, schema \u0027canonical\u0027.\""
+               },
+    "Delete":  {
+                   "Result":  "DENIED",
+                   "ErrorNumber":  229,
+                   "Message":  "Exception calling \"ExecuteScalar\" with \"0\" argument(s): \"The SELECT permission was denied on the object \u0027ReferenceCode\u0027, database \u0027DLE_OS_CANONICAL_LIVE\u0027, schema \u0027canonical\u0027.\""
+               },
+    "Alter":  {
+                  "Result":  "DENIED",
+                  "ErrorNumber":  1088,
+                  "Message":  "Exception calling \"ExecuteScalar\" with \"0\" argument(s): \"Cannot find the object \"ReferenceCode\" because it does not exist or you do not have permissions.\""
+              },
+    "ProtectedDleOs":  {
+                           "Result":  "DENIED",
+                           "ErrorNumber":  916,
+                           "Message":  "Exception calling \"ExecuteScalar\" with \"0\" argument(s): \"The server principal \"DLE-OS-HOST\\DLE-OS-LIVE-API\" is not able to access the database \"DLE_OS\" under the current security context.\""
+                       },
+    "ProtectedHistorical":  {
+                                "Result":  "DENIED",
+                                "ErrorNumber":  916,
+                                "Message":  "Exception calling \"ExecuteScalar\" with \"0\" argument(s): \"The server principal \"DLE-OS-HOST\\DLE-OS-LIVE-API\" is not able to access the database \"DLE_OS_PLATFORM_LAB\" under the current security context.\""
+                            }
+}

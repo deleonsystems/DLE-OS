@@ -1,0 +1,10 @@
+SourceFile,Layouts,CanonicalDomainTypes,SelectedRecords,TotalRecords,Access
+ARM-10,A|E|F|H|L,Sales.PaymentTerms|Sales.SalesOrderLineType|Sales.Salesperson|Customer.Territory|Customer.CustomerType,61,120,O_RDONLY
+APM-10,C,Purchasing.PaymentTerms,12,27,O_RDONLY
+IVM-10,A|B|C|F,Inventory.ProductType|Inventory.TransactionType|Inventory.Warehouse|Purchasing.Buyer,196,207,O_RDONLY
+IVM-13,ALL,Inventory.ItemClass,3,3,O_RDONLY
+POM-02,ALL,Purchasing.PurchaseOrderLineType,12,12,O_RDONLY
+POM-03,ALL,Quality.RejectionReason,6,6,O_RDONLY
+PRM-10,E|F,Employee.Department|Employee.JobTitle,34,679,O_RDONLY
+SYM-02,SAFE_OPERATOR_NAME,Employee.Operator,9,9,O_RDONLY
+WOM-10,A,Production.WorkOrderType,2,2,O_RDONLY

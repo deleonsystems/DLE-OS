@@ -1,0 +1,31 @@
+CodeDomain,CodeType,Count,SourceType,Qualification
+Accounting,AccountType,5,CanonicalEnum,Bounded existing canonical enum
+Customer,CustomerType,6,SourceMaster,Qualified ARM-10
+Customer,Territory,7,SourceMaster,Qualified ARM-10
+Employee,Department,10,SourceMaster,Qualified PRM-10 operational layout
+Employee,JobTitle,24,SourceMaster,Qualified PRM-10 operational layout
+Employee,Operator,9,SourceMaster,Qualified SYM-02 display name only
+Inventory,ItemClass,2,SourceMaster,Qualified IVM-13
+Inventory,Location,604,TransactionDerived,Unresolved description
+Inventory,ProductType,128,SourceMaster,Qualified IVM-10
+Inventory,TransactionType,4,SourceMaster,Qualified IVM-10
+Inventory,UnitOfMeasure,35,TransactionDerived,Unresolved description
+Inventory,Warehouse,60,SourceMaster,Qualified IVM-10
+Production,UnitOfMeasure,1,TransactionDerived,Unresolved description
+Production,WorkOrderStatus,4,CanonicalEnum,Bounded existing canonical enum
+Production,WorkOrderType,2,SourceMaster,Qualified WOM-10
+Purchasing,Buyer,1,SourceMaster,Qualified IVM-10
+Purchasing,PaymentTerms,12,SourceMaster,Qualified APM-10
+Purchasing,PurchaseOrderLineStatus,3,CanonicalEnum,Bounded existing canonical enum
+Purchasing,PurchaseOrderLineType,12,SourceMaster,Qualified POM-02
+Purchasing,PurchaseOrderStatus,1,CanonicalEnum,Bounded existing canonical enum
+Purchasing,ShippingMethod,202,TransactionDerived,Unresolved description
+Quality,InspectionStatus,1,CanonicalEnum,Bounded existing canonical enum
+Quality,RejectionReason,6,SourceMaster,Qualified POM-03
+Receiving,QuantityDispositionStatus,3,CanonicalEnum,Bounded existing canonical enum
+Receiving,ReceiptStatus,1,CanonicalEnum,Bounded existing canonical enum
+Receiving,ReceiptType,1,CanonicalEnum,Bounded existing canonical enum
+Sales,PaymentTerms,16,SourceMaster,Qualified ARM-10
+Sales,SalesOrderLineType,15,SourceMaster,Qualified ARM-10
+Sales,Salesperson,8,SourceMaster,Qualified ARM-10
+Sales,ShippingMethod,26,TransactionDerived,Unresolved description

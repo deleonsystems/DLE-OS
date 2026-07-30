@@ -39,7 +39,9 @@
     canonicalReceivingHistory: '/api/platform/live/v1/receiving-history',
     canonicalReceivingHistoryMetadata: '/api/platform/live/v1/receiving-history/metadata',
     canonicalEmployeeReference: '/api/platform/live/v1/employee-reference',
-    canonicalEmployeeReferenceMetadata: '/api/platform/live/v1/employee-reference/metadata'
+    canonicalEmployeeReferenceMetadata: '/api/platform/live/v1/employee-reference/metadata',
+    canonicalReferenceCodes: '/api/platform/live/v1/reference-codes',
+    canonicalReferenceCodeMetadata: '/api/platform/live/v1/reference-codes/metadata'
   });
 
   const CANONICAL_FILTERS = Object.freeze({
@@ -78,6 +80,10 @@
     canonicalEmployeeReference: Object.freeze([
       'employeeNumber', 'employeeName', 'department', 'jobTitle',
       'isActive', 'operationalCode', 'codeType'
+    ]),
+    canonicalReferenceCodes: Object.freeze([
+      'codeDomain', 'codeType', 'codeValue', 'description',
+      'resolutionStatus', 'sourceType'
     ])
   });
 
@@ -644,6 +650,25 @@
     },
     getCanonicalEmployeeReferenceMetadata(options = {}) {
       return getLiveJson('canonicalEmployeeReferenceMetadata', options);
+    },
+    getCanonicalReferenceCodes(options = {}) {
+      return getLiveCanonicalList('canonicalReferenceCodes', options);
+    },
+    getCanonicalReferenceCode(referenceCodeId, options = {}) {
+      const id = String(referenceCodeId || '').trim();
+      if (!/^[1-9]\d*$/.test(id)) {
+        throw new TypeError(
+          'Reference Code identifier must be a positive integer.'
+        );
+      }
+      return getLiveCanonicalRecord(
+        'canonicalReferenceCodes',
+        id,
+        options
+      );
+    },
+    getCanonicalReferenceCodeMetadata(options = {}) {
+      return getLiveJson('canonicalReferenceCodeMetadata', options);
     },
     getSnapshotRefreshStatus(options = {}) {
       return requestLiveSnapshotRefresh('/api/platform/refresh/v1/status', options);

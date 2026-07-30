@@ -1,0 +1,146 @@
+﻿{
+    "Verdict":  "PASS",
+    "DeployedAtUtc":  "2026-07-30T14:16:09.6560030+00:00",
+    "DeploymentIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "HistoricalProcessId":  25672,
+    "LiveProcessId":  28280,
+    "RefreshControlProcessId":  3364,
+    "PromotionBrokerProcessId":  22212,
+    "SourceAccessPerformed":  false,
+    "ExistingRefreshPipelinesModified":  false,
+    "FrontendPromoted":  true,
+    "PublishOutput":  "Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  DLE-OS-Server -\u003e C:\\DLE-OS\\Repositories\\DLE-OS-Server\\Artifacts\\LiveApi001\\Publish\\Build\\Release\\net8.0\\DLE-OS-Server.dll\r\n  DLE-OS-Server -\u003e C:\\DLE-OS\\Repositories\\DLE-OS-Server\\Artifacts\\LiveApi001\\Publish\\LIVEAPI001-PUBLISH-20260730T141611Z\\\r\n{\r\n    \"Mission\":  \"LIVE-API-001\",\r\n    \"PublishedAtUtc\":  \"2026-07-30T14:16:13.3056954+00:00\",\r\n    \"RunId\":  \"LIVEAPI001-PUBLISH-20260730T141611Z\",\r\n    \"StagingPath\":  \"C:\\\\DLE-OS\\\\Repositories\\\\DLE-OS-Server\\\\Artifacts\\\\LiveApi001\\\\Publish\\\\LIVEAPI001-PUBLISH-20260730T141611Z\",\r\n    \"RuntimePath\":  \"C:\\\\Program Files\\\\DLE-OS\\\\LiveCanonicalApi\",\r\n    \"RuntimeProfile\":  \"LIVE\",\r\n    \"RuntimeDatabase\":  \"DLE_OS_CANONICAL_LIVE\",\r\n    \"RuntimeIdentity\":  \"DLE-OS-HOST\\\\DLE-OS-LIVE-API\",\r\n    \"AssemblySha256\":  \"4806AFFE55C801A744CA1D412F0AFDFDAEC4DABDD71A4B6B31B58353B58A5043\",\r\n    \"BaseConfigurationSha256\":  \"1B4F61DD2023D873948D6B53328ED3A13D500FCD58D2C230D0D650837BEC943C\",\r\n    \"LiveConfigurationSha256\":  \"AA1964FD68347ED4513E8B801DA0647B6CA1B9D4242A93CE49B4436EE4BAAAD4\",\r\n    \"QualifiedBoundarySha256\":  \"09ADC3628FF015E2A214F06B5696D773C63B33223F1C155348C39D4736DB584F\",\r\n    \"RuntimeIdentityFileSystemRights\":  \"ReadAndExecute, Synchronize\",\r\n    \"HistoricalConnectionConfigurationPresent\":  false,\r\n    \"FrontendConfigurationPresent\":  false,\r\n    \"Verdict\":  \"PASS\"\r\n}",
+    "LaunchOutput":  "ProcessId        : 28280\r\nWindowsIdentity  : DLE-OS-HOST\\DLE-OS-LIVE-API\r\nRuntimeProfile   : LIVE\r\nEndpoint         : http://DLE-OS-HOST:5042\r\nReadinessVerdict : Ready\r\nImportRunId      : 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6\r\nPackageHash      : BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+    "Frontend":  {
+                     "Verdict":  "PASS",
+                     "FrontendBuildId":  "20260730T141615Z-F22D34C280AD",
+                     "PublishedAtUtc":  "2026-07-30T14:16:15.8569542+00:00",
+                     "SourceManifestSha256":  "F22D34C280AD0F382F9A943D9556B5CA680651FDFD983BF6941ADFBDFBEFB430",
+                     "AssetManifestSha256":  "3C59412BC6D7ABCF4988FAB989666ADBFD886E5098B210B4C792B550B8491469",
+                     "AssetCount":  72,
+                     "BuildPath":  "C:\\ProgramData\\DLE-OS\\Frontend\\Builds\\20260730T141615Z-F22D34C280AD",
+                     "Promoted":  true
+                 },
+    "LiveRuntimeOwner":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+    "RefreshControlOwner":  "DLE-OS-HOST\\DLE-OS",
+    "PromotionBrokerOwner":  "DLE-OS-HOST\\DLE-OS",
+    "Readiness":  {
+                      "dataEnvironment":  "LIVE",
+                      "database":  "DLE_OS_CANONICAL_LIVE",
+                      "contractVersion":  "1.2",
+                      "apiContractVersion":  "live-readiness-v2",
+                      "readinessVerdict":  "Ready",
+                      "readinessState":  "ReadyFresh",
+                      "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                      "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                      "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                      "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                      "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                      "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                      "snapshotAgeSeconds":  49106,
+                      "sourceCheckedAtUtc":  "2026-07-30T02:34:18.0112735Z",
+                      "sourceCheckAgeSeconds":  42118,
+                      "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                      "qualificationAgeSeconds":  49017,
+                      "sourceChangeStatus":  "Unchanged",
+                      "lastSourceCheckResult":  "NO_SOURCE_CHANGES",
+                      "freshnessStatus":  "Fresh",
+                      "warnings":  [
+
+                                   ],
+                      "hardFailures":  [
+
+                                       ],
+                      "entityCounts":  {
+                                           "billOfMaterial":  1290,
+                                           "inventoryItem":  28662,
+                                           "workOrder":  12113,
+                                           "generalLedgerAccount":  257
+                                       },
+                      "totalCount":  42322,
+                      "checks":  [
+                                     {
+                                         "name":  "dataEnvironment",
+                                         "passed":  true,
+                                         "message":  "Snapshot environment is LIVE."
+                                     },
+                                     {
+                                         "name":  "database",
+                                         "passed":  true,
+                                         "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                     },
+                                     {
+                                         "name":  "contractVersion",
+                                         "passed":  true,
+                                         "message":  "Stored contract version is V1.2."
+                                     },
+                                     {
+                                         "name":  "importRun",
+                                         "passed":  true,
+                                         "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                     },
+                                     {
+                                         "name":  "mirrorRun",
+                                         "passed":  true,
+                                         "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                     },
+                                     {
+                                         "name":  "packageHash",
+                                         "passed":  true,
+                                         "message":  "Current package hash matches the qualified package."
+                                     },
+                                     {
+                                         "name":  "entityCounts",
+                                         "passed":  true,
+                                         "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                     },
+                                     {
+                                         "name":  "operationalStatus",
+                                         "passed":  true,
+                                         "message":  "Separated snapshot/source-check/qualification status is present."
+                                     }
+                                 ]
+                  },
+    "ReferenceCodeMetadata":  {
+                                  "referenceCodeImportRunId":  "36c23ba1-b09d-4df8-a794-6e324f46b483",
+                                  "sourceQualificationRunId":  "SUPPORTING_CODE_TABLES_PLATFORM_001-20260730T134103634Z-A0F9F84F",
+                                  "packageSha256":  "1372431D5A281E0104D1D54B1F3C2013E3BCA0488A804FA05ABC831C088E8EAD",
+                                  "contractVersion":  "REFERENCE_CODE_1.0",
+                                  "snapshotAsOfUtc":  "2026-07-30T13:52:16.374",
+                                  "referenceCodeCount":  1209,
+                                  "relationshipCount":  0,
+                                  "usageEvidenceCount":  1448,
+                                  "resolvedCount":  246,
+                                  "unresolvedCount":  868,
+                                  "ambiguousCount":  0,
+                                  "genericSystemCount":  76,
+                                  "canonicalEnumCount":  19,
+                                  "restrictedSourceRecordCount":  4,
+                                  "importStatus":  "COMMITTED"
+                              },
+    "Sample":  {
+                   "referenceCodeId":  2068,
+                   "firmId":  "01",
+                   "codeDomain":  "Purchasing",
+                   "codeType":  "PaymentTerms",
+                   "codeValue":  "01",
+                   "codeDescription":  "NET 30 DAYS",
+                   "shortDescription":  null,
+                   "parentCodeValue":  null,
+                   "sortOrder":  null,
+                   "isActive":  null,
+                   "sourceType":  "SourceMaster",
+                   "accessClassification":  "PurchasingOperational",
+                   "resolutionStatus":  "Resolved",
+                   "sourceRecordIdentity":  "3031433031",
+                   "usageCount":  39094,
+                   "referenceCodeImportRunId":  "36c23ba1-b09d-4df8-a794-6e324f46b483",
+                   "importedAtUtc":  "2026-07-30T13:52:16.256"
+               },
+    "FrontendBuild":  {
+                          "frontendBuildId":  "20260730T141615Z-F22D34C280AD",
+                          "publishedAtUtc":  "2026-07-30T14:16:15.8569542+00:00",
+                          "manifestSha256":  "3C59412BC6D7ABCF4988FAB989666ADBFD886E5098B210B4C792B550B8491469"
+                      }
+}

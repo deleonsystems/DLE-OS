@@ -1,0 +1,11 @@
+Family,Classification,Included,Reason
+Customer and sales operational codes,SalesOperational,Yes,Required for qualified canonical interpretation
+Purchasing operational codes,PurchasingOperational,Yes,Required for qualified purchase-order interpretation
+Receiving and rejection codes,ReceivingOperational,Yes,Required for receiving-history interpretation
+Inventory operational codes,GeneralOperational,Yes,Required for inventory interpretation
+Production operational codes,ProductionOperational,Yes,Required for work-order interpretation
+Employee department title and display name,InternalOnly,Yes,Operational reference only
+Accounting enum,InternalOnly,Yes,Existing bounded canonical enum only
+Customer pricing class,Restricted,No,Not required by the approved baseline
+Payroll pay deduction tax contribution union and W2,Restricted,No,Explicitly excluded
+Security role level password and credential content,Restricted,No,Explicitly excluded
