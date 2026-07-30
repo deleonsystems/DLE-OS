@@ -1,0 +1,12 @@
+Category,Examples,Classification,Handling
+Operational identity,"employee number, business display name",Approved safe,Retained
+Operational organization,"department, job title",Approved safe,Retained
+Operational aliases,"buyer, salesperson, operator codes",Approved safe,Retained with explicit namespace and resolution
+Status,Active/inactive,Approved derived,Boolean/status only; raw termination date excluded
+Payroll,"pay rate, salary, deductions, tax, bank",Prohibited,Not extracted or retained
+Sensitive HR,"birth date, medical, benefits, discipline, attendance",Prohibited,Not extracted or retained
+Personal contact,"home address, personal phone, emergency contact",Prohibited,Not extracted or retained
+Credentials,"password, PIN, security rights",Prohibited,Not extracted or retained
+Source access,X:\AON approved files,Level 2 read-only,Exact paths and MODE=O_RDONLY
+SQL API,DLE_OS_CANONICAL_LIVE,Read-only,SELECT through dle_live_api_reader only
+Browser,Live Employee Reference routes,Read-only,No write route or direct source access

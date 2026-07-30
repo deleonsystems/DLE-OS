@@ -3,7 +3,7 @@
 
   const WORKSPACE_ID = "platform";
   const TEMPLATE_PATH =
-    "SRC/modules/canonical-data-viewer/canonical-data-viewer.html?v=20260729-04";
+    "SRC/modules/canonical-data-viewer/canonical-data-viewer.html?v=20260730-01";
   const REQUEST_TIMEOUT_MS = 15000;
   const WORK_ORDER_SEARCH_DEBOUNCE_MS = 300;
   const PAGE_SIZES = Object.freeze([25, 50, 100, 200]);
@@ -803,6 +803,78 @@
         }),
         Object.freeze({ name: "importedAtUtc", label: "Imported At" })
       ])
+    }),
+    employeeReference: Object.freeze({
+      title: "Employee Reference",
+      singular: "Employee Reference",
+      identifier: "employeeReferenceId",
+      listMethod: "getCanonicalEmployeeReference",
+      lookupMethod: "getCanonicalEmployee",
+      codesMethod: "getCanonicalEmployeeCodes",
+      liveOnly: true,
+      filters: Object.freeze([
+        Object.freeze({
+          name: "employeeNumber",
+          label: "Employee Number",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({ name: "employeeName", label: "Employee Name" }),
+        Object.freeze({ name: "department", label: "Department" }),
+        Object.freeze({ name: "jobTitle", label: "Job Title" }),
+        Object.freeze({
+          name: "isActive",
+          label: "Status",
+          options: Object.freeze([
+            Object.freeze({ value: "", label: "All employees" }),
+            Object.freeze({ value: "true", label: "Active" }),
+            Object.freeze({ value: "false", label: "Inactive" })
+          ])
+        }),
+        Object.freeze({ name: "operationalCode", label: "Operational Code" }),
+        Object.freeze({
+          name: "codeType",
+          label: "Code Type",
+          options: Object.freeze([
+            Object.freeze({ value: "", label: "All code types" }),
+            Object.freeze({ value: "Buyer", label: "Buyer" }),
+            Object.freeze({ value: "Salesperson", label: "Salesperson" }),
+            Object.freeze({ value: "Operator", label: "Operator" })
+          ])
+        })
+      ]),
+      columns: Object.freeze([
+        Object.freeze({ name: "employeeNumber", label: "Employee Number" }),
+        Object.freeze({ name: "displayName", label: "Employee Name" }),
+        Object.freeze({ name: "departmentName", label: "Department" }),
+        Object.freeze({ name: "jobTitle", label: "Job Title" }),
+        Object.freeze({ name: "employeeStatus", label: "Status" }),
+        Object.freeze({ name: "operationalCodeCount", label: "Resolved Codes" })
+      ]),
+      fields: Object.freeze([
+        Object.freeze({ name: "firmId", label: "Firm ID" }),
+        Object.freeze({ name: "employeeNumber", label: "Employee Number" }),
+        Object.freeze({ name: "displayName", label: "Employee Name" }),
+        Object.freeze({ name: "firstName", label: "First Name" }),
+        Object.freeze({ name: "lastName", label: "Last Name" }),
+        Object.freeze({ name: "departmentCode", label: "Department Code" }),
+        Object.freeze({ name: "departmentName", label: "Department" }),
+        Object.freeze({ name: "jobTitleCode", label: "Job Title Code" }),
+        Object.freeze({ name: "jobTitle", label: "Job Title" }),
+        Object.freeze({ name: "employeeStatus", label: "Status" }),
+        Object.freeze({ name: "isActive", label: "Active" }),
+        Object.freeze({ name: "operationalCodes", label: "Operational Codes" }),
+        Object.freeze({
+          name: "operationalCodeCount",
+          label: "Resolved Operational Code Count"
+        }),
+        Object.freeze({ name: "sourceSystem", label: "Source System" }),
+        Object.freeze({ name: "sourceRecordIdentity", label: "Source Record Identity" }),
+        Object.freeze({
+          name: "employeeReferenceImportRunId",
+          label: "Employee Reference Import Run ID"
+        }),
+        Object.freeze({ name: "importedAtUtc", label: "Imported At" })
+      ])
     })
   });
 
@@ -833,6 +905,7 @@
       vendorMasterAvailable: false,
       purchaseOrderAvailable: false,
       receivingHistoryAvailable: false,
+      employeeReferenceAvailable: false,
       refresh: {
         authorized: false,
         available: false,
@@ -1114,7 +1187,8 @@
       customerMasterResult,
       vendorMasterResult,
       purchaseOrderResult,
-      receivingHistoryResult
+      receivingHistoryResult,
+      employeeReferenceResult
     ] =
       await Promise.allSettled([
       api.getPlatformReadiness({ signal: request.controller.signal }),
@@ -1146,6 +1220,12 @@
       activeProfileKey === "live" &&
         api.getCanonicalReceivingHistoryMetadata
         ? api.getCanonicalReceivingHistoryMetadata({
+            signal: request.controller.signal
+          })
+        : Promise.resolve(null),
+      activeProfileKey === "live" &&
+        api.getCanonicalEmployeeReferenceMetadata
+        ? api.getCanonicalEmployeeReferenceMetadata({
             signal: request.controller.signal
           })
         : Promise.resolve(null)
@@ -1190,6 +1270,10 @@
       activeProfileKey === "live" &&
       receivingHistoryResult.status === "fulfilled" &&
       Number(receivingHistoryResult.value?.lineCount) > 0;
+    state.employeeReferenceAvailable =
+      activeProfileKey === "live" &&
+      employeeReferenceResult.status === "fulfilled" &&
+      Number(employeeReferenceResult.value?.employeeCount) > 0;
 
     const readinessState = state.readinessPayload?.readinessState;
     const readinessReason = state.readinessPayload?.readinessReason;
@@ -1475,9 +1559,30 @@
     entityState.request = request;
 
     try {
-      const record = await currentApi()[definition.lookupMethod](identifier, {
-        signal: request.controller.signal
-      });
+      const [recordResult, codesResult] = await Promise.all([
+        currentApi()[definition.lookupMethod](identifier, {
+          signal: request.controller.signal
+        }),
+        definition.codesMethod
+          ? currentApi()[definition.codesMethod](identifier, {
+              signal: request.controller.signal
+            })
+          : Promise.resolve(null)
+      ]);
+      const record = definition.codesMethod
+        ? {
+            ...recordResult,
+            operationalCodes: Array.isArray(codesResult) && codesResult.length
+              ? codesResult.map(code =>
+                  String(code.codeType || "") + ": " +
+                  String(code.operationalCode || "") +
+                  (code.codeDescription
+                    ? " (" + String(code.codeDescription) + ")"
+                    : "")
+                ).join("; ")
+              : null
+          }
+        : recordResult;
       if (!active || entityState.request !== request || sequence !== entityState.requestSequence) return;
       entityState.selectedRecord = record;
       detailTitle.textContent = definition.singular + " · " + String(record?.[definition.identifier] ?? identifier);
@@ -1680,6 +1785,10 @@
     queryAll('[data-canonical-tab="receivingHistory"]').forEach(tab => {
       tab.hidden =
         activeProfileKey !== "live" || !state.receivingHistoryAvailable;
+    });
+    queryAll('[data-canonical-tab="employeeReference"]').forEach(tab => {
+      tab.hidden =
+        activeProfileKey !== "live" || !state.employeeReferenceAvailable;
     });
     renderRefreshControl();
     renderInvoiceHistoryRefreshControl();

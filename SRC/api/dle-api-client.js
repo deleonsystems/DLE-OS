@@ -37,7 +37,9 @@
     canonicalPurchaseOrders: '/api/platform/live/v1/purchase-orders',
     canonicalPurchaseOrderMetadata: '/api/platform/live/v1/purchase-orders/metadata',
     canonicalReceivingHistory: '/api/platform/live/v1/receiving-history',
-    canonicalReceivingHistoryMetadata: '/api/platform/live/v1/receiving-history/metadata'
+    canonicalReceivingHistoryMetadata: '/api/platform/live/v1/receiving-history/metadata',
+    canonicalEmployeeReference: '/api/platform/live/v1/employee-reference',
+    canonicalEmployeeReferenceMetadata: '/api/platform/live/v1/employee-reference/metadata'
   });
 
   const CANONICAL_FILTERS = Object.freeze({
@@ -72,6 +74,10 @@
       'purchaseOrderLineNumber', 'vendorNumber', 'vendorName', 'itemNumber',
       'packingSlipNumber', 'workOrderNumber', 'warehouseId',
       'inspectionStatus', 'rejectedOnly', 'returnedOnly'
+    ]),
+    canonicalEmployeeReference: Object.freeze([
+      'employeeNumber', 'employeeName', 'department', 'jobTitle',
+      'isActive', 'operationalCode', 'codeType'
     ])
   });
 
@@ -88,7 +94,8 @@
     purchaseOrderLineNumber: 3,
     salesOrderNumber: 7,
     workOrderNumber: 7,
-    itemNumber: 20
+    itemNumber: 20,
+    employeeNumber: 9
   });
 
   function getConfig() {
@@ -296,14 +303,18 @@
         endpointKey === 'canonicalInventoryItems' ||
         endpointKey === 'canonicalWorkOrders'
       );
+    const isEmployeeNumber =
+      endpointKey === 'canonicalEmployeeReference' &&
+      filterName === 'employeeNumber';
     if (!isCustomerNumber && !isVendorNumber && !isPurchaseOrderNumber &&
         !isPurchaseOrderLineNumber && !isReceiverNumber &&
         !isSalesOrderNumber && !isInvoiceNumber &&
-        !isWorkOrderNumber && !isItemNumber) {
+        !isWorkOrderNumber && !isItemNumber && !isEmployeeNumber) {
       if ((endpointKey === 'canonicalCustomerMaster' ||
            endpointKey === 'canonicalVendorMaster' ||
            endpointKey === 'canonicalPurchaseOrders' ||
-           endpointKey === 'canonicalReceivingHistory') &&
+           endpointKey === 'canonicalReceivingHistory' ||
+           endpointKey === 'canonicalEmployeeReference') &&
           value !== undefined && value !== null) {
         return String(value).trim();
       }
@@ -363,6 +374,13 @@
     }
     if (isWorkOrderNumber) {
       const canonicalWidth = CANONICAL_FIELD_WIDTHS.workOrderNumber;
+      if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
+        return normalizedValue.padStart(canonicalWidth, '0');
+      }
+      return normalizedValue;
+    }
+    if (isEmployeeNumber) {
+      const canonicalWidth = CANONICAL_FIELD_WIDTHS.employeeNumber;
       if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
         return normalizedValue.padStart(canonicalWidth, '0');
       }
@@ -594,6 +612,38 @@
     },
     getCanonicalReceivingHistoryMetadata(options = {}) {
       return getLiveJson('canonicalReceivingHistoryMetadata', options);
+    },
+    getCanonicalEmployeeReference(options = {}) {
+      return getLiveCanonicalList('canonicalEmployeeReference', options);
+    },
+    getCanonicalEmployee(employeeReferenceId, options = {}) {
+      const id = String(employeeReferenceId || '').trim();
+      if (!/^\d{11}$/.test(id)) {
+        throw new TypeError(
+          'Employee Reference identifier must contain firm and employee number.'
+        );
+      }
+      return getLiveCanonicalRecord(
+        'canonicalEmployeeReference',
+        id,
+        options
+      );
+    },
+    getCanonicalEmployeeCodes(employeeReferenceId, options = {}) {
+      const id = String(employeeReferenceId || '').trim();
+      if (!/^\d{11}$/.test(id)) {
+        throw new TypeError(
+          'Employee Reference identifier must contain firm and employee number.'
+        );
+      }
+      return getLiveJson('canonicalEmployeeReference', {
+        ...options,
+        endpoint: LIVE_CANONICAL_ENDPOINTS.canonicalEmployeeReference + '/' +
+          encodeCanonicalIdentifier(id) + '/codes'
+      });
+    },
+    getCanonicalEmployeeReferenceMetadata(options = {}) {
+      return getLiveJson('canonicalEmployeeReferenceMetadata', options);
     },
     getSnapshotRefreshStatus(options = {}) {
       return requestLiveSnapshotRefresh('/api/platform/refresh/v1/status', options);
