@@ -1,0 +1,31 @@
+{
+    "Verdict":  "FAIL",
+    "StartedAtUtc":  "2026-07-30T02:06:44.6188815+00:00",
+    "Identity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "SourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "PortsBefore":  {
+                        "Historical":  20304,
+                        "Live":  13600,
+                        "Refresh":  4,
+                        "Promotion":  4
+                    },
+    "BackupRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PlatformFreshnessCache001\\PLATFORMFRESHNESSCACHE001-20260730T010815Z\\DeploymentBackup-20260730T020644Z",
+    "DatabaseBackup":  {
+                           "Path":  "C:\\DLE-OS\\Backups\\LiveApi001\\DLE_OS_CANONICAL_LIVE_20260730T020644Z.bak",
+                           "Length":  83292160,
+                           "Sha256":  "E6891D54CB1CB9FBB82BC4232C012DFA40D7452B4CB3C9F80A17DE0E9765AF1C",
+                           "Verified":  true
+                       },
+    "Error":  "Exception calling \"ExecuteNonQuery\" with \"0\" argument(s): \"Full qualification does not match active SQL metadata.\"",
+    "FailedAtUtc":  "2026-07-30T02:06:46.0489933+00:00",
+    "Recovery":  [
+                     "RUNTIMES_STOPPED",
+                     "SOURCE_CONFIG_AND_REFRESH_FILES_RESTORED",
+                     "RUNTIME_BINARIES_RESTORED",
+                     "FRONTEND_POINTERS_RESTORED",
+                     "DATABASE_RESTORED_FROM_VERIFIED_BACKUP",
+                     "PRIOR_RUNTIMES_RESTARTED"
+                 ]
+}

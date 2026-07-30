@@ -1,0 +1,31 @@
+{
+    "Verdict":  "FAIL",
+    "StartedAtUtc":  "2026-07-30T01:33:46.4580314+00:00",
+    "Identity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "SourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "PortsBefore":  {
+                        "Historical":  33688,
+                        "Live":  33116,
+                        "Refresh":  4,
+                        "Promotion":  4
+                    },
+    "BackupRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PlatformFreshnessCache001\\PLATFORMFRESHNESSCACHE001-20260730T010815Z\\DeploymentBackup-20260730T013346Z",
+    "DatabaseBackup":  {
+                           "Path":  "C:\\DLE-OS\\Backups\\LiveApi001\\DLE_OS_CANONICAL_LIVE_20260730T013346Z.bak",
+                           "Length":  83226624,
+                           "Sha256":  "7147593A427A07A2E0BC8ED073F34B26D924FC7DE1FF96309136D5D762144C8D",
+                           "Verified":  true
+                       },
+    "Error":  "Exception calling \"ExecuteNonQuery\" with \"0\" argument(s): \"The login already has an account under a different user name.\"",
+    "FailedAtUtc":  "2026-07-30T01:33:47.5935851+00:00",
+    "Recovery":  [
+                     "RUNTIMES_STOPPED",
+                     "SOURCE_CONFIG_AND_REFRESH_FILES_RESTORED",
+                     "RUNTIME_BINARIES_RESTORED",
+                     "FRONTEND_POINTERS_RESTORED",
+                     "DATABASE_RESTORED_FROM_VERIFIED_BACKUP",
+                     "PRIOR_RUNTIMES_RESTARTED"
+                 ]
+}

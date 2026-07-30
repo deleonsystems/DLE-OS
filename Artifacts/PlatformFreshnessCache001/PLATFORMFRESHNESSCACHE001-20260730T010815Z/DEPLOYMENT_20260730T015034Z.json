@@ -1,0 +1,31 @@
+{
+    "Verdict":  "FAIL",
+    "StartedAtUtc":  "2026-07-30T01:50:38.8464684+00:00",
+    "Identity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "SourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "PortsBefore":  {
+                        "Historical":  26080,
+                        "Live":  27744,
+                        "Refresh":  4,
+                        "Promotion":  4
+                    },
+    "BackupRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PlatformFreshnessCache001\\PLATFORMFRESHNESSCACHE001-20260730T010815Z\\DeploymentBackup-20260730T015038Z",
+    "DatabaseBackup":  {
+                           "Path":  "C:\\DLE-OS\\Backups\\LiveApi001\\DLE_OS_CANONICAL_LIVE_20260730T015038Z.bak",
+                           "Length":  83292160,
+                           "Sha256":  "0EE53EC06CCC2E914DF34E80C6B706D283B3248B7B73ED387CA5BBEA2D1669E9",
+                           "Verified":  true
+                       },
+    "Error":  "Exception calling \"ExecuteNonQuery\" with \"0\" argument(s): \"Incorrect syntax near \u0027+\u0027.\r\nIncorrect syntax near \u0027+\u0027.\"",
+    "FailedAtUtc":  "2026-07-30T01:50:40.7221043+00:00",
+    "Recovery":  [
+                     "RUNTIMES_STOPPED",
+                     "SOURCE_CONFIG_AND_REFRESH_FILES_RESTORED",
+                     "RUNTIME_BINARIES_RESTORED",
+                     "FRONTEND_POINTERS_RESTORED",
+                     "DATABASE_RESTORED_FROM_VERIFIED_BACKUP",
+                     "PRIOR_RUNTIMES_RESTARTED"
+                 ]
+}

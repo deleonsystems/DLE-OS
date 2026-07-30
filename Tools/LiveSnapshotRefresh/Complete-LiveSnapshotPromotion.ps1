@@ -49,6 +49,8 @@ $launcher =
 $dotnet = 'C:\Program Files\dotnet\dotnet.exe'
 $resultPath = Join-Path $runRoot 'promotion-result.json'
 $errorPath = Join-Path $runRoot 'promotion-error.log'
+$statusPath =
+    'C:\ProgramData\DLE-OS\LiveSnapshotRefresh\State\status.json'
 
 function Restore-DirectorySnapshot {
     param([string] $Backup, [string] $Target)
@@ -130,6 +132,99 @@ function Invoke-Importer {
     & $salesImporter | Out-Null
 }
 
+function Get-LiveSnapshotOperationalState {
+    $connectionString =
+        'Server=lpc:.\SQLEXPRESS;Database=DLE_OS_CANONICAL_LIVE;' +
+        'Integrated Security=True;Encrypt=False;TrustServerCertificate=True;' +
+        'Connect Timeout=5;Application Name=DLE-OS Snapshot Status'
+    $connection =
+        [System.Data.SqlClient.SqlConnection]::new($connectionString)
+    try {
+        $connection.Open()
+        $command = $connection.CreateCommand()
+        $command.CommandText = @'
+SELECT
+    snapshot.ImportRunId,
+    snapshot.MirrorRunId,
+    snapshot.PackageHash,
+    snapshot.SnapshotTimestampUtc,
+    status.SourceCheckedAtUtc,
+    status.QualificationCompletedAtUtc,
+    status.SourceIndicatorFingerprint,
+    status.LastFullExtractionRunId,
+    status.LastForceFullIntent
+FROM liveapi.SnapshotMetadata AS snapshot
+LEFT JOIN liveapi.SnapshotOperationalStatus AS status
+    ON status.ImportRunId = snapshot.ImportRunId;
+'@
+        $table = [System.Data.DataTable]::new()
+        $table.Load($command.ExecuteReader())
+        if ($table.Rows.Count -ne 1) {
+            throw 'LIVE operational state did not return exactly one row.'
+        }
+        return $table.Rows[0]
+    }
+    finally {
+        $connection.Dispose()
+    }
+}
+
+function Write-LiveFullQualification {
+    param(
+        [Guid] $ImportRunId,
+        [string] $MirrorRunId,
+        [string] $PackageHash,
+        [DateTime] $SnapshotAsOfUtc,
+        [DateTime] $SourceCheckedAtUtc,
+        [DateTime] $QualificationCompletedAtUtc,
+        [string] $SourceIndicatorFingerprint,
+        [string] $FullExtractionRunId,
+        [bool] $ForceFullIntent
+    )
+    $connectionString =
+        'Server=lpc:.\SQLEXPRESS;Database=DLE_OS_CANONICAL_LIVE;' +
+        'Integrated Security=True;Encrypt=False;TrustServerCertificate=True;' +
+        'Connect Timeout=5;Application Name=DLE-OS Full Qualification'
+    $connection =
+        [System.Data.SqlClient.SqlConnection]::new($connectionString)
+    try {
+        $connection.Open()
+        $command = $connection.CreateCommand()
+        $command.CommandType =
+            [System.Data.CommandType]::StoredProcedure
+        $command.CommandText = 'platform.RecordLiveFullQualification'
+        [void]$command.Parameters.AddWithValue(
+            '@ImportRunId', $ImportRunId)
+        [void]$command.Parameters.AddWithValue(
+            '@MirrorRunId', $MirrorRunId)
+        [void]$command.Parameters.AddWithValue(
+            '@PackageHash', $PackageHash)
+        $snapshotParameter = $command.Parameters.Add(
+            '@SnapshotAsOfUtc', [Data.SqlDbType]::DateTime2)
+        $snapshotParameter.Scale = 7
+        $snapshotParameter.Value = $SnapshotAsOfUtc
+        $sourceCheckedParameter = $command.Parameters.Add(
+            '@SourceCheckedAtUtc', [Data.SqlDbType]::DateTime2)
+        $sourceCheckedParameter.Scale = 7
+        $sourceCheckedParameter.Value = $SourceCheckedAtUtc
+        $qualificationParameter = $command.Parameters.Add(
+            '@QualificationCompletedAtUtc', [Data.SqlDbType]::DateTime2)
+        $qualificationParameter.Scale = 7
+        $qualificationParameter.Value = $QualificationCompletedAtUtc
+        [void]$command.Parameters.AddWithValue(
+            '@SourceIndicatorFingerprint',
+            $SourceIndicatorFingerprint)
+        [void]$command.Parameters.AddWithValue(
+            '@FullExtractionRunId', $FullExtractionRunId)
+        [void]$command.Parameters.AddWithValue(
+            '@ForceFullIntent', $ForceFullIntent)
+        [void]$command.ExecuteNonQuery()
+    }
+    finally {
+        $connection.Dispose()
+    }
+}
+
 function Stop-LiveApi {
     $listener =
         Get-NetTCPConnection -State Listen -LocalPort 5042 `
@@ -195,6 +290,7 @@ function Start-LiveApi {
 }
 
 $packagesChanged = -not $QualificationCurrentFixture
+$operationalBefore = Get-LiveSnapshotOperationalState
 try {
     if ($packagesChanged) {
         Promote-SalesCandidate
@@ -202,6 +298,37 @@ try {
     Stop-LiveApi
     Invoke-Importer -AllowFreshIdenticalPackage
     & $promoter | Out-Null
+    if ($packagesChanged) {
+        $candidateStatus =
+            Get-Content -LiteralPath $statusPath -Raw |
+            ConvertFrom-Json
+        if (
+            [string]$candidateStatus.CandidateSourceIndicatorFingerprint `
+                -notmatch '^[0-9A-F]{64}$' -or
+            $null -eq $candidateStatus.CandidateSourceCheckedAtUtc
+        ) {
+            throw 'Qualified source-check candidate metadata is absent.'
+        }
+        $sqlAfter = Get-LiveSnapshotOperationalState
+        $candidateCheckedAt = (
+            [DateTimeOffset](
+                [string]$candidateStatus.CandidateSourceCheckedAtUtc)
+        ).UtcDateTime
+        $candidateFingerprint =
+            [string]$candidateStatus.CandidateSourceIndicatorFingerprint
+        $candidateForceFull =
+            [bool]$candidateStatus.ForceFullExtraction
+        Write-LiveFullQualification `
+            -ImportRunId ([Guid]$sqlAfter.ImportRunId) `
+            -MirrorRunId ([string]$sqlAfter.MirrorRunId) `
+            -PackageHash ([string]$sqlAfter.PackageHash) `
+            -SnapshotAsOfUtc ([DateTime]$sqlAfter.SnapshotTimestampUtc) `
+            -SourceCheckedAtUtc $candidateCheckedAt `
+            -QualificationCompletedAtUtc ([DateTime]::UtcNow) `
+            -SourceIndicatorFingerprint $candidateFingerprint `
+            -FullExtractionRunId $RunId `
+            -ForceFullIntent $candidateForceFull
+    }
     Start-LiveApi
     [ordered]@{
         Verdict = 'PASS'
@@ -233,6 +360,34 @@ catch {
             ) $salesPrevious
             Invoke-Importer
             & $promoter | Out-Null
+            if (
+                $operationalBefore.SourceCheckedAtUtc -ne [DBNull]::Value
+            ) {
+                $priorQualificationCompletedAt =
+                    [DateTime]$operationalBefore.QualificationCompletedAtUtc
+                $priorFingerprint =
+                    [string]$operationalBefore.SourceIndicatorFingerprint
+                $priorFullExtractionRunId =
+                    [string]$operationalBefore.LastFullExtractionRunId
+                $priorForceFull =
+                    [bool]$operationalBefore.LastForceFullIntent
+                Write-LiveFullQualification `
+                    -ImportRunId (
+                        [Guid]$operationalBefore.ImportRunId) `
+                    -MirrorRunId (
+                        [string]$operationalBefore.MirrorRunId) `
+                    -PackageHash (
+                        [string]$operationalBefore.PackageHash) `
+                    -SnapshotAsOfUtc (
+                        [DateTime]$operationalBefore.SnapshotTimestampUtc) `
+                    -SourceCheckedAtUtc (
+                        [DateTime]$operationalBefore.SourceCheckedAtUtc) `
+                    -QualificationCompletedAtUtc (
+                        $priorQualificationCompletedAt) `
+                    -SourceIndicatorFingerprint $priorFingerprint `
+                    -FullExtractionRunId $priorFullExtractionRunId `
+                    -ForceFullIntent $priorForceFull
+            }
             $recovery = 'PREVIOUS_SNAPSHOT_RESTORED'
         }
         Start-LiveApi

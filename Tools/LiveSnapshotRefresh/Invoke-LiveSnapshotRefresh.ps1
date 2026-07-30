@@ -131,6 +131,79 @@ function Test-SourceStateEqual {
     return $true
 }
 
+function Get-SourceIndicatorFingerprint {
+    param([object[]] $State)
+    $material = foreach ($source in $State) {
+        @(
+            [string]$source.Path,
+            [string]$source.Length,
+            [string]$source.LastWriteTimeUtc,
+            [string]$source.Access
+        ) -join "`0"
+    }
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        Convert-BytesToHex (
+            $algorithm.ComputeHash(
+                [Text.Encoding]::UTF8.GetBytes(($material -join "`n"))))
+    }
+    finally {
+        $algorithm.Dispose()
+    }
+}
+
+function Write-SqlSourceCheck {
+    param(
+        [Guid] $ImportRunId,
+        [string] $CheckedAtUtc,
+        [string] $Result,
+        [string] $IndicatorFingerprint,
+        [bool] $IndicatorsUnchanged
+    )
+    $connectionString =
+        'Server=lpc:.\SQLEXPRESS;Database=DLE_OS_CANONICAL_LIVE;' +
+        'Integrated Security=True;Encrypt=False;TrustServerCertificate=True;' +
+        'Connect Timeout=5;Application Name=DLE-OS Source Check'
+    $connection = [System.Data.SqlClient.SqlConnection]::new(
+        $connectionString)
+    try {
+        $connection.Open()
+        $transaction = $connection.BeginTransaction(
+            [System.Data.IsolationLevel]::Serializable)
+        try {
+            $command = $connection.CreateCommand()
+            $command.Transaction = $transaction
+            $command.CommandType =
+                [System.Data.CommandType]::StoredProcedure
+            $command.CommandText = 'platform.RecordLiveSourceCheck'
+            [void]$command.Parameters.AddWithValue(
+                '@ImportRunId', $ImportRunId)
+            $checkedAtParameter = $command.Parameters.Add(
+                '@CheckedAtUtc', [Data.SqlDbType]::DateTime2)
+            $checkedAtParameter.Scale = 7
+            $checkedAtParameter.Value =
+                ([DateTimeOffset]$CheckedAtUtc).UtcDateTime
+            [void]$command.Parameters.AddWithValue('@Result', $Result)
+            [void]$command.Parameters.AddWithValue(
+                '@IndicatorFingerprint', $IndicatorFingerprint)
+            [void]$command.Parameters.AddWithValue(
+                '@IndicatorsUnchanged', $IndicatorsUnchanged)
+            [void]$command.ExecuteNonQuery()
+            $transaction.Commit()
+        }
+        catch {
+            $transaction.Rollback()
+            throw
+        }
+        finally {
+            $transaction.Dispose()
+        }
+    }
+    finally {
+        $connection.Dispose()
+    }
+}
+
 function Write-SourceState {
     param([object[]] $State)
     $stage =
@@ -395,6 +468,8 @@ try {
 
     $sourceState = Get-SourceState
     $sourceCheckedAt = Get-UtcNow
+    $sourceIndicatorFingerprint =
+        Get-SourceIndicatorFingerprint @($sourceState)
     $priorSourceState = $null
     if (Test-Path -LiteralPath $sourceStatePath -PathType Leaf) {
         $priorSourceState =
@@ -410,6 +485,12 @@ try {
         -QualificationCurrentFixture ([bool]$QualificationCurrentFixture)
     $sqlBefore = Get-SqlSnapshot
     if ($disposition -eq 'NO_SOURCE_CHANGES') {
+        Write-SqlSourceCheck `
+            -ImportRunId ([Guid]$sqlBefore.ImportRunId) `
+            -CheckedAtUtc $sourceCheckedAt `
+            -Result 'NO_SOURCE_CHANGES' `
+            -IndicatorFingerprint $sourceIndicatorFingerprint `
+            -IndicatorsUnchanged $true
         Write-Status @{
             Running = $false
             Status = 'NO_SOURCE_CHANGES'
@@ -430,6 +511,18 @@ try {
             PackageHash = [string]$sqlBefore.PackageHash
         } | ConvertTo-Json
         exit 0
+    }
+    if (
+        -not $unchanged -and
+        -not $ForceFullExtraction -and
+        -not $QualificationCurrentFixture
+    ) {
+        Write-SqlSourceCheck `
+            -ImportRunId ([Guid]$sqlBefore.ImportRunId) `
+            -CheckedAtUtc $sourceCheckedAt `
+            -Result 'SOURCE_CHANGED_FULL_EXTRACTION_REQUIRED' `
+            -IndicatorFingerprint $sourceIndicatorFingerprint `
+            -IndicatorsUnchanged $false
     }
     if ($ForceFullExtraction) {
         Write-Status @{
@@ -483,6 +576,9 @@ try {
     Write-Status @{
         Phase = 'AWAITING_LOCAL_PROMOTION'
         Message = 'Awaiting operator elevation for local SQL and boundary promotion. No X: access occurs in the elevated phase.'
+        CandidateSourceCheckedAtUtc = $sourceCheckedAt
+        CandidateSourceIndicatorFingerprint =
+            $sourceIndicatorFingerprint
     }
     $promotionUri =
         'http://localhost:5044/api/platform/refresh/v1/promote?' +

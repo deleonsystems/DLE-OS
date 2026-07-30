@@ -1,0 +1,96 @@
+{
+    "Verdict":  "PASS",
+    "AssertionsPassed":  15,
+    "BuildA":  {
+                   "Verdict":  "PASS",
+                   "FrontendBuildId":  "20260730T010000Z-A51EA451D31E",
+                   "PublishedAtUtc":  "2026-07-30T01:00:00.0000000+00:00",
+                   "SourceManifestSha256":  "A51EA451D31EACBE5BB71EED952566861C1BC4ABB9EE71345C461D77834D5103",
+                   "AssetManifestSha256":  "819FC56FC1176843575855FFA9E8B54B7FABAB964790B6A3156AA8317B4877BC",
+                   "AssetCount":  72,
+                   "BuildPath":  "C:\\Users\\DLE-OS\\AppData\\Local\\Temp\\DLE-OS-PlatformFreshnessCache-0efd64f4807b4c999e5940bf81857842\\Frontend\\Builds\\20260730T010000Z-A51EA451D31E",
+                   "Promoted":  true
+               },
+    "BuildB":  {
+                   "Verdict":  "PASS",
+                   "FrontendBuildId":  "20260730T010001Z-A51EA451D31E",
+                   "PublishedAtUtc":  "2026-07-30T01:00:01.0000000+00:00",
+                   "SourceManifestSha256":  "A51EA451D31EACBE5BB71EED952566861C1BC4ABB9EE71345C461D77834D5103",
+                   "AssetManifestSha256":  "7569818AF4726244E9E6C143460CDD20B81C86165D6AAD189AE04A8F1735522B",
+                   "AssetCount":  72,
+                   "BuildPath":  "C:\\Users\\DLE-OS\\AppData\\Local\\Temp\\DLE-OS-PlatformFreshnessCache-0efd64f4807b4c999e5940bf81857842\\Frontend\\Builds\\20260730T010001Z-A51EA451D31E",
+                   "Promoted":  true
+               },
+    "Rollback":  {
+                     "Verdict":  "PASS",
+                     "ActiveBuildId":  "20260730T010000Z-A51EA451D31E",
+                     "RollbackWasAtomic":  true
+                 },
+    "RollForward":  {
+                        "Verdict":  "PASS",
+                        "ActiveBuildId":  "20260730T010001Z-A51EA451D31E",
+                        "RollbackWasAtomic":  true
+                    },
+    "Assertions":  [
+                       {
+                           "Name":  "Unique build IDs",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Build A shell embeds A",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Build B shell embeds B",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Build B shell excludes A",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Build diagnostic injected exactly once",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Main initialization script remains intact",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "No stable SRC script URLs",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "No stable ASSETS URLs",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "No manual version query remains",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Current pointer is build B",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Previous pointer is build A",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Both complete builds retained",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Manifest has assets",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Rollback activates complete build A",
+                           "Passed":  true
+                       },
+                       {
+                           "Name":  "Roll-forward restores complete build B",
+                           "Passed":  true
+                       }
+                   ]
+}

@@ -1,0 +1,32 @@
+{
+    "Verdict":  "FAIL",
+    "StartedAtUtc":  "2026-07-30T02:17:50.3787261+00:00",
+    "Identity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "SourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "PortsBefore":  {
+                        "Historical":  27664,
+                        "Live":  17816,
+                        "Refresh":  4,
+                        "Promotion":  4
+                    },
+    "BackupRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PlatformFreshnessCache001\\PLATFORMFRESHNESSCACHE001-20260730T010815Z\\DeploymentBackup-20260730T021750Z",
+    "DatabaseBackup":  {
+                           "Path":  "C:\\DLE-OS\\Backups\\LiveApi001\\DLE_OS_CANONICAL_LIVE_20260730T021750Z.bak",
+                           "Length":  83292160,
+                           "Sha256":  "D0A844D6B6BAD470BEEED8172E3E37D722689E56248F66FD8691574FDA91F22D",
+                           "Verified":  true
+                       },
+    "ServerBuild":  "PASS",
+    "Error":  "The published runtime directory ACL is not read/execute-only.",
+    "FailedAtUtc":  "2026-07-30T02:18:00.2877813+00:00",
+    "Recovery":  [
+                     "RUNTIMES_STOPPED",
+                     "SOURCE_CONFIG_AND_REFRESH_FILES_RESTORED",
+                     "RUNTIME_BINARIES_RESTORED",
+                     "FRONTEND_POINTERS_RESTORED",
+                     "DATABASE_RESTORED_FROM_VERIFIED_BACKUP",
+                     "PRIOR_RUNTIMES_RESTARTED"
+                 ]
+}

@@ -1,0 +1,19 @@
+{
+    "Verdict":  "PASS",
+    "StartedAtUtc":  "2026-07-30T02:39:37.6195988+00:00",
+    "Identity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "SourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "Publication":  {
+                        "Verdict":  "PASS",
+                        "FrontendBuildId":  "20260730T023937Z-A51EA451D31E",
+                        "PublishedAtUtc":  "2026-07-30T02:39:37.6215977+00:00",
+                        "SourceManifestSha256":  "A51EA451D31EACBE5BB71EED952566861C1BC4ABB9EE71345C461D77834D5103",
+                        "AssetManifestSha256":  "CCD42EF4A63CB2295FA739D1CA829234333D7B71B7C8CB31434C256F0A4BB400",
+                        "AssetCount":  72,
+                        "BuildPath":  "C:\\ProgramData\\DLE-OS\\Frontend\\Builds\\20260730T023937Z-A51EA451D31E",
+                        "Promoted":  true
+                    },
+    "CompletedAtUtc":  "2026-07-30T02:39:38.4339870+00:00"
+}

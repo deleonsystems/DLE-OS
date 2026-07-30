@@ -1,0 +1,173 @@
+﻿{
+    "Verdict":  "PASS",
+    "CapturedAtUtc":  "2026-07-30T02:34:52.2488597+00:00",
+    "NormalRefreshResult":  "NO_SOURCE_CHANGES",
+    "Before":  {
+                   "dataEnvironment":  "LIVE",
+                   "database":  "DLE_OS_CANONICAL_LIVE",
+                   "contractVersion":  "1.2",
+                   "apiContractVersion":  "live-readiness-v2",
+                   "readinessVerdict":  "Ready",
+                   "readinessState":  "ReadyFresh",
+                   "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                   "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                   "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                   "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                   "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                   "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                   "snapshotAgeSeconds":  6958,
+                   "sourceCheckedAtUtc":  "2026-07-29T23:21:38.8421838Z",
+                   "sourceCheckAgeSeconds":  11530,
+                   "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                   "qualificationAgeSeconds":  6869,
+                   "sourceChangeStatus":  "Qualified",
+                   "lastSourceCheckResult":  "FULL_EXTRACTION_QUALIFIED",
+                   "freshnessStatus":  "Fresh",
+                   "warnings":  [
+
+                                ],
+                   "hardFailures":  [
+
+                                    ],
+                   "entityCounts":  {
+                                        "billOfMaterial":  1290,
+                                        "inventoryItem":  28662,
+                                        "workOrder":  12113,
+                                        "generalLedgerAccount":  257
+                                    },
+                   "totalCount":  42322,
+                   "checks":  [
+                                  {
+                                      "name":  "dataEnvironment",
+                                      "passed":  true,
+                                      "message":  "Snapshot environment is LIVE."
+                                  },
+                                  {
+                                      "name":  "database",
+                                      "passed":  true,
+                                      "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                  },
+                                  {
+                                      "name":  "contractVersion",
+                                      "passed":  true,
+                                      "message":  "Stored contract version is V1.2."
+                                  },
+                                  {
+                                      "name":  "importRun",
+                                      "passed":  true,
+                                      "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                  },
+                                  {
+                                      "name":  "mirrorRun",
+                                      "passed":  true,
+                                      "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                  },
+                                  {
+                                      "name":  "packageHash",
+                                      "passed":  true,
+                                      "message":  "Current package hash matches the qualified package."
+                                  },
+                                  {
+                                      "name":  "entityCounts",
+                                      "passed":  true,
+                                      "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                  },
+                                  {
+                                      "name":  "operationalStatus",
+                                      "passed":  true,
+                                      "message":  "Separated snapshot/source-check/qualification status is present."
+                                  }
+                              ]
+               },
+    "After":  {
+                  "dataEnvironment":  "LIVE",
+                  "database":  "DLE_OS_CANONICAL_LIVE",
+                  "contractVersion":  "1.2",
+                  "apiContractVersion":  "live-readiness-v2",
+                  "readinessVerdict":  "Ready",
+                  "readinessState":  "ReadyFresh",
+                  "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                  "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                  "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                  "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                  "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                  "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                  "snapshotAgeSeconds":  7019,
+                  "sourceCheckedAtUtc":  "2026-07-30T02:34:18.0112735Z",
+                  "sourceCheckAgeSeconds":  31,
+                  "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                  "qualificationAgeSeconds":  6930,
+                  "sourceChangeStatus":  "Unchanged",
+                  "lastSourceCheckResult":  "NO_SOURCE_CHANGES",
+                  "freshnessStatus":  "Fresh",
+                  "warnings":  [
+
+                               ],
+                  "hardFailures":  [
+
+                                   ],
+                  "entityCounts":  {
+                                       "billOfMaterial":  1290,
+                                       "inventoryItem":  28662,
+                                       "workOrder":  12113,
+                                       "generalLedgerAccount":  257
+                                   },
+                  "totalCount":  42322,
+                  "checks":  [
+                                 {
+                                     "name":  "dataEnvironment",
+                                     "passed":  true,
+                                     "message":  "Snapshot environment is LIVE."
+                                 },
+                                 {
+                                     "name":  "database",
+                                     "passed":  true,
+                                     "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                 },
+                                 {
+                                     "name":  "contractVersion",
+                                     "passed":  true,
+                                     "message":  "Stored contract version is V1.2."
+                                 },
+                                 {
+                                     "name":  "importRun",
+                                     "passed":  true,
+                                     "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                 },
+                                 {
+                                     "name":  "mirrorRun",
+                                     "passed":  true,
+                                     "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                 },
+                                 {
+                                     "name":  "packageHash",
+                                     "passed":  true,
+                                     "message":  "Current package hash matches the qualified package."
+                                 },
+                                 {
+                                     "name":  "entityCounts",
+                                     "passed":  true,
+                                     "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                 },
+                                 {
+                                     "name":  "operationalStatus",
+                                     "passed":  true,
+                                     "message":  "Separated snapshot/source-check/qualification status is present."
+                                 }
+                             ]
+              },
+    "Assertions":  {
+                       "SnapshotIdentityUnchanged":  true,
+                       "SourceCheckedAtAdvanced":  true,
+                       "LiveReadinessReady":  true,
+                       "NoSqlImportOrPromotion":  true
+                   },
+    "Frontend":  {
+                     "ExpectedBuild":  "20260730T022634Z-A51EA451D31E",
+                     "ShellStatus":  200,
+                     "ShellCacheControl":  "no-store, no-cache, must-revalidate, max-age=0",
+                     "Asset":  "/assets/20260730T022634Z-A51EA451D31E/SRC/api/dle-api-client.js",
+                     "AssetStatus":  200,
+                     "AssetCacheControl":  "public, max-age=31536000, immutable"
+                 }
+}

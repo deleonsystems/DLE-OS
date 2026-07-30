@@ -1,0 +1,186 @@
+{
+    "Verdict":  "PASS",
+    "StartedAtUtc":  "2026-07-30T02:26:18.4181536+00:00",
+    "Identity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "SourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "PortsBefore":  {
+                        "Historical":  15044,
+                        "Live":  33748,
+                        "Refresh":  4,
+                        "Promotion":  4
+                    },
+    "BackupRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PlatformFreshnessCache001\\PLATFORMFRESHNESSCACHE001-20260730T010815Z\\DeploymentBackup-20260730T022618Z",
+    "DatabaseBackup":  {
+                           "Path":  "C:\\DLE-OS\\Backups\\LiveApi001\\DLE_OS_CANONICAL_LIVE_20260730T022618Z.bak",
+                           "Length":  83292160,
+                           "Sha256":  "2F722CC3A6BC42E513EF64B36553480CA7C9068CA9F44ECF9E8622BFB65B35E6",
+                           "Verified":  true
+                       },
+    "ServerBuild":  "PASS",
+    "LivePublishOutput":  "Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  DLE-OS-Server -\u003e C:\\DLE-OS\\Repositories\\DLE-OS-Server\\Artifacts\\LiveApi001\\Publish\\Build\\Release\\net8.0\\DLE-OS-Server.dll\r\n  DLE-OS-Server -\u003e C:\\DLE-OS\\Repositories\\DLE-OS-Server\\Artifacts\\LiveApi001\\Publish\\LIVEAPI001-PUBLISH-20260730T022625Z\\\r\n{\r\n    \"Mission\":  \"LIVE-API-001\",\r\n    \"PublishedAtUtc\":  \"2026-07-30T02:26:27.2324768+00:00\",\r\n    \"RunId\":  \"LIVEAPI001-PUBLISH-20260730T022625Z\",\r\n    \"StagingPath\":  \"C:\\\\DLE-OS\\\\Repositories\\\\DLE-OS-Server\\\\Artifacts\\\\LiveApi001\\\\Publish\\\\LIVEAPI001-PUBLISH-20260730T022625Z\",\r\n    \"RuntimePath\":  \"C:\\\\Program Files\\\\DLE-OS\\\\LiveCanonicalApi\",\r\n    \"RuntimeProfile\":  \"LIVE\",\r\n    \"RuntimeDatabase\":  \"DLE_OS_CANONICAL_LIVE\",\r\n    \"RuntimeIdentity\":  \"DLE-OS-HOST\\\\DLE-OS-LIVE-API\",\r\n    \"AssemblySha256\":  \"4D0E487A4AA739148694F1F911A1A06C93D4AE7A3499488F8E8D8C1AA6FF73DB\",\r\n    \"BaseConfigurationSha256\":  \"1B4F61DD2023D873948D6B53328ED3A13D500FCD58D2C230D0D650837BEC943C\",\r\n    \"LiveConfigurationSha256\":  \"AA1964FD68347ED4513E8B801DA0647B6CA1B9D4242A93CE49B4436EE4BAAAD4\",\r\n    \"QualifiedBoundarySha256\":  \"09ADC3628FF015E2A214F06B5696D773C63B33223F1C155348C39D4736DB584F\",\r\n    \"RuntimeIdentityFileSystemRights\":  \"ReadAndExecute, Synchronize\",\r\n    \"HistoricalConnectionConfigurationPresent\":  false,\r\n    \"FrontendConfigurationPresent\":  false,\r\n    \"Verdict\":  \"PASS\"\r\n}",
+    "LiveLaunchOutput":  "ProcessId        : 24872\r\nWindowsIdentity  : DLE-OS-HOST\\DLE-OS-LIVE-API\r\nRuntimeProfile   : LIVE\r\nEndpoint         : http://DLE-OS-HOST:5042\r\nReadinessVerdict : Ready\r\nImportRunId      : 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6\r\nPackageHash      : BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+    "FrontendBuildA":  {
+                           "Verdict":  "PASS",
+                           "FrontendBuildId":  "20260730T022622Z-A51EA451D31E",
+                           "PublishedAtUtc":  "2026-07-30T02:26:22.4663452+00:00",
+                           "SourceManifestSha256":  "A51EA451D31EACBE5BB71EED952566861C1BC4ABB9EE71345C461D77834D5103",
+                           "AssetManifestSha256":  "71AC7818668CC20D3C2401D55724808619FDC6DE478730A6015E15DF15C00A80",
+                           "AssetCount":  72,
+                           "BuildPath":  "C:\\ProgramData\\DLE-OS\\Frontend\\Builds\\20260730T022622Z-A51EA451D31E",
+                           "Promoted":  true
+                       },
+    "FrontendBuildB":  {
+                           "Verdict":  "PASS",
+                           "FrontendBuildId":  "20260730T022634Z-A51EA451D31E",
+                           "PublishedAtUtc":  "2026-07-30T02:26:34.6805965+00:00",
+                           "SourceManifestSha256":  "A51EA451D31EACBE5BB71EED952566861C1BC4ABB9EE71345C461D77834D5103",
+                           "AssetManifestSha256":  "6E51FE685DF75EA1D4A0B25A3E66E8418E1485F017FF59DADFAE0CD110B03616",
+                           "AssetCount":  72,
+                           "BuildPath":  "C:\\ProgramData\\DLE-OS\\Frontend\\Builds\\20260730T022634Z-A51EA451D31E",
+                           "Promoted":  true
+                       },
+    "BuildAHttp":  {
+                       "BuildId":  "20260730T022622Z-A51EA451D31E",
+                       "ShellStatus":  200,
+                       "ShellCacheControl":  "no-store, no-cache, must-revalidate, max-age=0",
+                       "AssetPath":  "/assets/20260730T022622Z-A51EA451D31E/SRC/api/dle-api-client.js",
+                       "AssetStatus":  200,
+                       "AssetCacheControl":  "public, max-age=31536000, immutable"
+                   },
+    "BuildBHttp":  {
+                       "BuildId":  "20260730T022634Z-A51EA451D31E",
+                       "ShellStatus":  200,
+                       "ShellCacheControl":  "no-store, no-cache, must-revalidate, max-age=0",
+                       "AssetPath":  "/assets/20260730T022634Z-A51EA451D31E/SRC/api/dle-api-client.js",
+                       "AssetStatus":  200,
+                       "AssetCacheControl":  "public, max-age=31536000, immutable"
+                   },
+    "Rollback":  {
+                     "Result":  {
+                                    "Verdict":  "PASS",
+                                    "ActiveBuildId":  "20260730T022622Z-A51EA451D31E",
+                                    "RollbackWasAtomic":  true
+                                },
+                     "Http":  {
+                                  "BuildId":  "20260730T022622Z-A51EA451D31E",
+                                  "ShellStatus":  200,
+                                  "ShellCacheControl":  "no-store, no-cache, must-revalidate, max-age=0",
+                                  "AssetPath":  "/assets/20260730T022622Z-A51EA451D31E/SRC/api/dle-api-client.js",
+                                  "AssetStatus":  200,
+                                  "AssetCacheControl":  "public, max-age=31536000, immutable"
+                              }
+                 },
+    "RollForward":  {
+                        "Result":  {
+                                       "Verdict":  "PASS",
+                                       "ActiveBuildId":  "20260730T022634Z-A51EA451D31E",
+                                       "RollbackWasAtomic":  true
+                                   },
+                        "Http":  {
+                                     "BuildId":  "20260730T022634Z-A51EA451D31E",
+                                     "ShellStatus":  200,
+                                     "ShellCacheControl":  "no-store, no-cache, must-revalidate, max-age=0",
+                                     "AssetPath":  "/assets/20260730T022634Z-A51EA451D31E/SRC/api/dle-api-client.js",
+                                     "AssetStatus":  200,
+                                     "AssetCacheControl":  "public, max-age=31536000, immutable"
+                                 }
+                    },
+    "OperationalStatusSeed":  {
+                                  "SnapshotAsOfUtc":  "2026-07-30T00:37:50.6915110",
+                                  "SourceCheckedAtUtc":  "2026-07-29T23:21:38.8421838+00:00",
+                                  "QualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219+00:00",
+                                  "ImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                                  "PackageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                                  "SourceIndicatorFingerprint":  "69365204D778AEF1E20C40E818E97ABBE80E5BEE66A80617C33A7E1C94F13845"
+                              },
+    "LiveReadiness":  {
+                          "dataEnvironment":  "LIVE",
+                          "database":  "DLE_OS_CANONICAL_LIVE",
+                          "contractVersion":  "1.2",
+                          "apiContractVersion":  "live-readiness-v2",
+                          "readinessVerdict":  "Ready",
+                          "readinessState":  "ReadyFresh",
+                          "readinessReason":  "Snapshot and approved source check are within warning thresholds.",
+                          "currentImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+                          "mirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+                          "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                          "snapshotTimestampUtc":  "2026-07-30T00:37:50.691511Z",
+                          "snapshotAsOfUtc":  "2026-07-30T00:37:50.691511Z",
+                          "snapshotAgeSeconds":  6525,
+                          "sourceCheckedAtUtc":  "2026-07-29T23:21:38.8421838Z",
+                          "sourceCheckAgeSeconds":  11097,
+                          "qualificationCompletedAtUtc":  "2026-07-30T00:39:19.5486219Z",
+                          "qualificationAgeSeconds":  6436,
+                          "sourceChangeStatus":  "Qualified",
+                          "lastSourceCheckResult":  "FULL_EXTRACTION_QUALIFIED",
+                          "freshnessStatus":  "Fresh",
+                          "warnings":  [
+
+                                       ],
+                          "hardFailures":  [
+
+                                           ],
+                          "entityCounts":  {
+                                               "billOfMaterial":  1290,
+                                               "inventoryItem":  28662,
+                                               "workOrder":  12113,
+                                               "generalLedgerAccount":  257
+                                           },
+                          "totalCount":  42322,
+                          "checks":  [
+                                         {
+                                             "name":  "dataEnvironment",
+                                             "passed":  true,
+                                             "message":  "Snapshot environment is LIVE."
+                                         },
+                                         {
+                                             "name":  "database",
+                                             "passed":  true,
+                                             "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                         },
+                                         {
+                                             "name":  "contractVersion",
+                                             "passed":  true,
+                                             "message":  "Stored contract version is V1.2."
+                                         },
+                                         {
+                                             "name":  "importRun",
+                                             "passed":  true,
+                                             "message":  "Current ImportRunId is 27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6."
+                                         },
+                                         {
+                                             "name":  "mirrorRun",
+                                             "passed":  true,
+                                             "message":  "Current MirrorRunId is LIVEMIRROR001-20260729T232139Z-7CAB3382."
+                                         },
+                                         {
+                                             "name":  "packageHash",
+                                             "passed":  true,
+                                             "message":  "Current package hash matches the qualified package."
+                                         },
+                                         {
+                                             "name":  "entityCounts",
+                                             "passed":  true,
+                                             "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                         },
+                                         {
+                                             "name":  "operationalStatus",
+                                             "passed":  true,
+                                             "message":  "Separated snapshot/source-check/qualification status is present."
+                                         }
+                                     ]
+                      },
+    "PortsAfter":  {
+                       "Historical":  25672,
+                       "Live":  24872,
+                       "Refresh":  4,
+                       "Promotion":  4
+                   },
+    "RuntimeOwners":  {
+                          "Historical":  "DLE-OS-HOST\\DLE-OS",
+                          "Live":  "DLE-OS-HOST\\DLE-OS-LIVE-API"
+                      },
+    "CompletedAtUtc":  "2026-07-30T02:26:36.8041644+00:00"
+}

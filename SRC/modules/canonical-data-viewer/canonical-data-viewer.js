@@ -664,6 +664,14 @@
     if (!mount) return;
 
     active = true;
+    if (typeof window.checkDleFrontendBuild === "function") {
+      try {
+        const buildCheck = await window.checkDleFrontendBuild();
+        if (buildCheck?.recoveryStarted) return;
+      } catch (error) {
+        console.warn("Frontend build diagnostic check failed.", error);
+      }
+    }
     if (!mounted) {
       mount.innerHTML = '<div class="workspace-dashboard-card"><h3>Loading Canonical Data Viewer</h3><p>Preparing the read-only workspace.</p></div>';
       const response = await fetch(TEMPLATE_PATH, { cache: "no-store" });
@@ -955,16 +963,29 @@
       purchaseOrderResult.status === "fulfilled" &&
       Number(purchaseOrderResult.value?.lineCount) > 0;
 
-    const freshness = snapshotFreshness();
-    if (state.readiness === "ready" && state.snapshot === "ready" && activeProfileKey === "live" && freshness === "Stale") {
-      state.statusMessage = "Warning: this Live Source Snapshot is stale. It remains read-only and is not real-time.";
+    const readinessState = state.readinessPayload?.readinessState;
+    const readinessReason = state.readinessPayload?.readinessReason;
+    if (state.readiness === "ready" && state.snapshot === "ready" &&
+        activeProfileKey === "live" &&
+        readinessState === "ReadySourceRechecked") {
+      state.statusMessage =
+        "Ready — ERP source indicators were checked recently and remain unchanged; " +
+        "the displayed data snapshot is older than preferred and is not real-time.";
+    } else if (state.readiness === "ready" && state.snapshot === "ready" &&
+               activeProfileKey === "live" &&
+               readinessState === "ReadyWithStaleSnapshotWarning") {
+      state.statusMessage =
+        "Ready with warning — the qualified snapshot remains usable, but its " +
+        "snapshot, source-check, or qualification age needs operator attention.";
     } else if (state.readiness === "ready" && state.snapshot === "ready") {
       state.statusMessage = activeProfileKey === "live"
-        ? "Ready. Entity requests use only the qualified Live Source Snapshot; this is not real-time data."
+        ? "Ready — entity requests use only the qualified Live Source Snapshot; this is not real-time data."
         : "Ready. Entity requests use the qualified historical canonical snapshot only.";
     } else if (state.readiness === "not-ready") {
       state.statusMessage = activeProfileKey === "live"
-        ? "The LIVE canonical platform is Not Ready. Entity requests are disabled; no historical fallback is available."
+        ? "The LIVE canonical platform is Not Ready: " +
+          (readinessReason || "a hard readiness requirement failed.") +
+          " Entity requests are disabled; no historical fallback is available."
         : "The canonical platform is Not Ready. Entity requests are disabled; no fallback source is available.";
     } else {
       state.statusMessage = activeProfileKey === "live"
@@ -1515,7 +1536,26 @@
     const snapshotAge = activeProfileKey === "live"
       ? formatSnapshotAge(metadata.snapshotAgeSeconds)
       : "Historical test fixture";
-    const statusState = freshness === "Stale" ? "error" : ready ? "ready" : "";
+    const sourceCheckAge = activeProfileKey === "live"
+      ? formatSnapshotAge(metadata.sourceCheckAgeSeconds)
+      : NULL_MARKER;
+    const qualificationAge = activeProfileKey === "live"
+      ? formatSnapshotAge(metadata.qualificationAgeSeconds)
+      : NULL_MARKER;
+    const warningState =
+      Array.isArray(metadata.warnings) && metadata.warnings.length > 0
+        ? "warning"
+        : ready ? "ready" : "";
+    const frontendBuild = window.DLEFrontendBuild || {};
+    const expectedFrontendBuild =
+      window.DLEFrontendBuildMismatch?.expectedFrontendBuildId ??
+      frontendBuild.frontendBuildId;
+    const loadedFrontendBuild =
+      window.DLEFrontendBuildMismatch?.loadedFrontendBuildId ??
+      frontendBuild.loadedFrontendBuildId;
+    const buildMismatch =
+      Boolean(expectedFrontendBuild && loadedFrontendBuild) &&
+      expectedFrontendBuild !== loadedFrontendBuild;
 
     query(".canonical-viewer").dataset.canonicalFreshness = String(freshness || "").toLowerCase();
     setStatusText("readiness", statusLabel(state.readiness), state.readiness === "ready" ? "ready" : state.readiness === "checking" ? "" : "error");
@@ -1525,12 +1565,34 @@
     setStatusText("contract", metadata.contractVersion ?? NULL_MARKER, ready ? "ready" : "");
     setStatusText("total", formatCount(metadata.totalCount), ready ? "ready" : "");
     setStatusText("snapshot-at", snapshotTimestamp ?? NULL_MARKER, ready ? "ready" : "");
-    setStatusText("snapshot-age", snapshotAge, statusState);
-    setStatusText("freshness", freshness, statusState);
+    setStatusText("snapshot-age", snapshotAge, warningState);
+    setStatusText("freshness", freshness, warningState);
+    setStatusText(
+      "source-checked-at",
+      metadata.sourceCheckedAtUtc ?? NULL_MARKER,
+      warningState);
+    setStatusText("source-check-age", sourceCheckAge, warningState);
+    setStatusText(
+      "qualification-at",
+      metadata.qualificationCompletedAtUtc ?? NULL_MARKER,
+      warningState);
+    setStatusText("qualification-age", qualificationAge, warningState);
+    setStatusText(
+      "frontend-build",
+      expectedFrontendBuild ?? NULL_MARKER,
+      buildMismatch ? "error" : "ready");
+    setStatusText(
+      "loaded-frontend-build",
+      loadedFrontendBuild ?? NULL_MARKER,
+      buildMismatch ? "error" : "ready");
+    setStatusText(
+      "api-contract",
+      metadata.apiContractVersion ?? NULL_MARKER,
+      ready ? "ready" : "");
 
     const platformState = query("[data-canonical-platform-state]");
-    platformState.dataset.state = ready && freshness !== "Stale"
-      ? "ready"
+    platformState.dataset.state = ready
+      ? (buildMismatch ? "error" : "ready")
       : state.readiness === "checking" ? "checking" : "error";
     query("[data-canonical-platform-message]").textContent = state.statusMessage;
     query('[data-canonical-action="retry-status"]').hidden = state.readiness === "checking" || ready;

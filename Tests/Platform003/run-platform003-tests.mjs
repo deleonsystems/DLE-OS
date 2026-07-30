@@ -210,9 +210,14 @@ await test("16_safe_structured_error", async () => {
   assert.match(files.moduleJs, /safeErrorMessage/);
 });
 
-await test("17_no_write_http_methods", () => {
+await test("17_no_canonical_write_http_methods", () => {
   const combined = files.apiClient + files.moduleJs;
-  assert.doesNotMatch(combined, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
+  assert.doesNotMatch(combined, /method:\s*['"](?:PUT|PATCH|DELETE)['"]/i);
+  assert.doesNotMatch(files.moduleJs, /method:\s*['"]POST['"]/i);
+  assert.match(
+    files.apiClient,
+    /requestLiveSnapshotRefresh\(['"]\/api\/platform\/refresh\//
+  );
   assert.equal((combined.match(/method:\s*['"]GET['"]/g) || []).length, 1);
 });
 
@@ -260,9 +265,19 @@ await test("24_filter_allowlist_work_orders", async () => {
   assert.deepEqual(keys, ["page", "pageSize", "workOrderNumber", "itemNumber", "status"]);
 });
 
-await test("25_five_tabs_exact_order", () => {
+await test("25_nine_tabs_exact_order", () => {
   const labels = [...files.moduleHtml.matchAll(/data-canonical-tab="[^"]+">([^<]+)<\/button>/g)].map(match => match[1].trim());
-  assert.deepEqual(labels, ["Work Orders", "Inventory Items", "Bills of Material", "General Ledger Accounts", "Sales Orders"]);
+  assert.deepEqual(labels, [
+    "Work Orders",
+    "Inventory Items",
+    "Bills of Material",
+    "General Ledger Accounts",
+    "Sales Orders",
+    "Invoice History",
+    "Customer Master",
+    "Vendor Master",
+    "Purchase Orders"
+  ]);
 });
 
 await test("26_get_only_live_list_and_lookup", async () => {
