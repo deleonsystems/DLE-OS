@@ -1,0 +1,11 @@
+﻿{
+    "Verdict":  "PASS",
+    "SourcePath":  "C:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistory\\Attempts\\RECEIVING_HISTORY_PLATFORM_001-20260730T035108765Z-E0D2690E\\Compile\\RECEIVING_HISTORY_QUALIFIER.src",
+    "SourceSha256":  "B98BE357E5EE0363E35CEB5F8ECB8D5458F2E85328635D06D0E2AA05F1DBAE0E",
+    "ArtifactPath":  "C:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistory\\Attempts\\RECEIVING_HISTORY_PLATFORM_001-20260730T035108765Z-E0D2690E\\Programs\\RECEIVING_HISTORY_QUALIFIER",
+    "ArtifactSha256":  "3395612BEB0BE814FC25839A3E421D642CB7C96102EA27A855CC2F9475A07B50",
+    "ArtifactLength":  2920,
+    "ArtifactLastWriteTimeUtc":  "2026-07-30T03:51:08.9237833Z",
+    "CompilerPid":  4684,
+    "CompilerExitCode":  0
+}

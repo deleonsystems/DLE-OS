@@ -10,7 +10,7 @@ const historicalBaseUrl = process.env.LIVE_VIEWER_HISTORICAL_BASE_URL || "http:/
 const liveBaseUrl = "http://DLE-OS-HOST:5042";
 const allowedOrigin = "http://dle-os-host:5041";
 const expectedPackageHash = "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77";
-const expectedImportRunId = "e66391d9-7422-4c6f-9992-feed3d401a75";
+const expectedImportRunId = "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6";
 const artifactDirectory = path.join(root, "Artifacts", "LiveViewer001", "AutomatedTests");
 const files = {
   shell: readRoot("DLE_Work_Center_v4.0.0.html"),

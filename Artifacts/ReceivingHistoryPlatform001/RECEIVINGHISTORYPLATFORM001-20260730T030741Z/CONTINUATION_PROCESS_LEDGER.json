@@ -1,0 +1,31 @@
+﻿[
+    {
+        "AttemptId":  "RECEIVING_HISTORY_PLATFORM_001-20260730T035108765Z-E0D2690E",
+        "Role":  "COMPILER",
+        "ProcessId":  4684,
+        "ParentProcessId":  15692,
+        "Executable":  "C:\\BASIS\\VPRO5\\pro5cpl.exe",
+        "Arguments":  [
+                          "-dC:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistory\\Attempts\\RECEIVING_HISTORY_PLATFORM_001-20260730T035108765Z-E0D2690E\\Programs",
+                          "C:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistory\\Attempts\\RECEIVING_HISTORY_PLATFORM_001-20260730T035108765Z-E0D2690E\\Compile\\RECEIVING_HISTORY_QUALIFIER.src"
+                      ],
+        "StartTimeUtc":  "2026-07-30T03:51:08.9084209Z",
+        "CapturedDirectlyAtLaunch":  true
+    },
+    {
+        "AttemptId":  "RECEIVING_HISTORY_PLATFORM_001-20260730T035108765Z-E0D2690E",
+        "Role":  "QUALIFIER",
+        "ProcessId":  11936,
+        "ParentProcessId":  15692,
+        "Executable":  "C:\\BASIS\\VPRO5\\vpro5.exe",
+        "Arguments":  [
+                          "-tT0",
+                          "-nT0",
+                          "-m1024",
+                          "-cC:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistory\\Attempts\\RECEIVING_HISTORY_PLATFORM_001-20260730T035108765Z-E0D2690E\\Programs\\config.aon",
+                          "RECEIVING_HISTORY_QUALIFIER"
+                      ],
+        "StartTimeUtc":  "2026-07-30T03:51:08.9860070Z",
+        "CapturedDirectlyAtLaunch":  true
+    }
+]

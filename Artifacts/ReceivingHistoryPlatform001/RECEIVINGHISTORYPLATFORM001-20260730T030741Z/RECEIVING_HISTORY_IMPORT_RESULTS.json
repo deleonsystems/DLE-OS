@@ -1,0 +1,65 @@
+﻿{
+    "Verdict":  "PASS",
+    "CompletedAtUtc":  "2026-07-30T08:37:32.1210806+00:00",
+    "Initial":  {
+                    "Verdict":  "PASS",
+                    "Behavior":  "NO-OP",
+                    "ReceivingHistoryImportRunId":  "034f0f72-8713-4163-b20d-fb9d421a7961",
+                    "PackageSha256":  "84A4267E17412B373DC8868B98C1775134ED497FF1A5EF4EB2930BA4B9CC492E",
+                    "HeaderCount":  39564,
+                    "LineCount":  189272,
+                    "RejectionCount":  0,
+                    "MalformedOrderDateCount":  5,
+                    "MalformedReceiptDateCount":  1,
+                    "MalformedRequiredDateCount":  26,
+                    "MissingPurchaseOrderCount":  1,
+                    "EffectiveDatabasePrincipal":  "dle_receiving_history_import_executor"
+                },
+    "NoOp":  {
+                 "Verdict":  "PASS",
+                 "Behavior":  "NO-OP",
+                 "ReceivingHistoryImportRunId":  "034f0f72-8713-4163-b20d-fb9d421a7961",
+                 "PackageSha256":  "84A4267E17412B373DC8868B98C1775134ED497FF1A5EF4EB2930BA4B9CC492E",
+                 "HeaderCount":  39564,
+                 "LineCount":  189272,
+                 "RejectionCount":  0,
+                 "MalformedOrderDateCount":  5,
+                 "MalformedReceiptDateCount":  1,
+                 "MalformedRequiredDateCount":  26,
+                 "MissingPurchaseOrderCount":  1,
+                 "EffectiveDatabasePrincipal":  "dle_receiving_history_import_executor"
+             },
+    "InducedFailureExitCode":  1,
+    "InducedFailureMessage":  "powershell.exe : QUALIFICATION_INDUCED_FAILURE_AFTER_DELETE\r\nAt C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\ReceivingHistoryPlatform001\\Invoke-ReceivingHistoryImportQualification.ps1:28 \r\nchar:21\r\n+         $output = @(\u0026 powershell.exe @arguments 2\u003e\u00261)\r\n+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : NotSpecified: (QUALIFICATION_I...RE_AFTER_DELETE:String) [], RemoteException\r\n    + FullyQualifiedErrorId : NativeCommandError\r\n \r\nAt C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\ReceivingHistory\\Import-ReceivingHistoryBaseline.ps1:476 char:9\r\n+         throw \u0027QUALIFICATION_INDUCED_FAILURE_AFTER_DELETE\u0027\r\n+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : OperationStopped: (QUALIFICATION_I...RE_AFTER_DELETE:String) [], RuntimeException\r\n    + FullyQualifiedErrorId : QUALIFICATION_INDUCED_FAILURE_AFTER_DELETE",
+    "BeforeInducedFailure":  {
+                                 "HeaderCount":  39564,
+                                 "LineCount":  189272,
+                                 "RejectionCount":  0,
+                                 "ReceivingHistoryImportRunId":  "034F0F72-8713-4163-B20D-FB9D421A7961"
+                             },
+    "AfterInducedFailure":  {
+                                "HeaderCount":  39564,
+                                "LineCount":  189272,
+                                "RejectionCount":  0,
+                                "ReceivingHistoryImportRunId":  "034F0F72-8713-4163-B20D-FB9D421A7961"
+                            },
+    "RollbackPreservedCommittedSnapshot":  true,
+    "ImporterPermissions":  {
+                                "Principal":  "dle_receiving_history_import_executor",
+                                "CanSelect":  1,
+                                "CanInsert":  1,
+                                "CanDelete":  1,
+                                "CanAlter":  0,
+                                "CanControlDatabase":  0,
+                                "CanExecute":  0
+                            },
+    "LiveApiPermissions":  {
+                               "Principal":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+                               "CanSelectViewer":  1,
+                               "CanSelectMetadata":  1,
+                               "CanInsert":  0,
+                               "CanUpdate":  0,
+                               "CanDelete":  0,
+                               "CanAlter":  0
+                           }
+}

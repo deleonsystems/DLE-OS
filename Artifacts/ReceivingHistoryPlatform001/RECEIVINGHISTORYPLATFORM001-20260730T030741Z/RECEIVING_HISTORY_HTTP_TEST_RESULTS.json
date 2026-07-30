@@ -1,0 +1,162 @@
+﻿{
+    "Verdict":  "PASS",
+    "CompletedAtUtc":  "2026-07-30T11:48:49.5614952+00:00",
+    "AssertionsPassed":  30,
+    "MetadataLatencyMs":  26.83,
+    "ListLatencyMs":  698.78,
+    "ReceivingHistoryImportRunId":  "034f0f72-8713-4163-b20d-fb9d421a7961",
+    "PackageSha256":  "84A4267E17412B373DC8868B98C1775134ED497FF1A5EF4EB2930BA4B9CC492E",
+    "RepresentativeLineId":  "30313030303030323030313031373230303030343534303031",
+    "Results":  [
+                    {
+                        "Name":  "metadata-header-count",
+                        "Passed":  true,
+                        "Evidence":  "count=39564"
+                    },
+                    {
+                        "Name":  "metadata-line-count",
+                        "Passed":  true,
+                        "Evidence":  "count=189272"
+                    },
+                    {
+                        "Name":  "metadata-rejection-count",
+                        "Passed":  true,
+                        "Evidence":  "count=0"
+                    },
+                    {
+                        "Name":  "metadata-missing-po-count",
+                        "Passed":  true,
+                        "Evidence":  "count=1"
+                    },
+                    {
+                        "Name":  "metadata-field-date-counts",
+                        "Passed":  true,
+                        "Evidence":  "order=5;receipt=1;required=26"
+                    },
+                    {
+                        "Name":  "list-total",
+                        "Passed":  true,
+                        "Evidence":  "total=189272"
+                    },
+                    {
+                        "Name":  "list-page-size",
+                        "Passed":  true,
+                        "Evidence":  "rows=25"
+                    },
+                    {
+                        "Name":  "pagination-page-two",
+                        "Passed":  true,
+                        "Evidence":  "first=30313138343732353030343631323430303339343538313330"
+                    },
+                    {
+                        "Name":  "receiver-leading-zero-normalization",
+                        "Passed":  true,
+                        "Evidence":  "rows=2"
+                    },
+                    {
+                        "Name":  "purchase-order-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=2"
+                    },
+                    {
+                        "Name":  "vendor-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=2"
+                    },
+                    {
+                        "Name":  "item-exact-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=2"
+                    },
+                    {
+                        "Name":  "work-order-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=84"
+                    },
+                    {
+                        "Name":  "receipt-date-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=83"
+                    },
+                    {
+                        "Name":  "negative-receipt-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=16"
+                    },
+                    {
+                        "Name":  "detail-parity",
+                        "Passed":  true,
+                        "Evidence":  "30313030303030323030313031373230303030343534303031"
+                    },
+                    {
+                        "Name":  "restricted-fields-absent",
+                        "Passed":  true,
+                        "Evidence":  "No restricted properties in API DTO."
+                    },
+                    {
+                        "Name":  "missing-po-list-contract",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "missing-po-detail-contract",
+                        "Passed":  true,
+                        "Evidence":  "30313030303137342020202020202030303330353131303130"
+                    },
+                    {
+                        "Name":  "malformed-receipt-date-api-contract",
+                        "Passed":  true,
+                        "Evidence":  "30313030303335373030343430363130303337323733303035"
+                    },
+                    {
+                        "Name":  "malformed-required-date-api-contract",
+                        "Passed":  true,
+                        "Evidence":  "30313030303135353030333932313030303330393536303130"
+                    },
+                    {
+                        "Name":  "invalid-page",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "invalid-page-size",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "invalid-date",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "invalid-boolean",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "write-route-absent",
+                        "Passed":  true,
+                        "Evidence":  "POST returned HTTP 405"
+                    },
+                    {
+                        "Name":  "cors-exact-origin",
+                        "Passed":  true,
+                        "Evidence":  "http://dle-os-host:5041"
+                    },
+                    {
+                        "Name":  "cors-arbitrary-origin-denied",
+                        "Passed":  true,
+                        "Evidence":  "No allow-origin header."
+                    },
+                    {
+                        "Name":  "historical-readiness",
+                        "Passed":  true,
+                        "Evidence":  "Ready"
+                    },
+                    {
+                        "Name":  "historical-route-isolation",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 404; no profile fallback."
+                    }
+                ]
+}

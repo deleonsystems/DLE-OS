@@ -265,7 +265,7 @@ await test("24_filter_allowlist_work_orders", async () => {
   assert.deepEqual(keys, ["page", "pageSize", "workOrderNumber", "itemNumber", "status"]);
 });
 
-await test("25_nine_tabs_exact_order", () => {
+await test("25_ten_tabs_exact_order", () => {
   const labels = [...files.moduleHtml.matchAll(/data-canonical-tab="[^"]+">([^<]+)<\/button>/g)].map(match => match[1].trim());
   assert.deepEqual(labels, [
     "Work Orders",
@@ -276,7 +276,8 @@ await test("25_nine_tabs_exact_order", () => {
     "Invoice History",
     "Customer Master",
     "Vendor Master",
-    "Purchase Orders"
+    "Purchase Orders",
+    "Receiving History"
   ]);
 });
 

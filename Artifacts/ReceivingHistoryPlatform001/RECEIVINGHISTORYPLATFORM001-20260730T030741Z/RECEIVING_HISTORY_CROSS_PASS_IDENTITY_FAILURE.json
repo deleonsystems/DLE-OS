@@ -1,0 +1,46 @@
+{
+  "verdict": "BLOCKED",
+  "gate": "CROSS_PASS_SOURCE_IDENTITY",
+  "attemptId": "RECEIVING_HISTORY_PLATFORM_001-20260730T031214603Z-4B5D032A",
+  "comparisonExitCode": 1,
+  "comparisonError": "POT-04: source identity differs between passes",
+  "sources": [
+    {
+      "source": "POT-03",
+      "pass1Count": 0,
+      "pass2Count": 0,
+      "fidMatch": true,
+      "finMatch": true,
+      "recordStreamsIdentical": true,
+      "finDifferingByteOffsetsZeroBased": []
+    },
+    {
+      "source": "POT-04",
+      "pass1Count": 39564,
+      "pass2Count": 39564,
+      "fidMatch": true,
+      "finMatch": false,
+      "recordStreamsIdentical": true,
+      "finDifferingByteOffsetsZeroBased": [16, 17],
+      "pass1BytesAtOffsets": ["2D", "A8"],
+      "pass2BytesAtOffsets": ["2E", "08"]
+    },
+    {
+      "source": "POT-14",
+      "pass1Count": 189272,
+      "pass2Count": 189272,
+      "fidMatch": true,
+      "finMatch": false,
+      "recordStreamsIdentical": true,
+      "finDifferingByteOffsetsZeroBased": [17],
+      "pass1BytesAtOffsets": ["08"],
+      "pass2BytesAtOffsets": ["98"]
+    }
+  ],
+  "sourceWrites": 0,
+  "sourceLocks": 0,
+  "missionOwnedProcessesRemaining": 0,
+  "candidatePackageCreated": false,
+  "sqlMutationPerformed": false,
+  "runtimePublicationPerformed": false
+}

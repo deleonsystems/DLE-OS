@@ -35,7 +35,9 @@
     canonicalVendorMaster: '/api/platform/live/v1/vendor-master',
     canonicalVendorMasterMetadata: '/api/platform/live/v1/vendor-master/metadata',
     canonicalPurchaseOrders: '/api/platform/live/v1/purchase-orders',
-    canonicalPurchaseOrderMetadata: '/api/platform/live/v1/purchase-orders/metadata'
+    canonicalPurchaseOrderMetadata: '/api/platform/live/v1/purchase-orders/metadata',
+    canonicalReceivingHistory: '/api/platform/live/v1/receiving-history',
+    canonicalReceivingHistoryMetadata: '/api/platform/live/v1/receiving-history/metadata'
   });
 
   const CANONICAL_FILTERS = Object.freeze({
@@ -64,6 +66,12 @@
       'purchaseOrderNumber', 'vendorNumber', 'vendorName', 'status',
       'openOnly', 'lineType', 'itemNumber', 'workOrderNumber', 'salesOrderNumber',
       'requiredFrom', 'requiredTo', 'promisedFrom', 'promisedTo'
+    ]),
+    canonicalReceivingHistory: Object.freeze([
+      'receiverNumber', 'receiptFrom', 'receiptTo', 'purchaseOrderNumber',
+      'purchaseOrderLineNumber', 'vendorNumber', 'vendorName', 'itemNumber',
+      'packingSlipNumber', 'workOrderNumber', 'warehouseId',
+      'inspectionStatus', 'rejectedOnly', 'returnedOnly'
     ])
   });
 
@@ -75,7 +83,9 @@
   const CANONICAL_FIELD_WIDTHS = Object.freeze({
     customerNumber: 6,
     vendorNumber: 6,
+    receiverNumber: 7,
     purchaseOrderNumber: 7,
+    purchaseOrderLineNumber: 3,
     salesOrderNumber: 7,
     workOrderNumber: 7,
     itemNumber: 20
@@ -246,12 +256,22 @@
     const isVendorNumber =
       (
         endpointKey === 'canonicalVendorMaster' ||
-        endpointKey === 'canonicalPurchaseOrders'
+        endpointKey === 'canonicalPurchaseOrders' ||
+        endpointKey === 'canonicalReceivingHistory'
       ) &&
       filterName === 'vendorNumber';
     const isPurchaseOrderNumber =
-      endpointKey === 'canonicalPurchaseOrders' &&
+      (
+        endpointKey === 'canonicalPurchaseOrders' ||
+        endpointKey === 'canonicalReceivingHistory'
+      ) &&
       filterName === 'purchaseOrderNumber';
+    const isPurchaseOrderLineNumber =
+      endpointKey === 'canonicalReceivingHistory' &&
+      filterName === 'purchaseOrderLineNumber';
+    const isReceiverNumber =
+      endpointKey === 'canonicalReceivingHistory' &&
+      filterName === 'receiverNumber';
     const isSalesOrderNumber =
       (
         endpointKey === 'canonicalSalesOrders' ||
@@ -266,7 +286,8 @@
       (
         endpointKey === 'canonicalWorkOrders' ||
         endpointKey === 'canonicalInvoiceHistory' ||
-        endpointKey === 'canonicalPurchaseOrders'
+        endpointKey === 'canonicalPurchaseOrders' ||
+        endpointKey === 'canonicalReceivingHistory'
       ) &&
       filterName === 'workOrderNumber';
     const isItemNumber =
@@ -276,11 +297,13 @@
         endpointKey === 'canonicalWorkOrders'
       );
     if (!isCustomerNumber && !isVendorNumber && !isPurchaseOrderNumber &&
+        !isPurchaseOrderLineNumber && !isReceiverNumber &&
         !isSalesOrderNumber && !isInvoiceNumber &&
         !isWorkOrderNumber && !isItemNumber) {
       if ((endpointKey === 'canonicalCustomerMaster' ||
            endpointKey === 'canonicalVendorMaster' ||
-           endpointKey === 'canonicalPurchaseOrders') &&
+           endpointKey === 'canonicalPurchaseOrders' ||
+           endpointKey === 'canonicalReceivingHistory') &&
           value !== undefined && value !== null) {
         return String(value).trim();
       }
@@ -305,6 +328,20 @@
     }
     if (isPurchaseOrderNumber) {
       const canonicalWidth = CANONICAL_FIELD_WIDTHS.purchaseOrderNumber;
+      if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
+        return normalizedValue.padStart(canonicalWidth, '0');
+      }
+      return normalizedValue;
+    }
+    if (isPurchaseOrderLineNumber) {
+      const canonicalWidth = CANONICAL_FIELD_WIDTHS.purchaseOrderLineNumber;
+      if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
+        return normalizedValue.padStart(canonicalWidth, '0');
+      }
+      return normalizedValue;
+    }
+    if (isReceiverNumber) {
+      const canonicalWidth = CANONICAL_FIELD_WIDTHS.receiverNumber;
       if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
         return normalizedValue.padStart(canonicalWidth, '0');
       }
@@ -538,6 +575,25 @@
     },
     getCanonicalPurchaseOrderMetadata(options = {}) {
       return getLiveJson('canonicalPurchaseOrderMetadata', options);
+    },
+    getCanonicalReceivingHistory(options = {}) {
+      return getLiveCanonicalList('canonicalReceivingHistory', options);
+    },
+    getCanonicalReceivingHistoryLine(purchaseReceiptLineId, options = {}) {
+      const id = String(purchaseReceiptLineId || '').trim();
+      if (!/^[0-9a-f]{50}$/i.test(id)) {
+        throw new TypeError(
+          'Receiving History line identifier must be the 50-character hexadecimal fixed-width source identity.'
+        );
+      }
+      return getLiveCanonicalRecord(
+        'canonicalReceivingHistory',
+        id,
+        options
+      );
+    },
+    getCanonicalReceivingHistoryMetadata(options = {}) {
+      return getLiveJson('canonicalReceivingHistoryMetadata', options);
     },
     getSnapshotRefreshStatus(options = {}) {
       return requestLiveSnapshotRefresh('/api/platform/refresh/v1/status', options);

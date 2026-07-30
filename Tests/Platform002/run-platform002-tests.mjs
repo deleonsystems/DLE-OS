@@ -24,10 +24,10 @@ assert.match(template, /data-canonical-tab="salesOrders">Sales Orders<\/button>/
 assert.match(viewer, /title:\s*"Sales Orders"/);
 assert.match(viewer, /liveOnly:\s*true/);
 assert.match(viewer, /label:\s*"Quantity Ordered"/);
-assert.doesNotMatch(viewer, /label:\s*"Quantity Open"/);
 const salesOrderViewerBlock = viewer.match(
   /salesOrders:\s*Object\.freeze\(\{[\s\S]*?(?=\n\s*invoiceHistory:)/
 )?.[0] || "";
+assert.doesNotMatch(salesOrderViewerBlock, /label:\s*"Quantity Open"/);
 assert.doesNotMatch(salesOrderViewerBlock, /Quantity Shipped/);
 assert.match(viewer, /name:\s*"negativeQuantity"/);
 assert.match(viewer, /name:\s*"unresolvedWorkOrder"/);

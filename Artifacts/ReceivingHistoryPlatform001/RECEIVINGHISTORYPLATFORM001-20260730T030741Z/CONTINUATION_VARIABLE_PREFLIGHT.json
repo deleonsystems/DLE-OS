@@ -1,0 +1,14 @@
+﻿[
+    {
+        "Severity":  "WARNING",
+        "Rule":  "EXCEEDS_EFFECTIVE_LENGTH",
+        "Name":  "QUALIFICATION_VERDICT",
+        "EffectiveName":  "QUALIFICATION_VE"
+    },
+    {
+        "Severity":  "WARNING",
+        "Rule":  "EXCEEDS_EFFECTIVE_LENGTH",
+        "Name":  "TWO_COMPLETE_PASSES",
+        "EffectiveName":  "TWO_COMPLETE_PAS"
+    }
+]

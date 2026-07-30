@@ -1,0 +1,39 @@
+{
+  "checkedAtUtc": "2026-07-30T03:50:37.3204374+00:00",
+  "verdict": "PASS",
+  "identity": "DLE-OS-HOST\\DLE-OS",
+  "elevated": false,
+  "xMapping": {
+    "localPath": "X:",
+    "remotePath": "\\\\deleon-server\\Add-ON",
+    "visible": true
+  },
+  "sources": [
+    {
+      "path": "X:\\AON\\ADATA\\POT-03",
+      "exists": true,
+      "length": 512,
+      "lastWriteUtc": "2011-10-07T18:25:44.0000000Z"
+    },
+    {
+      "path": "X:\\AON\\ADATA\\POT-04",
+      "exists": true,
+      "length": 12362240,
+      "lastWriteUtc": "2026-07-28T18:28:04.1270000Z"
+    },
+    {
+      "path": "X:\\AON\\ADATA\\POT-14",
+      "exists": true,
+      "length": 61265408,
+      "lastWriteUtc": "2026-07-28T18:28:04.1840000Z"
+    }
+  ],
+  "vproProcesses": [],
+  "receivingHistoryQualificationProcesses": [],
+  "knownReceivingOrReportActivityDetected": false,
+  "priorRejectedAttemptReused": false,
+  "notes": [
+    "The only command-line match during collection was the preflight PowerShell process itself.",
+    "No vpro5.exe or pro5cpl.exe process was active system-wide."
+  ]
+}

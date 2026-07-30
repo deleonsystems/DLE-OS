@@ -1,0 +1,6 @@
+"Entity","Field","RawValue","Count","Classification"
+"PurchaseReceipt","ReceiptDateRaw","D01129","1","Validly encoded but outside 2026 qualified horizon"
+"PurchaseReceiptLine","RequiredDateRaw","291120","1","Validly encoded but outside 2026 qualified horizon"
+"PurchaseReceiptLine","RequiredDateRaw","F50917","2","Validly encoded but outside 2026 qualified horizon"
+"PurchaseReceiptLine","RequiredDateRaw","300802","1","Validly encoded but outside 2026 qualified horizon"
+"PurchaseReceiptLine","RequiredDateRaw","C70103","22","Validly encoded but outside 2026 qualified horizon"

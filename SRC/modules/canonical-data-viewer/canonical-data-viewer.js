@@ -587,6 +587,222 @@
         }),
         Object.freeze({ name: "importedAtUtc", label: "Imported At" })
       ])
+    }),
+    receivingHistory: Object.freeze({
+      title: "Receiving History",
+      singular: "Purchase Receipt Line",
+      identifier: "purchaseReceiptLineId",
+      listMethod: "getCanonicalReceivingHistory",
+      lookupMethod: "getCanonicalReceivingHistoryLine",
+      liveOnly: true,
+      filters: Object.freeze([
+        Object.freeze({
+          name: "receiverNumber",
+          label: "Receiver Number",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({ name: "receiptFrom", label: "Received From (YYYY-MM-DD)" }),
+        Object.freeze({ name: "receiptTo", label: "Received Through (YYYY-MM-DD)" }),
+        Object.freeze({
+          name: "purchaseOrderNumber",
+          label: "PO Number",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({
+          name: "purchaseOrderLineNumber",
+          label: "PO Line",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({
+          name: "vendorNumber",
+          label: "Vendor Number",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({ name: "vendorName", label: "Vendor Name" }),
+        Object.freeze({ name: "itemNumber", label: "Item Number" }),
+        Object.freeze({ name: "packingSlipNumber", label: "Packing Slip" }),
+        Object.freeze({
+          name: "workOrderNumber",
+          label: "Work Order Number",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({ name: "warehouseId", label: "Warehouse" }),
+        Object.freeze({
+          name: "inspectionStatus",
+          label: "Inspection Status"
+        }),
+        Object.freeze({
+          name: "rejectedOnly",
+          label: "Rejection State",
+          options: Object.freeze([
+            Object.freeze({ value: "", label: "All receipts" }),
+            Object.freeze({ value: "true", label: "Rejected quantity only" })
+          ])
+        }),
+        Object.freeze({
+          name: "returnedOnly",
+          label: "Negative Receipt State",
+          options: Object.freeze([
+            Object.freeze({ value: "", label: "All receipts" }),
+            Object.freeze({
+              value: "true",
+              label: "Negative receipt or reversal only"
+            })
+          ])
+        })
+      ]),
+      columns: Object.freeze([
+        Object.freeze({ name: "receiptDateIso", label: "Receipt Date", isoDate: true }),
+        Object.freeze({ name: "orderDateIso", label: "Order Date", isoDate: true }),
+        Object.freeze({
+          name: "orderDateResolutionStatus",
+          label: "Order Date Status"
+        }),
+        Object.freeze({ name: "receiverNumber", label: "Receiver" }),
+        Object.freeze({ name: "purchaseOrderNumber", label: "PO Number" }),
+        Object.freeze({ name: "purchaseOrderLineNumber", label: "PO Line" }),
+        Object.freeze({ name: "vendorNumber", label: "Vendor" }),
+        Object.freeze({ name: "vendorName", label: "Vendor Name" }),
+        Object.freeze({ name: "itemNumber", label: "Item Number" }),
+        Object.freeze({ name: "itemDescription", label: "Item Description" }),
+        Object.freeze({
+          name: "quantityPostedSigned",
+          label: "Posted Quantity",
+          decimalText: true
+        }),
+        Object.freeze({
+          name: "quantityRejected",
+          label: "Rejected",
+          decimalText: true
+        }),
+        Object.freeze({
+          name: "quantityReturned",
+          label: "Negative/Reverse",
+          decimalText: true
+        }),
+        Object.freeze({ name: "packingSlipNumber", label: "Packing Slip" }),
+        Object.freeze({ name: "workOrderNumber", label: "Work Order" }),
+        Object.freeze({ name: "quantityDispositionStatus", label: "Disposition" })
+      ]),
+      fields: Object.freeze([
+        Object.freeze({ name: "firmId", label: "Firm ID" }),
+        Object.freeze({ name: "receiverNumber", label: "Receiver Number" }),
+        Object.freeze({ name: "receiptDateIso", label: "Receipt Date", isoDate: true }),
+        Object.freeze({
+          name: "receiptDateRaw",
+          label: "Receipt Date Raw",
+          rawDate: true
+        }),
+        Object.freeze({
+          name: "receiptDateResolutionStatus",
+          label: "Receipt Date Resolution"
+        }),
+        Object.freeze({
+          name: "receiptDateResolutionReason",
+          label: "Receipt Date Resolution Detail"
+        }),
+        Object.freeze({ name: "orderDateIso", label: "Order Date", isoDate: true }),
+        Object.freeze({
+          name: "orderDateRaw",
+          label: "Order Date Raw",
+          rawDate: true
+        }),
+        Object.freeze({
+          name: "orderDateResolutionStatus",
+          label: "Order Date Resolution"
+        }),
+        Object.freeze({
+          name: "orderDateResolutionReason",
+          label: "Order Date Resolution Detail"
+        }),
+        Object.freeze({ name: "purchaseOrderNumber", label: "Purchase Order Number" }),
+        Object.freeze({ name: "purchaseOrderLineNumber", label: "PO Line Number" }),
+        Object.freeze({
+          name: "requiredDateIso",
+          label: "Required Date",
+          isoDate: true
+        }),
+        Object.freeze({
+          name: "requiredDateRaw",
+          label: "Required Date Raw",
+          rawDate: true
+        }),
+        Object.freeze({
+          name: "requiredDateResolutionStatus",
+          label: "Required Date Resolution"
+        }),
+        Object.freeze({
+          name: "requiredDateResolutionReason",
+          label: "Required Date Resolution Detail"
+        }),
+        Object.freeze({ name: "vendorNumber", label: "Vendor Number" }),
+        Object.freeze({ name: "vendorName", label: "Vendor Name" }),
+        Object.freeze({ name: "lineCode", label: "Line Code" }),
+        Object.freeze({ name: "lineType", label: "Line Type" }),
+        Object.freeze({ name: "itemNumber", label: "Item Number" }),
+        Object.freeze({ name: "itemDescription", label: "Current Inventory Description" }),
+        Object.freeze({ name: "orderMemo", label: "Receipt / Order Memo" }),
+        Object.freeze({ name: "unitOfMeasure", label: "Unit of Measure" }),
+        Object.freeze({
+          name: "quantityPostedSigned",
+          label: "Signed Posted Quantity",
+          decimalText: true
+        }),
+        Object.freeze({
+          name: "quantityReceived",
+          label: "Positive Quantity Received",
+          decimalText: true
+        }),
+        Object.freeze({
+          name: "quantityAccepted",
+          label: "Accepted Quantity",
+          decimalText: true
+        }),
+        Object.freeze({
+          name: "quantityRejected",
+          label: "Rejected Quantity",
+          decimalText: true
+        }),
+        Object.freeze({
+          name: "quantityReturned",
+          label: "Negative Receipt / Reversal Quantity",
+          decimalText: true
+        }),
+        Object.freeze({
+          name: "quantityInvoiced",
+          label: "Quantity Invoiced",
+          decimalText: true
+        }),
+        Object.freeze({ name: "packingSlipNumber", label: "Packing Slip Number" }),
+        Object.freeze({ name: "warehouseId", label: "Warehouse" }),
+        Object.freeze({ name: "inventoryLocation", label: "Inventory Location" }),
+        Object.freeze({ name: "workOrderNumber", label: "Work Order Number" }),
+        Object.freeze({ name: "salesOrderNumber", label: "Sales Order Number" }),
+        Object.freeze({ name: "salesOrderLineNumber", label: "Sales Order Line" }),
+        Object.freeze({
+          name: "quantityDispositionStatus",
+          label: "Quantity Disposition"
+        }),
+        Object.freeze({ name: "inspectionStatus", label: "Inspection Status" }),
+        Object.freeze({ name: "vendorResolutionStatus", label: "Vendor Resolution" }),
+        Object.freeze({
+          name: "purchaseOrderResolutionStatus",
+          label: "Purchase Order Resolution"
+        }),
+        Object.freeze({
+          name: "inventoryResolutionStatus",
+          label: "Inventory Resolution"
+        }),
+        Object.freeze({
+          name: "workOrderResolutionStatus",
+          label: "Work Order Resolution"
+        }),
+        Object.freeze({
+          name: "receivingHistoryImportRunId",
+          label: "Receiving History Import Run ID"
+        }),
+        Object.freeze({ name: "importedAtUtc", label: "Imported At" })
+      ])
     })
   });
 
@@ -616,6 +832,7 @@
       customerMasterAvailable: false,
       vendorMasterAvailable: false,
       purchaseOrderAvailable: false,
+      receivingHistoryAvailable: false,
       refresh: {
         authorized: false,
         available: false,
@@ -896,7 +1113,8 @@
       invoiceHistoryResult,
       customerMasterResult,
       vendorMasterResult,
-      purchaseOrderResult
+      purchaseOrderResult,
+      receivingHistoryResult
     ] =
       await Promise.allSettled([
       api.getPlatformReadiness({ signal: request.controller.signal }),
@@ -922,6 +1140,12 @@
       activeProfileKey === "live" &&
         api.getCanonicalPurchaseOrderMetadata
         ? api.getCanonicalPurchaseOrderMetadata({
+            signal: request.controller.signal
+          })
+        : Promise.resolve(null),
+      activeProfileKey === "live" &&
+        api.getCanonicalReceivingHistoryMetadata
+        ? api.getCanonicalReceivingHistoryMetadata({
             signal: request.controller.signal
           })
         : Promise.resolve(null)
@@ -962,6 +1186,10 @@
       activeProfileKey === "live" &&
       purchaseOrderResult.status === "fulfilled" &&
       Number(purchaseOrderResult.value?.lineCount) > 0;
+    state.receivingHistoryAvailable =
+      activeProfileKey === "live" &&
+      receivingHistoryResult.status === "fulfilled" &&
+      Number(receivingHistoryResult.value?.lineCount) > 0;
 
     const readinessState = state.readinessPayload?.readinessState;
     const readinessReason = state.readinessPayload?.readinessReason;
@@ -1281,9 +1509,17 @@
           : "Exact unscaled text · preserved source value";
         term.appendChild(note);
       }
-      setCanonicalText(value, field.isoDate
-        ? formatCanonicalIsoDate(record?.[field.name])
-        : record?.[field.name]);
+      const fieldValue = record?.[field.name];
+      const displayedValue = fieldValue === "InvalidSourceValue"
+        && field.name.endsWith("ResolutionStatus")
+        ? "Invalid source value"
+        : field.name === "purchaseOrderResolutionStatus"
+          && fieldValue === "MissingRequiredSourceValue"
+          ? "Missing PO reference (source value blank)"
+        : field.isoDate
+          ? formatCanonicalIsoDate(fieldValue)
+          : fieldValue;
+      setCanonicalText(value, displayedValue);
       row.append(term, value);
       fragment.appendChild(row);
     });
@@ -1440,6 +1676,10 @@
     queryAll('[data-canonical-tab="purchaseOrders"]').forEach(tab => {
       tab.hidden =
         activeProfileKey !== "live" || !state.purchaseOrderAvailable;
+    });
+    queryAll('[data-canonical-tab="receivingHistory"]').forEach(tab => {
+      tab.hidden =
+        activeProfileKey !== "live" || !state.receivingHistoryAvailable;
     });
     renderRefreshControl();
     renderInvoiceHistoryRefreshControl();
@@ -1717,9 +1957,13 @@
       row.setAttribute("aria-label", "Open read-only " + definition.singular + " detail");
       definition.columns.forEach(column => {
         const cell = document.createElement("td");
-        setCanonicalText(cell, column.isoDate
-          ? formatCanonicalIsoDate(record?.[column.name])
-          : record?.[column.name]);
+        const columnValue = record?.[column.name];
+        setCanonicalText(cell, columnValue === "InvalidSourceValue"
+          && column.name.endsWith("ResolutionStatus")
+          ? "Invalid source value"
+          : column.isoDate
+            ? formatCanonicalIsoDate(columnValue)
+            : columnValue);
         row.appendChild(cell);
       });
       fragment.appendChild(row);
