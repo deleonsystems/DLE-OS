@@ -1,0 +1,74 @@
+{
+  "ContractVersion": "PURCHASE_ORDER_1.0",
+  "CreatedAtUtc": "2026-07-29T22:12:55.878971+00:00",
+  "SnapshotYear": 2026,
+  "HarnessAttemptId": "PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4",
+  "SourceCounts": {
+    "POE-02": 521,
+    "POE-12": 1404,
+    "POE-04": 0,
+    "POE-14": 19,
+    "POT-04": 39564,
+    "POT-14": 189272
+  },
+  "HeaderCount": 518,
+  "LineCount": 1384,
+  "BlankPhysicalHeadersExcluded": 1,
+  "InvalidPhysicalHeaderKeysExcluded": 2,
+  "InvalidPhysicalLineKeysExcluded": 15,
+  "HeaderNaturalKey": [
+    "FirmId",
+    "VendorNumber",
+    "PurchaseOrderNumber"
+  ],
+  "LineNaturalKey": [
+    "FirmId",
+    "VendorNumber",
+    "PurchaseOrderNumber",
+    "PurchaseOrderLineNumber"
+  ],
+  "DuplicateHeaderKeys": 0,
+  "DuplicateLineKeys": 0,
+  "SourceOrphanLinesExcluded": 20,
+  "CanonicalOrphanLines": 0,
+  "HeadersWithoutLines": 28,
+  "HeaderStatusCounts": {
+    "ActiveOpenFile": 518
+  },
+  "LineStatusCounts": {
+    "Open": 1130,
+    "FullyReceivedPendingClose": 249,
+    "OverReceivedOrReturn": 5
+  },
+  "OpenLinesNoReceipts": 960,
+  "PartiallyReceivedLines": 170,
+  "FullyReceivedLines": 25,
+  "ClosedLines": 0,
+  "CanceledLines": 0,
+  "LineTypeCounts": {
+    "Stock": 1097,
+    "NonStock": 287
+  },
+  "NegativeQuantityLines": 5,
+  "ZeroQuantityLines": 224,
+  "VendorResolution": {
+    "Resolved": 517,
+    "MissingCurrentVendor": 1
+  },
+  "InventoryResolution": {
+    "Resolved": 1097,
+    "NotApplicableNonStock": 287
+  },
+  "WorkOrderResolution": {
+    "Resolved": 608,
+    "NotReferenced": 776
+  },
+  "SalesOrderResolution": {
+    "MissingCurrentSalesOrder": 390,
+    "NotReferenced": 963,
+    "Resolved": 31
+  },
+  "QuantityOpenFormula": "QuantityOrdered - QuantityReceived",
+  "ReceiptHistoryEntity": "DeferredToReceivingHistoryPlatform001",
+  "RestrictedCostRows": 1384
+}

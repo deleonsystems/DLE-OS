@@ -1,0 +1,17 @@
+﻿{
+    "CapturedAtUtc":  "2026-07-30T00:45:35.0150575Z",
+    "Port":  5042,
+    "ProcessId":  33116,
+    "ProcessName":  "dotnet.exe",
+    "ExecutablePath":  "C:\\Program Files\\dotnet\\dotnet.exe",
+    "CommandLine":  "\"C:\\Program Files\\dotnet\\dotnet.exe\" \"C:\\Program Files\\DLE-OS\\LiveCanonicalApi\\DLE-OS-Server.dll\" --environment Live ",
+    "ProcessOwner":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+    "OwnerLookupReturnValue":  0,
+    "ReadinessVerdict":  "Ready",
+    "DataEnvironment":  "LIVE",
+    "Database":  "DLE_OS_CANONICAL_LIVE",
+    "ContractVersion":  "1.2",
+    "ImportRunId":  "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+    "MirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+    "PackageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77"
+}

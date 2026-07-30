@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param(
+    [switch] $ForceFullExtraction,
     [switch] $QualificationCurrentFixture,
     [switch] $QualificationInduceFailure,
     [ValidateRange(0, 30)]
@@ -8,6 +9,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if ($ForceFullExtraction -and $QualificationCurrentFixture) {
+    throw (
+        'ForceFullExtraction and QualificationCurrentFixture are mutually ' +
+        'exclusive.'
+    )
+}
 
 $approvedIdentity = 'DLE-OS-HOST\DLE-OS'
 $refreshRoot = 'C:\DLE-OS\Canonical\LiveMirror\Refresh'
@@ -24,6 +32,7 @@ $salesCurrent = Join-Path $salesRoot 'Current'
 $salesPrevious = Join-Path $salesRoot 'Previous'
 $baseEngine = Join-Path $baseRoot 'Engine\live_mirror_engine.py'
 $salesHelper = Join-Path $refreshRoot 'sales_order_refresh.py'
+$decisionModule = Join-Path $refreshRoot 'RefreshDecision.psm1'
 $boundaryPromoter =
     Join-Path $refreshRoot 'Promote-QualifiedSnapshotBoundary.ps1'
 $promotionCompleter =
@@ -320,13 +329,14 @@ if ($identity -ine $approvedIdentity) {
     throw "Manual refresh requires $approvedIdentity; actual identity is $identity."
 }
 foreach ($required in @(
-    $baseEngine, $salesHelper, $boundaryPromoter, $importerAssembly,
+    $baseEngine, $salesHelper, $decisionModule, $boundaryPromoter, $importerAssembly,
     $salesImporter, $liveLauncher, $promotionCompleter, $dotnet, $python
 )) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
         throw "Required governed refresh component is absent: $required"
     }
 }
+Import-Module -Name $decisionModule -Force
 
 $lock = $null
 $random = [Security.Cryptography.RandomNumberGenerator]::Create()
@@ -366,6 +376,15 @@ try {
         Status = 'RUNNING'
         Phase = 'SOURCE_CHECK'
         Message = 'Reading fixed qualified source change indicators.'
+        InvocationMode =
+            if ($ForceFullExtraction) {
+                'FORCE_FULL_EXTRACTION'
+            } elseif ($QualificationCurrentFixture) {
+                'QUALIFICATION_CURRENT_FIXTURE'
+            } else {
+                'NORMAL'
+            }
+        ForceFullExtraction = [bool]$ForceFullExtraction
         RunId = $runId
         StartedAtUtc = Get-UtcNow
         LastFailureReason = $null
@@ -385,8 +404,12 @@ try {
     $unchanged =
         $null -ne $priorSourceState -and
         (Test-SourceStateEqual @($sourceState) @($priorSourceState))
+    $disposition = Get-LiveSnapshotRefreshDisposition `
+        -SourceUnchanged $unchanged `
+        -ForceFullExtraction ([bool]$ForceFullExtraction) `
+        -QualificationCurrentFixture ([bool]$QualificationCurrentFixture)
     $sqlBefore = Get-SqlSnapshot
-    if ($unchanged -and -not $QualificationCurrentFixture) {
+    if ($disposition -eq 'NO_SOURCE_CHANGES') {
         Write-Status @{
             Running = $false
             Status = 'NO_SOURCE_CHANGES'
@@ -401,10 +424,19 @@ try {
         }
         [pscustomobject]@{
             Status = 'NO_SOURCE_CHANGES'
+            InvocationMode = 'NORMAL'
+            ForceFullExtraction = $false
             ImportRunId = ([Guid]$sqlBefore.ImportRunId).ToString('D')
             PackageHash = [string]$sqlBefore.PackageHash
         } | ConvertTo-Json
         exit 0
+    }
+    if ($ForceFullExtraction) {
+        Write-Status @{
+            Phase = 'FORCE_FULL_EXTRACTION_AUTHORIZED'
+            Message =
+                'Explicit force-full intent accepted; all extraction, validation, import, rollback, promotion, and readiness gates remain active.'
+        }
     }
 
     $baseCurrentBefore = Get-DirectoryIdentity $baseCurrent
@@ -516,6 +548,13 @@ try {
         MirrorRunId = [string]$sqlAfter.MirrorRunId
         PackageHash = [string]$sqlAfter.PackageHash
         Fixture = [bool]$QualificationCurrentFixture
+        ForceFullExtraction = [bool]$ForceFullExtraction
+        InvocationMode =
+            if ($ForceFullExtraction) {
+                'FORCE_FULL_EXTRACTION'
+            } else {
+                'NORMAL'
+            }
     } | ConvertTo-Json -Depth 5
     $refreshResultJson |
         Set-Content -LiteralPath (

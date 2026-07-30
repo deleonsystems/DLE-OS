@@ -1,0 +1,45 @@
+﻿{
+    "Verdict":  "PASS",
+    "DeployedAtUtc":  "2026-07-30T00:34:38.8675816+00:00",
+    "ExecutionIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "NormalImportNoOpPreserved":  true,
+    "RefreshImportProfile":  "LIVE",
+    "RefreshImportSource":  "C:\\DLE-OS\\Canonical\\LiveMirror\\Current",
+    "RefreshImportDatabase":  "DLE_OS_CANONICAL_LIVE",
+    "UnitTests":  "PASS",
+    "TransactionalRollbackQualification":  "PASS",
+    "SourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "BackupRoot":  "C:\\DLE-OS\\Repositories\\DLE-OS\\Artifacts\\PurchaseOrderPlatform001\\PURCHASEORDERPLATFORM001-20260729T212157Z\\ForceFullImporterBackup-20260730T003430Z",
+    "Files":  [
+                  {
+                      "Path":  "C:\\DLE-OS\\Repositories\\DLE-OS-Server\\DleOs.PlatformImporter\\Models.cs",
+                      "Sha256":  "F78158A1793E4B78F8B280252427EE2EB4855B82BBECD2E27937B66346893383"
+                  },
+                  {
+                      "Path":  "C:\\DLE-OS\\Repositories\\DLE-OS-Server\\DleOs.PlatformImporter\\ImportProfiles.cs",
+                      "Sha256":  "36C64399BDA26EBD1E14C442ED181B0484BCAD34399C61C787E4FAD7B0007D18"
+                  },
+                  {
+                      "Path":  "C:\\DLE-OS\\Repositories\\DLE-OS-Server\\DleOs.PlatformImporter\\ImportEngine.cs",
+                      "Sha256":  "2F7D3B0A36B228E9018C67D1E2E4930CBFFFECF323F088EB8BBEEE977F4D3537"
+                  },
+                  {
+                      "Path":  "C:\\DLE-OS\\Repositories\\DLE-OS-Server\\DleOs.PlatformImporter\\Program.cs",
+                      "Sha256":  "F831971C5ADDA4886D475D23B492359126CCEC13A6B95FD553C9B5E499EA814A"
+                  },
+                  {
+                      "Path":  "C:\\DLE-OS\\Repositories\\DLE-OS-Server\\DleOs.PlatformImporter\\SqlPlatformStore.cs",
+                      "Sha256":  "26A26849D5B89981DB47E3D9B1FFCA6E0A1786926C93F6C6DAA0DDC686DBBE05"
+                  },
+                  {
+                      "Path":  "C:\\DLE-OS\\Repositories\\DLE-OS-Server\\DleOs.PlatformImporter.Tests\\Program.cs",
+                      "Sha256":  "4468EF85B225D3835F88380FB7B988D41DE15E77269EE115B765577BC8643ACD"
+                  },
+                  {
+                      "Path":  "C:\\DLE-OS\\Canonical\\LiveMirror\\Refresh\\Complete-LiveSnapshotPromotion.ps1",
+                      "Sha256":  "1D81B2D3B458313EA3C63E0C7BA0FDEAFD7788A39AFAF4B3C59DAA3F9323715A"
+                  }
+              ]
+}

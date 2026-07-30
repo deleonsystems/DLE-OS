@@ -1,0 +1,30 @@
+{
+  "ContractVersion": "PURCHASE_ORDER_1.0",
+  "HarnessAttemptId": "PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4",
+  "Files": [
+    {
+      "Path": "PurchaseOrder.csv",
+      "Sha256": "5556464A27EA42CEA08611B27E225D76FCE1FFBCFE452C628D713F36A74BDED0"
+    },
+    {
+      "Path": "PurchaseOrderLine.csv",
+      "Sha256": "D47F0A93ED5FA6245B9F3462970D8A485E29D7A1E1BD67DDC4614F107F527A40"
+    },
+    {
+      "Path": "RestrictedCostQualification.csv",
+      "Sha256": "921856EB9A4BF31FEB5B70F67F0AA8C4FFA0E6E7529D1676023E1F0FDD9080AA"
+    },
+    {
+      "Path": "OrphanPurchaseOrderLine.csv",
+      "Sha256": "A4736D16CC2C95B832D45988BAC6924B4456D5FE4F2E354A9D53486C21C189F6"
+    },
+    {
+      "Path": "InvalidPurchaseOrderHeader.csv",
+      "Sha256": "CB22928B3ED8547992320782E8B758847384FB67BDFE1F93492DEE39C9B665E0"
+    },
+    {
+      "Path": "metadata.json",
+      "Sha256": "C433E6BA4CF28D75289922B50CA3F822BCE64098FC92D63ADCB43A5247A97F9E"
+    }
+  ]
+}

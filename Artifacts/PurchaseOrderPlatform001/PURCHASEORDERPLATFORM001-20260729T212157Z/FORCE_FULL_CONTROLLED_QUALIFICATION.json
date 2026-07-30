@@ -1,0 +1,23 @@
+﻿{
+    "Verdict":  "PASS",
+    "QualifiedAtUtc":  "2026-07-29T23:09:22.1457287+00:00",
+    "ExecutionIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "ForceFullInducedFailure":  {
+                                    "ExitCode":  1,
+                                    "PriorSnapshotRetained":  true
+                                },
+    "Concurrency":  {
+                        "PrimaryExitCode":  1,
+                        "OverlapExitCode":  2,
+                        "OverlapResult":  "ALREADY_RUNNING",
+                        "PriorSnapshotRetained":  true
+                    },
+    "QualificationCurrentFixture":  {
+                                        "CombinedInvocationRejected":  true,
+                                        "ExitCode":  1
+                                    },
+    "SourceStateUnchanged":  true,
+    "QualifiedBoundaryUnchanged":  true,
+    "VProRecordReadsPerformed":  0,
+    "XDriveWrites":  0
+}

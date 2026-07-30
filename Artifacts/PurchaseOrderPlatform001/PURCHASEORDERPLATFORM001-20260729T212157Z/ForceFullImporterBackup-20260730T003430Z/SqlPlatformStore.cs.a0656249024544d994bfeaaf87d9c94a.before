@@ -1,0 +1,1260 @@
+using System.Data;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Data.SqlClient;
+
+namespace DleOs.PlatformImporter;
+
+public sealed class SqlPlatformStore
+{
+    private readonly SqlConnectionStringBuilder _connectionString;
+    private readonly ImportProfile _profile;
+
+    public SqlPlatformStore(
+        string connectionString,
+        ImportProfile? profile = null)
+    {
+        _profile = profile ??
+            ImportProfiles.Resolve(ImportProfiles.HistoricalTest);
+        _connectionString = Safety.ValidateProfileConnection(
+            connectionString,
+            _profile);
+    }
+
+    public async Task EnsureSchemaAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection =
+            new SqlConnection(_connectionString.ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        const string sql = """
+            SELECT
+                DB_NAME(),
+                SUM(CASE WHEN s.name = N'canonical' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN s.name = N'platform' THEN 1 ELSE 0 END)
+            FROM sys.tables AS t
+            INNER JOIN sys.schemas AS s
+                ON s.schema_id = t.schema_id
+            WHERE (s.name = N'canonical' AND t.name IN
+                (N'BillOfMaterial', N'InventoryItem', N'WorkOrder',
+                 N'GeneralLedgerAccount'))
+               OR (s.name = N'platform' AND t.name IN
+                (N'ImportRun', N'ImportSource', N'ImportEntityResult',
+                 N'ImportAudit'));
+            """;
+
+        await using var command = new SqlCommand(sql, connection);
+        await using var reader =
+            await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken) ||
+            !reader.GetString(0).Equals(
+                _profile.DatabaseName,
+                StringComparison.Ordinal) ||
+            reader.GetInt32(1) != 4 ||
+            reader.GetInt32(2) != 4)
+        {
+            throw new PlatformImportException(
+                "PROFILE_SCHEMA_NOT_INITIALIZED",
+                $"{_profile.DatabaseName} does not contain the required " +
+                "eight tables.");
+        }
+
+        await reader.CloseAsync();
+        if (_profile.EnvironmentId == ImportProfiles.Live)
+        {
+            await ValidateLiveTrackingSchemaAsync(
+                connection,
+                cancellationToken);
+        }
+        await ValidateCanonicalColumnSetAsync(connection, cancellationToken);
+    }
+
+    public async Task<ImportExecutionResult> ImportAsync(
+        CanonicalSnapshot snapshot,
+        FailureInjection failureInjection,
+        CancellationToken cancellationToken = default,
+        bool requireRestoration = false,
+        bool requalifyCurrentPackage = false)
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+        var audits = new List<ImportAuditEvent>();
+        var reconciliations = new List<EntityReconciliation>();
+
+        await using var connection =
+            new SqlConnection(_connectionString.ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        await AcquireImportLockAsync(connection, cancellationToken);
+
+        var current = await ReadCurrentSnapshotAsync(
+            connection,
+            cancellationToken);
+        var historicalRunId = await FindCommittedRunAsync(
+            connection,
+            snapshot.Package.PackageHash,
+            cancellationToken);
+        var disposition = failureInjection == FailureInjection.None
+            ? ImportDecision.Decide(
+                current?.PackageHash,
+                historicalRunId is not null,
+                snapshot.Package.PackageHash,
+                requalifyCurrentPackage,
+                current?.MirrorRunId,
+                snapshot.Package.MirrorRunId)
+            : ImportDisposition.Import;
+        if (requalifyCurrentPackage &&
+            _profile.EnvironmentId != ImportProfiles.Live)
+        {
+            throw new PlatformImportException(
+                "REFRESH_IMPORT_PROFILE_NOT_APPROVED",
+                "Identical-content refresh import is approved only for LIVE.");
+        }
+        if (requalifyCurrentPackage &&
+            failureInjection != FailureInjection.None)
+        {
+            _ = ImportDecision.Decide(
+                current?.PackageHash,
+                historicalRunId is not null,
+                snapshot.Package.PackageHash,
+                true,
+                current?.MirrorRunId,
+                snapshot.Package.MirrorRunId);
+        }
+        var operation = requalifyCurrentPackage
+            ? "REFRESH"
+            : disposition switch
+        {
+            ImportDisposition.NoOp => "NO-OP",
+            ImportDisposition.Restore => "RESTORE",
+            _ => "IMPORT"
+        };
+        if (requireRestoration &&
+            disposition != ImportDisposition.Restore)
+        {
+            throw new PlatformImportException(
+                "RESTORATION_NOT_HISTORICAL",
+                "Explicit restoration requires a previously committed " +
+                "package that is not the current snapshot.");
+        }
+
+        if (disposition == ImportDisposition.NoOp)
+        {
+            var expectedFingerprint =
+                ComputeSnapshotFingerprint(snapshot);
+            var currentFingerprint =
+                await ReadCanonicalSnapshotFingerprintAsync(
+                    connection,
+                    cancellationToken);
+            if (currentFingerprint != expectedFingerprint)
+            {
+                throw new PlatformImportException(
+                    "CURRENT_SNAPSHOT_CONTENT_MISMATCH",
+                    "Current-run provenance matches the package hash, but " +
+                    "canonical key/record content differs; no-op is refused.");
+            }
+            var noOpRunId = Guid.NewGuid();
+            var noOpAudit = new ImportAuditEvent
+            {
+                Severity = "INFO",
+                EventCode = "IMPORT_NO_OP",
+                Message = "PackageHash is already the currently committed " +
+                    "canonical snapshot; tables were not modified."
+            };
+            await InsertNoOpRunAsync(
+                connection,
+                noOpRunId,
+                snapshot,
+                startedAt,
+                noOpAudit,
+                cancellationToken);
+            audits.Add(noOpAudit);
+            reconciliations.AddRange(
+                await ReadCurrentReconciliationAsync(
+                    connection,
+                    snapshot,
+                    cancellationToken));
+
+            return new ImportExecutionResult
+            {
+                ImportRunId = noOpRunId,
+                MirrorRunId = snapshot.Package.MirrorRunId,
+                PackageHash = snapshot.Package.PackageHash,
+                EnvironmentId = _profile.EnvironmentId,
+                ImportOperation = operation,
+                Status = "NO-OP",
+                IsCommitted = true,
+                IsNoOp = true,
+                StartedAtUtc = startedAt,
+                CompletedAtUtc = DateTimeOffset.UtcNow,
+                TotalExpectedRows = snapshot.Entities.Values.Sum(
+                    entity => entity.ExpectedRowCount),
+                TotalSqlRows = reconciliations.Sum(
+                    entity => entity.SqlRowCount),
+                Entities = reconciliations,
+                Audit = audits
+            };
+        }
+
+        var importRunId = Guid.NewGuid();
+        await InsertPendingRunAsync(
+            connection,
+            importRunId,
+            snapshot,
+            startedAt,
+            operation,
+            disposition == ImportDisposition.Restore
+                ? historicalRunId
+                : null,
+            cancellationToken);
+
+        var transaction = (SqlTransaction)await connection.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+        try
+        {
+            AddAudit(
+                audits,
+                "INFO",
+                "TRANSACTION_STARTED",
+                "Atomic four-entity snapshot transaction started.");
+            if (disposition == ImportDisposition.Restore)
+            {
+                AddAudit(
+                    audits,
+                    "INFO",
+                    "HISTORICAL_PACKAGE_RESTORED",
+                    "A previously committed package is being explicitly " +
+                    "restored because it is not the current snapshot.");
+            }
+            if (requalifyCurrentPackage)
+            {
+                AddAudit(
+                    audits,
+                    "INFO",
+                    "IDENTICAL_CONTENT_REFRESH",
+                    "A newly qualified mirror run has the current package " +
+                    "hash; all four canonical entities are being replaced " +
+                    "transactionally to establish fresh run provenance.");
+            }
+
+            foreach (var entityName in PlatformConstants.EntityOrder)
+            {
+                await ExecuteNonQueryAsync(
+                    connection,
+                    transaction,
+                    $"DELETE FROM [canonical].[{entityName}];",
+                    cancellationToken);
+            }
+
+            var importedAtUtc = DateTime.UtcNow;
+            for (var entityIndex = 0;
+                 entityIndex < PlatformConstants.EntityOrder.Count;
+                 entityIndex++)
+            {
+                var entityName = PlatformConstants.EntityOrder[entityIndex];
+                var entity = snapshot.Entities[entityName];
+                await BulkInsertAsync(
+                    connection,
+                    transaction,
+                    importRunId,
+                    snapshot,
+                    entity,
+                    importedAtUtc,
+                    cancellationToken);
+
+                AddAudit(
+                    audits,
+                    "INFO",
+                    "ENTITY_INSERTED",
+                    $"{entityName}: {entity.Rows.Count} rows inserted.");
+
+                if (failureInjection == FailureInjection.Interrupted &&
+                    entityIndex == 0)
+                {
+                    throw new OperationCanceledException(
+                        "Controlled interrupted-import injection.");
+                }
+
+                if (failureInjection == FailureInjection.AfterSecondEntity &&
+                    entityIndex == 1)
+                {
+                    throw new PlatformImportException(
+                        "INJECTED_SECOND_ENTITY_FAILURE",
+                        "Controlled failure after second entity.");
+                }
+            }
+
+            foreach (var entityName in PlatformConstants.EntityOrder)
+            {
+                var entity = snapshot.Entities[entityName];
+                var counts = await ReadEntityCountsAsync(
+                    connection,
+                    transaction,
+                    entityName,
+                    cancellationToken);
+                var expected = entity.ExpectedRowCount;
+                if (failureInjection == FailureInjection.RowCountMismatch &&
+                    entityName == "WorkOrder")
+                {
+                    expected++;
+                }
+
+                var result =
+                    counts.RowCount == expected &&
+                    counts.DistinctKeyCount == counts.RowCount &&
+                    counts.BlankKeyCount == 0 &&
+                    counts.RecordHashCount == counts.RowCount
+                        ? "PASS"
+                        : "FAIL";
+
+                var reconciliation = new EntityReconciliation
+                {
+                    CanonicalEntity = entityName,
+                    ExpectedRowCount = expected,
+                    ParsedRowCount = entity.Rows.Count,
+                    InsertedRowCount = entity.Rows.Count,
+                    SqlRowCount = counts.RowCount,
+                    DistinctSourceKeyCount = counts.DistinctKeyCount,
+                    BlankKeyCount = counts.BlankKeyCount,
+                    DuplicateKeyCount =
+                        counts.RowCount - counts.DistinctKeyCount,
+                    SourceRecordHashCount = counts.RecordHashCount,
+                    Result = result
+                };
+                reconciliations.Add(reconciliation);
+
+                if (result != "PASS")
+                {
+                    throw new PlatformImportException(
+                        "SQL_RECONCILIATION_FAILED",
+                        $"{entityName} SQL reconciliation failed.");
+                }
+
+                await InsertImportSourceAsync(
+                    connection,
+                    transaction,
+                    importRunId,
+                    snapshot,
+                    entity,
+                    cancellationToken);
+                await InsertEntityResultAsync(
+                    connection,
+                    transaction,
+                    importRunId,
+                    reconciliation,
+                    cancellationToken);
+            }
+
+            var totalExpected = snapshot.Entities.Values.Sum(
+                entity => entity.ExpectedRowCount);
+            var totalSql = reconciliations.Sum(
+                entity => entity.SqlRowCount);
+            if (totalExpected != totalSql)
+            {
+                throw new PlatformImportException(
+                    "TOTAL_RECONCILIATION_FAILED",
+                    $"Expected {totalExpected} total rows; SQL contains " +
+                    $"{totalSql}.");
+            }
+
+            AddAudit(
+                audits,
+                "INFO",
+                "RECONCILIATION_PASSED",
+                $"All four entities and {totalSql} total rows reconciled.");
+            AddAudit(
+                audits,
+                "INFO",
+                "IMPORT_COMMITTED",
+                "Canonical snapshot passed and is being committed.");
+
+            foreach (var audit in audits)
+            {
+                await InsertAuditAsync(
+                    connection,
+                    transaction,
+                    importRunId,
+                    audit,
+                    cancellationToken);
+            }
+
+            await UpdateRunSuccessAsync(
+                connection,
+                transaction,
+                importRunId,
+                cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return new ImportExecutionResult
+            {
+                ImportRunId = importRunId,
+                MirrorRunId = snapshot.Package.MirrorRunId,
+                PackageHash = snapshot.Package.PackageHash,
+                EnvironmentId = _profile.EnvironmentId,
+                ImportOperation = operation,
+                IsRestoration = disposition == ImportDisposition.Restore,
+                Status = "SUCCESS",
+                IsCommitted = true,
+                IsNoOp = false,
+                StartedAtUtc = startedAt,
+                CompletedAtUtc = DateTimeOffset.UtcNow,
+                TotalExpectedRows = totalExpected,
+                TotalSqlRows = totalSql,
+                Entities = reconciliations,
+                Audit = audits
+            };
+        }
+        catch (Exception exception)
+        {
+            try
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+            }
+            catch
+            {
+                // Preserve the original import failure.
+            }
+
+            var interrupted = exception is OperationCanceledException;
+            var code = exception is PlatformImportException platformException
+                ? platformException.Code
+                : interrupted
+                    ? "IMPORT_INTERRUPTED"
+                    : "SQL_IMPORT_FAILED";
+            AddAudit(
+                audits,
+                "ERROR",
+                interrupted ? "IMPORT_INTERRUPTED" : "IMPORT_ROLLED_BACK",
+                $"Atomic snapshot transaction rolled back: " +
+                $"{exception.Message}");
+
+            await MarkRunFailedAsync(
+                connection,
+                importRunId,
+                interrupted ? "INTERRUPTED" : "FAILED",
+                code,
+                exception.Message,
+                audits[^1],
+                CancellationToken.None);
+
+            return new ImportExecutionResult
+            {
+                ImportRunId = importRunId,
+                MirrorRunId = snapshot.Package.MirrorRunId,
+                PackageHash = snapshot.Package.PackageHash,
+                EnvironmentId = _profile.EnvironmentId,
+                ImportOperation = operation,
+                IsRestoration = disposition == ImportDisposition.Restore,
+                Status = interrupted ? "INTERRUPTED" : "FAILED",
+                IsCommitted = false,
+                IsNoOp = false,
+                StartedAtUtc = startedAt,
+                CompletedAtUtc = DateTimeOffset.UtcNow,
+                FailureCode = code,
+                FailureMessage = exception.Message,
+                TotalExpectedRows = snapshot.Entities.Values.Sum(
+                    entity => entity.ExpectedRowCount),
+                TotalSqlRows = 0,
+                Entities = reconciliations,
+                Audit = audits
+            };
+        }
+        finally
+        {
+            await transaction.DisposeAsync();
+        }
+    }
+
+    public async Task<string> GetCanonicalSnapshotFingerprintAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection =
+            new SqlConnection(_connectionString.ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        return await ReadCanonicalSnapshotFingerprintAsync(
+            connection,
+            cancellationToken);
+    }
+
+    private static async Task<string> ReadCanonicalSnapshotFingerprintAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        using var incrementalHash =
+            IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (var entityName in PlatformConstants.EntityOrder)
+        {
+            var prefix = Encoding.UTF8.GetBytes(entityName + "\n");
+            incrementalHash.AppendData(prefix);
+
+            var sql =
+                $"SELECT SourceKeyRaw, SourceRecordHash, ContractVersion " +
+                $"FROM [canonical].[{entityName}] ORDER BY SourceKeyRaw;";
+            await using var command = new SqlCommand(sql, connection);
+            await using var reader =
+                await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var line = string.Join(
+                    "|",
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetString(2)) + "\n";
+                incrementalHash.AppendData(Encoding.UTF8.GetBytes(line));
+            }
+        }
+
+        return Convert.ToHexString(incrementalHash.GetHashAndReset());
+    }
+
+    private static string ComputeSnapshotFingerprint(
+        CanonicalSnapshot snapshot)
+    {
+        using var incrementalHash =
+            IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (var entityName in PlatformConstants.EntityOrder)
+        {
+            incrementalHash.AppendData(
+                Encoding.UTF8.GetBytes(entityName + "\n"));
+            foreach (var row in snapshot.Entities[entityName].Rows
+                .OrderBy(row => row.SourceKeyRaw, StringComparer.Ordinal))
+            {
+                var line = string.Join(
+                    "|",
+                    row.SourceKeyRaw,
+                    row.SourceRecordHash,
+                    PlatformConstants.EvidenceContractVersion) + "\n";
+                incrementalHash.AppendData(Encoding.UTF8.GetBytes(line));
+            }
+        }
+
+        return Convert.ToHexString(incrementalHash.GetHashAndReset());
+    }
+
+    public async Task<IReadOnlyDictionary<string, int>> GetCurrentCountsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection =
+            new SqlConnection(_connectionString.ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var entity in PlatformConstants.EntityOrder)
+        {
+            await using var command = new SqlCommand(
+                $"SELECT COUNT(*) FROM [canonical].[{entity}];",
+                connection);
+            counts[entity] = Convert.ToInt32(
+                await command.ExecuteScalarAsync(cancellationToken));
+        }
+
+        return counts;
+    }
+
+    private static async Task ValidateCanonicalColumnSetAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT t.name, c.name
+            FROM sys.tables AS t
+            INNER JOIN sys.schemas AS s
+                ON s.schema_id = t.schema_id
+            INNER JOIN sys.columns AS c
+                ON c.object_id = t.object_id
+            WHERE s.name = N'canonical'
+              AND t.name IN
+              (
+                  N'BillOfMaterial', N'InventoryItem',
+                  N'WorkOrder', N'GeneralLedgerAccount'
+              )
+              AND c.name NOT IN
+              (
+                  N'PlatformRowId', N'ImportRunId', N'MirrorRunId',
+                  N'SourceFile', N'SourceKeyRaw', N'SourceRecordHash',
+                  N'SourceFileHash', N'ContractVersion', N'ImportedAtUtc'
+              )
+            ORDER BY t.name, c.column_id;
+            """;
+
+        var actual = new HashSet<string>(StringComparer.Ordinal);
+        await using var command = new SqlCommand(sql, connection);
+        await using var reader =
+            await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            actual.Add($"{reader.GetString(0)}.{reader.GetString(1)}");
+        }
+
+        var expected = PlatformConstants.ExpectedCanonicalColumns
+            .SelectMany(pair => pair.Value.Select(
+                column => $"{pair.Key}.{column}"))
+            .ToHashSet(StringComparer.Ordinal);
+        if (!actual.SetEquals(expected))
+        {
+            throw new PlatformImportException(
+                "LAB_SCHEMA_CONTRACT_DRIFT",
+                "Canonical SQL business columns differ from the 35-member " +
+                "Contract v1.2 model.");
+        }
+    }
+
+    private static async Task ValidateLiveTrackingSchemaAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT COUNT(*)
+            FROM sys.columns
+            WHERE object_id = OBJECT_ID(N'platform.ImportRun')
+              AND name IN
+                (N'EnvironmentId', N'ImportOperation',
+                 N'RestoredFromImportRunId');
+            """;
+        await using var command = new SqlCommand(sql, connection);
+        var count = Convert.ToInt32(
+            await command.ExecuteScalarAsync(cancellationToken));
+        if (count != 3)
+        {
+            throw new PlatformImportException(
+                "LIVE_TRACKING_SCHEMA_DRIFT",
+                "LIVE ImportRun lacks required environment/restoration columns.");
+        }
+    }
+
+    private static async Task AcquireImportLockAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            DECLARE @result int;
+            EXEC @result = sys.sp_getapplock
+                @Resource = N'DLE_OS_CANONICAL_IMPORT',
+                @LockMode = N'Exclusive',
+                @LockOwner = N'Session',
+                @LockTimeout = 0;
+            SELECT @result;
+            """;
+        await using var command = new SqlCommand(sql, connection);
+        var result = Convert.ToInt32(
+            await command.ExecuteScalarAsync(cancellationToken));
+        if (result < 0)
+        {
+            throw new PlatformImportException(
+                "IMPORT_ALREADY_RUNNING",
+                "Another canonical import currently holds the import lock.");
+        }
+    }
+
+    private static async Task<CurrentSnapshotState?> ReadCurrentSnapshotAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            WITH CurrentRows AS
+            (
+                SELECT N'BillOfMaterial' AS EntityName, ImportRunId
+                FROM canonical.BillOfMaterial
+                UNION ALL
+                SELECT N'InventoryItem', ImportRunId
+                FROM canonical.InventoryItem
+                UNION ALL
+                SELECT N'WorkOrder', ImportRunId
+                FROM canonical.WorkOrder
+                UNION ALL
+                SELECT N'GeneralLedgerAccount', ImportRunId
+                FROM canonical.GeneralLedgerAccount
+            ),
+            CurrentRuns AS
+            (
+                SELECT ImportRunId, COUNT(DISTINCT EntityName) AS EntityCount
+                FROM CurrentRows
+                GROUP BY ImportRunId
+            )
+            SELECT r.ImportRunId, r.PackageHash, r.MirrorRunId,
+                   cr.EntityCount,
+                   (SELECT COUNT(*) FROM CurrentRuns)
+            FROM CurrentRuns AS cr
+            INNER JOIN platform.ImportRun AS r
+                ON r.ImportRunId = cr.ImportRunId
+            WHERE r.ContractVersion = N'V1.2'
+              AND r.IsCommitted = 1
+              AND r.IsNoOp = 0
+              AND r.ImportStatus = N'SUCCESS';
+            """;
+        await using var command = new SqlCommand(sql, connection);
+        await using var reader =
+            await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        var state = new CurrentSnapshotState(
+            reader.GetGuid(0),
+            reader.GetString(1),
+            reader.GetString(2));
+        if (reader.GetInt32(3) != 4 || reader.GetInt32(4) != 1 ||
+            await reader.ReadAsync(cancellationToken))
+        {
+            throw new PlatformImportException(
+                "CURRENT_SNAPSHOT_PROVENANCE_INVALID",
+                "Canonical tables do not identify one complete committed run.");
+        }
+
+        return state;
+    }
+
+    private static async Task<Guid?> FindCommittedRunAsync(
+        SqlConnection connection,
+        string packageHash,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT TOP (1) ImportRunId
+            FROM platform.ImportRun
+            WHERE PackageHash = @PackageHash
+              AND ContractVersion = N'V1.2'
+              AND IsCommitted = 1
+              AND IsNoOp = 0
+              AND ImportStatus = N'SUCCESS'
+            ORDER BY CompletedAtUtc DESC;
+            """;
+
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@PackageHash", SqlDbType.Char, 64)
+            .Value = packageHash;
+        var value = await command.ExecuteScalarAsync(cancellationToken);
+        return value is Guid runId ? runId : null;
+    }
+
+    private async Task InsertPendingRunAsync(
+        SqlConnection connection,
+        Guid importRunId,
+        CanonicalSnapshot snapshot,
+        DateTimeOffset startedAt,
+        string operation,
+        Guid? restoredFromImportRunId,
+        CancellationToken cancellationToken)
+    {
+        var sql = _profile.EnvironmentId == ImportProfiles.Live
+            ? """
+            INSERT INTO platform.ImportRun
+            (
+                ImportRunId, EnvironmentId, MirrorRunId, PackageHash,
+                ContractVersion, ImportOperation, RestoredFromImportRunId,
+                StartedAtUtc, ImportStatus, IsCommitted, IsNoOp
+            )
+            VALUES
+            (
+                @ImportRunId, N'LIVE', @MirrorRunId, @PackageHash, N'V1.2',
+                @ImportOperation, @RestoredFromImportRunId,
+                @StartedAtUtc, N'PENDING', 0, 0
+            );
+            """
+            : """
+            INSERT INTO platform.ImportRun
+            (
+                ImportRunId, MirrorRunId, PackageHash, ContractVersion,
+                StartedAtUtc, ImportStatus, IsCommitted, IsNoOp
+            )
+            VALUES
+            (
+                @ImportRunId, @MirrorRunId, @PackageHash, N'V1.2',
+                @StartedAtUtc, N'PENDING', 0, 0
+            );
+            """;
+
+        await using var command = new SqlCommand(sql, connection);
+        AddRunParameters(
+            command,
+            importRunId,
+            snapshot,
+            startedAt);
+        if (_profile.EnvironmentId == ImportProfiles.Live)
+        {
+            command.Parameters.Add(
+                "@ImportOperation",
+                SqlDbType.NVarChar,
+                20).Value = operation;
+            command.Parameters.Add(
+                "@RestoredFromImportRunId",
+                SqlDbType.UniqueIdentifier).Value =
+                    restoredFromImportRunId is { } id
+                        ? id
+                        : DBNull.Value;
+        }
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private async Task InsertNoOpRunAsync(
+        SqlConnection connection,
+        Guid importRunId,
+        CanonicalSnapshot snapshot,
+        DateTimeOffset startedAt,
+        ImportAuditEvent audit,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction =
+            (SqlTransaction)await connection.BeginTransactionAsync(
+                cancellationToken);
+        try
+        {
+            var sql = _profile.EnvironmentId == ImportProfiles.Live
+                ? """
+                INSERT INTO platform.ImportRun
+                (
+                    ImportRunId, EnvironmentId, MirrorRunId, PackageHash,
+                    ContractVersion, ImportOperation, StartedAtUtc,
+                    CompletedAtUtc, ImportStatus, IsCommitted, IsNoOp
+                )
+                VALUES
+                (
+                    @ImportRunId, N'LIVE', @MirrorRunId, @PackageHash,
+                    N'V1.2', N'NO-OP', @StartedAtUtc, SYSUTCDATETIME(),
+                    N'NO-OP', 1, 1
+                );
+                """
+                : """
+                INSERT INTO platform.ImportRun
+                (
+                    ImportRunId, MirrorRunId, PackageHash, ContractVersion,
+                    StartedAtUtc, CompletedAtUtc, ImportStatus, IsCommitted,
+                    IsNoOp
+                )
+                VALUES
+                (
+                    @ImportRunId, @MirrorRunId, @PackageHash, N'V1.2',
+                    @StartedAtUtc, SYSUTCDATETIME(), N'NO-OP', 1, 1
+                );
+                """;
+
+            await using var command =
+                new SqlCommand(sql, connection, transaction);
+            AddRunParameters(
+                command,
+                importRunId,
+                snapshot,
+                startedAt);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            await InsertAuditAsync(
+                connection,
+                transaction,
+                importRunId,
+                audit,
+                cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
+
+    private static void AddRunParameters(
+        SqlCommand command,
+        Guid importRunId,
+        CanonicalSnapshot snapshot,
+        DateTimeOffset startedAt)
+    {
+        command.Parameters.Add("@ImportRunId", SqlDbType.UniqueIdentifier)
+            .Value = importRunId;
+        command.Parameters.Add("@MirrorRunId", SqlDbType.NVarChar, 128)
+            .Value = snapshot.Package.MirrorRunId;
+        command.Parameters.Add("@PackageHash", SqlDbType.Char, 64)
+            .Value = snapshot.Package.PackageHash;
+        command.Parameters.Add("@StartedAtUtc", SqlDbType.DateTime2)
+            .Value = startedAt.UtcDateTime;
+    }
+
+    private static async Task BulkInsertAsync(
+        SqlConnection connection,
+        SqlTransaction transaction,
+        Guid importRunId,
+        CanonicalSnapshot snapshot,
+        CanonicalEntityData entity,
+        DateTime importedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var table = new DataTable();
+        foreach (var column in entity.CanonicalColumns)
+        {
+            table.Columns.Add(
+                column,
+                column.EndsWith("DateIso", StringComparison.Ordinal)
+                    ? typeof(DateTime)
+                    : typeof(string));
+        }
+
+        table.Columns.Add("ImportRunId", typeof(Guid));
+        table.Columns.Add("MirrorRunId", typeof(string));
+        table.Columns.Add("SourceFile", typeof(string));
+        table.Columns.Add("SourceKeyRaw", typeof(string));
+        table.Columns.Add("SourceRecordHash", typeof(string));
+        table.Columns.Add("SourceFileHash", typeof(string));
+        table.Columns.Add("ContractVersion", typeof(string));
+        table.Columns.Add("ImportedAtUtc", typeof(DateTime));
+
+        foreach (var row in entity.Rows)
+        {
+            var dataRow = table.NewRow();
+            foreach (var column in entity.CanonicalColumns)
+            {
+                var value = row.Values[column];
+                dataRow[column] = value is null
+                    ? DBNull.Value
+                    : column.EndsWith("DateIso", StringComparison.Ordinal)
+                        ? DateTime.ParseExact(
+                            value,
+                            "yyyy-MM-dd",
+                            System.Globalization.CultureInfo.InvariantCulture)
+                        : value;
+            }
+
+            dataRow["ImportRunId"] = importRunId;
+            dataRow["MirrorRunId"] = snapshot.Package.MirrorRunId;
+            dataRow["SourceFile"] = entity.MirrorFileName;
+            dataRow["SourceKeyRaw"] = row.SourceKeyRaw;
+            dataRow["SourceRecordHash"] = row.SourceRecordHash;
+            dataRow["SourceFileHash"] = entity.SourceFileHash;
+            dataRow["ContractVersion"] =
+                PlatformConstants.EvidenceContractVersion;
+            dataRow["ImportedAtUtc"] = importedAtUtc;
+            table.Rows.Add(dataRow);
+        }
+
+        using var bulkCopy = new SqlBulkCopy(
+            connection,
+            SqlBulkCopyOptions.CheckConstraints |
+            SqlBulkCopyOptions.TableLock,
+            transaction)
+        {
+            DestinationTableName =
+                $"[canonical].[{entity.EntityName}]",
+            BulkCopyTimeout = 120,
+            BatchSize = 5_000
+        };
+
+        foreach (DataColumn column in table.Columns)
+        {
+            bulkCopy.ColumnMappings.Add(column.ColumnName, column.ColumnName);
+        }
+
+        await bulkCopy.WriteToServerAsync(table, cancellationToken);
+    }
+
+    private static async Task<EntitySqlCounts> ReadEntityCountsAsync(
+        SqlConnection connection,
+        SqlTransaction? transaction,
+        string entityName,
+        CancellationToken cancellationToken)
+    {
+        var sql = $"""
+            SELECT
+                COUNT(*),
+                COUNT(DISTINCT SourceKeyRaw),
+                SUM(CASE WHEN NULLIF(SourceKeyRaw, N'') IS NULL
+                    THEN 1 ELSE 0 END),
+                COUNT(SourceRecordHash)
+            FROM [canonical].[{entityName}];
+            """;
+
+        await using var command =
+            new SqlCommand(sql, connection, transaction);
+        await using var reader =
+            await command.ExecuteReaderAsync(cancellationToken);
+        await reader.ReadAsync(cancellationToken);
+        return new EntitySqlCounts(
+            reader.GetInt32(0),
+            reader.GetInt32(1),
+            reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
+            reader.GetInt32(3));
+    }
+
+    private static async Task<IReadOnlyList<EntityReconciliation>>
+        ReadCurrentReconciliationAsync(
+            SqlConnection connection,
+            CanonicalSnapshot snapshot,
+            CancellationToken cancellationToken)
+    {
+        var results = new List<EntityReconciliation>();
+        foreach (var entityName in PlatformConstants.EntityOrder)
+        {
+            var entity = snapshot.Entities[entityName];
+            var counts = await ReadEntityCountsAsync(
+                connection,
+                transaction: null,
+                entityName,
+                cancellationToken);
+            results.Add(new EntityReconciliation
+            {
+                CanonicalEntity = entityName,
+                ExpectedRowCount = entity.ExpectedRowCount,
+                ParsedRowCount = entity.Rows.Count,
+                InsertedRowCount = 0,
+                SqlRowCount = counts.RowCount,
+                DistinctSourceKeyCount = counts.DistinctKeyCount,
+                BlankKeyCount = counts.BlankKeyCount,
+                DuplicateKeyCount =
+                    counts.RowCount - counts.DistinctKeyCount,
+                SourceRecordHashCount = counts.RecordHashCount,
+                Result =
+                    counts.RowCount == entity.ExpectedRowCount &&
+                    counts.DistinctKeyCount == counts.RowCount &&
+                    counts.BlankKeyCount == 0 &&
+                    counts.RecordHashCount == counts.RowCount
+                        ? "PASS"
+                        : "FAIL"
+            });
+        }
+
+        return results;
+    }
+
+    private static async Task InsertImportSourceAsync(
+        SqlConnection connection,
+        SqlTransaction transaction,
+        Guid importRunId,
+        CanonicalSnapshot snapshot,
+        CanonicalEntityData entity,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            INSERT INTO platform.ImportSource
+            (
+                ImportRunId, CanonicalEntity, MirrorFileName,
+                SourceFileHash, MirrorRowCount, ImportedRowCount,
+                Reconciled, ValidationStatus
+            )
+            VALUES
+            (
+                @ImportRunId, @CanonicalEntity, @MirrorFileName,
+                @SourceFileHash, @MirrorRowCount, @ImportedRowCount,
+                1, @ValidationStatus
+            );
+            """;
+
+        await using var command =
+            new SqlCommand(sql, connection, transaction);
+        command.Parameters.Add("@ImportRunId", SqlDbType.UniqueIdentifier)
+            .Value = importRunId;
+        command.Parameters.Add("@CanonicalEntity", SqlDbType.NVarChar, 128)
+            .Value = entity.EntityName;
+        command.Parameters.Add("@MirrorFileName", SqlDbType.NVarChar, 128)
+            .Value = entity.MirrorFileName;
+        command.Parameters.Add("@SourceFileHash", SqlDbType.Char, 64)
+            .Value = entity.SourceFileHash;
+        command.Parameters.Add("@MirrorRowCount", SqlDbType.Int)
+            .Value = entity.ExpectedRowCount;
+        command.Parameters.Add("@ImportedRowCount", SqlDbType.Int)
+            .Value = entity.Rows.Count;
+        command.Parameters.Add("@ValidationStatus", SqlDbType.NVarChar, 64)
+            .Value = snapshot.Package.SourcesByEntity[entity.EntityName]
+                .ValidationStatus;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task InsertEntityResultAsync(
+        SqlConnection connection,
+        SqlTransaction transaction,
+        Guid importRunId,
+        EntityReconciliation result,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            INSERT INTO platform.ImportEntityResult
+            (
+                ImportRunId, CanonicalEntity, ExpectedRowCount,
+                ParsedRowCount, InsertedRowCount, DuplicateKeyCount,
+                BlankKeyCount, EntityStatus, OutputTable
+            )
+            VALUES
+            (
+                @ImportRunId, @CanonicalEntity, @ExpectedRowCount,
+                @ParsedRowCount, @InsertedRowCount, @DuplicateKeyCount,
+                @BlankKeyCount, @EntityStatus, @OutputTable
+            );
+            """;
+
+        await using var command =
+            new SqlCommand(sql, connection, transaction);
+        command.Parameters.Add("@ImportRunId", SqlDbType.UniqueIdentifier)
+            .Value = importRunId;
+        command.Parameters.Add("@CanonicalEntity", SqlDbType.NVarChar, 128)
+            .Value = result.CanonicalEntity;
+        command.Parameters.Add("@ExpectedRowCount", SqlDbType.Int)
+            .Value = result.ExpectedRowCount;
+        command.Parameters.Add("@ParsedRowCount", SqlDbType.Int)
+            .Value = result.ParsedRowCount;
+        command.Parameters.Add("@InsertedRowCount", SqlDbType.Int)
+            .Value = result.InsertedRowCount;
+        command.Parameters.Add("@DuplicateKeyCount", SqlDbType.Int)
+            .Value = result.DuplicateKeyCount;
+        command.Parameters.Add("@BlankKeyCount", SqlDbType.Int)
+            .Value = result.BlankKeyCount;
+        command.Parameters.Add("@EntityStatus", SqlDbType.NVarChar, 32)
+            .Value = result.Result;
+        command.Parameters.Add("@OutputTable", SqlDbType.NVarChar, 261)
+            .Value = $"canonical.{result.CanonicalEntity}";
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task InsertAuditAsync(
+        SqlConnection connection,
+        SqlTransaction? transaction,
+        Guid importRunId,
+        ImportAuditEvent audit,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            INSERT INTO platform.ImportAudit
+            (
+                ImportRunId, EventTimestampUtc, Severity,
+                EventCode, Message, DetailJson
+            )
+            VALUES
+            (
+                @ImportRunId, @EventTimestampUtc, @Severity,
+                @EventCode, @Message, @DetailJson
+            );
+            """;
+
+        await using var command =
+            new SqlCommand(sql, connection, transaction);
+        command.Parameters.Add("@ImportRunId", SqlDbType.UniqueIdentifier)
+            .Value = importRunId;
+        command.Parameters.Add("@EventTimestampUtc", SqlDbType.DateTime2)
+            .Value = audit.EventTimestampUtc.UtcDateTime;
+        command.Parameters.Add("@Severity", SqlDbType.NVarChar, 16)
+            .Value = audit.Severity;
+        command.Parameters.Add("@EventCode", SqlDbType.NVarChar, 64)
+            .Value = audit.EventCode;
+        command.Parameters.Add("@Message", SqlDbType.NVarChar, 2048)
+            .Value = audit.Message;
+        command.Parameters.Add("@DetailJson", SqlDbType.NVarChar, -1)
+            .Value = audit.DetailJson is null
+                ? DBNull.Value
+                : audit.DetailJson;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task UpdateRunSuccessAsync(
+        SqlConnection connection,
+        SqlTransaction transaction,
+        Guid importRunId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            UPDATE platform.ImportRun
+            SET CompletedAtUtc = SYSUTCDATETIME(),
+                ImportStatus = N'SUCCESS',
+                IsCommitted = 1,
+                IsNoOp = 0,
+                FailureCode = NULL,
+                FailureMessage = NULL
+            WHERE ImportRunId = @ImportRunId;
+            """;
+
+        await using var command =
+            new SqlCommand(sql, connection, transaction);
+        command.Parameters.Add("@ImportRunId", SqlDbType.UniqueIdentifier)
+            .Value = importRunId;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task MarkRunFailedAsync(
+        SqlConnection connection,
+        Guid importRunId,
+        string status,
+        string failureCode,
+        string failureMessage,
+        ImportAuditEvent audit,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction =
+            (SqlTransaction)await connection.BeginTransactionAsync(
+                cancellationToken);
+        try
+        {
+            const string sql = """
+                UPDATE platform.ImportRun
+                SET CompletedAtUtc = SYSUTCDATETIME(),
+                    ImportStatus = @ImportStatus,
+                    IsCommitted = 0,
+                    IsNoOp = 0,
+                    FailureCode = @FailureCode,
+                    FailureMessage = @FailureMessage
+                WHERE ImportRunId = @ImportRunId;
+                """;
+
+            await using var command =
+                new SqlCommand(sql, connection, transaction);
+            command.Parameters.Add(
+                "@ImportStatus",
+                SqlDbType.NVarChar,
+                20).Value = status;
+            command.Parameters.Add(
+                "@FailureCode",
+                SqlDbType.NVarChar,
+                64).Value = failureCode;
+            command.Parameters.Add(
+                "@FailureMessage",
+                SqlDbType.NVarChar,
+                2048).Value = failureMessage.Length <= 2048
+                    ? failureMessage
+                    : failureMessage[..2048];
+            command.Parameters.Add(
+                "@ImportRunId",
+                SqlDbType.UniqueIdentifier).Value = importRunId;
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            await InsertAuditAsync(
+                connection,
+                transaction,
+                importRunId,
+                audit,
+                cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
+
+    private static async Task ExecuteNonQueryAsync(
+        SqlConnection connection,
+        SqlTransaction transaction,
+        string sql,
+        CancellationToken cancellationToken)
+    {
+        await using var command =
+            new SqlCommand(sql, connection, transaction);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static void AddAudit(
+        ICollection<ImportAuditEvent> audits,
+        string severity,
+        string code,
+        string message)
+    {
+        audits.Add(new ImportAuditEvent
+        {
+            Severity = severity,
+            EventCode = code,
+            Message = message
+        });
+    }
+
+    private sealed record EntitySqlCounts(
+        int RowCount,
+        int DistinctKeyCount,
+        int BlankKeyCount,
+        int RecordHashCount);
+
+    private sealed record CurrentSnapshotState(
+        Guid ImportRunId,
+        string PackageHash,
+        string MirrorRunId);
+}

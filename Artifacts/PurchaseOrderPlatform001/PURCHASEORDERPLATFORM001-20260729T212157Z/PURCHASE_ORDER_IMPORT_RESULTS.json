@@ -1,0 +1,53 @@
+﻿{
+    "Verdict":  "PASS",
+    "CompletedAtUtc":  "2026-07-29T22:14:47.6153647+00:00",
+    "Initial":  {
+                    "Verdict":  "PASS",
+                    "Behavior":  "IMPORTED",
+                    "PurchaseOrderImportRunId":  "7f8e76b9-7489-41ef-8128-fcd23270efdd",
+                    "PackageSha256":  "37690EB343DBA99D5F8F6CCD59C930F1E3456BD8AF73B6D0589D539CF4AF23A3",
+                    "HeaderCount":  518,
+                    "LineCount":  1384,
+                    "EffectiveDatabasePrincipal":  "dle_purchase_order_import_executor"
+                },
+    "NoOp":  {
+                 "Verdict":  "PASS",
+                 "Behavior":  "NO-OP",
+                 "PurchaseOrderImportRunId":  "7f8e76b9-7489-41ef-8128-fcd23270efdd",
+                 "PackageSha256":  "37690EB343DBA99D5F8F6CCD59C930F1E3456BD8AF73B6D0589D539CF4AF23A3",
+                 "HeaderCount":  518,
+                 "LineCount":  1384,
+                 "EffectiveDatabasePrincipal":  "dle_purchase_order_import_executor"
+             },
+    "InducedFailureExitCode":  1,
+    "InducedFailureMessage":  "powershell.exe : QUALIFICATION_INDUCED_FAILURE_AFTER_DELETE\r\nAt C:\\DLE-OS\\Repositories\\DLE-OS\\Tests\\PurchaseOrderPlatform001\\Invoke-PurchaseOrderImportQualification.ps1:29 char:21\r\n+         $output = @(\u0026 powershell.exe @arguments 2\u003e\u00261)\r\n+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : NotSpecified: (QUALIFICATION_I...RE_AFTER_DELETE:String) [], RemoteException\r\n    + FullyQualifiedErrorId : NativeCommandError\r\n \r\nAt C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\PurchaseOrder\\Import-PurchaseOrderBaseline.ps1:305 char:9\r\n+         throw \u0027QUALIFICATION_INDUCED_FAILURE_AFTER_DELETE\u0027\r\n+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : OperationStopped: (QUALIFICATION_I...RE_AFTER_DELETE:String) [], RuntimeException\r\n    + FullyQualifiedErrorId : QUALIFICATION_INDUCED_FAILURE_AFTER_DELETE",
+    "BeforeInducedFailure":  {
+                                 "HeaderCount":  518,
+                                 "LineCount":  1384,
+                                 "PurchaseOrderImportRunId":  "7F8E76B9-7489-41EF-8128-FCD23270EFDD"
+                             },
+    "AfterInducedFailure":  {
+                                "HeaderCount":  518,
+                                "LineCount":  1384,
+                                "PurchaseOrderImportRunId":  "7F8E76B9-7489-41EF-8128-FCD23270EFDD"
+                            },
+    "RollbackPreservedCommittedSnapshot":  true,
+    "ImporterPermissions":  {
+                                "Principal":  "dle_purchase_order_import_executor",
+                                "CanSelect":  1,
+                                "CanInsert":  1,
+                                "CanDelete":  1,
+                                "CanAlter":  0,
+                                "CanControlDatabase":  0,
+                                "CanExecute":  0
+                            },
+    "LiveApiPermissions":  {
+                               "Principal":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+                               "CanSelectViewer":  1,
+                               "CanSelectMetadata":  1,
+                               "CanInsert":  0,
+                               "CanUpdate":  0,
+                               "CanDelete":  0,
+                               "CanAlter":  0
+                           }
+}

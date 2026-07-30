@@ -1,0 +1,6 @@
+mission=PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4
+two_complete_passes=PASS
+source_open_mode=O_RDONLY
+source_writes=NONE
+source_locks=NONE
+qualification_verdict=PASS

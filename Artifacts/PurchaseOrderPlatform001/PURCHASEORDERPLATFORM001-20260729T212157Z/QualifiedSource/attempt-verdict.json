@@ -1,0 +1,127 @@
+﻿{
+    "Verdict":  "PASS",
+    "FailureCategory":  null,
+    "Error":  null,
+    "Mission":  "PURCHASE_ORDER_PLATFORM_001",
+    "AttemptId":  "PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4",
+    "AttemptRoot":  "C:\\Add-On\\Lab\\VProQualificationHarness\\PurchaseOrder\\Attempts\\PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4",
+    "StartedAtUtc":  "2026-07-29T21:18:49.1687039+00:00",
+    "CompletedAtUtc":  "2026-07-29T21:50:43.7322485+00:00",
+    "Identity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  false,
+    "SourceAccessMode":  "O_RDONLY",
+    "SourceIdentityBefore":  [
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\POE-02",
+                                     "Length":  232960,
+                                     "LastWriteTimeUtc":  "2026-07-29T13:59:59.9580000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\POE-12",
+                                     "Length":  616448,
+                                     "LastWriteTimeUtc":  "2026-07-29T13:56:30.5350000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\POE-04",
+                                     "Length":  43520,
+                                     "LastWriteTimeUtc":  "2026-07-28T18:28:16.9600000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\POE-14",
+                                     "Length":  252928,
+                                     "LastWriteTimeUtc":  "2026-07-28T18:28:16.9750000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\POT-04",
+                                     "Length":  12362240,
+                                     "LastWriteTimeUtc":  "2026-07-28T18:28:04.1270000Z",
+                                     "Attributes":  "Archive"
+                                 },
+                                 {
+                                     "Path":  "X:\\AON\\ADATA\\POT-14",
+                                     "Length":  61265408,
+                                     "LastWriteTimeUtc":  "2026-07-28T18:28:04.1840000Z",
+                                     "Attributes":  "Archive"
+                                 }
+                             ],
+    "SourceIdentityAfter":  [
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\POE-02",
+                                    "Length":  232960,
+                                    "LastWriteTimeUtc":  "2026-07-29T13:59:59.9580000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\POE-12",
+                                    "Length":  616448,
+                                    "LastWriteTimeUtc":  "2026-07-29T13:56:30.5350000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\POE-04",
+                                    "Length":  43520,
+                                    "LastWriteTimeUtc":  "2026-07-28T18:28:16.9600000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\POE-14",
+                                    "Length":  252928,
+                                    "LastWriteTimeUtc":  "2026-07-28T18:28:16.9750000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\POT-04",
+                                    "Length":  12362240,
+                                    "LastWriteTimeUtc":  "2026-07-28T18:28:04.1270000Z",
+                                    "Attributes":  "Archive"
+                                },
+                                {
+                                    "Path":  "X:\\AON\\ADATA\\POT-14",
+                                    "Length":  61265408,
+                                    "LastWriteTimeUtc":  "2026-07-28T18:28:04.1840000Z",
+                                    "Attributes":  "Archive"
+                                }
+                            ],
+    "SourceIdentityStable":  true,
+    "SourceWrites":  0,
+    "SourceLocks":  0,
+    "MissionOwnedProcessesRemaining":  0,
+    "Processes":  [
+                      {
+                          "AttemptId":  "PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4",
+                          "Role":  "COMPILER",
+                          "ProcessId":  21368,
+                          "ParentProcessId":  33456,
+                          "Executable":  "C:\\BASIS\\VPRO5\\pro5cpl.exe",
+                          "Arguments":  [
+                                            "-dC:\\Add-On\\Lab\\VProQualificationHarness\\PurchaseOrder\\Attempts\\PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4\\Programs",
+                                            "C:\\Add-On\\Lab\\VProQualificationHarness\\PurchaseOrder\\Attempts\\PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4\\Compile\\PURCHASE_ORDER_QUALIFIER.src"
+                                        ],
+                          "StartTimeUtc":  "2026-07-29T21:18:49.3154058Z",
+                          "CapturedDirectlyAtLaunch":  true
+                      },
+                      {
+                          "AttemptId":  "PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4",
+                          "Role":  "QUALIFIER",
+                          "ProcessId":  20900,
+                          "ParentProcessId":  33456,
+                          "Executable":  "C:\\BASIS\\VPRO5\\vpro5.exe",
+                          "Arguments":  [
+                                            "-tT0",
+                                            "-nT0",
+                                            "-m1024",
+                                            "-cC:\\Add-On\\Lab\\VProQualificationHarness\\PurchaseOrder\\Attempts\\PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4\\Programs\\config.aon",
+                                            "PURCHASE_ORDER_QUALIFIER"
+                                        ],
+                          "StartTimeUtc":  "2026-07-29T21:18:49.3903665Z",
+                          "CapturedDirectlyAtLaunch":  true
+                      }
+                  ],
+    "Cleanup":  [
+
+                ]
+}

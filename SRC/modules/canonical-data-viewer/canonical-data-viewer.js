@@ -2,7 +2,8 @@
   "use strict";
 
   const WORKSPACE_ID = "platform";
-  const TEMPLATE_PATH = "SRC/modules/canonical-data-viewer/canonical-data-viewer.html";
+  const TEMPLATE_PATH =
+    "SRC/modules/canonical-data-viewer/canonical-data-viewer.html?v=20260729-04";
   const REQUEST_TIMEOUT_MS = 15000;
   const WORK_ORDER_SEARCH_DEBOUNCE_MS = 300;
   const PAGE_SIZES = Object.freeze([25, 50, 100, 200]);
@@ -481,6 +482,111 @@
         }),
         Object.freeze({ name: "importedAtUtc", label: "Imported At" })
       ])
+    }),
+    purchaseOrders: Object.freeze({
+      title: "Purchase Orders",
+      singular: "Purchase Order Line",
+      identifier: "purchaseOrderLineId",
+      listMethod: "getCanonicalPurchaseOrders",
+      lookupMethod: "getCanonicalPurchaseOrderLine",
+      liveOnly: true,
+      filters: Object.freeze([
+        Object.freeze({
+          name: "purchaseOrderNumber",
+          label: "PO Number",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({
+          name: "vendorNumber",
+          label: "Vendor Number",
+          placeholder: "Leading zeros optional"
+        }),
+        Object.freeze({ name: "vendorName", label: "Vendor Name" }),
+        Object.freeze({
+          name: "openOnly",
+          label: "Open State",
+          options: Object.freeze([
+            Object.freeze({ value: "", label: "All active lines" }),
+            Object.freeze({ value: "true", label: "Open balance only" })
+          ])
+        }),
+        Object.freeze({ name: "status", label: "Status" }),
+        Object.freeze({
+          name: "lineType",
+          label: "Line Type",
+          options: Object.freeze([
+            Object.freeze({ value: "", label: "All line types" }),
+            Object.freeze({ value: "Stock", label: "Stock" }),
+            Object.freeze({ value: "NonStock", label: "Non-stock" })
+          ])
+        }),
+        Object.freeze({ name: "itemNumber", label: "Item Number" }),
+        Object.freeze({ name: "workOrderNumber", label: "Work Order Number" }),
+        Object.freeze({ name: "salesOrderNumber", label: "Sales Order Number" }),
+        Object.freeze({ name: "requiredFrom", label: "Required From (YYYY-MM-DD)" }),
+        Object.freeze({ name: "requiredTo", label: "Required Through (YYYY-MM-DD)" }),
+        Object.freeze({ name: "promisedFrom", label: "Promised From (YYYY-MM-DD)" }),
+        Object.freeze({ name: "promisedTo", label: "Promised Through (YYYY-MM-DD)" })
+      ]),
+      columns: Object.freeze([
+        Object.freeze({ name: "purchaseOrderNumber", label: "PO Number" }),
+        Object.freeze({ name: "vendorNumber", label: "Vendor" }),
+        Object.freeze({ name: "vendorName", label: "Vendor Name" }),
+        Object.freeze({ name: "orderDateIso", label: "PO Date", isoDate: true }),
+        Object.freeze({ name: "purchaseOrderLineNumber", label: "Line" }),
+        Object.freeze({ name: "itemNumber", label: "Item Number" }),
+        Object.freeze({ name: "itemDescription", label: "Item Description" }),
+        Object.freeze({ name: "quantityOrdered", label: "Ordered", decimalText: true }),
+        Object.freeze({ name: "quantityReceived", label: "Received", decimalText: true }),
+        Object.freeze({ name: "quantityOpen", label: "Open", decimalText: true }),
+        Object.freeze({ name: "requiredDateIso", label: "Required", isoDate: true }),
+        Object.freeze({ name: "promisedDateIso", label: "Promised", isoDate: true }),
+        Object.freeze({ name: "workOrderNumber", label: "Work Order" }),
+        Object.freeze({ name: "salesOrderNumber", label: "Sales Order" }),
+        Object.freeze({ name: "lineStatus", label: "Status" })
+      ]),
+      fields: Object.freeze([
+        Object.freeze({ name: "firmId", label: "Firm ID" }),
+        Object.freeze({ name: "purchaseOrderNumber", label: "Purchase Order Number" }),
+        Object.freeze({ name: "purchaseOrderLineNumber", label: "Line Number" }),
+        Object.freeze({ name: "vendorNumber", label: "Vendor Number" }),
+        Object.freeze({ name: "vendorName", label: "Vendor Name" }),
+        Object.freeze({ name: "orderDateIso", label: "Order Date", isoDate: true }),
+        Object.freeze({ name: "purchaseOrderStatus", label: "PO Status" }),
+        Object.freeze({ name: "holdFlag", label: "Hold Flag" }),
+        Object.freeze({ name: "paymentTermsCode", label: "Payment Terms Code" }),
+        Object.freeze({ name: "freightTerms", label: "Freight Terms" }),
+        Object.freeze({ name: "shippingMethod", label: "Shipping Method" }),
+        Object.freeze({ name: "fob", label: "FOB" }),
+        Object.freeze({ name: "lineCode", label: "Line Code" }),
+        Object.freeze({ name: "lineType", label: "Line Type" }),
+        Object.freeze({ name: "itemNumber", label: "Item Number" }),
+        Object.freeze({ name: "itemDescription", label: "Current Inventory Description" }),
+        Object.freeze({ name: "orderMemo", label: "Purchase Order Memo" }),
+        Object.freeze({ name: "unitOfMeasure", label: "Unit of Measure" }),
+        Object.freeze({ name: "quantityOrdered", label: "Quantity Ordered", decimalText: true }),
+        Object.freeze({ name: "quantityReceived", label: "Quantity Received", decimalText: true }),
+        Object.freeze({ name: "quantityOpen", label: "Quantity Open", decimalText: true }),
+        Object.freeze({ name: "requiredDateIso", label: "Required Date", isoDate: true }),
+        Object.freeze({ name: "promisedDateIso", label: "Promised Date", isoDate: true }),
+        Object.freeze({ name: "workOrderNumber", label: "Work Order Number" }),
+        Object.freeze({ name: "customerNumber", label: "Customer Number" }),
+        Object.freeze({ name: "salesOrderNumber", label: "Sales Order Number" }),
+        Object.freeze({ name: "salesOrderLineNumber", label: "Sales Order Line" }),
+        Object.freeze({ name: "lineStatus", label: "Line Status" }),
+        Object.freeze({ name: "isOpen", label: "Open" }),
+        Object.freeze({ name: "isClosed", label: "Closed" }),
+        Object.freeze({ name: "isCanceled", label: "Canceled" }),
+        Object.freeze({ name: "vendorResolutionStatus", label: "Vendor Resolution" }),
+        Object.freeze({ name: "inventoryResolutionStatus", label: "Inventory Resolution" }),
+        Object.freeze({ name: "workOrderResolutionStatus", label: "Work Order Resolution" }),
+        Object.freeze({ name: "salesOrderResolutionStatus", label: "Sales Order Resolution" }),
+        Object.freeze({
+          name: "purchaseOrderImportRunId",
+          label: "Purchase Order Import Run ID"
+        }),
+        Object.freeze({ name: "importedAtUtc", label: "Imported At" })
+      ])
     })
   });
 
@@ -509,6 +615,7 @@
       invoiceHistoryAvailable: false,
       customerMasterAvailable: false,
       vendorMasterAvailable: false,
+      purchaseOrderAvailable: false,
       refresh: {
         authorized: false,
         available: false,
@@ -780,7 +887,8 @@
       snapshotResult,
       invoiceHistoryResult,
       customerMasterResult,
-      vendorMasterResult
+      vendorMasterResult,
+      purchaseOrderResult
     ] =
       await Promise.allSettled([
       api.getPlatformReadiness({ signal: request.controller.signal }),
@@ -800,6 +908,12 @@
       activeProfileKey === "live" &&
         api.getCanonicalVendorMasterMetadata
         ? api.getCanonicalVendorMasterMetadata({
+            signal: request.controller.signal
+          })
+        : Promise.resolve(null),
+      activeProfileKey === "live" &&
+        api.getCanonicalPurchaseOrderMetadata
+        ? api.getCanonicalPurchaseOrderMetadata({
             signal: request.controller.signal
           })
         : Promise.resolve(null)
@@ -836,6 +950,10 @@
       activeProfileKey === "live" &&
       vendorMasterResult.status === "fulfilled" &&
       Number(vendorMasterResult.value?.vendorCount) > 0;
+    state.purchaseOrderAvailable =
+      activeProfileKey === "live" &&
+      purchaseOrderResult.status === "fulfilled" &&
+      Number(purchaseOrderResult.value?.lineCount) > 0;
 
     const freshness = snapshotFreshness();
     if (state.readiness === "ready" && state.snapshot === "ready" && activeProfileKey === "live" && freshness === "Stale") {
@@ -1297,6 +1415,10 @@
     queryAll('[data-canonical-tab="vendorMaster"]').forEach(tab => {
       tab.hidden =
         activeProfileKey !== "live" || !state.vendorMasterAvailable;
+    });
+    queryAll('[data-canonical-tab="purchaseOrders"]').forEach(tab => {
+      tab.hidden =
+        activeProfileKey !== "live" || !state.purchaseOrderAvailable;
     });
     renderRefreshControl();
     renderInvoiceHistoryRefreshControl();

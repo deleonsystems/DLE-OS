@@ -1,0 +1,327 @@
+using System.Text.Json.Serialization;
+
+namespace DleOs.PlatformImporter;
+
+public sealed class PlatformImportException : Exception
+{
+    public PlatformImportException(string code, string message)
+        : base(message)
+    {
+        Code = code;
+    }
+
+    public PlatformImportException(
+        string code,
+        string message,
+        Exception innerException)
+        : base(message, innerException)
+    {
+        Code = code;
+    }
+
+    public string Code { get; }
+}
+
+public enum FailureInjection
+{
+    None,
+    RowCountMismatch,
+    AfterSecondEntity,
+    Interrupted
+}
+
+public enum PackageFormat
+{
+    HistoricalMirror,
+    LiveCanonical
+}
+
+public enum PackageSlot
+{
+    Current,
+    Previous
+}
+
+public enum ImportDisposition
+{
+    Import,
+    NoOp,
+    Restore
+}
+
+public sealed record ImportProfile(
+    string EnvironmentId,
+    string SourcePath,
+    string DatabaseName,
+    string ArtifactsRoot,
+    PackageFormat PackageFormat)
+{
+    public string ConnectionString =>
+        $"Server=.\\SQLEXPRESS;Initial Catalog={DatabaseName};" +
+        "Integrated Security=True;Encrypt=False;TrustServerCertificate=True;";
+}
+
+public sealed record ImportOptions(
+    ImportProfile Profile,
+    FailureInjection FailureInjection = FailureInjection.None,
+    PackageSlot PackageSlot = PackageSlot.Current,
+    bool RequireRestoration = false);
+
+public sealed class ContractDocument
+{
+    [JsonPropertyName("contract_version")]
+    public string ContractVersion { get; init; } = string.Empty;
+
+    [JsonPropertyName("entities")]
+    public List<ContractEntity> Entities { get; init; } = [];
+
+    [JsonPropertyName("fields")]
+    public List<ContractField> Fields { get; init; } = [];
+
+    [JsonPropertyName("relationships")]
+    public List<ContractRelationship> Relationships { get; init; } = [];
+
+    [JsonPropertyName("traceability")]
+    public List<ContractTraceRow> Traceability { get; init; } = [];
+}
+
+public sealed class ContractEntity
+{
+    [JsonPropertyName("entity_name")]
+    public string EntityName { get; init; } = string.Empty;
+
+    [JsonPropertyName("approved_field_count")]
+    public int ApprovedFieldCount { get; init; }
+}
+
+public sealed class ContractField
+{
+    [JsonPropertyName("field_id")]
+    public string FieldId { get; init; } = string.Empty;
+
+    [JsonPropertyName("canonical_path")]
+    public string CanonicalPath { get; init; } = string.Empty;
+
+    [JsonPropertyName("canonical_name")]
+    public string CanonicalName { get; init; } = string.Empty;
+
+    [JsonPropertyName("canonical_entity")]
+    public string CanonicalEntity { get; init; } = string.Empty;
+
+    [JsonPropertyName("consumer_data_type")]
+    public string ConsumerDataType { get; init; } = string.Empty;
+
+    [JsonPropertyName("field_kind")]
+    public string FieldKind { get; init; } = string.Empty;
+
+    [JsonPropertyName("resolution_rule")]
+    public string ResolutionRule { get; init; } = string.Empty;
+
+    [JsonPropertyName("direct_source_fields")]
+    public string DirectSourceFields { get; init; } = string.Empty;
+
+    [JsonPropertyName("related_entity")]
+    public string RelatedEntity { get; init; } = string.Empty;
+
+    [JsonPropertyName("unresolved_display_policy")]
+    public string UnresolvedDisplayPolicy { get; init; } = string.Empty;
+
+    [JsonPropertyName("source_erp_file")]
+    public string SourceErpFile { get; init; } = string.Empty;
+
+    [JsonPropertyName("source_erp_field")]
+    public string SourceErpField { get; init; } = string.Empty;
+
+    [JsonPropertyName("source_mirror_column")]
+    public string SourceMirrorColumn { get; init; } = string.Empty;
+
+    [JsonPropertyName("source_mirror_column_count")]
+    public int SourceMirrorColumnCount { get; init; }
+
+    [JsonPropertyName("date_conversion_policy")]
+    public string DateConversionPolicy { get; init; } = string.Empty;
+
+    [JsonPropertyName("decimal_scale_policy")]
+    public string DecimalScalePolicy { get; init; } = string.Empty;
+}
+
+public sealed class ContractRelationship
+{
+    [JsonPropertyName("relationship_id")]
+    public string RelationshipId { get; init; } = string.Empty;
+
+    [JsonPropertyName("resolution")]
+    public string Resolution { get; init; } = string.Empty;
+}
+
+public sealed class ContractTraceRow
+{
+    [JsonPropertyName("include_in_canonical_model")]
+    public string IncludeInCanonicalModel { get; init; } = string.Empty;
+
+    [JsonPropertyName("approved_canonical_field")]
+    public string ApprovedCanonicalField { get; init; } = string.Empty;
+
+    [JsonPropertyName("canonical_entity")]
+    public string CanonicalEntity { get; init; } = string.Empty;
+}
+
+public sealed class MirrorManifest
+{
+    [JsonPropertyName("run_id")]
+    public string RunId { get; init; } = string.Empty;
+
+    [JsonPropertyName("package_state")]
+    public string PackageState { get; init; } = string.Empty;
+
+    [JsonPropertyName("run_outcome")]
+    public string RunOutcome { get; init; } = string.Empty;
+
+    [JsonPropertyName("package_hash")]
+    public string PackageHash { get; init; } = string.Empty;
+
+    [JsonPropertyName("completed_at")]
+    public DateTimeOffset CompletedAt { get; init; }
+
+    [JsonPropertyName("files")]
+    public List<MirrorManifestFile> Files { get; init; } = [];
+}
+
+public sealed class MirrorManifestFile
+{
+    [JsonPropertyName("source_file")]
+    public string SourceFile { get; init; } = string.Empty;
+
+    [JsonPropertyName("validation_status")]
+    public string ValidationStatus { get; init; } = string.Empty;
+
+    [JsonPropertyName("extracted_record_count")]
+    public int ExtractedRecordCount { get; init; }
+
+    [JsonPropertyName("reconciled")]
+    public bool Reconciled { get; init; }
+
+    [JsonPropertyName("output_file")]
+    public string OutputFile { get; init; } = string.Empty;
+
+    [JsonPropertyName("output_size_bytes")]
+    public long OutputSizeBytes { get; init; }
+
+    [JsonPropertyName("output_sha256")]
+    public string OutputSha256 { get; init; } = string.Empty;
+}
+
+public sealed class CsvTable
+{
+    public required IReadOnlyList<string> Headers { get; init; }
+    public required IReadOnlyList<IReadOnlyDictionary<string, string>> Rows
+    {
+        get;
+        init;
+    }
+}
+
+public sealed class PackageSource
+{
+    public required string CanonicalEntity { get; init; }
+    public required string SourceFile { get; init; }
+    public required string MirrorFileName { get; init; }
+    public required string MirrorFilePath { get; init; }
+    public required string OutputFileHash { get; init; }
+    public required int ExpectedRowCount { get; init; }
+    public required string ValidationStatus { get; init; }
+    public required CsvTable Table { get; init; }
+}
+
+public sealed class ValidatedPackage
+{
+    public required string RootPath { get; init; }
+    public required string MirrorRunId { get; init; }
+    public required string PackageHash { get; init; }
+    public required int SnapshotYear { get; init; }
+    public required IReadOnlyDictionary<string, PackageSource> SourcesByEntity
+    {
+        get;
+        init;
+    }
+}
+
+public sealed class CanonicalRow
+{
+    public required string SourceKeyRaw { get; init; }
+    public required string SourceRecordHash { get; init; }
+    public required IReadOnlyDictionary<string, string?> Values { get; init; }
+}
+
+public sealed class CanonicalEntityData
+{
+    public required string EntityName { get; init; }
+    public required string MirrorFileName { get; init; }
+    public required string SourceFileHash { get; init; }
+    public required int ExpectedRowCount { get; init; }
+    public required IReadOnlyList<string> CanonicalColumns { get; init; }
+    public required IReadOnlyList<CanonicalRow> Rows { get; init; }
+    public int DuplicateKeyCount { get; init; }
+    public int BlankKeyCount { get; init; }
+}
+
+public sealed class CanonicalSnapshot
+{
+    public required ContractDocument Contract { get; init; }
+    public required ValidatedPackage Package { get; init; }
+    public required IReadOnlyDictionary<string, CanonicalEntityData> Entities
+    {
+        get;
+        init;
+    }
+    public int StockedWorkOrderCount { get; init; }
+    public int NonStockWorkOrderCount { get; init; }
+}
+
+public sealed class EntityReconciliation
+{
+    public required string CanonicalEntity { get; init; }
+    public int ExpectedRowCount { get; init; }
+    public int ParsedRowCount { get; init; }
+    public int InsertedRowCount { get; init; }
+    public int SqlRowCount { get; init; }
+    public int DistinctSourceKeyCount { get; init; }
+    public int BlankKeyCount { get; init; }
+    public int DuplicateKeyCount { get; init; }
+    public int SourceRecordHashCount { get; init; }
+    public required string Result { get; init; }
+}
+
+public sealed class ImportAuditEvent
+{
+    public DateTimeOffset EventTimestampUtc { get; init; } =
+        DateTimeOffset.UtcNow;
+    public required string Severity { get; init; }
+    public required string EventCode { get; init; }
+    public required string Message { get; init; }
+    public string? DetailJson { get; init; }
+}
+
+public sealed class ImportExecutionResult
+{
+    public Guid ImportRunId { get; init; }
+    public required string MirrorRunId { get; init; }
+    public required string PackageHash { get; init; }
+    public required string EnvironmentId { get; init; }
+    public string ImportOperation { get; init; } = "IMPORT";
+    public bool IsRestoration { get; init; }
+    public string ContractVersion { get; init; } =
+        PlatformConstants.EvidenceContractVersion;
+    public required string Status { get; init; }
+    public bool IsCommitted { get; init; }
+    public bool IsNoOp { get; init; }
+    public DateTimeOffset StartedAtUtc { get; init; }
+    public DateTimeOffset CompletedAtUtc { get; init; }
+    public string? FailureCode { get; init; }
+    public string? FailureMessage { get; init; }
+    public int TotalExpectedRows { get; init; }
+    public int TotalSqlRows { get; init; }
+    public required IReadOnlyList<EntityReconciliation> Entities { get; init; }
+    public required IReadOnlyList<ImportAuditEvent> Audit { get; init; }
+    public string? ArtifactDirectory { get; set; }
+}

@@ -1,0 +1,27 @@
+﻿{
+    "Phase":  "Before",
+    "CapturedAtUtc":  "2026-07-29T21:45:09.8906986+00:00",
+    "Databases":  {
+                      "DLE_OS":  {
+                                     "DatabaseName":  "DLE_OS",
+                                     "DatabaseCreatedAt":  "2026-07-15T09:51:22.430",
+                                     "UserTableCount":  1,
+                                     "UserTableRows":  115,
+                                     "LatestObjectModifyDate":  "2026-07-15T11:42:35.813"
+                                 },
+                      "DLE_OS_PLATFORM_LAB":  {
+                                                  "DatabaseName":  "DLE_OS_PLATFORM_LAB",
+                                                  "DatabaseCreatedAt":  "2026-07-27T06:41:32.353",
+                                                  "UserTableCount":  8,
+                                                  "UserTableRows":  26948,
+                                                  "LatestObjectModifyDate":  "2026-07-27T21:46:56.440"
+                                              },
+                      "DLE_OS_CANONICAL_LIVE":  {
+                                                    "DatabaseName":  "DLE_OS_CANONICAL_LIVE",
+                                                    "DatabaseCreatedAt":  "2026-07-27T14:07:45.593",
+                                                    "UserTableCount":  22,
+                                                    "UserTableRows":  89657,
+                                                    "LatestObjectModifyDate":  "2026-07-29T13:21:58.130"
+                                                }
+                  }
+}

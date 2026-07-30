@@ -1,0 +1,7 @@
+﻿"FieldGroup","Classification","Viewer","Reason"
+"Identifiers/status/dates/quantities","PurchasingOperational","Yes","Operational PO state"
+"Item and demand references","ProductionOperational","Yes","Qualified direct references"
+"Vendor name and terms","GeneralOperational","Yes","Operational context"
+"UnitCost/ExtendedCost","AccountingRestricted","No","No viewer role enforcement"
+"Internal/reserved fields","InternalOnly","No","No proven business meaning"
+"Receipt transaction details","NotRecommended","No","Deferred entity"

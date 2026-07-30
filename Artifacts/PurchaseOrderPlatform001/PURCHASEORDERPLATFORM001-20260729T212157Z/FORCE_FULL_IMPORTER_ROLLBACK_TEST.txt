@@ -1,0 +1,10 @@
+﻿PASS | Add+ON date conversion | Approved dates decode to ISO and the blank sentinel is null.
+PASS | Add+ON date rejection | Malformed, invalid-calendar, and ambiguous-century values fail closed.
+PASS | Named profile definitions | Only exact HISTORICAL_TEST and LIVE names resolve.
+PASS | Profile connection separation | LIVE rejects the historical database connection.
+PASS | Current package is no-op | Target matching current committed hash is NO-OP.
+PASS | Fresh identical package is transactionally importable | Only a new mirror run with the current content hash may bypass the ordinary no-op disposition.
+PASS | Historical package is restorable | Previously committed non-current hash is RESTORE.
+PASS | New package is importable | Unseen non-current hash is IMPORT.
+PASS | Live package validation | 12 files, package hash, 35 fields, 42,322 rows, and WorkOrder rules validated.
+PASS | Identical-content refresh transactional rollback | Controlled run 238144af-601b-438b-ace0-16abaa862fb3; canonical fingerprint unchanged.

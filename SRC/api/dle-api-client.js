@@ -33,7 +33,9 @@
     canonicalCustomerMaster: '/api/platform/live/v1/customer-master',
     canonicalCustomerMasterMetadata: '/api/platform/live/v1/customer-master/metadata',
     canonicalVendorMaster: '/api/platform/live/v1/vendor-master',
-    canonicalVendorMasterMetadata: '/api/platform/live/v1/vendor-master/metadata'
+    canonicalVendorMasterMetadata: '/api/platform/live/v1/vendor-master/metadata',
+    canonicalPurchaseOrders: '/api/platform/live/v1/purchase-orders',
+    canonicalPurchaseOrderMetadata: '/api/platform/live/v1/purchase-orders/metadata'
   });
 
   const CANONICAL_FILTERS = Object.freeze({
@@ -57,6 +59,11 @@
     canonicalVendorMaster: Object.freeze([
       'vendorNumber', 'vendorName', 'postalCode', 'contactName',
       'paymentTermsCode'
+    ]),
+    canonicalPurchaseOrders: Object.freeze([
+      'purchaseOrderNumber', 'vendorNumber', 'vendorName', 'status',
+      'openOnly', 'lineType', 'itemNumber', 'workOrderNumber', 'salesOrderNumber',
+      'requiredFrom', 'requiredTo', 'promisedFrom', 'promisedTo'
     ])
   });
 
@@ -68,6 +75,7 @@
   const CANONICAL_FIELD_WIDTHS = Object.freeze({
     customerNumber: 6,
     vendorNumber: 6,
+    purchaseOrderNumber: 7,
     salesOrderNumber: 7,
     workOrderNumber: 7,
     itemNumber: 20
@@ -236,12 +244,19 @@
       ) &&
       filterName === 'customerNumber';
     const isVendorNumber =
-      endpointKey === 'canonicalVendorMaster' &&
+      (
+        endpointKey === 'canonicalVendorMaster' ||
+        endpointKey === 'canonicalPurchaseOrders'
+      ) &&
       filterName === 'vendorNumber';
+    const isPurchaseOrderNumber =
+      endpointKey === 'canonicalPurchaseOrders' &&
+      filterName === 'purchaseOrderNumber';
     const isSalesOrderNumber =
       (
         endpointKey === 'canonicalSalesOrders' ||
-        endpointKey === 'canonicalInvoiceHistory'
+        endpointKey === 'canonicalInvoiceHistory' ||
+        endpointKey === 'canonicalPurchaseOrders'
       ) &&
       filterName === 'salesOrderNumber';
     const isInvoiceNumber =
@@ -250,7 +265,8 @@
     const isWorkOrderNumber =
       (
         endpointKey === 'canonicalWorkOrders' ||
-        endpointKey === 'canonicalInvoiceHistory'
+        endpointKey === 'canonicalInvoiceHistory' ||
+        endpointKey === 'canonicalPurchaseOrders'
       ) &&
       filterName === 'workOrderNumber';
     const isItemNumber =
@@ -259,11 +275,12 @@
         endpointKey === 'canonicalInventoryItems' ||
         endpointKey === 'canonicalWorkOrders'
       );
-    if (!isCustomerNumber && !isVendorNumber &&
+    if (!isCustomerNumber && !isVendorNumber && !isPurchaseOrderNumber &&
         !isSalesOrderNumber && !isInvoiceNumber &&
         !isWorkOrderNumber && !isItemNumber) {
       if ((endpointKey === 'canonicalCustomerMaster' ||
-           endpointKey === 'canonicalVendorMaster') &&
+           endpointKey === 'canonicalVendorMaster' ||
+           endpointKey === 'canonicalPurchaseOrders') &&
           value !== undefined && value !== null) {
         return String(value).trim();
       }
@@ -281,6 +298,13 @@
     }
     if (isVendorNumber) {
       const canonicalWidth = CANONICAL_FIELD_WIDTHS.vendorNumber;
+      if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
+        return normalizedValue.padStart(canonicalWidth, '0');
+      }
+      return normalizedValue;
+    }
+    if (isPurchaseOrderNumber) {
+      const canonicalWidth = CANONICAL_FIELD_WIDTHS.purchaseOrderNumber;
       if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
         return normalizedValue.padStart(canonicalWidth, '0');
       }
@@ -492,6 +516,28 @@
     },
     getCanonicalVendorMasterMetadata(options = {}) {
       return getLiveJson('canonicalVendorMasterMetadata', options);
+    },
+    getCanonicalPurchaseOrders(options = {}) {
+      return getLiveCanonicalList('canonicalPurchaseOrders', options);
+    },
+    getCanonicalPurchaseOrderLine(purchaseOrderLineId, options = {}) {
+      const id = String(purchaseOrderLineId || '');
+      if (!/^\d{18}$/.test(id)) {
+        throw new TypeError(
+          'Purchase Order line identifier must contain firm, vendor, PO, and line.'
+        );
+      }
+      const path = [
+        id.slice(0, 2), id.slice(2, 8), id.slice(8, 15),
+        'lines', id.slice(15, 18)
+      ].map(encodeCanonicalIdentifier).join('/');
+      return getLiveJson('canonicalPurchaseOrders', {
+        ...options,
+        endpoint: LIVE_CANONICAL_ENDPOINTS.canonicalPurchaseOrders + '/' + path
+      });
+    },
+    getCanonicalPurchaseOrderMetadata(options = {}) {
+      return getLiveJson('canonicalPurchaseOrderMetadata', options);
     },
     getSnapshotRefreshStatus(options = {}) {
       return requestLiveSnapshotRefresh('/api/platform/refresh/v1/status', options);

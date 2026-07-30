@@ -1,0 +1,7 @@
+ForceFullExtraction and QualificationCurrentFixture are mutually exclusive.
+At C:\DLE-OS\Canonical\LiveMirror\Refresh\Invoke-LiveSnapshotRefresh.ps1:14 char:5
++     throw (
++     ~~~~~~~
+    + CategoryInfo          : OperationStopped: (ForceFullExtrac...ally exclusive.:String) [], RuntimeException
+    + FullyQualifiedErrorId : ForceFullExtraction and QualificationCurrentFixture are mutually exclusive.
+ 

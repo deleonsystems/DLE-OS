@@ -1,0 +1,192 @@
+﻿{
+    "Verdict":  "PASS",
+    "CompletedAtUtc":  "2026-07-30T00:40:08.6304236+00:00",
+    "AssertionsPassed":  36,
+    "MetadataLatencyMs":  36.78,
+    "ListLatencyMs":  12.27,
+    "PurchaseOrderImportRunId":  "7f8e76b9-7489-41ef-8128-fcd23270efdd",
+    "PackageSha256":  "37690EB343DBA99D5F8F6CCD59C930F1E3456BD8AF73B6D0589D539CF4AF23A3",
+    "RepresentativeLineId":  "010000310044118005",
+    "Results":  [
+                    {
+                        "Name":  "metadata-header-count",
+                        "Passed":  true,
+                        "Evidence":  "count=518"
+                    },
+                    {
+                        "Name":  "metadata-line-count",
+                        "Passed":  true,
+                        "Evidence":  "count=1384"
+                    },
+                    {
+                        "Name":  "metadata-source-run",
+                        "Passed":  true,
+                        "Evidence":  "PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4"
+                    },
+                    {
+                        "Name":  "list-total",
+                        "Passed":  true,
+                        "Evidence":  "total=1384"
+                    },
+                    {
+                        "Name":  "list-page-size",
+                        "Passed":  true,
+                        "Evidence":  "rows=25"
+                    },
+                    {
+                        "Name":  "pagination-page-two",
+                        "Passed":  true,
+                        "Evidence":  "first=018542500012291035"
+                    },
+                    {
+                        "Name":  "purchase-order-leading-zero-normalization",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "purchase-order-padded-exact",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "vendor-leading-zero-normalization",
+                        "Passed":  true,
+                        "Evidence":  "rows=3"
+                    },
+                    {
+                        "Name":  "vendor-name-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=3"
+                    },
+                    {
+                        "Name":  "item-exact-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "open-only-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=1130"
+                    },
+                    {
+                        "Name":  "non-stock-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=287"
+                    },
+                    {
+                        "Name":  "status-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=1130"
+                    },
+                    {
+                        "Name":  "work-order-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "sales-order-filter",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "required-date-range",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "negative-quantity-preserved",
+                        "Passed":  true,
+                        "Evidence":  "ordered=-2.000000;received=0.000000;open=-2.000000"
+                    },
+                    {
+                        "Name":  "line-detail",
+                        "Passed":  true,
+                        "Evidence":  "010000310044118005"
+                    },
+                    {
+                        "Name":  "header-detail",
+                        "Passed":  true,
+                        "Evidence":  "0044118"
+                    },
+                    {
+                        "Name":  "header-lines",
+                        "Passed":  true,
+                        "Evidence":  "rows=1"
+                    },
+                    {
+                        "Name":  "restricted-fields-absent",
+                        "Passed":  true,
+                        "Evidence":  "No restricted properties in API DTO."
+                    },
+                    {
+                        "Name":  "invalid-page",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "invalid-page-size",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "invalid-boolean",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "invalid-date",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 400"
+                    },
+                    {
+                        "Name":  "write-route-absent",
+                        "Passed":  true,
+                        "Evidence":  "POST returned HTTP 405"
+                    },
+                    {
+                        "Name":  "cors-exact-origin",
+                        "Passed":  true,
+                        "Evidence":  "http://dle-os-host:5041"
+                    },
+                    {
+                        "Name":  "cors-arbitrary-origin-denied",
+                        "Passed":  true,
+                        "Evidence":  "No allow-origin header."
+                    },
+                    {
+                        "Name":  "historical-readiness",
+                        "Passed":  true,
+                        "Evidence":  "Ready"
+                    },
+                    {
+                        "Name":  "historical-count",
+                        "Passed":  true,
+                        "Evidence":  "total=26902"
+                    },
+                    {
+                        "Name":  "historical-route-isolation",
+                        "Passed":  true,
+                        "Evidence":  "HTTP 404; no profile fallback."
+                    },
+                    {
+                        "Name":  "port-5041-listening",
+                        "Passed":  true,
+                        "Evidence":  "pid=33688"
+                    },
+                    {
+                        "Name":  "port-5042-listening",
+                        "Passed":  true,
+                        "Evidence":  "pid=33116"
+                    },
+                    {
+                        "Name":  "port-5043-listening",
+                        "Passed":  true,
+                        "Evidence":  "pid=4"
+                    },
+                    {
+                        "Name":  "port-5044-listening",
+                        "Passed":  true,
+                        "Evidence":  "pid=4"
+                    }
+                ]
+}

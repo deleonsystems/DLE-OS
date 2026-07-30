@@ -1,0 +1,3 @@
+"FirmId","VendorNumber","PurchaseOrderNumber","SourceRecordIdentity","Classification","Reason"
+"01","000174","       ","303130303031373420202020202020","MissingRequiredNaturalKeyExcluded","Firm, vendor, and PO number are all required"
+"01","201893","       ","303132303138393320202020202020","MissingRequiredNaturalKeyExcluded","Firm, vendor, and PO number are all required"

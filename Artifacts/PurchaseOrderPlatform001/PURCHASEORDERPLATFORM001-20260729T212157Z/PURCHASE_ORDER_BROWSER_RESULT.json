@@ -1,0 +1,37 @@
+{
+  "Verdict": "PASS",
+  "AcceptedAtUtc": "2026-07-30T00:43:00Z",
+  "Origin": "http://DLE-OS-HOST:5041",
+  "ViewerSectionCount": 9,
+  "PurchaseOrdersTabVisible": true,
+  "PurchaseOrderLineCount": 1384,
+  "RepresentativeLineId": "010000310044118005",
+  "RepresentativePurchaseOrderNumber": "0044118",
+  "UnpaddedSearchValue": "44118",
+  "UnpaddedSearchResultCount": 1,
+  "DirectPageNavigation": {
+    "RequestedPage": 28,
+    "DisplayedPage": "Page 28 of 28",
+    "RowsOnLastPage": 34,
+    "ActiveFilterPreserved": true
+  },
+  "ExistingSectionsVerdict": "PASS",
+  "ExistingSectionCounts": {
+    "WorkOrders": 12113,
+    "InventoryItems": 28662,
+    "BillsOfMaterial": 1290,
+    "GeneralLedgerAccounts": 257,
+    "SalesOrders": 105,
+    "InvoiceHistoryLines": 26036,
+    "CustomerMaster": 380,
+    "VendorMaster": 805
+  },
+  "LiveReadinessVerdict": "Ready",
+  "LiveFreshnessStatus": "Fresh",
+  "LiveImportRunId": "27f0ed25-adcc-46aa-96f4-f0cc7d6ae8b6",
+  "DetailPanelOpened": true,
+  "ReadOnlyBannerVisible": true,
+  "ConsoleOrCorsErrors": 0,
+  "UnrelatedPreExistingConsoleWarnings": 8,
+  "Notes": "Warnings were limited to pre-existing shipment/operations fallback HTTP 404 messages. No Purchase Order, LIVE API, CORS, permission, or startup-gate errors occurred."
+}

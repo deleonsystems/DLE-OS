@@ -1,0 +1,15 @@
+{
+    "Verdict":  "PASS",
+    "RunId":  "LIVEREFRESH-20260729T232138Z-AF742233",
+    "BaseMirrorRunId":  "LIVEMIRROR001-20260729T232139Z-7CAB3382",
+    "ResumedAtUtc":  "2026-07-30T00:37:54.2021334+00:00",
+    "ExecutionIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "SourceAccessPerformed":  false,
+    "XDriveWrites":  0,
+    "Woe03Pass1Count":  370689,
+    "Woe03Pass2Count":  370689,
+    "TwoPassSemanticMatch":  true,
+    "BasePackageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+    "SalesPackageHash":  "761E45CCC14ED973336B80ED7C65B5C429D620BF2888686DEAC14C2589AD7AFC",
+    "PromotionVerdict":  "PASS"
+}

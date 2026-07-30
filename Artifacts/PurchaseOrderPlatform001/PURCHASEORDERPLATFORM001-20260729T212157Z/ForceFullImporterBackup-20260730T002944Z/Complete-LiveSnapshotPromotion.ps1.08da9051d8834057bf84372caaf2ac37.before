@@ -81,51 +81,10 @@ function Promote-SalesCandidate {
     Move-Item -LiteralPath $candidate -Destination $salesCurrent
 }
 
-function Get-CurrentCanonicalPackageHash {
-    $connectionString =
-        'Server=lpc:.\SQLEXPRESS;Database=DLE_OS_CANONICAL_LIVE;' +
-        'Integrated Security=True;Encrypt=False;TrustServerCertificate=True;' +
-        'Connect Timeout=5;Application Name=DLE-OS Snapshot Promotion'
-    $connection =
-        [System.Data.SqlClient.SqlConnection]::new($connectionString)
-    try {
-        $connection.Open()
-        $command = $connection.CreateCommand()
-        $command.CommandText = @'
-SELECT PackageHash
-FROM liveapi.SnapshotMetadata;
-'@
-        $value = $command.ExecuteScalar()
-        if ($null -eq $value -or [string]$value -notmatch '^[0-9A-F]{64}$') {
-            throw 'Current LIVE package hash is unavailable.'
-        }
-        return [string]$value
-    }
-    finally {
-        $connection.Dispose()
-    }
-}
-
 function Invoke-Importer {
-    param([switch] $AllowFreshIdenticalPackage)
-
-    $command = 'import'
-    if ($AllowFreshIdenticalPackage) {
-        $manifestPath = Join-Path $baseCurrent 'manifest.json'
-        $manifest =
-            Get-Content -LiteralPath $manifestPath -Raw |
-            ConvertFrom-Json
-        $currentHash = Get-CurrentCanonicalPackageHash
-        if ([string]$manifest.package_hash -ceq $currentHash) {
-            $command = 'refresh-import'
-        }
-    }
-
-    & $dotnet $importer $command --profile LIVE
+    & $dotnet $importer import --profile LIVE
     if ($LASTEXITCODE -ne 0) {
-        throw (
-            "Canonical LIVE $command returned $LASTEXITCODE."
-        )
+        throw "Canonical LIVE importer returned $LASTEXITCODE."
     }
     & $salesImporter | Out-Null
 }
@@ -200,7 +159,7 @@ try {
         Promote-SalesCandidate
     }
     Stop-LiveApi
-    Invoke-Importer -AllowFreshIdenticalPackage
+    Invoke-Importer
     & $promoter | Out-Null
     Start-LiveApi
     [ordered]@{

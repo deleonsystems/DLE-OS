@@ -1,0 +1,127 @@
+﻿{
+    "Verdict":  "PASS",
+    "DeployedAtUtc":  "2026-07-29T21:55:33.3820452+00:00",
+    "DeploymentIdentity":  "DLE-OS-HOST\\DLE-OS",
+    "Elevated":  true,
+    "HistoricalProcessId":  3096,
+    "LiveProcessId":  30968,
+    "RefreshControlProcessId":  4,
+    "PromotionBrokerProcessId":  4,
+    "SourceAccessPerformed":  false,
+    "ExistingRefreshPipelinesModified":  false,
+    "PublishOutput":  "Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  DLE-OS-Server -\u003e C:\\DLE-OS\\Repositories\\DLE-OS-Server\\Artifacts\\LiveApi001\\Publish\\Build\\Release\\net8.0\\DLE-OS-Server.dll\r\n  DLE-OS-Server -\u003e C:\\DLE-OS\\Repositories\\DLE-OS-Server\\Artifacts\\LiveApi001\\Publish\\LIVEAPI001-PUBLISH-20260729T215535Z\\\r\n{\r\n    \"Mission\":  \"LIVE-API-001\",\r\n    \"PublishedAtUtc\":  \"2026-07-29T21:55:40.4665646+00:00\",\r\n    \"RunId\":  \"LIVEAPI001-PUBLISH-20260729T215535Z\",\r\n    \"StagingPath\":  \"C:\\\\DLE-OS\\\\Repositories\\\\DLE-OS-Server\\\\Artifacts\\\\LiveApi001\\\\Publish\\\\LIVEAPI001-PUBLISH-20260729T215535Z\",\r\n    \"RuntimePath\":  \"C:\\\\Program Files\\\\DLE-OS\\\\LiveCanonicalApi\",\r\n    \"RuntimeProfile\":  \"LIVE\",\r\n    \"RuntimeDatabase\":  \"DLE_OS_CANONICAL_LIVE\",\r\n    \"RuntimeIdentity\":  \"DLE-OS-HOST\\\\DLE-OS-LIVE-API\",\r\n    \"AssemblySha256\":  \"C8DC0A0C464D019A56B87439BB4AD24E238811FE9EFFB3A5621B29B245077F0C\",\r\n    \"BaseConfigurationSha256\":  \"1B4F61DD2023D873948D6B53328ED3A13D500FCD58D2C230D0D650837BEC943C\",\r\n    \"LiveConfigurationSha256\":  \"5EBE2D6FAD7C5FF9773426D583A5FFE0040282EDC371036E11443DEA72D77ACA\",\r\n    \"QualifiedBoundarySha256\":  \"5100464E07AAE97D51F82F22716924222856A4A6362AA3FC34F5D02031DB1DAC\",\r\n    \"RuntimeIdentityFileSystemRights\":  \"ReadAndExecute, Synchronize\",\r\n    \"HistoricalConnectionConfigurationPresent\":  false,\r\n    \"FrontendConfigurationPresent\":  false,\r\n    \"Verdict\":  \"PASS\"\r\n}",
+    "LaunchOutput":  "ProcessId        : 30968\r\nWindowsIdentity  : DLE-OS-HOST\\DLE-OS-LIVE-API\r\nRuntimeProfile   : LIVE\r\nEndpoint         : http://DLE-OS-HOST:5042\r\nReadinessVerdict : Ready\r\nImportRunId      : e66391d9-7422-4c6f-9992-feed3d401a75\r\nPackageHash      : BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+    "LiveRuntimeOwner":  "DLE-OS-HOST\\DLE-OS-LIVE-API",
+    "Readiness":  {
+                      "dataEnvironment":  "LIVE",
+                      "database":  "DLE_OS_CANONICAL_LIVE",
+                      "contractVersion":  "1.2",
+                      "readinessVerdict":  "Ready",
+                      "currentImportRunId":  "e66391d9-7422-4c6f-9992-feed3d401a75",
+                      "mirrorRunId":  "LIVEMIRROR001-20260728T214128Z-FD926C24",
+                      "packageHash":  "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+                      "snapshotTimestampUtc":  "2026-07-28T22:38:20.784774Z",
+                      "snapshotAgeSeconds":  83843,
+                      "freshnessStatus":  "Fresh",
+                      "entityCounts":  {
+                                           "billOfMaterial":  1290,
+                                           "inventoryItem":  28662,
+                                           "workOrder":  12113,
+                                           "generalLedgerAccount":  257
+                                       },
+                      "totalCount":  42322,
+                      "checks":  [
+                                     {
+                                         "name":  "dataEnvironment",
+                                         "passed":  true,
+                                         "message":  "Snapshot environment is LIVE."
+                                     },
+                                     {
+                                         "name":  "database",
+                                         "passed":  true,
+                                         "message":  "Configured live database is DLE_OS_CANONICAL_LIVE."
+                                     },
+                                     {
+                                         "name":  "contractVersion",
+                                         "passed":  true,
+                                         "message":  "Stored contract version is V1.2."
+                                     },
+                                     {
+                                         "name":  "importRun",
+                                         "passed":  true,
+                                         "message":  "Current ImportRunId is e66391d9-7422-4c6f-9992-feed3d401a75."
+                                     },
+                                     {
+                                         "name":  "mirrorRun",
+                                         "passed":  true,
+                                         "message":  "Current MirrorRunId is LIVEMIRROR001-20260728T214128Z-FD926C24."
+                                     },
+                                     {
+                                         "name":  "packageHash",
+                                         "passed":  true,
+                                         "message":  "Current package hash matches the qualified package."
+                                     },
+                                     {
+                                         "name":  "entityCounts",
+                                         "passed":  true,
+                                         "message":  "Counts are BOM=1290, Inventory=28662, WorkOrder=12113, GL=257, Total=42322."
+                                     },
+                                     {
+                                         "name":  "freshness",
+                                         "passed":  true,
+                                         "message":  "Snapshot age is 83843 seconds."
+                                     }
+                                 ]
+                  },
+    "PurchaseOrderMetadata":  {
+                                  "purchaseOrderImportRunId":  "3c4bfc1d-6b7d-4384-87c0-4d32b61f2767",
+                                  "sourceQualificationRunId":  "PURCHASE_ORDER_PLATFORM_001-20260729T211849160Z-EEA532B4",
+                                  "packageSha256":  "E212EDE3B225D6A3B621914AEFACFB9381726E2B9E7E38B64F870A9DDFE14FB1",
+                                  "contractVersion":  "PURCHASE_ORDER_1.0",
+                                  "snapshotAsOfUtc":  "2026-07-29T21:53:37.695",
+                                  "headerCount":  518,
+                                  "lineCount":  1384,
+                                  "sourceOrphanLineCount":  20,
+                                  "importStatus":  "SUCCESS"
+                              },
+    "Sample":  {
+                   "purchaseOrderLineId":  "018542500012291010",
+                   "firmId":  "01",
+                   "vendorNumber":  "854250",
+                   "vendorName":  "TTI, INC.",
+                   "purchaseOrderNumber":  "0012291",
+                   "purchaseOrderLineNumber":  "010",
+                   "orderDateIso":  "2013-12-16T00:00:00",
+                   "purchaseOrderStatus":  "ActiveOpenFile",
+                   "holdFlag":  "N",
+                   "paymentTermsCode":  "01",
+                   "freightTerms":  null,
+                   "shippingMethod":  null,
+                   "fob":  null,
+                   "lineCode":  "S",
+                   "lineType":  "Stock",
+                   "itemNumber":  "41-802",
+                   "itemDescription":  "RECEPTACLE, EB73D-A10SGFX DALE",
+                   "orderMemo":  null,
+                   "unitOfMeasure":  "EA",
+                   "quantityOrdered":  3.000000,
+                   "quantityReceived":  0.000000,
+                   "quantityOpen":  3.000000,
+                   "requiredDateIso":  "2002-06-03T00:00:00",
+                   "promisedDateIso":  null,
+                   "workOrderNumber":  "0104358",
+                   "customerNumber":  null,
+                   "salesOrderNumber":  null,
+                   "salesOrderLineNumber":  null,
+                   "lineStatus":  "Open",
+                   "isOpen":  true,
+                   "isClosed":  false,
+                   "isCanceled":  false,
+                   "vendorResolutionStatus":  "Resolved",
+                   "inventoryResolutionStatus":  "Resolved",
+                   "workOrderResolutionStatus":  "Resolved",
+                   "salesOrderResolutionStatus":  "NotReferenced",
+                   "purchaseOrderImportRunId":  "3c4bfc1d-6b7d-4384-87c0-4d32b61f2767",
+                   "importedAtUtc":  "2026-07-29T21:53:37.561"
+               }
+}

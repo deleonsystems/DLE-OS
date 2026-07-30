@@ -1,0 +1,680 @@
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using DleOs.PlatformImporter;
+using Microsoft.Data.SqlClient;
+
+return await LiveSqlQualification.RunAsync(args);
+
+public static class LiveSqlQualification
+{
+    private sealed record TestResult(
+        string Test,
+        string Result,
+        long ElapsedMilliseconds,
+        string Detail);
+
+    public static async Task<int> RunAsync(string[] args)
+    {
+        var command = args.Length == 0 ? "unit" : args[0];
+        if (args.Length > 1 ||
+            command is not (
+                "unit" or
+                "qualify-live" or
+                "qualify-refresh-import"))
+        {
+            Console.Error.WriteLine(
+                "Usage: DleOs.PlatformImporter.Tests " +
+                "{unit|qualify-live|qualify-refresh-import}");
+            return 2;
+        }
+
+        var results = new List<TestResult>();
+        await RunUnitTestsAsync(results);
+        if (results.Any(result => result.Result == "FAIL"))
+        {
+            await WriteResultsAsync("unit-tests.json", results);
+            return 1;
+        }
+
+        if (command == "qualify-live")
+        {
+            await RunLiveIntegrationAsync(results);
+        }
+        else if (command == "qualify-refresh-import")
+        {
+            await RunRefreshImportQualificationAsync(results);
+        }
+
+        await WriteResultsAsync(
+            command == "unit"
+                ? "unit-tests.json"
+                : command == "qualify-live"
+                    ? "import-qualification.json"
+                    : "refresh-import-qualification.json",
+            results);
+        foreach (var result in results)
+        {
+            Console.WriteLine(
+                $"{result.Result} | {result.Test} | {result.Detail}");
+        }
+        return results.All(result => result.Result == "PASS") ? 0 : 1;
+    }
+
+    private static async Task RunRefreshImportQualificationAsync(
+        ICollection<TestResult> results)
+    {
+        await RunTestAsync(
+            results,
+            "Identical-content refresh transactional rollback",
+            async () =>
+            {
+                var profile = ImportProfiles.Resolve(ImportProfiles.Live);
+                var contract = ContractLoader.LoadAndValidate(
+                    PlatformConstants.ContractPath);
+                var current =
+                    await LiveCanonicalPackageValidator.ValidateAndLoadAsync(
+                        profile.SourcePath,
+                        contract);
+                var candidate = new CanonicalSnapshot
+                {
+                    Contract = current.Contract,
+                    Package = new ValidatedPackage
+                    {
+                        RootPath = current.Package.RootPath,
+                        MirrorRunId =
+                            "LIVEMIRROR001-QUALIFICATION-" +
+                            Guid.NewGuid().ToString("N").ToUpperInvariant(),
+                        PackageHash = current.Package.PackageHash,
+                        SnapshotYear = current.Package.SnapshotYear,
+                        SourcesByEntity =
+                            current.Package.SourcesByEntity
+                    },
+                    Entities = current.Entities,
+                    StockedWorkOrderCount =
+                        current.StockedWorkOrderCount,
+                    NonStockWorkOrderCount =
+                        current.NonStockWorkOrderCount
+                };
+                var store =
+                    new SqlPlatformStore(
+                        profile.ConnectionString,
+                        profile);
+                var fingerprintBefore =
+                    await store.GetCanonicalSnapshotFingerprintAsync();
+                var result = await store.ImportAsync(
+                    candidate,
+                    FailureInjection.AfterSecondEntity,
+                    requalifyCurrentPackage: true);
+                var fingerprintAfter =
+                    await store.GetCanonicalSnapshotFingerprintAsync();
+                Require(
+                    result.Status == "FAILED" &&
+                    result.FailureCode ==
+                        "INJECTED_SECOND_ENTITY_FAILURE" &&
+                    result.ImportOperation == "IMPORT" &&
+                    !result.IsCommitted &&
+                    fingerprintBefore == fingerprintAfter,
+                    "Identical-content refresh failure did not roll back " +
+                    "the exact current canonical snapshot.");
+                return $"Controlled run {result.ImportRunId}; canonical " +
+                    "fingerprint unchanged.";
+            });
+    }
+
+    private static async Task RunUnitTestsAsync(ICollection<TestResult> results)
+    {
+        await RunTestAsync(results, "Add+ON date conversion", () =>
+        {
+            Require(
+                LegacyAddonDate.DecodeIso("3A273B", 2026, "test") ==
+                    "2026-07-27" &&
+                LegacyAddonDate.DecodeIso("8F2A39", 2026, "test") ==
+                    "2011-10-25" &&
+                LegacyAddonDate.DecodeIso("832338", 2026, "test") ==
+                    "1999-03-24" &&
+                LegacyAddonDate.DecodeIso("222C3F", 2026, "test") ==
+                    "2002-12-31" &&
+                LegacyAddonDate.DecodeIso("202020", 2026, "test") is null,
+                "Approved date examples did not decode.");
+            return Task.FromResult(
+                "Approved dates decode to ISO and the blank sentinel is null.");
+        });
+
+        await RunTestAsync(results, "Add+ON date rejection", () =>
+        {
+            ExpectPlatformException(
+                () => LegacyAddonDate.DecodeIso("XYZ", 2026, "test"),
+                "LEGACY_DATE_ENCODING_INVALID");
+            ExpectPlatformException(
+                () => LegacyAddonDate.DecodeIso("3A223F", 2026, "test"),
+                "LEGACY_DATE_CALENDAR_INVALID");
+            ExpectPlatformException(
+                () => LegacyAddonDate.DecodeIso("832338", 2099, "test"),
+                "LEGACY_DATE_CENTURY_AMBIGUOUS");
+            return Task.FromResult(
+                "Malformed, invalid-calendar, and ambiguous-century values fail closed.");
+        });
+
+        await RunTestAsync(results, "Named profile definitions", () =>
+        {
+            var historical = ImportProfiles.Resolve(
+                ImportProfiles.HistoricalTest);
+            var live = ImportProfiles.Resolve(ImportProfiles.Live);
+            Require(
+                historical.DatabaseName == "DLE_OS_PLATFORM_LAB" &&
+                historical.SourcePath ==
+                    @"C:\Add-On\Lab\Mirror\Current" &&
+                live.DatabaseName == "DLE_OS_CANONICAL_LIVE" &&
+                live.SourcePath ==
+                    @"C:\DLE-OS\Canonical\LiveMirror\Current",
+                "Named profile values drifted.");
+            ExpectPlatformException(
+                () => ImportProfiles.Resolve("live"),
+                "PROFILE_NOT_APPROVED");
+            return Task.FromResult(
+                "Only exact HISTORICAL_TEST and LIVE names resolve.");
+        });
+
+        await RunTestAsync(results, "Profile connection separation", () =>
+        {
+            var live = ImportProfiles.Resolve(ImportProfiles.Live);
+            _ = Safety.ValidateProfileConnection(
+                live.ConnectionString,
+                live);
+            ExpectPlatformException(
+                () => Safety.ValidateProfileConnection(
+                    ImportProfiles.Resolve(
+                        ImportProfiles.HistoricalTest).ConnectionString,
+                    live),
+                "DATABASE_NOT_APPROVED");
+            return Task.FromResult(
+                "LIVE rejects the historical database connection.");
+        });
+
+        await RunTestAsync(results, "Current package is no-op", () =>
+        {
+            Require(
+                ImportDecision.Decide("AAA", true, "AAA") ==
+                    ImportDisposition.NoOp,
+                "Current package was not classified NO-OP.");
+            return Task.FromResult(
+                "Target matching current committed hash is NO-OP.");
+        });
+
+        await RunTestAsync(
+            results,
+            "Fresh identical package is transactionally importable",
+            () =>
+            {
+                Require(
+                    ImportDecision.Decide(
+                        "AAA",
+                        true,
+                        "AAA",
+                        requalifyCurrentPackage: true,
+                        currentMirrorRunId: "LIVEMIRROR-OLD",
+                        targetMirrorRunId: "LIVEMIRROR-NEW") ==
+                        ImportDisposition.Import,
+                    "Fresh identical package was not classified IMPORT.");
+                ExpectPlatformException(
+                    () => ImportDecision.Decide(
+                        "AAA",
+                        true,
+                        "AAA",
+                        requalifyCurrentPackage: true,
+                        currentMirrorRunId: "LIVEMIRROR-SAME",
+                        targetMirrorRunId: "LIVEMIRROR-SAME"),
+                    "REFRESH_MIRROR_RUN_NOT_NEW");
+                ExpectPlatformException(
+                    () => ImportDecision.Decide(
+                        "AAA",
+                        false,
+                        "BBB",
+                        requalifyCurrentPackage: true,
+                        currentMirrorRunId: "LIVEMIRROR-OLD",
+                        targetMirrorRunId: "LIVEMIRROR-NEW"),
+                    "REFRESH_PACKAGE_HASH_CHANGED");
+                return Task.FromResult(
+                    "Only a new mirror run with the current content hash " +
+                    "may bypass the ordinary no-op disposition.");
+            });
+
+        await RunTestAsync(results, "Historical package is restorable", () =>
+        {
+            Require(
+                ImportDecision.Decide("BBB", true, "AAA") ==
+                    ImportDisposition.Restore,
+                "Historical non-current package was incorrectly NO-OP.");
+            return Task.FromResult(
+                "Previously committed non-current hash is RESTORE.");
+        });
+
+        await RunTestAsync(results, "New package is importable", () =>
+        {
+            Require(
+                ImportDecision.Decide("BBB", false, "AAA") ==
+                    ImportDisposition.Import,
+                "New package was not classified IMPORT.");
+            return Task.FromResult("Unseen non-current hash is IMPORT.");
+        });
+
+        await RunTestAsync(results, "Live package validation", async () =>
+        {
+            var contract = ContractLoader.LoadAndValidate(
+                PlatformConstants.ContractPath);
+            var snapshot =
+                await LiveCanonicalPackageValidator.ValidateAndLoadAsync(
+                    PlatformConstants.LiveMirrorPackagePath,
+                    contract);
+            Require(
+                snapshot.Package.PackageHash.Length == 64 &&
+                snapshot.Package.MirrorRunId.StartsWith(
+                    "LIVEMIRROR001-",
+                    StringComparison.Ordinal) &&
+                snapshot.Entities.Values.Sum(entity => entity.Rows.Count) ==
+                    42_322 &&
+                snapshot.StockedWorkOrderCount == 10_343 &&
+                snapshot.NonStockWorkOrderCount == 1_770,
+                "Qualified live package identity/counts differ.");
+            return "12 files, package hash, 35 fields, 42,322 rows, and " +
+                "WorkOrder rules validated.";
+        });
+    }
+
+    private static async Task RunLiveIntegrationAsync(
+        ICollection<TestResult> results)
+    {
+        var profile = ImportProfiles.Resolve(ImportProfiles.Live);
+        var contract = ContractLoader.LoadAndValidate(
+            PlatformConstants.ContractPath);
+        var snapshot =
+            await LiveCanonicalPackageValidator.ValidateAndLoadAsync(
+                profile.SourcePath,
+                contract);
+        var store = new SqlPlatformStore(profile.ConnectionString, profile);
+
+        await RunTestAsync(results, "Live schema qualification", async () =>
+        {
+            await store.EnsureSchemaAsync();
+            var counts = await store.GetCurrentCountsAsync();
+            Require(
+                counts.Values.All(count => count == 0) ||
+                counts["BillOfMaterial"] == 1_290 &&
+                counts["InventoryItem"] == 28_662 &&
+                counts["WorkOrder"] == 12_113 &&
+                counts["GeneralLedgerAccount"] == 257,
+                "Live database is neither empty nor the qualified snapshot.");
+            return counts.Values.Sum() == 0
+                ? "Eight-table V1.1 live schema exists and starts empty."
+                : "Eight-table V1.1 live schema and qualified current " +
+                    "snapshot exist.";
+        });
+
+        string? initialFingerprint = null;
+        await RunTestAsync(results, "Initial transactional live import",
+            async () =>
+            {
+                var result = await new ImportEngine().ExecuteAsync(
+                    new ImportOptions(profile));
+                Require(
+                    result.Status is "SUCCESS" or "NO-OP" &&
+                    result.EnvironmentId == "LIVE" &&
+                    result.IsCommitted &&
+                    result.TotalSqlRows == 42_322,
+                    "Initial import evidence does not prove 42,322 rows.");
+                await using var connection = await OpenAsync(
+                    profile.ConnectionString);
+                await using var proof = new SqlCommand(
+                    """
+                    SELECT COUNT(*)
+                    FROM platform.ImportRun
+                    WHERE EnvironmentId = N'LIVE'
+                      AND PackageHash =
+                        '882EFDBD9E1ADC1CF37F346F8D5B9AA8692AB13C6365E13A3B10068E8ED75141'
+                      AND ImportOperation = N'IMPORT'
+                      AND ImportStatus = N'SUCCESS'
+                      AND IsCommitted = 1
+                      AND IsNoOp = 0;
+                    """,
+                    connection);
+                Require(
+                    Convert.ToInt32(await proof.ExecuteScalarAsync()) >= 1,
+                    "No successful initial IMPORT run exists.");
+                initialFingerprint =
+                    await store.GetCanonicalSnapshotFingerprintAsync();
+                return $"Successful initial IMPORT history verified; " +
+                    $"qualification invocation {result.ImportRunId}; " +
+                    $"fingerprint {initialFingerprint}.";
+            });
+
+        await RunTestAsync(results, "Current package no-op", async () =>
+        {
+            var before = await store.GetCanonicalSnapshotFingerprintAsync();
+            var result = await new ImportEngine().ExecuteAsync(
+                new ImportOptions(profile));
+            var after = await store.GetCanonicalSnapshotFingerprintAsync();
+            Require(
+                result.Status == "NO-OP" &&
+                result.ImportOperation == "NO-OP" &&
+                result.IsNoOp &&
+                before == after,
+                "Reimport of current package was not an unchanged NO-OP.");
+            return $"Run {result.ImportRunId}; fingerprint unchanged.";
+        });
+
+        await RunTestAsync(results, "Induced transactional rollback",
+            async () =>
+            {
+                var before = await store.GetCanonicalSnapshotFingerprintAsync();
+                var result = await store.ImportAsync(
+                    snapshot,
+                    FailureInjection.AfterSecondEntity);
+                await ArtifactWriter.WriteImportResultAsync(
+                    profile.ArtifactsRoot,
+                    result);
+                var after = await store.GetCanonicalSnapshotFingerprintAsync();
+                Require(
+                    result.Status == "FAILED" &&
+                    result.FailureCode ==
+                        "INJECTED_SECOND_ENTITY_FAILURE" &&
+                    !result.IsCommitted &&
+                    before == after,
+                    "Induced failure did not roll back to exact prior state.");
+                return $"Run {result.ImportRunId}; fingerprint unchanged.";
+            });
+
+        await RunTestAsync(results, "Historical package restoration",
+            async () =>
+            {
+                var controlled = CreateControlledSnapshot(snapshot);
+                var controlledResult = await store.ImportAsync(
+                    controlled,
+                    FailureInjection.None);
+                await ArtifactWriter.WriteImportResultAsync(
+                    profile.ArtifactsRoot,
+                    controlledResult);
+                var controlledFingerprint =
+                    await store.GetCanonicalSnapshotFingerprintAsync();
+                Require(
+                    controlledResult.Status == "SUCCESS" &&
+                    controlledResult.ImportOperation is "IMPORT" or "RESTORE" &&
+                    controlledFingerprint != initialFingerprint,
+                    "Controlled package did not become current.");
+
+                var restored = await store.ImportAsync(
+                    snapshot,
+                    FailureInjection.None);
+                await ArtifactWriter.WriteImportResultAsync(
+                    profile.ArtifactsRoot,
+                    restored);
+                var finalFingerprint =
+                    await store.GetCanonicalSnapshotFingerprintAsync();
+                Require(
+                    restored.Status == "SUCCESS" &&
+                    restored.ImportOperation == "RESTORE" &&
+                    restored.IsRestoration &&
+                    finalFingerprint == initialFingerprint,
+                    "Prior qualified live package was not explicitly restored.");
+                return $"Controlled run {controlledResult.ImportRunId}; " +
+                    $"restoration run {restored.ImportRunId}; final package " +
+                    "matches original.";
+            });
+
+        await RunTestAsync(results, "Final counts and package provenance",
+            async () =>
+            {
+                var counts = await store.GetCurrentCountsAsync();
+                Require(
+                    counts["BillOfMaterial"] == 1_290 &&
+                    counts["InventoryItem"] == 28_662 &&
+                    counts["WorkOrder"] == 12_113 &&
+                    counts["GeneralLedgerAccount"] == 257 &&
+                    counts.Values.Sum() == 42_322,
+                    "Final SQL counts differ from the live manifest.");
+                await using var connection = await OpenAsync(
+                    profile.ConnectionString);
+                await using var command = new SqlCommand(
+                    """
+                    SELECT COUNT(*)
+                    FROM
+                    (
+                        SELECT ImportRunId FROM canonical.BillOfMaterial
+                        UNION
+                        SELECT ImportRunId FROM canonical.InventoryItem
+                        UNION
+                        SELECT ImportRunId FROM canonical.WorkOrder
+                        UNION
+                        SELECT ImportRunId
+                        FROM canonical.GeneralLedgerAccount
+                    ) AS current_run
+                    INNER JOIN platform.ImportRun AS r
+                        ON r.ImportRunId = current_run.ImportRunId
+                    WHERE r.EnvironmentId = N'LIVE'
+                      AND r.PackageHash =
+                        '882EFDBD9E1ADC1CF37F346F8D5B9AA8692AB13C6365E13A3B10068E8ED75141'
+                      AND r.ContractVersion = N'V1.1'
+                      AND r.ImportOperation = N'RESTORE'
+                      AND r.IsCommitted = 1;
+                    """,
+                    connection);
+                Require(
+                    Convert.ToInt32(await command.ExecuteScalarAsync()) == 1,
+                    "Current tables do not point to the restored live run.");
+                return "1,290 + 28,662 + 12,113 + 257 = 42,322; " +
+                    "current provenance is the restored validated package.";
+            });
+
+        await RunTestAsync(results, "Least-privilege definitions", async () =>
+        {
+            await using var connection = await OpenAsync(
+                profile.ConnectionString);
+            await using var command = new SqlCommand(
+                """
+                EXECUTE AS USER = N'DleOsLiveApi';
+                SELECT
+                    HAS_PERMS_BY_NAME(
+                        N'canonical.WorkOrder', N'OBJECT', N'SELECT'),
+                    HAS_PERMS_BY_NAME(
+                        N'canonical.WorkOrder', N'OBJECT', N'INSERT'),
+                    HAS_PERMS_BY_NAME(
+                        N'canonical.WorkOrder', N'OBJECT', N'UPDATE'),
+                    HAS_PERMS_BY_NAME(
+                        N'canonical.WorkOrder', N'OBJECT', N'DELETE'),
+                    HAS_PERMS_BY_NAME(
+                        N'DLE_OS_CANONICAL_LIVE', N'DATABASE', N'ALTER'),
+                    HAS_PERMS_BY_NAME(
+                        N'DLE_OS_CANONICAL_LIVE', N'DATABASE', N'CONTROL');
+                REVERT;
+
+                EXECUTE AS USER = N'DleOsLiveImporter';
+                SELECT
+                    HAS_PERMS_BY_NAME(
+                        N'canonical.WorkOrder', N'OBJECT', N'INSERT'),
+                    HAS_PERMS_BY_NAME(
+                        N'platform.ImportRun', N'OBJECT', N'UPDATE'),
+                    HAS_PERMS_BY_NAME(
+                        N'canonical', N'SCHEMA', N'ALTER'),
+                    HAS_PERMS_BY_NAME(
+                        N'DLE_OS_CANONICAL_LIVE', N'DATABASE', N'CONTROL');
+                REVERT;
+
+                SELECT COUNT(*)
+                FROM
+                (
+                    SELECT name
+                    FROM DLE_OS.sys.database_principals
+                    WHERE name IN
+                        (N'DleOsLiveImporter', N'DleOsLiveApi',
+                         N'dle_live_importer', N'dle_live_api_reader')
+                    UNION ALL
+                    SELECT name
+                    FROM DLE_OS_PLATFORM_LAB.sys.database_principals
+                    WHERE name IN
+                        (N'DleOsLiveImporter', N'DleOsLiveApi',
+                         N'dle_live_importer', N'dle_live_api_reader')
+                ) AS protected_principals;
+                """,
+                connection);
+            await using var reader = await command.ExecuteReaderAsync();
+            Require(
+                await reader.ReadAsync() &&
+                reader.GetInt32(0) == 1 &&
+                Enumerable.Range(1, 5).All(i => reader.GetInt32(i) == 0),
+                "Future API identity has excess or missing permissions.");
+            Require(
+                await reader.NextResultAsync() &&
+                await reader.ReadAsync() &&
+                reader.GetInt32(0) == 1 &&
+                reader.GetInt32(1) == 1 &&
+                reader.GetInt32(2) == 0 &&
+                reader.GetInt32(3) == 0,
+                "Importer identity has excess or missing permissions.");
+            Require(
+                await reader.NextResultAsync() &&
+                await reader.ReadAsync() &&
+                reader.GetInt32(0) == 0,
+                "Live identities or roles exist in a protected database.");
+            return "API user has canonical SELECT only; importer has " +
+                "required DML but no ALTER/CONTROL; no live identity or " +
+                "role exists in either protected database.";
+        });
+    }
+
+    private static CanonicalSnapshot CreateControlledSnapshot(
+        CanonicalSnapshot source)
+    {
+        var entityMap = source.Entities.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value,
+            StringComparer.Ordinal);
+        var originalEntity = entityMap["GeneralLedgerAccount"];
+        var rows = originalEntity.Rows.ToList();
+        var original = rows[0];
+        var values = original.Values.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value,
+            StringComparer.Ordinal);
+        var prior = values["GeneralLedgerAccountDescription"] ?? string.Empty;
+        values["GeneralLedgerAccountDescription"] =
+            (prior.Length == 0 ? "Q" : "Q" + prior[1..]);
+        rows[0] = new CanonicalRow
+        {
+            SourceKeyRaw = original.SourceKeyRaw,
+            SourceRecordHash = Sha256("CONTROLLED-ROW-" +
+                original.SourceRecordHash),
+            Values = values
+        };
+        entityMap["GeneralLedgerAccount"] = new CanonicalEntityData
+        {
+            EntityName = originalEntity.EntityName,
+            MirrorFileName = "CONTROLLED/GeneralLedgerAccount.csv",
+            SourceFileHash = Sha256("CONTROLLED-FILE"),
+            ExpectedRowCount = originalEntity.ExpectedRowCount,
+            CanonicalColumns = originalEntity.CanonicalColumns,
+            Rows = rows,
+            DuplicateKeyCount = 0,
+            BlankKeyCount = 0
+        };
+        return new CanonicalSnapshot
+        {
+            Contract = source.Contract,
+            Package = new ValidatedPackage
+            {
+                RootPath = "CONTROLLED_IN_MEMORY_FIXTURE",
+                MirrorRunId = "LIVE-SQL-001-CONTROLLED",
+                PackageHash = Sha256("LIVE-SQL-001-CONTROLLED-PACKAGE"),
+                SnapshotYear = source.Package.SnapshotYear,
+                SourcesByEntity = source.Package.SourcesByEntity
+            },
+            Entities = entityMap,
+            StockedWorkOrderCount = source.StockedWorkOrderCount,
+            NonStockWorkOrderCount = source.NonStockWorkOrderCount
+        };
+    }
+
+    private static string Sha256(string value) => Convert.ToHexString(
+        SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static async Task RunTestAsync(
+        ICollection<TestResult> results,
+        string name,
+        Func<Task<string>> action)
+    {
+        var timer = Stopwatch.StartNew();
+        try
+        {
+            var detail = await action();
+            results.Add(new TestResult(
+                name,
+                "PASS",
+                timer.ElapsedMilliseconds,
+                detail));
+        }
+        catch (Exception exception)
+        {
+            results.Add(new TestResult(
+                name,
+                "FAIL",
+                timer.ElapsedMilliseconds,
+                $"{exception.GetType().Name}: {exception.Message}"));
+        }
+    }
+
+    private static async Task<SqlConnection> OpenAsync(string connectionString)
+    {
+        var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+        return connection;
+    }
+
+    private static void ExpectPlatformException(
+        Action action,
+        string code)
+    {
+        try
+        {
+            action();
+        }
+        catch (PlatformImportException exception) when (exception.Code == code)
+        {
+            return;
+        }
+        throw new InvalidOperationException(
+            $"Expected PlatformImportException {code}.");
+    }
+
+    private static void Require(bool condition, string message)
+    {
+        if (!condition)
+        {
+            throw new InvalidOperationException(message);
+        }
+    }
+
+    private static async Task WriteResultsAsync(
+        string fileName,
+        IReadOnlyCollection<TestResult> results)
+    {
+        var evidenceRoot = Path.Combine(
+            Safety.RepositoryRoot,
+            "Artifacts",
+            "LiveSql001",
+            "Evidence");
+        Directory.CreateDirectory(evidenceRoot);
+        await File.WriteAllTextAsync(
+            Path.Combine(evidenceRoot, fileName),
+            JsonSerializer.Serialize(
+                new
+                {
+                    Mission = "LIVE-SQL-001",
+                    ExecutedAtUtc = DateTimeOffset.UtcNow,
+                    Result = results.All(result => result.Result == "PASS")
+                        ? "PASS"
+                        : "FAIL",
+                    Tests = results
+                },
+                new JsonSerializerOptions { WriteIndented = true }));
+    }
+}

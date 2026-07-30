@@ -1,0 +1,21 @@
+{
+  "Verdict": "PASS",
+  "RunId": "LIVEREFRESH-20260729T230947Z-22BFDD66",
+  "StoppedAtUtc": "2026-07-29T23:11:41Z",
+  "Reason": "Operator required explicit quiet-window confirmation before live source reading.",
+  "StoppedBeforeSalesOrderExtraction": true,
+  "StoppedBeforeWoe03Passes": true,
+  "MissionOwnedProcessesRemaining": 0,
+  "RefreshLockPresent": false,
+  "RunnerRecordedStatus": "FAILED",
+  "ActiveImportRunId": "e66391d9-7422-4c6f-9992-feed3d401a75",
+  "ActivePackageHash": "BFEAAAF09C6690120CF85E64BEBECBBADB3C049214CCCF9BB993D19363110E77",
+  "QualifiedBoundarySha256": "785E62ED433E281D9F1F41DBBE02444ED3D6F91C2CE1D4EC6775E83B95FC031B",
+  "QualifiedSourceStateSha256": "E68DB2E76FCEABA2D9E4050ED9ECBA1CC9D634FC1009FBB916201853425E217E",
+  "PackagePromotionOccurred": false,
+  "QualifiedBoundaryPromotionOccurred": false,
+  "SqlMutationOccurred": false,
+  "XDriveWrites": 0,
+  "ListeningPortsAfterStop": [5041, 5042, 5043, 5044]
+}
+
