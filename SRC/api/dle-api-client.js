@@ -18,7 +18,10 @@
     canonicalBillsOfMaterial: '/api/platform/v1/bills-of-material',
     canonicalGeneralLedgerAccounts: '/api/platform/v1/general-ledger-accounts'
   });
-  const LIVE_CANONICAL_BASE_URL = 'http://DLE-OS-HOST:5042';
+  const DEVELOPMENT_LIVE_CANONICAL_BASE_URL = 'http://DLE-OS-HOST:5052';
+  const LIVE_CANONICAL_BASE_URL = window.location.port === '5051'
+    ? DEVELOPMENT_LIVE_CANONICAL_BASE_URL
+    : 'http://DLE-OS-HOST:5042';
   const LIVE_SNAPSHOT_REFRESH_BASE_URL = 'http://DLE-OS-HOST:5043';
   const LIVE_CANONICAL_ENDPOINTS = Object.freeze({
     platformReadiness: '/api/platform/live/v1/readiness',

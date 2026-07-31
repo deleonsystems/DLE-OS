@@ -94,16 +94,6 @@ CustomerMatch AS
         MAX(ActivityDate) AS MostRecentActivityDate
     FROM Ranked
     GROUP BY CustomerNumber
-    ORDER BY
-        CASE
-            WHEN CustomerNumber = @Query THEN 0
-            WHEN @NumericQuery IS NOT NULL
-                 AND TRY_CONVERT(bigint, CustomerNumber) = @NumericQuery THEN 1
-            WHEN MAX(CASE WHEN PreferredNameRank = 1 THEN CustomerName END)
-                 = @Query THEN 2
-            ELSE 3
-        END,
-        CustomerNumber
 )
 SELECT
     match.CustomerNumber,
