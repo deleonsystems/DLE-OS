@@ -9,6 +9,9 @@ const workspace = fs.readFileSync(path.join(root, "SRC/modules/rfq-workspace/rfq
 const workspaceHtml = fs.readFileSync(path.join(root, "SRC/modules/rfq-workspace/rfq-workspace.html"), "utf8");
 const repository = fs.readFileSync(path.join(root, "Tools/CustomerMaster/ServerOverlay/Data/Platform/CustomerDirectoryRepository.cs"), "utf8");
 const controller = fs.readFileSync(path.join(root, "Tools/CustomerMaster/ServerOverlay/Controllers/Platform/LiveCustomerDirectoryController.cs"), "utf8");
+const customerFilesProgram = fs.readFileSync(path.join(root, "Tools/DevelopmentRuntime/DleOs.CustomerFilesControl/Program.cs"), "utf8");
+const customerFilesService = fs.readFileSync(path.join(root, "Tools/DevelopmentRuntime/DleOs.CustomerFilesControl/CustomerFolderService.cs"), "utf8");
+const customerFilesLauncher = fs.readFileSync(path.join(root, "Tools/DevelopmentRuntime/CustomerFilesLauncher/Invoke-CustomerFilesProtocol.ps1"), "utf8");
 const results = [];
 
 async function test(name, action) {
@@ -22,6 +25,9 @@ async function test(name, action) {
 
 function makeClient(fetchImplementation) {
   const window = {
+    location: {
+      port: "5096"
+    },
     DLE_API_CONFIG: {
       enabled: true,
       liveCanonicalBaseUrl: "http://127.0.0.1:5096"
@@ -154,6 +160,35 @@ await test("21_cancel_preserves_selection", () => {
 await test("22_no_obsolete_static_count", () => {
   assert.doesNotMatch(workspace + workspaceHtml, /11 established customers available/i);
   assert.match(workspace, /customerTotalItems/);
+});
+await test("23_folder_verification_required", () => {
+  assert.match(workspace, /folderResolution\?\.data\?\.folderState === "VERIFIED"/);
+  assert.match(workspace, /Verify the governed Customer Folder before continuing/);
+});
+await test("24_customer_files_fixed_boundary", () => {
+  assert.match(customerFilesService, /\\\\DeLeon-Server\\Production\\Customer Files/);
+  assert.doesNotMatch(customerFilesProgram, /Drawing-Prints|Drawing Prints/);
+  assert.doesNotMatch(customerFilesProgram, /customerName.*MapPost/s);
+});
+await test("25_customer_files_routes_are_bounded", () => {
+  assert.match(customerFilesProgram, /customers\/\{customerNumber\}\/folder/);
+  assert.match(customerFilesProgram, /request_body_not_allowed/);
+  assert.doesNotMatch(customerFilesProgram, /MapDelete|MapPut|MapPatch/);
+});
+await test("26_open_folder_protocol_is_bounded", () => {
+  assert.match(customerFilesLauncher, /dle-customer-files:\/\/open\/\(\?<number>\\d\{6\}\)/);
+  assert.match(customerFilesLauncher, /matches\.Count -ne 1/);
+  assert.doesNotMatch(
+    customerFilesLauncher,
+    /\[string\]\s+\$(?:Path|Command|Executable|FolderName)/i
+  );
+});
+await test("27_customer_folder_errors_preserve_selection", () => {
+  assert.match(workspace, /if \(state\.customer\?\.customerNumber !== selectedNumber\) return/);
+  assert.doesNotMatch(
+    workspace.match(/async function verifySelectedCustomerFolder\(\)[\s\S]*?\n  \}/)?.[0] || "",
+    /state\.customer\s*=\s*null/
+  );
 });
 
 for (const result of results) {

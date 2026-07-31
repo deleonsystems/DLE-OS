@@ -699,6 +699,52 @@
   margin-top: 14px;
 }
 
+
+.rfq2-folder-resolution {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(130, 170, 210, .22);
+  border-radius: 8px;
+  background: rgba(9, 20, 34, .5);
+}
+
+.rfq2-folder-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.rfq2-folder-heading strong,
+.rfq2-folder-heading span {
+  display: block;
+}
+
+.rfq2-folder-heading span {
+  margin-top: 4px;
+  color: #b9d8ff;
+}
+
+.rfq2-folder-resolution[data-folder-state="VERIFIED"] {
+  border-color: rgba(91, 198, 129, .4);
+}
+
+.rfq2-folder-resolution[data-folder-state="DUPLICATE"],
+.rfq2-folder-resolution[data-folder-state="ERROR"],
+.rfq2-folder-resolution[data-folder-state="ACCESS_DENIED"],
+.rfq2-folder-resolution[data-folder-state="ROOT_UNAVAILABLE"] {
+  border-color: rgba(239, 106, 106, .48);
+}
+
+.rfq2-folder-resolution p {
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.rfq2-folder-message {
+  color: var(--rfq2-muted);
+}
+
 .rfq2-prospective-grid,
 .rfq2-two-column-grid,
 .rfq2-resolution-options {

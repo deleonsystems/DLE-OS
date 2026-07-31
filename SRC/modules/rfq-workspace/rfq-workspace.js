@@ -234,6 +234,8 @@
     if (action === "close-customer-picker") closeCustomerPicker();
     if (action === "customer-page-previous") loadCustomerPage(state.ui.customerPage - 1);
     if (action === "customer-page-next") loadCustomerPage(state.ui.customerPage + 1);
+
+    if (action === "create-customer-folder") createSelectedCustomerFolder();
     if (action === "start-prospective-customer") startProspectiveCustomer();
     if (action === "save-prospective-customer") saveProspectiveCustomer();
     if (action === "change-customer") openCustomerPicker();
@@ -501,6 +503,11 @@
         mostRecentActivityDate: customer.mostRecentActivityDate || null
       },
       directoryBinding: customer.customerNumber + "\u001f" + customer.customerName,
+      folderResolution: {
+        status: "loading",
+        data: null,
+        error: ""
+      },
       buyerContact: "",
       engineeringContact: "",
       email: "",
@@ -511,11 +518,73 @@
     closeCustomerPicker();
     clearValidation();
     renderWorkflowSteps();
+    verifySelectedCustomerFolder();
+  }
+
+  async function verifySelectedCustomerFolder() {
+    const selectedNumber = state.customer?.customerNumber;
+    if (!selectedNumber || !state.customer?.folderResolution) return;
+    state.customer.folderResolution = {
+      status: "loading",
+      data: null,
+      error: ""
+    };
+    renderWorkflowSteps();
+    try {
+      if (!window.DleApiClient?.getCustomerFolderStatus) {
+        throw new Error("Customer Files control is not available.");
+      }
+      const result = await window.DleApiClient.getCustomerFolderStatus(selectedNumber);
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.folderResolution = {
+        status: "ready",
+        data: result,
+        error: ""
+      };
+    } catch (error) {
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.folderResolution = {
+        status: "error",
+        data: null,
+        error: error?.message || String(error)
+      };
+    }
+    clearValidation();
+    renderWorkflowSteps();
+  }
+
+  async function createSelectedCustomerFolder() {
+    const selectedNumber = state.customer?.customerNumber;
+    if (
+      !selectedNumber ||
+      state.customer?.folderResolution?.data?.folderState !== "MISSING"
+    ) return;
+    state.customer.folderResolution.status = "creating";
+    renderWorkflowSteps();
+    try {
+      const result = await window.DleApiClient.createCustomerFolder(selectedNumber);
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.folderResolution = {
+        status: "ready",
+        data: result,
+        error: ""
+      };
+    } catch (error) {
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.folderResolution = {
+        status: "error",
+        data: null,
+        error: error?.message || String(error)
+      };
+    }
+    clearValidation();
+    renderWorkflowSteps();
   }
 
   function startProspectiveCustomer() {
     return;
   }
+
 
   function saveProspectiveCustomer() {
     const draft = state.ui.prospectiveDraft;
@@ -798,7 +867,9 @@
       customer?.customerNumber &&
       customer?.customerName &&
       customer?.directoryBinding ===
-        customer.customerNumber + "\u001f" + customer.customerName
+        customer.customerNumber + "\u001f" + customer.customerName &&
+      customer?.folderResolution?.status === "ready" &&
+      customer?.folderResolution?.data?.folderState === "VERIFIED"
     );
   }
 
@@ -823,7 +894,12 @@
       errors.push({ message: "Requested Response Date cannot be before Created Date.", selector: "#rfq2ResponseDate" });
     }
     if (!isCustomerResolved()) {
-      errors.push({ message: "Select a valid customer from the Canonical Customer Directory.", selector: "#rfq2CustomerContent" });
+      errors.push({
+        message: state.customer
+          ? "Verify the governed Customer Folder before continuing."
+          : "Select a valid customer from the Canonical Customer Directory.",
+        selector: "#rfq2CustomerContent"
+      });
     }
     if (!state.rfqLines.length) {
       errors.push({ message: "Add at least one RFQ Line.", selector: "#rfq2AssemblyContent" });
@@ -992,6 +1068,31 @@
     const target = document.getElementById("rfq2CustomerContent");
     if (!target) return;
     if (state.customer) {
+      const folder = state.customer.folderResolution || {};
+      const folderData = folder.data || {};
+      const folderState = folder.status === "loading"
+        ? "VERIFYING"
+        : folder.status === "creating"
+          ? "CREATING"
+          : folder.status === "error"
+            ? "ERROR"
+            : folderData.folderState || "UNVERIFIED";
+      const folderActions = [];
+      if (folderState === "MISSING" && folderData.canCreate) {
+        folderActions.push(
+          '<button type="button" class="rfq2-button" data-rfq-action="create-customer-folder">Create Customer Folder</button>'
+        );
+      }
+      if (folderState === "VERIFIED") {
+        folderActions.push(
+          '<a class="rfq2-button rfq2-button-secondary" href="dle-customer-files://open/' +
+          encodeURIComponent(state.customer.customerNumber) +
+          '">Open Customer Folder</a>'
+        );
+      }
+      const matches = Array.isArray(folderData.matchedFolderNames)
+        ? folderData.matchedFolderNames
+        : [];
       target.innerHTML = [
         '<div class="rfq2-resolution-summary">',
         '<div class="rfq2-resolution-heading"><div><span class="rfq2-resolution-badge">Existing Customer</span>',
@@ -1006,7 +1107,29 @@
         detailItem("Resolution Source", "Canonical Customer Directory"),
         detailItem("Contributing Datasets", state.customer.sources.join(", ") || "Not reported"),
         detailItem("Known Aliases", state.customer.aliases.join(", ") || "None"),
-        '</div></div>'
+        '</div>',
+        '<div class="rfq2-folder-resolution" data-folder-state="', escapeHtml(folderState), '">',
+        '<div class="rfq2-folder-heading"><div><strong>Customer Record: Verified</strong>',
+        '<span>Customer Folder: ', escapeHtml(formatFolderState(folderState)), '</span></div>',
+        folderActions.join(""), '</div>',
+        folderData.folderPath
+          ? '<p><strong>Folder:</strong> ' + escapeHtml(folderData.folderPath) + '</p>'
+          : '',
+        folderData.expectedFolderName && folderState === "NAME_MISMATCH"
+          ? '<p><strong>Expected:</strong> ' + escapeHtml(folderData.expectedFolderName) + '</p>'
+          : '',
+        matches.length
+          ? '<p><strong>Existing matches:</strong> ' + escapeHtml(matches.join("; ")) + '</p>'
+          : '',
+        '<p class="rfq2-folder-message">', escapeHtml(
+          folder.error ||
+          folderData.message ||
+          (folderState === "VERIFYING"
+            ? "Verifying the governed customer folder..."
+            : folderState === "CREATING"
+              ? "Creating and reverifying the governed customer folder..."
+              : "Customer folder verification is required.")
+        ), '</p></div></div>'
       ].join("");
       return;
     }
@@ -1036,6 +1159,13 @@
       '<div class="rfq2-search-actions"><button type="button" class="rfq2-button" data-rfq-action="search-customer">Search Customer</button>',
       '<button type="button" class="rfq2-button rfq2-button-secondary" disabled aria-disabled="true" title="Prospective customer creation is a governed follow-on task.">Create Prospective Customer</button></div></div>'
     ].join("");
+  }
+
+  function formatFolderState(value) {
+    return String(value || "UNVERIFIED")
+      .toLowerCase()
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, character => character.toUpperCase());
   }
 
   function renderCustomerPicker() {

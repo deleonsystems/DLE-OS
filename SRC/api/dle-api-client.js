@@ -23,6 +23,7 @@
     ? DEVELOPMENT_LIVE_CANONICAL_BASE_URL
     : 'http://DLE-OS-HOST:5042';
   const LIVE_SNAPSHOT_REFRESH_BASE_URL = 'http://DLE-OS-HOST:5043';
+  const CUSTOMER_FILES_CONTROL_BASE_URL = 'http://DLE-OS-HOST:5053';
   const LIVE_CANONICAL_ENDPOINTS = Object.freeze({
     platformReadiness: '/api/platform/live/v1/readiness',
     platformSnapshot: '/api/platform/live/v1/snapshot',
@@ -203,6 +204,41 @@
       requestError.name = 'DleApiError';
       requestError.status = response.status;
       requestError.code = typeof body?.code === 'string' ? body.code : 'http_error';
+      throw requestError;
+    }
+    return body;
+  }
+
+  async function requestCustomerFiles(path, options = {}) {
+    const response = await fetch(
+      CUSTOMER_FILES_CONTROL_BASE_URL + '/' + String(path).replace(/^\/+/, ''),
+      {
+        method: options.method || 'GET',
+        cache: 'no-store',
+        credentials: 'include',
+        signal: options.signal,
+        headers: {
+          Accept: 'application/json'
+        }
+      }
+    );
+    let body = null;
+    try {
+      body = await response.json();
+    } catch (error) {
+      body = null;
+    }
+    if (!response.ok) {
+      const requestError = new Error(
+        typeof body?.message === 'string'
+          ? body.message
+          : 'Customer Files control returned HTTP ' + response.status + '.'
+      );
+      requestError.name = 'DleApiError';
+      requestError.status = response.status;
+      requestError.code = typeof body?.code === 'string'
+        ? body.code
+        : 'customer_files_http_error';
       throw requestError;
     }
     return body;
@@ -833,6 +869,22 @@
     },
     searchCanonicalCustomers(query, options = {}) {
       return liveCanonicalClient.searchCanonicalCustomers(query, options);
+    },
+    getCustomerFolderStatus(customerNumber, options = {}) {
+      return requestCustomerFiles(
+        '/api/customer-files/v1/customers/' +
+          encodeURIComponent(String(customerNumber || '')) +
+          '/folder',
+        options
+      );
+    },
+    createCustomerFolder(customerNumber, options = {}) {
+      return requestCustomerFiles(
+        '/api/customer-files/v1/customers/' +
+          encodeURIComponent(String(customerNumber || '')) +
+          '/folder',
+        { ...options, method: 'POST' }
+      );
     },
     liveCanonical: liveCanonicalClient,
     endpoints: DEFAULT_ENDPOINTS
