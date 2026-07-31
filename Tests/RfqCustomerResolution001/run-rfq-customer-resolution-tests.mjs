@@ -139,7 +139,8 @@ await test("17_read_only_and_safe_endpoint", () => {
   assert.match(repository, /@Query/);
 });
 await test("18_prospective_customer_disabled", () => {
-  assert.match(workspace, /disabled aria-disabled="true"[\s\S]*?Create Prospective Customer/);
+  assert.match(workspace, /href="dle-vpro5:\/\/customer\/new"[\s\S]*?Open VPro5 Customer Entry/);
+  assert.match(workspace, /VPro5 was requested on this workstation/);
 });
 await test("19_picker_is_separate_governed_dialog", () => {
   assert.match(workspaceHtml, /id="rfq2CustomerPicker"[\s\S]*?role="dialog"[\s\S]*?aria-modal="true"/);

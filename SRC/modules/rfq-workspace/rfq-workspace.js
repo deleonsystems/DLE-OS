@@ -234,7 +234,7 @@
     if (action === "close-customer-picker") closeCustomerPicker();
     if (action === "customer-page-previous") loadCustomerPage(state.ui.customerPage - 1);
     if (action === "customer-page-next") loadCustomerPage(state.ui.customerPage + 1);
-
+    if (action === "open-vpro5-customer-entry") requestVpro5CustomerEntry();
     if (action === "create-customer-folder") createSelectedCustomerFolder();
     if (action === "start-prospective-customer") startProspectiveCustomer();
     if (action === "save-prospective-customer") saveProspectiveCustomer();
@@ -585,6 +585,16 @@
     return;
   }
 
+  function requestVpro5CustomerEntry() {
+    const status = document.getElementById("rfq2Vpro5LaunchStatus");
+    if (!status) return;
+    status.hidden = false;
+    status.textContent = [
+      "VPro5 was requested on this workstation. Create the customer using the normal VPro5 process,",
+      "then return here and run Customer Refresh. If no browser prompt or application appears,",
+      "the local protocol may not be installed or the browser may have blocked external application access."
+    ].join(" ");
+  }
 
   function saveProspectiveCustomer() {
     const draft = state.ui.prospectiveDraft;
@@ -1157,7 +1167,8 @@
       '<div class="rfq2-search-panel"><h3>Select an Existing Customer</h3>',
       '<p>Open the governed customer directory to browse or filter established customers.</p>',
       '<div class="rfq2-search-actions"><button type="button" class="rfq2-button" data-rfq-action="search-customer">Search Customer</button>',
-      '<button type="button" class="rfq2-button rfq2-button-secondary" disabled aria-disabled="true" title="Prospective customer creation is a governed follow-on task.">Create Prospective Customer</button></div></div>'
+      '<a class="rfq2-button rfq2-button-secondary" href="dle-vpro5://customer/new" data-rfq-action="open-vpro5-customer-entry">Open VPro5 Customer Entry</a></div>',
+      '<p id="rfq2Vpro5LaunchStatus" class="rfq2-launch-status" role="status" aria-live="polite" hidden></p></div>'
     ].join("");
   }
 

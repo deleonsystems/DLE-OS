@@ -699,6 +699,15 @@
   margin-top: 14px;
 }
 
+.rfq2-launch-status {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(74, 158, 255, .32);
+  border-radius: 8px;
+  background: rgba(74, 158, 255, .09);
+  color: #cfe5ff;
+  line-height: 1.5;
+}
 
 .rfq2-folder-resolution {
   margin-top: 16px;
