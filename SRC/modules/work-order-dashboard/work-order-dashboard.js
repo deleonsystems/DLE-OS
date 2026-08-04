@@ -41,8 +41,10 @@
     renderWorkOrderDashboardModule();
   }
 
-  function setSelectedWorkOrder(record) {
-    selectedWorkOrder = record || null;
+  function setSelectedWorkOrder(handoff) {
+    selectedWorkOrder = handoff?.canonicalWorkOrder && handoff?.workOrderNumber
+      ? handoff
+      : null;
     currentView = 'standard';
     scheduledReleasesExpanded = false;
     renderWorkOrderDashboardModule();
@@ -56,7 +58,10 @@
   function renderWorkOrderDashboardModule() {
     const status = document.getElementById('workOrderDashboardModuleStatus');
     if (status) {
-      status.textContent = 'Work Order Dashboard ready. Current view: ' + getViewLabel(currentView) + '. Future physical packet workflows will live here.';
+      status.textContent = selectedWorkOrder
+        ? 'Canonical Work Order ' + selectedWorkOrder.workOrderNumber +
+          ' loaded. Current view: ' + getViewLabel(currentView) + '.'
+        : 'Select a governed canonical Work Order from Sales Order Dashboard.';
     }
     syncDashboardViewSelector();
     applyDashboardView();
@@ -100,15 +105,25 @@
   }
 
   function renderSelectedWorkOrderSummary() {
-    const official = selectedWorkOrder?.official || {};
+    const canonical = selectedWorkOrder?.canonicalWorkOrder || {};
     const relatedRows = getRelatedWorkOrderRows();
 
-    setText('workOrderDashboardSummaryWorkOrder', official.workOrder || 'None selected');
-    setText('workOrderDashboardSummaryAssembly', official.partNumber || 'N/A');
-    setText('workOrderDashboardSummaryRevision', getRecordRevision(selectedWorkOrder) || 'Unknown');
-    setText('workOrderDashboardSummaryQuantity', formatQuantity(sumOpenQuantity(relatedRows)));
-    setText('workOrderDashboardSummaryDueDate', getNextDueDate(relatedRows) || 'N/A');
-    setOperationalStatus('workOrderDashboardSummaryStatus', official.operationalStatus);
+    setText('workOrderDashboardSummaryWorkOrder', selectedWorkOrder?.workOrderNumber || 'None selected');
+    setText('workOrderDashboardSummaryAssembly', cleanCanonicalText(canonical.itemNumber) || 'N/A');
+    setText('workOrderDashboardSummaryRevision',
+      cleanCanonicalText(canonical.drawingRevision || canonical.bomRevision) || 'Unknown');
+    setText('workOrderDashboardSummaryQuantity', selectedWorkOrder
+      ? formatQuantity(parseQuantity(canonical.schProdQuantity))
+      : '0');
+    setText('workOrderDashboardSummaryDueDate', selectedWorkOrder?.originDueDate || getNextDueDate(relatedRows) || 'N/A');
+    setText('workOrderDashboardSummaryStatus', cleanCanonicalText(canonical.workOrderStatus) || 'N/A');
+    setText('workOrderDashboardCanonicalAnchor', selectedWorkOrder
+      ? formatSalesOrderLine(selectedWorkOrder.canonicalSalesOrderNumber, selectedWorkOrder.canonicalAnchorLine)
+      : 'N/A');
+    setText('workOrderDashboardOpenedFrom', selectedWorkOrder
+      ? formatSalesOrderLine(selectedWorkOrder.originSalesOrderNumber, selectedWorkOrder.originSalesOrderLine)
+      : 'N/A');
+    setText('workOrderDashboardGoverningSource', getGoverningSourceLabel(selectedWorkOrder?.governingSource));
   }
 
   function renderRelatedWorkOrders() {
@@ -158,18 +173,37 @@
   function getRelatedWorkOrderRows() {
     if (!selectedWorkOrder) return [];
 
-    const workOrder = normalizeWorkOrder(selectedWorkOrder.official?.workOrder);
-    if (!workOrder || workOrder === 'UNKNOWN') return [selectedWorkOrder];
+    const workOrder = normalizeWorkOrder(selectedWorkOrder.workOrderNumber);
+    if (!workOrder) return [];
 
     const records = window.OperationsCenter?.viewModel?.getMasterRecords?.();
     const officialColumns = window.OperationsCenter?.officialColumns || [];
-    if (!Array.isArray(records) || !records.length || !officialColumns.length) return [selectedWorkOrder];
+    const matches = Array.isArray(records) && records.length && officialColumns.length
+      ? records
+          .filter(record => normalizeWorkOrder(window.OperationsCenter.viewModel.getOfficialField(record, 'workOrder')) === workOrder)
+          .map(record => buildRelatedRow(record, officialColumns))
+      : [];
+    const origin = buildOriginReleaseRow(selectedWorkOrder);
+    const combined = origin ? [origin, ...matches] : matches;
+    const seen = new Set();
+    return combined.filter(row => {
+      const key = String(row.masterRecordKey || '');
+      if (key && seen.has(key)) return false;
+      if (key) seen.add(key);
+      return true;
+    });
+  }
 
-    const matches = records
-      .filter(record => normalizeWorkOrder(window.OperationsCenter.viewModel.getOfficialField(record, 'workOrder')) === workOrder)
-      .map(record => buildRelatedRow(record, officialColumns));
-
-    return matches.length ? matches : [selectedWorkOrder];
+  function buildOriginReleaseRow(handoff) {
+    const row = handoff?.originRow;
+    if (!row) return null;
+    const official = { ...(row.official || {}) };
+    official.workOrder = handoff.workOrderNumber;
+    return {
+      ...row,
+      official,
+      governedOrigin: true
+    };
   }
 
   function buildRelatedRow(record, officialColumns) {
@@ -190,7 +224,23 @@
   }
 
   function isSelectedRelease(row) {
-    return String(row?.masterRecordKey || '') === String(selectedWorkOrder?.masterRecordKey || '');
+    return String(row?.masterRecordKey || '') === String(selectedWorkOrder?.originRow?.masterRecordKey || '');
+  }
+
+  function cleanCanonicalText(value) {
+    return String(value ?? '').trim();
+  }
+
+  function formatSalesOrderLine(salesOrder, line) {
+    const order = cleanCanonicalText(salesOrder);
+    const sequence = cleanCanonicalText(line);
+    return order && sequence ? 'SO ' + order + ' · Line ' + sequence : 'N/A';
+  }
+
+  function getGoverningSourceLabel(source) {
+    if (source === 'APPROVAL') return 'Approved Work Order';
+    if (source === 'EXACT') return 'ERP-confirmed exact relationship';
+    return 'N/A';
   }
 
   function sumOpenQuantity(rows) {
@@ -312,6 +362,7 @@
   window.WorkOrderDashboardModule.loadModule = loadWorkOrderDashboardModule;
   window.WorkOrderDashboardModule.initialize = initializeWorkOrderDashboardModule;
   window.WorkOrderDashboardModule.setSelectedWorkOrder = setSelectedWorkOrder;
+  window.WorkOrderDashboardModule.getSelectedHandoff = () => selectedWorkOrder;
   window.WorkOrderDashboardModule.setView = setDashboardView;
   window.WorkOrderDashboardModule.toggleScheduledReleases = toggleScheduledReleases;
   window.WorkOrderDashboardModule.render = renderWorkOrderDashboardModule;

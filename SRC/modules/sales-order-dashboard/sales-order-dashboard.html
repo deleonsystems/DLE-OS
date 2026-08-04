@@ -15,7 +15,7 @@
       <button type="button" onclick="go('operationsCenter')">Back to Operations Center</button>
     </div>
 
-    <div id="salesOrderDashboardStatus" class="sales-order-dashboard-status">
+    <div id="salesOrderDashboardStatus" class="sales-order-dashboard-status" role="status" aria-live="polite">
       Sales Order Dashboard module initialized. Future sales order folder workflows will be migrated here.
     </div>
 
@@ -125,7 +125,10 @@
           <button type="button" id="salesOrderDashboardCreateRequestToShipButton" onclick="openRequestToShipDialog()" disabled>Create Request to Ship</button>
           <button type="button" disabled>View Shipment History</button>
           <button type="button" disabled>View Invoice History</button>
-          <button type="button" disabled>Open Work Order Dashboard</button>
+          <button id="salesOrderDashboardOpenWorkOrderButton" type="button"
+                  onclick="openSelectedSalesOrderDashboardWorkOrder(event)" disabled>
+            Open Work Order Dashboard
+          </button>
           <button type="button" disabled>Communications</button>
           <button type="button" disabled>Order Notes</button>
         </div>

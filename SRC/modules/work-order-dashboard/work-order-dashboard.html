@@ -15,7 +15,7 @@
       <button type="button" onclick="go('salesOrderDashboard')">Back to Sales Order Dashboard</button>
     </div>
 
-    <div id="workOrderDashboardModuleStatus" class="work-order-dashboard-module-status">
+    <div id="workOrderDashboardModuleStatus" class="work-order-dashboard-module-status" role="status" aria-live="polite">
       Work Order Dashboard module initialized. Future packet workflows will be migrated here.
     </div>
 
@@ -44,7 +44,7 @@
           <span id="workOrderDashboardSummaryRevision">Unknown</span>
         </div>
         <div class="work-order-dashboard-module-summary-item">
-          <strong>OP Qty Open</strong>
+          <strong>Work Order Quantity</strong>
           <span id="workOrderDashboardSummaryQuantity">0</span>
         </div>
         <div class="work-order-dashboard-module-summary-item">
@@ -54,6 +54,18 @@
         <div class="work-order-dashboard-module-summary-item">
           <strong>Status</strong>
           <span id="workOrderDashboardSummaryStatus">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item">
+          <strong>Canonical Anchor</strong>
+          <span id="workOrderDashboardCanonicalAnchor">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item">
+          <strong>Opened From</strong>
+          <span id="workOrderDashboardOpenedFrom">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item">
+          <strong>Governing Source</strong>
+          <span id="workOrderDashboardGoverningSource">N/A</span>
         </div>
       </div>
     </section>
