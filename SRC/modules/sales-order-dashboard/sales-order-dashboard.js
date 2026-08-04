@@ -656,6 +656,21 @@
     return /^\d+$/.test(text) ? text.padStart(width, '0') : text;
   }
 
+  function getCanonicalApprovalChoices(review) {
+    const values = Array.isArray(review?.availableApprovalChoices)
+      ? review.availableApprovalChoices : [];
+    return [...new Set(values.map(value => normalizeApprovalIdentity(value, 7))
+      .filter(value => /^\d{7}$/.test(value)))];
+  }
+
+  function getDefaultApprovalWorkOrder(review) {
+    const status = String(review?.canonicalRelationship?.resolutionStatus ||
+      review?.canonicalRelationship?.status || '').trim();
+    const choices = getCanonicalApprovalChoices(review);
+    if (review?.currentApproval || status === 'AMBIGUOUS' || choices.length !== 1) return null;
+    return choices[0];
+  }
+
   function getApprovalReasonRecommendation(row, selectedWorkOrder, relatedRows, options = {}) {
     const selected = normalizeApprovalIdentity(selectedWorkOrder, 7);
     if (!selected) return null;
@@ -695,7 +710,7 @@
       : 'approve';
     dashboardState.approvalReasonState = {
       action,
-      selectedWorkOrder: null,
+      selectedWorkOrder: getDefaultApprovalWorkOrder(review),
       reasonCode: '',
       manuallySelected: false,
       recommendation: null,
@@ -802,8 +817,7 @@
     const identity = getApprovalLineIdentity(row);
     const relationship = review?.canonicalRelationship || {};
     const candidates = Array.isArray(relationship.candidates) ? relationship.candidates : [];
-    const choices = Array.isArray(review?.availableApprovalChoices)
-      ? review.availableApprovalChoices : [];
+    const choices = getCanonicalApprovalChoices(review);
     setText('workOrderApprovalCustomer', row?.official?.customer || identity.customerNumber);
     setText('workOrderApprovalSalesOrder', identity.salesOrderNumber);
     setText('workOrderApprovalLine', identity.lineNumber);
@@ -817,11 +831,13 @@
     const candidateList = document.getElementById('workOrderApprovalCandidates');
     if (candidateList) {
       candidateList.innerHTML = candidates.length ? candidates.map(candidate => {
-        const number = String(candidate.workOrderNumber || '').trim();
+        const number = normalizeApprovalIdentity(candidate.workOrderNumber, 7);
         const selectable = choices.includes(number);
+        const selected = selectable &&
+          dashboardState.approvalReasonState?.selectedWorkOrder === number;
         return '<li>' + (selectable
           ? '<label><input type="radio" name="workOrderApprovalChoice" onchange="changeWorkOrderApprovalCandidate(event)" value="' +
-            escapeDashboardHtml(number) + '"> '
+            escapeDashboardHtml(number) + '"' + (selected ? ' checked' : '') + '> '
           : '<span>') +
           '<strong>' + escapeDashboardHtml(number || 'Unknown') + '</strong> · ' +
           escapeDashboardHtml(candidate.itemNumber || 'No item') + ' · anchor ' +
@@ -960,6 +976,8 @@
   window.SalesOrderDashboard.getWorkOrderPresentation = getWorkOrderPresentation;
   window.SalesOrderDashboard.openWorkOrderApprovalReview = openWorkOrderApprovalReview;
   window.SalesOrderDashboard.getApprovalReasonRecommendation = getApprovalReasonRecommendation;
+  window.SalesOrderDashboard.getCanonicalApprovalChoices = getCanonicalApprovalChoices;
+  window.SalesOrderDashboard.getDefaultApprovalWorkOrder = getDefaultApprovalWorkOrder;
   window.SalesOrderDashboard.render = renderSalesOrderDashboardModule;
 
   window.loadSalesOrderDashboardModule = loadSalesOrderDashboardModule;

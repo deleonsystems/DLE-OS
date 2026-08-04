@@ -150,8 +150,30 @@ assert.equal(api.getApprovalReasonRecommendation(candidate, '0115505', [candidat
   ambiguous: true, explicitSelection: true
 }).code, 'MATCHES_CONFIRMED_WO_ON_SAME_SALES_ORDER');
 
+const reportedUniqueReview = {
+  canonicalRelationship: { resolutionStatus: 'SALES_ORDER_ITEM_UNIQUE_CANDIDATE' },
+  currentApproval: null,
+  availableApprovalChoices: ['115586']
+};
+assert.deepEqual(Array.from(api.getCanonicalApprovalChoices(reportedUniqueReview)), ['0115586']);
+assert.equal(api.getDefaultApprovalWorkOrder(reportedUniqueReview), '0115586');
+assert.equal(api.getDefaultApprovalWorkOrder({
+  ...reportedUniqueReview,
+  canonicalRelationship: { resolutionStatus: 'AMBIGUOUS' },
+  availableApprovalChoices: ['0115350', '0115417']
+}), null);
+assert.equal(api.getDefaultApprovalWorkOrder({
+  ...reportedUniqueReview,
+  currentApproval: { approvedWorkOrderNumber: '0115586' }
+}), null);
+assert.equal(api.getDefaultApprovalWorkOrder({
+  ...reportedUniqueReview,
+  availableApprovalChoices: ['0115586', '0115587']
+}), null);
+
 assert.match(html, /Work Order Relationship Review/);
 assert.match(dashboard, /workOrderApprovalChoice/);
+assert.match(dashboard, /selected \? ' checked' : ''/);
 assert.match(html, /workOrderApprovalReasonCode/);
 assert.match(html, /Additional note \(optional\)/);
 assert.match(html, /workOrderApprovalNote.*maxlength="500"/s);
@@ -159,6 +181,8 @@ assert.doesNotMatch(html, /id="workOrderApprovalReason"/);
 assert.match(html, /Replace Approval/);
 assert.match(html, /Revoke Approval/);
 assert.match(dashboard, /Recommended by DLE-OS/);
+assert.match(dashboard, /const selected = document\.querySelector\('input\[name="workOrderApprovalChoice"\]:checked'\)/);
+assert.match(dashboard, /selectedWorkOrderNumber: selected/);
 assert.match(dashboard, /reasonCode/);
 assert.match(dashboard, /reasonText/);
 assert.match(dashboard, /decisionNote/);
