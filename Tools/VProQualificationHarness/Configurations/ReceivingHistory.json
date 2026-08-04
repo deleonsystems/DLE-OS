@@ -1,0 +1,56 @@
+{
+  "ContractVersion": "1.0",
+  "MissionName": "RECEIVING_HISTORY_PLATFORM_001",
+  "QualifierSource": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\ReceivingHistory\\VPro\\RECEIVING_HISTORY_QUALIFIER.src",
+  "RequiredIdentity": "DLE-OS-HOST\\DLE-OS",
+  "RequireNonElevated": true,
+  "RequiredMappedPaths": ["X:\\"],
+  "RequiredSourcePaths": [
+    "X:\\AON\\ADATA\\POT-03",
+    "X:\\AON\\ADATA\\POT-04",
+    "X:\\AON\\ADATA\\POT-14"
+  ],
+  "AttemptRoot": "C:\\Add-On\\Lab\\VProQualificationHarness\\ReceivingHistory",
+  "VariableEffectiveLength": 16,
+  "SourceReplacements": {
+    "__RUN_ID__": "{ATTEMPT_ID}",
+    "__LAB_RUNTIME__": "{RUNTIME}"
+  },
+  "Retry": {
+    "MaximumAutomaticRetries": 1,
+    "RetryableCategories": ["RUNTIME_EXIT"]
+  },
+  "Compiler": {
+    "Executable": "C:\\BASIS\\VPRO5\\pro5cpl.exe",
+    "Arguments": ["-d{PROGRAMS}", "{SOURCE}"],
+    "EmittedArtifactName": "RECEIVING_HISTORY_QUALIFIER.src",
+    "ExpectedArtifactName": "RECEIVING_HISTORY_QUALIFIER",
+    "MinimumArtifactBytes": 32,
+    "FailurePatterns": ["(?i)\\berror\\b", "(?i)\\bfatal\\b"],
+    "KnownStaleHashes": []
+  },
+  "Runtime": {
+    "Executable": "C:\\BASIS\\VPRO5\\vpro5.exe",
+    "Arguments": [
+      "-tT0", "-nT0", "-m1024", "-c{CONFIG}",
+      "RECEIVING_HISTORY_QUALIFIER"
+    ],
+    "ConfigurationLines": [
+      "ALIASES=4", "FCBS=64", "CIBS=64", "STBLEN=12000",
+      "PREFIX {PROGRAMS_POSIX}/ C:/BASIS/VPRO5/",
+      "SETOPTS 0000000000000000", "ALIAS T0 SYSWINDOW \"\""
+    ],
+    "Directories": ["Pass1", "Pass2"],
+    "AdapterType": "MARKER_FILES",
+    "StartedMarker": "SOURCE_PASS_SUMMARY.csv",
+    "ProgressMarker": "SOURCE_PASS_SUMMARY.csv",
+    "ProgressPattern": "*",
+    "CompletionMarker": "RUNTIME_VERDICT.txt",
+    "CompletionSuccessPattern": "(?im)^qualification_verdict=PASS\\s*$",
+    "FirstMarkerTimeoutSeconds": 30,
+    "RequireProgress": true,
+    "ProgressTimeoutSeconds": 900,
+    "HardRuntimeTimeoutSeconds": 2700,
+    "GracefulCloseTimeoutSeconds": 10
+  }
+}

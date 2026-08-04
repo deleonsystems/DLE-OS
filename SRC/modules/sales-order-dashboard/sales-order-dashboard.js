@@ -11,11 +11,16 @@
     selectedWorkOrder: null,
     selectedWorkOrders: [],
     requestDialogLines: [],
-    requestDialogOpen: false
+    requestDialogOpen: false,
+    approvalReviews: new Map(),
+    approvalReviewRow: null,
+    approvalRequestGeneration: 0,
+    approvalSubmitting: false
   };
   const REQUESTED_SHIP_WINDOWS = Object.freeze(['Today', 'Tomorrow', 'This Week', 'No Rush']);
   const DEFAULT_REQUESTED_SHIP_WINDOW = REQUESTED_SHIP_WINDOWS[0];
   let requestDialogReturnFocus = null;
+  let approvalDialogReturnFocus = null;
   let temporaryRequestSequence = 0;
 
   /*
@@ -46,7 +51,11 @@
     dashboardState.selectedWorkOrder = null;
     dashboardState.selectedWorkOrders = [];
     dashboardState.requestDialogLines = [];
+    dashboardState.approvalReviews.clear();
+    dashboardState.approvalReviewRow = null;
+    const generation = ++dashboardState.approvalRequestGeneration;
     renderSalesOrderDashboardModule();
+    loadSelectedOrderApprovalReviews(generation);
   }
 
   function renderSalesOrderDashboardModule() {
@@ -98,6 +107,8 @@
       const official = row.official || {};
       const rowClass = index % 2 === 0 ? 'rowEven' : 'rowOdd';
       const selected = dashboardState.selectedWorkOrders.includes(row);
+      const presentation = getWorkOrderPresentation(row);
+      const workOrderControl = renderWorkOrderPresentation(presentation, index);
       return [
         '<tr class="',
         rowClass,
@@ -112,11 +123,7 @@
         escapeDashboardHtml(official.sequenceLine || 'N/A'),
         '</td>',
         '<td>',
-        '<button type="button" class="sales-order-dashboard-work-order-link" data-related-row-index="',
-        String(index),
-        '" onclick="openSalesOrderDashboardWorkOrder(event)">',
-        escapeDashboardHtml(official.workOrder || 'Unknown'),
-        '</button>',
+        workOrderControl,
         '</td>',
         '<td>',
         escapeDashboardHtml(official.partNumber || 'N/A'),
@@ -159,8 +166,128 @@
   }
 
   function isValidWorkOrder(row) {
-    const workOrder = String(row?.official?.workOrder || '').trim();
-    return !!workOrder && workOrder.toUpperCase() !== 'UNKNOWN';
+    const presentation = getWorkOrderPresentation(row);
+    return presentation.actionable;
+  }
+
+  function getWorkOrderRelationship(row) {
+    return row?.official?.workOrderRelationship || row?.masterRecord?.workOrderRelationship || {};
+  }
+
+  function getWorkOrderPresentation(row) {
+    const approvalReview = getApprovalReview(row);
+    const approved = approvalReview?.currentApproval?.approvedWorkOrderNumber;
+    if (approved) {
+      const classification = String(approvalReview.conflictClassification || 'APPROVED_NOT_IN_CURRENT_CANDIDATES');
+      const details = {
+        APPROVED_AGREES_EXACT: ['Approved · ERP Agrees', true, 'approved', ''],
+        APPROVED_SUPPORTED_CANDIDATE: ['Approved · Candidate Supported', true, 'approved', ''],
+        APPROVED_CONFLICTS_EXACT: ['Approved · ERP Conflict', false, 'conflict', 'Approval conflicts with the current exact ERP Work Order. Review is required.'],
+        APPROVED_NOT_IN_CURRENT_CANDIDATES: ['Approved · Unsupported', false, 'conflict', 'Approved Work Order is not supported by current canonical candidates.'],
+        APPROVED_WORK_ORDER_MISSING: ['Approved · WO Missing', false, 'conflict', 'Approved Work Order is missing from the canonical Work Order dataset.'],
+        APPROVED_WITH_CURRENT_AMBIGUITY: ['Approved · Ambiguous', false, 'conflict', 'Approved Work Order remains one of multiple canonical candidates. Review is required.']
+      }[classification] || ['Approved · Review Required', false, 'conflict', 'Approval state is not recognized. Review is required.'];
+      return createWorkOrderPresentation(classification, approved, ...details);
+    }
+    const relationship = getWorkOrderRelationship(row);
+    const status = String(relationship.status || 'UNRESOLVED').trim();
+    const candidates = Array.isArray(relationship.candidates) ? relationship.candidates : [];
+    const candidateNumbers = candidates
+      .map(candidate => String(candidate?.workOrderNumber || '').trim())
+      .filter(Boolean);
+    const declaredCount = Number.isInteger(relationship.candidateCount) &&
+      relationship.candidateCount >= 0
+      ? relationship.candidateCount
+      : null;
+    if (status === 'EXACT_LINE_UNIQUE') {
+      const workOrderNumber = String(relationship.actionableWorkOrderNumber || '').trim();
+      if (workOrderNumber) {
+        return createWorkOrderPresentation(
+          status, workOrderNumber, 'ERP Confirmed', true, 'confirmed', ''
+        );
+      }
+      return createWorkOrderPresentation(
+        status, '\u2014', 'Exact Relationship Invalid', false, 'unknown',
+        'Request to Ship is blocked because the exact relationship has no actionable Work Order.'
+      );
+    }
+    if (status === 'AMBIGUOUS') {
+      const countIsConsistent = declaredCount !== null && declaredCount > 1 &&
+        candidateNumbers.length === declaredCount && candidates.length === declaredCount;
+      return createWorkOrderPresentation(
+        status,
+        countIsConsistent ? 'Conflict (' + declaredCount + ')' : 'Conflict',
+        'Review Required',
+        false,
+        'conflict',
+        'Request to Ship is blocked because the Work Order relationship is ambiguous.'
+      );
+    }
+    if (status === 'SALES_ORDER_ITEM_UNIQUE_CANDIDATE' ||
+        status === 'SALES_ORDER_LEVEL_CANDIDATE') {
+      const candidateIsConsistent = candidates.length === 1 &&
+        candidateNumbers.length === 1 &&
+        (declaredCount === null || declaredCount === 1);
+      const reason = status === 'SALES_ORDER_ITEM_UNIQUE_CANDIDATE'
+        ? 'Request to Ship is blocked because the Work Order is an inferred item candidate.'
+        : 'Request to Ship is blocked because only Sales Order-level evidence exists.';
+      if (candidateIsConsistent) {
+        return createWorkOrderPresentation(
+          status, candidateNumbers[0], 'Candidate', false, 'candidate', reason
+        );
+      }
+      return createWorkOrderPresentation(
+        status,
+        candidateNumbers.length > 1 ? 'Conflict' : '\u2014',
+        candidateNumbers.length > 1 ? 'Candidate Data Conflict' : 'Candidate Unavailable',
+        false,
+        candidateNumbers.length > 1 ? 'conflict' : 'unknown',
+        'Request to Ship is blocked because the unique candidate data is incomplete or inconsistent.'
+      );
+    }
+    if (status === 'UNRESOLVED') {
+      return createWorkOrderPresentation(
+        status, '\u2014', 'No Candidate', false, 'unresolved',
+        'Request to Ship is blocked because no governed Work Order relationship was found.'
+      );
+    }
+    return createWorkOrderPresentation(
+      status || 'UNKNOWN', '\u2014', 'Unknown Relationship', false, 'unknown',
+      'Request to Ship is blocked because the Work Order relationship status is not recognized.'
+    );
+  }
+
+  function createWorkOrderPresentation(status, primary, secondary, actionable, kind, reason) {
+    return { status, primary, secondary, label: primary, actionable, kind, reason };
+  }
+
+  function renderWorkOrderPresentation(presentation, index) {
+    const primary = presentation.actionable
+      ? [
+          '<button type="button" class="sales-order-dashboard-work-order-link sales-order-dashboard-work-order-primary"',
+          ' data-related-row-index="', String(index),
+          '" aria-label="', escapeDashboardHtml(
+            presentation.primary + ', ' + presentation.secondary + '. Open Work Order Dashboard.'
+          ),
+          '" onclick="openSalesOrderDashboardWorkOrder(event)">',
+          escapeDashboardHtml(presentation.primary),
+          '</button>'
+        ].join('')
+      : '<span class="sales-order-dashboard-work-order-primary">' +
+        escapeDashboardHtml(presentation.primary) + '</span>';
+    return [
+      '<div class="sales-order-dashboard-work-order-presentation sales-order-dashboard-work-order-',
+      escapeDashboardHtml(presentation.kind),
+      '" title="', escapeDashboardHtml(presentation.reason), '">',
+      primary,
+      '<span class="sales-order-dashboard-work-order-secondary">',
+      escapeDashboardHtml(presentation.secondary),
+      '</span>',
+      '<button type="button" class="sales-order-dashboard-work-order-review" data-related-row-index="',
+      String(index),
+      '" onclick="openWorkOrderApprovalReview(event)" aria-label="Review Work Order relationship for this Sales Order line">Review</button>',
+      '</div>'
+    ].join('');
   }
 
   function updateRequestToShipAction() {
@@ -170,9 +297,12 @@
     const selectedRows = dashboardState.selectedWorkOrders;
     const enabled = selectedRows.length > 0 && selectedRows.every(isValidWorkOrder);
     button.disabled = !enabled;
+    const blocked = selectedRows.find(row => !isValidWorkOrder(row));
     button.title = enabled
       ? 'Create one Request to Ship for the selected Sales Order line' + (selectedRows.length === 1 ? '.' : 's.')
-      : 'Select one or more valid Sales Order lines before creating a Request to Ship.';
+      : blocked
+        ? getWorkOrderPresentation(blocked).reason
+        : 'Select one or more valid Sales Order lines before creating a Request to Ship.';
   }
 
   function openRequestToShipDialog() {
@@ -396,7 +526,7 @@
     const target = event?.currentTarget || event?.target;
     const index = Number(target?.dataset?.relatedRowIndex);
     const selectedRow = getRelatedRows()[index];
-    if (!selectedRow) return;
+    if (!selectedRow || !isValidWorkOrder(selectedRow)) return;
 
     if (typeof window.WorkOrderDashboardModule?.setSelectedWorkOrder === 'function') {
       window.WorkOrderDashboardModule.setSelectedWorkOrder(selectedRow);
@@ -458,6 +588,181 @@
     };
   }
 
+  function getApprovalLineIdentity(row) {
+    const official = row?.official || {};
+    const source = row?.masterRecord?.vpro5 || {};
+    return {
+      customerNumber: String(official.customerNumber || source.customerNumber || '').trim(),
+      salesOrderNumber: String(official.salesOrder || source.salesOrder || '').trim(),
+      lineNumber: String(official.sequenceLine || source.sequenceLine || '').trim()
+    };
+  }
+
+  function getApprovalKey(row) {
+    const identity = getApprovalLineIdentity(row);
+    return [identity.customerNumber, identity.salesOrderNumber, identity.lineNumber].join('|');
+  }
+
+  function getApprovalReview(row) {
+    return dashboardState.approvalReviews.get(getApprovalKey(row)) || null;
+  }
+
+  async function loadSelectedOrderApprovalReviews(generation) {
+    if (!window.DleApiClient?.getWorkOrderApprovalReview) return;
+    await Promise.all(getRelatedRows().map(async row => {
+      const identity = getApprovalLineIdentity(row);
+      if (!identity.customerNumber || !identity.salesOrderNumber || !identity.lineNumber) return;
+      try {
+        const review = await window.DleApiClient.getWorkOrderApprovalReview(
+          identity.customerNumber, identity.salesOrderNumber, identity.lineNumber
+        );
+        if (generation !== dashboardState.approvalRequestGeneration) return;
+        dashboardState.approvalReviews.set(getApprovalKey(row), review);
+      } catch (error) {
+        console.warn('Governed Work Order approval state is unavailable for ' + getApprovalKey(row) + '.', error);
+      }
+    }));
+    if (generation === dashboardState.approvalRequestGeneration) renderSalesOrderDashboardModule();
+  }
+
+  async function openWorkOrderApprovalReview(event) {
+    event?.stopPropagation();
+    const index = Number((event?.currentTarget || event?.target)?.dataset?.relatedRowIndex);
+    const row = getRelatedRows()[index];
+    if (!row) return;
+    dashboardState.approvalReviewRow = row;
+    approvalDialogReturnFocus = event?.currentTarget || null;
+    const dialog = document.getElementById('workOrderApprovalDialog');
+    if (dialog) dialog.hidden = false;
+    setText('workOrderApprovalMessage', 'Loading current governed evidence…');
+    try {
+      const identity = getApprovalLineIdentity(row);
+      const review = await window.DleApiClient.getWorkOrderApprovalReview(
+        identity.customerNumber, identity.salesOrderNumber, identity.lineNumber
+      );
+      dashboardState.approvalReviews.set(getApprovalKey(row), review);
+      renderSalesOrderDashboardModule();
+      renderWorkOrderApprovalDialog(review, row);
+    } catch (error) {
+      setText('workOrderApprovalMessage', error.message || 'Approval evidence could not be loaded.');
+    }
+  }
+
+  function renderWorkOrderApprovalDialog(review, row) {
+    const identity = getApprovalLineIdentity(row);
+    const relationship = review?.canonicalRelationship || {};
+    const candidates = Array.isArray(relationship.candidates) ? relationship.candidates : [];
+    const choices = Array.isArray(review?.availableApprovalChoices)
+      ? review.availableApprovalChoices : [];
+    setText('workOrderApprovalCustomer', row?.official?.customer || identity.customerNumber);
+    setText('workOrderApprovalSalesOrder', identity.salesOrderNumber);
+    setText('workOrderApprovalLine', identity.lineNumber);
+    setText('workOrderApprovalItem', row?.official?.partNumber || relationship.salesOrderItemNumber || 'N/A');
+    setText('workOrderApprovalRelationshipStatus', relationship.resolutionStatus || relationship.status || 'UNRESOLVED');
+    setText('workOrderApprovalExact', relationship.actionableWorkOrderNumber || '—');
+    setText('workOrderApprovalCurrent', review?.currentApproval?.approvedWorkOrderNumber || '—');
+    setText('workOrderApprovalBy', review?.currentApproval?.approvedBy || '—');
+    setText('workOrderApprovalAt', review?.currentApproval?.approvedAtUtc || '—');
+    setText('workOrderApprovalClassification', review?.conflictClassification || 'NO_APPROVAL');
+    const candidateList = document.getElementById('workOrderApprovalCandidates');
+    if (candidateList) {
+      candidateList.innerHTML = candidates.length ? candidates.map(candidate => {
+        const number = String(candidate.workOrderNumber || '').trim();
+        const selectable = choices.includes(number);
+        return '<li>' + (selectable
+          ? '<label><input type="radio" name="workOrderApprovalChoice" value="' +
+            escapeDashboardHtml(number) + '"> '
+          : '<span>') +
+          '<strong>' + escapeDashboardHtml(number || 'Unknown') + '</strong> · ' +
+          escapeDashboardHtml(candidate.itemNumber || 'No item') + ' · anchor ' +
+          escapeDashboardHtml(candidate.anchorSalesOrderLine || '—') +
+          (selectable ? '</label>' : '</span>') + '</li>';
+      }).join('') : '<li>— No canonical candidates</li>';
+    }
+    const history = document.getElementById('workOrderApprovalHistory');
+    if (history) {
+      const events = Array.isArray(review?.decisionHistory) ? review.decisionHistory : [];
+      history.innerHTML = events.length ? events.map(decision =>
+        '<li><strong>' + escapeDashboardHtml(decision.decisionAction) + '</strong> ' +
+        escapeDashboardHtml(decision.approvedWorkOrderNumber || '—') + ' · ' +
+        escapeDashboardHtml(decision.approvedBy) + ' · ' +
+        escapeDashboardHtml(decision.approvedAtUtc) + '<br>' +
+        escapeDashboardHtml(decision.decisionReason) + '</li>'
+      ).join('') : '<li>No decisions recorded.</li>';
+    }
+    toggleApprovalAction('workOrderApprovalApprove', review?.permissions?.canApprove);
+    toggleApprovalAction('workOrderApprovalReplace', review?.permissions?.canReplace);
+    toggleApprovalAction('workOrderApprovalRevoke', review?.permissions?.canRevoke);
+    setText('workOrderApprovalMessage', 'Review current canonical evidence before recording a decision.');
+    document.getElementById('workOrderApprovalReason')?.focus();
+  }
+
+  function toggleApprovalAction(id, visible) {
+    const button = document.getElementById(id);
+    if (button) button.hidden = !visible;
+  }
+
+  async function submitWorkOrderApproval(event) {
+    event.preventDefault();
+    if (dashboardState.approvalSubmitting) return;
+    const action = event.submitter?.dataset?.approvalAction;
+    if (!['approve', 'replace', 'revoke'].includes(action)) return;
+    const row = dashboardState.approvalReviewRow;
+    const review = getApprovalReview(row);
+    const reason = String(document.getElementById('workOrderApprovalReason')?.value || '').trim();
+    const selected = document.querySelector('input[name="workOrderApprovalChoice"]:checked')?.value || null;
+    if (reason.length < 3) {
+      setText('workOrderApprovalMessage', 'Enter a decision reason of at least three characters.');
+      return;
+    }
+    if (action !== 'revoke' && !selected) {
+      setText('workOrderApprovalMessage', 'Select one current canonical Work Order choice.');
+      return;
+    }
+    dashboardState.approvalSubmitting = true;
+    document.querySelectorAll('#workOrderApprovalDialog button').forEach(button => { button.disabled = true; });
+    try {
+      const identity = getApprovalLineIdentity(row);
+      const updated = await window.DleApiClient.submitWorkOrderApprovalAction(
+        identity.customerNumber, identity.salesOrderNumber, identity.lineNumber, action,
+        {
+          selectedWorkOrderNumber: selected,
+          decisionReason: reason,
+          evidenceToken: review.evidenceToken,
+          expectedCurrentDecisionId: review.currentApproval?.decisionId || null
+        }
+      );
+      dashboardState.approvalReviews.set(getApprovalKey(row), updated);
+      renderSalesOrderDashboardModule();
+      renderWorkOrderApprovalDialog(updated, row);
+      setText('workOrderApprovalMessage', 'The governed decision was recorded.');
+      const reasonInput = document.getElementById('workOrderApprovalReason');
+      if (reasonInput) reasonInput.value = '';
+    } catch (error) {
+      if (error.status === 409) {
+        setText('workOrderApprovalMessage', 'Evidence changed. Reloading the current relationship for review…');
+        await openWorkOrderApprovalReview({ currentTarget: approvalDialogReturnFocus, stopPropagation() {} });
+      } else {
+        setText('workOrderApprovalMessage', error.message || 'The governed decision could not be recorded.');
+      }
+    } finally {
+      dashboardState.approvalSubmitting = false;
+      document.querySelectorAll('#workOrderApprovalDialog button').forEach(button => { button.disabled = false; });
+    }
+  }
+
+  function closeWorkOrderApprovalReview() {
+    const dialog = document.getElementById('workOrderApprovalDialog');
+    if (dialog) dialog.hidden = true;
+    dashboardState.approvalReviewRow = null;
+    approvalDialogReturnFocus?.focus?.();
+  }
+
+  function handleWorkOrderApprovalKeydown(event) {
+    if (event?.key === 'Escape' && !document.getElementById('workOrderApprovalDialog')?.hidden)
+      closeWorkOrderApprovalReview();
+  }
+
   function escapeDashboardHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, character => ({
       '&': '&amp;',
@@ -481,6 +786,8 @@
     requestDialogLines: dashboardState.requestDialogLines.slice()
   });
   window.SalesOrderDashboard.openWorkOrderDashboard = openWorkOrderDashboard;
+  window.SalesOrderDashboard.getWorkOrderPresentation = getWorkOrderPresentation;
+  window.SalesOrderDashboard.openWorkOrderApprovalReview = openWorkOrderApprovalReview;
   window.SalesOrderDashboard.render = renderSalesOrderDashboardModule;
 
   window.loadSalesOrderDashboardModule = loadSalesOrderDashboardModule;
@@ -493,7 +800,11 @@
   window.validateRequestToShipQuantity = validateRequestToShipQuantity;
   window.sendRequestToShipping = sendRequestToShipping;
   window.openSalesOrderDashboardWorkOrder = openWorkOrderDashboard;
+  window.openWorkOrderApprovalReview = openWorkOrderApprovalReview;
+  window.closeWorkOrderApprovalReview = closeWorkOrderApprovalReview;
+  window.submitWorkOrderApproval = submitWorkOrderApproval;
   window.renderSalesOrderDashboardModule = renderSalesOrderDashboardModule;
 
   document.addEventListener('keydown', handleRequestToShipDialogKeydown);
+  document.addEventListener('keydown', handleWorkOrderApprovalKeydown);
 })();

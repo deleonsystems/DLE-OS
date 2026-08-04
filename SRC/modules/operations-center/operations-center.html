@@ -9,7 +9,7 @@
         <span class="small-icon">OC</span>
         <div>
           <h2>Operations Center</h2>
-          <p>Daily operational workspace built from Master Data and Operations Overlay notes.</p>
+          <p>Daily operational workspace built from governed canonical Sales Orders and DLE-OS operational layers.</p>
         </div>
       </div>
 
@@ -21,7 +21,7 @@
           placeholder="Search customer, PO, sales order, work order, item, notes..."
           onkeyup="filterOperationsCenter()">
         <button id="operationsCenterProjectionToggle" type="button" onclick="toggleOperationsCenterProjectionMode()">Projection Mode</button>
-        <button type="button" onclick="renderOperationsCenterModule()">Refresh</button>
+        <button type="button" onclick="refreshOperationsCenterCanonicalData()">Refresh</button>
         <select
           id="operationsCenterDocumentType"
           class="operations-center-document-type"
@@ -37,6 +37,10 @@
       <div id="operationsCenterDocumentStatus" class="operations-center-save-status">Kit Short folder not connected.</div>
       <div id="operationsCenterSaveStatus" class="operations-center-save-status">No unsaved changes.</div>
     </div>
+    <div id="operationsCenterSourceStatus" class="operations-center-source-status" aria-live="polite">
+      <strong>Source: DLE_OS_CANONICAL_LIVE</strong>
+      <span>Waiting for canonical Sales Orders.</span>
+    </div>
 
     <div id="operationsCenterProjectionSummary" class="operations-center-projection-summary" hidden>
       <div>
@@ -51,7 +55,7 @@
     </div>
 
     <div id="operationsCenterTable" class="operations-center-table-wrap">
-      <div class="operations-center-empty">Load Master Data from System Center to view Operations Center.</div>
+      <div class="operations-center-empty">Loading governed canonical Sales Orders...</div>
     </div>
   </div>
 </section>

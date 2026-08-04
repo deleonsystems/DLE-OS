@@ -9,6 +9,10 @@
 
   const overlayFields = (window.OperationsCenter.overlayFields || [])
     .filter(field => !field.documentLink);
+  const persistedFieldKeys = Array.from(new Set([
+    ...overlayFields.map(field => field.key),
+    'operationalStatus'
+  ]));
 
   const schema = {
     dataPath: 'DATA/operations-center/operations-overlay.json',
@@ -29,16 +33,16 @@
   }
 
   function blankOverlayFields() {
-    return overlayFields.reduce((record, field) => {
-      record[field.key] = '';
+    return persistedFieldKeys.reduce((record, field) => {
+      record[field] = '';
       return record;
     }, {});
   }
 
   function stripRecord(record) {
     const clean = { masterRecordKey: String(record?.masterRecordKey || '') };
-    overlayFields.forEach(field => {
-      clean[field.key] = String(record?.[field.key] ?? '');
+    persistedFieldKeys.forEach(field => {
+      clean[field] = String(record?.[field] ?? '');
     });
     if (record?.updatedAt) clean.updatedAt = String(record.updatedAt);
     if (record?.updatedBy) clean.updatedBy = String(record.updatedBy);
@@ -65,7 +69,7 @@
   }
 
   function isRecordEmpty(record) {
-    return overlayFields.every(field => !String(record?.[field.key] || '').trim());
+    return persistedFieldKeys.every(field => !String(record?.[field] || '').trim());
   }
 
   function buildDatasetForWrite(overlayByKey, options = {}) {
@@ -92,6 +96,7 @@
     stripRecord,
     normalizeDataset,
     isRecordEmpty,
-    buildDatasetForWrite
+    buildDatasetForWrite,
+    persistedFieldKeys
   };
 })();

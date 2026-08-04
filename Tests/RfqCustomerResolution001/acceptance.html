@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>RFQ Customer Resolution Acceptance</title>
+  <link rel="stylesheet" href="/SRC/modules/rfq-workspace/rfq-workspace.css">
+</head>
+<body>
+  <div class="workspace-home" data-workspace-home="rfq-quoting">
+    <div data-workspace-mount="rfq-quoting"></div>
+  </div>
+  <script>
+    window.DLE_API_CONFIG = {
+      enabled: true,
+      liveCanonicalBaseUrl: location.origin
+    };
+  </script>
+  <script src="/SRC/api/dle-api-client.js"></script>
+  <script src="/SRC/modules/rfq-workspace/rfq-workspace.js"></script>
+  <script>
+    window.DleWorkspaces["rfq-quoting"].render();
+  </script>
+</body>
+</html>

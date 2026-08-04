@@ -1,0 +1,34 @@
+# Ephemeral task and tool working directories
+/.tmp/
+/outputs/
+
+# Python bytecode caches
+**/**pycache**/
+
+# .NET build outputs
+**/bin/
+**/obj/
+
+# Generated qualification and deployment artifacts. The Sales Order package
+# builder is maintained source and is the only reviewed publication exception.
+/Artifacts/**
+!/Artifacts/Platform002/
+/Artifacts/Platform002/**
+!/Artifacts/Platform002/Qualification/
+/Artifacts/Platform002/Qualification/**
+!/Artifacts/Platform002/Qualification/build_sales_order_package.py
+
+# Runtime logs, process markers, state, and local data stores
+**/*.log
+**/*.pid
+**/*.db
+**/*.sqlite
+**/last-successful.json
+
+# Local package, browser, publish, and backup output
+**/.nuget/
+**/packages/
+**/publish/
+**/logs/
+**/backups/
+**/browser-profile*/

@@ -79,7 +79,7 @@
           <div>
             <p class="rfq2-eyebrow">Customer Resolution</p>
             <h2 id="rfq2CustomerTitle">Resolve Customer</h2>
-            <p>Find an established ERP customer or create an in-memory Prospective Customer.</p>
+            <p>Find and bind an existing customer from the governed Canonical Customer Directory.</p>
           </div>
           <span id="rfq2CustomerStepState" class="rfq2-step-state">Required</span>
         </div>
@@ -154,4 +154,35 @@
       <button type="button" class="rfq2-button" data-rfq-action="new-rfq">Start Another RFQ</button>
     </section>
   </main>
+
+  <div id="rfq2CustomerPicker"
+       class="rfq2-customer-picker"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="rfq2CustomerPickerTitle"
+       hidden>
+    <div class="rfq2-customer-picker-backdrop" data-rfq-action="close-customer-picker"></div>
+    <section class="rfq2-customer-picker-card">
+      <header class="rfq2-customer-picker-header">
+        <div>
+          <p class="rfq2-eyebrow">Canonical Customer Directory</p>
+          <h2 id="rfq2CustomerPickerTitle">Select Customer</h2>
+          <p>Browse established customers or filter by customer number, name, or alias.</p>
+        </div>
+        <button type="button"
+                class="rfq2-button rfq2-button-secondary"
+                data-rfq-action="close-customer-picker">Cancel</button>
+      </header>
+      <label class="rfq2-field" for="rfq2CustomerPickerSearch">
+        <span>Filter Customers</span>
+        <input id="rfq2CustomerPickerSearch"
+               data-rfq-customer-search
+               autocomplete="off"
+               placeholder="Customer number, name, or alias">
+      </label>
+      <div id="rfq2CustomerPickerStatus" class="rfq2-customer-picker-status" aria-live="polite"></div>
+      <div id="rfq2CustomerPickerResults" class="rfq2-customer-picker-results"></div>
+      <footer id="rfq2CustomerPickerPaging" class="rfq2-customer-picker-paging"></footer>
+    </section>
+  </div>
 </div>

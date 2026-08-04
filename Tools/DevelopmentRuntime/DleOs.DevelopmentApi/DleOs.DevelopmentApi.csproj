@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>DLE_OS_Server</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.66" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="DevelopmentReadOnlyGuard.cs" />
+    <Compile Include="..\..\..\..\DLE-OS-Server\Contracts\**\*.cs" />
+    <Compile Include="..\..\..\..\DLE-OS-Server\Controllers\Platform\Live*.cs" />
+    <Compile Include="..\..\..\..\DLE-OS-Server\Controllers\Platform\PlatformControllerBase.cs" />
+    <Compile Include="..\..\..\..\DLE-OS-Server\Controllers\Platform\PlatformApiExceptionFilter.cs" />
+    <Compile Include="..\..\..\..\DLE-OS-Server\Data\Platform\*.cs" />
+    <Compile Include="..\..\..\..\DLE-OS-Server\Data\Platform\Live\**\*.cs" />
+    <Compile Include="..\..\..\..\DLE-OS-Server\Models\Platform\*.cs" />
+    <Compile Include="..\..\..\..\DLE-OS-Server\Options\LiveApiOptions.cs" />
+    <Compile Include="..\..\..\Tools\CustomerMaster\ServerOverlay\Contracts\Platform\CustomerDirectoryDtos.cs" />
+    <Compile Include="..\..\..\Tools\CustomerMaster\ServerOverlay\Controllers\Platform\LiveCustomerDirectoryController.cs" />
+    <Compile Include="..\..\..\Tools\CustomerMaster\ServerOverlay\Data\Platform\CustomerDirectoryRepository.cs" />
+  </ItemGroup>
+</Project>

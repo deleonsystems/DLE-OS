@@ -8,6 +8,89 @@
       </div>
     </div>
 
+    <!-- SECTION 505: HTML - PLATFORM REFRESH CENTER -->
+    <section class="platform-refresh-center" aria-labelledby="platformRefreshCenterTitle">
+      <div class="system-center-section-header">
+        <div>
+          <div class="module-eyebrow">Governed Platform Operations</div>
+          <h3 id="platformRefreshCenterTitle">Refresh Center</h3>
+          <p>Monitor the twelve qualified Platform datasets and start only explicitly approved read-only ERP refresh operations.</p>
+        </div>
+        <div class="system-center-section-actions">
+          <button type="button" onclick="refreshPlatformRefreshCenter()">Refresh Status</button>
+          <button type="button" class="refresh-center-force-button" onclick="runPlatformForceFullRefresh()">Force-Full Core Snapshot…</button>
+        </div>
+      </div>
+
+      <div id="platformRefreshCenterSummary" class="refresh-center-summary" role="status" aria-live="polite">
+        Loading governed refresh status…
+      </div>
+      <div id="platformRefreshCenterWarnings" class="refresh-center-warnings" hidden></div>
+
+      <section class="daily-operations-sync-card" aria-labelledby="dailyOperationsSyncTitle">
+        <div class="operations-refresh-heading">
+          <div>
+            <div class="module-eyebrow">Fast Current Operational Data</div>
+            <h4 id="dailyOperationsSyncTitle">Daily Operations Synchronization</h4>
+            <p>Synchronize current VPro5 operational changes as one governed snapshot.</p>
+            <p class="daily-operations-sync-includes">Includes: Customer Master · Open Sales Orders · Open Work Orders · Work Order Relationships</p>
+          </div>
+          <span id="dailyOperationsSyncState" class="refresh-center-state">READY</span>
+        </div>
+        <div id="dailyOperationsSyncFacts" class="refresh-center-facts">
+          <div><span>Last successful synchronization</span><strong>—</strong></div>
+          <div><span>Run ID</span><strong>—</strong></div>
+          <div><span>Duration</span><strong>—</strong></div>
+          <div><span>Import run ID</span><strong>—</strong></div>
+        </div>
+        <div class="refresh-center-actions">
+          <button id="dailyOperationsSyncRunButton" class="daily-operations-sync-primary" type="button" onclick="runDailyOperationsSynchronization()">Run Daily Operations Synchronization</button>
+        </div>
+        <div id="dailyOperationsSyncComponents" class="daily-operations-sync-components" aria-live="polite">
+          Synchronization status has not loaded.
+        </div>
+        <div id="dailyOperationsSyncFailure" class="refresh-center-warnings" hidden></div>
+      </section>
+
+      <section class="operations-refresh-card" aria-labelledby="operationsRefreshTitle">
+        <div class="operations-refresh-heading">
+          <div>
+            <div class="module-eyebrow">Legacy Scheduled Workflow</div>
+            <h4 id="operationsRefreshTitle">Scheduled Operations Refresh</h4>
+            <p>Customer Master → Open Sales Orders → Recent Shipment / Invoice History. Each step keeps its own transaction and rollback boundary.</p>
+          </div>
+          <span id="operationsRefreshState" class="refresh-center-state">Loading</span>
+        </div>
+        <div id="operationsRefreshFacts" class="refresh-center-facts">
+          <div><span>Schedule</span><strong>2:00 AM Pacific, Monday–Friday</strong></div>
+          <div><span>Quiet window</span><strong>12:00–5:59 AM Pacific</strong></div>
+          <div><span>Automatic</span><strong>Loading…</strong></div>
+          <div><span>Next run</span><strong>Loading…</strong></div>
+          <div><span>Last result</span><strong>—</strong></div>
+          <div><span>Current step</span><strong>—</strong></div>
+        </div>
+        <div class="refresh-center-actions">
+          <button type="button" onclick="runOperationsRefresh()">Refresh Operations</button>
+          <button id="operationsRefreshScheduleToggle" type="button" onclick="toggleOperationsRefreshSchedule()">Enable Automatic Refresh</button>
+        </div>
+        <div id="operationsRefreshSteps" class="operations-refresh-steps">No coordinated run recorded.</div>
+      </section>
+
+      <div id="platformRefreshCenterGrid" class="refresh-center-grid">
+        <div class="refresh-center-empty">Refresh status has not loaded.</div>
+      </div>
+
+      <div class="full-platform-sync-label">
+        <strong>Full Platform Synchronization</strong>
+        <span>Complete governed platform rebuild and qualification. Use Force-Full Core Snapshot above.</span>
+      </div>
+
+      <details class="refresh-center-runs">
+        <summary>Recent governed refresh requests</summary>
+        <div id="platformRefreshCenterRuns">No Refresh Center requests recorded.</div>
+      </details>
+    </section>
+
     <!-- SECTION 510: HTML - MASTER DATA DASHBOARD AND VIEWER -->
     <section class="system-center-master-data-section">
       <h3>Master Data</h3>

@@ -1,0 +1,390 @@
+<section class="canonical-viewer" aria-labelledby="canonicalViewerTitle">
+  <aside class="canonical-viewer__navigation" aria-label="Platform navigation">
+    <p class="canonical-viewer__navigation-group">Platform</p>
+    <button class="canonical-viewer__navigation-item"
+            type="button"
+            aria-current="page"
+            data-canonical-profile="historical">
+      Canonical Data Viewer — Test Data
+    </button>
+    <button class="canonical-viewer__navigation-item"
+            type="button"
+            data-canonical-profile="live">
+      Canonical Data Viewer — Live Snapshot
+    </button>
+  </aside>
+
+  <div class="canonical-viewer__workspace">
+    <div class="canonical-viewer__warning" role="note" data-canonical-banner>
+      <strong data-canonical-banner-title>HISTORICAL TEST DATA</strong>
+      <span data-canonical-banner-kind>Read-only canonical snapshot</span>
+      <span data-canonical-banner-environment>Data environment: HISTORICAL_TEST</span>
+      <span data-canonical-banner-database>Source: DLE_OS_PLATFORM_LAB · Database: DLE_OS_PLATFORM_LAB</span>
+      <span data-canonical-banner-contract>Contract: V1.2</span>
+      <span data-canonical-banner-note>Not live Add+ON data</span>
+    </div>
+
+    <header class="canonical-viewer__header">
+      <div>
+        <p class="canonical-viewer__eyebrow">Platform · Read-only</p>
+        <h1 id="canonicalViewerTitle" data-canonical-viewer-title>Canonical Data Viewer — Test Data</h1>
+        <p data-canonical-viewer-description>Read-only inspection of Canonical Contract v1.1 data from the historical test SQL snapshot.</p>
+      </div>
+      <div class="canonical-viewer__header-actions">
+        <button class="canonical-viewer__button canonical-viewer__button--secondary"
+                type="button"
+                data-canonical-action="refresh-status">
+          Refresh View
+        </button>
+        <button class="canonical-viewer__button canonical-viewer__button--refresh"
+                type="button"
+                data-canonical-action="run-erp-refresh"
+                hidden>
+          Run ERP Snapshot Refresh
+        </button>
+      </div>
+    </header>
+
+    <section class="canonical-viewer__status-grid"
+             aria-label="Canonical platform status"
+             aria-live="polite">
+      <div class="canonical-viewer__status-card">
+        <span>API readiness</span>
+        <strong data-canonical-status="readiness">Checking</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Snapshot</span>
+        <strong data-canonical-status="snapshot">Checking</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Data environment</span>
+        <strong data-canonical-status="environment">HISTORICAL_TEST</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Database</span>
+        <strong data-canonical-status="database">DLE_OS_PLATFORM_LAB</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Contract version</span>
+        <strong data-canonical-status="contract">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Canonical rows</span>
+        <strong data-canonical-status="total">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Snapshot as of (UTC)</span>
+        <strong data-canonical-status="snapshot-at">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Snapshot age</span>
+        <strong data-canonical-status="snapshot-age">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Freshness</span>
+        <strong data-canonical-status="freshness">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>ERP source checked (UTC)</span>
+        <strong data-canonical-status="source-checked-at">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Source-check age</span>
+        <strong data-canonical-status="source-check-age">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Qualification completed (UTC)</span>
+        <strong data-canonical-status="qualification-at">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Qualification age</span>
+        <strong data-canonical-status="qualification-age">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Frontend build</span>
+        <strong data-canonical-status="frontend-build">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>Loaded frontend build</span>
+        <strong data-canonical-status="loaded-frontend-build">—</strong>
+      </div>
+      <div class="canonical-viewer__status-card">
+        <span>LIVE API contract</span>
+        <strong data-canonical-status="api-contract">—</strong>
+      </div>
+    </section>
+
+    <section class="canonical-viewer__platform-state"
+             data-canonical-platform-state
+             aria-live="polite">
+      <p data-canonical-platform-message>Checking the configured canonical API.</p>
+      <button class="canonical-viewer__button canonical-viewer__button--secondary"
+              type="button"
+              data-canonical-action="retry-status"
+              hidden>
+        Retry
+      </button>
+    </section>
+
+    <section class="canonical-viewer__refresh-control"
+             data-canonical-refresh-control
+             aria-live="polite"
+             hidden>
+      <div>
+        <strong>ERP Snapshot Refresh</strong>
+        <p data-canonical-refresh-message>Checking operator authorization and refresh status.</p>
+      </div>
+      <dl>
+        <div><dt>Status</dt><dd data-canonical-refresh-status>Checking</dd></div>
+        <div><dt>Current phase</dt><dd data-canonical-refresh-phase>—</dd></div>
+        <div><dt>Last source check</dt><dd data-canonical-refresh-last-check>—</dd></div>
+        <div><dt>Last successful refresh</dt><dd data-canonical-refresh-last-success>—</dd></div>
+        <div><dt>Active ImportRunId</dt><dd data-canonical-refresh-import-run-id>—</dd></div>
+        <div><dt>Last result</dt><dd data-canonical-refresh-last-result>—</dd></div>
+      </dl>
+    </section>
+
+    <section class="canonical-viewer__refresh-control"
+             data-invoice-history-refresh-control
+             aria-live="polite"
+             hidden>
+      <div>
+        <strong>Invoice History Refresh</strong>
+        <p data-invoice-history-refresh-message>
+          Checking operator authorization and Invoice History refresh status.
+        </p>
+        <button class="canonical-viewer__button canonical-viewer__button--refresh"
+                type="button"
+                data-canonical-action="run-invoice-history-refresh">
+          Refresh Invoice History
+        </button>
+      </div>
+      <dl>
+        <div><dt>Status</dt><dd data-invoice-history-refresh-status>Checking</dd></div>
+        <div><dt>Window start</dt><dd data-invoice-history-refresh-window-start>â€”</dd></div>
+        <div><dt>Window end</dt><dd data-invoice-history-refresh-window-end>â€”</dd></div>
+        <div><dt>Refresh run ID</dt><dd data-invoice-history-refresh-run-id>â€”</dd></div>
+        <div><dt>Last updated</dt><dd data-invoice-history-refresh-updated>â€”</dd></div>
+      </dl>
+    </section>
+
+    <details class="canonical-viewer__snapshot" data-canonical-snapshot-details>
+      <summary>Snapshot details</summary>
+      <dl>
+        <div><dt>Bill of Material</dt><dd data-canonical-count="billOfMaterial">—</dd></div>
+        <div><dt>Inventory Item</dt><dd data-canonical-count="inventoryItem">—</dd></div>
+        <div><dt>Work Order</dt><dd data-canonical-count="workOrder">—</dd></div>
+        <div><dt>General Ledger Account</dt><dd data-canonical-count="generalLedgerAccount">—</dd></div>
+        <div><dt>Mirror run ID</dt><dd data-canonical-mirror-run-id>—</dd></div>
+        <div><dt>ImportRunId</dt><dd data-canonical-import-run-id>—</dd></div>
+        <div><dt>Package hash</dt><dd data-canonical-package-hash>—</dd></div>
+      </dl>
+    </details>
+
+    <div class="canonical-viewer__tabs"
+         role="tablist"
+         aria-label="Canonical entities">
+      <button id="canonicalTabWorkOrders"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="canonicalEntityPanel"
+              tabindex="0"
+              data-canonical-tab="workOrders">Work Orders</button>
+      <button id="canonicalTabInventoryItems"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              data-canonical-tab="inventoryItems">Inventory Items</button>
+      <button id="canonicalTabBillsOfMaterial"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              data-canonical-tab="billsOfMaterial">Bills of Material</button>
+      <button id="canonicalTabGeneralLedgerAccounts"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              data-canonical-tab="generalLedgerAccounts">General Ledger Accounts</button>
+      <button id="canonicalTabSalesOrders"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              hidden
+              data-canonical-tab="salesOrders">Sales Orders</button>
+      <button id="canonicalTabInvoiceHistory"
+              class="canonical-viewer__tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              hidden
+              data-canonical-tab="invoiceHistory">Invoice History</button>
+      <button id="canonicalTabCustomerMaster"
+              class="canonical-viewer__tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              hidden
+              data-canonical-tab="customerMaster">Customer Master</button>
+      <button id="canonicalTabVendorMaster"
+              class="canonical-viewer__tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              hidden
+              data-canonical-tab="vendorMaster">Vendor Master</button>
+      <button id="canonicalTabPurchaseOrders"
+              class="canonical-viewer__tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              hidden
+              data-canonical-tab="purchaseOrders">Purchase Orders</button>
+      <button id="canonicalTabReceivingHistory"
+              class="canonical-viewer__tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              hidden
+              data-canonical-tab="receivingHistory">Receiving History</button>
+      <button id="canonicalTabEmployeeReference"
+              class="canonical-viewer__tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              hidden
+              data-canonical-tab="employeeReference">Employee Reference</button>
+      <button id="canonicalTabReferenceCodes"
+              class="canonical-viewer__tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="canonicalEntityPanel"
+              tabindex="-1"
+              hidden
+              data-canonical-tab="referenceCodes">Code References</button>
+    </div>
+
+    <section id="canonicalEntityPanel"
+             class="canonical-viewer__entity-panel"
+             role="tabpanel"
+             aria-labelledby="canonicalTabWorkOrders"
+             tabindex="0">
+      <form class="canonical-viewer__filters" data-canonical-filters>
+        <div class="canonical-viewer__filter-fields" data-canonical-filter-fields></div>
+        <div class="canonical-viewer__filter-actions">
+          <button class="canonical-viewer__button" type="submit">Search</button>
+          <button class="canonical-viewer__button canonical-viewer__button--secondary"
+                  type="button"
+                  data-canonical-action="clear-filters">Clear</button>
+        </div>
+      </form>
+
+      <div class="canonical-viewer__results-header">
+        <div>
+          <h2 data-canonical-entity-title>Work Orders</h2>
+          <p data-canonical-result-summary aria-live="polite">Waiting for API readiness.</p>
+        </div>
+        <label>
+          <span>Page size</span>
+          <select data-canonical-page-size>
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="canonical-viewer__table-frame">
+        <table>
+          <thead data-canonical-table-head></thead>
+          <tbody data-canonical-table-body></tbody>
+        </table>
+        <div class="canonical-viewer__result-state"
+             data-canonical-result-state
+             aria-live="polite">
+          <p>Waiting for API readiness.</p>
+        </div>
+      </div>
+
+      <nav class="canonical-viewer__pagination" aria-label="Result pages">
+        <button class="canonical-viewer__button canonical-viewer__button--secondary"
+                type="button"
+                data-canonical-action="previous-page"
+                disabled>Previous</button>
+        <span data-canonical-page-label>Page 1</span>
+        <label class="canonical-viewer__page-jump">
+          <span>Go to page</span>
+          <input type="number"
+                 min="1"
+                 step="1"
+                 value="1"
+                 inputmode="numeric"
+                 aria-describedby="canonicalPageValidation"
+                 data-canonical-page-input>
+        </label>
+        <button class="canonical-viewer__button canonical-viewer__button--secondary"
+                type="button"
+                data-canonical-action="go-to-page"
+                disabled>Go</button>
+        <button class="canonical-viewer__button canonical-viewer__button--secondary"
+                type="button"
+                data-canonical-action="next-page"
+                disabled>Next</button>
+        <span class="canonical-viewer__page-validation"
+              id="canonicalPageValidation"
+              data-canonical-page-validation
+              aria-live="polite"></span>
+      </nav>
+    </section>
+  </div>
+
+  <aside class="canonical-viewer__detail"
+         data-canonical-detail
+         aria-labelledby="canonicalDetailTitle"
+         aria-hidden="true"
+         hidden>
+    <div class="canonical-viewer__warning canonical-viewer__detail-warning"
+         role="note"
+         data-canonical-detail-banner>
+      <strong data-canonical-detail-banner-title>HISTORICAL TEST DATA</strong>
+      <span data-canonical-detail-banner-environment>Data environment: HISTORICAL_TEST</span>
+      <span data-canonical-detail-banner-database>Database: DLE_OS_PLATFORM_LAB</span>
+      <span data-canonical-detail-banner-note>Read-only canonical snapshot</span>
+    </div>
+    <div class="canonical-viewer__detail-header">
+      <div>
+        <p>Canonical record · Read-only</p>
+        <h2 id="canonicalDetailTitle" data-canonical-detail-title>Record detail</h2>
+      </div>
+      <button class="canonical-viewer__button canonical-viewer__button--secondary"
+              type="button"
+              data-canonical-action="close-detail">Close</button>
+    </div>
+    <p class="canonical-viewer__detail-status"
+       data-canonical-detail-status
+       aria-live="polite"></p>
+    <dl class="canonical-viewer__detail-list" data-canonical-detail-list></dl>
+  </aside>
+</section>

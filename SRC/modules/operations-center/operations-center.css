@@ -203,6 +203,34 @@
   color: #edf4ff;
 }
 
+.operations-center-source-status {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 0 0 10px;
+  padding: 8px 11px;
+  border: 1px solid rgba(96, 165, 250, .38);
+  border-radius: 8px;
+  background: rgba(30, 64, 175, .12);
+  color: #dbeafe;
+  font-size: 12px;
+}
+
+.operations-center-source-status.error {
+  border-color: rgba(252, 165, 165, .55);
+  background: rgba(127, 29, 29, .18);
+  color: #fecaca;
+}
+
+.operations-center-source-status.stale {
+  border-color: rgba(250, 204, 21, .5);
+  color: #fef08a;
+}
+
+.operations-center-diagnostic-cell {
+  background: rgba(96, 165, 250, .06);
+}
+
 .dle-operational-status-badge.dle-operational-status-packing {
   display: inline-flex;
   align-items: center;
@@ -279,6 +307,17 @@
 
 .operations-center-document-missing {
   color: #94a3b8;
+}
+
+.operations-center-work-order-sales_order_item_unique_candidate,
+.operations-center-work-order-sales_order_level_candidate {
+  color: #facc15;
+}
+
+.operations-center-work-order-ambiguous,
+.operations-center-work-order-unresolved {
+  color: #fda4af;
+  font-weight: 600;
 }
 
 .operations-center-empty {

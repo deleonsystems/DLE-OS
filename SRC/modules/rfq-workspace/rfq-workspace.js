@@ -6,10 +6,16 @@
   const MASTER_DATA_PATH = "DATA/master-data/DLE_MASTER_DATA_2026.06.30.16.38.48.json";
   const INITIALIZATION_STATUS = "RFQ Initialization";
   const COMPLETE_STATUS = "RFQ Initialization Complete - Awaiting RFQ Review";
+  const CUSTOMER_SEARCH_DEBOUNCE_MS = 300;
+  const CUSTOMER_PAGE_SIZE = 25;
   let lastDraftIdentitySecond = 0;
   let mount = null;
   let eventsBound = false;
   let committedInitialization = null;
+  let customerSearchTimer = null;
+  let customerSearchRequest = null;
+  let customerSearchSequence = 0;
+  let customerPickerReturnFocus = null;
 
   const referenceCatalog = {
     status: "idle",
@@ -51,6 +57,13 @@
         customerSearch: "",
         customerSearchPerformed: false,
         customerResults: [],
+        customerSearchStatus: "initial",
+        customerSearchError: "",
+        customerSearchHasMore: false,
+        customerPickerOpen: false,
+        customerPage: 1,
+        customerTotalItems: 0,
+        customerTotalPages: 0,
         prospectiveDraft: createProspectiveCustomerDraft(),
         lineSearches: {},
         revisionDrafts: {}
@@ -216,11 +229,20 @@
     const lineId = actionTarget.dataset.rfqLineId || "";
 
     if (action === "restart-initialization") restartInitialization();
-    if (action === "search-customer") searchCustomers();
+    if (action === "search-customer") openCustomerPicker();
     if (action === "select-customer") selectExistingCustomer(actionTarget.dataset.rfqCustomerId);
+    if (action === "close-customer-picker") closeCustomerPicker();
+    if (action === "customer-page-previous") loadCustomerPage(state.ui.customerPage - 1);
+    if (action === "customer-page-next") loadCustomerPage(state.ui.customerPage + 1);
+    if (action === "open-vpro5-customer-entry") requestVpro5CustomerEntry();
+    if (action === "create-customer-folder") createSelectedCustomerFolder();
+    if (action === "create-requirements-compliance-folder") {
+      createSelectedRequirementsComplianceFolder();
+    }
     if (action === "start-prospective-customer") startProspectiveCustomer();
     if (action === "save-prospective-customer") saveProspectiveCustomer();
-    if (action === "change-customer") changeCustomer();
+    if (action === "change-customer") openCustomerPicker();
+    if (action === "clear-customer") changeCustomer();
     if (action === "add-line") addRfqLine();
     if (action === "remove-line") removeRfqLine(lineId);
     if (action === "search-assembly") searchAssemblies(lineId);
@@ -251,7 +273,19 @@
       state.ui.customerSearch = event.target.value;
       state.ui.customerSearchPerformed = false;
       state.ui.customerResults = [];
+      state.ui.customerSearchStatus = state.ui.customerSearch.trim() ? "waiting" : "initial";
+      state.ui.customerSearchError = "";
+      state.ui.customerSearchHasMore = false;
+      state.ui.customerPage = 1;
+      cancelCustomerSearch();
+      if (state.ui.customerPickerOpen) {
+        customerSearchTimer = window.setTimeout(
+          () => searchCustomers(1),
+          CUSTOMER_SEARCH_DEBOUNCE_MS
+        );
+      }
       clearValidation();
+      renderCustomerStep();
       return;
     }
 
@@ -275,6 +309,8 @@
       const search = getLineSearch(lineId);
       search.query = event.target.value;
       search.searchPerformed = false;
+      search.status = "idle";
+      search.error = "";
       search.results = [];
       clearValidation();
       return;
@@ -304,7 +340,12 @@
   function handleKeydown(event) {
     if (event.key === "Enter" && event.target.dataset.rfqCustomerSearch !== undefined) {
       event.preventDefault();
-      searchCustomers();
+      searchCustomers(1);
+      return;
+    }
+    if (event.key === "Escape" && state.ui.customerPickerOpen) {
+      event.preventDefault();
+      closeCustomerPicker();
       return;
     }
     if (event.key === "Enter" && event.target.dataset.rfqAssemblySearch !== undefined) {
@@ -363,31 +404,120 @@
     Object.assign(state, replacement);
   }
 
-  function searchCustomers() {
-    if (referenceCatalog.status !== "ready") {
-      setValidationError("Customer reference data is not ready yet.", "#rfq2CustomerContent");
-      return;
-    }
-    const query = state.ui.customerSearch.trim().toLowerCase();
-    state.ui.customerSearchPerformed = true;
-    state.ui.customerResults = query
-      ? referenceCatalog.customers.filter(customer => [customer.companyName, customer.erpCustomerNumber]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(query))).slice(0, 10)
-      : [];
-    clearValidation();
-    renderCustomerStep();
+  function openCustomerPicker() {
+    customerPickerReturnFocus = document.activeElement;
+    state.ui.customerPickerOpen = true;
+    state.ui.customerSearch = "";
+    state.ui.customerPage = 1;
+    state.ui.customerResults = [];
+    state.ui.customerSearchStatus = "searching";
+    renderCustomerPicker();
+    searchCustomers(1);
   }
 
-  function selectExistingCustomer(customerId) {
-    const customer = referenceCatalog.customers.find(item => item.customerId === customerId);
+  function closeCustomerPicker() {
+    cancelCustomerSearch();
+    state.ui.customerPickerOpen = false;
+    state.ui.customerSearch = "";
+    state.ui.customerResults = [];
+    state.ui.customerSearchStatus = "initial";
+    renderCustomerPicker();
+    customerPickerReturnFocus?.focus?.();
+    customerPickerReturnFocus = null;
+  }
+
+  function loadCustomerPage(page) {
+    if (page < 1 || (state.ui.customerTotalPages && page > state.ui.customerTotalPages)) return;
+    searchCustomers(page);
+  }
+
+  async function searchCustomers(page = 1) {
+    cancelCustomerSearch();
+    const query = state.ui.customerSearch.trim();
+    if (!window.DleApiClient?.searchCanonicalCustomers) {
+      state.ui.customerSearchStatus = "error";
+      state.ui.customerSearchError = "Canonical Customer Directory is not available.";
+      state.ui.customerSearchPerformed = true;
+      renderCustomerPicker();
+      return;
+    }
+    const sequence = ++customerSearchSequence;
+    const request = new AbortController();
+    customerSearchRequest = request;
+    state.ui.customerSearchStatus = "searching";
+    state.ui.customerSearchError = "";
+    state.ui.customerSearchHasMore = false;
+    state.ui.customerSearchPerformed = true;
+    state.ui.customerPage = page;
+    state.ui.customerResults = [];
+    clearValidation();
+    renderCustomerPicker();
+    try {
+      const response = await window.DleApiClient.searchCanonicalCustomers(query, {
+        page,
+        pageSize: CUSTOMER_PAGE_SIZE,
+        signal: request.signal
+      });
+      if (sequence !== customerSearchSequence || customerSearchRequest !== request) return;
+      state.ui.customerResults = Array.isArray(response?.items) ? response.items : [];
+      state.ui.customerSearchHasMore = Boolean(response?.hasMore);
+      state.ui.customerPage = Number(response?.page) || page;
+      state.ui.customerTotalItems = Number(response?.totalItems) || 0;
+      state.ui.customerTotalPages = Number(response?.totalPages) || 0;
+      state.ui.customerSearchStatus = state.ui.customerResults.length ? "results" : "empty";
+    } catch (error) {
+      if (error?.name === "AbortError" || sequence !== customerSearchSequence) return;
+      state.ui.customerSearchStatus = "error";
+      state.ui.customerSearchError = "Customer search could not be completed. Try again.";
+    } finally {
+      if (customerSearchRequest === request) customerSearchRequest = null;
+      if (sequence === customerSearchSequence) renderCustomerPicker();
+    }
+  }
+
+  function cancelCustomerSearch() {
+    if (customerSearchTimer !== null) {
+      window.clearTimeout(customerSearchTimer);
+      customerSearchTimer = null;
+    }
+    customerSearchRequest?.abort();
+    customerSearchRequest = null;
+  }
+
+  function selectExistingCustomer(customerNumber) {
+    const customer = state.ui.customerResults.find(
+      item => item.customerNumber === customerNumber
+    );
     if (!customer) return;
     state.customer = {
-      customerId: customer.customerId,
+      customerId: "CANONICAL-CUSTOMER-" + customer.customerNumber,
       resolution: "existing",
-      companyName: customer.companyName,
-      erpStatus: "Established",
-      erpCustomerNumber: customer.erpCustomerNumber,
+      resolutionSource: "canonical-customer-directory",
+      companyName: customer.customerName,
+      customerName: customer.customerName,
+      customerNumber: customer.customerNumber,
+      erpStatus: "Existing Customer",
+      erpCustomerNumber: customer.customerNumber,
+      aliases: Array.isArray(customer.aliases) ? customer.aliases.slice() : [],
+      sources: Array.isArray(customer.sources) ? customer.sources.slice() : [],
+      activity: {
+        openOrderRecords: Number(customer.openOrderRecords || 0),
+        salesOrderRecords: Number(customer.salesOrderRecords || 0),
+        invoiceHistoryRecords: Number(customer.invoiceHistoryRecords || 0),
+        customerMasterRecords: Number(customer.customerMasterRecords || 0),
+        mostRecentActivityDate: customer.mostRecentActivityDate || null
+      },
+      directoryBinding: customer.customerNumber + "\u001f" + customer.customerName,
+      folderResolution: {
+        status: "loading",
+        data: null,
+        error: ""
+      },
+      requirementsComplianceResolution: {
+        status: "waiting",
+        data: null,
+        error: ""
+      },
       buyerContact: "",
       engineeringContact: "",
       email: "",
@@ -395,17 +525,187 @@
       billingAddress: "",
       shippingAddress: ""
     };
-    state.ui.customerResults = [];
+    closeCustomerPicker();
     clearValidation();
+    renderWorkflowSteps();
+    verifySelectedCustomerFolder();
+  }
+
+  async function verifySelectedCustomerFolder() {
+    const selectedNumber = state.customer?.customerNumber;
+    if (!selectedNumber || !state.customer?.folderResolution) return;
+    state.customer.folderResolution = {
+      status: "loading",
+      data: null,
+      error: ""
+    };
+    state.customer.requirementsComplianceResolution = {
+      status: "waiting",
+      data: null,
+      error: ""
+    };
+    renderWorkflowSteps();
+    let verifyRequirementsCompliance = false;
+    try {
+      if (!window.DleApiClient?.getCustomerFolderStatus) {
+        throw new Error("Customer Files control is not available.");
+      }
+      const result = await window.DleApiClient.getCustomerFolderStatus(selectedNumber);
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.folderResolution = {
+        status: "ready",
+        data: result,
+        error: ""
+      };
+      verifyRequirementsCompliance = result.folderState === "VERIFIED";
+      state.customer.requirementsComplianceResolution = {
+        status: verifyRequirementsCompliance ? "loading" : "blocked",
+        data: null,
+        error: ""
+      };
+    } catch (error) {
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.folderResolution = {
+        status: "error",
+        data: null,
+        error: error?.message || String(error)
+      };
+      state.customer.requirementsComplianceResolution = {
+        status: "blocked",
+        data: null,
+        error: ""
+      };
+    }
+    clearValidation();
+    renderWorkflowSteps();
+    if (verifyRequirementsCompliance) {
+      await verifySelectedRequirementsComplianceFolder(selectedNumber);
+    }
+  }
+
+  async function createSelectedCustomerFolder() {
+    const selectedNumber = state.customer?.customerNumber;
+    if (
+      !selectedNumber ||
+      state.customer?.folderResolution?.data?.folderState !== "MISSING"
+    ) return;
+    state.customer.folderResolution.status = "creating";
+    renderWorkflowSteps();
+    try {
+      const result = await window.DleApiClient.createCustomerFolder(selectedNumber);
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.folderResolution = {
+        status: "ready",
+        data: result,
+        error: ""
+      };
+      state.customer.requirementsComplianceResolution = {
+        status: result.folderState === "VERIFIED" ? "loading" : "blocked",
+        data: null,
+        error: ""
+      };
+    } catch (error) {
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.folderResolution = {
+        status: "error",
+        data: null,
+        error: error?.message || String(error)
+      };
+      state.customer.requirementsComplianceResolution = {
+        status: "blocked",
+        data: null,
+        error: ""
+      };
+    }
+    clearValidation();
+    renderWorkflowSteps();
+    if (state.customer?.folderResolution?.data?.folderState === "VERIFIED") {
+      await verifySelectedRequirementsComplianceFolder(selectedNumber);
+    }
+  }
+
+  async function verifySelectedRequirementsComplianceFolder(selectedNumber) {
+    if (
+      !selectedNumber ||
+      state.customer?.customerNumber !== selectedNumber ||
+      state.customer?.folderResolution?.data?.folderState !== "VERIFIED"
+    ) return;
+    state.customer.requirementsComplianceResolution = {
+      status: "loading",
+      data: null,
+      error: ""
+    };
+    renderWorkflowSteps();
+    try {
+      if (!window.DleApiClient?.getRequirementsComplianceFolderStatus) {
+        throw new Error("Customer Files control is not available.");
+      }
+      const result =
+        await window.DleApiClient.getRequirementsComplianceFolderStatus(
+          selectedNumber
+        );
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.requirementsComplianceResolution = {
+        status: "ready",
+        data: result,
+        error: ""
+      };
+    } catch (error) {
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.requirementsComplianceResolution = {
+        status: "error",
+        data: null,
+        error: error?.message || String(error)
+      };
+    }
+    renderWorkflowSteps();
+  }
+
+  async function createSelectedRequirementsComplianceFolder() {
+    const selectedNumber = state.customer?.customerNumber;
+    const resolution = state.customer?.requirementsComplianceResolution;
+    if (
+      !selectedNumber ||
+      state.customer?.folderResolution?.data?.folderState !== "VERIFIED" ||
+      resolution?.data?.requirementsComplianceState !== "NOT_CREATED"
+    ) return;
+    resolution.status = "creating";
+    renderWorkflowSteps();
+    try {
+      const result =
+        await window.DleApiClient.createRequirementsComplianceFolder(
+          selectedNumber
+        );
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.requirementsComplianceResolution = {
+        status: "ready",
+        data: result,
+        error: ""
+      };
+    } catch (error) {
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.requirementsComplianceResolution = {
+        status: "error",
+        data: null,
+        error: error?.message || String(error)
+      };
+    }
     renderWorkflowSteps();
   }
 
   function startProspectiveCustomer() {
-    state.customer = null;
-    state.ui.customerMode = "prospective";
-    state.ui.prospectiveDraft = createProspectiveCustomerDraft();
-    clearValidation();
-    renderCustomerStep();
+    return;
+  }
+
+  function requestVpro5CustomerEntry() {
+    const status = document.getElementById("rfq2Vpro5LaunchStatus");
+    if (!status) return;
+    status.hidden = false;
+    status.textContent = [
+      "VPro5 was requested on this workstation. Create the customer using the normal VPro5 process,",
+      "then return here and run Customer Refresh. If no browser prompt or application appears,",
+      "the local protocol may not be installed or the browser may have blocked external application access."
+    ].join(" ");
   }
 
   function saveProspectiveCustomer() {
@@ -432,11 +732,15 @@
   }
 
   function changeCustomer() {
+    cancelCustomerSearch();
     state.customer = null;
     state.ui.customerMode = "search";
     state.ui.customerSearch = "";
     state.ui.customerResults = [];
     state.ui.customerSearchPerformed = false;
+    state.ui.customerSearchStatus = "initial";
+    state.ui.customerSearchError = "";
+    state.ui.customerSearchHasMore = false;
     clearValidation();
     renderWorkflowSteps();
   }
@@ -469,41 +773,94 @@
     renderWorkflowSteps();
   }
 
-  function searchAssemblies(lineId) {
+  async function searchAssemblies(lineId) {
     const line = getLine(lineId);
     if (!line) return;
-    if (referenceCatalog.status !== "ready") {
-      setValidationError("Assembly reference data is not ready yet.", '[data-rfq-assembly-card="' + lineId + '"]');
-      return;
-    }
     const search = getLineSearch(lineId);
-    const query = search.query.trim().toLowerCase();
+    const query = search.query.trim();
     search.searchPerformed = true;
     search.mode = "search";
-    search.results = query
-      ? referenceCatalog.assemblies.filter(assembly => [assembly.assemblyNumber, assembly.description, assembly.drawingNumber]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(query))).slice(0, 10)
-      : [];
+    search.status = "searching";
+    search.error = "";
+    search.results = [];
     clearValidation();
+    renderAssemblyStep();
+    if (!query) {
+      search.status = "error";
+      search.error = "Enter an assembly number.";
+      renderAssemblyStep();
+      return;
+    }
+    try {
+      const response = await window.DleApiClient.searchHistoricalAssemblies(
+        query,
+        state.customer.customerNumber
+      );
+      search.results = Array.isArray(response?.results) ? response.results : [];
+      search.matchType = response?.matchType || "NONE";
+      search.status = search.results.length ? "results" : "empty";
+    } catch (error) {
+      search.status = "error";
+      search.error = error?.message || "Historical assembly search failed.";
+    }
     renderAssemblyStep();
   }
 
-  function selectExistingAssembly(lineId, assemblyId) {
+  async function selectExistingAssembly(lineId, assemblyId) {
     const line = getLine(lineId);
-    const assembly = referenceCatalog.assemblies.find(item => item.assemblyId === assemblyId);
-    if (!line || !assembly) return;
+    const search = getLineSearch(lineId);
+    const result = search.results.find(item => item.resultId === assemblyId);
+    if (!line || !result || !result.selectable) return;
     line.assembly = {
-      assemblyId: assembly.assemblyId,
-      resolution: "existing",
-      status: "Existing",
-      assemblyNumber: assembly.assemblyNumber,
-      description: assembly.description,
-      drawingNumber: assembly.drawingNumber,
-      availableRevisions: assembly.revisions.slice()
+      assemblyId: "HIST-" + sanitizeIdPart(result.resultId),
+      resolution: "historical",
+      status: "Verifying Customer Folder",
+      assemblyNumber: result.assemblyNumber,
+      description: "Historical shipment / invoice evidence",
+      drawingNumber: "",
+      availableRevisions: result.revision ? [result.revision] : [],
+      historicalResolution: {
+        ...result,
+        customerFolderState: "VERIFYING",
+        customerFolderPath: null,
+        resolutionStatus: "VERIFYING_CUSTOMER_FOLDER",
+        resolvedAt: null
+      }
     };
     line.revision = null;
     clearValidation();
+    renderWorkflowSteps();
+    try {
+      const folder = await window.DleApiClient.getCustomerFolderStatus(
+        result.historicalCustomerNumber
+      );
+      if (line.assembly?.historicalResolution?.resultId !== result.resultId) return;
+      const crossCustomer = result.matchScope === "Different Customer";
+      const unresolvedRevision = !result.revision ||
+        result.revisionState === "Historical Revision Conflict";
+      const resolutionStatus = crossCustomer
+        ? "CROSS_CUSTOMER_MATCH_REVIEW_REQUIRED"
+        : unresolvedRevision
+          ? "HISTORICAL_MATCH_REVISION_UNRESOLVED"
+          : folder?.folderState === "VERIFIED"
+            ? "HISTORICAL_MATCH_FOLDER_VERIFIED"
+            : "HISTORICAL_MATCH_FOLDER_ACTION_REQUIRED";
+      line.assembly.historicalResolution = {
+        ...line.assembly.historicalResolution,
+        customerFolderState: folder?.folderState || "ERROR",
+        customerFolderPath: folder?.folderPath || folder?.expectedFolderPath || null,
+        resolutionStatus,
+        resolvedAt: new Date().toISOString()
+      };
+      line.assembly.status = formatHistoricalResolutionStatus(resolutionStatus);
+    } catch (error) {
+      if (line.assembly?.historicalResolution?.resultId !== result.resultId) return;
+      line.assembly.historicalResolution.customerFolderState = "ERROR";
+      line.assembly.historicalResolution.resolutionStatus =
+        "HISTORICAL_MATCH_FOLDER_ACTION_REQUIRED";
+      line.assembly.historicalResolution.resolvedAt = new Date().toISOString();
+      line.assembly.status = "Historical Match — Folder Action Required";
+    }
     renderWorkflowSteps();
   }
 
@@ -608,6 +965,9 @@
       mode: "search",
       query: "",
       searchPerformed: false,
+      status: "idle",
+      error: "",
+      matchType: "NONE",
       results: [],
       newAssembly: { assemblyNumber: "", description: "" }
     };
@@ -678,11 +1038,26 @@
   }
 
   function isCustomerResolved() {
-    return Boolean(state.customer?.companyName);
+    const customer = state.customer;
+    return Boolean(
+      customer?.resolution === "existing" &&
+      customer?.resolutionSource === "canonical-customer-directory" &&
+      customer?.customerNumber &&
+      customer?.customerName &&
+      customer?.directoryBinding ===
+        customer.customerNumber + "\u001f" + customer.customerName &&
+      customer?.folderResolution?.status === "ready" &&
+      customer?.folderResolution?.data?.folderState === "VERIFIED"
+    );
   }
 
   function areAssembliesResolved() {
-    return state.rfqLines.length > 0 && state.rfqLines.every(line => Boolean(line.assembly?.assemblyNumber));
+    return state.rfqLines.length > 0 && state.rfqLines.every(line => Boolean(
+      line.assembly?.assemblyNumber &&
+      (line.assembly.resolution !== "historical" ||
+        line.assembly.historicalResolution?.resolutionStatus ===
+          "HISTORICAL_MATCH_FOLDER_VERIFIED")
+    ));
   }
 
   function areRevisionsResolved() {
@@ -702,7 +1077,12 @@
       errors.push({ message: "Requested Response Date cannot be before Created Date.", selector: "#rfq2ResponseDate" });
     }
     if (!isCustomerResolved()) {
-      errors.push({ message: "Resolve an existing or Prospective Customer.", selector: "#rfq2CustomerContent" });
+      errors.push({
+        message: state.customer
+          ? "Verify the governed Customer Folder before continuing."
+          : "Select a valid customer from the Canonical Customer Directory.",
+        selector: "#rfq2CustomerContent"
+      });
     }
     if (!state.rfqLines.length) {
       errors.push({ message: "Add at least one RFQ Line.", selector: "#rfq2AssemblyContent" });
@@ -804,7 +1184,10 @@
           status: line.assembly.status,
           assemblyNumber: line.assembly.assemblyNumber,
           description: line.assembly.description,
-          drawingNumber: line.assembly.drawingNumber
+          drawingNumber: line.assembly.drawingNumber,
+          historicalResolution: line.assembly.historicalResolution
+            ? { ...line.assembly.historicalResolution }
+            : null
         },
         revision: { ...line.revision },
         documents: line.documents.map(file => toDocumentMetadata(file, "RFQ Line " + (index + 1)))
@@ -841,6 +1224,7 @@
     renderWorkflowSteps();
     renderValidation();
     renderView();
+    renderCustomerPicker();
     if (state.workflow.currentView === "review") renderReview();
     if (state.workflow.currentView === "complete") renderCompleteSummary();
   }
@@ -870,19 +1254,122 @@
     const target = document.getElementById("rfq2CustomerContent");
     if (!target) return;
     if (state.customer) {
+      const folder = state.customer.folderResolution || {};
+      const folderData = folder.data || {};
+      const folderState = folder.status === "loading"
+        ? "VERIFYING"
+        : folder.status === "creating"
+          ? "CREATING"
+          : folder.status === "error"
+            ? "ERROR"
+            : folderData.folderState || "UNVERIFIED";
+      const folderActions = [];
+      if (folderState === "MISSING" && folderData.canCreate) {
+        folderActions.push(
+          '<button type="button" class="rfq2-button" data-rfq-action="create-customer-folder">Create Customer Folder</button>'
+        );
+      }
+      if (folderState === "VERIFIED") {
+        folderActions.push(
+          '<a class="rfq2-button rfq2-button-secondary" href="dle-customer-files://open/' +
+          encodeURIComponent(state.customer.customerNumber) +
+          '">Open Customer Folder</a>'
+        );
+      }
+      const matches = Array.isArray(folderData.matchedFolderNames)
+        ? folderData.matchedFolderNames
+        : [];
+      const requirements = state.customer.requirementsComplianceResolution || {};
+      const requirementsData = requirements.data || {};
+      const requirementsState = folderState !== "VERIFIED"
+        ? "CUSTOMER_FOLDER_NOT_VERIFIED"
+        : requirements.status === "loading"
+          ? "CHECKING"
+          : requirements.status === "creating"
+            ? "CREATING"
+            : requirements.status === "error"
+              ? "ERROR"
+              : requirementsData.requirementsComplianceState || "CHECKING";
+      const requirementsActions = [];
+      if (
+        requirementsState === "NOT_CREATED" &&
+        requirementsData.canCreate
+      ) {
+        requirementsActions.push(
+          '<button type="button" class="rfq2-button" data-rfq-action="create-requirements-compliance-folder">Create Folder</button>'
+        );
+      }
+      if (
+        requirementsState === "AVAILABLE" &&
+        requirementsData.canOpen
+      ) {
+        requirementsActions.push(
+          '<a class="rfq2-button rfq2-button-secondary" href="dle-customer-files://open-requirements/' +
+          encodeURIComponent(state.customer.customerNumber) +
+          '">Open Folder</a>'
+        );
+      }
       target.innerHTML = [
         '<div class="rfq2-resolution-summary">',
-        '<div class="rfq2-resolution-heading"><div><span class="rfq2-resolution-badge">', escapeHtml(state.customer.erpStatus), '</span>',
+        '<div class="rfq2-resolution-heading"><div><span class="rfq2-resolution-badge">Existing Customer</span>',
         '<h3>', escapeHtml(state.customer.companyName), '</h3></div>',
-        '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="change-customer">Change Customer</button></div>',
+        '<div class="rfq2-customer-resolution-actions">',
+        '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="change-customer">Change Customer</button>',
+        '<button type="button" class="rfq2-button rfq2-button-secondary rfq2-file-remove" data-rfq-action="clear-customer">Clear Customer</button></div></div>',
         '<div class="rfq2-detail-grid">',
-        detailItem("Customer Name", state.customer.companyName),
-        detailItem("ERP Status", state.customer.erpStatus),
-        detailItem("ERP Customer Number", state.customer.erpCustomerNumber || "Not assigned"),
-        state.customer.resolution === "prospective" ? detailItem("Buyer Contact", state.customer.buyerContact || "Not provided") : "",
-        state.customer.resolution === "prospective" ? detailItem("Engineering Contact", state.customer.engineeringContact || "Not provided") : "",
-        state.customer.resolution === "prospective" ? detailItem("Email", state.customer.email || "Not provided") : "",
-        '</div></div>'
+        detailItem("Customer Name", state.customer.customerName),
+        detailItem("Customer Number", state.customer.customerNumber),
+        detailItem("Classification", "Existing Customer"),
+        detailItem("Resolution Source", "Canonical Customer Directory"),
+        detailItem("Contributing Datasets", state.customer.sources.join(", ") || "Not reported"),
+        detailItem("Known Aliases", state.customer.aliases.join(", ") || "None"),
+        '</div>',
+        '<div class="rfq2-folder-resolution" data-folder-state="', escapeHtml(folderState), '">',
+        '<div class="rfq2-folder-heading"><div><strong>Customer Record: Verified</strong>',
+        '<span>Customer Folder: ', escapeHtml(formatFolderState(folderState)), '</span></div>',
+        folderActions.join(""), '</div>',
+        folderData.folderPath
+          ? '<p><strong>Folder:</strong> ' + escapeHtml(folderData.folderPath) + '</p>'
+          : '',
+        folderData.expectedFolderName && folderState === "NAME_MISMATCH"
+          ? '<p><strong>Expected:</strong> ' + escapeHtml(folderData.expectedFolderName) + '</p>'
+          : '',
+        matches.length
+          ? '<p><strong>Existing matches:</strong> ' + escapeHtml(matches.join("; ")) + '</p>'
+          : '',
+        '<p class="rfq2-folder-message">', escapeHtml(
+          folder.error ||
+          folderData.message ||
+          (folderState === "VERIFYING"
+            ? "Verifying the governed customer folder..."
+            : folderState === "CREATING"
+              ? "Creating and reverifying the governed customer folder..."
+              : "Customer folder verification is required.")
+        ), '</p></div>',
+        '<div class="rfq2-optional-folder" data-requirements-state="',
+        escapeHtml(requirementsState), '">',
+        '<div class="rfq2-folder-heading"><div>',
+        '<strong>Customer Requirements &amp; Compliance</strong>',
+        '<span>Status: ', escapeHtml(
+          formatRequirementsComplianceState(requirementsState)
+        ), '</span></div>',
+        requirementsActions.join(""), '</div>',
+        '<p>Optional customer-level documents for NDAs, supplier questionnaires, quality requirements, terms, certifications, and related records.</p>',
+        requirementsData.folderPath
+          ? '<p><strong>Folder:</strong> ' +
+            escapeHtml(requirementsData.folderPath) + '</p>'
+          : '',
+        '<p class="rfq2-folder-message">', escapeHtml(
+          requirements.error ||
+          requirementsData.message ||
+          (requirementsState === "CUSTOMER_FOLDER_NOT_VERIFIED"
+            ? "Verify the main customer folder before using this optional folder."
+            : requirementsState === "CHECKING"
+              ? "Checking the optional customer-level folder..."
+              : requirementsState === "CREATING"
+                ? "Creating and reverifying the optional customer-level folder..."
+                : "Optional folder status is unavailable.")
+        ), '</p></div></div>'
       ].join("");
       return;
     }
@@ -906,28 +1393,88 @@
       return;
     }
 
-    const catalogMessage = referenceCatalog.status === "ready"
-      ? referenceCatalog.customers.length + " established customers available."
-      : referenceCatalog.status === "error"
-        ? "Reference catalog unavailable. You can still create a Prospective Customer."
-        : "Loading established customers...";
-    const resultMarkup = state.ui.customerResults.length
-      ? '<div class="rfq2-search-results">' + state.ui.customerResults.map(customer => [
-        '<button type="button" class="rfq2-search-result" data-rfq-action="select-customer" data-rfq-customer-id="', escapeHtml(customer.customerId), '">',
-        '<strong>', escapeHtml(customer.companyName), '</strong>',
-        '<span>Established · ERP #', escapeHtml(customer.erpCustomerNumber || "Not available"), '</span></button>'
-      ].join("")).join("") + '</div>'
-      : state.ui.customerSearchPerformed
-        ? '<p class="rfq2-empty-state">No established customers matched this search.</p>'
-        : "";
-
     target.innerHTML = [
-      '<div class="rfq2-search-panel"><label class="rfq2-field"><span>Customer Search</span>',
-      '<input data-rfq-customer-search placeholder="Search company name or ERP customer number" value="', escapeHtml(state.ui.customerSearch), '" /></label>',
-      '<div class="rfq2-search-actions"><button type="button" class="rfq2-button" data-rfq-action="search-customer">Search Customers</button>',
-      '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="start-prospective-customer">Create Prospective Customer</button></div>',
-      '<p class="rfq2-catalog-note">', escapeHtml(catalogMessage), '</p>', resultMarkup, '</div>'
+      '<div class="rfq2-search-panel"><h3>Select an Existing Customer</h3>',
+      '<p>Open the governed customer directory to browse or filter established customers.</p>',
+      '<div class="rfq2-search-actions"><button type="button" class="rfq2-button" data-rfq-action="search-customer">Search Customer</button>',
+      '<a class="rfq2-button rfq2-button-secondary" href="dle-vpro5://customer/new" data-rfq-action="open-vpro5-customer-entry">Open VPro5 Customer Entry</a></div>',
+      '<p id="rfq2Vpro5LaunchStatus" class="rfq2-launch-status" role="status" aria-live="polite" hidden></p></div>'
     ].join("");
+  }
+
+  function formatFolderState(value) {
+    return String(value || "UNVERIFIED")
+      .toLowerCase()
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, character => character.toUpperCase());
+  }
+
+  function formatRequirementsComplianceState(value) {
+    return {
+      NOT_CREATED: "Not Created",
+      AVAILABLE: "Available",
+      CUSTOMER_FOLDER_NOT_VERIFIED: "Customer Folder Required",
+      ACCESS_DENIED: "Access Denied",
+      ERROR: "Error",
+      CHECKING: "Checking",
+      CREATING: "Creating"
+    }[value] || "Unavailable";
+  }
+
+  function renderCustomerPicker() {
+    const dialog = document.getElementById("rfq2CustomerPicker");
+    const resultsTarget = document.getElementById("rfq2CustomerPickerResults");
+    const statusTarget = document.getElementById("rfq2CustomerPickerStatus");
+    const pagingTarget = document.getElementById("rfq2CustomerPickerPaging");
+    const searchInput = document.getElementById("rfq2CustomerPickerSearch");
+    if (!dialog || !resultsTarget || !statusTarget || !pagingTarget) return;
+    dialog.hidden = !state.ui.customerPickerOpen;
+    if (!state.ui.customerPickerOpen) return;
+    if (searchInput && searchInput.value !== state.ui.customerSearch) {
+      searchInput.value = state.ui.customerSearch;
+    }
+    if (state.ui.customerSearchStatus === "searching") {
+      statusTarget.textContent = "Loading customers...";
+      resultsTarget.innerHTML = '<p class="rfq2-empty-state">Loading the Canonical Customer Directory...</p>';
+      pagingTarget.innerHTML = "";
+      return;
+    }
+    if (state.ui.customerSearchStatus === "error") {
+      statusTarget.textContent = "";
+      resultsTarget.innerHTML = '<p class="rfq2-empty-state rfq2-search-error" role="alert">' + escapeHtml(state.ui.customerSearchError) + '</p>';
+      pagingTarget.innerHTML = "";
+      return;
+    }
+    statusTarget.textContent = state.ui.customerTotalItems
+      ? "Showing " + (((state.ui.customerPage - 1) * CUSTOMER_PAGE_SIZE) + 1) + "\u2013" +
+        (((state.ui.customerPage - 1) * CUSTOMER_PAGE_SIZE) + state.ui.customerResults.length) +
+        " of " + state.ui.customerTotalItems + " customers"
+      : "No matching existing customer found";
+    resultsTarget.innerHTML = state.ui.customerResults.length
+      ? state.ui.customerResults.map(customer => [
+        '<article class="rfq2-customer-picker-row">',
+        '<div><strong>', escapeHtml(customer.customerName), '</strong><span>', escapeHtml(customer.customerNumber), '</span>',
+        '<small>', escapeHtml(formatCustomerCoverage(customer)), '</small></div>',
+        '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="select-customer" data-rfq-customer-id="', escapeHtml(customer.customerNumber), '">Select</button>',
+        '</article>'
+      ].join("")).join("")
+      : '<p class="rfq2-empty-state">No matching existing customer found.</p>';
+    pagingTarget.innerHTML = [
+      '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="customer-page-previous"',
+      state.ui.customerPage <= 1 ? ' disabled' : '', '>Previous</button>',
+      '<span>Page ', state.ui.customerPage, state.ui.customerTotalPages ? " of " + state.ui.customerTotalPages : "", '</span>',
+      '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="customer-page-next"',
+      !state.ui.customerSearchHasMore ? ' disabled' : '', '>Next</button>'
+    ].join("");
+    window.setTimeout(() => searchInput?.focus?.(), 0);
+  }
+
+  function formatCustomerCoverage(customer) {
+    const parts = [];
+    if (customer.openOrderRecords) parts.push(customer.openOrderRecords + " open order line" + (customer.openOrderRecords === 1 ? "" : "s"));
+    if (customer.invoiceHistoryRecords) parts.push(customer.invoiceHistoryRecords + " invoice line" + (customer.invoiceHistoryRecords === 1 ? "" : "s"));
+    if (customer.customerMasterRecords) parts.push("customer master");
+    return parts.join(" · ") || "customer identity only";
   }
 
   function customerDraftField(field, label, value, id = "", type = "text", wide = false) {
@@ -950,7 +1497,7 @@
       ? '<div class="rfq2-line-list">' + state.rfqLines.map(renderAssemblyCard).join("") + '</div>'
       : '<p class="rfq2-empty-state">No RFQ Lines yet. Add a line for each assembly the customer wants quoted.</p>';
     target.innerHTML = [
-      '<div class="rfq2-lines-toolbar"><p>', escapeHtml(referenceCatalog.status === "ready" ? referenceCatalog.assemblies.length + " existing assemblies available for search." : "Assembly reference data is loading."), '</p>',
+      '<div class="rfq2-lines-toolbar"><p>Search qualified DLE-OS shipment and invoice history.</p>',
       '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="add-line">Add RFQ Line</button></div>',
       lineMarkup
     ].join("");
@@ -960,13 +1507,24 @@
     const search = getLineSearch(line.lineId);
     let resolutionMarkup;
     if (line.assembly) {
+      const historical = line.assembly.historicalResolution;
       resolutionMarkup = [
         '<div class="rfq2-resolution-summary"><div class="rfq2-resolution-heading"><div><span class="rfq2-resolution-badge">', escapeHtml(line.assembly.status), '</span>',
         '<h4>', escapeHtml(line.assembly.assemblyNumber), '</h4></div>',
         '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="change-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '">Change Assembly</button></div>',
-        '<div class="rfq2-detail-grid">', detailItem("Assembly Number", line.assembly.assemblyNumber),
-        detailItem("Description", line.assembly.description || "Not provided"),
-        detailItem("Drawing Number", line.assembly.drawingNumber || "Not provided"), '</div></div>'
+        '<div class="rfq2-detail-grid">',
+        detailItem("Assembly Number", line.assembly.assemblyNumber),
+        historical ? detailItem("Revision", historical.revision || "Revision Not Recorded") : "",
+        historical ? detailItem("Revision State", historical.revisionState) : "",
+        historical ? detailItem("Historical Customer", historical.historicalCustomerNumber + " — " + historical.historicalCustomerName) : "",
+        historical ? detailItem("Match Scope", historical.matchScope) : "",
+        historical ? detailItem("Historical Source", historical.historicalSource) : "",
+        historical ? detailItem("Most Recent Date", historical.mostRecentHistoricalDate || "Not recorded") : "",
+        historical ? detailItem("Occurrence Count", historical.historicalOccurrenceCount) : "",
+        historical ? detailItem("Historical Reference", historical.selectedHistoricalReference) : "",
+        historical ? detailItem("Customer Folder State", historical.customerFolderState) : "",
+        historical ? detailItem("Customer Folder Path", historical.customerFolderPath || "Not available") : "",
+        '</div></div>'
       ].join("");
     } else if (search.mode === "new") {
       resolutionMarkup = [
@@ -978,18 +1536,36 @@
       ].join("");
     } else {
       const results = search.results.length
-        ? '<div class="rfq2-search-results">' + search.results.map(assembly => [
-          '<button type="button" class="rfq2-search-result" data-rfq-action="select-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '" data-rfq-assembly-id="', escapeHtml(assembly.assemblyId), '">',
-          '<strong>', escapeHtml(assembly.assemblyNumber), '</strong><span>', escapeHtml(assembly.description || "No description"),
-          assembly.revisions.length ? ' · Revisions: ' + escapeHtml(assembly.revisions.join(", ")) : ' · No recorded revisions', '</span></button>'
+        ? '<div class="rfq2-historical-results">' + search.results.map(result => [
+          '<article class="rfq2-historical-result" data-match-scope="', escapeHtml(result.matchScope), '" data-match-type="', escapeHtml(result.matchType), '">',
+          '<div class="rfq2-historical-result-heading"><div><strong>', escapeHtml(result.assemblyNumber), '</strong><span>', escapeHtml(result.revision || "Revision Not Recorded"), '</span></div>',
+          result.selectable
+            ? '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="select-assembly" data-rfq-line-id="' + escapeHtml(line.lineId) + '" data-rfq-assembly-id="' + escapeHtml(result.resultId) + '">Select Historical Result</button>'
+            : '<span class="rfq2-resolution-badge">Partial — enter exact number</span>',
+          '</div><div class="rfq2-detail-grid">',
+          detailItem("Customer", result.historicalCustomerNumber + " — " + result.historicalCustomerName),
+          detailItem("Match Scope", result.matchScope),
+          detailItem("Revision State", result.revisionState),
+          detailItem("Historical Source", result.historicalSource),
+          detailItem("Most Recent Date", result.mostRecentHistoricalDate || "Not recorded"),
+          detailItem("Occurrence Count", result.historicalOccurrenceCount),
+          '</div></article>'
         ].join("")).join("") + '</div>'
-        : search.searchPerformed ? '<p class="rfq2-empty-state">No existing assemblies matched this search.</p>' : "";
+        : search.status === "empty"
+          ? '<p class="rfq2-empty-state">No historical assembly match was found in qualified DLE-OS shipment or invoice history.</p>'
+          : "";
+      const searchStatus = search.status === "searching"
+        ? '<p class="rfq2-search-status">Searching qualified shipment and invoice history…</p>'
+        : search.status === "error"
+          ? '<p class="rfq2-search-status error">' + escapeHtml(search.error) + '</p>'
+          : search.matchType === "PARTIAL"
+            ? '<p class="rfq2-search-status">No exact match was found. Partial results are informational and cannot resolve the RFQ Line.</p>'
+            : "";
       resolutionMarkup = [
-        '<div class="rfq2-search-panel"><h4>Existing Assembly?</h4><label class="rfq2-field"><span>Assembly Search</span>',
-        '<input data-rfq-assembly-search data-rfq-line-id="', escapeHtml(line.lineId), '" placeholder="Search assembly number, drawing, or description" value="', escapeHtml(search.query), '" /></label>',
-        '<div class="rfq2-search-actions"><button type="button" class="rfq2-button" data-rfq-action="search-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '">Search Assemblies</button>',
-        '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="start-new-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '">Create New Assembly</button></div>',
-        results, '</div>'
+        '<div class="rfq2-search-panel"><h4>Historical Assembly Search</h4><label class="rfq2-field"><span>Assembly Number</span>',
+        '<input data-rfq-assembly-search data-rfq-line-id="', escapeHtml(line.lineId), '" placeholder="Enter the assembly number exactly" value="', escapeHtml(search.query), '" /></label>',
+        '<div class="rfq2-search-actions"><button type="button" class="rfq2-button" data-rfq-action="search-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '"', search.status === "searching" ? ' disabled' : '', '>Search Assemblies</button></div>',
+        searchStatus, results, '</div>'
       ].join("");
     }
 
@@ -1002,6 +1578,15 @@
       '<label class="rfq2-field"><span>Line Notes</span><input data-rfq-line-field="notes" data-rfq-line-id="', escapeHtml(line.lineId), '" placeholder="Assembly-specific requirements" value="', escapeHtml(line.notes), '" /></label>',
       '</div>', resolutionMarkup, '</div></article>'
     ].join("");
+  }
+
+  function formatHistoricalResolutionStatus(status) {
+    return ({
+      HISTORICAL_MATCH_FOLDER_VERIFIED: "Historical Match — Folder Verified",
+      HISTORICAL_MATCH_FOLDER_ACTION_REQUIRED: "Historical Match — Folder Action Required",
+      HISTORICAL_MATCH_REVISION_UNRESOLVED: "Historical Match — Revision Unresolved",
+      CROSS_CUSTOMER_MATCH_REVIEW_REQUIRED: "Cross-Customer Match — Review Required"
+    })[status] || status;
   }
 
   function renderRevisionStep() {
@@ -1136,11 +1721,12 @@
       reviewItem("Customer Reference", state.rfq.customerReference || "Not provided"),
       reviewItem("General Notes", state.rfq.generalNotes || "No notes entered", true), '</div></section>',
       '<section class="rfq2-review-section"><h3>Customer Resolution</h3><div class="rfq2-review-grid">',
-      reviewItem("Customer Name", state.customer.companyName), reviewItem("ERP Status", state.customer.erpStatus),
-      reviewItem("ERP Customer Number", state.customer.erpCustomerNumber || "Not assigned"),
-      state.customer.resolution === "prospective" ? reviewItem("Buyer Contact", state.customer.buyerContact || "Not provided") : "",
-      state.customer.resolution === "prospective" ? reviewItem("Engineering Contact", state.customer.engineeringContact || "Not provided") : "",
-      state.customer.resolution === "prospective" ? reviewItem("Email", state.customer.email || "Not provided") : "", '</div></section>',
+      reviewItem("Customer Name", state.customer.customerName),
+      reviewItem("Customer Number", state.customer.customerNumber),
+      reviewItem("Classification", "Existing Customer"),
+      reviewItem("Resolution Source", "Canonical Customer Directory"),
+      reviewItem("Contributing Datasets", state.customer.sources.join(", ") || "Not reported", true),
+      '</div></section>',
       '<section class="rfq2-review-section"><h3>RFQ Lines</h3><div class="rfq2-review-lines">',
       state.rfqLines.map(renderReviewLine).join(""), '</div></section>',
       '<section class="rfq2-review-section"><h3>Document Intake</h3><p><strong>Initial RFQ Email:</strong> ', state.rfq.documents.map(file => escapeHtml(file.name)).join(", "), '</p><p><strong>Total Documents:</strong> ', getAllDocumentMetadata().length, '</p></section>',
@@ -1166,7 +1752,7 @@
     if (!target || !record) return;
     target.innerHTML = [
       completeItem("Draft ID", record.rfq.draftId), completeItem("Customer", record.customer.companyName),
-      completeItem("Customer Status", record.customer.erpStatus), completeItem("RFQ Lines", String(record.rfqLines.length)),
+      completeItem("Customer Number", record.customer.customerNumber), completeItem("RFQ Lines", String(record.rfqLines.length)),
       completeItem("Documents", String(record.documents.allUploadedDocuments.length)), completeItem("Status", record.rfq.status)
     ].join("");
   }

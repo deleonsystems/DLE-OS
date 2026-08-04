@@ -8,18 +8,21 @@
   window.OperationsCenter = window.OperationsCenter || {};
 
   window.OperationsCenter.officialColumns = [
-    { key: 'orderDate', label: 'Ord Dt' },
-    { key: 'customer', label: 'Cust Name' },
-    { key: 'customerPo', label: 'P/O' },
-    { key: 'salesOrder', label: 'Sls Ord#' },
-    { key: 'sequenceLine', label: 'Seq Ln' },
-    { key: 'workOrder', label: 'WorkOrd' },
+    { key: 'orderDate', label: 'Order Date' },
+    { key: 'customer', label: 'Customer Name' },
+    { key: 'customerPo', label: 'Customer PO' },
+    { key: 'salesOrder', label: 'Sales Order' },
+    { key: 'sequenceLine', label: 'SO Line' },
+    { key: 'workOrder', label: 'Work Order' },
+    { key: 'quantityOrdered', label: 'Qty Ordered', diagnostic: true },
+    { key: 'erpQtyOpen', label: 'ERP Qty Open', diagnostic: true },
+    { key: 'pendingInvoiceQty', label: 'Pending Invoice Qty', diagnostic: true },
     { key: 'opQtyOpen', label: 'OP Qty Open' },
-    { key: 'partNumber', label: 'Item#' },
+    { key: 'partNumber', label: 'Assembly / Item Number' },
     { key: 'description', label: 'Description' },
-    { key: 'dueDate', label: 'Due Date' },
-    { key: 'price', label: 'Price' },
-    { key: 'extendedPrice', label: 'Ext Price' },
+    { key: 'dueDate', label: 'Estimated Ship Date' },
+    { key: 'price', label: 'Unit Price' },
+    { key: 'extendedPrice', label: 'Extended Price' },
     { key: 'operationalStatus', label: 'Operational Status' }
   ];
 

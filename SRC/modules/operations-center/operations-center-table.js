@@ -17,6 +17,7 @@
 
   function renderModule() {
     renderStatus();
+    renderSourceStatus();
     renderProjectionSummary();
     renderTable();
     filter();
@@ -28,11 +29,17 @@
 
     const records = getDisplayedRecords();
     const overlayCount = Object.keys(state.overlayByKey).length;
-    const masterLoaded = !!viewModel.getMasterData();
-
-    status.textContent = masterLoaded
-      ? records.length + ' operational Master Data record' + (records.length === 1 ? '' : 's') + ' requiring action shown. Overlay records: ' + overlayCount + '. Source: ' + state.sourceFile + '.'
-      : 'Load Master Data from System Center to view Operations Center. Overlay source: ' + state.sourceFile + '.';
+    if (state.canonicalLoading && !state.canonicalLoaded) {
+      status.textContent = 'Loading canonical Sales Orders from the development API...';
+    } else if (state.canonicalError && !state.canonicalLoaded) {
+      status.textContent = 'Canonical Sales Orders could not be loaded. ' + state.canonicalError;
+    } else if (state.canonicalLoaded) {
+      status.textContent = records.length + ' operational record' + (records.length === 1 ? '' : 's') +
+        ' requiring action shown from ' + state.canonicalRows.length + ' canonical Sales Order line' +
+        (state.canonicalRows.length === 1 ? '' : 's') + '. Overlay records: ' + overlayCount + '.';
+    } else {
+      status.textContent = 'Canonical Sales Orders have not been loaded.';
+    }
 
     const documentStatus = document.getElementById('operationsCenterDocumentStatus');
     if (documentStatus && documentLinks?.getStatus) {
@@ -47,9 +54,15 @@
 
     const records = getDisplayedRecords();
     if (!records.length) {
-      container.innerHTML = viewModel.getMasterData()
-        ? '<div class="operations-center-empty">No operational work currently requires action.</div>'
-        : '<div class="operations-center-empty">Load Master Data from System Center to view Operations Center.</div>';
+      if (state.canonicalLoading && !state.canonicalLoaded) {
+        container.innerHTML = '<div class="operations-center-empty">Loading canonical Sales Orders...</div>';
+      } else if (state.canonicalError && !state.canonicalLoaded) {
+        container.innerHTML = '<div class="operations-center-empty operations-center-error">Canonical Sales Orders are unavailable. ' + escapeHtml(state.canonicalError) + '</div>';
+      } else if (state.canonicalLoaded && !state.canonicalRows.length) {
+        container.innerHTML = '<div class="operations-center-empty">The canonical Sales Orders source returned no rows.</div>';
+      } else {
+        container.innerHTML = '<div class="operations-center-empty">No operational work currently requires action.</div>';
+      }
       return;
     }
 
@@ -58,7 +71,7 @@
       : '';
 
     const headers = projectionHeader + officialColumns
-      .map(column => '<th>' + escapeHtml(column.label) + '</th>')
+      .map(column => '<th' + (column.diagnostic ? ' class="operations-center-diagnostic-cell"' : '') + '>' + escapeHtml(column.label) + '</th>')
       .concat(overlayFields.map(field => '<th>' + escapeHtml(field.label) + '</th>'))
       .join('');
 
@@ -75,6 +88,7 @@
     const officialCells = officialColumns.map(column => {
       const value = viewModel.getOfficialField(record, column.key);
       const descriptionClass = column.key === 'description' ? ' operations-center-description-cell' : '';
+      const diagnosticClass = column.diagnostic ? ' operations-center-diagnostic-cell' : '';
       if (column.key === 'salesOrder') {
         return [
           '<td class="operations-center-official-cell">',
@@ -86,10 +100,16 @@
           '</td>'
         ].join('');
       }
+      if (column.key === 'workOrder') {
+        const presentation = viewModel.getWorkOrderPresentation(record);
+        return '<td class="operations-center-official-cell operations-center-work-order-' +
+          escapeHtml(presentation.status.toLowerCase()) + '" title="' +
+          escapeHtml(presentation.reason) + '">' + escapeHtml(presentation.label) + '</td>';
+      }
       if (column.key === 'operationalStatus') {
         return renderOperationalStatusCell(value);
       }
-      return '<td class="operations-center-official-cell' + descriptionClass + '">' + escapeHtml(value) + '</td>';
+      return '<td class="operations-center-official-cell' + descriptionClass + diagnosticClass + '">' + escapeHtml(value) + '</td>';
     }).join('');
 
     const overlayCells = overlayFields.map(field => {
@@ -110,6 +130,32 @@
     }).join('');
 
     return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + projectionCell + officialCells + overlayCells + '</tr>';
+  }
+
+  function renderSourceStatus() {
+    const sourceStatus = document.getElementById('operationsCenterSourceStatus');
+    if (!sourceStatus) return;
+
+    sourceStatus.classList.remove('loading', 'loaded', 'empty', 'stale', 'error');
+    if (state.canonicalLoading) {
+      sourceStatus.classList.add('loading');
+      sourceStatus.textContent = 'Canonical source: loading ' + (state.canonicalEndpoint || '') + '...';
+      return;
+    }
+    if (state.canonicalError) {
+      sourceStatus.classList.add(state.canonicalLoaded ? 'stale' : 'error');
+      sourceStatus.textContent = (state.canonicalLoaded ? 'Canonical source is stale: ' : 'Canonical source error: ') + state.canonicalError;
+      return;
+    }
+    if (state.canonicalLoaded) {
+      sourceStatus.classList.add(state.canonicalRows.length ? 'loaded' : 'empty');
+      const loadedAt = state.canonicalLoadedAt ? new Date(state.canonicalLoadedAt).toLocaleString() : 'unknown time';
+      sourceStatus.textContent = 'Canonical source: ' + state.canonicalSource + ' | ' + state.canonicalRows.length +
+        ' rows | loaded ' + loadedAt + '.';
+      return;
+    }
+    sourceStatus.classList.add('empty');
+    sourceStatus.textContent = 'Canonical source: not loaded.';
   }
 
   function getDisplayedRecords() {
@@ -228,6 +274,7 @@
       return official;
     }, {});
     fields.customerNumber = viewModel.getOfficialField(record, 'customerNumber');
+    fields.workOrderRelationship = cloneRecord(record.workOrderRelationship || {});
     return fields;
   }
 
@@ -319,6 +366,7 @@
   window.OperationsCenter.table = {
     renderModule,
     renderStatus,
+    renderSourceStatus,
     renderProjectionSummary,
     renderTable,
     openSalesOrderDashboard,

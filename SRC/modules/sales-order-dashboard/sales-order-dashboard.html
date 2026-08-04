@@ -209,4 +209,51 @@
       </form>
     </section>
   </div>
+
+  <div id="workOrderApprovalDialog" class="sales-order-dashboard-dialog" role="dialog" aria-modal="true" aria-labelledby="workOrderApprovalDialogTitle" hidden>
+    <div class="sales-order-dashboard-dialog-backdrop" onclick="closeWorkOrderApprovalReview()"></div>
+    <section class="sales-order-dashboard-dialog-card sales-order-dashboard-approval-card" onclick="event.stopPropagation()">
+      <div class="sales-order-dashboard-dialog-header">
+        <div>
+          <span class="module-eyebrow">Governed Operational Decision</span>
+          <h3 id="workOrderApprovalDialogTitle">Work Order Relationship Review</h3>
+          <p>Approval records an operational decision without changing canonical ERP evidence.</p>
+        </div>
+        <button type="button" class="secondary-btn" onclick="closeWorkOrderApprovalReview()" aria-label="Close Work Order relationship review">Cancel</button>
+      </div>
+      <form onsubmit="submitWorkOrderApproval(event)">
+        <div class="sales-order-dashboard-dialog-grid">
+          <div class="sales-order-dashboard-dialog-field"><strong>Customer</strong><span id="workOrderApprovalCustomer">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Sales Order</strong><span id="workOrderApprovalSalesOrder">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Line</strong><span id="workOrderApprovalLine">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Item / Assembly</strong><span id="workOrderApprovalItem">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Canonical Status</strong><span id="workOrderApprovalRelationshipStatus">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Exact ERP Work Order</strong><span id="workOrderApprovalExact">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Approved Work Order</strong><span id="workOrderApprovalCurrent">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Classification</strong><span id="workOrderApprovalClassification">NO_APPROVAL</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Approved By</strong><span id="workOrderApprovalBy">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Approved At (UTC)</strong><span id="workOrderApprovalAt">—</span></div>
+        </div>
+        <fieldset class="sales-order-dashboard-approval-candidates">
+          <legend>Current canonical candidates</legend>
+          <ul id="workOrderApprovalCandidates"><li>Loading…</li></ul>
+        </fieldset>
+        <label class="sales-order-dashboard-approval-reason" for="workOrderApprovalReason">
+          <strong>Decision reason</strong>
+          <textarea id="workOrderApprovalReason" minlength="3" maxlength="500" required></textarea>
+        </label>
+        <details class="sales-order-dashboard-approval-history">
+          <summary>Decision history</summary>
+          <ol id="workOrderApprovalHistory"><li>Loading…</li></ol>
+        </details>
+        <div id="workOrderApprovalMessage" class="sales-order-dashboard-dialog-validation" role="status">Loading current governed evidence…</div>
+        <div class="sales-order-dashboard-dialog-actions">
+          <button type="button" class="secondary-btn" onclick="closeWorkOrderApprovalReview()">Cancel</button>
+          <button id="workOrderApprovalRevoke" type="submit" class="secondary-btn" data-approval-action="revoke" hidden>Revoke Approval</button>
+          <button id="workOrderApprovalReplace" type="submit" data-approval-action="replace" hidden>Replace Approval</button>
+          <button id="workOrderApprovalApprove" type="submit" data-approval-action="approve" hidden>Approve</button>
+        </div>
+      </form>
+    </section>
+  </div>
 </section>

@@ -270,6 +270,22 @@ body {
     .title-wrap { flex: 1; }
     .app-title { font-size: 26px; font-weight: 700; letter-spacing: .3px; }
     .app-subtitle { margin-top: 8px; color: var(--muted); font-size: 14px; }
+    .development-read-only-indicator {
+      display: none;
+      width: fit-content;
+      margin-top: 8px;
+      padding: 5px 9px;
+      border: 1px solid #f59e0b;
+      border-radius: 6px;
+      background: rgba(245, 158, 11, .14);
+      color: #fbbf24;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+    body[data-development-runtime="true"] .development-read-only-indicator {
+      display: block;
+    }
 
     .top-pills { display: flex; gap: 14px; align-items: center; }
     .workspace-selector {
@@ -4636,12 +4652,18 @@ body {
   <link rel="stylesheet" href="SRC/modules/shipment-history/shipment-history.css" />
   <link rel="stylesheet" href="SRC/modules/shipping/shipping-workspace.css" />
   <link rel="stylesheet" href="SRC/modules/rfq-workspace/rfq-workspace.css" />
+  <link rel="stylesheet" href="SRC/modules/canonical-data-viewer/canonical-data-viewer.css?v=20260729-02" />
   <link rel="stylesheet" href="SRC/workspaces/kitting/kitting-workspace.css" />
   <link rel="stylesheet" href="SRC/workbenches/kitting/kitting-workbench.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
+  <script>
+    if (window.location.port === '5051') {
+      document.body.dataset.developmentRuntime = 'true';
+    }
+  </script>
 
 
 <!-- =====================================================
@@ -4655,6 +4677,7 @@ body {
       <div class="title-wrap">
         <div class="app-title">DLE-OS Alpha v1.0.0</div>
       <div class="app-subtitle">Open Orders | Shipment Staging | Shipment History | Order Dashboard | Work Order Dashboard | Assembly Dashboard | Document Intake | Reports & Communications | Workbench | System Center</div>
+      <div class="development-read-only-indicator" role="status">DEVELOPMENT — READ ONLY</div>
     </div>
     <div class="top-pills">
       <div class="workspace-selector">
@@ -4943,6 +4966,10 @@ body {
 
       <div class="workspace-home" data-workspace-home="shipping">
         <div data-workspace-mount="shipping"></div>
+      </div>
+
+      <div class="workspace-home" data-workspace-home="platform">
+        <div data-workspace-mount="platform"></div>
       </div>
 
       <div class="workspace-home" data-workspace-home="reports">
@@ -6617,10 +6644,11 @@ BOM Viewer</h2>
 
   <footer>DLE-OS Alpha v1.0.0 &nbsp; | &nbsp; Internal Use Only</footer>
 
-  <script src="SRC/api/dle-api-client.js"></script>
+  <script src="SRC/api/dle-api-client.js?v=20260730-03"></script>
   <script src="SRC/modules/system-center/reconciliation/reconciliation.js"></script>
-  <script src="SRC/modules/system-center/system-center.js"></script>
+  <script src="SRC/modules/system-center/system-center.js?v=20260730-02"></script>
   <script src="SRC/modules/operations-center/operations-center-fields.js"></script>
+  <script src="SRC/modules/operations-center/operations-center-data-service.js"></script>
   <script src="SRC/modules/operations-center/operations-document-links.js"></script>
   <script src="SRC/modules/operations-center/operations-overlay-schema.js"></script>
   <script src="SRC/modules/operations-center/operations-center-state.js"></script>
@@ -6639,7 +6667,9 @@ BOM Viewer</h2>
   <script src="SRC/shell/workspace-shell.js"></script>
   <script src="SRC/shell/workbench-shell.js"></script>
   <script src="SRC/modules/shipping/shipping-workspace.js"></script>
+  <script src="SRC/modules/rfq-workspace/rfq-assembly-history.js"></script>
   <script src="SRC/modules/rfq-workspace/rfq-workspace.js"></script>
+  <script src="SRC/modules/canonical-data-viewer/canonical-data-viewer.js?v=20260730-02"></script>
   <script src="SRC/workspaces/kitting/kitting-workspace.js"></script>
   <script src="SRC/workbenches/kitting/kitting-workbench.js"></script>
   <script>
