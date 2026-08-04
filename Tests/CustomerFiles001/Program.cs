@@ -263,8 +263,208 @@ await Test("16_isolated_temporary_root_creation", async () =>
     }
 });
 
+await Test("17_requirements_missing_when_main_verified", async () =>
+{
+    var result = await Service(
+        new FakeFileSystem("001148 - HUGHEY & PHILLIPS"),
+        new CanonicalCustomer("001148", "HUGHEY & PHILLIPS"))
+        .VerifyRequirementsComplianceAsync("001148", default);
+    Equal(
+        RequirementsComplianceState.NOT_CREATED,
+        result.RequirementsComplianceState);
+    True(result.CanCreate, "Missing optional folder must be creatable.");
+    True(!result.CanOpen, "Missing optional folder must not be openable.");
+});
+
+await Test("18_requirements_available", async () =>
+{
+    var fs = new FakeFileSystem("001148 - HUGHEY & PHILLIPS");
+    fs.AddChild(
+        "001148 - HUGHEY & PHILLIPS",
+        CustomerFolderService.RequirementsComplianceFolderName);
+    var result = await Service(
+        fs,
+        new CanonicalCustomer("001148", "HUGHEY & PHILLIPS"))
+        .VerifyRequirementsComplianceAsync("001148", default);
+    Equal(
+        RequirementsComplianceState.AVAILABLE,
+        result.RequirementsComplianceState);
+    True(result.CanOpen, "Available optional folder must be openable.");
+});
+
+await Test("19_requirements_creation", async () =>
+{
+    var fs = new FakeFileSystem("001148 - HUGHEY & PHILLIPS");
+    var result = await Service(
+        fs,
+        new CanonicalCustomer("001148", "HUGHEY & PHILLIPS"))
+        .CreateRequirementsComplianceAsync("001148", default);
+    Equal(
+        RequirementsComplianceState.AVAILABLE,
+        result.RequirementsComplianceState);
+    Equal(1, fs.CreateCount);
+    Equal(
+        CustomerFolderService.RequirementsComplianceFolderName,
+        fs.GetChildNames("001148 - HUGHEY & PHILLIPS").Single());
+});
+
+await Test("20_requirements_repeated_creation_is_idempotent", async () =>
+{
+    var fs = new FakeFileSystem("001148 - HUGHEY & PHILLIPS");
+    var service = Service(
+        fs,
+        new CanonicalCustomer("001148", "HUGHEY & PHILLIPS"));
+    await Task.WhenAll(
+        service.CreateRequirementsComplianceAsync("001148", default),
+        service.CreateRequirementsComplianceAsync("001148", default));
+    Equal(1, fs.CreateCount);
+    Equal(
+        1,
+        fs.GetChildNames("001148 - HUGHEY & PHILLIPS").Count);
+});
+
+await Test("21_requirements_main_folder_not_verified", async () =>
+{
+    var result = await Service(
+        new FakeFileSystem(),
+        new CanonicalCustomer("001148", "HUGHEY & PHILLIPS"))
+        .VerifyRequirementsComplianceAsync("001148", default);
+    Equal(
+        RequirementsComplianceState.CUSTOMER_FOLDER_NOT_VERIFIED,
+        result.RequirementsComplianceState);
+    Equal(CustomerFolderState.MISSING, result.CustomerFolderState);
+});
+
+await Test("22_requirements_access_denied", async () =>
+{
+    var fs = new FakeFileSystem("001148 - HUGHEY & PHILLIPS")
+    {
+        DenyCustomerEnumeration = true
+    };
+    var result = await Service(
+        fs,
+        new CanonicalCustomer("001148", "HUGHEY & PHILLIPS"))
+        .VerifyRequirementsComplianceAsync("001148", default);
+    Equal(
+        RequirementsComplianceState.ACCESS_DENIED,
+        result.RequirementsComplianceState);
+});
+
+await Test("23_requirements_unexpected_error", async () =>
+{
+    var fs = new FakeFileSystem("001148 - HUGHEY & PHILLIPS")
+    {
+        ThrowCustomerEnumeration = true
+    };
+    var result = await Service(
+        fs,
+        new CanonicalCustomer("001148", "HUGHEY & PHILLIPS"))
+        .VerifyRequirementsComplianceAsync("001148", default);
+    Equal(
+        RequirementsComplianceState.ERROR,
+        result.RequirementsComplianceState);
+});
+
+await Test("24_requirements_invalid_customer_number", async () =>
+{
+    var result = await Service(new FakeFileSystem())
+        .VerifyRequirementsComplianceAsync("../001148", default);
+    Equal(
+        RequirementsComplianceState.CUSTOMER_FOLDER_NOT_VERIFIED,
+        result.RequirementsComplianceState);
+    Equal(
+        CustomerFolderState.INVALID_CUSTOMER_IDENTITY,
+        result.CustomerFolderState);
+});
+
+await Test("25_requirements_customer_not_found", async () =>
+{
+    var result = await Service(new FakeFileSystem())
+        .VerifyRequirementsComplianceAsync("001148", default);
+    Equal(
+        RequirementsComplianceState.CUSTOMER_FOLDER_NOT_VERIFIED,
+        result.RequirementsComplianceState);
+    Equal(
+        CustomerFolderState.INVALID_CUSTOMER_IDENTITY,
+        result.CustomerFolderState);
+});
+
+await Test("26_requirements_operation_accepts_no_path_or_name", () =>
+{
+    var operations = typeof(CustomerFolderService).GetMethods()
+        .Where(method => method.Name is
+            "VerifyRequirementsComplianceAsync" or
+            "CreateRequirementsComplianceAsync")
+        .ToArray();
+    True(operations.Length == 2, "Optional-folder operations are missing.");
+    True(
+        !operations.SelectMany(method => method.GetParameters())
+            .Any(parameter => parameter.Name is
+                "path" or "folderName" or "subfolderName"),
+        "An optional-folder operation accepts a caller path or folder name.");
+    return Task.CompletedTask;
+});
+
+await Test("27_requirements_isolated_temporary_root", async () =>
+{
+    var temporaryBase = Path.GetFullPath(Path.GetTempPath())
+        .TrimEnd(Path.DirectorySeparatorChar) +
+        Path.DirectorySeparatorChar;
+    var root = Path.GetFullPath(Path.Combine(
+        temporaryBase,
+        "DleOsCustomerFiles002-" + Guid.NewGuid().ToString("N")));
+    var mainFolder = Path.Combine(root, "001148 - HUGHEY & PHILLIPS");
+    Directory.CreateDirectory(mainFolder);
+    try
+    {
+        var service = new CustomerFolderService(
+            root,
+            new FakeDirectory(
+                new[]
+                {
+                    new CanonicalCustomer(
+                        "001148",
+                        "HUGHEY & PHILLIPS")
+                }),
+            new SystemCustomerFileSystem(),
+            NullLogger<CustomerFolderService>.Instance);
+        var first = await service.CreateRequirementsComplianceAsync(
+            "001148",
+            default);
+        var second = await service.CreateRequirementsComplianceAsync(
+            "001148",
+            default);
+        Equal(
+            RequirementsComplianceState.AVAILABLE,
+            first.RequirementsComplianceState);
+        Equal(
+            RequirementsComplianceState.AVAILABLE,
+            second.RequirementsComplianceState);
+        Equal(
+            1,
+            Directory.EnumerateDirectories(mainFolder).Count(),
+            "Optional-folder creation was not idempotent.");
+        Equal(
+            CustomerFolderService.RequirementsComplianceFolderName,
+            Path.GetFileName(Directory.EnumerateDirectories(
+                mainFolder).Single()));
+    }
+    finally
+    {
+        if (
+            Directory.Exists(root) &&
+            root.StartsWith(
+                temporaryBase,
+                StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+});
+
 Console.WriteLine(
-    $"CUSTOMER-FILES-001 core qualification: {passed} passed, {failed} failed.");
+    $"Customer Files core qualification: {passed} passed, {failed} failed.");
 return failed == 0 ? 0 : 1;
 
 sealed class FakeDirectory : ICustomerDirectory
@@ -289,10 +489,15 @@ sealed class FakeDirectory : ICustomerDirectory
 
 sealed class FakeFileSystem : ICustomerFileSystem
 {
+    private const string Root = @"C:\CustomerFilesTest";
+    private readonly Dictionary<string, HashSet<string>> _children =
+        new(StringComparer.OrdinalIgnoreCase);
     public HashSet<string> Names { get; } =
         new(StringComparer.OrdinalIgnoreCase);
     public bool RootExists { get; set; } = true;
     public bool DenyEnumeration { get; set; }
+    public bool DenyCustomerEnumeration { get; set; }
+    public bool ThrowCustomerEnumeration { get; set; }
     public int CreateCount { get; private set; }
 
     public FakeFileSystem(params string[] names)
@@ -301,19 +506,113 @@ sealed class FakeFileSystem : ICustomerFileSystem
             Names.Add(name);
     }
 
-    public bool DirectoryExists(string path) => RootExists;
-    public FileAttributes GetAttributes(string path) =>
-        FileAttributes.Directory;
+    public void AddChild(string parentName, string childName)
+    {
+        var parentPath = Path.Combine(Root, parentName);
+        if (!_children.TryGetValue(parentPath, out var names))
+        {
+            names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _children[parentPath] = names;
+        }
+        names.Add(childName);
+    }
+
+    public IReadOnlyList<string> GetChildNames(string parentName)
+    {
+        var parentPath = Path.Combine(Root, parentName);
+        return _children.TryGetValue(parentPath, out var names)
+            ? names.ToArray()
+            : Array.Empty<string>();
+    }
+
+    public bool DirectoryExists(string path)
+    {
+        var normalized = Path.GetFullPath(path).TrimEnd(
+            Path.DirectorySeparatorChar,
+            Path.AltDirectorySeparatorChar);
+        if (string.Equals(
+            normalized,
+            Root,
+            StringComparison.OrdinalIgnoreCase))
+            return RootExists;
+        var parent = Path.GetDirectoryName(normalized);
+        var name = Path.GetFileName(normalized);
+        if (string.Equals(parent, Root, StringComparison.OrdinalIgnoreCase))
+            return RootExists && Names.Contains(name);
+        return parent is not null &&
+            _children.TryGetValue(parent, out var names) &&
+            names.Contains(name);
+    }
+
+    public FileAttributes GetAttributes(string path)
+    {
+        if (!DirectoryExists(path))
+            throw new DirectoryNotFoundException(path);
+        return FileAttributes.Directory;
+    }
+
     public IReadOnlyList<string> GetDirectoryNames(string root)
     {
-        if (DenyEnumeration)
+        var normalized = Path.GetFullPath(root).TrimEnd(
+            Path.DirectorySeparatorChar,
+            Path.AltDirectorySeparatorChar);
+        if (
+            DenyEnumeration &&
+            string.Equals(
+                normalized,
+                Root,
+                StringComparison.OrdinalIgnoreCase)
+        )
             throw new UnauthorizedAccessException("Test denial.");
-        return Names.ToArray();
+        if (
+            !string.Equals(
+                normalized,
+                Root,
+                StringComparison.OrdinalIgnoreCase) &&
+            DenyCustomerEnumeration
+        )
+            throw new UnauthorizedAccessException("Test customer denial.");
+        if (
+            !string.Equals(
+                normalized,
+                Root,
+                StringComparison.OrdinalIgnoreCase) &&
+            ThrowCustomerEnumeration
+        )
+            throw new IOException("Test customer failure.");
+        if (string.Equals(
+            normalized,
+            Root,
+            StringComparison.OrdinalIgnoreCase))
+            return Names.ToArray();
+        return _children.TryGetValue(normalized, out var names)
+            ? names.ToArray()
+            : Array.Empty<string>();
     }
 
     public void CreateDirectory(string path)
     {
-        if (Names.Add(Path.GetFileName(path)))
+        var normalized = Path.GetFullPath(path).TrimEnd(
+            Path.DirectorySeparatorChar,
+            Path.AltDirectorySeparatorChar);
+        var parent = Path.GetDirectoryName(normalized)
+            ?? throw new InvalidOperationException("Test path has no parent.");
+        var name = Path.GetFileName(normalized);
+        bool added;
+        if (string.Equals(parent, Root, StringComparison.OrdinalIgnoreCase))
+        {
+            added = Names.Add(name);
+        }
+        else
+        {
+            if (!_children.TryGetValue(parent, out var names))
+            {
+                names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                _children[parent] = names;
+            }
+            added = names.Add(name);
+        }
+        if (added)
             CreateCount++;
     }
 }

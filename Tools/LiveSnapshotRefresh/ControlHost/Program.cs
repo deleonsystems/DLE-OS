@@ -5,7 +5,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Server.HttpSys;
 
 const string authorizedOperator = @"DLE-OS-HOST\DLE-OS";
-const string allowedOrigin = "http://dle-os-host:5041";
+string[] allowedOrigins =
+    ["http://dle-os-host:5041", "http://dle-os-host:5051"];
 const string controlPrefix = "http://dle-os-host:5043";
 const string runnerPath =
     @"C:\DLE-OS\Canonical\LiveMirror\Refresh\Invoke-LiveSnapshotRefresh.ps1";
@@ -48,7 +49,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy(
         corsPolicy,
         policy => policy
-            .WithOrigins(allowedOrigin)
+            .WithOrigins(allowedOrigins)
             .WithMethods(HttpMethods.Get, HttpMethods.Post)
             .WithHeaders("Accept", "Content-Type")
             .AllowCredentials());
@@ -346,6 +347,10 @@ app.MapPlatformRefreshCenter(
 app.MapOperationsRefresh(
     authorizedOperator,
     "SnapshotRefreshOperator");
+app.MapDailyOperationsSync(
+    authorizedOperator,
+    "SnapshotRefreshOperator");
+app.MapWorkOrderApprovals("SnapshotRefreshOperator");
 
 app.Run();
 

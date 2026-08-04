@@ -12,6 +12,15 @@ public enum CustomerFolderState
     ERROR
 }
 
+public enum RequirementsComplianceState
+{
+    NOT_CREATED,
+    AVAILABLE,
+    CUSTOMER_FOLDER_NOT_VERIFIED,
+    ACCESS_DENIED,
+    ERROR
+}
+
 public sealed record CanonicalCustomer(
     string CustomerNumber,
     string CustomerName);
@@ -28,6 +37,16 @@ public sealed record CustomerFolderStatus(
     bool CanCreate,
     string Message,
     bool NameWasSanitized = false);
+
+public sealed record RequirementsComplianceStatus(
+    string CustomerNumber,
+    CustomerFolderState CustomerFolderState,
+    RequirementsComplianceState RequirementsComplianceState,
+    string FolderName,
+    string? FolderPath,
+    bool CanCreate,
+    bool CanOpen,
+    string Message);
 
 public sealed record CustomerFolderManifestItem(
     string CustomerNumber,

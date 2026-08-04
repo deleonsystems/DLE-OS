@@ -1,0 +1,73 @@
+0010 REM "SYNC-001 focused WOE-01 O_RDONLY reader"
+0020 SETESC 12000
+0030 SETERR 12000
+0040 LET RUN$="__RUN_ID__",OUT$="__OUTPUT__",FAIL$="__FAILURE__",Q$=$22$,CH10=0,CH20=0,MSG$=""
+0050 WOE01A: IOLIST W0$(1),W1$(1),WN[ALL]
+0055 DIM W0$(75),W1$(141),WN[11]
+0060 OPEN (10,MODE="O_RDONLY",ERR=12100)"X:\AON\ADATA\WOE-01";LET CH10=1
+0070 LET F1$=FID(10),N1$=FIN(10),EXPECTED=DEC(N1$(77,4)),RLEN=DEC(F1$(7,2)),KLEN=ASC(F1$(2,1))
+0080 CLOSE (10);LET CH10=0
+0090 OPEN (20,MODE="O_CREATE,O_TRUNC",ERR=12200)OUT$;LET CH20=1
+0100 PRINT (20)"reader_specification_version,reader_program_version,extraction_run_id,source_file,source_key_raw,physical_record_length,physical_key_length,record_sequence,record_raw_material,woe_01a010_firm_id,woe_01a020_wo_location,woe_01a030_wo_number,woe_01a040_wo_type,woe_01a050_wo_category,woe_01a060_wo_status,woe_01a070_opened_date_raw_hex,woe_01a080_eststt_date_raw_hex,woe_01a090_estcmp_date_raw_hex,woe_01a100_act_st_date_raw_hex,woe_01a110_lstact_date_raw_hex,woe_01a120_closed_date_raw_hex,woe_01a130_customer_nbr,woe_01a140_order_number,woe_01a150_line_number,woe_01a160_unit_measure,woe_01a170_bill_rev,woe_01a180_warehouse_id,woe_01a190_item_number,woe_01a200_description_01,woe_01a200_description_02,woe_01a210_drawing_nbr,woe_01a220_drawing_rev,woe_01a230_cls_inp_date_raw_hex,woe_01a240_complete_flg,woe_01a250_recalc_flag,woe_01a260_lotser_flag,woe_01a270_pri_code,woe_01a280_sched_flag,woe_01a290_forecast,woe_01a300_reserved_str,woe_01a310_dealer_str,woe_01a320_sch_prod_qty,woe_01a330_reserved_num,woe_01a340_qty_cls_date,woe_01a350_cls_cst_date,woe_01a360_cls_inp_qty,woe_01a370_closed_cost,woe_01a380_est_yield,woe_01a390_reserved_num_01,woe_01a390_reserved_num_02,woe_01a400_dealer_num_01,woe_01a400_dealer_num_02,woe_01a400_dealer_num_03"
+0110 OPEN (10,MODE="O_RDONLY",ERR=12100)"X:\AON\ADATA\WOE-01";LET CH10=1,COUNT=0,PREV$=""
+0120 LET F2$=FID(10),N2$=FIN(10)
+0130 IF F2$<>F1$ OR DEC(N2$(77,4))<>EXPECTED THEN GOTO 12300
+0140 LET K$=KEY(10,END=9000)
+0150 IF COUNT>0 AND K$<=PREV$ THEN GOTO 12400
+0160 LET PREV$=K$
+0170 READ (10,END=9000)IOL=WOE01A
+0180 IF LEN(W0$)<75 THEN LET W0$=W0$+FILL(75-LEN(W0$))
+0190 IF LEN(W1$)<141 THEN LET W1$=W1$+FILL(141-LEN(W1$))
+0200 IF LEN(K$)<>11 OR K$<>W0$(1,11) THEN GOTO 12500
+0210 LET MAT$="S"+BIN(LEN(W0$),4)+W0$+"S"+BIN(LEN(W1$),4)+W1$
+0211 LET T$=STR(WN[0]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0212 LET T$=STR(WN[1]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0213 LET T$=STR(WN[2]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0214 LET T$=STR(WN[3]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0215 LET T$=STR(WN[4]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0216 LET T$=STR(WN[5]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0217 LET T$=STR(WN[6]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0218 LET T$=STR(WN[7]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0219 LET T$=STR(WN[8]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0220 LET T$=STR(WN[9]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0221 LET T$=STR(WN[10]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0222 LET T$=STR(WN[11]),MAT$=MAT$+"N"+BIN(LEN(T$),4)+T$
+0230 LET COUNT=COUNT+1
+0240 LET LINE$=Q$+"1.0.0"+Q$+","+Q$+"1.0.1-sync"+Q$+","+Q$+RUN$+Q$+","+Q$+"WOE-01"+Q$+","+Q$+HTA(K$)+Q$+","+STR(RLEN)+","+STR(KLEN)+","+STR(COUNT)+","+Q$+HTA(MAT$)+Q$
+0250 LET LINE$=LINE$+","+Q$+HTA(W0$(1,2))+Q$+","+Q$+HTA(W0$(3,2))+Q$+","+Q$+HTA(W0$(5,7))+Q$+","+Q$+HTA(W0$(12,2))+Q$+","+Q$+HTA(W0$(14,1))+Q$+","+Q$+HTA(W0$(15,1))+Q$
+0260 LET LINE$=LINE$+","+Q$+HTA(W0$(16,3))+Q$+","+Q$+HTA(W0$(19,3))+Q$+","+Q$+HTA(W0$(22,3))+Q$+","+Q$+HTA(W0$(25,3))+Q$+","+Q$+HTA(W0$(28,3))+Q$+","+Q$+HTA(W0$(31,3))+Q$
+0270 LET LINE$=LINE$+","+Q$+HTA(W0$(34,6))+Q$+","+Q$+HTA(W0$(40,7))+Q$+","+Q$+HTA(W0$(47,3))+Q$+","+Q$+HTA(W0$(50,2))+Q$+","+Q$+HTA(W0$(52,2))+Q$+","+Q$+HTA(W0$(54,2))+Q$+","+Q$+HTA(W0$(56,20))+Q$
+0280 LET LINE$=LINE$+","+Q$+HTA(W1$(1,30))+Q$+","+Q$+HTA(W1$(31,30))+Q$+","+Q$+HTA(W1$(61,25))+Q$+","+Q$+HTA(W1$(86,5))+Q$+","+Q$+HTA(W1$(91,3))+Q$
+0290 LET LINE$=LINE$+","+Q$+HTA(W1$(94,1))+Q$+","+Q$+HTA(W1$(95,1))+Q$+","+Q$+HTA(W1$(96,1))+Q$+","+Q$+HTA(W1$(97,1))+Q$+","+Q$+HTA(W1$(98,1))+Q$+","+Q$+HTA(W1$(99,3))+Q$+","+Q$+HTA(W1$(102,20))+Q$+","+Q$+HTA(W1$(122,20))+Q$
+0300 LET LINE$=LINE$+","+Q$+STR(WN[0])+Q$
+0301 LET LINE$=LINE$+","+Q$+STR(WN[1])+Q$
+0302 LET LINE$=LINE$+","+Q$+STR(WN[2])+Q$
+0303 LET LINE$=LINE$+","+Q$+STR(WN[3])+Q$
+0304 LET LINE$=LINE$+","+Q$+STR(WN[4])+Q$
+0305 LET LINE$=LINE$+","+Q$+STR(WN[5])+Q$
+0306 LET LINE$=LINE$+","+Q$+STR(WN[6])+Q$
+0307 LET LINE$=LINE$+","+Q$+STR(WN[7])+Q$
+0308 LET LINE$=LINE$+","+Q$+STR(WN[8])+Q$
+0309 LET LINE$=LINE$+","+Q$+STR(WN[9])+Q$
+0310 LET LINE$=LINE$+","+Q$+STR(WN[10])+Q$
+0311 LET LINE$=LINE$+","+Q$+STR(WN[11])+Q$
+0320 PRINT (20)LINE$
+0330 GOTO 140
+9000 LET F3$=FID(10),N3$=FIN(10)
+9010 IF COUNT<>EXPECTED OR F3$<>F1$ OR DEC(N3$(77,4))<>EXPECTED THEN GOTO 12300
+9020 CLOSE (10);LET CH10=0
+9030 CLOSE (20);LET CH20=0
+9040 RELEASE
+12000 LET MSG$="runtime error "+STR(ERR)+" at line "+STR(TCB(5));GOTO 12900
+12100 LET MSG$="O_RDONLY WOE-01 source open failed error "+STR(ERR);GOTO 12900
+12200 LET MSG$="candidate output open failed error "+STR(ERR);GOTO 12900
+12300 LET MSG$="WOE-01 source identity or record count changed during extraction";GOTO 12900
+12400 LET MSG$="WOE-01 native key order is not strictly increasing";GOTO 12900
+12500 LET MSG$="WOE-01 primary key does not match the generated record layout";GOTO 12900
+12900 IF CH10=1 THEN CLOSE (10,ERR=12910)
+12910 IF CH20=1 THEN CLOSE (20,ERR=12920)
+12920 OPEN (30,MODE="O_CREATE,O_TRUNC",ERR=12950)FAIL$
+12930 PRINT (30)MSG$;CLOSE (30)
+12950 PRINT MSG$
+12960 RELEASE
+12990 END

@@ -6,6 +6,28 @@
   transform: translateX(-50%);
 }
 
+.rfq2-search-status { margin: 10px 0 0; color: #b9d8ff; font-size: 12px; }
+.rfq2-search-status.error { color: #ffb1b1; }
+.rfq2-historical-results { display: grid; gap: 10px; margin-top: 12px; }
+.rfq2-historical-result {
+  padding: 12px;
+  border: 1px solid rgba(130, 170, 210, .22);
+  border-radius: 10px;
+  background: rgba(8, 18, 30, .62);
+}
+.rfq2-historical-result[data-match-scope="Same RFQ Customer"] { border-color: rgba(84, 207, 151, .45); }
+.rfq2-historical-result[data-match-type="PARTIAL"] { border-style: dashed; }
+.rfq2-historical-result-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.rfq2-historical-result-heading strong,
+.rfq2-historical-result-heading span { display: block; }
+.rfq2-historical-result-heading span { margin-top: 3px; color: var(--rfq2-muted); font-size: 12px; }
+
 .rfq2-workspace {
   --rfq2-surface: linear-gradient(145deg, rgba(16, 29, 45, .97), rgba(8, 16, 27, .98));
   --rfq2-surface-soft: rgba(5, 12, 21, .58);
@@ -752,6 +774,33 @@
 
 .rfq2-folder-message {
   color: var(--rfq2-muted);
+}
+
+.rfq2-optional-folder {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(130, 170, 210, .18);
+  border-radius: 7px;
+  background: rgba(5, 14, 25, .48);
+}
+
+.rfq2-optional-folder[data-requirements-state="AVAILABLE"] {
+  border-color: rgba(91, 198, 129, .34);
+}
+
+.rfq2-optional-folder[data-requirements-state="ACCESS_DENIED"],
+.rfq2-optional-folder[data-requirements-state="ERROR"] {
+  border-color: rgba(239, 106, 106, .44);
+}
+
+.rfq2-optional-folder p {
+  margin: 9px 0 0;
+  color: var(--rfq2-muted);
+  line-height: 1.45;
+}
+
+.rfq2-optional-folder .rfq2-folder-heading span {
+  color: #b9d8ff;
 }
 
 .rfq2-prospective-grid,

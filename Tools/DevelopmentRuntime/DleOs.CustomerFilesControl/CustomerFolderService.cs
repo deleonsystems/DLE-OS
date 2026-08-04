@@ -44,12 +44,16 @@ public sealed partial class CustomerFolderService
 {
     public const string GovernedRoot =
         @"\\DeLeon-Server\Production\Customer Files";
+    public const string RequirementsComplianceFolderName =
+        "00 Customer Requirements & Compliance";
     private readonly string _root;
     private readonly ICustomerDirectory _directory;
     private readonly ICustomerFileSystem _fileSystem;
     private readonly ILogger<CustomerFolderService> _logger;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _createGates =
         new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, SemaphoreSlim>
+        _requirementsCreateGates = new(StringComparer.Ordinal);
 
     public CustomerFolderService(
         string root,
@@ -208,6 +212,182 @@ public sealed partial class CustomerFolderService
             customers.Count,
             counts,
             items);
+    }
+
+    public async Task<RequirementsComplianceStatus>
+        VerifyRequirementsComplianceAsync(
+            string customerNumber,
+            CancellationToken cancellationToken)
+    {
+        var mainStatus = await VerifyAsync(customerNumber, cancellationToken);
+        if (mainStatus.FolderState != CustomerFolderState.VERIFIED)
+            return RequirementsBlocked(mainStatus);
+
+        var customerFolderPath = mainStatus.FolderPath
+            ?? throw new InvalidOperationException(
+                "A verified customer folder did not return a path.");
+        var requirementsPath = EnsureCustomerSubfolderPath(
+            customerFolderPath,
+            RequirementsComplianceFolderName);
+        try
+        {
+            if (
+                (_fileSystem.GetAttributes(customerFolderPath) &
+                    FileAttributes.ReparsePoint) != 0
+            )
+            {
+                return RequirementsState(
+                    mainStatus,
+                    RequirementsComplianceState.ERROR,
+                    requirementsPath,
+                    false,
+                    false,
+                    "The verified customer folder is unexpectedly redirected.");
+            }
+
+            var matches = _fileSystem.GetDirectoryNames(customerFolderPath)
+                .Where(name => string.Equals(
+                    name,
+                    RequirementsComplianceFolderName,
+                    StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (matches.Length > 1)
+            {
+                return RequirementsState(
+                    mainStatus,
+                    RequirementsComplianceState.ERROR,
+                    requirementsPath,
+                    false,
+                    false,
+                    "Multiple Requirements & Compliance folders were found.");
+            }
+            if (matches.Length == 0)
+            {
+                return RequirementsState(
+                    mainStatus,
+                    RequirementsComplianceState.NOT_CREATED,
+                    requirementsPath,
+                    true,
+                    false,
+                    "The optional customer-level folder has not been created.");
+            }
+
+            var resolvedPath = EnsureCustomerSubfolderPath(
+                customerFolderPath,
+                matches[0]);
+            var attributes = _fileSystem.GetAttributes(resolvedPath);
+            if (
+                (attributes & FileAttributes.Directory) == 0 ||
+                (attributes & FileAttributes.ReparsePoint) != 0
+            )
+            {
+                return RequirementsState(
+                    mainStatus,
+                    RequirementsComplianceState.ERROR,
+                    requirementsPath,
+                    false,
+                    false,
+                    "The optional folder is not a normal governed directory.");
+            }
+            return RequirementsState(
+                mainStatus,
+                RequirementsComplianceState.AVAILABLE,
+                resolvedPath,
+                false,
+                true,
+                "The optional customer-level folder is available.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return RequirementsState(
+                mainStatus,
+                RequirementsComplianceState.ACCESS_DENIED,
+                requirementsPath,
+                false,
+                false,
+                "The Customer Files identity cannot inspect the optional folder.");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Requirements & Compliance verification failed for {CustomerNumber}.",
+                mainStatus.CustomerNumber);
+            return RequirementsState(
+                mainStatus,
+                RequirementsComplianceState.ERROR,
+                requirementsPath,
+                false,
+                false,
+                "An unexpected controlled optional-folder failure occurred.");
+        }
+    }
+
+    public async Task<RequirementsComplianceStatus>
+        CreateRequirementsComplianceAsync(
+            string customerNumber,
+            CancellationToken cancellationToken)
+    {
+        var requestedNumber = customerNumber ?? "";
+        var gate = _requirementsCreateGates.GetOrAdd(
+            requestedNumber,
+            _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var status = await VerifyRequirementsComplianceAsync(
+                requestedNumber,
+                cancellationToken);
+            if (
+                status.RequirementsComplianceState !=
+                RequirementsComplianceState.NOT_CREATED
+            )
+                return status;
+
+            var targetPath = status.FolderPath
+                ?? throw new InvalidOperationException(
+                    "The optional folder path was not generated.");
+            try
+            {
+                _fileSystem.CreateDirectory(targetPath);
+                _logger.LogInformation(
+                    "Created Requirements & Compliance folder for {CustomerNumber}.",
+                    requestedNumber);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return status with
+                {
+                    RequirementsComplianceState =
+                        RequirementsComplianceState.ACCESS_DENIED,
+                    CanCreate = false,
+                    Message =
+                        "The Customer Files identity cannot create the optional folder."
+                };
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(
+                    exception,
+                    "Requirements & Compliance creation failed for {CustomerNumber}.",
+                    requestedNumber);
+                return status with
+                {
+                    RequirementsComplianceState =
+                        RequirementsComplianceState.ERROR,
+                    CanCreate = false,
+                    Message = "The optional customer-level folder could not be created."
+                };
+            }
+
+            return await VerifyRequirementsComplianceAsync(
+                requestedNumber,
+                cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     private CustomerFolderStatus VerifyResolved(CanonicalCustomer customer)
@@ -372,6 +552,90 @@ public sealed partial class CustomerFolderService
                 "The generated folder path escaped the governed root.");
         return fullPath;
     }
+
+    private string EnsureCustomerSubfolderPath(
+        string customerFolderPath,
+        string subfolderName)
+    {
+        if (
+            !string.Equals(
+                subfolderName,
+                RequirementsComplianceFolderName,
+                StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(customerFolderPath)
+        )
+            throw new InvalidOperationException(
+                "Only the governed Requirements & Compliance folder is supported.");
+        var resolvedCustomerFolder = Path.GetFullPath(
+            customerFolderPath).TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+        var governedPrefix = _root + Path.DirectorySeparatorChar;
+        if (!resolvedCustomerFolder.StartsWith(
+            governedPrefix,
+            StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "The customer folder escaped the governed root.");
+        var targetPath = Path.GetFullPath(Path.Combine(
+            resolvedCustomerFolder,
+            RequirementsComplianceFolderName));
+        if (!string.Equals(
+            Path.GetDirectoryName(targetPath),
+            resolvedCustomerFolder,
+            StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "The optional folder escaped the verified customer folder.");
+        return targetPath;
+    }
+
+    private static RequirementsComplianceStatus RequirementsBlocked(
+        CustomerFolderStatus mainStatus)
+    {
+        var requirementsState = mainStatus.FolderState switch
+        {
+            CustomerFolderState.ACCESS_DENIED =>
+                RequirementsComplianceState.ACCESS_DENIED,
+            CustomerFolderState.ERROR or
+            CustomerFolderState.ROOT_UNAVAILABLE =>
+                RequirementsComplianceState.ERROR,
+            _ => RequirementsComplianceState.CUSTOMER_FOLDER_NOT_VERIFIED
+        };
+        var message = requirementsState switch
+        {
+            RequirementsComplianceState.ACCESS_DENIED =>
+                "The main customer folder could not be inspected.",
+            RequirementsComplianceState.ERROR =>
+                "The main customer folder did not complete verification.",
+            _ =>
+                "Verify the main customer folder before using the optional folder."
+        };
+        return new RequirementsComplianceStatus(
+            mainStatus.CustomerNumber,
+            mainStatus.FolderState,
+            requirementsState,
+            RequirementsComplianceFolderName,
+            null,
+            false,
+            false,
+            message);
+    }
+
+    private static RequirementsComplianceStatus RequirementsState(
+        CustomerFolderStatus mainStatus,
+        RequirementsComplianceState state,
+        string path,
+        bool canCreate,
+        bool canOpen,
+        string message) =>
+        new(
+            mainStatus.CustomerNumber,
+            mainStatus.FolderState,
+            state,
+            RequirementsComplianceFolderName,
+            path,
+            canCreate,
+            canOpen,
+            message);
 
     private static string Message(CustomerFolderState state) => state switch
     {

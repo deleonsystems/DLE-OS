@@ -236,6 +236,9 @@
     if (action === "customer-page-next") loadCustomerPage(state.ui.customerPage + 1);
     if (action === "open-vpro5-customer-entry") requestVpro5CustomerEntry();
     if (action === "create-customer-folder") createSelectedCustomerFolder();
+    if (action === "create-requirements-compliance-folder") {
+      createSelectedRequirementsComplianceFolder();
+    }
     if (action === "start-prospective-customer") startProspectiveCustomer();
     if (action === "save-prospective-customer") saveProspectiveCustomer();
     if (action === "change-customer") openCustomerPicker();
@@ -306,6 +309,8 @@
       const search = getLineSearch(lineId);
       search.query = event.target.value;
       search.searchPerformed = false;
+      search.status = "idle";
+      search.error = "";
       search.results = [];
       clearValidation();
       return;
@@ -508,6 +513,11 @@
         data: null,
         error: ""
       },
+      requirementsComplianceResolution: {
+        status: "waiting",
+        data: null,
+        error: ""
+      },
       buyerContact: "",
       engineeringContact: "",
       email: "",
@@ -529,7 +539,13 @@
       data: null,
       error: ""
     };
+    state.customer.requirementsComplianceResolution = {
+      status: "waiting",
+      data: null,
+      error: ""
+    };
     renderWorkflowSteps();
+    let verifyRequirementsCompliance = false;
     try {
       if (!window.DleApiClient?.getCustomerFolderStatus) {
         throw new Error("Customer Files control is not available.");
@@ -541,6 +557,12 @@
         data: result,
         error: ""
       };
+      verifyRequirementsCompliance = result.folderState === "VERIFIED";
+      state.customer.requirementsComplianceResolution = {
+        status: verifyRequirementsCompliance ? "loading" : "blocked",
+        data: null,
+        error: ""
+      };
     } catch (error) {
       if (state.customer?.customerNumber !== selectedNumber) return;
       state.customer.folderResolution = {
@@ -548,9 +570,17 @@
         data: null,
         error: error?.message || String(error)
       };
+      state.customer.requirementsComplianceResolution = {
+        status: "blocked",
+        data: null,
+        error: ""
+      };
     }
     clearValidation();
     renderWorkflowSteps();
+    if (verifyRequirementsCompliance) {
+      await verifySelectedRequirementsComplianceFolder(selectedNumber);
+    }
   }
 
   async function createSelectedCustomerFolder() {
@@ -569,6 +599,11 @@
         data: result,
         error: ""
       };
+      state.customer.requirementsComplianceResolution = {
+        status: result.folderState === "VERIFIED" ? "loading" : "blocked",
+        data: null,
+        error: ""
+      };
     } catch (error) {
       if (state.customer?.customerNumber !== selectedNumber) return;
       state.customer.folderResolution = {
@@ -576,8 +611,85 @@
         data: null,
         error: error?.message || String(error)
       };
+      state.customer.requirementsComplianceResolution = {
+        status: "blocked",
+        data: null,
+        error: ""
+      };
     }
     clearValidation();
+    renderWorkflowSteps();
+    if (state.customer?.folderResolution?.data?.folderState === "VERIFIED") {
+      await verifySelectedRequirementsComplianceFolder(selectedNumber);
+    }
+  }
+
+  async function verifySelectedRequirementsComplianceFolder(selectedNumber) {
+    if (
+      !selectedNumber ||
+      state.customer?.customerNumber !== selectedNumber ||
+      state.customer?.folderResolution?.data?.folderState !== "VERIFIED"
+    ) return;
+    state.customer.requirementsComplianceResolution = {
+      status: "loading",
+      data: null,
+      error: ""
+    };
+    renderWorkflowSteps();
+    try {
+      if (!window.DleApiClient?.getRequirementsComplianceFolderStatus) {
+        throw new Error("Customer Files control is not available.");
+      }
+      const result =
+        await window.DleApiClient.getRequirementsComplianceFolderStatus(
+          selectedNumber
+        );
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.requirementsComplianceResolution = {
+        status: "ready",
+        data: result,
+        error: ""
+      };
+    } catch (error) {
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.requirementsComplianceResolution = {
+        status: "error",
+        data: null,
+        error: error?.message || String(error)
+      };
+    }
+    renderWorkflowSteps();
+  }
+
+  async function createSelectedRequirementsComplianceFolder() {
+    const selectedNumber = state.customer?.customerNumber;
+    const resolution = state.customer?.requirementsComplianceResolution;
+    if (
+      !selectedNumber ||
+      state.customer?.folderResolution?.data?.folderState !== "VERIFIED" ||
+      resolution?.data?.requirementsComplianceState !== "NOT_CREATED"
+    ) return;
+    resolution.status = "creating";
+    renderWorkflowSteps();
+    try {
+      const result =
+        await window.DleApiClient.createRequirementsComplianceFolder(
+          selectedNumber
+        );
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.requirementsComplianceResolution = {
+        status: "ready",
+        data: result,
+        error: ""
+      };
+    } catch (error) {
+      if (state.customer?.customerNumber !== selectedNumber) return;
+      state.customer.requirementsComplianceResolution = {
+        status: "error",
+        data: null,
+        error: error?.message || String(error)
+      };
+    }
     renderWorkflowSteps();
   }
 
@@ -661,41 +773,94 @@
     renderWorkflowSteps();
   }
 
-  function searchAssemblies(lineId) {
+  async function searchAssemblies(lineId) {
     const line = getLine(lineId);
     if (!line) return;
-    if (referenceCatalog.status !== "ready") {
-      setValidationError("Assembly reference data is not ready yet.", '[data-rfq-assembly-card="' + lineId + '"]');
-      return;
-    }
     const search = getLineSearch(lineId);
-    const query = search.query.trim().toLowerCase();
+    const query = search.query.trim();
     search.searchPerformed = true;
     search.mode = "search";
-    search.results = query
-      ? referenceCatalog.assemblies.filter(assembly => [assembly.assemblyNumber, assembly.description, assembly.drawingNumber]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(query))).slice(0, 10)
-      : [];
+    search.status = "searching";
+    search.error = "";
+    search.results = [];
     clearValidation();
+    renderAssemblyStep();
+    if (!query) {
+      search.status = "error";
+      search.error = "Enter an assembly number.";
+      renderAssemblyStep();
+      return;
+    }
+    try {
+      const response = await window.DleApiClient.searchHistoricalAssemblies(
+        query,
+        state.customer.customerNumber
+      );
+      search.results = Array.isArray(response?.results) ? response.results : [];
+      search.matchType = response?.matchType || "NONE";
+      search.status = search.results.length ? "results" : "empty";
+    } catch (error) {
+      search.status = "error";
+      search.error = error?.message || "Historical assembly search failed.";
+    }
     renderAssemblyStep();
   }
 
-  function selectExistingAssembly(lineId, assemblyId) {
+  async function selectExistingAssembly(lineId, assemblyId) {
     const line = getLine(lineId);
-    const assembly = referenceCatalog.assemblies.find(item => item.assemblyId === assemblyId);
-    if (!line || !assembly) return;
+    const search = getLineSearch(lineId);
+    const result = search.results.find(item => item.resultId === assemblyId);
+    if (!line || !result || !result.selectable) return;
     line.assembly = {
-      assemblyId: assembly.assemblyId,
-      resolution: "existing",
-      status: "Existing",
-      assemblyNumber: assembly.assemblyNumber,
-      description: assembly.description,
-      drawingNumber: assembly.drawingNumber,
-      availableRevisions: assembly.revisions.slice()
+      assemblyId: "HIST-" + sanitizeIdPart(result.resultId),
+      resolution: "historical",
+      status: "Verifying Customer Folder",
+      assemblyNumber: result.assemblyNumber,
+      description: "Historical shipment / invoice evidence",
+      drawingNumber: "",
+      availableRevisions: result.revision ? [result.revision] : [],
+      historicalResolution: {
+        ...result,
+        customerFolderState: "VERIFYING",
+        customerFolderPath: null,
+        resolutionStatus: "VERIFYING_CUSTOMER_FOLDER",
+        resolvedAt: null
+      }
     };
     line.revision = null;
     clearValidation();
+    renderWorkflowSteps();
+    try {
+      const folder = await window.DleApiClient.getCustomerFolderStatus(
+        result.historicalCustomerNumber
+      );
+      if (line.assembly?.historicalResolution?.resultId !== result.resultId) return;
+      const crossCustomer = result.matchScope === "Different Customer";
+      const unresolvedRevision = !result.revision ||
+        result.revisionState === "Historical Revision Conflict";
+      const resolutionStatus = crossCustomer
+        ? "CROSS_CUSTOMER_MATCH_REVIEW_REQUIRED"
+        : unresolvedRevision
+          ? "HISTORICAL_MATCH_REVISION_UNRESOLVED"
+          : folder?.folderState === "VERIFIED"
+            ? "HISTORICAL_MATCH_FOLDER_VERIFIED"
+            : "HISTORICAL_MATCH_FOLDER_ACTION_REQUIRED";
+      line.assembly.historicalResolution = {
+        ...line.assembly.historicalResolution,
+        customerFolderState: folder?.folderState || "ERROR",
+        customerFolderPath: folder?.folderPath || folder?.expectedFolderPath || null,
+        resolutionStatus,
+        resolvedAt: new Date().toISOString()
+      };
+      line.assembly.status = formatHistoricalResolutionStatus(resolutionStatus);
+    } catch (error) {
+      if (line.assembly?.historicalResolution?.resultId !== result.resultId) return;
+      line.assembly.historicalResolution.customerFolderState = "ERROR";
+      line.assembly.historicalResolution.resolutionStatus =
+        "HISTORICAL_MATCH_FOLDER_ACTION_REQUIRED";
+      line.assembly.historicalResolution.resolvedAt = new Date().toISOString();
+      line.assembly.status = "Historical Match — Folder Action Required";
+    }
     renderWorkflowSteps();
   }
 
@@ -800,6 +965,9 @@
       mode: "search",
       query: "",
       searchPerformed: false,
+      status: "idle",
+      error: "",
+      matchType: "NONE",
       results: [],
       newAssembly: { assemblyNumber: "", description: "" }
     };
@@ -884,7 +1052,12 @@
   }
 
   function areAssembliesResolved() {
-    return state.rfqLines.length > 0 && state.rfqLines.every(line => Boolean(line.assembly?.assemblyNumber));
+    return state.rfqLines.length > 0 && state.rfqLines.every(line => Boolean(
+      line.assembly?.assemblyNumber &&
+      (line.assembly.resolution !== "historical" ||
+        line.assembly.historicalResolution?.resolutionStatus ===
+          "HISTORICAL_MATCH_FOLDER_VERIFIED")
+    ));
   }
 
   function areRevisionsResolved() {
@@ -1011,7 +1184,10 @@
           status: line.assembly.status,
           assemblyNumber: line.assembly.assemblyNumber,
           description: line.assembly.description,
-          drawingNumber: line.assembly.drawingNumber
+          drawingNumber: line.assembly.drawingNumber,
+          historicalResolution: line.assembly.historicalResolution
+            ? { ...line.assembly.historicalResolution }
+            : null
         },
         revision: { ...line.revision },
         documents: line.documents.map(file => toDocumentMetadata(file, "RFQ Line " + (index + 1)))
@@ -1103,6 +1279,36 @@
       const matches = Array.isArray(folderData.matchedFolderNames)
         ? folderData.matchedFolderNames
         : [];
+      const requirements = state.customer.requirementsComplianceResolution || {};
+      const requirementsData = requirements.data || {};
+      const requirementsState = folderState !== "VERIFIED"
+        ? "CUSTOMER_FOLDER_NOT_VERIFIED"
+        : requirements.status === "loading"
+          ? "CHECKING"
+          : requirements.status === "creating"
+            ? "CREATING"
+            : requirements.status === "error"
+              ? "ERROR"
+              : requirementsData.requirementsComplianceState || "CHECKING";
+      const requirementsActions = [];
+      if (
+        requirementsState === "NOT_CREATED" &&
+        requirementsData.canCreate
+      ) {
+        requirementsActions.push(
+          '<button type="button" class="rfq2-button" data-rfq-action="create-requirements-compliance-folder">Create Folder</button>'
+        );
+      }
+      if (
+        requirementsState === "AVAILABLE" &&
+        requirementsData.canOpen
+      ) {
+        requirementsActions.push(
+          '<a class="rfq2-button rfq2-button-secondary" href="dle-customer-files://open-requirements/' +
+          encodeURIComponent(state.customer.customerNumber) +
+          '">Open Folder</a>'
+        );
+      }
       target.innerHTML = [
         '<div class="rfq2-resolution-summary">',
         '<div class="rfq2-resolution-heading"><div><span class="rfq2-resolution-badge">Existing Customer</span>',
@@ -1139,6 +1345,30 @@
             : folderState === "CREATING"
               ? "Creating and reverifying the governed customer folder..."
               : "Customer folder verification is required.")
+        ), '</p></div>',
+        '<div class="rfq2-optional-folder" data-requirements-state="',
+        escapeHtml(requirementsState), '">',
+        '<div class="rfq2-folder-heading"><div>',
+        '<strong>Customer Requirements &amp; Compliance</strong>',
+        '<span>Status: ', escapeHtml(
+          formatRequirementsComplianceState(requirementsState)
+        ), '</span></div>',
+        requirementsActions.join(""), '</div>',
+        '<p>Optional customer-level documents for NDAs, supplier questionnaires, quality requirements, terms, certifications, and related records.</p>',
+        requirementsData.folderPath
+          ? '<p><strong>Folder:</strong> ' +
+            escapeHtml(requirementsData.folderPath) + '</p>'
+          : '',
+        '<p class="rfq2-folder-message">', escapeHtml(
+          requirements.error ||
+          requirementsData.message ||
+          (requirementsState === "CUSTOMER_FOLDER_NOT_VERIFIED"
+            ? "Verify the main customer folder before using this optional folder."
+            : requirementsState === "CHECKING"
+              ? "Checking the optional customer-level folder..."
+              : requirementsState === "CREATING"
+                ? "Creating and reverifying the optional customer-level folder..."
+                : "Optional folder status is unavailable.")
         ), '</p></div></div>'
       ].join("");
       return;
@@ -1177,6 +1407,18 @@
       .toLowerCase()
       .replaceAll("_", " ")
       .replace(/\b\w/g, character => character.toUpperCase());
+  }
+
+  function formatRequirementsComplianceState(value) {
+    return {
+      NOT_CREATED: "Not Created",
+      AVAILABLE: "Available",
+      CUSTOMER_FOLDER_NOT_VERIFIED: "Customer Folder Required",
+      ACCESS_DENIED: "Access Denied",
+      ERROR: "Error",
+      CHECKING: "Checking",
+      CREATING: "Creating"
+    }[value] || "Unavailable";
   }
 
   function renderCustomerPicker() {
@@ -1255,7 +1497,7 @@
       ? '<div class="rfq2-line-list">' + state.rfqLines.map(renderAssemblyCard).join("") + '</div>'
       : '<p class="rfq2-empty-state">No RFQ Lines yet. Add a line for each assembly the customer wants quoted.</p>';
     target.innerHTML = [
-      '<div class="rfq2-lines-toolbar"><p>', escapeHtml(referenceCatalog.status === "ready" ? referenceCatalog.assemblies.length + " existing assemblies available for search." : "Assembly reference data is loading."), '</p>',
+      '<div class="rfq2-lines-toolbar"><p>Search qualified DLE-OS shipment and invoice history.</p>',
       '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="add-line">Add RFQ Line</button></div>',
       lineMarkup
     ].join("");
@@ -1265,13 +1507,24 @@
     const search = getLineSearch(line.lineId);
     let resolutionMarkup;
     if (line.assembly) {
+      const historical = line.assembly.historicalResolution;
       resolutionMarkup = [
         '<div class="rfq2-resolution-summary"><div class="rfq2-resolution-heading"><div><span class="rfq2-resolution-badge">', escapeHtml(line.assembly.status), '</span>',
         '<h4>', escapeHtml(line.assembly.assemblyNumber), '</h4></div>',
         '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="change-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '">Change Assembly</button></div>',
-        '<div class="rfq2-detail-grid">', detailItem("Assembly Number", line.assembly.assemblyNumber),
-        detailItem("Description", line.assembly.description || "Not provided"),
-        detailItem("Drawing Number", line.assembly.drawingNumber || "Not provided"), '</div></div>'
+        '<div class="rfq2-detail-grid">',
+        detailItem("Assembly Number", line.assembly.assemblyNumber),
+        historical ? detailItem("Revision", historical.revision || "Revision Not Recorded") : "",
+        historical ? detailItem("Revision State", historical.revisionState) : "",
+        historical ? detailItem("Historical Customer", historical.historicalCustomerNumber + " — " + historical.historicalCustomerName) : "",
+        historical ? detailItem("Match Scope", historical.matchScope) : "",
+        historical ? detailItem("Historical Source", historical.historicalSource) : "",
+        historical ? detailItem("Most Recent Date", historical.mostRecentHistoricalDate || "Not recorded") : "",
+        historical ? detailItem("Occurrence Count", historical.historicalOccurrenceCount) : "",
+        historical ? detailItem("Historical Reference", historical.selectedHistoricalReference) : "",
+        historical ? detailItem("Customer Folder State", historical.customerFolderState) : "",
+        historical ? detailItem("Customer Folder Path", historical.customerFolderPath || "Not available") : "",
+        '</div></div>'
       ].join("");
     } else if (search.mode === "new") {
       resolutionMarkup = [
@@ -1283,18 +1536,36 @@
       ].join("");
     } else {
       const results = search.results.length
-        ? '<div class="rfq2-search-results">' + search.results.map(assembly => [
-          '<button type="button" class="rfq2-search-result" data-rfq-action="select-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '" data-rfq-assembly-id="', escapeHtml(assembly.assemblyId), '">',
-          '<strong>', escapeHtml(assembly.assemblyNumber), '</strong><span>', escapeHtml(assembly.description || "No description"),
-          assembly.revisions.length ? ' · Revisions: ' + escapeHtml(assembly.revisions.join(", ")) : ' · No recorded revisions', '</span></button>'
+        ? '<div class="rfq2-historical-results">' + search.results.map(result => [
+          '<article class="rfq2-historical-result" data-match-scope="', escapeHtml(result.matchScope), '" data-match-type="', escapeHtml(result.matchType), '">',
+          '<div class="rfq2-historical-result-heading"><div><strong>', escapeHtml(result.assemblyNumber), '</strong><span>', escapeHtml(result.revision || "Revision Not Recorded"), '</span></div>',
+          result.selectable
+            ? '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="select-assembly" data-rfq-line-id="' + escapeHtml(line.lineId) + '" data-rfq-assembly-id="' + escapeHtml(result.resultId) + '">Select Historical Result</button>'
+            : '<span class="rfq2-resolution-badge">Partial — enter exact number</span>',
+          '</div><div class="rfq2-detail-grid">',
+          detailItem("Customer", result.historicalCustomerNumber + " — " + result.historicalCustomerName),
+          detailItem("Match Scope", result.matchScope),
+          detailItem("Revision State", result.revisionState),
+          detailItem("Historical Source", result.historicalSource),
+          detailItem("Most Recent Date", result.mostRecentHistoricalDate || "Not recorded"),
+          detailItem("Occurrence Count", result.historicalOccurrenceCount),
+          '</div></article>'
         ].join("")).join("") + '</div>'
-        : search.searchPerformed ? '<p class="rfq2-empty-state">No existing assemblies matched this search.</p>' : "";
+        : search.status === "empty"
+          ? '<p class="rfq2-empty-state">No historical assembly match was found in qualified DLE-OS shipment or invoice history.</p>'
+          : "";
+      const searchStatus = search.status === "searching"
+        ? '<p class="rfq2-search-status">Searching qualified shipment and invoice history…</p>'
+        : search.status === "error"
+          ? '<p class="rfq2-search-status error">' + escapeHtml(search.error) + '</p>'
+          : search.matchType === "PARTIAL"
+            ? '<p class="rfq2-search-status">No exact match was found. Partial results are informational and cannot resolve the RFQ Line.</p>'
+            : "";
       resolutionMarkup = [
-        '<div class="rfq2-search-panel"><h4>Existing Assembly?</h4><label class="rfq2-field"><span>Assembly Search</span>',
-        '<input data-rfq-assembly-search data-rfq-line-id="', escapeHtml(line.lineId), '" placeholder="Search assembly number, drawing, or description" value="', escapeHtml(search.query), '" /></label>',
-        '<div class="rfq2-search-actions"><button type="button" class="rfq2-button" data-rfq-action="search-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '">Search Assemblies</button>',
-        '<button type="button" class="rfq2-button rfq2-button-secondary" data-rfq-action="start-new-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '">Create New Assembly</button></div>',
-        results, '</div>'
+        '<div class="rfq2-search-panel"><h4>Historical Assembly Search</h4><label class="rfq2-field"><span>Assembly Number</span>',
+        '<input data-rfq-assembly-search data-rfq-line-id="', escapeHtml(line.lineId), '" placeholder="Enter the assembly number exactly" value="', escapeHtml(search.query), '" /></label>',
+        '<div class="rfq2-search-actions"><button type="button" class="rfq2-button" data-rfq-action="search-assembly" data-rfq-line-id="', escapeHtml(line.lineId), '"', search.status === "searching" ? ' disabled' : '', '>Search Assemblies</button></div>',
+        searchStatus, results, '</div>'
       ].join("");
     }
 
@@ -1307,6 +1578,15 @@
       '<label class="rfq2-field"><span>Line Notes</span><input data-rfq-line-field="notes" data-rfq-line-id="', escapeHtml(line.lineId), '" placeholder="Assembly-specific requirements" value="', escapeHtml(line.notes), '" /></label>',
       '</div>', resolutionMarkup, '</div></article>'
     ].join("");
+  }
+
+  function formatHistoricalResolutionStatus(status) {
+    return ({
+      HISTORICAL_MATCH_FOLDER_VERIFIED: "Historical Match — Folder Verified",
+      HISTORICAL_MATCH_FOLDER_ACTION_REQUIRED: "Historical Match — Folder Action Required",
+      HISTORICAL_MATCH_REVISION_UNRESOLVED: "Historical Match — Revision Unresolved",
+      CROSS_CUSTOMER_MATCH_REVIEW_REQUIRED: "Cross-Customer Match — Review Required"
+    })[status] || status;
   }
 
   function renderRevisionStep() {

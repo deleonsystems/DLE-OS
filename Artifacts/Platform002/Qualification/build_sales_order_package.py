@@ -7,7 +7,7 @@ import argparse
 import csv
 import hashlib
 import json
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -104,7 +104,8 @@ def main() -> int:
     if line_codes.get("S") not in ("S", "P"):
         raise ValueError("ARM-10 layout E does not qualify Standard line code S")
 
-    relation: dict[tuple[str, str, str], str] = {}
+    relation: dict[tuple[str, str, str], set[str]] = defaultdict(set)
+    relation_source: dict[tuple[str, str, str, str], dict[str, str]] = {}
     for row in read_rows(pass1 / "WOE03_FULL.csv"):
         if row["layout_id"] != "B":
             continue
@@ -112,7 +113,14 @@ def main() -> int:
         if len(key) < 28 or key[2:3] != "B":
             raise ValueError("invalid WOE-03 layout B key")
         rel_key = (key[3:9].strip(), key[9:16], key[16:19])
-        relation.setdefault(rel_key, key[21:28])
+        work_order_number = key[21:28].strip()
+        relation[rel_key].add(work_order_number)
+        relation_source[(*rel_key, work_order_number)] = {
+            "Woe03SourceKeyRaw": key,
+            "Woe03SourceRecordHash": hashlib.sha256(
+                bytes.fromhex(row["record_raw_hex"])
+            ).hexdigest().upper(),
+        }
 
     headers: dict[tuple[str, str], dict] = {}
     all_header_rows = 0
@@ -164,8 +172,15 @@ def main() -> int:
         description = memo.strip() or (
             inventory_row["ItemDescription"].strip() if inventory_row else ""
         )
-        candidate_wo = relation.get((customer, sales_order, line_number))
-        work_order = work_orders.get((candidate_wo or "").strip())
+        candidates = sorted(relation.get((customer, sales_order, line_number), set()))
+        invalid_candidates = [candidate for candidate in candidates if candidate not in work_orders]
+        if invalid_candidates:
+            raise ValueError(
+                "WOE-03 relationship references missing canonical Work Orders: "
+                + ", ".join(invalid_candidates[:5])
+            )
+        candidate_wo = candidates[0] if len(candidates) == 1 else None
+        work_order = work_orders.get(candidate_wo or "")
         work_order_number = work_order["WorkOrderNumber"] if work_order else None
         scheduled = work_order["SchProdQuantity"] if work_order else None
         bill = bills.get(item_number)
@@ -176,6 +191,7 @@ def main() -> int:
         stats["customerUnresolved"] += customer not in customers
         stats["workOrderResolved"] += work_order is not None
         stats["workOrderUnresolved"] += work_order is None
+        stats["workOrderAmbiguous"] += len(candidates) > 1
         stats["inventoryResolved"] += inventory_row is not None
         stats["inventoryUnresolved"] += inventory_row is None
         stats["bomResolved"] += bill is not None
@@ -220,12 +236,118 @@ def main() -> int:
         )
     )
 
+    open_order_keys = set(headers)
+    expected_direct_for_open_orders = {
+        (
+            work_order["CustomerNumber"].strip(),
+            work_order["SalesOrderNumber"].strip(),
+            work_order["SalesOrderLineNumber"].strip(),
+            work_order["WorkOrderNumber"].strip(),
+        )
+        for work_order in work_orders.values()
+        if (
+            work_order["CustomerNumber"].strip(),
+            work_order["SalesOrderNumber"].strip(),
+        ) in open_order_keys
+        and work_order["SalesOrderLineNumber"].strip()
+        and work_order["WorkOrderNumber"].strip()
+    }
+    if expected_direct_for_open_orders and not relation:
+        raise ValueError(
+            "WOE-03 relationship output is empty while canonical WOE-01 contains "
+            f"{len(expected_direct_for_open_orders)} direct relationships; promotion is blocked"
+        )
+    relationship_rows: list[dict] = []
+    relationship_keys: set[tuple[str, str, str, str]] = set()
+    for work_order in work_orders.values():
+        customer = work_order["CustomerNumber"].strip()
+        sales_order = work_order["SalesOrderNumber"].strip()
+        anchor_line = work_order["SalesOrderLineNumber"].strip()
+        work_order_number = work_order["WorkOrderNumber"].strip()
+        if ((customer, sales_order) not in open_order_keys or
+                not anchor_line or not work_order_number):
+            continue
+        source = relation_source.get(
+            (customer, sales_order, anchor_line, work_order_number), {})
+        relationship_rows.append({
+            "CustomerNumber": customer,
+            "SalesOrderNumber": sales_order,
+            "AnchorSalesOrderLine": anchor_line,
+            "WorkOrderNumber": work_order_number,
+            "WorkOrderItemNumber": work_order["ItemNumber"].strip(),
+            "ScheduledProductionQuantity": work_order["SchProdQuantity"].strip(),
+            "BomRevision": work_order["BomRevision"].strip(),
+            "DrawingNumber": work_order["DrawingNumber"].strip(),
+            "DrawingRevision": work_order["DrawingRevision"].strip(),
+            "RelationshipSource": (
+                "WOE03_B+WOE01_DIRECT" if source else "WOE01_DIRECT"
+            ),
+            "SourceSnapshotId": "",
+            "Woe03SourceKeyRaw": source.get("Woe03SourceKeyRaw", ""),
+            "Woe03SourceRecordHash": source.get("Woe03SourceRecordHash", ""),
+            "WorkOrderSourceKeyRaw": work_order["SourceKeyRaw"],
+            "WorkOrderSourceRecordHash": work_order["SourceRecordHash"],
+        })
+        relationship_keys.add((customer, sales_order, anchor_line, work_order_number))
+    for (customer, sales_order, anchor_line), candidates in relation.items():
+        if (customer, sales_order) not in open_order_keys:
+            continue
+        for work_order_number in candidates:
+            relationship_key = (customer, sales_order, anchor_line, work_order_number)
+            if relationship_key in relationship_keys:
+                continue
+            work_order = work_orders[work_order_number]
+            source = relation_source[relationship_key]
+            relationship_rows.append({
+                "CustomerNumber": customer,
+                "SalesOrderNumber": sales_order,
+                "AnchorSalesOrderLine": anchor_line,
+                "WorkOrderNumber": work_order_number,
+                "WorkOrderItemNumber": work_order["ItemNumber"].strip(),
+                "ScheduledProductionQuantity": work_order["SchProdQuantity"].strip(),
+                "BomRevision": work_order["BomRevision"].strip(),
+                "DrawingNumber": work_order["DrawingNumber"].strip(),
+                "DrawingRevision": work_order["DrawingRevision"].strip(),
+                "RelationshipSource": "WOE03_B",
+                "SourceSnapshotId": "",
+                "Woe03SourceKeyRaw": source["Woe03SourceKeyRaw"],
+                "Woe03SourceRecordHash": source["Woe03SourceRecordHash"],
+                "WorkOrderSourceKeyRaw": work_order["SourceKeyRaw"],
+                "WorkOrderSourceRecordHash": work_order["SourceRecordHash"],
+            })
+    relationship_rows.sort(key=lambda row: (
+        row["CustomerNumber"], row["SalesOrderNumber"],
+        row["AnchorSalesOrderLine"], row["WorkOrderNumber"]))
+    stats["woe03RelationshipEvidence"] = len(relation_source)
+    stats["woe01DirectRelationshipEvidence"] = len(expected_direct_for_open_orders)
+    stats["governedRelationshipEvidence"] = len(relationship_rows)
+
     canonical = args.output / "Canonical"
     write_csv(canonical / "Customer.csv", list(customer_rows[0]), customer_rows)
     write_csv(canonical / "SalesOrder.csv", list(sales_orders[0]), sales_orders)
     write_csv(canonical / "SalesOrderLine.csv", list(lines[0]), lines)
 
     base_manifest = json.loads((args.base_package / "manifest.json").read_text(encoding="utf-8-sig"))
+    source_snapshot_id = (
+        base_manifest.get("RunId")
+        or base_manifest.get("runId")
+        or base_manifest.get("run_id")
+        or ""
+    )
+    for relationship_row in relationship_rows:
+        relationship_row["SourceSnapshotId"] = source_snapshot_id
+    relationship_columns = [
+        "CustomerNumber", "SalesOrderNumber", "AnchorSalesOrderLine",
+        "WorkOrderNumber", "WorkOrderItemNumber", "ScheduledProductionQuantity",
+        "BomRevision", "DrawingNumber", "DrawingRevision", "RelationshipSource",
+        "SourceSnapshotId", "Woe03SourceKeyRaw", "Woe03SourceRecordHash",
+        "WorkOrderSourceKeyRaw", "WorkOrderSourceRecordHash",
+    ]
+    write_csv(
+        canonical / "SalesOrderWorkOrderRelationship.csv",
+        relationship_columns,
+        relationship_rows,
+    )
     base_hash = sha256_file(args.base_package / "manifest.json")
     manifest = {
         "schema": "DLE_PLATFORM_SALES_ORDER_EXTENSION_V1",
@@ -244,6 +366,7 @@ def main() -> int:
             "Customer": len(customer_rows),
             "SalesOrder": len(sales_orders),
             "SalesOrderLine": len(lines),
+            "SalesOrderWorkOrderRelationship": len(relationship_rows),
         },
         "validation": dict(stats),
         "sourceQualification": "VPRO_KEY_RAWRECORD_SHA256_V1 and VPRO_DECODED_RECORD_SHA256_V1",

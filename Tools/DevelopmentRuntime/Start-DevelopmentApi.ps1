@@ -2,7 +2,8 @@
 param(
     [switch] $ElevatedStage,
     [string] $EvidencePath,
-    [switch] $ReplaceDevelopmentApi
+    [switch] $ReplaceDevelopmentApi,
+    [switch] $ReloadQualifiedBoundary
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,6 +21,10 @@ $sourceApiAssembly = Join-Path $sourceRuntimeRoot 'DleOs.DevelopmentApi.dll'
 $dotnetPath = 'C:\Program Files\dotnet\dotnet.exe'
 $readinessUri =
     'http://127.0.0.1:5052/api/platform/live/v1/readiness'
+
+if ($ReplaceDevelopmentApi -and $ReloadQualifiedBoundary) {
+    throw 'Choose replacement or qualified-boundary reload, not both.'
+}
 
 function Test-Elevated {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -50,7 +55,7 @@ if (-not $ElevatedStage) {
         throw "Launcher requires $operatorIdentity."
     }
     if ($null -ne (Get-Listener 5052)) {
-        if (-not $ReplaceDevelopmentApi) {
+        if (-not ($ReplaceDevelopmentApi -or $ReloadQualifiedBoundary)) {
             throw 'Port 5052 is already in use.'
         }
     }
@@ -66,6 +71,9 @@ if (-not $ElevatedStage) {
     )
     if ($ReplaceDevelopmentApi) {
         $arguments += '-ReplaceDevelopmentApi'
+    }
+    if ($ReloadQualifiedBoundary) {
+        $arguments += '-ReloadQualifiedBoundary'
     }
     $child = Start-Process powershell.exe `
         -ArgumentList $arguments `
@@ -93,15 +101,26 @@ if (-not (Test-Elevated)) {
 if ([string]::IsNullOrWhiteSpace($EvidencePath)) {
     throw 'Elevated development launch evidence path is required.'
 }
-if (-not (Test-Path -LiteralPath $sourceApiAssembly -PathType Leaf)) {
+if (
+    -not $ReloadQualifiedBoundary -and
+    -not (Test-Path -LiteralPath $sourceApiAssembly -PathType Leaf)
+) {
     throw "Development API assembly is absent: $sourceApiAssembly"
 }
 if (-not (Test-Path -LiteralPath $dotnetPath -PathType Leaf)) {
     throw "The fixed .NET runtime is absent: $dotnetPath"
 }
 $existingDevelopmentPid = Get-Listener 5052
+$existingAssemblyHash = $null
+if ($ReloadQualifiedBoundary) {
+    if (-not (Test-Path -LiteralPath $apiAssembly -PathType Leaf)) {
+        throw 'The deployed development API assembly is absent.'
+    }
+    $existingAssemblyHash =
+        (Get-FileHash -Algorithm SHA256 -LiteralPath $apiAssembly).Hash
+}
 if ($null -ne $existingDevelopmentPid) {
-    if (-not $ReplaceDevelopmentApi) {
+    if (-not ($ReplaceDevelopmentApi -or $ReloadQualifiedBoundary)) {
         throw 'Port 5052 is already in use.'
     }
     $previousEvidencePath = Join-Path (
@@ -129,16 +148,18 @@ $productionBefore = [ordered]@{
     Api = Get-Listener 5042
 }
 
-New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
-Copy-Item `
-    -Path (Join-Path $sourceRuntimeRoot '*') `
-    -Destination $runtimeRoot `
-    -Recurse `
-    -Force
-$aclResult = & icacls.exe $runtimeRoot /grant (
-    "${runtimeIdentity}:(OI)(CI)(RX)") /T /C
-if ($LASTEXITCODE -ne 0) {
-    throw "Unable to grant development runtime read access: $aclResult"
+if (-not $ReloadQualifiedBoundary) {
+    New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+    Copy-Item `
+        -Path (Join-Path $sourceRuntimeRoot '*') `
+        -Destination $runtimeRoot `
+        -Recurse `
+        -Force
+    $aclResult = & icacls.exe $runtimeRoot /grant (
+        "${runtimeIdentity}:(OI)(CI)(RX)") /T /C
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to grant development runtime read access: $aclResult"
+    }
 }
 if (-not (Test-Path -LiteralPath $apiAssembly -PathType Leaf)) {
     throw "Staged development API assembly is absent: $apiAssembly"
@@ -199,6 +220,8 @@ $evidence = [ordered]@{
     WindowsIdentity = $runtimeIdentity
     ProductionBefore = $productionBefore
     RuntimeRoot = $runtimeRoot
+    ReloadQualifiedBoundary = [bool]$ReloadQualifiedBoundary
+    AssemblySha256Before = $existingAssemblyHash
 }
 
 try {
@@ -288,6 +311,14 @@ try {
     }
 
     $evidence.ProcessId = $process.Id
+    $evidence.AssemblySha256After =
+        (Get-FileHash -Algorithm SHA256 -LiteralPath $apiAssembly).Hash
+    if (
+        $ReloadQualifiedBoundary -and
+        $evidence.AssemblySha256After -cne $existingAssemblyHash
+    ) {
+        throw 'The development API assembly changed during boundary reload.'
+    }
     $evidence.Readiness = $readiness
     $evidence.ReadinessProbeError = $readinessProbeError
     $evidence.ProductionAfter = $productionAfter

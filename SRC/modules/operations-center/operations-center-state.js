@@ -8,8 +8,7 @@
   window.OperationsCenter = window.OperationsCenter || {};
 
   const overlaySchema = window.OperationsCenter.overlaySchema;
-  const overlayFields = (window.OperationsCenter.overlayFields || [])
-    .filter(field => !field.documentLink);
+  const persistedFieldKeys = overlaySchema.persistedFieldKeys || [];
 
   const state = {
     overlayByKey: {},
@@ -21,7 +20,18 @@
     dirty: false,
     createdAt: '',
     lastUpdated: '',
-    persistenceMode: 'Not Loaded'
+    persistenceMode: 'Not Loaded',
+    canonicalRows: [],
+    canonicalLoading: false,
+    canonicalLoaded: false,
+    canonicalError: '',
+    canonicalStale: false,
+    canonicalLoadedAt: '',
+    canonicalRecordCount: 0,
+    canonicalTotalItems: 0,
+    canonicalSource: 'DLE_OS_CANONICAL_LIVE',
+    canonicalEndpoint: '/api/platform/live/v1/sales-orders',
+    canonicalRequestId: 0
   };
 
   function setOverlayDataset(dataset, options = {}) {
@@ -48,7 +58,7 @@
   }
 
   function updateOverlayField(masterRecordKey, field, value) {
-    if (!masterRecordKey || !overlayFields.some(item => item.key === field)) return false;
+    if (!masterRecordKey || !persistedFieldKeys.includes(field)) return false;
 
     state.dirtyOverlayByKey[masterRecordKey] = {
       ...overlaySchema.blankOverlayFields(),
@@ -92,13 +102,47 @@
     state.fileHandle = options.fileHandle || state.fileHandle;
   }
 
+  function beginCanonicalLoad() {
+    state.canonicalLoading = true;
+    state.canonicalError = '';
+    state.canonicalStale = state.canonicalLoaded && state.canonicalRows.length > 0;
+    state.canonicalRequestId += 1;
+    return state.canonicalRequestId;
+  }
+
+  function commitCanonicalLoad(result, requestId) {
+    if (requestId !== state.canonicalRequestId) return false;
+    state.canonicalRows = Array.isArray(result?.rows) ? result.rows : [];
+    state.canonicalLoading = false;
+    state.canonicalLoaded = true;
+    state.canonicalError = '';
+    state.canonicalStale = false;
+    state.canonicalLoadedAt = result.loadedAt || new Date().toISOString();
+    state.canonicalRecordCount = state.canonicalRows.length;
+    state.canonicalTotalItems = Number(result.totalItems ?? state.canonicalRows.length);
+    state.canonicalSource = result.source || state.canonicalSource;
+    state.canonicalEndpoint = result.endpoint || state.canonicalEndpoint;
+    return true;
+  }
+
+  function failCanonicalLoad(error, requestId) {
+    if (requestId !== state.canonicalRequestId) return false;
+    state.canonicalLoading = false;
+    state.canonicalError = String(error?.message || error || 'Canonical Sales Orders is unavailable.');
+    state.canonicalStale = state.canonicalLoaded && state.canonicalRows.length > 0;
+    return true;
+  }
+
   window.OperationsCenter.state = state;
   window.OperationsCenter.stateActions = {
     setOverlayDataset,
     getOverlayRecord,
     updateOverlayField,
     buildPendingOverlayByKey,
-    commitSavedOverlay
+    commitSavedOverlay,
+    beginCanonicalLoad,
+    commitCanonicalLoad,
+    failCanonicalLoad
   };
 
   window.operationsCenterState = state;

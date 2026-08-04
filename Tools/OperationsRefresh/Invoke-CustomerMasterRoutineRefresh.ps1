@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [switch] $QualificationInduceFailure,
+    [switch] $CandidateOnly,
     [ValidateRange(0, 30)]
     [int] $QualificationHoldLockSeconds = 0
 )
@@ -127,6 +128,24 @@ try {
             --current $comparisonRoot | ConvertFrom-Json)
     if ($LASTEXITCODE -ne 0) {
         throw "Customer package comparison returned $LASTEXITCODE."
+    }
+    if ($CandidateOnly) {
+        $result = [ordered]@{
+            Result = 'CANDIDATE_READY'
+            RefreshRunId = $runId
+            PackagePath = $package
+            PackageSha256 = (
+                Get-Content -LiteralPath (Join-Path $package 'package.sha256') -Raw
+            ).Trim()
+            Counts = $comparison
+            RecordCount = $customerRecordCount
+            Promoted = $false
+            PriorDataRetained = $true
+        }
+        Write-Status $result.Result 'Customer Master candidate is ready for coordinated promotion.' $result `
+            'Candidate Ready' $customerRecordCount $customerRecordCount
+        $result | ConvertTo-Json -Depth 10
+        exit 0
     }
     if ($comparison.result -ceq 'NO_SOURCE_CHANGES') {
         $result = [ordered]@{

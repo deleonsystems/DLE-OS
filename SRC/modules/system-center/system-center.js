@@ -6,6 +6,7 @@
   let platformRefreshCenterBusy = false;
   let operationsRefreshScheduleEnabled = false;
   let operationsRefreshPollTimer = null;
+  let dailyOperationsSyncPollTimer = null;
 
   const shipmentHistoryDataViewerState = {
     dataset: null,
@@ -48,7 +49,10 @@
       await loadSystemCenterReconciliationWorkspace();
     }
 
-    await refreshPlatformRefreshCenter();
+    await Promise.all([
+      refreshPlatformRefreshCenter(),
+      refreshDailyOperationsSyncStatus()
+    ]);
     refreshShipmentHistoryDataViewer();
   }
 
@@ -85,6 +89,83 @@
       summary.textContent = `Refresh Center unavailable: ${error.message || error}`;
       grid.innerHTML = '<div class="refresh-center-empty">Governed status could not be loaded. Existing Platform data remains read-only and unchanged.</div>';
       warnings.hidden = true;
+    }
+  }
+
+  async function refreshDailyOperationsSyncStatus() {
+    const state = document.getElementById('dailyOperationsSyncState');
+    const facts = document.getElementById('dailyOperationsSyncFacts');
+    const components = document.getElementById('dailyOperationsSyncComponents');
+    const failure = document.getElementById('dailyOperationsSyncFailure');
+    const button = document.getElementById('dailyOperationsSyncRunButton');
+    if (!state || !facts || !components || !failure || !button) return;
+    try {
+      const client = window.DleApiClient.liveCanonical;
+      const [status, latest, lastSuccessful] = await Promise.all([
+        client.getDailyOperationsSyncStatus(),
+        client.getDailyOperationsSyncLatest(),
+        client.getDailyOperationsSyncLastSuccessful()
+      ]);
+      const current = status.RunId || status.runId ? status : latest;
+      const overall = current.OverallStatus || current.overallStatus || 'READY';
+      const running = overall === 'RUNNING';
+      state.textContent = overall;
+      button.disabled = running;
+      button.textContent = running ? 'Synchronization Running…' : 'Run Daily Operations Synchronization';
+      facts.innerHTML = `
+        <div><span>Last successful synchronization</span><strong>${escapeShipmentHistoryViewerHtml(formatRefreshCenterDate(lastSuccessful.CompletedAtUtc || lastSuccessful.completedAtUtc))}</strong></div>
+        <div><span>Run ID</span><strong>${escapeShipmentHistoryViewerHtml(current.RunId || current.runId || '—')}</strong></div>
+        <div><span>Duration</span><strong>${escapeShipmentHistoryViewerHtml(formatOperationsRefreshDuration(current.DurationSeconds ?? current.durationSeconds))}</strong></div>
+        <div><span>Import run ID</span><strong>${escapeShipmentHistoryViewerHtml(current.ImportRunId || current.importRunId || '—')}</strong></div>`;
+      const items = current.Components || current.components || [];
+      components.innerHTML = items.map(item => {
+        const label = ({
+          'customer-master': 'Customer Master', 'sales-orders': 'Sales Orders',
+          'work-orders': 'Work Orders', 'relationships': 'Work Order Relationships',
+          validation: 'Validation', promotion: 'SQL Promotion',
+          'boundary-finalization': 'Qualified Boundary',
+          'api-5042-readiness': 'Production API 5042',
+          'api-5052-readiness': 'Development API 5052'
+        })[item.Id || item.id] || item.Id || item.id || item;
+        const itemState = item.Status || item.status || 'Pending';
+        const count = item.RecordCount ?? item.recordCount;
+        return `<div class="daily-operations-sync-component"><span>${escapeShipmentHistoryViewerHtml(label)}</span><strong data-state="${escapeShipmentHistoryViewerHtml(String(itemState).toLowerCase())}">${escapeShipmentHistoryViewerHtml(itemState)}${count == null ? '' : ` · ${Number(count).toLocaleString()} records`}</strong></div>`;
+      }).join('') || '<div class="refresh-center-empty">No synchronization run recorded.</div>';
+      const reason = current.FailureReason || current.failureReason;
+      failure.hidden = !reason;
+      const promotedFinalizationFailed =
+        overall === 'PROMOTED_FINALIZATION_FAILED';
+      failure.textContent = reason
+        ? promotedFinalizationFailed
+          ? `Data promotion succeeded; API readiness finalization failed: ${reason}`
+          : `Not promoted: ${reason}`
+        : '';
+      if (dailyOperationsSyncPollTimer) clearTimeout(dailyOperationsSyncPollTimer);
+      dailyOperationsSyncPollTimer = running
+        ? setTimeout(refreshDailyOperationsSyncStatus, 2000)
+        : null;
+    } catch (error) {
+      state.textContent = 'UNAVAILABLE';
+      button.disabled = false;
+      failure.hidden = false;
+      failure.textContent = `Daily Operations Synchronization status unavailable: ${error.message || error}`;
+    }
+  }
+
+  async function runDailyOperationsSynchronization() {
+    const button = document.getElementById('dailyOperationsSyncRunButton');
+    if (!button || button.disabled) return;
+    button.disabled = true;
+    try {
+      await window.DleApiClient.liveCanonical.runDailyOperationsSync();
+    } catch (error) {
+      const failure = document.getElementById('dailyOperationsSyncFailure');
+      if (failure) {
+        failure.hidden = false;
+        failure.textContent = error.message || String(error);
+      }
+    } finally {
+      await refreshDailyOperationsSyncStatus();
     }
   }
 
@@ -794,5 +875,6 @@
   window.runPlatformForceFullRefresh = runPlatformForceFullRefresh;
   window.runOperationsRefresh = runOperationsRefresh;
   window.toggleOperationsRefreshSchedule = toggleOperationsRefreshSchedule;
+  window.runDailyOperationsSynchronization = runDailyOperationsSynchronization;
 })();
 

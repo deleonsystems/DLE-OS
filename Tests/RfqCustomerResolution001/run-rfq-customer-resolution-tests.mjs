@@ -12,6 +12,7 @@ const controller = fs.readFileSync(path.join(root, "Tools/CustomerMaster/ServerO
 const customerFilesProgram = fs.readFileSync(path.join(root, "Tools/DevelopmentRuntime/DleOs.CustomerFilesControl/Program.cs"), "utf8");
 const customerFilesService = fs.readFileSync(path.join(root, "Tools/DevelopmentRuntime/DleOs.CustomerFilesControl/CustomerFolderService.cs"), "utf8");
 const customerFilesLauncher = fs.readFileSync(path.join(root, "Tools/DevelopmentRuntime/CustomerFilesLauncher/Invoke-CustomerFilesProtocol.ps1"), "utf8");
+const vpro5Launcher = fs.readFileSync(path.join(root, "Tools/DevelopmentRuntime/VPro5Launcher/Invoke-VPro5Protocol.ps1"), "utf8");
 const results = [];
 
 async function test(name, action) {
@@ -177,7 +178,11 @@ await test("25_customer_files_routes_are_bounded", () => {
   assert.doesNotMatch(customerFilesProgram, /MapDelete|MapPut|MapPatch/);
 });
 await test("26_open_folder_protocol_is_bounded", () => {
-  assert.match(customerFilesLauncher, /dle-customer-files:\/\/open\/\(\?<number>\\d\{6\}\)/);
+  assert.match(
+    customerFilesLauncher,
+    /\(\?<action>open\|open-requirements\)/
+  );
+  assert.match(customerFilesLauncher, /\(\?<number>\\d\{6\}\)\$/);
   assert.match(customerFilesLauncher, /matches\.Count -ne 1/);
   assert.doesNotMatch(
     customerFilesLauncher,
@@ -189,6 +194,98 @@ await test("27_customer_folder_errors_preserve_selection", () => {
   assert.doesNotMatch(
     workspace.match(/async function verifySelectedCustomerFolder\(\)[\s\S]*?\n  \}/)?.[0] || "",
     /state\.customer\s*=\s*null/
+  );
+});
+await test("28_requirements_api_client_is_bounded", () => {
+  assert.match(api, /getRequirementsComplianceFolderStatus/);
+  assert.match(api, /createRequirementsComplianceFolder/);
+  assert.match(
+    api,
+    /customers\/' \+[\s\S]*?requirements-compliance/
+  );
+  assert.doesNotMatch(
+    api,
+    /createRequirementsComplianceFolder\([^)]*(?:path|folderName)/i
+  );
+});
+await test("29_requirements_routes_reject_parameters", () => {
+  assert.match(
+    customerFilesProgram,
+    /customers\/\{customerNumber\}\/requirements-compliance/g
+  );
+  assert.match(
+    customerFilesProgram,
+    /request\.ContentLength is > 0 \|\| request\.QueryString\.HasValue/
+  );
+  assert.match(
+    customerFilesProgram,
+    /request_parameters_not_allowed/
+  );
+  assert.doesNotMatch(customerFilesProgram, /MapDelete|MapPut|MapPatch/);
+});
+await test("30_requirements_protocol_actions_are_fixed", () => {
+  assert.match(
+    customerFilesLauncher,
+    /\(\?<action>open\|open-requirements\)/
+  );
+  assert.match(
+    customerFilesLauncher,
+    /00 Customer Requirements & Compliance/
+  );
+  assert.match(
+    customerFilesLauncher,
+    /requirementsComplianceState -cne 'AVAILABLE'/
+  );
+  assert.doesNotMatch(
+    customerFilesLauncher,
+    /\[string\]\s+\$(?:Path|FolderName|SubfolderName)/i
+  );
+});
+await test("31_existing_launchers_remain_guarded", () => {
+  assert.match(customerFilesLauncher, /(?<action>open\|open-requirements)/);
+  assert.match(vpro5Launcher, /dle-vpro5:\/\/customer\/new/);
+  assert.match(vpro5Launcher, /Visual PRO5 Prod\.lnk/);
+});
+await test("32_requirements_ui_lifecycle", () => {
+  assert.match(workspace, /requirementsComplianceResolution/);
+  assert.match(workspace, /create-requirements-compliance-folder/);
+  assert.match(workspace, /dle-customer-files:\/\/open-requirements\//);
+  assert.match(workspace, /Customer Requirements &amp; Compliance/);
+  assert.match(workspace, /CUSTOMER_FOLDER_NOT_VERIFIED/);
+});
+await test("33_requirements_absence_does_not_block_validation", () => {
+  const resolvedFunction =
+    workspace.match(/function isCustomerResolved\(\)[\s\S]*?\n  \}/)?.[0] || "";
+  assert.match(resolvedFunction, /folderState === "VERIFIED"/);
+  assert.doesNotMatch(
+    resolvedFunction,
+    /requirementsCompliance|NOT_CREATED|AVAILABLE/
+  );
+});
+await test("34_customer_change_clears_optional_state", () => {
+  const changeFunction =
+    workspace.match(/function changeCustomer\(\)[\s\S]*?\n  \}/)?.[0] || "";
+  assert.match(changeFunction, /state\.customer = null/);
+  assert.match(
+    workspace,
+    /requirementsComplianceResolution:\s*\{[\s\S]*?status: "waiting"/
+  );
+});
+await test("35_requirements_errors_preserve_customer", () => {
+  const verifyFunction = workspace.match(
+    /async function verifySelectedRequirementsComplianceFolder[\s\S]*?\n  \}/
+  )?.[0] || "";
+  assert.match(verifyFunction, /status: "error"/);
+  assert.doesNotMatch(verifyFunction, /state\.customer\s*=\s*null/);
+});
+await test("36_requirements_boundary_excludes_legacy", () => {
+  assert.doesNotMatch(
+    customerFilesProgram + customerFilesService,
+    /Drawing-Prints|Drawing Prints/
+  );
+  assert.match(
+    customerFilesService,
+    /RequirementsComplianceFolderName/
   );
 });
 

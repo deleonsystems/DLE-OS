@@ -34,6 +34,24 @@
   background: rgba(25, 110, 80, .12);
 }
 
+.daily-operations-sync-card {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(7, 38, 34, 0.96), rgba(13, 42, 63, 0.92));
+}
+
+.daily-operations-sync-includes { color: #b7e8d1; font-size: 0.9rem; }
+.daily-operations-sync-primary { background: #24a36a; color: #fff; font-weight: 700; }
+.daily-operations-sync-primary:disabled { opacity: 0.55; cursor: wait; }
+.daily-operations-sync-components { display: grid; gap: 8px; margin-top: 14px; }
+.daily-operations-sync-component { display: flex; justify-content: space-between; gap: 16px; padding: 9px 12px; border-radius: 8px; background: rgba(0,0,0,.2); }
+.daily-operations-sync-component strong[data-state="passed"] { color: #70e7a6; }
+.daily-operations-sync-component strong[data-state="failed"] { color: #ff9a9a; }
+.daily-operations-sync-component strong[data-state="running"] { color: #8bc9ff; }
+.full-platform-sync-label { display: flex; flex-direction: column; gap: 4px; margin: 18px 0 8px; color: #c8d8e8; }
+
 .operations-refresh-heading {
   display: flex;
   justify-content: space-between;

@@ -162,6 +162,50 @@ app.MapPost(
     .RequireAuthorization(authorizationPolicy);
 
 app.MapGet(
+        "/api/customer-files/v1/customers/{customerNumber}/requirements-compliance",
+        async (
+            HttpRequest request,
+            string customerNumber,
+            CustomerFolderService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (request.QueryString.HasValue)
+                return Results.BadRequest(new
+                {
+                    code = "request_parameters_not_allowed",
+                    message =
+                        "Only the canonical Customer Number route value is accepted."
+                });
+            return Results.Json(
+                await service.VerifyRequirementsComplianceAsync(
+                    customerNumber,
+                    cancellationToken));
+        })
+    .RequireAuthorization(authorizationPolicy);
+
+app.MapPost(
+        "/api/customer-files/v1/customers/{customerNumber}/requirements-compliance",
+        async (
+            HttpRequest request,
+            string customerNumber,
+            CustomerFolderService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (request.ContentLength is > 0 || request.QueryString.HasValue)
+                return Results.BadRequest(new
+                {
+                    code = "request_parameters_not_allowed",
+                    message =
+                        "Only the canonical Customer Number route value is accepted."
+                });
+            return Results.Json(
+                await service.CreateRequirementsComplianceAsync(
+                    customerNumber,
+                    cancellationToken));
+        })
+    .RequireAuthorization(authorizationPolicy);
+
+app.MapGet(
         "/api/customer-files/v1/manifest/dry-run",
         async (
             CustomerFolderService service,

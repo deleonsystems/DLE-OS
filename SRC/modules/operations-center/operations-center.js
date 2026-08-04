@@ -25,11 +25,26 @@
     window.OperationsCenter.projection.initialize();
     populateOperationsCenterDocumentTypes();
     window.OperationsCenter.table.updateSaveStatus('No unsaved changes.', 'saved');
-    window.OperationsCenter.table.renderModule();
+    await refreshOperationsCenterCanonicalData();
   }
 
   function renderOperationsCenterModule() {
     window.OperationsCenter.table.renderModule();
+  }
+
+  async function refreshOperationsCenterCanonicalData() {
+    const stateActions = window.OperationsCenter.stateActions;
+    const requestId = stateActions.beginCanonicalLoad();
+    window.OperationsCenter.table.renderModule();
+    try {
+      const result = await window.OperationsCenter.dataService.loadCanonicalRows();
+      stateActions.commitCanonicalLoad(result, requestId);
+    } catch (error) {
+      if (error?.name === 'AbortError') return false;
+      stateActions.failCanonicalLoad(error, requestId);
+    }
+    window.OperationsCenter.table.renderModule();
+    return !window.OperationsCenter.state.canonicalError;
   }
 
   function filterOperationsCenter() {
@@ -138,6 +153,7 @@
   window.OperationsCenter.loadModule = loadOperationsCenterModule;
   window.OperationsCenter.initialize = initializeOperationsCenter;
   window.OperationsCenter.render = renderOperationsCenterModule;
+  window.OperationsCenter.refreshCanonicalData = refreshOperationsCenterCanonicalData;
   window.OperationsCenter.filter = filterOperationsCenter;
   window.OperationsCenter.connectDocumentFolder = connectOperationsCenterDocumentFolder;
   window.OperationsCenter.openDocumentLink = openOperationsCenterDocumentLink;
@@ -151,6 +167,7 @@
   window.loadOperationsCenterModule = loadOperationsCenterModule;
   window.initializeOperationsCenter = initializeOperationsCenter;
   window.renderOperationsCenterModule = renderOperationsCenterModule;
+  window.refreshOperationsCenterCanonicalData = refreshOperationsCenterCanonicalData;
   window.filterOperationsCenter = filterOperationsCenter;
   window.connectOperationsCenterDocumentFolder = connectOperationsCenterDocumentFolder;
   window.openOperationsCenterDocumentLink = openOperationsCenterDocumentLink;

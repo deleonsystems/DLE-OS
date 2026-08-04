@@ -10,7 +10,12 @@ Set-StrictMode -Version Latest
 
 $approvedComputer = 'DLE-OS-HOST'
 $root = '\\DeLeon-Server\Production\Customer Files'
-$uriPattern = '^dle-customer-files://open/(?<number>\d{6})$'
+$requirementsFolderName = '00 Customer Requirements & Compliance'
+$uriPattern = (
+    '^dle-customer-files://' +
+    '(?<action>open|open-requirements)/' +
+    '(?<number>\d{6})$'
+)
 
 function Show-LauncherMessage {
     param([Parameter(Mandatory)][string] $Message)
@@ -50,6 +55,7 @@ if ($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
 }
 
 $customerNumber = $match.Groups['number'].Value
+$action = $match.Groups['action'].Value.ToLowerInvariant()
 $prefix = $customerNumber + ' - '
 $matches = @(
     Get-ChildItem -LiteralPath $root -Directory -Force -ErrorAction Stop |
@@ -70,6 +76,51 @@ if (-not $resolvedFolder.StartsWith(
     Stop-Launcher 'The resolved customer folder escaped the governed root.'
 }
 
+$targetFolder = $resolvedFolder
+if ($action -eq 'open-requirements') {
+    try {
+        $status = Invoke-RestMethod `
+            -UseDefaultCredentials `
+            -Uri (
+                'http://dle-os-host:5053/' +
+                'api/customer-files/v1/customers/' +
+                $customerNumber +
+                '/requirements-compliance'
+            ) `
+            -TimeoutSec 10
+    } catch {
+        Stop-Launcher (
+            'The Requirements & Compliance folder could not be verified.'
+        )
+    }
+    if (
+        $status.customerFolderState -cne 'VERIFIED' -or
+        $status.requirementsComplianceState -cne 'AVAILABLE' -or
+        $status.folderName -cne $requirementsFolderName
+    ) {
+        Stop-Launcher (
+            'The Requirements & Compliance folder is not available.'
+        )
+    }
+    $targetFolder = [IO.Path]::GetFullPath(
+        (Join-Path $resolvedFolder $requirementsFolderName))
+    if (
+        [IO.Path]::GetDirectoryName($targetFolder) -ine $resolvedFolder -or
+        $status.folderPath -ine $targetFolder -or
+        -not (Test-Path -LiteralPath $targetFolder -PathType Container)
+    ) {
+        Stop-Launcher (
+            'The Requirements & Compliance folder failed path verification.'
+        )
+    }
+    $targetItem = Get-Item -LiteralPath $targetFolder -Force
+    if ($targetItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        Stop-Launcher (
+            'The Requirements & Compliance folder is unexpectedly redirected.'
+        )
+    }
+}
+
 Start-Process `
     -FilePath (Join-Path $env:WINDIR 'explorer.exe') `
-    -ArgumentList "`"$resolvedFolder`""
+    -ArgumentList "`"$targetFolder`""

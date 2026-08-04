@@ -18,12 +18,14 @@
     canonicalBillsOfMaterial: '/api/platform/v1/bills-of-material',
     canonicalGeneralLedgerAccounts: '/api/platform/v1/general-ledger-accounts'
   });
-  const DEVELOPMENT_LIVE_CANONICAL_BASE_URL = 'http://DLE-OS-HOST:5052';
+  const DEVELOPMENT_LIVE_CANONICAL_BASE_URL =
+    window.location.protocol + '//' + window.location.hostname + ':5052';
   const LIVE_CANONICAL_BASE_URL = window.location.port === '5051'
     ? DEVELOPMENT_LIVE_CANONICAL_BASE_URL
     : 'http://DLE-OS-HOST:5042';
   const LIVE_SNAPSHOT_REFRESH_BASE_URL = 'http://DLE-OS-HOST:5043';
   const CUSTOMER_FILES_CONTROL_BASE_URL = 'http://DLE-OS-HOST:5053';
+  const SHIPMENT_HISTORY_PATH = 'DATA/shipment-history/shipment-history.json';
   const LIVE_CANONICAL_ENDPOINTS = Object.freeze({
     platformReadiness: '/api/platform/live/v1/readiness',
     platformSnapshot: '/api/platform/live/v1/snapshot',
@@ -32,6 +34,7 @@
     canonicalBillsOfMaterial: '/api/platform/live/v1/bills-of-material',
     canonicalGeneralLedgerAccounts: '/api/platform/live/v1/general-ledger-accounts',
     canonicalSalesOrders: '/api/platform/live/v1/sales-orders',
+    canonicalSalesOrderWorkOrderRelationships: '/api/platform/live/v1/sales-order-work-order-relationships',
     canonicalInvoiceHistory: '/api/platform/live/v1/invoice-history',
     canonicalInvoiceHistoryMetadata: '/api/platform/live/v1/invoice-history/metadata',
     canonicalCustomerMaster: '/api/platform/live/v1/customer-master',
@@ -58,6 +61,9 @@
       'customerNumber', 'customerName', 'salesOrderNumber',
       'customerPurchaseOrderNumber', 'itemNumber', 'workOrderNumber',
       'estimatedShipDate', 'negativeQuantity', 'unresolvedWorkOrder'
+    ]),
+    canonicalSalesOrderWorkOrderRelationships: Object.freeze([
+      'customerNumber', 'salesOrderNumber', 'salesOrderLineNumber', 'workOrderNumber'
     ]),
     canonicalInvoiceHistory: Object.freeze([
       'invoiceDateFrom', 'invoiceDateTo', 'customerNumber',
@@ -104,6 +110,7 @@
     purchaseOrderNumber: 7,
     purchaseOrderLineNumber: 3,
     salesOrderNumber: 7,
+    salesOrderLineNumber: 3,
     workOrderNumber: 7,
     itemNumber: 20,
     employeeNumber: 9
@@ -209,6 +216,50 @@
     return body;
   }
 
+  async function requestWorkOrderApproval(path, options = {}) {
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/work-order-approvals/v1/' +
+        String(path).replace(/^\/+/, ''),
+      {
+        method: options.method || 'GET',
+        cache: 'no-store',
+        credentials: 'include',
+        signal: options.signal,
+        headers: {
+          Accept: 'application/json',
+          ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' })
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      }
+    );
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok) {
+      const requestError = new Error(body?.message ||
+        'Work Order approval control returned HTTP ' + response.status + '.');
+      requestError.name = 'DleApiError';
+      requestError.status = response.status;
+      requestError.code = body?.code || 'work_order_approval_http_error';
+      throw requestError;
+    }
+    return body;
+  }
+
+  function buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber) {
+    const normalize = (value, width, label) => {
+      const text = String(value || '').trim();
+      if (!new RegExp('^[0-9]{1,' + width + '}$').test(text)) {
+        throw new TypeError(label + ' is malformed.');
+      }
+      return encodeURIComponent(text.padStart(width, '0'));
+    };
+    return 'sales-order-lines/' + [
+      normalize(customerNumber, 6, 'Customer number'),
+      normalize(salesOrderNumber, 7, 'Sales Order number'),
+      normalize(lineNumber, 3, 'Sales Order line number')
+    ].join('/');
+  }
+
   async function requestCustomerFiles(path, options = {}) {
     const response = await fetch(
       CUSTOMER_FILES_CONTROL_BASE_URL + '/' + String(path).replace(/^\/+/, ''),
@@ -242,6 +293,47 @@
       throw requestError;
     }
     return body;
+  }
+
+  async function searchHistoricalAssemblies(assemblyNumber, rfqCustomerNumber, options = {}) {
+    const query = String(assemblyNumber || '').trim();
+    if (!query || query.length > 100 || /[\u0000-\u001f\u007f]/.test(query)) {
+      throw new TypeError('A valid assembly number is required.');
+    }
+    if (!window.DleRfqAssemblyHistory?.buildSearchResponse) {
+      throw new Error('RFQ historical assembly search is unavailable.');
+    }
+    const invoiceRecords = [];
+    let page = 1;
+    let hasMore = true;
+    while (hasMore && page <= 20) {
+      const response = await liveCanonicalClient.getCanonicalInvoiceHistory({
+        page,
+        pageSize: 200,
+        itemNumber: query,
+        signal: options.signal
+      });
+      invoiceRecords.push(...(Array.isArray(response?.items) ? response.items : []));
+      hasMore = Boolean(response?.hasMore);
+      page += 1;
+    }
+    if (hasMore) throw new Error('Invoice History exceeded the bounded RFQ search limit.');
+    const shipmentResponse = await fetch(SHIPMENT_HISTORY_PATH, {
+      cache: 'no-store',
+      signal: options.signal
+    });
+    if (!shipmentResponse.ok) {
+      throw new Error('Qualified Shipment History is unavailable.');
+    }
+    const shipmentData = await shipmentResponse.json();
+    return window.DleRfqAssemblyHistory.buildSearchResponse({
+      assemblyNumber: query,
+      rfqCustomerNumber,
+      invoiceRecords,
+      shipmentRecords: Array.isArray(shipmentData?.records)
+        ? shipmentData.records
+        : []
+    });
   }
 
   async function requestJson(url, endpointKey, options) {
@@ -312,6 +404,7 @@
     const isCustomerNumber =
       (
         endpointKey === 'canonicalSalesOrders' ||
+        endpointKey === 'canonicalSalesOrderWorkOrderRelationships' ||
         endpointKey === 'canonicalInvoiceHistory' ||
         endpointKey === 'canonicalCustomerMaster'
       ) &&
@@ -338,16 +431,21 @@
     const isSalesOrderNumber =
       (
         endpointKey === 'canonicalSalesOrders' ||
+        endpointKey === 'canonicalSalesOrderWorkOrderRelationships' ||
         endpointKey === 'canonicalInvoiceHistory' ||
         endpointKey === 'canonicalPurchaseOrders'
       ) &&
       filterName === 'salesOrderNumber';
+    const isSalesOrderLineNumber =
+      endpointKey === 'canonicalSalesOrderWorkOrderRelationships' &&
+      filterName === 'salesOrderLineNumber';
     const isInvoiceNumber =
       endpointKey === 'canonicalInvoiceHistory' &&
       filterName === 'invoiceNumber';
     const isWorkOrderNumber =
       (
         endpointKey === 'canonicalWorkOrders' ||
+        endpointKey === 'canonicalSalesOrderWorkOrderRelationships' ||
         endpointKey === 'canonicalInvoiceHistory' ||
         endpointKey === 'canonicalPurchaseOrders' ||
         endpointKey === 'canonicalReceivingHistory'
@@ -364,7 +462,7 @@
       filterName === 'employeeNumber';
     if (!isCustomerNumber && !isVendorNumber && !isPurchaseOrderNumber &&
         !isPurchaseOrderLineNumber && !isReceiverNumber &&
-        !isSalesOrderNumber && !isInvoiceNumber &&
+        !isSalesOrderNumber && !isSalesOrderLineNumber && !isInvoiceNumber &&
         !isWorkOrderNumber && !isItemNumber && !isEmployeeNumber) {
       if ((endpointKey === 'canonicalCustomerMaster' ||
            endpointKey === 'canonicalVendorMaster' ||
@@ -416,6 +514,13 @@
     }
     if (isSalesOrderNumber) {
       const canonicalWidth = CANONICAL_FIELD_WIDTHS.salesOrderNumber;
+      if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
+        return normalizedValue.padStart(canonicalWidth, '0');
+      }
+      return normalizedValue;
+    }
+    if (isSalesOrderLineNumber) {
+      const canonicalWidth = CANONICAL_FIELD_WIDTHS.salesOrderLineNumber;
       if (/^\d+$/.test(normalizedValue) && normalizedValue.length < canonicalWidth) {
         return normalizedValue.padStart(canonicalWidth, '0');
       }
@@ -574,6 +679,9 @@
     },
     getCanonicalSalesOrder(salesOrderLineId, options = {}) {
       return getLiveCanonicalRecord('canonicalSalesOrders', salesOrderLineId, options);
+    },
+    getCanonicalSalesOrderWorkOrderRelationships(options = {}) {
+      return getLiveCanonicalList('canonicalSalesOrderWorkOrderRelationships', options);
     },
     getCanonicalInvoiceHistory(options = {}) {
       return getLiveCanonicalList('canonicalInvoiceHistory', options);
@@ -829,6 +937,27 @@
         { ...options, method: 'POST' }
       );
     },
+    getDailyOperationsSyncStatus(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/daily-operations-sync/v1/status', options
+      );
+    },
+    getDailyOperationsSyncLatest(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/daily-operations-sync/v1/latest', options
+      );
+    },
+    getDailyOperationsSyncLastSuccessful(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/daily-operations-sync/v1/last-successful', options
+      );
+    },
+    runDailyOperationsSync(options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/platform/daily-operations-sync/v1/run',
+        { ...options, method: 'POST' }
+      );
+    },
     baseUrl: LIVE_CANONICAL_BASE_URL,
     endpoints: LIVE_CANONICAL_ENDPOINTS
   });
@@ -870,6 +999,22 @@
     searchCanonicalCustomers(query, options = {}) {
       return liveCanonicalClient.searchCanonicalCustomers(query, options);
     },
+    searchHistoricalAssemblies,
+    getWorkOrderApprovalReview(customerNumber, salesOrderNumber, lineNumber, options = {}) {
+      return requestWorkOrderApproval(
+        buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber), options
+      );
+    },
+    submitWorkOrderApprovalAction(customerNumber, salesOrderNumber, lineNumber,
+        action, request, options = {}) {
+      if (!['approve', 'replace', 'revoke'].includes(action)) {
+        throw new TypeError('Work Order approval action is invalid.');
+      }
+      return requestWorkOrderApproval(
+        buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber) + '/' + action,
+        { ...options, method: 'POST', body: request }
+      );
+    },
     getCustomerFolderStatus(customerNumber, options = {}) {
       return requestCustomerFiles(
         '/api/customer-files/v1/customers/' +
@@ -883,6 +1028,22 @@
         '/api/customer-files/v1/customers/' +
           encodeURIComponent(String(customerNumber || '')) +
           '/folder',
+        { ...options, method: 'POST' }
+      );
+    },
+    getRequirementsComplianceFolderStatus(customerNumber, options = {}) {
+      return requestCustomerFiles(
+        '/api/customer-files/v1/customers/' +
+          encodeURIComponent(String(customerNumber || '')) +
+          '/requirements-compliance',
+        options
+      );
+    },
+    createRequirementsComplianceFolder(customerNumber, options = {}) {
+      return requestCustomerFiles(
+        '/api/customer-files/v1/customers/' +
+          encodeURIComponent(String(customerNumber || '')) +
+          '/requirements-compliance',
         { ...options, method: 'POST' }
       );
     },

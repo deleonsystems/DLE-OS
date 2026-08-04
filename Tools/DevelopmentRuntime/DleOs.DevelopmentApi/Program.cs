@@ -3,7 +3,10 @@ using DLE_OS_Server.Data.Platform.Live;
 using DLE_OS_Server.Options;
 
 var builder = WebApplication.CreateBuilder(args);
-const string developmentOrigin = "http://dle-os-host:5051";
+string[] developmentOrigins = [
+    "http://dle-os-host:5051",
+    "http://localhost:5051",
+    "http://127.0.0.1:5051"];
 const string qualifiedLiveConfiguration =
     @"C:\Program Files\DLE-OS\LiveCanonicalApi\appsettings.Live.json";
 var liveBoundaryConfiguration = new ConfigurationBuilder()
@@ -18,7 +21,7 @@ builder.Services.AddScoped<PlatformApiExceptionFilter>();
 builder.Services.AddCors(options => options.AddPolicy(
     "DevelopmentExactOrigin",
     policy => policy
-        .WithOrigins(developmentOrigin)
+        .WithOrigins(developmentOrigins)
         .WithMethods(HttpMethods.Get)
         .WithHeaders("Accept")));
 
@@ -28,6 +31,9 @@ builder.Services.AddScoped<ILiveInventoryItemRepository, LiveInventoryItemReposi
 builder.Services.AddScoped<ILiveWorkOrderRepository, LiveWorkOrderRepository>();
 builder.Services.AddScoped<ILiveGeneralLedgerAccountRepository, LiveGeneralLedgerAccountRepository>();
 builder.Services.AddScoped<ILiveSalesOrderRepository, LiveSalesOrderRepository>();
+builder.Services.AddScoped<
+    ILiveSalesOrderWorkOrderRelationshipRepository,
+    LiveSalesOrderWorkOrderRelationshipRepository>();
 builder.Services.AddScoped<ILiveInvoiceHistoryRepository, LiveInvoiceHistoryRepository>();
 builder.Services.AddScoped<ILivePlatformStatusRepository, LivePlatformStatusRepository>();
 builder.Services.AddSingleton<DevelopmentReadOnlyGuard>();

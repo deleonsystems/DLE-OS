@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
     [switch] $QualificationInduceFailure,
+    [switch] $CandidateOnly,
+    [string] $BasePackage,
     [ValidateRange(0, 30)]
     [int] $QualificationHoldLockSeconds = 0
 )
@@ -97,7 +99,11 @@ try {
         Start-Sleep -Seconds $QualificationHoldLockSeconds
     }
     New-Item -ItemType Directory -Path $runRoot | Out-Null
-    $extraction = & $python $extractor --run-id $runId --run-root $runRoot |
+    $extractArguments = @('--run-id', $runId, '--run-root', $runRoot)
+    if (-not [string]::IsNullOrWhiteSpace($BasePackage)) {
+        $extractArguments += @('--base-package', $BasePackage)
+    }
+    $extraction = & $python $extractor @extractArguments |
         ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or $extraction.result -cne 'PASS') {
         throw 'Focused Open Sales Order extraction did not pass.'
@@ -109,6 +115,26 @@ try {
         --candidate $candidate --current $current | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) {
         throw 'Open Sales Order package comparison failed.'
+    }
+    if ($CandidateOnly) {
+        $result = [ordered]@{
+            Result = 'CANDIDATE_READY'
+            RefreshRunId = $runId
+            PackagePath = $candidate
+            PackageSha256 = (
+                Get-Content -LiteralPath (Join-Path $candidate 'package.sha256') -Raw
+            ).Trim()
+            Extraction = $extraction
+            Counts = $comparison
+            RecordCount = $openLineCount
+            RelationshipCount = [long]$extraction.woe03RelationshipCount
+            Promoted = $false
+            PriorDataRetained = $true
+        }
+        Write-Status $result.Result 'Open Sales Order candidate is ready for coordinated promotion.' $result `
+            'Candidate Ready' $openLineCount $openLineCount
+        $result | ConvertTo-Json -Depth 12
+        exit 0
     }
     if ($comparison.result -ceq 'NO_SOURCE_CHANGES') {
         $result = [ordered]@{

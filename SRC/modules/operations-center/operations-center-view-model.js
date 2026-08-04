@@ -11,18 +11,18 @@
   const SHIPMENT_STAGING_EXIT_STATUS = 'Pending Invoice';
 
   function getMasterData() {
-    if (typeof dleMasterDataFileState !== 'undefined' && dleMasterDataFileState.data) return dleMasterDataFileState.data;
-    if (typeof dleMasterData !== 'undefined' && dleMasterData?.records) return dleMasterData;
-    return null;
+    const state = window.OperationsCenter.state;
+    if (!state?.canonicalLoaded) return null;
+    return {
+      schema: 'DLE_OPERATIONS_CENTER_CANONICAL_V1',
+      source: state.canonicalSource,
+      records: state.canonicalRows
+    };
   }
 
   function getMasterRecords() {
-    const data = getMasterData();
-    const records = Array.isArray(data?.records) ? data.records : [];
-    if (typeof getActiveMasterDataRecords === 'function') {
-      return getActiveMasterDataRecords(records);
-    }
-    return records.filter(record => String(record.lifecycleState || '').toUpperCase() !== 'ARCHIVED');
+    const records = window.OperationsCenter.state?.canonicalRows;
+    return Array.isArray(records) ? records : [];
   }
 
   function getOperationsCenterRecords() {
@@ -56,6 +56,7 @@
   }
 
   function getMasterRecordKey(record) {
+    if (record?.masterRecordKey) return String(record.masterRecordKey);
     if (record?.id) return String(record.id);
     if (typeof getMasterRecordKeyForRecord === 'function') return getMasterRecordKeyForRecord(record);
     const vpro5 = record?.vpro5 || {};
@@ -64,24 +65,25 @@
 
   function getOperationalProjectionField(record, field) {
     const projectionMap = {
+      quantityOrdered: item => formatOperationsQuantity(item?.quantityOrdered),
+      erpQtyOpen: item => formatOperationsQuantity(item?.erpQuantityOpen),
+      pendingInvoiceQty: item => formatOperationsQuantity(getPendingShipmentQuantityForMasterRecord(item)),
       opQtyOpen: getOperationalQuantityOpen
     };
     return projectionMap[field] ? projectionMap[field](record) : '';
   }
 
   function getOperationalQuantityOpen(record) {
-    const vpro5 = record?.vpro5 || {};
-    const erpQtyOpen = parseOperationsQuantity(vpro5.qtyOpen);
+    const erpQtyOpen = parseOperationsQuantity(record?.erpQuantityOpen);
     const pendingShipmentQuantity = getPendingShipmentQuantityForMasterRecord(record);
     return formatOperationsQuantity(Math.max(erpQtyOpen - pendingShipmentQuantity, 0));
   }
 
   function getPendingShipmentQuantityForMasterRecord(record) {
     const shipmentRecords = getShipmentStagingRecordsForProjection();
-    const vpro5 = record?.vpro5 || {};
-    const customerNumber = normalizeOperationsValue(vpro5.customerNumber);
-    const salesOrder = normalizeOperationsValue(vpro5.salesOrder);
-    const sequenceLine = normalizeOperationsValue(vpro5.sequenceLine);
+    const customerNumber = normalizeOperationsValue(record?.customerNumber);
+    const salesOrder = normalizeOperationsValue(record?.salesOrderNumber);
+    const sequenceLine = normalizeOperationsValue(record?.salesOrderLineNumber);
     if (!customerNumber || !salesOrder || !sequenceLine) return 0;
 
     return shipmentRecords
@@ -122,7 +124,7 @@
     if (projectedValue !== '') return projectedValue;
 
     const vpro5 = record?.vpro5 || {};
-    const dle = record?.dle || {};
+    const overlay = window.OperationsCenter.stateActions.getOverlayRecord(getMasterRecordKey(record));
     const fieldMap = {
       orderDate: vpro5.orderDate,
       customerNumber: vpro5.customerNumber,
@@ -137,9 +139,51 @@
       dueDate: vpro5.dueDate,
       price: vpro5.price,
       extendedPrice: vpro5.extendedPrice,
-      operationalStatus: dle.operationalStatus
+      operationalStatus: overlay.operationalStatus
     };
     return String(fieldMap[field] ?? '');
+  }
+
+  function getWorkOrderPresentation(record) {
+    const relationship = record?.workOrderRelationship || {};
+    const candidates = Array.isArray(relationship.candidates) ? relationship.candidates : [];
+    const status = String(relationship.status || 'UNRESOLVED');
+    if (status === 'EXACT_LINE_UNIQUE') {
+      const workOrder = String(relationship.actionableWorkOrderNumber || '').trim();
+      return { status, label: workOrder, actionable: !!workOrder, reason: '' };
+    }
+    if (status === 'SALES_ORDER_ITEM_UNIQUE_CANDIDATE') {
+      const item = normalizeOperationsValue(record?.itemNumber);
+      const candidate = candidates.find(value => normalizeOperationsValue(value.itemNumber) === item);
+      return {
+        status,
+        label: 'Candidate: ' + (candidate?.workOrderNumber || 'Work Order'),
+        actionable: false,
+        reason: 'Work Order is an item-level candidate; its anchor line differs.'
+      };
+    }
+    if (status === 'SALES_ORDER_LEVEL_CANDIDATE') {
+      return {
+        status,
+        label: 'Candidate: ' + (candidates[0]?.workOrderNumber || 'Work Order') + ' (order-level)',
+        actionable: false,
+        reason: 'Work Order has only Sales Order-level evidence.'
+      };
+    }
+    if (status === 'AMBIGUOUS') {
+      return {
+        status,
+        label: 'Multiple Work Orders (' + candidates.length + ')',
+        actionable: false,
+        reason: 'Multiple Work Orders match this Sales Order line.'
+      };
+    }
+    return {
+      status: 'UNRESOLVED',
+      label: 'Work Order Not Resolved',
+      actionable: false,
+      reason: 'No governed Work Order relationship was found.'
+    };
   }
 
   function getOperationalStatusPresentation(value) {
@@ -165,7 +209,11 @@
 
     record.dle = record.dle || {};
     record.dle.operationalStatus = PACKING_OPERATIONAL_STATUS;
-    return true;
+    return window.OperationsCenter.stateActions.updateOverlayField(
+      normalizedKey,
+      'operationalStatus',
+      PACKING_OPERATIONAL_STATUS
+    );
   }
 
   window.OperationsCenter.viewModel = {
@@ -175,6 +223,7 @@
     getMasterRecordKey,
     getOperationalProjectionField,
     getOfficialField,
+    getWorkOrderPresentation,
     getOperationalStatusPresentation,
     setPackingOperationalStatus
   };

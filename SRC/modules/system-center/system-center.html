@@ -27,11 +27,36 @@
       </div>
       <div id="platformRefreshCenterWarnings" class="refresh-center-warnings" hidden></div>
 
+      <section class="daily-operations-sync-card" aria-labelledby="dailyOperationsSyncTitle">
+        <div class="operations-refresh-heading">
+          <div>
+            <div class="module-eyebrow">Fast Current Operational Data</div>
+            <h4 id="dailyOperationsSyncTitle">Daily Operations Synchronization</h4>
+            <p>Synchronize current VPro5 operational changes as one governed snapshot.</p>
+            <p class="daily-operations-sync-includes">Includes: Customer Master · Open Sales Orders · Open Work Orders · Work Order Relationships</p>
+          </div>
+          <span id="dailyOperationsSyncState" class="refresh-center-state">READY</span>
+        </div>
+        <div id="dailyOperationsSyncFacts" class="refresh-center-facts">
+          <div><span>Last successful synchronization</span><strong>—</strong></div>
+          <div><span>Run ID</span><strong>—</strong></div>
+          <div><span>Duration</span><strong>—</strong></div>
+          <div><span>Import run ID</span><strong>—</strong></div>
+        </div>
+        <div class="refresh-center-actions">
+          <button id="dailyOperationsSyncRunButton" class="daily-operations-sync-primary" type="button" onclick="runDailyOperationsSynchronization()">Run Daily Operations Synchronization</button>
+        </div>
+        <div id="dailyOperationsSyncComponents" class="daily-operations-sync-components" aria-live="polite">
+          Synchronization status has not loaded.
+        </div>
+        <div id="dailyOperationsSyncFailure" class="refresh-center-warnings" hidden></div>
+      </section>
+
       <section class="operations-refresh-card" aria-labelledby="operationsRefreshTitle">
         <div class="operations-refresh-heading">
           <div>
-            <div class="module-eyebrow">Daily Operational Synchronization</div>
-            <h4 id="operationsRefreshTitle">Operations Refresh</h4>
+            <div class="module-eyebrow">Legacy Scheduled Workflow</div>
+            <h4 id="operationsRefreshTitle">Scheduled Operations Refresh</h4>
             <p>Customer Master → Open Sales Orders → Recent Shipment / Invoice History. Each step keeps its own transaction and rollback boundary.</p>
           </div>
           <span id="operationsRefreshState" class="refresh-center-state">Loading</span>
@@ -53,6 +78,11 @@
 
       <div id="platformRefreshCenterGrid" class="refresh-center-grid">
         <div class="refresh-center-empty">Refresh status has not loaded.</div>
+      </div>
+
+      <div class="full-platform-sync-label">
+        <strong>Full Platform Synchronization</strong>
+        <span>Complete governed platform rebuild and qualification. Use Force-Full Core Snapshot above.</span>
       </div>
 
       <details class="refresh-center-runs">

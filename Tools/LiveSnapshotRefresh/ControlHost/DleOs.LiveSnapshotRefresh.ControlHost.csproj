@@ -6,6 +6,7 @@
     <AssemblyName>DleOs.LiveSnapshotRefresh.ControlHost</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
     <Content Include="..\..\PlatformRefreshCenter\PlatformRefreshRegistry.json"
              Link="PlatformRefreshRegistry.json"
              CopyToOutputDirectory="PreserveNewest"

@@ -52,7 +52,9 @@ await test("03_windows_auth_and_operator_allowlist", () => {
 
 await test("04_exact_origin_credentialed_control", () => {
   assert.match(control, /http:\/\/dle-os-host:5041/);
-  assert.match(control, /WithOrigins\(allowedOrigin\)/);
+  assert.match(control, /http:\/\/dle-os-host:5051/);
+  assert.match(control, /WithOrigins\(allowedOrigins\)/);
+  assert.doesNotMatch(control, /AllowAnyOrigin/);
   assert.match(control, /AllowCredentials/);
   assert.match(clientSource, /credentials: 'include'/);
   assert.match(clientSource, /http:\/\/DLE-OS-HOST:5043/);
