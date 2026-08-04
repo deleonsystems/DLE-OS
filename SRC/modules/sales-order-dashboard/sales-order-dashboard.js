@@ -15,7 +15,8 @@
     approvalReviews: new Map(),
     approvalReviewRow: null,
     approvalRequestGeneration: 0,
-    approvalSubmitting: false
+    approvalSubmitting: false,
+    approvalReasonState: null
   };
   const REQUESTED_SHIP_WINDOWS = Object.freeze(['Today', 'Tomorrow', 'This Week', 'No Rush']);
   const DEFAULT_REQUESTED_SHIP_WINDOW = REQUESTED_SHIP_WINDOWS[0];
@@ -53,6 +54,7 @@
     dashboardState.requestDialogLines = [];
     dashboardState.approvalReviews.clear();
     dashboardState.approvalReviewRow = null;
+    dashboardState.approvalReasonState = null;
     const generation = ++dashboardState.approvalRequestGeneration;
     renderSalesOrderDashboardModule();
     loadSelectedOrderApprovalReviews(generation);
@@ -631,6 +633,7 @@
     const row = getRelatedRows()[index];
     if (!row) return;
     dashboardState.approvalReviewRow = row;
+    dashboardState.approvalReasonState = null;
     approvalDialogReturnFocus = event?.currentTarget || null;
     const dialog = document.getElementById('workOrderApprovalDialog');
     if (dialog) dialog.hidden = false;
@@ -648,7 +651,154 @@
     }
   }
 
+  function normalizeApprovalIdentity(value, width) {
+    const text = String(value || '').trim();
+    return /^\d+$/.test(text) ? text.padStart(width, '0') : text;
+  }
+
+  function getApprovalReasonRecommendation(row, selectedWorkOrder, relatedRows, options = {}) {
+    const selected = normalizeApprovalIdentity(selectedWorkOrder, 7);
+    if (!selected) return null;
+    const identity = getApprovalLineIdentity(row);
+    const customer = normalizeApprovalIdentity(identity.customerNumber, 6);
+    const salesOrder = normalizeApprovalIdentity(identity.salesOrderNumber, 7);
+    const line = normalizeApprovalIdentity(identity.lineNumber, 3);
+    const references = (Array.isArray(relatedRows) ? relatedRows : []).flatMap(related => {
+      const relatedIdentity = getApprovalLineIdentity(related);
+      const relationship = getWorkOrderRelationship(related);
+      const status = String(relationship.resolutionStatus || relationship.status || '').trim();
+      const exactWorkOrder = normalizeApprovalIdentity(relationship.actionableWorkOrderNumber, 7);
+      const relatedLine = normalizeApprovalIdentity(relatedIdentity.lineNumber, 3);
+      const sameOrder = normalizeApprovalIdentity(relatedIdentity.customerNumber, 6) === customer &&
+        normalizeApprovalIdentity(relatedIdentity.salesOrderNumber, 7) === salesOrder;
+      return sameOrder && relatedLine !== line && status === 'EXACT_LINE_UNIQUE' &&
+        exactWorkOrder === selected ? [relatedLine] : [];
+    }).filter(Boolean).sort();
+    if (references.length) {
+      const distinctLines = [...new Set(references)];
+      return {
+        code: 'MATCHES_CONFIRMED_WO_ON_SAME_SALES_ORDER',
+        referenceLines: distinctLines,
+        referenceText: distinctLines.length === 1
+          ? 'Confirmed reference: Line ' + distinctLines[0] + ' · WO ' + selected
+          : 'Confirmed on lines ' + distinctLines.join(', ') + ' · WO ' + selected
+      };
+    }
+    if (options.ambiguous && !options.explicitSelection) return null;
+    return { code: 'CANDIDATE_EVIDENCE_VERIFIED', referenceLines: [], referenceText: '' };
+  }
+
+  function initializeApprovalReasonState(review, row) {
+    const permissions = review?.permissions || {};
+    const action = review?.currentApproval
+      ? (permissions.canReplace ? 'replace' : 'revoke')
+      : 'approve';
+    dashboardState.approvalReasonState = {
+      action,
+      selectedWorkOrder: null,
+      reasonCode: '',
+      manuallySelected: false,
+      recommendation: null,
+      rowKey: getApprovalKey(row)
+    };
+  }
+
+  function getReasonCatalog(review, action) {
+    const key = action === 'revoke' ? 'revocation' : 'approval';
+    return Array.isArray(review?.reasonCatalogs?.[key]) ? review.reasonCatalogs[key] : [];
+  }
+
+  function updateApprovalReasonControls(review, row, selectedWorkOrder, selectionChanged = false) {
+    const state = dashboardState.approvalReasonState;
+    if (!state) return;
+    const relationship = review?.canonicalRelationship || {};
+    const selected = String(selectedWorkOrder || '').trim();
+    if (selectionChanged && selected !== state.selectedWorkOrder) {
+      state.selectedWorkOrder = selected;
+      state.manuallySelected = false;
+      state.reasonCode = '';
+    }
+    const isRevoke = state.action === 'revoke';
+    state.recommendation = isRevoke ? null : getApprovalReasonRecommendation(
+      row, selected, getRelatedRows(), {
+        ambiguous: String(relationship.resolutionStatus || relationship.status || '') === 'AMBIGUOUS',
+        explicitSelection: Boolean(selected)
+      }
+    );
+    if (!state.manuallySelected) state.reasonCode = state.recommendation?.code || '';
+    setText('workOrderApprovalSelected', isRevoke ? '—' : selected || '—');
+
+    const reasonSelect = document.getElementById('workOrderApprovalReasonCode');
+    const catalog = getReasonCatalog(review, state.action);
+    if (reasonSelect) {
+      reasonSelect.innerHTML = '<option value="">Select a reason</option>' + catalog.map(reason =>
+        '<option value="' + escapeDashboardHtml(reason.code) + '">' +
+        escapeDashboardHtml(reason.label) + '</option>'
+      ).join('');
+      reasonSelect.value = state.reasonCode;
+    }
+    const recommendation = document.getElementById('workOrderApprovalRecommendation');
+    if (recommendation) {
+      const recommendationApplies = state.recommendation &&
+        state.reasonCode === state.recommendation.code;
+      recommendation.hidden = !recommendationApplies;
+      recommendation.textContent = recommendationApplies
+        ? 'Recommended by DLE-OS' + (state.recommendation.referenceText
+          ? ' · ' + state.recommendation.referenceText : '')
+        : '';
+    }
+    const note = document.getElementById('workOrderApprovalNote');
+    const isOther = state.reasonCode === 'OTHER';
+    setText('workOrderApprovalNoteLabel', isOther ? 'Explanation' : 'Additional note (optional)');
+    if (note) note.required = isOther;
+  }
+
+  function changeWorkOrderApprovalCandidate(event) {
+    const row = dashboardState.approvalReviewRow;
+    const review = getApprovalReview(row);
+    updateApprovalReasonControls(review, row, event?.target?.value, true);
+  }
+
+  function changeWorkOrderApprovalReason() {
+    const state = dashboardState.approvalReasonState;
+    if (!state) return;
+    state.reasonCode = String(document.getElementById('workOrderApprovalReasonCode')?.value || '');
+    state.manuallySelected = true;
+    const note = document.getElementById('workOrderApprovalNote');
+    const isOther = state.reasonCode === 'OTHER';
+    setText('workOrderApprovalNoteLabel', isOther ? 'Explanation' : 'Additional note (optional)');
+    if (note) note.required = isOther;
+  }
+
+  function changeWorkOrderApprovalAction() {
+    const state = dashboardState.approvalReasonState;
+    const row = dashboardState.approvalReviewRow;
+    if (!state || !row) return;
+    state.action = String(document.getElementById('workOrderApprovalActionMode')?.value || state.action);
+    state.reasonCode = '';
+    state.manuallySelected = false;
+    const selected = document.querySelector('input[name="workOrderApprovalChoice"]:checked')?.value || '';
+    updateApprovalActionVisibility(getApprovalReview(row));
+    updateApprovalReasonControls(getApprovalReview(row), row, selected, false);
+  }
+
+  function updateApprovalActionVisibility(review) {
+    const action = dashboardState.approvalReasonState?.action;
+    toggleApprovalAction('workOrderApprovalApprove', action === 'approve' && review?.permissions?.canApprove);
+    toggleApprovalAction('workOrderApprovalReplace', action === 'replace' && review?.permissions?.canReplace);
+    toggleApprovalAction('workOrderApprovalRevoke', action === 'revoke' && review?.permissions?.canRevoke);
+    const candidates = document.querySelector('.sales-order-dashboard-approval-candidates');
+    if (candidates) candidates.disabled = action === 'revoke';
+  }
+
   function renderWorkOrderApprovalDialog(review, row) {
+    const initializingReasonState = !dashboardState.approvalReasonState ||
+      dashboardState.approvalReasonState.rowKey !== getApprovalKey(row);
+    if (initializingReasonState) {
+      initializeApprovalReasonState(review, row);
+      const note = document.getElementById('workOrderApprovalNote');
+      if (note) note.value = '';
+    }
     const identity = getApprovalLineIdentity(row);
     const relationship = review?.canonicalRelationship || {};
     const candidates = Array.isArray(relationship.candidates) ? relationship.candidates : [];
@@ -670,7 +820,7 @@
         const number = String(candidate.workOrderNumber || '').trim();
         const selectable = choices.includes(number);
         return '<li>' + (selectable
-          ? '<label><input type="radio" name="workOrderApprovalChoice" value="' +
+          ? '<label><input type="radio" name="workOrderApprovalChoice" onchange="changeWorkOrderApprovalCandidate(event)" value="' +
             escapeDashboardHtml(number) + '"> '
           : '<span>') +
           '<strong>' + escapeDashboardHtml(number || 'Unknown') + '</strong> · ' +
@@ -687,14 +837,27 @@
         escapeDashboardHtml(decision.approvedWorkOrderNumber || '—') + ' · ' +
         escapeDashboardHtml(decision.approvedBy) + ' · ' +
         escapeDashboardHtml(decision.approvedAtUtc) + '<br>' +
-        escapeDashboardHtml(decision.decisionReason) + '</li>'
+        escapeDashboardHtml(decision.decisionReason) +
+        (decision.decisionReasonCode ? ' <code>' + escapeDashboardHtml(decision.decisionReasonCode) + '</code>' : '') +
+        (decision.decisionNote ? '<br><span>Note: ' + escapeDashboardHtml(decision.decisionNote) + '</span>' : '') + '</li>'
       ).join('') : '<li>No decisions recorded.</li>';
     }
-    toggleApprovalAction('workOrderApprovalApprove', review?.permissions?.canApprove);
-    toggleApprovalAction('workOrderApprovalReplace', review?.permissions?.canReplace);
-    toggleApprovalAction('workOrderApprovalRevoke', review?.permissions?.canRevoke);
+    const actionSelect = document.getElementById('workOrderApprovalActionMode');
+    const actionField = document.getElementById('workOrderApprovalActionField');
+    const actions = [
+      review?.permissions?.canApprove && ['approve', 'Approve'],
+      review?.permissions?.canReplace && ['replace', 'Replace approval'],
+      review?.permissions?.canRevoke && ['revoke', 'Revoke approval']
+    ].filter(Boolean);
+    if (actionSelect) {
+      actionSelect.innerHTML = actions.map(([value, label]) => '<option value="' + value + '">' + label + '</option>').join('');
+      actionSelect.value = dashboardState.approvalReasonState.action;
+    }
+    if (actionField) actionField.hidden = actions.length < 2;
+    updateApprovalActionVisibility(review);
+    updateApprovalReasonControls(review, row, dashboardState.approvalReasonState.selectedWorkOrder, false);
     setText('workOrderApprovalMessage', 'Review current canonical evidence before recording a decision.');
-    document.getElementById('workOrderApprovalReason')?.focus();
+    document.getElementById('workOrderApprovalReasonCode')?.focus();
   }
 
   function toggleApprovalAction(id, visible) {
@@ -709,10 +872,15 @@
     if (!['approve', 'replace', 'revoke'].includes(action)) return;
     const row = dashboardState.approvalReviewRow;
     const review = getApprovalReview(row);
-    const reason = String(document.getElementById('workOrderApprovalReason')?.value || '').trim();
+    const reasonCode = String(document.getElementById('workOrderApprovalReasonCode')?.value || '').trim();
+    const decisionNote = String(document.getElementById('workOrderApprovalNote')?.value || '').trim();
     const selected = document.querySelector('input[name="workOrderApprovalChoice"]:checked')?.value || null;
-    if (reason.length < 3) {
-      setText('workOrderApprovalMessage', 'Enter a decision reason of at least three characters.');
+    if (!reasonCode) {
+      setText('workOrderApprovalMessage', 'Select a controlled decision reason.');
+      return;
+    }
+    if (reasonCode === 'OTHER' && decisionNote.length < 3) {
+      setText('workOrderApprovalMessage', 'Enter an explanation of at least three characters.');
       return;
     }
     if (action !== 'revoke' && !selected) {
@@ -727,17 +895,19 @@
         identity.customerNumber, identity.salesOrderNumber, identity.lineNumber, action,
         {
           selectedWorkOrderNumber: selected,
-          decisionReason: reason,
+          reasonCode,
+          reasonText: reasonCode === 'OTHER' ? decisionNote :
+            document.getElementById('workOrderApprovalReasonCode')?.selectedOptions?.[0]?.textContent,
+          decisionNote: reasonCode === 'OTHER' ? null : decisionNote || null,
           evidenceToken: review.evidenceToken,
           expectedCurrentDecisionId: review.currentApproval?.decisionId || null
         }
       );
       dashboardState.approvalReviews.set(getApprovalKey(row), updated);
+      dashboardState.approvalReasonState = null;
       renderSalesOrderDashboardModule();
       renderWorkOrderApprovalDialog(updated, row);
       setText('workOrderApprovalMessage', 'The governed decision was recorded.');
-      const reasonInput = document.getElementById('workOrderApprovalReason');
-      if (reasonInput) reasonInput.value = '';
     } catch (error) {
       if (error.status === 409) {
         setText('workOrderApprovalMessage', 'Evidence changed. Reloading the current relationship for review…');
@@ -755,6 +925,7 @@
     const dialog = document.getElementById('workOrderApprovalDialog');
     if (dialog) dialog.hidden = true;
     dashboardState.approvalReviewRow = null;
+    dashboardState.approvalReasonState = null;
     approvalDialogReturnFocus?.focus?.();
   }
 
@@ -788,6 +959,7 @@
   window.SalesOrderDashboard.openWorkOrderDashboard = openWorkOrderDashboard;
   window.SalesOrderDashboard.getWorkOrderPresentation = getWorkOrderPresentation;
   window.SalesOrderDashboard.openWorkOrderApprovalReview = openWorkOrderApprovalReview;
+  window.SalesOrderDashboard.getApprovalReasonRecommendation = getApprovalReasonRecommendation;
   window.SalesOrderDashboard.render = renderSalesOrderDashboardModule;
 
   window.loadSalesOrderDashboardModule = loadSalesOrderDashboardModule;
@@ -803,6 +975,9 @@
   window.openWorkOrderApprovalReview = openWorkOrderApprovalReview;
   window.closeWorkOrderApprovalReview = closeWorkOrderApprovalReview;
   window.submitWorkOrderApproval = submitWorkOrderApproval;
+  window.changeWorkOrderApprovalCandidate = changeWorkOrderApprovalCandidate;
+  window.changeWorkOrderApprovalReason = changeWorkOrderApprovalReason;
+  window.changeWorkOrderApprovalAction = changeWorkOrderApprovalAction;
   window.renderSalesOrderDashboardModule = renderSalesOrderDashboardModule;
 
   document.addEventListener('keydown', handleRequestToShipDialogKeydown);

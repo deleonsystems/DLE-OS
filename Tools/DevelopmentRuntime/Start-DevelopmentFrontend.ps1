@@ -211,10 +211,11 @@ try {
     $startInfo = [Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = $dotnet
     $startInfo.Arguments = (
-        '"{0}" --contentRoot "{1}" --urls {2}' -f
+        '"{0}" --contentRoot "{1}" --urls {2} --RepositoryRoot "{3}"' -f
             $assembly,
             $runtime,
-            $binding)
+            $binding,
+            $repository)
     $startInfo.WorkingDirectory = $runtime
     $startInfo.UseShellExecute = $true
     $startInfo.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden

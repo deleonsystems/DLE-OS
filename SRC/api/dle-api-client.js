@@ -218,7 +218,7 @@
 
   async function requestWorkOrderApproval(path, options = {}) {
     const response = await fetch(
-      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/work-order-approvals/v1/' +
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/work-order-approvals/v2/' +
         String(path).replace(/^\/+/, ''),
       {
         method: options.method || 'GET',

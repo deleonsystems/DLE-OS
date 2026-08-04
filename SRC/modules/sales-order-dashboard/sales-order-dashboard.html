@@ -230,6 +230,7 @@
           <div class="sales-order-dashboard-dialog-field"><strong>Canonical Status</strong><span id="workOrderApprovalRelationshipStatus">—</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Exact ERP Work Order</strong><span id="workOrderApprovalExact">—</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Approved Work Order</strong><span id="workOrderApprovalCurrent">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Selected Work Order</strong><span id="workOrderApprovalSelected">—</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Classification</strong><span id="workOrderApprovalClassification">NO_APPROVAL</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Approved By</strong><span id="workOrderApprovalBy">—</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Approved At (UTC)</strong><span id="workOrderApprovalAt">—</span></div>
@@ -238,9 +239,20 @@
           <legend>Current canonical candidates</legend>
           <ul id="workOrderApprovalCandidates"><li>Loading…</li></ul>
         </fieldset>
-        <label class="sales-order-dashboard-approval-reason" for="workOrderApprovalReason">
-          <strong>Decision reason</strong>
-          <textarea id="workOrderApprovalReason" minlength="3" maxlength="500" required></textarea>
+        <label id="workOrderApprovalActionField" class="sales-order-dashboard-approval-reason" for="workOrderApprovalActionMode" hidden>
+          <strong>Decision action</strong>
+          <select id="workOrderApprovalActionMode" onchange="changeWorkOrderApprovalAction()"></select>
+        </label>
+        <label class="sales-order-dashboard-approval-reason" for="workOrderApprovalReasonCode">
+          <strong>Reason</strong>
+          <select id="workOrderApprovalReasonCode" required onchange="changeWorkOrderApprovalReason()">
+            <option value="">Select a reason</option>
+          </select>
+        </label>
+        <div id="workOrderApprovalRecommendation" class="sales-order-dashboard-approval-recommendation" aria-live="polite" hidden></div>
+        <label class="sales-order-dashboard-approval-reason" for="workOrderApprovalNote">
+          <strong id="workOrderApprovalNoteLabel">Additional note (optional)</strong>
+          <textarea id="workOrderApprovalNote" maxlength="500"></textarea>
         </label>
         <details class="sales-order-dashboard-approval-history">
           <summary>Decision history</summary>

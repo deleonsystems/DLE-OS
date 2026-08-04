@@ -64,6 +64,16 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH(N'operational.SalesOrderLineWorkOrderDecisionEvent', N'DecisionReasonCode') IS NULL
+    ALTER TABLE operational.SalesOrderLineWorkOrderDecisionEvent
+        ADD DecisionReasonCode varchar(64) NULL;
+GO
+
+IF COL_LENGTH(N'operational.SalesOrderLineWorkOrderDecisionEvent', N'DecisionNote') IS NULL
+    ALTER TABLE operational.SalesOrderLineWorkOrderDecisionEvent
+        ADD DecisionNote nvarchar(500) NULL;
+GO
+
 CREATE OR ALTER VIEW operational.vw_CurrentSalesOrderLineWorkOrderDecision
 AS
 WITH RankedEvents AS
@@ -82,7 +92,7 @@ SELECT
     CandidateResolutionStatusAtDecision, CanonicalExactWorkOrderAtDecision,
     CandidateSnapshotIdAtDecision,
     CandidateSnapshotImportRunId, CandidateSetHash, CandidateSetJson,
-    SelectionSource, DecisionReason, ApprovedBy, ApprovedAtUtc,
+    SelectionSource, DecisionReasonCode, DecisionReason, DecisionNote, ApprovedBy, ApprovedAtUtc,
     RequestCorrelationId
 FROM RankedEvents
 WHERE EventRank = 1

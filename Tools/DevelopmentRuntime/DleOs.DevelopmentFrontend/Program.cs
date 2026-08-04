@@ -3,7 +3,10 @@ using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
-const string repository = @"C:\DLE-OS\Repositories\DLE-OS";
+var repository = Path.GetFullPath(builder.Configuration["RepositoryRoot"] ??
+    @"C:\DLE-OS\Repositories\DLE-OS");
+if (!File.Exists(Path.Combine(repository, "DLE_Work_Center_v4.0.0.html")))
+    throw new InvalidOperationException("The configured development repository is invalid.");
 var provider = new PhysicalFileProvider(repository);
 var contentTypes = new FileExtensionContentTypeProvider();
 app.Lifetime.ApplicationStopped.Register(provider.Dispose);

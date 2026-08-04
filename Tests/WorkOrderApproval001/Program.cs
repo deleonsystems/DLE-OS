@@ -48,6 +48,51 @@ Check("no approval", WorkOrderApprovalService.Classify(null, ambiguous, true) ==
 var unresolved = Relationship("UNRESOLVED", null);
 Check("unresolved has no choices", unresolved.ApprovalChoices.Count == 0);
 
+foreach (var expected in new Dictionary<string, string>
+{
+    ["MATCHES_CONFIRMED_WO_ON_SAME_SALES_ORDER"] = "Matches confirmed WO on another SO line",
+    ["CANDIDATE_EVIDENCE_VERIFIED"] = "Candidate evidence verified",
+    ["SAME_ASSEMBLY_AND_PRODUCTION_RELEASE"] = "Same assembly and production release",
+    ["HISTORICAL_RELATIONSHIP_VERIFIED"] = "Historical relationship verified",
+    ["SPLIT_OR_RELATED_SALES_ORDER_LINE"] = "Split or related Sales Order line",
+    ["OPERATIONAL_KNOWLEDGE_CONFIRMED"] = "Operational knowledge confirmed"
+})
+{
+    var resolved = WorkOrderApprovalReasonCatalog.Resolve("APPROVE", expected.Key, "falsified", " note ");
+    Check("approval reason " + expected.Key, resolved.Text == expected.Value &&
+        resolved.Code == expected.Key && resolved.Note == "note");
+}
+foreach (var expected in new Dictionary<string, string>
+{
+    ["APPROVAL_ENTERED_IN_ERROR"] = "Approval entered in error",
+    ["CANONICAL_EVIDENCE_CHANGED"] = "Canonical evidence changed",
+    ["WORK_ORDER_RELATIONSHIP_REQUIRES_REVIEW"] = "Work Order relationship requires review",
+    ["WORK_ORDER_NO_LONGER_APPLIES"] = "Work Order no longer applies"
+})
+    Check("revocation reason " + expected.Key,
+        WorkOrderApprovalReasonCatalog.Resolve("REVOKE", expected.Key, "wrong", null).Text == expected.Value);
+void ExpectReasonFailure(string name, string action, string? code, string? text, string? note,
+    string expectedCode)
+{
+    try { WorkOrderApprovalReasonCatalog.Resolve(action, code, text, note); failures.Add(name); }
+    catch (ApprovalProblem problem) { Check(name, problem.Code == expectedCode); }
+}
+ExpectReasonFailure("missing reason code", "APPROVE", null, null, null, "decision_reason_code_required");
+ExpectReasonFailure("unknown reason code", "APPROVE", "NOT_ALLOWED", null, null, "decision_reason_code_invalid");
+ExpectReasonFailure("approval reason rejected for revoke", "REVOKE", "CANDIDATE_EVIDENCE_VERIFIED", null, null, "decision_reason_code_invalid");
+ExpectReasonFailure("revocation reason rejected for approve", "APPROVE", "APPROVAL_ENTERED_IN_ERROR", null, null, "decision_reason_code_invalid");
+ExpectReasonFailure("other blank", "APPROVE", "OTHER", "  ", null, "decision_reason_text_required");
+ExpectReasonFailure("other overlength", "APPROVE", "OTHER", new string('a', 501), null, "decision_reason_text_required");
+ExpectReasonFailure("other controls", "APPROVE", "OTHER", "unsafe\ntext", null, "decision_reason_text_required");
+ExpectReasonFailure("note overlength", "APPROVE", "CANDIDATE_EVIDENCE_VERIFIED", null,
+    new string('n', 501), "decision_note_invalid");
+ExpectReasonFailure("note controls", "APPROVE", "CANDIDATE_EVIDENCE_VERIFIED", null,
+    "unsafe\ttext", "decision_note_invalid");
+var other = WorkOrderApprovalReasonCatalog.Resolve("APPROVE", "OTHER", "  shop traveler confirms  ", null);
+Check("other trimmed", other.Text == "shop traveler confirms" && other.Note is null);
+var legacy = WorkOrderApprovalReasonCatalog.ResolveLegacy("  historical event  ");
+Check("legacy compatibility", legacy.Code is null && legacy.Text == "historical event");
+
 var key = LineKey.Create("1082", "12097", "10");
 Check("identity normalization", key == new LineKey("001082", "0012097", "010"));
 try { LineKey.Create("customer", "12097", "10"); failures.Add("malformed identifier"); }
@@ -73,23 +118,29 @@ await using (var connection = new SqlConnection(
     var replacementId = Guid.NewGuid();
     var revocationId = Guid.NewGuid();
     var replayCorrelation = Guid.NewGuid();
-    async Task Insert(Guid id, string action, string? workOrder, Guid? supersedes, Guid correlation)
+    async Task Insert(Guid id, string action, string? workOrder, Guid? supersedes, Guid correlation,
+        string? reasonCode = null, string reason = "fixture reason", string? note = null,
+        string line = "040")
     {
         var command = new SqlCommand("""
 INSERT operational.SalesOrderLineWorkOrderDecisionEvent
 (DecisionId,CustomerNumber,SalesOrderNumber,SalesOrderLineNumber,DecisionAction,
  ApprovedWorkOrderNumber,SupersedesDecisionId,CandidateResolutionStatusAtDecision,
  CanonicalExactWorkOrderAtDecision,CandidateSnapshotImportRunId,CandidateSetHash,
- CandidateSetJson,SelectionSource,DecisionReason,ApprovedBy,RequestCorrelationId)
-VALUES(@Id,'001082','0011998','040',@Action,@WorkOrder,@Supersedes,
+ CandidateSetJson,SelectionSource,DecisionReasonCode,DecisionReason,DecisionNote,ApprovedBy,RequestCorrelationId)
+VALUES(@Id,'001082','0011998',@Line,@Action,@WorkOrder,@Supersedes,
  'SALES_ORDER_ITEM_UNIQUE_CANDIDATE',NULL,NULL,REPLICATE('A',64),
- '["0115505","0115506"]','TEST','fixture reason','DLE-OS-HOST\DLE-OS',@Correlation);
+ '["0115505","0115506"]','TEST',@ReasonCode,@Reason,@Note,'DLE-OS-HOST\DLE-OS',@Correlation);
 """, connection, transaction);
         command.Parameters.AddWithValue("@Id", id);
         command.Parameters.AddWithValue("@Action", action);
         command.Parameters.AddWithValue("@WorkOrder", (object?)workOrder ?? DBNull.Value);
         command.Parameters.AddWithValue("@Supersedes", (object?)supersedes ?? DBNull.Value);
         command.Parameters.AddWithValue("@Correlation", correlation);
+        command.Parameters.AddWithValue("@ReasonCode", (object?)reasonCode ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Reason", reason);
+        command.Parameters.AddWithValue("@Note", (object?)note ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Line", line);
         await command.ExecuteNonQueryAsync();
     }
     async Task<string?> Current()
@@ -100,16 +151,30 @@ VALUES(@Id,'001082','0011998','040',@Action,@WorkOrder,@Supersedes,
         return value is null or DBNull ? null : (string)value;
     }
 
-    await Insert(approvalId, "APPROVE", "0115505", null, replayCorrelation);
+    await Insert(approvalId, "APPROVE", "0115505", null, replayCorrelation,
+        "MATCHES_CONFIRMED_WO_ON_SAME_SALES_ORDER", "Matches confirmed WO on another SO line", "line 010");
     Check("first approval current", await Current() == "0115505");
-    await Insert(replacementId, "REPLACE", "0115506", approvalId, Guid.NewGuid());
+    await Insert(replacementId, "REPLACE", "0115506", approvalId, Guid.NewGuid(),
+        "CANDIDATE_EVIDENCE_VERIFIED", "Candidate evidence verified");
     Check("replacement current", await Current() == "0115506");
-    await Insert(revocationId, "REVOKE", null, replacementId, Guid.NewGuid());
+    await Insert(revocationId, "REVOKE", null, replacementId, Guid.NewGuid(),
+        "APPROVAL_ENTERED_IN_ERROR", "Approval entered in error");
     Check("revocation clears current", await Current() is null);
     var historyCount = Convert.ToInt32(await new SqlCommand(
         "SELECT COUNT(*) FROM operational.SalesOrderLineWorkOrderDecisionEvent;",
         connection, transaction).ExecuteScalarAsync());
     Check("history preserved", historyCount == 3);
+    var audit = await new SqlCommand(
+        "SELECT DecisionReasonCode+'|'+DecisionReason+'|'+DecisionNote FROM operational.SalesOrderLineWorkOrderDecisionEvent WHERE DecisionId='" +
+        approvalId + "';", connection, transaction).ExecuteScalarAsync();
+    Check("controlled reason persisted", Convert.ToString(audit) ==
+        "MATCHES_CONFIRMED_WO_ON_SAME_SALES_ORDER|Matches confirmed WO on another SO line|line 010");
+    var legacyId = Guid.NewGuid();
+    await Insert(legacyId, "APPROVE", "0115505", null, Guid.NewGuid(), line: "050");
+    var historicalReasonCode = await new SqlCommand(
+        "SELECT DecisionReasonCode FROM operational.SalesOrderLineWorkOrderDecisionEvent WHERE DecisionId='" +
+        legacyId + "';", connection, transaction).ExecuteScalarAsync();
+    Check("historical null reason code readable", historicalReasonCode is null or DBNull);
     try
     {
         await new SqlCommand(

@@ -311,10 +311,26 @@
   gap: 0.35rem;
 }
 
+.sales-order-dashboard-approval-reason select,
 .sales-order-dashboard-approval-reason textarea {
   width: 100%;
+}
+
+.sales-order-dashboard-approval-reason select {
+  min-height: 2.5rem;
+}
+
+.sales-order-dashboard-approval-reason textarea {
   min-height: 4.5rem;
   resize: vertical;
+}
+
+.sales-order-dashboard-approval-recommendation {
+  margin: 0.45rem 0 0.85rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid #2d6ea3;
+  background: #eef6fc;
+  color: #173b57;
 }
 
 .sales-order-dashboard-work-order-confirmed .sales-order-dashboard-work-order-secondary {

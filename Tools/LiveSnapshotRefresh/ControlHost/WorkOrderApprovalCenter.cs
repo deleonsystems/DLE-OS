@@ -11,31 +11,42 @@ using Microsoft.Data.SqlClient;
 
 internal static class WorkOrderApprovalCenter
 {
-    private const string Route = "/api/work-order-approvals/v1/sales-order-lines/{customerNumber}/{salesOrderNumber}/{lineNumber}";
+    private const string LegacyRoute = "/api/work-order-approvals/v1/sales-order-lines/{customerNumber}/{salesOrderNumber}/{lineNumber}";
+    private const string ControlledRoute = "/api/work-order-approvals/v2/sales-order-lines/{customerNumber}/{salesOrderNumber}/{lineNumber}";
 
     public static void MapWorkOrderApprovals(this WebApplication app, string policy)
     {
         var service = new WorkOrderApprovalService();
-        app.MapGet(Route, async (string customerNumber, string salesOrderNumber,
+        MapReview(app, service, policy, LegacyRoute);
+        MapReview(app, service, policy, ControlledRoute);
+
+        MapAction(app, service, policy, LegacyRoute, "approve", "APPROVE", false);
+        MapAction(app, service, policy, LegacyRoute, "replace", "REPLACE", false);
+        MapAction(app, service, policy, LegacyRoute, "revoke", "REVOKE", false);
+        MapAction(app, service, policy, ControlledRoute, "approve", "APPROVE", true);
+        MapAction(app, service, policy, ControlledRoute, "replace", "REPLACE", true);
+        MapAction(app, service, policy, ControlledRoute, "revoke", "REVOKE", true);
+    }
+
+    private static void MapReview(WebApplication app, WorkOrderApprovalService service,
+        string policy, string route)
+    {
+        app.MapGet(route, async (string customerNumber, string salesOrderNumber,
                 string lineNumber, CancellationToken cancellationToken) =>
             await Execute(() => service.GetReviewAsync(
                 LineKey.Create(customerNumber, salesOrderNumber, lineNumber), cancellationToken)))
             .RequireAuthorization(policy);
-
-        MapAction(app, service, policy, "approve", "APPROVE");
-        MapAction(app, service, policy, "replace", "REPLACE");
-        MapAction(app, service, policy, "revoke", "REVOKE");
     }
 
     private static void MapAction(WebApplication app, WorkOrderApprovalService service,
-        string policy, string routeAction, string decisionAction)
+        string policy, string route, string routeAction, string decisionAction, bool controlledReasons)
     {
-        app.MapPost(Route + "/" + routeAction,
+        app.MapPost(route + "/" + routeAction,
             async (string customerNumber, string salesOrderNumber, string lineNumber,
                 ApprovalActionRequest request, HttpContext context, CancellationToken cancellationToken) =>
                 await Execute(() => service.DecideAsync(
                     LineKey.Create(customerNumber, salesOrderNumber, lineNumber),
-                    decisionAction, request, context.User.Identity!.Name!, cancellationToken)))
+                    decisionAction, request, context.User.Identity!.Name!, controlledReasons, cancellationToken)))
             .RequireAuthorization(policy);
     }
 
@@ -94,12 +105,12 @@ internal sealed class WorkOrderApprovalService
     }
 
     public async Task<object> DecideAsync(LineKey key, string action, ApprovalActionRequest request,
-        string authenticatedUser, CancellationToken cancellationToken)
+        string authenticatedUser, bool controlledReasons, CancellationToken cancellationToken)
     {
-        var reason = (request.DecisionReason ?? "").Trim();
-        if (reason.Length is < 3 or > 500)
-            throw ApprovalProblem.BadRequest("decision_reason_required",
-                "A decision reason between 3 and 500 characters is required.");
+        var resolvedReason = controlledReasons
+            ? WorkOrderApprovalReasonCatalog.Resolve(action, request.ReasonCode,
+                request.ReasonText, request.DecisionNote)
+            : WorkOrderApprovalReasonCatalog.ResolveLegacy(request.DecisionReason);
 
         var relationship = await LoadRelationshipAsync(key, cancellationToken);
         var current = await _repository.GetCurrentAsync(key, cancellationToken);
@@ -134,7 +145,7 @@ internal sealed class WorkOrderApprovalService
                 "Replacement must select a different canonical Work Order.");
 
         var decision = await _repository.AppendAsync(key, action, selected, current?.DecisionId,
-            relationship, reason, authenticatedUser, cancellationToken);
+            relationship, resolvedReason, authenticatedUser, cancellationToken);
         var refreshed = await _repository.GetCurrentAsync(key, cancellationToken);
         var history = await _repository.GetHistoryAsync(key, cancellationToken);
         var exists = refreshed is null || string.IsNullOrEmpty(refreshed.ApprovedWorkOrderNumber) ||
@@ -161,6 +172,7 @@ internal sealed class WorkOrderApprovalService
             canReplace = current is not null && choices.Any(value => value != current.ApprovedWorkOrderNumber),
             canRevoke = current is not null
         },
+        reasonCatalogs = WorkOrderApprovalReasonCatalog.ForClient,
         requestCorrelationId = correlationId
     };
 
@@ -220,6 +232,87 @@ internal sealed class WorkOrderApprovalService
     }
 }
 
+internal sealed record ResolvedDecisionReason(string? Code, string Text, string? Note);
+
+internal static class WorkOrderApprovalReasonCatalog
+{
+    private const int MaximumTextLength = 500;
+    internal static readonly IReadOnlyDictionary<string, string> Approval =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["MATCHES_CONFIRMED_WO_ON_SAME_SALES_ORDER"] = "Matches confirmed WO on another SO line",
+            ["CANDIDATE_EVIDENCE_VERIFIED"] = "Candidate evidence verified",
+            ["SAME_ASSEMBLY_AND_PRODUCTION_RELEASE"] = "Same assembly and production release",
+            ["HISTORICAL_RELATIONSHIP_VERIFIED"] = "Historical relationship verified",
+            ["SPLIT_OR_RELATED_SALES_ORDER_LINE"] = "Split or related Sales Order line",
+            ["OPERATIONAL_KNOWLEDGE_CONFIRMED"] = "Operational knowledge confirmed",
+            ["OTHER"] = "Other"
+        };
+    internal static readonly IReadOnlyDictionary<string, string> Revocation =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["APPROVAL_ENTERED_IN_ERROR"] = "Approval entered in error",
+            ["CANONICAL_EVIDENCE_CHANGED"] = "Canonical evidence changed",
+            ["WORK_ORDER_RELATIONSHIP_REQUIRES_REVIEW"] = "Work Order relationship requires review",
+            ["WORK_ORDER_NO_LONGER_APPLIES"] = "Work Order no longer applies",
+            ["OTHER"] = "Other"
+        };
+
+    internal static object ForClient => new
+    {
+        approval = Approval.Select(item => new { code = item.Key, label = item.Value }),
+        revocation = Revocation.Select(item => new { code = item.Key, label = item.Value })
+    };
+
+    internal static ResolvedDecisionReason Resolve(string action, string? reasonCode,
+        string? browserReasonText, string? decisionNote)
+    {
+        var code = (reasonCode ?? "").Trim();
+        if (code.Length == 0)
+            throw ApprovalProblem.BadRequest("decision_reason_code_required",
+                "Select a controlled decision reason.");
+        var catalog = action == "REVOKE" ? Revocation : Approval;
+        if (!catalog.TryGetValue(code, out var officialLabel))
+            throw ApprovalProblem.BadRequest("decision_reason_code_invalid",
+                "The selected decision reason is not allowed for this action.");
+
+        var note = ValidateOptionalText(decisionNote, "decision_note_invalid", "Additional note");
+        if (code == "OTHER")
+        {
+            var explanation = ValidateRequiredText(browserReasonText ?? decisionNote,
+                "decision_reason_text_required", "An explanation");
+            return new ResolvedDecisionReason(code, explanation, null);
+        }
+
+        // Browser-supplied labels are deliberately ignored for governed catalog values.
+        return new ResolvedDecisionReason(code, officialLabel, note);
+    }
+
+    internal static ResolvedDecisionReason ResolveLegacy(string? decisionReason) =>
+        new(null, ValidateRequiredText(decisionReason, "decision_reason_required", "A decision reason"), null);
+
+    private static string ValidateRequiredText(string? value, string code, string label)
+    {
+        var result = (value ?? "").Trim();
+        if (result.Length is < 3 or > MaximumTextLength || ContainsControlCharacter(result))
+            throw ApprovalProblem.BadRequest(code,
+                $"{label} between 3 and {MaximumTextLength} safe characters is required.");
+        return result;
+    }
+
+    private static string? ValidateOptionalText(string? value, string code, string label)
+    {
+        var result = (value ?? "").Trim();
+        if (result.Length == 0) return null;
+        if (result.Length > MaximumTextLength || ContainsControlCharacter(result))
+            throw ApprovalProblem.BadRequest(code,
+                $"{label} must contain no more than {MaximumTextLength} safe characters.");
+        return result;
+    }
+
+    private static bool ContainsControlCharacter(string value) => value.Any(char.IsControl);
+}
+
 internal sealed class ApprovalRepository
 {
     private readonly string _connectionString = Environment.GetEnvironmentVariable(
@@ -239,7 +332,7 @@ SELECT DecisionId, DecisionAction, ApprovedWorkOrderNumber, SupersedesDecisionId
        CandidateResolutionStatusAtDecision, CanonicalExactWorkOrderAtDecision,
        CandidateSnapshotIdAtDecision, CandidateSnapshotImportRunId,
        CandidateSetHash, CandidateSetJson, SelectionSource,
-       DecisionReason, ApprovedBy, ApprovedAtUtc, RequestCorrelationId
+       DecisionReasonCode, DecisionReason, DecisionNote, ApprovedBy, ApprovedAtUtc, RequestCorrelationId
 FROM operational.vw_CurrentSalesOrderLineWorkOrderDecision
 WHERE CustomerNumber=@Customer AND SalesOrderNumber=@SalesOrder AND SalesOrderLineNumber=@Line;
 """, connection, transaction);
@@ -259,7 +352,7 @@ SELECT TOP (50) DecisionId, DecisionAction, ApprovedWorkOrderNumber, SupersedesD
        CandidateResolutionStatusAtDecision, CanonicalExactWorkOrderAtDecision,
        CandidateSnapshotIdAtDecision, CandidateSnapshotImportRunId,
        CandidateSetHash, CandidateSetJson, SelectionSource,
-       DecisionReason, ApprovedBy, ApprovedAtUtc, RequestCorrelationId
+       DecisionReasonCode, DecisionReason, DecisionNote, ApprovedBy, ApprovedAtUtc, RequestCorrelationId
 FROM operational.SalesOrderLineWorkOrderDecisionEvent
 WHERE CustomerNumber=@Customer AND SalesOrderNumber=@SalesOrder AND SalesOrderLineNumber=@Line
 ORDER BY DecisionSequence DESC;
@@ -272,7 +365,8 @@ ORDER BY DecisionSequence DESC;
     }
 
     public async Task<DecisionRecord> AppendAsync(LineKey key, string action, string? selected,
-        Guid? expectedCurrent, CanonicalRelationship relationship, string reason, string approvedBy,
+        Guid? expectedCurrent, CanonicalRelationship relationship, ResolvedDecisionReason reason,
+        string approvedBy,
         CancellationToken token)
     {
         await using var connection = new SqlConnection(_connectionString);
@@ -291,10 +385,12 @@ INSERT operational.SalesOrderLineWorkOrderDecisionEvent
  ApprovedWorkOrderNumber, SupersedesDecisionId, CandidateResolutionStatusAtDecision,
  CanonicalExactWorkOrderAtDecision, CandidateSnapshotIdAtDecision,
  CandidateSnapshotImportRunId, CandidateSetHash,
- CandidateSetJson, SelectionSource, DecisionReason, ApprovedBy, ApprovedAtUtc, RequestCorrelationId)
+ CandidateSetJson, SelectionSource, DecisionReasonCode, DecisionReason, DecisionNote,
+ ApprovedBy, ApprovedAtUtc, RequestCorrelationId)
 VALUES
 (@DecisionId,@Customer,@SalesOrder,@Line,@Action,@Selected,@Supersedes,@Status,@Exact,
- @SnapshotId,@ImportRun,@CandidateHash,@CandidateJson,@SelectionSource,@Reason,@ApprovedBy,SYSUTCDATETIME(),@CorrelationId);
+ @SnapshotId,@ImportRun,@CandidateHash,@CandidateJson,@SelectionSource,@ReasonCode,@Reason,@DecisionNote,
+ @ApprovedBy,SYSUTCDATETIME(),@CorrelationId);
 """, connection, transaction);
         AddKey(command, key);
         command.Parameters.AddWithValue("@DecisionId", decisionId);
@@ -308,7 +404,9 @@ VALUES
         command.Parameters.AddWithValue("@CandidateHash", relationship.CandidateSetHash);
         command.Parameters.AddWithValue("@CandidateJson", relationship.CandidateSetJson);
         command.Parameters.AddWithValue("@SelectionSource", relationship.SelectionSource(selected));
-        command.Parameters.AddWithValue("@Reason", reason);
+        command.Parameters.AddWithValue("@ReasonCode", (object?)reason.Code ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Reason", reason.Text);
+        command.Parameters.AddWithValue("@DecisionNote", (object?)reason.Note ?? DBNull.Value);
         command.Parameters.AddWithValue("@ApprovedBy", approvedBy);
         command.Parameters.AddWithValue("@CorrelationId", correlationId);
         await command.ExecuteNonQueryAsync(token);
@@ -317,7 +415,8 @@ VALUES
         return new DecisionRecord(decisionId, action, selected, expectedCurrent,
             relationship.Status, relationship.ExactWorkOrder, relationship.SnapshotId,
             importRunId == Guid.Empty ? null : importRunId, relationship.CandidateSetHash,
-            relationship.CandidateSetJson, relationship.SelectionSource(selected), reason,
+            relationship.CandidateSetJson, relationship.SelectionSource(selected), reason.Code,
+            reason.Text, reason.Note,
             approvedBy, DateTime.UtcNow, correlationId);
     }
 
@@ -425,22 +524,36 @@ internal sealed record DecisionRecord(Guid DecisionId, string DecisionAction,
     string CandidateResolutionStatusAtDecision, string? CanonicalExactWorkOrderAtDecision,
     string? CandidateSnapshotIdAtDecision, Guid? CandidateSnapshotImportRunId,
     string CandidateSetHash, string CandidateSetJson, string SelectionSource,
-    string DecisionReason, string ApprovedBy, DateTime ApprovedAtUtc, Guid RequestCorrelationId)
+    string? DecisionReasonCode, string DecisionReason, string? DecisionNote,
+    string ApprovedBy, DateTime ApprovedAtUtc, Guid RequestCorrelationId)
 {
     public static DecisionRecord From(SqlDataReader reader) => new(
-        reader.GetGuid(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2),
-        reader.IsDBNull(3) ? null : reader.GetGuid(3), reader.GetString(4),
-        reader.IsDBNull(5) ? null : reader.GetString(5),
-        reader.IsDBNull(6) ? null : reader.GetString(6),
-        reader.IsDBNull(7) ? null : reader.GetGuid(7), reader.GetString(8), reader.GetString(9),
-        reader.GetString(10), reader.GetString(11), reader.GetString(12), reader.GetDateTime(13),
-        reader.GetGuid(14));
+        reader.GetGuid(reader.GetOrdinal("DecisionId")),
+        reader.GetString(reader.GetOrdinal("DecisionAction")),
+        reader.IsDBNull(reader.GetOrdinal("ApprovedWorkOrderNumber")) ? null : reader.GetString(reader.GetOrdinal("ApprovedWorkOrderNumber")),
+        reader.IsDBNull(reader.GetOrdinal("SupersedesDecisionId")) ? null : reader.GetGuid(reader.GetOrdinal("SupersedesDecisionId")),
+        reader.GetString(reader.GetOrdinal("CandidateResolutionStatusAtDecision")),
+        reader.IsDBNull(reader.GetOrdinal("CanonicalExactWorkOrderAtDecision")) ? null : reader.GetString(reader.GetOrdinal("CanonicalExactWorkOrderAtDecision")),
+        reader.IsDBNull(reader.GetOrdinal("CandidateSnapshotIdAtDecision")) ? null : reader.GetString(reader.GetOrdinal("CandidateSnapshotIdAtDecision")),
+        reader.IsDBNull(reader.GetOrdinal("CandidateSnapshotImportRunId")) ? null : reader.GetGuid(reader.GetOrdinal("CandidateSnapshotImportRunId")),
+        reader.GetString(reader.GetOrdinal("CandidateSetHash")),
+        reader.GetString(reader.GetOrdinal("CandidateSetJson")),
+        reader.GetString(reader.GetOrdinal("SelectionSource")),
+        reader.IsDBNull(reader.GetOrdinal("DecisionReasonCode")) ? null : reader.GetString(reader.GetOrdinal("DecisionReasonCode")),
+        reader.GetString(reader.GetOrdinal("DecisionReason")),
+        reader.IsDBNull(reader.GetOrdinal("DecisionNote")) ? null : reader.GetString(reader.GetOrdinal("DecisionNote")),
+        reader.GetString(reader.GetOrdinal("ApprovedBy")),
+        reader.GetDateTime(reader.GetOrdinal("ApprovedAtUtc")),
+        reader.GetGuid(reader.GetOrdinal("RequestCorrelationId")));
 }
 
 internal sealed class ApprovalActionRequest
 {
     public string? SelectedWorkOrderNumber { get; set; }
     public string? DecisionReason { get; set; }
+    public string? ReasonCode { get; set; }
+    public string? ReasonText { get; set; }
+    public string? DecisionNote { get; set; }
     public string? EvidenceToken { get; set; }
     public Guid? ExpectedCurrentDecisionId { get; set; }
     // ApprovedBy and timestamps are intentionally absent: identity and UTC time are server-derived.
