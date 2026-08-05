@@ -19,8 +19,8 @@
     renderStatus();
     renderSourceStatus();
     renderProjectionSummary();
+    renderRmaVisibilityControl();
     renderTable();
-    filter();
   }
 
   function renderStatus() {
@@ -102,9 +102,7 @@
       }
       if (column.key === 'workOrder') {
         const presentation = viewModel.getWorkOrderPresentation(record);
-        return '<td class="operations-center-official-cell operations-center-work-order-' +
-          escapeHtml(presentation.status.toLowerCase()) + '" title="' +
-          escapeHtml(presentation.reason) + '">' + escapeHtml(presentation.label) + '</td>';
+        return renderWorkOrderCell(presentation);
       }
       if (column.key === 'operationalStatus') {
         return renderOperationalStatusCell(value);
@@ -113,6 +111,9 @@
     }).join('');
 
     const overlayCells = overlayFields.map(field => {
+      if (isReturnReviewControlled(record) && isOrdinaryProductionOverlay(field.key)) {
+        return '<td class="operations-center-overlay-cell operations-center-rma-suppressed">RMA / Rework</td>';
+      }
       if (field.documentLink) return renderDocumentLinkCell(field, record);
 
       const overlay = stateActions.getOverlayRecord(masterRecordKey);
@@ -130,6 +131,46 @@
     }).join('');
 
     return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + projectionCell + officialCells + overlayCells + '</tr>';
+  }
+
+  function isOrdinaryProductionOverlay(key) {
+    return ['productionShipping', 'kitShort', 'purchasingComplete', 'kitComplete'].includes(key);
+  }
+
+  function isReturnReviewControlled(record) {
+    const route = record?.workOrderApprovalReview?.operationalRelationship?.operationalRoute;
+    return !!record?.rmaReworkMembership ||
+      ['RMA_REWORK', 'RETURN_RMA_REVIEW_REQUIRED'].includes(route);
+  }
+
+  function renderWorkOrderCell(presentation) {
+    const statusClass = escapeHtml(String(presentation.status || 'unresolved').toLowerCase());
+    if (!['RMA_CONTROLLED', 'RMA_DECISION_PENDING', 'RETURN_REVIEW_REQUIRED']
+        .includes(presentation.status)) {
+      const secondary = presentation.secondaryLabel
+        ? '<span class="operations-center-work-order-secondary">' + escapeHtml(presentation.secondaryLabel) + '</span>'
+        : '';
+      return '<td class="operations-center-official-cell operations-center-work-order-' + statusClass +
+        '" title="' + escapeHtml(presentation.reason) + '"><strong>' +
+        escapeHtml(presentation.label) + '</strong>' + secondary + '</td>';
+    }
+
+    const evidence = Array.isArray(presentation.evidence) && presentation.evidence.length
+      ? '<ul>' + presentation.evidence.map(item => '<li>' + escapeHtml(item) + '</li>').join('') + '</ul>'
+      : '<p>No prior Work Order evidence.</p>';
+    const caseReference = presentation.caseReference
+      ? '<span class="operations-center-work-order-case">' + escapeHtml(presentation.caseReference) + '</span>'
+      : '';
+    return [
+      '<td class="operations-center-official-cell operations-center-work-order-', statusClass,
+      '" title="', escapeHtml(presentation.reason), '">',
+      '<strong>', escapeHtml(presentation.label), '</strong>',
+      '<span class="operations-center-work-order-secondary">', escapeHtml(presentation.secondaryLabel), '</span>',
+      caseReference,
+      '<details class="operations-center-work-order-evidence"><summary>Review evidence</summary>',
+      '<strong>', escapeHtml(presentation.evidenceLabel), '</strong>', evidence, '</details>',
+      '</td>'
+    ].join('');
   }
 
   function renderSourceStatus() {
@@ -159,9 +200,35 @@
   }
 
   function getDisplayedRecords() {
-    return typeof viewModel.getOperationsCenterRecords === 'function'
+    return getCurrentView().records;
+  }
+
+  function getCurrentView() {
+    const input = document.getElementById('operationsCenterSearch');
+    const searchTerms = String(input?.value || '')
+      .split(';')
+      .map(segment => segment.trim())
+      .filter(Boolean);
+    if (typeof viewModel.getOperationsCenterView === 'function') {
+      return viewModel.getOperationsCenterView({
+        hideRmaRework: !!state.hideRmaRework,
+        searchTerms
+      });
+    }
+    const records = typeof viewModel.getOperationsCenterRecords === 'function'
       ? viewModel.getOperationsCenterRecords()
       : viewModel.getMasterRecords();
+    return { records, hiddenRmaReworkCount: 0 };
+  }
+
+  function renderRmaVisibilityControl() {
+    const toggle = document.getElementById('operationsCenterRmaVisibilityToggle');
+    if (!toggle) return;
+    const active = !!state.hideRmaRework;
+    const hiddenCount = getCurrentView().hiddenRmaReworkCount;
+    toggle.classList.toggle('active', active);
+    toggle.setAttribute('aria-pressed', String(active));
+    toggle.textContent = 'Hide RMA/Rework' + (active ? '  •  ' + hiddenCount + ' hidden' : '');
   }
 
   function renderOperationalStatusCell(value) {
@@ -337,22 +404,10 @@
   }
 
   function filter() {
-    const input = document.getElementById('operationsCenterSearch');
-    const table = document.querySelector('#operationsCenterTable table');
-    if (!input || !table) return;
-
-    const filters = input.value
-      .split(';')
-      .map(segment => segment.trim().toUpperCase())
-      .filter(Boolean);
-
-    const rows = table.getElementsByTagName('tr');
-    for (let i = 1; i < rows.length; i++) {
-      const rowText = rows[i].textContent.toUpperCase();
-      rows[i].style.display = filters.every(filter => rowText.includes(filter))
-        ? ''
-        : 'none';
-    }
+    renderStatus();
+    renderProjectionSummary();
+    renderRmaVisibilityControl();
+    renderTable();
   }
 
   function updateSaveStatus(message, stateClass) {
@@ -368,7 +423,9 @@
     renderStatus,
     renderSourceStatus,
     renderProjectionSummary,
+    renderRmaVisibilityControl,
     renderTable,
+    getCurrentView,
     openSalesOrderDashboard,
     updateProjectionSelection,
     updateOverlayField,

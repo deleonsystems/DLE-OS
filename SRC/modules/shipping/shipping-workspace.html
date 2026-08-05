@@ -18,7 +18,10 @@
             <h2 id="shippingQueueTitle">Shipping Queue</h2>
             <p>Requests to Ship submitted by Operations and awaiting Shipping's decision.</p>
           </div>
-          <span id="shippingQueueCount" class="shipping-queue-count">0 requests</span>
+          <div class="shipping-queue-heading-actions">
+            <span id="shippingQueueCount" class="shipping-queue-count">0 requests</span>
+            <button id="shippingPrintQueueButton" type="button" onclick="printShippingQueue()" disabled>Print Shipping Queue</button>
+          </div>
         </div>
         <div id="shippingQueue" class="shipping-queue"></div>
       </section>

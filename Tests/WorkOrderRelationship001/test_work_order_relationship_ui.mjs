@@ -48,8 +48,18 @@ assert.equal(vmApi.getWorkOrderPresentation(row('UNRESOLVED')).label, 'Work Orde
 assert.equal(
   vmApi.getWorkOrderPresentation(row('SALES_ORDER_ITEM_UNIQUE_CANDIDATE', [
     { workOrderNumber: '0115505', itemNumber: 'ITEM-1' }
-  ])).actionable,
-  false
+  ])).label,
+  'Candidate: 0115505'
+);
+const operationsMalformedCandidate = row('SALES_ORDER_ITEM_UNIQUE_CANDIDATE', [
+  { workOrderNumber: '0115602', itemNumber: 'OTHER-ITEM' },
+  { workOrderNumber: '0115603', itemNumber: 'ITEM-1' }
+]);
+operationsMalformedCandidate.workOrderRelationship.candidateCount = 2;
+assert.equal(
+  vmApi.getWorkOrderPresentation(operationsMalformedCandidate).label,
+  'Candidate Data Conflict',
+  'Operations Center must not independently repair a malformed authoritative candidate payload'
 );
 
 vm.runInContext(
@@ -132,6 +142,24 @@ for (const candidates of [
   assert.equal(inconsistent.actionable, false);
   assert.notEqual(inconsistent.primary, '0115505');
 }
+
+const consistentCrossSurface = dashboardRow(
+  'SALES_ORDER_ITEM_UNIQUE_CANDIDATE',
+  [{ workOrderNumber: '0115603', itemNumber: 'ITEM-1' }], '', 1
+);
+const operationsConsistent = row(
+  'SALES_ORDER_ITEM_UNIQUE_CANDIDATE',
+  [{ workOrderNumber: '0115603', itemNumber: 'ITEM-1' }]
+);
+operationsConsistent.workOrderRelationship.candidateCount = 1;
+assert.equal(
+  dashboardApi.getWorkOrderPresentation(consistentCrossSurface).primary,
+  '0115603'
+);
+assert.equal(
+  vmApi.getWorkOrderPresentation(operationsConsistent).label,
+  'Candidate: 0115603'
+);
 
 const dashboard = fs.readFileSync(
   path.join(root, 'SRC/modules/sales-order-dashboard/sales-order-dashboard.js'),

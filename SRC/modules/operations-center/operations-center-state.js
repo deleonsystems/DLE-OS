@@ -31,7 +31,8 @@
     canonicalTotalItems: 0,
     canonicalSource: 'DLE_OS_CANONICAL_LIVE',
     canonicalEndpoint: '/api/platform/live/v1/sales-orders',
-    canonicalRequestId: 0
+    canonicalRequestId: 0,
+    hideRmaRework: false
   };
 
   function setOverlayDataset(dataset, options = {}) {
@@ -133,6 +134,15 @@
     return true;
   }
 
+  function setHideRmaRework(value) {
+    state.hideRmaRework = !!value;
+    return state.hideRmaRework;
+  }
+
+  function toggleHideRmaRework() {
+    return setHideRmaRework(!state.hideRmaRework);
+  }
+
   window.OperationsCenter.state = state;
   window.OperationsCenter.stateActions = {
     setOverlayDataset,
@@ -142,7 +152,9 @@
     commitSavedOverlay,
     beginCanonicalLoad,
     commitCanonicalLoad,
-    failCanonicalLoad
+    failCanonicalLoad,
+    setHideRmaRework,
+    toggleHideRmaRework
   };
 
   window.operationsCenterState = state;

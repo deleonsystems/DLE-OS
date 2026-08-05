@@ -16,10 +16,98 @@
 }
 
 .kitting-workspace-header,
-.kitting-workspace-region {
+.kitting-workspace-region,
+.kitting-workspace-controls,
+.kitting-readiness-summary,
+.kitting-queue-tabs {
   border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(22, 31, 42, .94), rgba(14, 20, 29, .98));
   box-shadow: 0 18px 42px rgba(0, 0, 0, .28);
+}
+
+.kitting-workspace-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(170px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.kitting-workspace-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kitting-workspace-controls input,
+.kitting-workspace-controls select {
+  width: 100%;
+  min-height: 38px;
+  box-sizing: border-box;
+}
+
+.kitting-readiness-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 10px;
+  padding: 14px;
+  border-radius: 8px;
+}
+
+.kitting-summary-card {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .035);
+}
+
+.kitting-summary-card strong,
+.kitting-summary-card span {
+  display: block;
+}
+
+.kitting-summary-card strong {
+  margin-top: 4px;
+  color: #fff;
+  font-size: 22px;
+}
+
+.kitting-summary-card span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.kitting-queue-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.kitting-queue-tabs button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.kitting-queue-tabs button.active {
+  border-color: var(--accent);
+  background: rgba(47, 140, 255, .18);
+}
+
+.kitting-queue-tabs span,
+.kitting-state-badge {
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .kitting-workspace-header {
@@ -88,7 +176,57 @@
 .kitting-kit-queue-table-wrap {
   width: 100%;
   min-height: 180px;
-  max-height: 320px;
+  max-height: 620px;
+}
+
+.kitting-work-order-button {
+  font-weight: 800;
+}
+
+.kitting-resolution-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.kitting-related-lines {
+  min-width: 420px;
+}
+
+.kitting-related-lines summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.kitting-related-lines table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.kitting-related-lines th,
+.kitting-related-lines td {
+  padding: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, .10);
+  text-align: left;
+}
+
+.kitting-document-evidence {
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+}
+
+.kitting-document-evidence small {
+  color: var(--muted);
+}
+
+.kitting-rma-awareness {
+  display: block;
+  margin-top: 4px;
+  color: #fcd34d;
+  line-height: 1.25;
 }
 
 .kitting-kit-queue-empty {
@@ -131,6 +269,11 @@
 
   .kitting-workspace-header {
     display: grid;
+  }
+
+  .kitting-workspace-controls,
+  .kitting-readiness-summary {
+    grid-template-columns: 1fr;
   }
 
   .kitting-workspace-status {

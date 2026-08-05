@@ -15,13 +15,38 @@
     approvalReviews: new Map(),
     approvalReviewRow: null,
     approvalRequestGeneration: 0,
-    approvalSubmitting: false
+    approvalSubmitting: false,
+    reviewCandidateMode: false,
+    rmaSelection: new Map(),
+    rmaMemberships: new Map(),
+    rmaCases: new Map(),
+    rmaReview: null,
+    rmaMatch: null,
+    rmaWorkflowMode: 'group',
+    rmaSingleRow: null,
+    lineReviewRow: null,
+    lineReviewTrigger: null,
+    rmaSubmitting: false,
+    rmaRequestGeneration: 0
   };
   const REQUESTED_SHIP_WINDOWS = Object.freeze(['Today', 'Tomorrow', 'This Week', 'No Rush']);
   const DEFAULT_REQUESTED_SHIP_WINDOW = REQUESTED_SHIP_WINDOWS[0];
+  const WORK_ORDER_APPROVAL_REASON_SCHEMA = 'DLE_WORK_ORDER_APPROVAL_REASON_V1';
+  const WORK_ORDER_APPROVAL_REASONS = Object.freeze([
+    Object.freeze({ code: 'ERP_CONFIRMED_CANDIDATE_MATCH', label: 'ERP confirmed and candidate matches' }),
+    Object.freeze({ code: 'SALES_ORDER_ITEM_MATCH', label: 'Candidate matches Sales Order and item' }),
+    Object.freeze({ code: 'HISTORICAL_RELATIONSHIP_VERIFIED', label: 'Historical relationship verified' }),
+    Object.freeze({ code: 'SUPPORTING_DOCUMENTATION_VERIFIED', label: 'Work Order verified from supporting documentation' }),
+    Object.freeze({ code: 'CUSTOMER_RMA_RELATIONSHIP_VERIFIED', label: 'Customer or RMA relationship verified' }),
+    Object.freeze({ code: 'SUPERVISOR_REVIEW', label: 'Supervisor review' }),
+    Object.freeze({ code: 'OTHER', label: 'Other' })
+  ]);
+  const NO_WORK_ORDER_REASON_SCHEMA = 'DLE_NO_WORK_ORDER_REQUIRED_REASON_V2';
   let requestDialogReturnFocus = null;
   let approvalDialogReturnFocus = null;
+  let rmaDialogReturnFocus = null;
   let temporaryRequestSequence = 0;
+  let operationalStateSubscription = null;
 
   /*
     Sales Order Dashboard is the future digital replacement for the
@@ -43,7 +68,26 @@
   }
 
   function initializeSalesOrderDashboard() {
+    if (!operationalStateSubscription && window.DleApiClient?.subscribeOperationalLineStateChange) {
+      operationalStateSubscription = window.DleApiClient.subscribeOperationalLineStateChange(detail => {
+        const refresh = refreshChangedOperationalLines(detail.lines);
+        detail.waitUntil?.(refresh);
+        return refresh;
+      });
+    }
     renderSalesOrderDashboardModule();
+  }
+
+  async function refreshChangedOperationalLines(lines) {
+    const selectedSalesOrder = String(dashboardState.selectedOrder?.official?.salesOrder || '').trim();
+    if (!selectedSalesOrder || !(lines || []).some(line => line.salesOrderNumber === selectedSalesOrder)) return;
+    dashboardState.approvalReviews.clear();
+    const approvalGeneration = ++dashboardState.approvalRequestGeneration;
+    const rmaGeneration = ++dashboardState.rmaRequestGeneration;
+    await Promise.all([
+      loadSelectedOrderApprovalReviews(approvalGeneration),
+      loadSelectedOrderRmaMemberships(rmaGeneration)
+    ]);
   }
 
   function setSelectedOrder(order) {
@@ -53,9 +97,12 @@
     dashboardState.requestDialogLines = [];
     dashboardState.approvalReviews.clear();
     dashboardState.approvalReviewRow = null;
+    if (!dashboardState.reviewCandidateMode) dashboardState.rmaSelection.clear();
     const generation = ++dashboardState.approvalRequestGeneration;
+    const rmaGeneration = ++dashboardState.rmaRequestGeneration;
     renderSalesOrderDashboardModule();
     loadSelectedOrderApprovalReviews(generation);
+    loadSelectedOrderRmaMemberships(rmaGeneration);
   }
 
   function renderSalesOrderDashboardModule() {
@@ -65,7 +112,9 @@
     }
     renderSalesOrderSummary();
     renderRelatedWorkOrders();
+    renderRmaReworkSummaries();
     updateRequestToShipAction();
+    updateRmaReworkActions();
   }
 
   function renderSalesOrderSummary() {
@@ -109,6 +158,10 @@
       const selected = dashboardState.selectedWorkOrders.includes(row);
       const presentation = getWorkOrderPresentation(row);
       const workOrderControl = renderWorkOrderPresentation(presentation, index);
+      const identity = getApprovalLineIdentity(row);
+      const lineKey = getApprovalKey(row);
+      const membership = dashboardState.rmaMemberships.get(lineKey);
+      const quantities = getRmaLineQuantities(row);
       return [
         '<tr class="',
         rowClass,
@@ -119,18 +172,14 @@
         '" tabindex="0" aria-selected="',
         selected ? 'true' : 'false',
         '" onclick="selectSalesOrderDashboardWorkOrder(event)" onkeydown="handleSalesOrderDashboardWorkOrderKeydown(event)">',
-        '<td>',
-        escapeDashboardHtml(official.sequenceLine || 'N/A'),
-        '</td>',
+        '<td>', escapeDashboardHtml(identity.salesOrderNumber || 'N/A'), ' / ', escapeDashboardHtml(identity.lineNumber || 'N/A'), '</td>',
         '<td>',
         workOrderControl,
         '</td>',
         '<td>',
-        escapeDashboardHtml(official.partNumber || 'N/A'),
+        escapeDashboardHtml(official.partNumber || 'N/A'), membership ? '<br><span class="sales-order-dashboard-rma-badge">RMA / Rework</span>' : '',
         '</td>',
-        '<td>',
-        escapeDashboardHtml(official.opQtyOpen || '0'),
-        '</td>',
+        '<td>', escapeDashboardHtml(formatDashboardQuantity(quantities.operationalQuantityOpen)), '</td>',
         '<td>',
         escapeDashboardHtml(official.dueDate || 'N/A'),
         '</td>',
@@ -167,7 +216,7 @@
 
   function isValidWorkOrder(row) {
     const presentation = getWorkOrderPresentation(row);
-    return presentation.actionable;
+    return presentation.fulfillmentEligible;
   }
 
   function getWorkOrderRelationship(row) {
@@ -175,6 +224,55 @@
   }
 
   function getWorkOrderPresentation(row) {
+    const operational = getApprovalReview(row)?.operationalRelationship;
+    if (operational) {
+      const active = String(operational.activeWorkOrderNumber || '').trim();
+      if (active) {
+        const source = String(operational.activeWorkOrderSource || '').trim();
+        const secondary = source === 'RMA_DECISION' ? 'RMA / Rework Assigned' :
+          source === 'APPROVED' ? 'Approved' : 'ERP Confirmed';
+        return createWorkOrderPresentation(
+          String(operational.operationalStatus || 'ACTIVE_PRODUCTION_WORK_ORDER'),
+          active, secondary, true, source === 'RMA_DECISION' ? 'rma-controlled' : 'confirmed',
+          String(operational.reason || '')
+        );
+      }
+      if (['RMA_REWORK', 'RETURN_RMA_REVIEW_REQUIRED'].includes(operational.operationalRoute)) {
+        const historical = Array.isArray(operational.historicalWorkOrders)
+          ? operational.historicalWorkOrders.map(item => item.workOrderNumber).filter(Boolean) : [];
+        const rmaControlled = operational.operationalRoute === 'RMA_REWORK';
+        return createWorkOrderPresentation(
+          String(operational.operationalStatus || 'RETURN_REVIEW_REQUIRED'),
+          String(operational.workOrderDecision || (rmaControlled ? 'Decision Pending' : 'Return Review Required')),
+          rmaControlled ? 'RMA / Rework' :
+            (historical.length ? 'Original Build: ' + historical.join(', ') : 'RMA / Return Review'),
+          false, 'rma-controlled', String(operational.reason || '')
+        );
+      }
+      if (operational.operationalRoute === 'DIRECT_FULFILLMENT' &&
+          operational.operationalStatus === 'NO_WORK_ORDER_REQUIRED') {
+        return {
+          ...createWorkOrderPresentation(
+            'NO_WORK_ORDER_REQUIRED', 'No Work Order Required',
+            reviewDecisionBasis(getApprovalReview(row)) || 'Direct Fulfillment',
+            false, 'direct-fulfillment', String(operational.reason || '')
+          ),
+          fulfillmentEligible: operational.fulfillmentRequired !== false &&
+            operational.shippingRequired !== false
+        };
+      }
+    }
+    const membership = dashboardState.rmaMemberships.get(getApprovalKey(row));
+    if (membership) {
+      return createWorkOrderPresentation(
+        'RMA_CONTROLLED',
+        'Decision Pending',
+        'RMA / Rework · ' + (membership.caseReference || 'Active Case'),
+        false,
+        'rma-controlled',
+        'The active RMA/Rework case controls this line. Canonical and approved Work Order evidence remains available in Review.'
+      );
+    }
     const approvalReview = getApprovalReview(row);
     const approved = approvalReview?.currentApproval?.approvedWorkOrderNumber;
     if (approved) {
@@ -258,7 +356,14 @@
   }
 
   function createWorkOrderPresentation(status, primary, secondary, actionable, kind, reason) {
-    return { status, primary, secondary, label: primary, actionable, kind, reason };
+    return { status, primary, secondary, label: primary, actionable, kind, reason,
+      fulfillmentEligible: actionable };
+  }
+
+  function reviewDecisionBasis(review) {
+    const code = review?.currentApproval?.decisionReasonCode;
+    return getNoWorkOrderReasonOptions(review).find(reason => reason.code === code)?.label ||
+      review?.currentApproval?.decisionReason || null;
   }
 
   function renderWorkOrderPresentation(presentation, index) {
@@ -285,7 +390,7 @@
       '</span>',
       '<button type="button" class="sales-order-dashboard-work-order-review" data-related-row-index="',
       String(index),
-      '" onclick="openWorkOrderApprovalReview(event)" aria-label="Review Work Order relationship for this Sales Order line">Review</button>',
+      '" onclick="openSalesOrderLineReview(event)" aria-label="Review this Sales Order line">Review</button>',
       '</div>'
     ].join('');
   }
@@ -342,7 +447,10 @@
       customer: official.customer || masterVpro5.customer || '',
       salesOrder: official.salesOrder || masterVpro5.salesOrder || '',
       salesOrderLine: official.sequenceLine || masterVpro5.sequenceLine || '',
-      workOrder: official.workOrder || masterVpro5.workOrder || '',
+      workOrder: getWorkOrderPresentation(sourceWorkOrder).status === 'NO_WORK_ORDER_REQUIRED'
+        ? '' : (official.workOrder || masterVpro5.workOrder || ''),
+      workOrderDecision: getWorkOrderPresentation(sourceWorkOrder).status === 'NO_WORK_ORDER_REQUIRED'
+        ? 'No Work Order Required' : '',
       assembly: official.partNumber || masterVpro5.partNumber || '',
       description: official.description || masterVpro5.description || '',
       openQuantity: parseDashboardQuantity(official.opQtyOpen ?? masterVpro5.qtyOpen),
@@ -361,7 +469,7 @@
       return [
         '<tr>',
         '<td>', escapeDashboardHtml(line.salesOrderLine || 'N/A'), '</td>',
-        '<td>', escapeDashboardHtml(line.workOrder || 'Unknown'), '</td>',
+        '<td>', escapeDashboardHtml(line.workOrder || 'Not Required'), '</td>',
         '<td>', escapeDashboardHtml(line.assembly || 'N/A'), '</td>',
         '<td>', escapeDashboardHtml(formatDashboardQuantity(line.openQuantity)), '</td>',
         '<td>',
@@ -458,6 +566,7 @@
       salesOrderLine: line.salesOrderLine,
       sequenceLine: line.salesOrderLine,
       workOrder: line.workOrder,
+      workOrderDecision: line.workOrderDecision,
       assembly: line.assembly,
       partNumber: line.assembly,
       description: line.description,
@@ -479,6 +588,7 @@
       salesOrder: firstLine.salesOrder,
       salesOrderLine: requestLines.length === 1 ? firstLine.salesOrderLine : requestLines.length + ' lines',
       workOrder: requestLines.length === 1 ? firstLine.workOrder : requestLines.length + ' work orders',
+      workOrderDecision: requestLines.length === 1 ? firstLine.workOrderDecision : '',
       assembly: requestLines.length === 1 ? firstLine.assembly : requestLines.length + ' assemblies',
       openQuantity: totalOpenQuantity,
       qtyRequested: totalRequestedQuantity,
@@ -529,7 +639,11 @@
     if (!selectedRow || !isValidWorkOrder(selectedRow)) return;
 
     if (typeof window.WorkOrderDashboardModule?.setSelectedWorkOrder === 'function') {
-      window.WorkOrderDashboardModule.setSelectedWorkOrder(selectedRow);
+      window.WorkOrderDashboardModule.setSelectedWorkOrder({
+        ...selectedRow,
+        operationalRelationship: getApprovalReview(selectedRow)?.operationalRelationship || null,
+        preferredDashboardView: 'standard'
+      });
     }
     if (typeof go === 'function') {
       go('workOrderDashboardModule');
@@ -654,16 +768,53 @@
     const candidates = Array.isArray(relationship.candidates) ? relationship.candidates : [];
     const choices = Array.isArray(review?.availableApprovalChoices)
       ? review.availableApprovalChoices : [];
+    const membership = dashboardState.rmaMemberships.get(getApprovalKey(row)) || null;
+    const canonicalEvidenceWorkOrders = [
+      relationship.actionableWorkOrderNumber,
+      ...candidates.map(candidate => candidate.workOrderNumber)
+    ].map(value => String(value || '').trim()).filter(Boolean);
+    const operational = review?.operationalRelationship || (membership ? {
+      activeWorkOrderNumber: null,
+      historicalWorkOrders: Array.from(new Set(canonicalEvidenceWorkOrders)).map(workOrderNumber => ({
+        workOrderNumber, relationshipRole: 'HISTORICAL_REFERENCE'
+      })),
+      operationalRoute: 'RMA_REWORK',
+      operationalStatus: 'RMA_DECISION_PENDING',
+      workOrderDecision: 'Decision Pending',
+      reason: 'Active RMA/Rework membership controls this line. Reloaded canonical Work Order evidence is historical only.'
+    } : {});
+    const historical = Array.isArray(operational.historicalWorkOrders)
+      ? operational.historicalWorkOrders : [];
     setText('workOrderApprovalCustomer', row?.official?.customer || identity.customerNumber);
     setText('workOrderApprovalSalesOrder', identity.salesOrderNumber);
     setText('workOrderApprovalLine', identity.lineNumber);
     setText('workOrderApprovalItem', row?.official?.partNumber || relationship.salesOrderItemNumber || 'N/A');
     setText('workOrderApprovalRelationshipStatus', relationship.resolutionStatus || relationship.status || 'UNRESOLVED');
     setText('workOrderApprovalExact', relationship.actionableWorkOrderNumber || '—');
+    setText('workOrderApprovalOperationalActive', operational.activeWorkOrderNumber || 'None');
+    setText('workOrderApprovalHistorical', historical.length
+      ? historical.map(item => item.workOrderNumber + ' · ' +
+        (item.relationshipRole === 'ORIGINAL_BUILD' ? 'Original Build' : 'Historical reference only')).join(', ')
+      : 'None');
+    setText('workOrderApprovalOperationalRoute', operational.operationalRoute || 'NORMAL_PRODUCTION_REVIEW');
     setText('workOrderApprovalCurrent', review?.currentApproval?.approvedWorkOrderNumber || '—');
     setText('workOrderApprovalBy', review?.currentApproval?.approvedBy || '—');
     setText('workOrderApprovalAt', review?.currentApproval?.approvedAtUtc || '—');
     setText('workOrderApprovalClassification', review?.conflictClassification || 'NO_APPROVAL');
+    const rmaControl = review?.rmaReworkControl || (membership ? {
+      active: true,
+      caseId: membership.caseId,
+      caseReference: membership.caseReference,
+      priorApprovalStatus: null
+    } : null);
+    const rmaControlField = document.getElementById('workOrderApprovalRmaControlField');
+    const priorStatusField = document.getElementById('workOrderApprovalPriorStatusField');
+    if (rmaControlField) rmaControlField.hidden = !rmaControl?.active;
+    if (priorStatusField) priorStatusField.hidden = !rmaControl?.priorApprovalStatus;
+    setText('workOrderApprovalRmaControl', rmaControl?.active
+      ? 'RMA / Rework · ' + (rmaControl.caseReference || 'Active Case') + ' · Decision Pending'
+      : '—');
+    setText('workOrderApprovalPriorStatus', rmaControl?.priorApprovalStatus || '—');
     const candidateList = document.getElementById('workOrderApprovalCandidates');
     if (candidateList) {
       candidateList.innerHTML = candidates.length ? candidates.map(candidate => {
@@ -684,17 +835,162 @@
       const events = Array.isArray(review?.decisionHistory) ? review.decisionHistory : [];
       history.innerHTML = events.length ? events.map(decision =>
         '<li><strong>' + escapeDashboardHtml(decision.decisionAction) + '</strong> ' +
-        escapeDashboardHtml(decision.approvedWorkOrderNumber || '—') + ' · ' +
+        escapeDashboardHtml(decision.decisionClassification === 'NO_WORK_ORDER_REQUIRED_COMPONENT'
+          ? 'No Work Order Required' : (decision.approvedWorkOrderNumber || '—')) + ' · ' +
         escapeDashboardHtml(decision.approvedBy) + ' · ' +
         escapeDashboardHtml(decision.approvedAtUtc) + '<br>' +
-        escapeDashboardHtml(decision.decisionReason) + '</li>'
+        renderApprovalDecisionReasonHistory(decision) + '</li>'
       ).join('') : '<li>No decisions recorded.</li>';
     }
-    toggleApprovalAction('workOrderApprovalApprove', review?.permissions?.canApprove);
-    toggleApprovalAction('workOrderApprovalReplace', review?.permissions?.canReplace);
-    toggleApprovalAction('workOrderApprovalRevoke', review?.permissions?.canRevoke);
-    setText('workOrderApprovalMessage', 'Review current canonical evidence before recording a decision.');
-    document.getElementById('workOrderApprovalReason')?.focus();
+    const reasonContractAvailable = configureWorkOrderApprovalReasons(review);
+    const noWorkOrderReasonContractAvailable = configureNoWorkOrderReasons(review);
+    toggleApprovalAction('workOrderApprovalApprove', reasonContractAvailable && !membership && review?.permissions?.canApprove);
+    toggleApprovalAction('workOrderApprovalReplace', reasonContractAvailable && !membership && review?.permissions?.canReplace);
+    toggleApprovalAction('noWorkOrderApprove', noWorkOrderReasonContractAvailable && !membership &&
+      review?.permissions?.canApproveNoWorkOrder);
+    toggleApprovalAction('noWorkOrderReplace', noWorkOrderReasonContractAvailable && !membership &&
+      review?.permissions?.canReplaceWithNoWorkOrder);
+    toggleApprovalAction('workOrderApprovalRevoke', reasonContractAvailable && review?.permissions?.canRevoke);
+    const returnControlled = ['RMA_REWORK', 'RETURN_RMA_REVIEW_REQUIRED']
+      .includes(operational.operationalRoute);
+    setText('workOrderApprovalMessage', returnControlled
+      ? (operational.reason || 'Read-only historical evidence. RMA/return review controls the Work Order decision.')
+      : reasonContractAvailable
+        ? 'Review current canonical evidence before recording a decision.'
+        : 'Governed decision reason choices are unavailable from this ControlHost. Approval is disabled.');
+    const reasonFields = document.getElementById('workOrderApprovalReasonFields');
+    if (reasonFields) reasonFields.hidden = returnControlled;
+    const noWorkOrderReasonFields = document.getElementById('noWorkOrderReasonFields');
+    if (noWorkOrderReasonFields) noWorkOrderReasonFields.hidden = returnControlled ||
+      !(review?.permissions?.canApproveNoWorkOrder || review?.permissions?.canReplaceWithNoWorkOrder);
+    if (!returnControlled && reasonContractAvailable)
+      document.getElementById('workOrderApprovalReasonCode')?.focus();
+  }
+
+  function hasExactWorkOrderApprovalReasonContract(review) {
+    const contract = review?.decisionReasonContract;
+    const options = Array.isArray(contract?.options) ? contract.options : [];
+    return contract?.schema === WORK_ORDER_APPROVAL_REASON_SCHEMA &&
+      contract?.otherCode === 'OTHER' &&
+      options.length === WORK_ORDER_APPROVAL_REASONS.length &&
+      options.every((option, index) => option?.code === WORK_ORDER_APPROVAL_REASONS[index].code &&
+        option?.label === WORK_ORDER_APPROVAL_REASONS[index].label);
+  }
+
+  function configureWorkOrderApprovalReasons(review) {
+    const select = document.getElementById('workOrderApprovalReasonCode');
+    if (!select) return false;
+    const available = hasExactWorkOrderApprovalReasonContract(review);
+    select.innerHTML = '<option value="" selected disabled>Select a reason</option>' +
+      (available ? WORK_ORDER_APPROVAL_REASONS.map(reason => '<option value="' +
+        escapeDashboardHtml(reason.code) + '">' + escapeDashboardHtml(reason.label) + '</option>').join('') : '');
+    select.disabled = !available;
+    select.required = false;
+    updateWorkOrderApprovalReason();
+    return available;
+  }
+
+  function hasExactNoWorkOrderReasonContract(review) {
+    const contract = review?.noWorkOrderDecisionReasonContract;
+    const options = Array.isArray(contract?.options) ? contract.options : [];
+    const codes = options.map(option => option?.code);
+    return contract?.schema === NO_WORK_ORDER_REASON_SCHEMA && contract?.otherCode === 'OTHER' &&
+      options.length === 4 && new Set(codes).size === options.length &&
+      !codes.includes('PURCHASED_RESALE_ITEM') && codes.includes('OTHER') &&
+      options.every(option => typeof option?.code === 'string' &&
+        /^[A-Z][A-Z0-9_]{2,63}$/.test(option.code) &&
+        typeof option?.label === 'string' && option.label.trim().length >= 3);
+  }
+
+  function getNoWorkOrderReasonOptions(review) {
+    return hasExactNoWorkOrderReasonContract(review)
+      ? review.noWorkOrderDecisionReasonContract.options.map(option => ({
+        code: option.code, label: option.label
+      }))
+      : [];
+  }
+
+  function configureNoWorkOrderReasons(review) {
+    const select = document.getElementById('noWorkOrderReasonCode');
+    if (!select) return false;
+    const reasons = getNoWorkOrderReasonOptions(review);
+    const available = reasons.length > 0;
+    select.innerHTML = '<option value="" selected disabled>Select a reason</option>' +
+      (available ? reasons.map(reason => '<option value="' +
+        escapeDashboardHtml(reason.code) + '">' + escapeDashboardHtml(reason.label) + '</option>').join('') : '');
+    select.disabled = !available;
+    select.required = false;
+    updateNoWorkOrderReason();
+    return available;
+  }
+
+  function validateWorkOrderApprovalReason(codeValue, otherReasonValue) {
+    const code = String(codeValue || '').trim();
+    if (!WORK_ORDER_APPROVAL_REASONS.some(reason => reason.code === code)) {
+      return { valid: false, decisionReasonCode: null, decisionNote: null,
+        message: 'Select a Decision Reason.' };
+    }
+    if (code !== 'OTHER') {
+      return { valid: true, decisionReasonCode: code, decisionNote: null, message: '' };
+    }
+    const note = String(otherReasonValue || '').trim();
+    if (!note) {
+      return { valid: false, decisionReasonCode: code, decisionNote: null,
+        message: 'Enter the Other reason.' };
+    }
+    return { valid: true, decisionReasonCode: code, decisionNote: note, message: '' };
+  }
+
+  function validateNoWorkOrderReason(codeValue, otherReasonValue, review) {
+    const code = String(codeValue || '').trim();
+    if (!getNoWorkOrderReasonOptions(review).some(reason => reason.code === code))
+      return { valid: false, decisionReasonCode: null, decisionNote: null,
+        message: 'Select a No Work Order Required reason.' };
+    if (code !== 'OTHER')
+      return { valid: true, decisionReasonCode: code, decisionNote: null, message: '' };
+    const note = String(otherReasonValue || '').trim();
+    if (!note)
+      return { valid: false, decisionReasonCode: code, decisionNote: null,
+        message: 'Enter the Other reason.' };
+    return { valid: true, decisionReasonCode: code, decisionNote: note, message: '' };
+  }
+
+  function updateWorkOrderApprovalReason() {
+    const select = document.getElementById('workOrderApprovalReasonCode');
+    const otherField = document.getElementById('workOrderApprovalOtherReasonField');
+    const otherInput = document.getElementById('workOrderApprovalOtherReason');
+    const isOther = select?.value === 'OTHER';
+    if (otherField) otherField.hidden = !isOther;
+    if (otherInput) {
+      otherInput.disabled = !isOther;
+      otherInput.required = isOther;
+      if (!isOther) otherInput.value = '';
+    }
+  }
+
+  function updateNoWorkOrderReason() {
+    const select = document.getElementById('noWorkOrderReasonCode');
+    const field = document.getElementById('noWorkOrderOtherReasonField');
+    const input = document.getElementById('noWorkOrderOtherReason');
+    const isOther = select?.value === 'OTHER';
+    if (field) field.hidden = !isOther;
+    if (input) {
+      input.disabled = !isOther;
+      input.required = isOther;
+      if (!isOther) input.value = '';
+    }
+  }
+
+  function renderApprovalDecisionReasonHistory(decision) {
+    const reason = WORK_ORDER_APPROVAL_REASONS.find(
+      item => item.code === decision?.decisionReasonCode);
+    const label = reason?.label || decision?.decisionReason;
+    if (!label) {
+      return '<strong>Legacy decision reason</strong> · ' +
+        escapeDashboardHtml(decision?.decisionReason || 'Not recorded');
+    }
+    return '<strong>' + escapeDashboardHtml(label) + '</strong>' +
+      (decision?.decisionNote ? '<br>' + escapeDashboardHtml(decision.decisionNote) : '');
   }
 
   function toggleApprovalAction(id, visible) {
@@ -702,20 +998,51 @@
     if (button) button.hidden = !visible;
   }
 
+  function formatWorkOrderApprovalFailure(error) {
+    let message = error?.message || 'The governed decision could not be recorded.';
+    if (error?.status === 401 || error?.status === 403) {
+      message = 'You are not authorized to record this governed Work Order decision.';
+    } else if (error?.code === 'approval_schema_unavailable') {
+      message = 'The required Work Order approval migration or schema is unavailable.';
+    } else if (error?.code === 'approval_store_unavailable') {
+      message = 'The governed Work Order approval store is unavailable.';
+    } else if (error?.code === 'approval_database_write_failed') {
+      message = 'The governed Work Order decision could not be written. No decision was recorded.';
+    }
+    return message + (error?.requestId ? ' Reference: ' + error.requestId : '');
+  }
+
   async function submitWorkOrderApproval(event) {
     event.preventDefault();
     if (dashboardState.approvalSubmitting) return;
     const action = event.submitter?.dataset?.approvalAction;
-    if (!['approve', 'replace', 'revoke'].includes(action)) return;
+    if (!['approve', 'replace', 'approve-no-work-order',
+        'replace-no-work-order', 'revoke'].includes(action)) return;
+    const noWorkOrderAction = action.endsWith('no-work-order');
     const row = dashboardState.approvalReviewRow;
     const review = getApprovalReview(row);
-    const reason = String(document.getElementById('workOrderApprovalReason')?.value || '').trim();
-    const selected = document.querySelector('input[name="workOrderApprovalChoice"]:checked')?.value || null;
-    if (reason.length < 3) {
-      setText('workOrderApprovalMessage', 'Enter a decision reason of at least three characters.');
+    if (action !== 'revoke' && dashboardState.rmaMemberships.has(getApprovalKey(row))) {
+      setText('workOrderApprovalMessage', 'RMA/Rework membership controls this line. Normal Work Order approval is blocked.');
       return;
     }
-    if (action !== 'revoke' && !selected) {
+    if (noWorkOrderAction ? !hasExactNoWorkOrderReasonContract(review) :
+        !hasExactWorkOrderApprovalReasonContract(review)) {
+      setText('workOrderApprovalMessage', 'Governed decision reason choices are unavailable. Approval is disabled.');
+      return;
+    }
+    const reason = noWorkOrderAction
+      ? validateNoWorkOrderReason(
+        document.getElementById('noWorkOrderReasonCode')?.value,
+        document.getElementById('noWorkOrderOtherReason')?.value, review)
+      : validateWorkOrderApprovalReason(
+        document.getElementById('workOrderApprovalReasonCode')?.value,
+        document.getElementById('workOrderApprovalOtherReason')?.value);
+    const selected = document.querySelector('input[name="workOrderApprovalChoice"]:checked')?.value || null;
+    if (!reason.valid) {
+      setText('workOrderApprovalMessage', reason.message);
+      return;
+    }
+    if (action !== 'revoke' && !noWorkOrderAction && !selected) {
       setText('workOrderApprovalMessage', 'Select one current canonical Work Order choice.');
       return;
     }
@@ -727,7 +1054,8 @@
         identity.customerNumber, identity.salesOrderNumber, identity.lineNumber, action,
         {
           selectedWorkOrderNumber: selected,
-          decisionReason: reason,
+          decisionReasonCode: reason.decisionReasonCode,
+          decisionNote: reason.decisionNote,
           evidenceToken: review.evidenceToken,
           expectedCurrentDecisionId: review.currentApproval?.decisionId || null
         }
@@ -735,15 +1063,26 @@
       dashboardState.approvalReviews.set(getApprovalKey(row), updated);
       renderSalesOrderDashboardModule();
       renderWorkOrderApprovalDialog(updated, row);
+      await window.DleApiClient.publishOperationalLineStateChange([
+        {
+          customerNumber: identity.customerNumber,
+          salesOrderNumber: identity.salesOrderNumber,
+          lineNumber: identity.lineNumber
+        }
+      ], 'work-order-approval-' + action);
       setText('workOrderApprovalMessage', 'The governed decision was recorded.');
-      const reasonInput = document.getElementById('workOrderApprovalReason');
-      if (reasonInput) reasonInput.value = '';
+      const reasonSelect = document.getElementById('workOrderApprovalReasonCode');
+      if (reasonSelect) reasonSelect.value = '';
+      updateWorkOrderApprovalReason();
+      const noWorkOrderReasonSelect = document.getElementById('noWorkOrderReasonCode');
+      if (noWorkOrderReasonSelect) noWorkOrderReasonSelect.value = '';
+      updateNoWorkOrderReason();
     } catch (error) {
       if (error.status === 409) {
         setText('workOrderApprovalMessage', 'Evidence changed. Reloading the current relationship for review…');
         await openWorkOrderApprovalReview({ currentTarget: approvalDialogReturnFocus, stopPropagation() {} });
       } else {
-        setText('workOrderApprovalMessage', error.message || 'The governed decision could not be recorded.');
+        setText('workOrderApprovalMessage', formatWorkOrderApprovalFailure(error));
       }
     } finally {
       dashboardState.approvalSubmitting = false;
@@ -761,6 +1100,366 @@
   function handleWorkOrderApprovalKeydown(event) {
     if (event?.key === 'Escape' && !document.getElementById('workOrderApprovalDialog')?.hidden)
       closeWorkOrderApprovalReview();
+  }
+
+  function getRmaLineQuantities(row) {
+    const official = row?.official || {};
+    const source = row?.masterRecord || {};
+    const vpro5 = source.vpro5 || {};
+    return {
+      revision: String(source.drawingRevision || source.bomRevision || official.revision || vpro5.revision || '').trim(),
+      quantityOrdered: parseDashboardQuantity(official.quantityOrdered ?? source.quantityOrdered ?? vpro5.quantityOrdered),
+      erpQuantityOpen: parseDashboardQuantity(official.erpQtyOpen ?? source.erpQuantityOpen ?? vpro5.qtyOpen),
+      pendingInvoiceQuantity: parseDashboardQuantity(official.pendingInvoiceQty),
+      operationalQuantityOpen: parseDashboardQuantity(official.opQtyOpen ?? source.erpQuantityOpen ?? vpro5.qtyOpen)
+    };
+  }
+
+  function quantitySign(value) {
+    const number = parseDashboardQuantity(value);
+    return number < 0 ? 'Negative' : number > 0 ? 'Positive' : 'Zero';
+  }
+
+  function toggleSalesOrderReviewCandidate() {
+    dashboardState.reviewCandidateMode = !dashboardState.reviewCandidateMode;
+    if (!dashboardState.reviewCandidateMode) dashboardState.rmaSelection.clear();
+    renderSalesOrderDashboardModule();
+  }
+
+  function toggleRmaReworkLine(event) {
+    event?.stopPropagation?.();
+    if (!dashboardState.reviewCandidateMode) return;
+    const index = Number(event?.currentTarget?.dataset?.relatedRowIndex);
+    const row = getRelatedRows()[index];
+    if (!row) return;
+    const key = getApprovalKey(row);
+    if (dashboardState.rmaMemberships.has(key)) return;
+    if (event.currentTarget.checked) dashboardState.rmaSelection.set(key, row);
+    else dashboardState.rmaSelection.delete(key);
+    updateRmaReworkActions();
+  }
+
+  function updateRmaReworkActions() {
+    const button = document.getElementById('salesOrderDashboardClassifyRmaButton');
+    const modeButton = document.getElementById('salesOrderDashboardReviewCandidateButton');
+    const selected = Array.from(dashboardState.rmaSelection.values());
+    if (button) button.disabled = !dashboardState.reviewCandidateMode || selected.length < 2;
+    if (modeButton) modeButton.textContent = dashboardState.reviewCandidateMode ? 'Exit Review Candidate' : 'Enter Review Candidate';
+    setText('salesOrderDashboardReviewCandidateState', dashboardState.reviewCandidateMode ? 'Active' : 'Not active');
+    setText('salesOrderDashboardRmaSelectionCount', selected.length + ' selected');
+    const customers = new Set(selected.map(row => getApprovalLineIdentity(row).customerNumber));
+    const salesOrders = new Set(selected.map(row => getApprovalLineIdentity(row).salesOrderNumber));
+    setText('salesOrderDashboardRmaSelectionWarning', customers.size > 1
+      ? 'Selected lines span multiple customers and cannot form one case.'
+      : salesOrders.size > 1 ? 'Selected lines span multiple Sales Orders. Confirm that they belong to one case.' : '');
+  }
+
+  async function loadSelectedOrderRmaMemberships(generation) {
+    if (!window.DleApiClient?.getRmaReworkCases) return;
+    const first = getRelatedRows()[0];
+    const identity = getApprovalLineIdentity(first);
+    if (!identity.customerNumber || !identity.salesOrderNumber) return;
+    try {
+      const response = await window.DleApiClient.getRmaReworkCases({
+        status: 'ACTIVE', customerNumber: identity.customerNumber,
+        salesOrderNumber: identity.salesOrderNumber, page: 1, pageSize: 200
+      });
+      if (generation !== dashboardState.rmaRequestGeneration) return;
+      (response?.items || []).forEach(caseRecord => {
+        dashboardState.rmaCases.set(caseRecord.caseId, caseRecord);
+        (caseRecord.members || []).forEach(member => dashboardState.rmaMemberships.set(
+          [member.customerNumber, member.salesOrderNumber, member.salesOrderLineNumber].join('|'),
+          { caseId: caseRecord.caseId, caseReference: caseRecord.caseReference, caseRecord }
+        ));
+      });
+      renderSalesOrderDashboardModule();
+    } catch (error) {
+      console.warn('Active RMA/Rework membership is unavailable.', error);
+      setText('salesOrderDashboardRmaSelectionWarning', 'RMA/Rework membership could not be loaded; classification is unavailable.');
+      const button = document.getElementById('salesOrderDashboardClassifyRmaButton');
+      if (button) button.disabled = true;
+    }
+  }
+
+  function buildRmaMemberRequest(row) {
+    const identity = getApprovalLineIdentity(row);
+    return { customerNumber: identity.customerNumber, salesOrderNumber: identity.salesOrderNumber, lineNumber: identity.lineNumber };
+  }
+
+  function openSalesOrderLineReview(event) {
+    event?.stopPropagation?.();
+    const index = Number(event?.currentTarget?.dataset?.relatedRowIndex);
+    const row = getRelatedRows()[index];
+    if (!row) return;
+    dashboardState.lineReviewRow = row;
+    dashboardState.lineReviewTrigger = event.currentTarget;
+    const membership = dashboardState.rmaMemberships.get(getApprovalKey(row));
+    setText('salesOrderLineRmaStatus', membership ? 'RMA / Rework' : 'Not classified');
+    setText('salesOrderLineRmaClassification', membership?.caseRecord?.caseType || membership?.caseReference || '—');
+    const selected = dashboardState.selectedWorkOrders.includes(row) ? dashboardState.selectedWorkOrders : [row];
+    const available = selected.filter(item => !dashboardState.rmaMemberships.has(getApprovalKey(item)));
+    const button = document.getElementById('salesOrderLineRmaReviewButton');
+    if (button) {
+      button.disabled = !!membership;
+      button.textContent = membership ? 'RMA / Rework Classified' :
+        available.length > 1 ? 'RMA / Rework Review (' + available.length + ' selected)' : 'RMA / Rework Review';
+    }
+    const dialog = document.getElementById('salesOrderLineReviewDialog');
+    if (dialog) dialog.hidden = false;
+  }
+
+  function closeSalesOrderLineReview() {
+    const dialog = document.getElementById('salesOrderLineReviewDialog');
+    if (dialog) dialog.hidden = true;
+    dashboardState.lineReviewTrigger?.focus?.();
+  }
+
+  function continueWorkOrderRelationshipReview() {
+    const trigger = dashboardState.lineReviewTrigger;
+    closeSalesOrderLineReview();
+    if (trigger) openWorkOrderApprovalReview({ currentTarget: trigger, stopPropagation() {} });
+  }
+
+  function continueRmaReworkLineReview() {
+    const row = dashboardState.lineReviewRow;
+    const trigger = dashboardState.lineReviewTrigger;
+    closeSalesOrderLineReview();
+    const selected = dashboardState.selectedWorkOrders.includes(row)
+      ? dashboardState.selectedWorkOrders.filter(item => !dashboardState.rmaMemberships.has(getApprovalKey(item))) : [row];
+    if (selected.length > 1) {
+      dashboardState.rmaSelection = new Map(selected.map(item => [getApprovalKey(item), item]));
+      openRmaReworkClassification({ currentTarget: trigger, stopPropagation() {} });
+    } else if (row) openRmaReworkClassification({ currentTarget: trigger, stopPropagation() {} }, row);
+  }
+
+  async function openRmaReworkClassification(event, singleRow = null) {
+    if (dashboardState.rmaSubmitting) return;
+    if (!singleRow && dashboardState.rmaSelection.size < 2) return;
+    dashboardState.rmaWorkflowMode = singleRow ? 'single' : 'group';
+    dashboardState.rmaSingleRow = singleRow;
+    dashboardState.rmaMatch = null;
+    rmaDialogReturnFocus = event?.currentTarget || document.activeElement;
+    const dialog = document.getElementById('rmaReworkClassificationDialog');
+    if (dialog) dialog.hidden = false;
+    setText('rmaReworkMessage', 'Validating exact canonical Sales Order lines…');
+    const lines = document.getElementById('rmaReworkSelectedLines');
+    if (lines) lines.innerHTML = '<tr><td colspan="12">Validating exact canonical Sales Order lines…</td></tr>';
+    try {
+      const rows = singleRow ? [singleRow] : Array.from(dashboardState.rmaSelection.values());
+      const members = rows.map(buildRmaMemberRequest);
+      dashboardState.rmaReview = await window.DleApiClient.reviewRmaReworkCaseMembers(members);
+      renderRmaReworkReview(dashboardState.rmaReview);
+      const orders = new Set(dashboardState.rmaReview.members.map(item => item.identity.salesOrderNumber));
+      const internal = document.getElementById('rmaReworkInternalReference');
+      if (internal) internal.placeholder = orders.size === 1 ? 'Suggested: PENDING-RMA-' + Array.from(orders)[0] : 'Enter an internal reference';
+      setText('rmaReworkClassificationTitle', singleRow ? 'Classify Line as RMA / Rework' : 'Group Selected Lines as RMA / Rework');
+      setText('rmaReworkClassificationPurpose', singleRow
+        ? 'Enter one controlled reference, review active case matching, then explicitly confirm the proposed action.'
+        : 'Create one governed case from the selected canonical lines.');
+      setText('rmaReworkMessage', singleRow ? 'Enter one reference to review its active-case match.' : 'Review the server-validated lines and explicitly confirm case creation.');
+      validateRmaReworkClassification();
+    } catch (error) {
+      dashboardState.rmaReview = null;
+      setText('rmaReworkMessage', error.message || 'The selected canonical lines could not be reviewed.');
+      validateRmaReworkClassification();
+    }
+  }
+
+  function resetRmaReworkMatch() {
+    dashboardState.rmaMatch = null;
+    const summary = document.getElementById('rmaReworkMatchSummary');
+    if (summary) summary.innerHTML = '';
+    validateRmaReworkClassification();
+  }
+
+  function renderRmaReworkMatch(match) {
+    const target = document.getElementById('rmaReworkMatchSummary');
+    if (!target) return;
+    const existing = match?.existingCase;
+    const members = existing?.members || [];
+    const actionLabels = {
+      CREATE_NEW_CASE: 'Create new RMA / Rework Case',
+      ADD_TO_EXISTING_CASE: 'Add to existing RMA / Rework Case',
+      ALREADY_MEMBER: 'This line is already a member',
+      CASE_TYPE_MISMATCH: 'Case type does not match',
+      AMBIGUOUS: 'Multiple active cases match'
+    };
+    target.innerHTML = '<div class="sales-order-dashboard-rma-summary"><strong>' +
+      escapeDashboardHtml(actionLabels[match?.proposedAction] || match?.proposedAction || 'Match unavailable') +
+      '</strong><small>Entered ' + escapeDashboardHtml(match?.referenceType || '') + ': ' +
+      escapeDashboardHtml(match?.enteredReference || '') + ' · matching active cases: ' +
+      escapeDashboardHtml(match?.matchingCaseCount ?? 0) + (existing ? ' · Case ' +
+      escapeDashboardHtml(existing.caseId) + ' · ' + escapeDashboardHtml(existing.caseReference || existing.customerRmaNumber || existing.internalReference || '') +
+      ' · ' + escapeDashboardHtml(existing.caseType) + ' · current lines: ' +
+      escapeDashboardHtml(members.map(member => member.salesOrderNumber + '/' + member.salesOrderLineNumber).join(', ')) : '') +
+      '</small></div>';
+  }
+
+  async function reviewRmaReworkReference(values) {
+    const row = dashboardState.rmaSingleRow;
+    let match = await window.DleApiClient.matchRmaReworkCase({
+      ...values, member: buildRmaMemberRequest(row)
+    });
+    if (match?.proposedAction === 'CASE_TYPE_MISMATCH' && match?.existingCase?.caseType) {
+      const type = document.getElementById('rmaReworkCaseType');
+      if (type) type.value = match.existingCase.caseType;
+      match = await window.DleApiClient.matchRmaReworkCase({
+        ...values, caseType: match.existingCase.caseType, member: buildRmaMemberRequest(row)
+      });
+    }
+    dashboardState.rmaMatch = match;
+    renderRmaReworkMatch(match);
+    validateRmaReworkClassification();
+  }
+
+  function renderRmaReworkReview(review) {
+    const target = document.getElementById('rmaReworkSelectedLines');
+    if (target) target.innerHTML = (review?.members || []).map(member => {
+      const identity = member.identity || {};
+      return '<tr><td>' + escapeDashboardHtml(identity.salesOrderNumber) + '</td><td>' + escapeDashboardHtml(identity.lineNumber) +
+        '</td><td>' + escapeDashboardHtml(member.itemNumber || 'N/A') + '</td><td>' + escapeDashboardHtml(member.revision || 'N/A') +
+        '</td><td>' + escapeDashboardHtml(formatDashboardQuantity(member.quantityOrdered)) + '</td><td>' + escapeDashboardHtml(formatDashboardQuantity(member.erpQuantityOpen)) +
+        '</td><td>' + escapeDashboardHtml(formatDashboardQuantity(member.pendingInvoiceQuantity)) + '</td><td>' + escapeDashboardHtml(formatDashboardQuantity(member.operationalQuantityOpen)) +
+        '</td><td>' + escapeDashboardHtml(quantitySign(member.erpQuantityOpen)) + '</td><td>' + escapeDashboardHtml(member.relatedWorkOrderNumber || '—') +
+        '</td><td>' + escapeDashboardHtml(member.relationshipStatus || 'UNRESOLVED') + '</td><td>' + escapeDashboardHtml(member.currentCaseReference || '—') + '</td></tr>';
+    }).join('');
+    setText('rmaReworkSignedNet', formatDashboardQuantity(review?.signedNetQuantity));
+    setText('rmaReworkOperationalNet', formatDashboardQuantity(review?.operationalNetQuantity));
+    const warnings = [];
+    if (review?.multipleSalesOrders) warnings.push('Multiple Sales Orders are selected.');
+    if (review?.sameSignOnly) warnings.push('All selected ERP quantities have the same sign; classification remains permitted but must be intentional.');
+    if ((review?.members || []).some(member => member.currentCaseId)) warnings.push('One or more lines already belong to an active case.');
+    setText('rmaReworkWarnings', warnings.join(' '));
+  }
+
+  function validateRmaReworkClassification() {
+    const customerRma = String(document.getElementById('rmaReworkCustomerNumber')?.value || '').trim();
+    const internalReference = String(document.getElementById('rmaReworkInternalReference')?.value || '').trim();
+    const caseType = String(document.getElementById('rmaReworkCaseType')?.value || '');
+    const notes = String(document.getElementById('rmaReworkNotes')?.value || '').trim();
+    let message = '';
+    if (!dashboardState.rmaReview) message = 'Review current canonical line evidence first.';
+    else if (dashboardState.rmaWorkflowMode === 'group' && (dashboardState.rmaReview.members || []).some(member => member.currentCaseId)) message = 'A selected line already belongs to an active case.';
+    else if (!customerRma && !internalReference) message = 'Enter a Customer RMA Number or an Internal RMA Reference.';
+    else if (customerRma && internalReference) message = 'Enter either a Customer RMA Number or an Internal RMA Reference, not both.';
+    else if (caseType === 'OTHER' && !notes) message = 'A note is required for Other.';
+    else if (dashboardState.rmaWorkflowMode === 'single' && dashboardState.rmaMatch &&
+      !['CREATE_NEW_CASE', 'ADD_TO_EXISTING_CASE'].includes(dashboardState.rmaMatch.proposedAction))
+      message = dashboardState.rmaMatch.proposedAction === 'ALREADY_MEMBER' ? 'This exact Sales Order line already belongs to the matching active case.' :
+        dashboardState.rmaMatch.proposedAction === 'AMBIGUOUS' ? 'More than one active case matches. No case was selected.' :
+        'The proposed classification is not actionable.';
+    const button = document.getElementById('rmaReworkConfirmButton');
+    if (button) button.disabled = !!message || dashboardState.rmaSubmitting;
+    if (button) button.textContent = dashboardState.rmaWorkflowMode === 'single' && !dashboardState.rmaMatch
+      ? 'Review Reference Match' : dashboardState.rmaMatch?.proposedAction === 'ADD_TO_EXISTING_CASE'
+        ? 'Confirm Add to Existing Case' : 'Confirm Case Creation';
+    if (dashboardState.rmaReview) setText('rmaReworkMessage', message ||
+      (dashboardState.rmaWorkflowMode === 'single' && !dashboardState.rmaMatch
+        ? 'Review the reference before any write.' : 'Ready for explicit confirmation.'));
+    return { valid: !message, caseType, customerRmaNumber: customerRma || null, internalReference: internalReference || null, notes: notes || null };
+  }
+
+  async function submitRmaReworkClassification(event) {
+    event?.preventDefault?.();
+    if (dashboardState.rmaSubmitting) return;
+    const values = validateRmaReworkClassification();
+    if (!values.valid) return;
+    if (dashboardState.rmaWorkflowMode === 'single' && !dashboardState.rmaMatch) {
+      dashboardState.rmaSubmitting = true;
+      setText('rmaReworkMessage', 'Matching the controlled reference against active cases…');
+      try { await reviewRmaReworkReference(values); }
+      catch (error) { setText('rmaReworkMessage', error.message || 'Reference matching failed.'); }
+      finally { dashboardState.rmaSubmitting = false; validateRmaReworkClassification(); }
+      return;
+    }
+    dashboardState.rmaSubmitting = true;
+    validateRmaReworkClassification();
+    setText('rmaReworkMessage', 'Creating the governed RMA / Rework Case…');
+    try {
+      const match = dashboardState.rmaMatch;
+      const created = dashboardState.rmaWorkflowMode === 'single' && match?.proposedAction === 'ADD_TO_EXISTING_CASE'
+        ? await window.DleApiClient.addRmaReworkCaseMember(match.existingCase.caseId, {
+            ...values, member: buildRmaMemberRequest(dashboardState.rmaSingleRow),
+            referenceMatchEvidenceToken: match.evidenceToken,
+            expectedCurrentEventId: match.expectedCurrentEventId,
+            requestCorrelationId: createDashboardCorrelationId()
+          })
+        : await window.DleApiClient.createRmaReworkCase({
+            ...values,
+            members: dashboardState.rmaWorkflowMode === 'single' ? [buildRmaMemberRequest(dashboardState.rmaSingleRow)] : Array.from(dashboardState.rmaSelection.values()).map(buildRmaMemberRequest),
+            evidenceToken: dashboardState.rmaReview.evidenceToken,
+            referenceMatchEvidenceToken: match?.evidenceToken || null,
+            requestCorrelationId: createDashboardCorrelationId()
+          });
+      dashboardState.rmaCases.set(created.caseId, created);
+      (created.members || []).forEach(member => dashboardState.rmaMemberships.set(
+        [member.customerNumber, member.salesOrderNumber, member.salesOrderLineNumber].join('|'),
+        { caseId: created.caseId, caseReference: created.caseReference, caseRecord: created }
+      ));
+      dashboardState.rmaSelection.clear();
+      closeRmaReworkClassification();
+      renderSalesOrderDashboardModule();
+      await window.DleApiClient.publishOperationalLineStateChange(
+        (created.members || []).map(member => ({
+          customerNumber: member.customerNumber,
+          salesOrderNumber: member.salesOrderNumber,
+          lineNumber: member.salesOrderLineNumber
+        })),
+        'rma-rework-membership-issued'
+      );
+      setText('salesOrderDashboardStatus', 'RMA / Rework Case ' + created.caseReference +
+        (match?.proposedAction === 'ADD_TO_EXISTING_CASE' ? ' received the canonical Sales Order line.' : ' was created from exact canonical line evidence.'));
+    } catch (error) {
+      setText('rmaReworkMessage', error.status === 409
+        ? 'Evidence changed. Close and review the selected lines again.'
+        : error.message || 'The RMA / Rework Case could not be created.');
+    } finally {
+      dashboardState.rmaSubmitting = false;
+      validateRmaReworkClassification();
+    }
+  }
+
+  function closeRmaReworkClassification() {
+    const dialog = document.getElementById('rmaReworkClassificationDialog');
+    if (dialog) dialog.hidden = true;
+    dashboardState.rmaReview = null;
+    dashboardState.rmaMatch = null;
+    dashboardState.rmaSingleRow = null;
+    rmaDialogReturnFocus?.focus?.();
+    rmaDialogReturnFocus = null;
+  }
+
+  function renderRmaReworkSummaries() {
+    const target = document.getElementById('salesOrderDashboardRmaCases');
+    if (!target) return;
+    const keys = new Set(getRelatedRows().map(getApprovalKey));
+    const cases = Array.from(dashboardState.rmaCases.values()).filter(caseRecord =>
+      (caseRecord.members || []).some(member => keys.has([member.customerNumber, member.salesOrderNumber, member.salesOrderLineNumber].join('|'))));
+    target.innerHTML = cases.map(caseRecord => '<div class="sales-order-dashboard-rma-summary" data-rma-case-summary="' +
+      escapeDashboardHtml(caseRecord.caseId) + '"><strong>' + escapeDashboardHtml(caseRecord.caseReference) +
+      ' · ' + escapeDashboardHtml(caseRecord.caseType) + ' · ' + escapeDashboardHtml(caseRecord.statusLabel) + '</strong><small>' +
+      escapeDashboardHtml((caseRecord.members || []).map(member => member.salesOrderNumber + '/' + member.salesOrderLineNumber +
+        ' (' + formatDashboardQuantity(member.erpQuantityOpen) + ')').join(', ')) + ' · Net ' +
+      escapeDashboardHtml(formatDashboardQuantity(caseRecord.signedNetQuantity)) + ' · Created by ' +
+      escapeDashboardHtml(caseRecord.createdBy) + ' at ' + escapeDashboardHtml(caseRecord.createdAtUtc) +
+      (caseRecord.notes ? ' · ' + escapeDashboardHtml(caseRecord.notes) : '') + '</small></div>').join('');
+  }
+
+  function showRmaReworkCase(event) {
+    event?.stopPropagation?.();
+    const caseId = event?.currentTarget?.dataset?.rmaCaseId;
+    const summary = document.querySelector('[data-rma-case-summary="' + CSS.escape(caseId || '') + '"]');
+    summary?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function createDashboardCorrelationId() {
+    if (typeof crypto?.randomUUID === 'function') return crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+    return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
   }
 
   function escapeDashboardHtml(value) {
@@ -788,7 +1487,18 @@
   window.SalesOrderDashboard.openWorkOrderDashboard = openWorkOrderDashboard;
   window.SalesOrderDashboard.getWorkOrderPresentation = getWorkOrderPresentation;
   window.SalesOrderDashboard.openWorkOrderApprovalReview = openWorkOrderApprovalReview;
+  window.SalesOrderDashboard.openSalesOrderLineReview = openSalesOrderLineReview;
   window.SalesOrderDashboard.render = renderSalesOrderDashboardModule;
+  window.SalesOrderDashboard.toggleReviewCandidate = toggleSalesOrderReviewCandidate;
+  window.SalesOrderDashboard.openRmaReworkClassification = openRmaReworkClassification;
+  window.SalesOrderDashboard.hasExactWorkOrderApprovalReasonContract = hasExactWorkOrderApprovalReasonContract;
+  window.SalesOrderDashboard.validateWorkOrderApprovalReason = validateWorkOrderApprovalReason;
+  window.SalesOrderDashboard.getWorkOrderApprovalReasons = () => WORK_ORDER_APPROVAL_REASONS.slice();
+  window.SalesOrderDashboard.getNoWorkOrderReasons = getNoWorkOrderReasonOptions;
+  window.SalesOrderDashboard.hasExactNoWorkOrderReasonContract = hasExactNoWorkOrderReasonContract;
+  window.SalesOrderDashboard.validateNoWorkOrderReason = validateNoWorkOrderReason;
+  window.SalesOrderDashboard.renderApprovalDecisionReasonHistory = renderApprovalDecisionReasonHistory;
+  window.SalesOrderDashboard.formatWorkOrderApprovalFailure = formatWorkOrderApprovalFailure;
 
   window.loadSalesOrderDashboardModule = loadSalesOrderDashboardModule;
   window.initializeSalesOrderDashboard = initializeSalesOrderDashboard;
@@ -801,8 +1511,22 @@
   window.sendRequestToShipping = sendRequestToShipping;
   window.openSalesOrderDashboardWorkOrder = openWorkOrderDashboard;
   window.openWorkOrderApprovalReview = openWorkOrderApprovalReview;
+  window.openSalesOrderLineReview = openSalesOrderLineReview;
+  window.closeSalesOrderLineReview = closeSalesOrderLineReview;
+  window.continueWorkOrderRelationshipReview = continueWorkOrderRelationshipReview;
+  window.continueRmaReworkLineReview = continueRmaReworkLineReview;
   window.closeWorkOrderApprovalReview = closeWorkOrderApprovalReview;
   window.submitWorkOrderApproval = submitWorkOrderApproval;
+  window.updateWorkOrderApprovalReason = updateWorkOrderApprovalReason;
+  window.updateNoWorkOrderReason = updateNoWorkOrderReason;
+  window.toggleSalesOrderReviewCandidate = toggleSalesOrderReviewCandidate;
+  window.toggleRmaReworkLine = toggleRmaReworkLine;
+  window.openRmaReworkClassification = openRmaReworkClassification;
+  window.closeRmaReworkClassification = closeRmaReworkClassification;
+  window.submitRmaReworkClassification = submitRmaReworkClassification;
+  window.validateRmaReworkClassification = validateRmaReworkClassification;
+  window.resetRmaReworkMatch = resetRmaReworkMatch;
+  window.showRmaReworkCase = showRmaReworkCase;
   window.renderSalesOrderDashboardModule = renderSalesOrderDashboardModule;
 
   document.addEventListener('keydown', handleRequestToShipDialogKeydown);

@@ -6,6 +6,7 @@
   'use strict';
 
   window.OperationsCenter = window.OperationsCenter || {};
+  let operationalStateSubscription = null;
 
   async function loadOperationsCenterModule() {
     const placeholder = document.getElementById('operationsCenter');
@@ -21,6 +22,14 @@
   }
 
   async function initializeOperationsCenter() {
+    if (!operationalStateSubscription && window.DleApiClient?.subscribeOperationalLineStateChange) {
+      operationalStateSubscription = window.DleApiClient.subscribeOperationalLineStateChange(detail => {
+        if (!window.OperationsCenter.state?.canonicalLoaded) return;
+        const refresh = refreshOperationsCenterCanonicalData();
+        detail.waitUntil?.(refresh);
+        return refresh;
+      });
+    }
     await window.OperationsCenter.overlayService.initializeOverlay();
     window.OperationsCenter.projection.initialize();
     populateOperationsCenterDocumentTypes();
@@ -115,6 +124,11 @@
     window.OperationsCenter.table.renderModule();
   }
 
+  function toggleOperationsCenterRmaVisibility() {
+    window.OperationsCenter.stateActions.toggleHideRmaRework();
+    window.OperationsCenter.table.renderModule();
+  }
+
   function updateOperationsCenterProjectionSelection(event) {
     window.OperationsCenter.table.updateProjectionSelection(event);
   }
@@ -160,6 +174,7 @@
   window.OperationsCenter.populateDocumentTypes = populateOperationsCenterDocumentTypes;
   window.OperationsCenter.refreshDocumentStatus = refreshOperationsCenterDocumentStatus;
   window.OperationsCenter.toggleProjectionMode = toggleOperationsCenterProjectionMode;
+  window.OperationsCenter.toggleRmaVisibility = toggleOperationsCenterRmaVisibility;
   window.OperationsCenter.updateProjectionSelection = updateOperationsCenterProjectionSelection;
   window.OperationsCenter.updateOverlayField = updateOperationsCenterOverlayField;
   window.OperationsCenter.saveOverlay = saveOperationsCenterOverlay;
@@ -174,6 +189,7 @@
   window.populateOperationsCenterDocumentTypes = populateOperationsCenterDocumentTypes;
   window.refreshOperationsCenterDocumentStatus = refreshOperationsCenterDocumentStatus;
   window.toggleOperationsCenterProjectionMode = toggleOperationsCenterProjectionMode;
+  window.toggleOperationsCenterRmaVisibility = toggleOperationsCenterRmaVisibility;
   window.updateOperationsCenterProjectionSelection = updateOperationsCenterProjectionSelection;
   window.updateOperationsCenterOverlayField = updateOperationsCenterOverlayField;
   window.saveOperationsCenterOverlay = saveOperationsCenterOverlay;

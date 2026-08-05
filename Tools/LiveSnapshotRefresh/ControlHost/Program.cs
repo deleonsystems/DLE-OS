@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.Server.HttpSys;
 const string authorizedOperator = @"DLE-OS-HOST\DLE-OS";
 string[] allowedOrigins =
     ["http://dle-os-host:5041", "http://dle-os-host:5051"];
-const string controlPrefix = "http://dle-os-host:5043";
+var controlPrefix = ControlHostRuntimeConfiguration.ControlPrefix;
+var isolatedDevelopment = ControlHostRuntimeConfiguration.IsIsolatedDevelopment;
 const string runnerPath =
     @"C:\DLE-OS\Canonical\LiveMirror\Refresh\Invoke-LiveSnapshotRefresh.ps1";
 const string erpRefreshLauncherPath =
@@ -59,6 +60,36 @@ var app = builder.Build();
 app.UseCors(corsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    if (!isolatedDevelopment)
+    {
+        await next();
+        return;
+    }
+
+    var path = context.Request.Path.Value ?? "";
+    string[] allowedDevelopmentPaths =
+    [
+        "/health",
+        "/api/work-order-approvals/",
+        "/api/kitting-dispositions/",
+        "/api/rma-rework/",
+        "/api/operational-work-order-relationships/"
+    ];
+    if (allowedDevelopmentPaths.Any(value => path.StartsWith(value, StringComparison.OrdinalIgnoreCase)))
+    {
+        await next();
+        return;
+    }
+
+    context.Response.StatusCode = StatusCodes.Status404NotFound;
+    await context.Response.WriteAsJsonAsync(new
+    {
+        code = "development_runtime_route_not_available",
+        message = "This isolated development ControlHost exposes operational workflow routes only."
+    });
+});
 
 var processGate = new object();
 Process? currentProcess = null;
@@ -337,7 +368,11 @@ app.MapGet(
                 context.User.Identity?.Name,
                 authorizedOperator,
                 StringComparison.OrdinalIgnoreCase),
-            executionIdentity = WindowsIdentity.GetCurrent().Name
+            executionIdentity = WindowsIdentity.GetCurrent().Name,
+            runtimeMode = isolatedDevelopment ? "ISOLATED_DEVELOPMENT" : "PRODUCTION",
+            controlPrefix,
+            canonicalApiBaseUrl = ControlHostRuntimeConfiguration.CanonicalApiBaseUrl,
+            operationalDatabase = ControlHostRuntimeConfiguration.OperationalDatabaseName
         }))
     .RequireAuthorization("SnapshotRefreshOperator");
 
@@ -351,6 +386,9 @@ app.MapDailyOperationsSync(
     authorizedOperator,
     "SnapshotRefreshOperator");
 app.MapWorkOrderApprovals("SnapshotRefreshOperator");
+app.MapKittingDispositions("SnapshotRefreshOperator");
+app.MapRmaRework("SnapshotRefreshOperator");
+app.MapOperationalWorkOrderRelationships("SnapshotRefreshOperator");
 
 app.Run();
 

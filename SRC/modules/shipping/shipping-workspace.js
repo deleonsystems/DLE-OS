@@ -71,6 +71,8 @@
       emptyMessage: "Create a Request to Ship from the Sales Order Dashboard to populate the Shipping Queue.",
       defaultStatus: "Pending Shipping"
     });
+    const printButton = document.getElementById("shippingPrintQueueButton");
+    if (printButton) printButton.disabled = !state.requests.length;
   }
 
   function renderPackingQueue() {
@@ -177,7 +179,7 @@
       detailLines.map((line, lineIndex) => [
         '<tr class="', lineIndex % 2 === 0 ? 'rowEven' : 'rowOdd', '">',
         renderCell(line?.salesOrderLine || line?.sequenceLine || requestToShip.salesOrderLine || "N/A"),
-        renderCell(line?.workOrder || requestToShip.workOrder || "Unknown"),
+        renderCell(line?.workOrder || line?.workOrderDecision || requestToShip.workOrder || "Unknown"),
         renderCell(line?.assembly || line?.partNumber || requestToShip.assembly || "N/A"),
         renderCell(formatQuantity(line?.qtyRequested ?? requestToShip.qtyRequested)),
         '</tr>'
@@ -469,6 +471,226 @@
     }
   }
 
+  async function printShippingQueue() {
+    if (!state.requests.length) {
+      setShippingWorkspaceStatus("There are no Shipping Queue line items to print.");
+      return null;
+    }
+    if (typeof DlePrintEngine === "undefined" || typeof DlePrintEngine.print !== "function") {
+      setShippingWorkspaceStatus("The print process is not available.");
+      console.error("The DLE-OS Print Engine is not available.");
+      return null;
+    }
+
+    const definition = buildShippingQueuePrintDefinition();
+    setShippingWorkspaceStatus(
+      "Opening Shipping Queue report with " + definition.data.lines.length + " line item" +
+      (definition.data.lines.length === 1 ? "..." : "s...")
+    );
+
+    try {
+      const result = await DlePrintEngine.print(definition);
+      setShippingWorkspaceStatus(
+        "Shipping Queue report opened with " + definition.data.lines.length + " line item" +
+        (definition.data.lines.length === 1 ? "." : "s.")
+      );
+      return result;
+    } catch (error) {
+      setShippingWorkspaceStatus("Unable to print the Shipping Queue report.");
+      console.error("Unable to print Shipping Queue:", error);
+      return null;
+    }
+  }
+
+  function buildShippingQueuePrintDefinition() {
+    const generatedAt = new Date();
+    const lines = state.requests.flatMap(request => getRequestDisplayLines(request).map(line => ({
+      requestId: request?.requestId || "",
+      requestDateTime: formatReportDateTime(request?.requestDateTime),
+      requestedBy: request?.requestedBy || "",
+      customerNumber: line?.customerNumber || request?.customerNumber || "",
+      customer: line?.customer || request?.customer || "",
+      salesOrder: line?.salesOrder || request?.salesOrder || "",
+      salesOrderLine: line?.salesOrderLine || line?.sequenceLine || request?.salesOrderLine || "",
+      workOrder: line?.workOrder || request?.workOrder || "",
+      partNumber: line?.assembly || line?.partNumber || request?.assembly || "",
+      description: line?.description || request?.description || "",
+      openQuantity: formatQuantity(line?.openQuantity ?? request?.openQuantity),
+      requestedQuantity: formatQuantity(line?.qtyRequested ?? request?.qtyRequested),
+      dueDate: line?.dueDate || request?.dueDate || "",
+      requestedShipWindow: request?.requestedShipWindow || "",
+      status: request?.status || "Pending Shipping"
+    })));
+
+    return {
+      documentName: "Shipping Queue Report",
+      paperSize: "letter",
+      orientation: "landscape",
+      margins: ".3in",
+      html: buildShippingQueuePrintHtml(lines, generatedAt),
+      css: buildShippingQueuePrintCss(),
+      data: {
+        reportType: "shippingQueue",
+        generatedAt: generatedAt.toISOString(),
+        requestCount: state.requests.length,
+        lines
+      }
+    };
+  }
+
+  function buildShippingQueuePrintHtml(lines, generatedAt) {
+    const columns = [
+      ["requestId", "Request ID"],
+      ["requestDateTime", "Requested"],
+      ["requestedBy", "Requested By"],
+      ["customerNumber", "Customer #"],
+      ["customer", "Customer"],
+      ["salesOrder", "Sales Order"],
+      ["salesOrderLine", "SO Line"],
+      ["workOrder", "Work Order"],
+      ["partNumber", "Assembly / Part #"],
+      ["description", "Description"],
+      ["openQuantity", "Open Qty"],
+      ["requestedQuantity", "Qty Requested"],
+      ["dueDate", "Due Date"],
+      ["requestedShipWindow", "Ship Window"],
+      ["status", "Status"]
+    ];
+
+    return [
+      '<section class="dle-controlled-document shipping-queue-print-report">',
+      '<header class="shipping-queue-print-header">',
+      '<div><h1>Shipping Queue Report</h1>',
+      '<p>Expanded line-item detail for requests awaiting Shipping.</p></div>',
+      '<dl>',
+      '<dt>Generated</dt><dd>', escapeHtml(generatedAt.toLocaleString()), '</dd>',
+      '<dt>Requests</dt><dd>', escapeHtml(state.requests.length), '</dd>',
+      '<dt>Line Items</dt><dd>', escapeHtml(lines.length), '</dd>',
+      '</dl>',
+      '</header>',
+      '<table class="shipping-queue-print-table">',
+      '<thead><tr>',
+      columns.map(column => '<th>' + escapeHtml(column[1]) + '</th>').join(""),
+      '</tr></thead>',
+      '<tbody>',
+      lines.map(line => [
+        '<tr>',
+        columns.map(column => '<td>' + escapeHtml(line[column[0]] || "") + '</td>').join(""),
+        '</tr>'
+      ].join("")).join(""),
+      '</tbody>',
+      '</table>',
+      '</section>'
+    ].join("");
+  }
+
+  function buildShippingQueuePrintCss() {
+    return `
+.shipping-queue-print-report {
+  break-inside: auto;
+  page-break-inside: auto;
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.shipping-queue-print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 7px;
+  margin-bottom: 9px;
+  border-bottom: 2px solid #1e3a5f;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.shipping-queue-print-header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.shipping-queue-print-header p {
+  margin: 3px 0 0;
+  color: #4b5563;
+  font-size: 8px;
+}
+
+.shipping-queue-print-header dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 8px;
+  margin: 0;
+  font-size: 7px;
+}
+
+.shipping-queue-print-header dt {
+  font-weight: 700;
+}
+
+.shipping-queue-print-header dd {
+  margin: 0;
+}
+
+.shipping-queue-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 6.5px;
+}
+
+.shipping-queue-print-table thead {
+  display: table-header-group;
+}
+
+.shipping-queue-print-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.shipping-queue-print-table th,
+.shipping-queue-print-table td {
+  border: 1px solid #9ca3af;
+  padding: 3px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.shipping-queue-print-table th {
+  background: #dbeafe;
+  color: #111827;
+  font-weight: 800;
+}
+
+.shipping-queue-print-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.shipping-queue-print-table th:nth-child(1) { width: 8%; }
+.shipping-queue-print-table th:nth-child(2) { width: 7%; }
+.shipping-queue-print-table th:nth-child(3) { width: 5%; }
+.shipping-queue-print-table th:nth-child(4) { width: 5%; }
+.shipping-queue-print-table th:nth-child(5) { width: 8%; }
+.shipping-queue-print-table th:nth-child(6) { width: 6%; }
+.shipping-queue-print-table th:nth-child(7) { width: 4%; }
+.shipping-queue-print-table th:nth-child(8) { width: 6%; }
+.shipping-queue-print-table th:nth-child(9) { width: 8%; }
+.shipping-queue-print-table th:nth-child(10) { width: 12%; }
+.shipping-queue-print-table th:nth-child(11) { width: 5%; }
+.shipping-queue-print-table th:nth-child(12) { width: 5%; }
+.shipping-queue-print-table th:nth-child(13) { width: 6%; }
+.shipping-queue-print-table th:nth-child(14) { width: 7%; }
+.shipping-queue-print-table th:nth-child(15) { width: 8%; }
+`;
+  }
+
+  function formatReportDateTime(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+  }
+
   function buildLegacyRequestToShipPreparation(request) {
     const detailLines = getRequestLines(request);
     const sourceLines = detailLines.length ? detailLines : [request || {}];
@@ -624,6 +846,7 @@
   window.toggleShippingRequestDetails = toggleShippingRequestDetails;
   window.acceptShippingRequest = acceptShippingRequest;
   window.printPackingRequestToShip = printPackingRequestToShip;
+  window.printShippingQueue = printShippingQueue;
   window.processPackingShipment = processPackingShipment;
   window.openReturnToOperationsDialog = openReturnToOperationsDialog;
   window.cancelReturnToOperationsDialog = cancelReturnToOperationsDialog;

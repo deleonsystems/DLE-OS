@@ -105,6 +105,18 @@
   gap: 16px;
 }
 
+.shipping-queue-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.shipping-queue-heading-actions button {
+  white-space: nowrap;
+}
+
 .shipping-workspace-region h2,
 .shipping-action-panel h2 {
   margin: 0 0 8px;
@@ -404,6 +416,10 @@
   .shipping-workspace-region-heading,
   .shipping-dialog-header {
     display: grid;
+  }
+
+  .shipping-queue-heading-actions {
+    justify-content: flex-start;
   }
 
   .shipping-workspace-layout {

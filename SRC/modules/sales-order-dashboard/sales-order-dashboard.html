@@ -53,6 +53,7 @@
       <div class="sales-order-dashboard-main">
         <section class="sales-order-dashboard-card" aria-label="Sales Order Lines">
           <h3>Sales Order Lines</h3>
+          <p class="sales-order-dashboard-table-guidance">Select one or more rows, then choose Review on a selected row. Multiple selected rows can be reviewed together as one RMA / Rework case.</p>
           <div class="sales-order-dashboard-table-wrap">
             <table class="sales-order-dashboard-table">
               <thead>
@@ -60,7 +61,7 @@
                   <th>Sales Order Line</th>
                   <th>Work Order</th>
                   <th>Assembly</th>
-                  <th>Quantity</th>
+                  <th>Open Qty</th>
                   <th>Due Date</th>
                   <th>Status</th>
                 </tr>
@@ -72,6 +73,7 @@
               </tbody>
             </table>
           </div>
+          <div id="salesOrderDashboardRmaCases" class="sales-order-dashboard-rma-summaries" aria-live="polite"></div>
         </section>
 
         <section class="sales-order-dashboard-card" aria-label="Documents">
@@ -154,6 +156,7 @@
           <h3 id="requestToShipDialogTitle">Request to Ship</h3>
           <p>Review the selected Sales Order lines and specify the quantity requested for each line.</p>
         </div>
+
         <button type="button" class="secondary-btn" onclick="cancelRequestToShipDialog()" aria-label="Close Request to Ship dialog">Cancel</button>
       </div>
 
@@ -228,20 +231,41 @@
           <div class="sales-order-dashboard-dialog-field"><strong>Line</strong><span id="workOrderApprovalLine">—</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Item / Assembly</strong><span id="workOrderApprovalItem">—</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Canonical Status</strong><span id="workOrderApprovalRelationshipStatus">—</span></div>
-          <div class="sales-order-dashboard-dialog-field"><strong>Exact ERP Work Order</strong><span id="workOrderApprovalExact">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Canonical ERP Work Order Evidence</strong><span id="workOrderApprovalExact">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Active Operational Work Order</strong><span id="workOrderApprovalOperationalActive">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Historical / Original Build Work Order</strong><span id="workOrderApprovalHistorical">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Operational Route</strong><span id="workOrderApprovalOperationalRoute">—</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Approved Work Order</strong><span id="workOrderApprovalCurrent">—</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Classification</strong><span id="workOrderApprovalClassification">NO_APPROVAL</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Approved By</strong><span id="workOrderApprovalBy">—</span></div>
           <div class="sales-order-dashboard-dialog-field"><strong>Approved At (UTC)</strong><span id="workOrderApprovalAt">—</span></div>
+          <div class="sales-order-dashboard-dialog-field" id="workOrderApprovalRmaControlField" hidden><strong>Operational Control</strong><span id="workOrderApprovalRmaControl">RMA / Rework</span></div>
+          <div class="sales-order-dashboard-dialog-field" id="workOrderApprovalPriorStatusField" hidden><strong>Prior Approval Status</strong><span id="workOrderApprovalPriorStatus">—</span></div>
         </div>
         <fieldset class="sales-order-dashboard-approval-candidates">
           <legend>Current canonical candidates</legend>
           <ul id="workOrderApprovalCandidates"><li>Loading…</li></ul>
         </fieldset>
-        <label class="sales-order-dashboard-approval-reason" for="workOrderApprovalReason">
-          <strong>Decision reason</strong>
-          <textarea id="workOrderApprovalReason" minlength="3" maxlength="500" required></textarea>
-        </label>
+        <div id="workOrderApprovalReasonFields" class="sales-order-dashboard-approval-reason">
+          <label for="workOrderApprovalReasonCode"><strong>Decision Reason</strong></label>
+          <select id="workOrderApprovalReasonCode" aria-required="true" onchange="updateWorkOrderApprovalReason()">
+            <option value="" selected disabled>Select a reason</option>
+          </select>
+          <label id="workOrderApprovalOtherReasonField" for="workOrderApprovalOtherReason" hidden>
+            <strong>Other reason</strong>
+            <textarea id="workOrderApprovalOtherReason" maxlength="500" disabled></textarea>
+          </label>
+        </div>
+        <div id="noWorkOrderReasonFields" class="sales-order-dashboard-approval-reason">
+          <label for="noWorkOrderReasonCode"><strong>No Work Order Required Reason</strong></label>
+          <select id="noWorkOrderReasonCode" aria-required="true" onchange="updateNoWorkOrderReason()">
+            <option value="" selected disabled>Select a reason</option>
+          </select>
+          <label id="noWorkOrderOtherReasonField" for="noWorkOrderOtherReason" hidden>
+            <strong>Other reason</strong>
+            <textarea id="noWorkOrderOtherReason" maxlength="500" disabled></textarea>
+          </label>
+        </div>
         <details class="sales-order-dashboard-approval-history">
           <summary>Decision history</summary>
           <ol id="workOrderApprovalHistory"><li>Loading…</li></ol>
@@ -252,6 +276,71 @@
           <button id="workOrderApprovalRevoke" type="submit" class="secondary-btn" data-approval-action="revoke" hidden>Revoke Approval</button>
           <button id="workOrderApprovalReplace" type="submit" data-approval-action="replace" hidden>Replace Approval</button>
           <button id="workOrderApprovalApprove" type="submit" data-approval-action="approve" hidden>Approve</button>
+          <button id="noWorkOrderReplace" type="submit" class="secondary-btn" data-approval-action="replace-no-work-order" hidden>Replace with No Work Order Required</button>
+          <button id="noWorkOrderApprove" type="submit" class="secondary-btn" data-approval-action="approve-no-work-order" hidden>Approve No Work Order Required</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="salesOrderLineReviewDialog" class="sales-order-dashboard-dialog" role="dialog" aria-modal="true" aria-labelledby="salesOrderLineReviewTitle" hidden>
+    <div class="sales-order-dashboard-dialog-backdrop" onclick="closeSalesOrderLineReview()"></div>
+    <section class="sales-order-dashboard-dialog-card" onclick="event.stopPropagation()">
+      <div class="sales-order-dashboard-dialog-header">
+        <div><span class="module-eyebrow">Sales Order Line</span><h3 id="salesOrderLineReviewTitle">Review Sales Order Line</h3><p>Review the current classification and choose the governed action for this canonical line.</p></div>
+        <button type="button" class="secondary-btn" onclick="closeSalesOrderLineReview()">Cancel</button>
+      </div>
+      <div class="sales-order-dashboard-dialog-grid">
+        <div class="sales-order-dashboard-dialog-field"><strong>RMA / Rework Status</strong><span id="salesOrderLineRmaStatus">Not classified</span></div>
+        <div class="sales-order-dashboard-dialog-field"><strong>Current Classification</strong><span id="salesOrderLineRmaClassification">—</span></div>
+      </div>
+      <div class="sales-order-dashboard-dialog-actions">
+        <button type="button" class="secondary-btn" onclick="continueWorkOrderRelationshipReview()">Work Order Relationship Review</button>
+        <button type="button" id="salesOrderLineRmaReviewButton" onclick="continueRmaReworkLineReview()">RMA / Rework Review</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="rmaReworkClassificationDialog" class="sales-order-dashboard-dialog" role="dialog" aria-modal="true" aria-labelledby="rmaReworkClassificationTitle" hidden>
+    <div class="sales-order-dashboard-dialog-backdrop" onclick="closeRmaReworkClassification()"></div>
+    <section class="sales-order-dashboard-dialog-card sales-order-dashboard-rma-card" onclick="event.stopPropagation()">
+      <div class="sales-order-dashboard-dialog-header">
+        <div>
+          <span class="module-eyebrow">Order-Line Classification</span>
+          <h3 id="rmaReworkClassificationTitle">RMA / Rework Classification</h3>
+          <p id="rmaReworkClassificationPurpose">Create or extend a governed RMA / Rework Case without changing canonical ERP or Work Order relationship evidence.</p>
+        </div>
+        <button type="button" class="secondary-btn" onclick="closeRmaReworkClassification()">Cancel</button>
+      </div>
+      <form onsubmit="submitRmaReworkClassification(event)">
+        <div class="sales-order-dashboard-request-lines-wrap">
+          <table class="sales-order-dashboard-request-lines-table">
+            <thead><tr><th>Sales Order</th><th>Line</th><th>Item / Assembly</th><th>Revision</th><th>Qty Ordered</th><th>ERP Open</th><th>Pending</th><th>OP Open</th><th>Sign</th><th>Work Order</th><th>Relationship</th><th>Current Case</th></tr></thead>
+            <tbody id="rmaReworkSelectedLines"><tr><td colspan="12">Reviewing selected canonical lines…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="sales-order-dashboard-dialog-grid">
+          <label class="sales-order-dashboard-dialog-field" for="rmaReworkCaseType"><strong>Case Type</strong>
+            <select id="rmaReworkCaseType" required onchange="resetRmaReworkMatch()">
+              <option value="RMA_RETURN_REPLACEMENT">RMA Return &amp; Replacement</option>
+              <option value="CUSTOMER_REWORK">Customer Rework</option>
+              <option value="INTERNAL_REWORK">Internal Rework</option>
+              <option value="EVALUATION_REPAIR">Evaluation / Repair</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </label>
+          <label class="sales-order-dashboard-dialog-field" for="rmaReworkCustomerNumber"><strong>Customer RMA Number</strong><input id="rmaReworkCustomerNumber" maxlength="80" autocomplete="off" oninput="resetRmaReworkMatch()"><small>Enter the customer-issued RMA number used to group related return, replacement, or rework lines.</small></label>
+          <label class="sales-order-dashboard-dialog-field" for="rmaReworkInternalReference"><strong>Internal RMA Reference</strong><input id="rmaReworkInternalReference" maxlength="80" autocomplete="off" oninput="resetRmaReworkMatch()"><small>Use only when a customer RMA number has not yet been assigned.</small></label>
+          <div class="sales-order-dashboard-dialog-field"><strong>Signed Net Quantity</strong><span id="rmaReworkSignedNet">—</span></div>
+          <div class="sales-order-dashboard-dialog-field"><strong>Operational Net Quantity</strong><span id="rmaReworkOperationalNet">—</span></div>
+        </div>
+        <label class="sales-order-dashboard-approval-reason" for="rmaReworkNotes"><strong>Notes</strong><textarea id="rmaReworkNotes" maxlength="1000" oninput="validateRmaReworkClassification()"></textarea></label>
+        <div id="rmaReworkWarnings" class="sales-order-dashboard-inline-warning"></div>
+        <div id="rmaReworkMatchSummary" class="sales-order-dashboard-rma-summaries" aria-live="polite"></div>
+        <div id="rmaReworkMessage" class="sales-order-dashboard-dialog-validation" role="status"></div>
+        <div class="sales-order-dashboard-dialog-actions">
+          <button type="button" class="secondary-btn" onclick="closeRmaReworkClassification()">Cancel</button>
+          <button type="submit" id="rmaReworkConfirmButton" disabled>Confirm Case Creation</button>
         </div>
       </form>
     </section>

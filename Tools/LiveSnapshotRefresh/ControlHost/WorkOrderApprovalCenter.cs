@@ -17,89 +17,204 @@ internal static class WorkOrderApprovalCenter
     {
         var service = new WorkOrderApprovalService();
         app.MapGet(Route, async (string customerNumber, string salesOrderNumber,
-                string lineNumber, CancellationToken cancellationToken) =>
-            await Execute(() => service.GetReviewAsync(
+                string lineNumber, HttpContext context, CancellationToken cancellationToken) =>
+            await Execute(context, app.Logger, () => service.GetReviewAsync(
                 LineKey.Create(customerNumber, salesOrderNumber, lineNumber), cancellationToken)))
             .RequireAuthorization(policy);
 
-        MapAction(app, service, policy, "approve", "APPROVE");
-        MapAction(app, service, policy, "replace", "REPLACE");
-        MapAction(app, service, policy, "revoke", "REVOKE");
+        MapAction(app, service, policy, "approve", "APPROVE", "WORK_ORDER_APPROVAL");
+        MapAction(app, service, policy, "replace", "REPLACE", "WORK_ORDER_APPROVAL");
+        MapAction(app, service, policy, "approve-no-work-order", "APPROVE", "NO_WORK_ORDER_REQUIRED_COMPONENT");
+        MapAction(app, service, policy, "replace-no-work-order", "REPLACE", "NO_WORK_ORDER_REQUIRED_COMPONENT");
+        MapAction(app, service, policy, "revoke", "REVOKE", null);
     }
 
     private static void MapAction(WebApplication app, WorkOrderApprovalService service,
-        string policy, string routeAction, string decisionAction)
+        string policy, string routeAction, string decisionAction, string? decisionClassification)
     {
         app.MapPost(Route + "/" + routeAction,
             async (string customerNumber, string salesOrderNumber, string lineNumber,
                 ApprovalActionRequest request, HttpContext context, CancellationToken cancellationToken) =>
-                await Execute(() => service.DecideAsync(
+                await Execute(context, app.Logger, () => service.DecideAsync(
                     LineKey.Create(customerNumber, salesOrderNumber, lineNumber),
-                    decisionAction, request, context.User.Identity!.Name!, cancellationToken)))
+                    decisionAction, decisionClassification, request,
+                    context.User.Identity!.Name!, cancellationToken)))
             .RequireAuthorization(policy);
     }
 
-    private static async Task<IResult> Execute(Func<Task<object>> action)
+    private static async Task<IResult> Execute(HttpContext context, ILogger logger,
+        Func<Task<object>> action)
     {
+        context.Response.Headers["X-Request-ID"] = context.TraceIdentifier;
         try { return Results.Json(await action()); }
         catch (ApprovalProblem problem)
         {
-            return Results.Json(new { code = problem.Code, message = problem.Message },
+            return Results.Json(new
+                { code = problem.Code, message = problem.Message, requestId = context.TraceIdentifier },
                 statusCode: problem.StatusCode);
         }
-        catch (SqlException)
+        catch (SqlException error)
         {
+            var failure = ApprovalSqlFailure.Classify(error.Number);
+            logger.LogError(error,
+                "Work Order approval SQL failure {FailureCode}; SQL {SqlNumber}, procedure {Procedure}, line {SqlLine}; request {RequestId}; route {Route}",
+                failure.Code, error.Number, error.Procedure, error.LineNumber,
+                context.TraceIdentifier, context.Request.Path);
             return Results.Json(new
             {
-                code = "approval_store_unavailable",
-                message = "The governed Work Order approval store is unavailable."
-            }, statusCode: StatusCodes.Status503ServiceUnavailable);
+                code = failure.Code,
+                message = failure.Message,
+                requestId = context.TraceIdentifier
+            }, statusCode: failure.StatusCode);
         }
         catch (HttpRequestException)
         {
             return Results.Json(new
             {
                 code = "canonical_evidence_unavailable",
-                message = "Current canonical Work Order relationship evidence is unavailable."
+                message = "Current canonical Work Order relationship evidence is unavailable.",
+                requestId = context.TraceIdentifier
             }, statusCode: StatusCodes.Status503ServiceUnavailable);
         }
+    }
+}
+
+internal sealed record ApprovalSqlFailure(int StatusCode, string Code, string Message)
+{
+    internal static ApprovalSqlFailure Classify(int sqlNumber) => sqlNumber switch
+    {
+        207 or 208 or 2812 => new(StatusCodes.Status503ServiceUnavailable,
+            "approval_schema_unavailable",
+            "The required Work Order approval migration or schema is unavailable."),
+        1205 or 2601 or 2627 or 3960 => new(StatusCodes.Status409Conflict,
+            "approval_concurrency_conflict",
+            "The governing decision changed concurrently. Reload and review again."),
+        -1 or 2 or 53 or 4060 or 18456 => new(StatusCodes.Status503ServiceUnavailable,
+            "approval_store_unavailable",
+            "The governed Work Order approval store is unavailable."),
+        _ => new(StatusCodes.Status500InternalServerError,
+            "approval_database_write_failed",
+            "The governed Work Order decision could not be written. No decision was recorded.")
+    };
+}
+
+internal sealed record DecisionReasonOption(string Code, string Label);
+
+internal sealed record ValidatedDecisionReason(string Code, string? Note, string LegacyReason);
+
+internal static class WorkOrderApprovalReasonContract
+{
+    internal const string Schema = "DLE_WORK_ORDER_APPROVAL_REASON_V1";
+    internal static readonly IReadOnlyList<DecisionReasonOption> Options =
+    [
+        new("ERP_CONFIRMED_CANDIDATE_MATCH", "ERP confirmed and candidate matches"),
+        new("SALES_ORDER_ITEM_MATCH", "Candidate matches Sales Order and item"),
+        new("HISTORICAL_RELATIONSHIP_VERIFIED", "Historical relationship verified"),
+        new("SUPPORTING_DOCUMENTATION_VERIFIED", "Work Order verified from supporting documentation"),
+        new("CUSTOMER_RMA_RELATIONSHIP_VERIFIED", "Customer or RMA relationship verified"),
+        new("SUPERVISOR_REVIEW", "Supervisor review"),
+        new("OTHER", "Other")
+    ];
+
+    internal static ValidatedDecisionReason Validate(string? codeValue, string? noteValue)
+    {
+        var code = (codeValue ?? "").Trim().ToUpperInvariant();
+        var option = Options.SingleOrDefault(value => value.Code == code);
+        if (option is null)
+            throw ApprovalProblem.BadRequest("decision_reason_code_invalid",
+                "Select a governed Work Order approval decision reason.");
+
+        var note = string.IsNullOrWhiteSpace(noteValue) ? null : noteValue.Trim();
+        if (note?.Length > 500)
+            throw ApprovalProblem.BadRequest("decision_note_too_long",
+                "The decision note cannot exceed 500 characters.");
+        if (code == "OTHER" && note is null)
+            throw ApprovalProblem.BadRequest("other_decision_note_required",
+                "Other requires a nonblank decision note.");
+
+        return new(code, note, option.Label);
+    }
+}
+
+internal static class NoWorkOrderRequiredReasonContract
+{
+    internal const string Schema = "DLE_NO_WORK_ORDER_REQUIRED_REASON_V2";
+    internal static readonly IReadOnlyList<DecisionReasonOption> Options =
+    [
+        new("PART_COMPONENT_ONLY", "Part/Component Only"),
+        new("CUSTOMER_SUPPLIED_MATERIAL", "Customer-Supplied Material"),
+        new("SHIPPING_REPLACEMENT_MATERIAL_ONLY", "Shipping or Replacement Material Only"),
+        new("OTHER", "Other")
+    ];
+
+    internal static ValidatedDecisionReason Validate(string? codeValue, string? noteValue)
+    {
+        var code = (codeValue ?? "").Trim().ToUpperInvariant();
+        var option = Options.SingleOrDefault(value => value.Code == code);
+        if (option is null)
+            throw ApprovalProblem.BadRequest("no_work_order_reason_code_invalid",
+                "Select a governed No Work Order Required decision reason.");
+
+        var note = string.IsNullOrWhiteSpace(noteValue) ? null : noteValue.Trim();
+        if (note?.Length > 500)
+            throw ApprovalProblem.BadRequest("decision_note_too_long",
+                "The decision note cannot exceed 500 characters.");
+        if (code == "OTHER" && note is null)
+            throw ApprovalProblem.BadRequest("other_decision_note_required",
+                "Other requires a nonblank decision note.");
+        return new(code, note, option.Label);
     }
 }
 
 internal sealed class WorkOrderApprovalService
 {
     private readonly ApprovalRepository _repository = new();
+    private readonly RmaReworkRepository _rmaRepository = new();
+    private readonly OperationalWorkOrderRelationshipService _operationalRelationships;
     private readonly HttpClient _canonical;
 
     public WorkOrderApprovalService()
     {
         _canonical = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true })
         {
-            BaseAddress = new Uri(Environment.GetEnvironmentVariable("DLE_OS_CANONICAL_API_BASE_URL")
-                ?? "http://DLE-OS-HOST:5042"),
+            BaseAddress = new Uri(ControlHostRuntimeConfiguration.CanonicalApiBaseUrl),
             Timeout = TimeSpan.FromSeconds(15)
         };
+        _operationalRelationships = new OperationalWorkOrderRelationshipService(_canonical);
     }
 
     public async Task<object> GetReviewAsync(LineKey key, CancellationToken cancellationToken)
     {
+        await _repository.EnsureSchemaReadyAsync(cancellationToken);
         var relationship = await LoadRelationshipAsync(key, cancellationToken);
         var current = await _repository.GetCurrentAsync(key, cancellationToken);
-        var choices = relationship.ApprovalChoices;
+        var membership = await GetActiveRmaMembershipAsync(key, cancellationToken);
+        var operational = await _operationalRelationships.LoadAsync(key, cancellationToken);
+        var choices = membership is null ? relationship.ApprovalChoices : Array.Empty<string>();
+        if (!OperationalAllowsApproval(operational)) choices = Array.Empty<string>();
         var workOrderExists = current is null || string.IsNullOrEmpty(current.ApprovedWorkOrderNumber) ||
             await WorkOrderExistsAsync(current.ApprovedWorkOrderNumber, cancellationToken);
-        var classification = Classify(current?.ApprovedWorkOrderNumber, relationship, workOrderExists);
+        var classification = Classify(current, relationship, workOrderExists);
         var history = await _repository.GetHistoryAsync(key, cancellationToken);
-        return BuildReview(key, relationship, current, history, classification, choices);
+        return BuildReview(key, relationship, current, history, classification, choices, membership,
+            operational);
     }
 
-    public async Task<object> DecideAsync(LineKey key, string action, ApprovalActionRequest request,
+    public async Task<object> DecideAsync(LineKey key, string action, string? decisionClassification,
+        ApprovalActionRequest request,
         string authenticatedUser, CancellationToken cancellationToken)
     {
-        var reason = (request.DecisionReason ?? "").Trim();
-        if (reason.Length is < 3 or > 500)
-            throw ApprovalProblem.BadRequest("decision_reason_required",
-                "A decision reason between 3 and 500 characters is required.");
+        var classification = decisionClassification ?? "REVOCATION";
+        var reason = classification == "NO_WORK_ORDER_REQUIRED_COMPONENT"
+            ? NoWorkOrderRequiredReasonContract.Validate(request.DecisionReasonCode, request.DecisionNote)
+            : WorkOrderApprovalReasonContract.Validate(request.DecisionReasonCode, request.DecisionNote);
+
+        await _repository.EnsureSchemaReadyAsync(cancellationToken);
+
+        var membership = await GetActiveRmaMembershipAsync(key, cancellationToken);
+        EnsureRmaAllowsApprovalAction(membership, action);
+        var operational = await _operationalRelationships.LoadAsync(key, cancellationToken);
+        EnsureOperationalAllowsApprovalAction(operational, action);
 
         var relationship = await LoadRelationshipAsync(key, cancellationToken);
         var current = await _repository.GetCurrentAsync(key, cancellationToken);
@@ -114,7 +229,7 @@ internal sealed class WorkOrderApprovalService
                 "The governing approval changed. Reload and review again.");
 
         string? selected = null;
-        if (action is "APPROVE" or "REPLACE")
+        if (action is ("APPROVE" or "REPLACE") && classification == "WORK_ORDER_APPROVAL")
         {
             selected = NormalizeWorkOrder(request.SelectedWorkOrderNumber);
             if (selected is null || !relationship.ApprovalChoices.Contains(selected, StringComparer.Ordinal))
@@ -129,24 +244,33 @@ internal sealed class WorkOrderApprovalService
             throw ApprovalProblem.Conflict("approval_already_exists", "This Sales Order line already has an approval.");
         if (action is "REPLACE" or "REVOKE" && current is null)
             throw ApprovalProblem.Conflict("approval_not_current", "There is no current approval to supersede.");
-        if (action == "REPLACE" && selected == current!.ApprovedWorkOrderNumber)
+        if (action == "REPLACE" && classification == current!.DecisionClassification &&
+            selected == current.ApprovedWorkOrderNumber)
             throw ApprovalProblem.BadRequest("replacement_must_change_work_order",
-                "Replacement must select a different canonical Work Order.");
+                "Replacement must change the governing decision.");
 
-        var decision = await _repository.AppendAsync(key, action, selected, current?.DecisionId,
-            relationship, reason, authenticatedUser, cancellationToken);
+        var persistedClassification = action == "REVOKE"
+            ? current!.DecisionClassification : classification;
+        var decision = await _repository.AppendAsync(key, action, persistedClassification, selected,
+            current?.DecisionId,
+            relationship, reason, operational.QuantityOrdered, authenticatedUser, cancellationToken);
         var refreshed = await _repository.GetCurrentAsync(key, cancellationToken);
         var history = await _repository.GetHistoryAsync(key, cancellationToken);
         var exists = refreshed is null || string.IsNullOrEmpty(refreshed.ApprovedWorkOrderNumber) ||
             await WorkOrderExistsAsync(refreshed.ApprovedWorkOrderNumber, cancellationToken);
+        membership = await GetActiveRmaMembershipAsync(key, cancellationToken);
+        operational = await _operationalRelationships.LoadAsync(key, cancellationToken);
         return BuildReview(key, relationship, refreshed, history,
-            Classify(refreshed?.ApprovedWorkOrderNumber, relationship, exists),
-            relationship.ApprovalChoices, decision.RequestCorrelationId);
+            Classify(refreshed, relationship, exists),
+            membership is null && OperationalAllowsApproval(operational)
+                ? relationship.ApprovalChoices : Array.Empty<string>(),
+            membership, operational, decision.RequestCorrelationId);
     }
 
     private object BuildReview(LineKey key, CanonicalRelationship relationship,
         DecisionRecord? current, IReadOnlyList<DecisionRecord> history, string classification,
-        IReadOnlyList<string> choices, Guid? correlationId = null) => new
+        IReadOnlyList<string> choices, RmaReworkMembership? membership,
+        OperationalRelationshipPresentation operational, Guid? correlationId = null) => new
     {
         identity = new { customerNumber = key.Customer, salesOrderNumber = key.SalesOrder, salesOrderLineNumber = key.Line },
         canonicalRelationship = relationship.Raw,
@@ -155,16 +279,58 @@ internal sealed class WorkOrderApprovalService
         conflictClassification = classification,
         evidenceToken = CreateEvidenceToken(key, relationship, current?.DecisionId),
         availableApprovalChoices = choices,
+        decisionReasonContract = new
+        {
+            schema = WorkOrderApprovalReasonContract.Schema,
+            options = WorkOrderApprovalReasonContract.Options,
+            otherCode = "OTHER"
+        },
+        noWorkOrderDecisionReasonContract = new
+        {
+            schema = NoWorkOrderRequiredReasonContract.Schema,
+            options = NoWorkOrderRequiredReasonContract.Options,
+            otherCode = "OTHER"
+        },
+        operationalRelationship = operational,
         permissions = new
         {
-            canApprove = current is null && choices.Count > 0,
-            canReplace = current is not null && choices.Any(value => value != current.ApprovedWorkOrderNumber),
-            canRevoke = current is not null
+            canApprove = OperationalAllowsApproval(operational) && membership is null && current is null && choices.Count > 0,
+            canReplace = OperationalAllowsApproval(operational) && membership is null && current is not null && choices.Any(value => value != current.ApprovedWorkOrderNumber),
+            canApproveNoWorkOrder = OperationalAllowsApproval(operational) && membership is null && current is null && operational.QuantityOrdered > 0,
+            canReplaceWithNoWorkOrder = OperationalAllowsApproval(operational) && membership is null && current is not null &&
+                current.DecisionClassification != "NO_WORK_ORDER_REQUIRED_COMPONENT" && operational.QuantityOrdered > 0,
+            canRevoke = membership is null && current is not null
+        },
+        rmaReworkControl = membership is null ? null : new
+        {
+            active = true,
+            caseId = membership.CaseId,
+            caseReference = membership.CaseReference,
+            suppressionReason = "rma_rework_controls_work_order_decision",
+            operationalRoute = "RMA / Rework",
+            workOrderDecision = "Decision Pending",
+            priorApprovalStatus = current is null ? null : "Superseded by active RMA/Rework case"
         },
         requestCorrelationId = correlationId
     };
 
-    internal static string Classify(string? approved, CanonicalRelationship relationship, bool workOrderExists)
+    private async Task<RmaReworkMembership?> GetActiveRmaMembershipAsync(LineKey key, CancellationToken token)
+    {
+        var memberships = await _rmaRepository.GetActiveMembershipsAsync(
+            [new RmaReworkLineIdentity(key.Customer, key.SalesOrder, key.Line)], token);
+        return memberships.GetValueOrDefault(key.Customer + "|" + key.SalesOrder + "|" + key.Line);
+    }
+
+    internal static string Classify(DecisionRecord? current, CanonicalRelationship relationship,
+        bool workOrderExists)
+    {
+        if (current?.DecisionClassification == "NO_WORK_ORDER_REQUIRED_COMPONENT")
+            return "NO_WORK_ORDER_REQUIRED_COMPONENT";
+        return Classify(current?.ApprovedWorkOrderNumber, relationship, workOrderExists);
+    }
+
+    internal static string Classify(string? approved, CanonicalRelationship relationship,
+        bool workOrderExists)
     {
         if (string.IsNullOrEmpty(approved)) return "NO_APPROVAL";
         if (!workOrderExists) return "APPROVED_WORK_ORDER_MISSING";
@@ -176,6 +342,24 @@ internal sealed class WorkOrderApprovalService
         if (relationship.ApprovalChoices.Contains(approved))
             return "APPROVED_SUPPORTED_CANDIDATE";
         return "APPROVED_NOT_IN_CURRENT_CANDIDATES";
+    }
+
+    internal static void EnsureRmaAllowsApprovalAction(RmaReworkMembership? membership, string action)
+    {
+        if (membership is not null && action is ("APPROVE" or "REPLACE"))
+            throw ApprovalProblem.Conflict("rma_rework_controls_work_order_decision",
+                "The active RMA/Rework case controls the Work Order decision for this Sales Order line.");
+    }
+
+    internal static bool OperationalAllowsApproval(OperationalRelationshipPresentation relationship) =>
+        relationship.OperationalRoute is not ("RMA_REWORK" or "RETURN_RMA_REVIEW_REQUIRED");
+
+    internal static void EnsureOperationalAllowsApprovalAction(
+        OperationalRelationshipPresentation relationship, string action)
+    {
+        if (action is ("APPROVE" or "REPLACE") && !OperationalAllowsApproval(relationship))
+            throw ApprovalProblem.Conflict("return_review_controls_work_order_decision",
+                "RMA/return review controls the Work Order decision for this Sales Order line.");
     }
 
     private async Task<CanonicalRelationship> LoadRelationshipAsync(LineKey key, CancellationToken cancellationToken)
@@ -222,9 +406,37 @@ internal sealed class WorkOrderApprovalService
 
 internal sealed class ApprovalRepository
 {
-    private readonly string _connectionString = Environment.GetEnvironmentVariable(
-        "DLE_OS_WORK_ORDER_APPROVAL_CONNECTION_STRING") ??
-        @"Server=lpc:.\SQLEXPRESS;Database=DLE_OS_CANONICAL_LIVE;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;Connect Timeout=5;Application Intent=ReadWrite;";
+    private readonly string _connectionString = ControlHostRuntimeConfiguration.OperationalConnectionString;
+    internal const string SchemaReadinessSql = """
+SELECT CASE WHEN
+    OBJECT_ID(N'operational.SalesOrderLineWorkOrderDecisionEvent',N'U') IS NOT NULL
+    AND OBJECT_ID(N'operational.vw_CurrentSalesOrderLineWorkOrderDecision',N'V') IS NOT NULL
+    AND OBJECT_ID(N'operational.tr_SalesOrderLineWorkOrderDecisionEvent_AppendOnly',N'TR') IS NOT NULL
+    AND COL_LENGTH(N'operational.SalesOrderLineWorkOrderDecisionEvent',N'DecisionClassification') IS NOT NULL
+    AND COL_LENGTH(N'operational.SalesOrderLineWorkOrderDecisionEvent',N'DecisionReasonCode') IS NOT NULL
+    AND COL_LENGTH(N'operational.SalesOrderLineWorkOrderDecisionEvent',N'DecisionNote') IS NOT NULL
+    AND EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'operational.SalesOrderLineWorkOrderDecisionEvent') AND name=N'CK_SalesOrderLineWorkOrderDecisionEvent_WorkOrder')
+    AND EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'operational.SalesOrderLineWorkOrderDecisionEvent') AND name=N'CK_SalesOrderLineWorkOrderDecisionEvent_Classification')
+    AND EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'operational.SalesOrderLineWorkOrderDecisionEvent') AND name=N'CK_SalesOrderLineWorkOrderDecisionEvent_ReasonCode')
+    AND EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'operational.SalesOrderLineWorkOrderDecisionEvent') AND name=N'CK_SalesOrderLineWorkOrderDecisionEvent_OtherNote')
+THEN 1 ELSE 0 END;
+""";
+
+    public async Task EnsureSchemaReadyAsync(CancellationToken token,
+        SqlConnection? connection = null, SqlTransaction? transaction = null)
+    {
+        var owns = connection is null;
+        connection ??= new SqlConnection(_connectionString);
+        if (owns) await connection.OpenAsync(token);
+        try
+        {
+            var command = new SqlCommand(SchemaReadinessSql, connection, transaction);
+            if (Convert.ToInt32(await command.ExecuteScalarAsync(token)) != 1)
+                throw ApprovalProblem.ServiceUnavailable("approval_schema_unavailable",
+                    "The required Work Order approval migration or schema is unavailable.");
+        }
+        finally { if (owns) await connection.DisposeAsync(); }
+    }
 
     public async Task<DecisionRecord?> GetCurrentAsync(LineKey key, CancellationToken token,
         SqlConnection? connection = null, SqlTransaction? transaction = null)
@@ -235,11 +447,12 @@ internal sealed class ApprovalRepository
         try
         {
             var command = new SqlCommand("""
-SELECT DecisionId, DecisionAction, ApprovedWorkOrderNumber, SupersedesDecisionId,
+SELECT DecisionId, DecisionAction, DecisionClassification, ApprovedWorkOrderNumber, SupersedesDecisionId,
        CandidateResolutionStatusAtDecision, CanonicalExactWorkOrderAtDecision,
        CandidateSnapshotIdAtDecision, CandidateSnapshotImportRunId,
        CandidateSetHash, CandidateSetJson, SelectionSource,
-       DecisionReason, ApprovedBy, ApprovedAtUtc, RequestCorrelationId
+       DecisionReason, DecisionReasonCode, DecisionNote,
+       ApprovedBy, ApprovedAtUtc, RequestCorrelationId
 FROM operational.vw_CurrentSalesOrderLineWorkOrderDecision
 WHERE CustomerNumber=@Customer AND SalesOrderNumber=@SalesOrder AND SalesOrderLineNumber=@Line;
 """, connection, transaction);
@@ -255,11 +468,14 @@ WHERE CustomerNumber=@Customer AND SalesOrderNumber=@SalesOrder AND SalesOrderLi
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(token);
         var command = new SqlCommand("""
-SELECT TOP (50) DecisionId, DecisionAction, ApprovedWorkOrderNumber, SupersedesDecisionId,
+SELECT TOP (50) DecisionId, DecisionAction,
+       COALESCE(DecisionClassification,'WORK_ORDER_APPROVAL') AS DecisionClassification,
+       ApprovedWorkOrderNumber, SupersedesDecisionId,
        CandidateResolutionStatusAtDecision, CanonicalExactWorkOrderAtDecision,
        CandidateSnapshotIdAtDecision, CandidateSnapshotImportRunId,
        CandidateSetHash, CandidateSetJson, SelectionSource,
-       DecisionReason, ApprovedBy, ApprovedAtUtc, RequestCorrelationId
+       DecisionReason, DecisionReasonCode, DecisionNote,
+       ApprovedBy, ApprovedAtUtc, RequestCorrelationId
 FROM operational.SalesOrderLineWorkOrderDecisionEvent
 WHERE CustomerNumber=@Customer AND SalesOrderNumber=@SalesOrder AND SalesOrderLineNumber=@Line
 ORDER BY DecisionSequence DESC;
@@ -271,13 +487,39 @@ ORDER BY DecisionSequence DESC;
         return results;
     }
 
-    public async Task<DecisionRecord> AppendAsync(LineKey key, string action, string? selected,
-        Guid? expectedCurrent, CanonicalRelationship relationship, string reason, string approvedBy,
+    public async Task<DecisionRecord> AppendAsync(LineKey key, string action,
+        string decisionClassification, string? selected,
+        Guid? expectedCurrent, CanonicalRelationship relationship, ValidatedDecisionReason reason,
+        decimal authoritativeQuantityOrdered, string approvedBy,
         CancellationToken token)
     {
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(token);
         await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.Serializable, token);
+        await EnsureSchemaReadyAsync(token, connection, transaction);
+        if (action is "APPROVE" or "REPLACE")
+        {
+            WorkOrderApprovalService.EnsureRmaAllowsApprovalAction(
+                await RmaReworkRepository.GetActiveMembershipAsync(
+                    key.Customer, key.SalesOrder, key.Line, connection, transaction, token), action);
+            var quantityOrdered = authoritativeQuantityOrdered;
+            if (!ControlHostRuntimeConfiguration.IsIsolatedDevelopment)
+            {
+                var quantityCommand = new SqlCommand("""
+SELECT QuantityOrdered FROM canonical.SalesOrderLine WITH (UPDLOCK,HOLDLOCK)
+WHERE CustomerNumber=@Customer AND SalesOrderNumber=@SalesOrder AND LineNumber=@Line;
+""", connection, transaction);
+                AddKey(quantityCommand, key);
+                var quantityValue = await quantityCommand.ExecuteScalarAsync(token);
+                if (quantityValue is decimal canonicalQuantity) quantityOrdered = canonicalQuantity;
+            }
+            if (quantityOrdered < 0)
+                throw ApprovalProblem.Conflict("return_review_controls_work_order_decision",
+                    "Negative return quantity blocks normal-production Work Order approval.");
+            if (decisionClassification == "NO_WORK_ORDER_REQUIRED_COMPONENT" && quantityOrdered <= 0)
+                throw ApprovalProblem.Conflict("positive_fulfillment_quantity_required",
+                    "No Work Order Required is limited to active positive fulfillment demand.");
+        }
         var actual = await GetCurrentAsync(key, token, connection, transaction);
         if (actual?.DecisionId != expectedCurrent)
             throw ApprovalProblem.Conflict("current_decision_changed",
@@ -288,17 +530,20 @@ ORDER BY DecisionSequence DESC;
         var command = new SqlCommand("""
 INSERT operational.SalesOrderLineWorkOrderDecisionEvent
 (DecisionId, CustomerNumber, SalesOrderNumber, SalesOrderLineNumber, DecisionAction,
- ApprovedWorkOrderNumber, SupersedesDecisionId, CandidateResolutionStatusAtDecision,
+ DecisionClassification, ApprovedWorkOrderNumber, SupersedesDecisionId, CandidateResolutionStatusAtDecision,
  CanonicalExactWorkOrderAtDecision, CandidateSnapshotIdAtDecision,
  CandidateSnapshotImportRunId, CandidateSetHash,
- CandidateSetJson, SelectionSource, DecisionReason, ApprovedBy, ApprovedAtUtc, RequestCorrelationId)
+ CandidateSetJson, SelectionSource, DecisionReason, DecisionReasonCode, DecisionNote,
+ ApprovedBy, ApprovedAtUtc, RequestCorrelationId)
 VALUES
-(@DecisionId,@Customer,@SalesOrder,@Line,@Action,@Selected,@Supersedes,@Status,@Exact,
- @SnapshotId,@ImportRun,@CandidateHash,@CandidateJson,@SelectionSource,@Reason,@ApprovedBy,SYSUTCDATETIME(),@CorrelationId);
+(@DecisionId,@Customer,@SalesOrder,@Line,@Action,@Classification,@Selected,@Supersedes,@Status,@Exact,
+ @SnapshotId,@ImportRun,@CandidateHash,@CandidateJson,@SelectionSource,@Reason,@ReasonCode,@DecisionNote,
+ @ApprovedBy,SYSUTCDATETIME(),@CorrelationId);
 """, connection, transaction);
         AddKey(command, key);
         command.Parameters.AddWithValue("@DecisionId", decisionId);
         command.Parameters.AddWithValue("@Action", action);
+        command.Parameters.AddWithValue("@Classification", decisionClassification);
         command.Parameters.AddWithValue("@Selected", (object?)selected ?? DBNull.Value);
         command.Parameters.AddWithValue("@Supersedes", (object?)expectedCurrent ?? DBNull.Value);
         command.Parameters.AddWithValue("@Status", relationship.Status);
@@ -307,17 +552,22 @@ VALUES
         command.Parameters.AddWithValue("@ImportRun", (object?)relationship.ImportRunId ?? DBNull.Value);
         command.Parameters.AddWithValue("@CandidateHash", relationship.CandidateSetHash);
         command.Parameters.AddWithValue("@CandidateJson", relationship.CandidateSetJson);
-        command.Parameters.AddWithValue("@SelectionSource", relationship.SelectionSource(selected));
-        command.Parameters.AddWithValue("@Reason", reason);
+        command.Parameters.AddWithValue("@SelectionSource",
+            relationship.SelectionSource(selected, decisionClassification));
+        command.Parameters.AddWithValue("@Reason", reason.LegacyReason);
+        command.Parameters.AddWithValue("@ReasonCode", reason.Code);
+        command.Parameters.AddWithValue("@DecisionNote", (object?)reason.Note ?? DBNull.Value);
         command.Parameters.AddWithValue("@ApprovedBy", approvedBy);
         command.Parameters.AddWithValue("@CorrelationId", correlationId);
         await command.ExecuteNonQueryAsync(token);
         await transaction.CommitAsync(token);
         _ = Guid.TryParse(relationship.ImportRunId, out var importRunId);
-        return new DecisionRecord(decisionId, action, selected, expectedCurrent,
+        return new DecisionRecord(decisionId, action, decisionClassification, selected, expectedCurrent,
             relationship.Status, relationship.ExactWorkOrder, relationship.SnapshotId,
             importRunId == Guid.Empty ? null : importRunId, relationship.CandidateSetHash,
-            relationship.CandidateSetJson, relationship.SelectionSource(selected), reason,
+            relationship.CandidateSetJson,
+            relationship.SelectionSource(selected, decisionClassification),
+            reason.LegacyReason, reason.Code, reason.Note,
             approvedBy, DateTime.UtcNow, correlationId);
     }
 
@@ -407,7 +657,9 @@ internal sealed class CanonicalRelationship
         };
     }
 
-    public string SelectionSource(string? selected) => selected is null ? "REVOCATION" :
+    public string SelectionSource(string? selected, string classification = "WORK_ORDER_APPROVAL") =>
+        classification == "NO_WORK_ORDER_REQUIRED_COMPONENT" ? "NO_WORK_ORDER_REQUIRED_COMPONENT" :
+        selected is null ? "REVOCATION" :
         selected == ExactWorkOrder ? "EXACT_RELATIONSHIP" :
         Status == "AMBIGUOUS" ? "AMBIGUOUS_CANDIDATE_SELECTION" : "UNIQUE_CANDIDATE";
     private static string? Text(JsonElement value, string property) =>
@@ -421,26 +673,31 @@ internal sealed class CanonicalRelationship
 }
 
 internal sealed record DecisionRecord(Guid DecisionId, string DecisionAction,
-    string? ApprovedWorkOrderNumber, Guid? SupersedesDecisionId,
+    string DecisionClassification, string? ApprovedWorkOrderNumber, Guid? SupersedesDecisionId,
     string CandidateResolutionStatusAtDecision, string? CanonicalExactWorkOrderAtDecision,
     string? CandidateSnapshotIdAtDecision, Guid? CandidateSnapshotImportRunId,
     string CandidateSetHash, string CandidateSetJson, string SelectionSource,
-    string DecisionReason, string ApprovedBy, DateTime ApprovedAtUtc, Guid RequestCorrelationId)
+    string DecisionReason, string? DecisionReasonCode, string? DecisionNote,
+    string ApprovedBy, DateTime ApprovedAtUtc, Guid RequestCorrelationId)
 {
     public static DecisionRecord From(SqlDataReader reader) => new(
-        reader.GetGuid(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2),
-        reader.IsDBNull(3) ? null : reader.GetGuid(3), reader.GetString(4),
-        reader.IsDBNull(5) ? null : reader.GetString(5),
+        reader.GetGuid(0), reader.GetString(1), reader.GetString(2),
+        reader.IsDBNull(3) ? null : reader.GetString(3),
+        reader.IsDBNull(4) ? null : reader.GetGuid(4), reader.GetString(5),
         reader.IsDBNull(6) ? null : reader.GetString(6),
-        reader.IsDBNull(7) ? null : reader.GetGuid(7), reader.GetString(8), reader.GetString(9),
-        reader.GetString(10), reader.GetString(11), reader.GetString(12), reader.GetDateTime(13),
-        reader.GetGuid(14));
+        reader.IsDBNull(7) ? null : reader.GetString(7),
+        reader.IsDBNull(8) ? null : reader.GetGuid(8), reader.GetString(9), reader.GetString(10),
+        reader.GetString(11), reader.GetString(12),
+        reader.IsDBNull(13) ? null : reader.GetString(13),
+        reader.IsDBNull(14) ? null : reader.GetString(14),
+        reader.GetString(15), reader.GetDateTime(16), reader.GetGuid(17));
 }
 
 internal sealed class ApprovalActionRequest
 {
     public string? SelectedWorkOrderNumber { get; set; }
-    public string? DecisionReason { get; set; }
+    public string? DecisionReasonCode { get; set; }
+    public string? DecisionNote { get; set; }
     public string? EvidenceToken { get; set; }
     public Guid? ExpectedCurrentDecisionId { get; set; }
     // ApprovedBy and timestamps are intentionally absent: identity and UTC time are server-derived.
@@ -455,4 +712,5 @@ internal sealed class ApprovalProblem : Exception
     public static ApprovalProblem BadRequest(string code, string message) => new(400, code, message);
     public static ApprovalProblem NotFound(string code, string message) => new(404, code, message);
     public static ApprovalProblem Conflict(string code, string message) => new(409, code, message);
+    public static ApprovalProblem ServiceUnavailable(string code, string message) => new(503, code, message);
 }

@@ -29,6 +29,13 @@
   gap: 16px;
 }
 
+.work-order-dashboard-module-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .work-order-dashboard-module-title {
   display: flex;
   align-items: center;
@@ -256,6 +263,62 @@
   line-height: 1.3;
 }
 
+.work-order-dashboard-module-kitted-bom {
+  grid-column: span 2;
+  min-width: 0;
+  border: 1px solid rgba(47, 140, 255, .38);
+  border-radius: 10px;
+  background: rgba(11, 22, 36, .88);
+  padding: 11px 12px;
+}
+
+.work-order-dashboard-module-kitted-bom > strong {
+  display: block;
+  color: #dbeafe;
+  margin-bottom: 8px;
+}
+
+.work-order-dashboard-module-kitted-bom dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 9px;
+}
+
+.work-order-dashboard-module-kitted-bom dl div {
+  min-width: 0;
+}
+
+.work-order-dashboard-module-kitted-bom dt {
+  color: #8bbcff;
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.work-order-dashboard-module-kitted-bom dd {
+  margin: 3px 0 0;
+  color: #f4f7fb;
+  overflow-wrap: anywhere;
+}
+
+.work-order-dashboard-module-kitted-bom-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.work-order-dashboard-module-kitted-bom-actions button {
+  width: auto;
+  min-height: 34px;
+  text-align: center;
+}
+
+.work-order-dashboard-module-kitted-bom > span {
+  color: #9ba8b8;
+  font-size: 11px;
+}
+
 .work-order-dashboard-module-workspace-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(160px, 1fr));
@@ -285,6 +348,73 @@
   font-size: 14px;
 }
 
+.work-order-dashboard-module-disposition-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.work-order-dashboard-module-disposition-history {
+  margin-top: 12px;
+}
+
+.work-order-dashboard-module-disposition-history li {
+  margin: 7px 0;
+}
+
+.work-order-dashboard-module-disposition-dialog {
+  width: min(680px, calc(100vw - 28px));
+  border: 1px solid rgba(47, 140, 255, .55);
+  border-radius: 12px;
+  background: #0b1624;
+  color: #f4f7fb;
+  padding: 18px;
+}
+
+.work-order-dashboard-module-disposition-dialog::backdrop {
+  background: rgba(0, 0, 0, .72);
+}
+
+.work-order-dashboard-module-disposition-dialog dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.work-order-dashboard-module-disposition-dialog dt {
+  color: #8bbcff;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.work-order-dashboard-module-disposition-dialog dd {
+  margin: 2px 0 0;
+}
+
+.work-order-dashboard-module-disposition-dialog fieldset,
+.work-order-dashboard-module-disposition-dialog > form > label {
+  display: block;
+  margin-top: 12px;
+}
+
+.work-order-dashboard-module-disposition-dialog select,
+.work-order-dashboard-module-disposition-dialog textarea {
+  width: 100%;
+  margin-top: 5px;
+}
+
+.work-order-dashboard-module-disposition-dialog textarea {
+  min-height: 80px;
+}
+
+.work-order-dashboard-module-disposition-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 @media (max-width: 900px) {
   #workOrderDashboardModule {
     width: calc(100vw - 20px);
@@ -307,6 +437,14 @@
 
   .work-order-dashboard-module-document-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .work-order-dashboard-module-kitted-bom {
+    grid-column: 1 / -1;
+  }
+
+  .work-order-dashboard-module-kitted-bom dl {
+    grid-template-columns: 1fr;
   }
 
   .work-order-dashboard-module-view-selector {

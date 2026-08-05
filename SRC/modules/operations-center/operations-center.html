@@ -21,6 +21,12 @@
           placeholder="Search customer, PO, sales order, work order, item, notes..."
           onkeyup="filterOperationsCenter()">
         <button id="operationsCenterProjectionToggle" type="button" onclick="toggleOperationsCenterProjectionMode()">Projection Mode</button>
+        <button
+          id="operationsCenterRmaVisibilityToggle"
+          type="button"
+          aria-label="Hide active RMA/Rework records"
+          aria-pressed="false"
+          onclick="toggleOperationsCenterRmaVisibility()">Hide RMA/Rework</button>
         <button type="button" onclick="refreshOperationsCenterCanonicalData()">Refresh</button>
         <select
           id="operationsCenterDocumentType"

@@ -23,7 +23,18 @@
   const LIVE_CANONICAL_BASE_URL = window.location.port === '5051'
     ? DEVELOPMENT_LIVE_CANONICAL_BASE_URL
     : 'http://DLE-OS-HOST:5042';
-  const LIVE_SNAPSHOT_REFRESH_BASE_URL = 'http://DLE-OS-HOST:5043';
+  const LIVE_SNAPSHOT_REFRESH_BASE_URL = normalizeRuntimeBaseUrl(
+    window.DleOsRuntimeConfig?.operationalControlBaseUrl || 'http://DLE-OS-HOST:5043'
+  );
+
+  function normalizeRuntimeBaseUrl(value) {
+    const url = new URL(String(value || ''), window.location.href);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
+        url.pathname !== '/' || url.search || url.hash) {
+      throw new Error('The configured operational ControlHost URL is invalid.');
+    }
+    return url.origin;
+  }
   const CUSTOMER_FILES_CONTROL_BASE_URL = 'http://DLE-OS-HOST:5053';
   const SHIPMENT_HISTORY_PATH = 'DATA/shipment-history/shipment-history.json';
   const LIVE_CANONICAL_ENDPOINTS = Object.freeze({
@@ -115,6 +126,45 @@
     itemNumber: 20,
     employeeNumber: 9
   });
+  const OPERATIONAL_LINE_STATE_CHANGE_EVENT = 'dle:sales-order-line-operational-state-change';
+
+  function normalizeOperationalLineIdentities(lines) {
+    const unique = new Map();
+    (Array.isArray(lines) ? lines : [lines]).forEach(line => {
+      const customerNumber = String(line?.customerNumber || '').trim().padStart(6, '0');
+      const salesOrderNumber = String(line?.salesOrderNumber || '').trim().padStart(7, '0');
+      const lineNumber = String(line?.lineNumber || line?.salesOrderLineNumber || '').trim().padStart(3, '0');
+      if (!/^\d{6}$/.test(customerNumber) || !/^\d{7}$/.test(salesOrderNumber) || !/^\d{3}$/.test(lineNumber)) {
+        throw new TypeError('Operational Sales Order line identity is malformed.');
+      }
+      unique.set([customerNumber, salesOrderNumber, lineNumber].join('|'), {
+        customerNumber, salesOrderNumber, lineNumber
+      });
+    });
+    if (!unique.size) throw new TypeError('At least one operational Sales Order line is required.');
+    return Array.from(unique.values());
+  }
+
+  async function publishOperationalLineStateChange(lines, source = 'unspecified') {
+    const pending = [];
+    const detail = Object.freeze({
+      lines: Object.freeze(normalizeOperationalLineIdentities(lines)),
+      source: String(source || 'unspecified'),
+      waitUntil(promise) { pending.push(Promise.resolve(promise)); }
+    });
+    document.dispatchEvent(new CustomEvent(OPERATIONAL_LINE_STATE_CHANGE_EVENT, { detail }));
+    const results = await Promise.allSettled(pending);
+    results.filter(result => result.status === 'rejected').forEach(result =>
+      console.warn('An operational Sales Order line consumer could not refresh.', result.reason));
+    return detail.lines;
+  }
+
+  function subscribeOperationalLineStateChange(handler) {
+    if (typeof handler !== 'function') throw new TypeError('Operational state subscriber is required.');
+    const listener = event => handler(event.detail || {});
+    document.addEventListener(OPERATIONAL_LINE_STATE_CHANGE_EVENT, listener);
+    return () => document.removeEventListener(OPERATIONAL_LINE_STATE_CHANGE_EVENT, listener);
+  }
 
   function getConfig() {
     const runtimeConfig = window.DLE_API_CONFIG || {};
@@ -240,6 +290,7 @@
       requestError.name = 'DleApiError';
       requestError.status = response.status;
       requestError.code = body?.code || 'work_order_approval_http_error';
+      requestError.requestId = body?.requestId || response.headers.get('X-Request-ID') || null;
       throw requestError;
     }
     return body;
@@ -258,6 +309,70 @@
       normalize(salesOrderNumber, 7, 'Sales Order number'),
       normalize(lineNumber, 3, 'Sales Order line number')
     ].join('/');
+  }
+
+  async function requestOperationalWorkOrderRelationship(path, options = {}) {
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/operational-work-order-relationships/v1/' +
+        String(path).replace(/^\/+/, ''),
+      {
+        method: options.method || 'GET', cache: 'no-store', credentials: 'include', signal: options.signal,
+        headers: { Accept: 'application/json', ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      }
+    );
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok) {
+      const requestError = new Error(body?.message ||
+        'Operational Work Order relationship control returned HTTP ' + response.status + '.');
+      requestError.name = 'DleApiError';
+      requestError.status = response.status;
+      requestError.code = body?.code || 'operational_work_order_relationship_http_error';
+      throw requestError;
+    }
+    return body;
+  }
+
+  async function requestKittingDisposition(workOrderNumber, suffix = '', options = {}) {
+    const normalized = String(workOrderNumber || '').trim();
+    if (!/^[0-9]{1,7}$/.test(normalized)) throw new TypeError('Work Order number is malformed.');
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/kitting-dispositions/v1/work-orders/' +
+        encodeURIComponent(normalized.padStart(7, '0')) + suffix,
+      {
+        method: options.method || 'GET', cache: 'no-store', credentials: 'include', signal: options.signal,
+        headers: { Accept: 'application/json', ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      }
+    );
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok) {
+      const requestError = new Error(body?.message || 'Kitting disposition control returned HTTP ' + response.status + '.');
+      requestError.name = 'DleApiError'; requestError.status = response.status;
+      requestError.code = body?.code || 'kitting_disposition_http_error'; throw requestError;
+    }
+    return body;
+  }
+
+  async function requestRmaRework(path, options = {}) {
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/rma-rework/v1/' + String(path).replace(/^\/+/, ''),
+      {
+        method: options.method || 'GET', cache: 'no-store', credentials: 'include', signal: options.signal,
+        headers: { Accept: 'application/json', ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      }
+    );
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok) {
+      const requestError = new Error(body?.message || 'RMA/Rework case control returned HTTP ' + response.status + '.');
+      requestError.name = 'DleApiError'; requestError.status = response.status;
+      requestError.code = body?.code || 'rma_rework_http_error'; throw requestError;
+    }
+    return body;
   }
 
   async function requestCustomerFiles(path, options = {}) {
@@ -1000,20 +1115,74 @@
       return liveCanonicalClient.searchCanonicalCustomers(query, options);
     },
     searchHistoricalAssemblies,
+    publishOperationalLineStateChange,
+    subscribeOperationalLineStateChange,
     getWorkOrderApprovalReview(customerNumber, salesOrderNumber, lineNumber, options = {}) {
       return requestWorkOrderApproval(
         buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber), options
       );
     },
+    getOperationalWorkOrderRelationship(customerNumber, salesOrderNumber, lineNumber, options = {}) {
+      return requestOperationalWorkOrderRelationship(
+        buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber), options
+      );
+    },
+    appendOperationalWorkOrderInterpretation(customerNumber, salesOrderNumber, lineNumber,
+        request, options = {}) {
+      return requestOperationalWorkOrderRelationship(
+        buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber) + '/events',
+        { ...options, method: 'POST', body: request }
+      );
+    },
     submitWorkOrderApprovalAction(customerNumber, salesOrderNumber, lineNumber,
         action, request, options = {}) {
-      if (!['approve', 'replace', 'revoke'].includes(action)) {
+      if (!['approve', 'replace', 'approve-no-work-order',
+          'replace-no-work-order', 'revoke'].includes(action)) {
         throw new TypeError('Work Order approval action is invalid.');
       }
       return requestWorkOrderApproval(
         buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber) + '/' + action,
         { ...options, method: 'POST', body: request }
       );
+    },
+    getKittingDisposition(workOrderNumber, options = {}) {
+      return requestKittingDisposition(workOrderNumber, '', options);
+    },
+    getKittingDispositionHistory(workOrderNumber, options = {}) {
+      return requestKittingDisposition(workOrderNumber, '/history', options);
+    },
+    appendKittingDisposition(workOrderNumber, request, options = {}) {
+      return requestKittingDisposition(workOrderNumber, '/events',
+        { ...options, method: 'POST', body: request });
+    },
+    reviewRmaReworkCaseMembers(members, options = {}) {
+      return requestRmaRework('case-candidates/review', {
+        ...options, method: 'POST', body: { members }
+      });
+    },
+    matchRmaReworkCase(request, options = {}) {
+      return requestRmaRework('case-candidates/match', { ...options, method: 'POST', body: request });
+    },
+    createRmaReworkCase(request, options = {}) {
+      return requestRmaRework('cases', { ...options, method: 'POST', body: request });
+    },
+    addRmaReworkCaseMember(caseId, request, options = {}) {
+      return requestRmaRework('cases/' + encodeURIComponent(String(caseId || '')) + '/members', {
+        ...options, method: 'POST', body: request
+      });
+    },
+    getRmaReworkCases(options = {}) {
+      const parameters = new URLSearchParams();
+      Object.entries(options).forEach(([key, value]) => {
+        if (key !== 'signal' && value !== undefined && value !== null && value !== '') parameters.set(key, String(value));
+      });
+      return requestRmaRework('cases' + (parameters.size ? '?' + parameters.toString() : ''), options);
+    },
+    getRmaReworkCase(caseId, options = {}) {
+      return requestRmaRework('cases/' + encodeURIComponent(String(caseId || '')), options);
+    },
+    getRmaReworkCaseHistory(caseId, options = {}) {
+      return requestRmaRework('cases/' + encodeURIComponent(String(caseId || '')) + '/history', options);
     },
     getCustomerFolderStatus(customerNumber, options = {}) {
       return requestCustomerFiles(

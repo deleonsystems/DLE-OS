@@ -25,6 +25,8 @@ BEGIN
         CandidateSetJson nvarchar(max) NOT NULL,
         SelectionSource varchar(40) NOT NULL,
         DecisionReason nvarchar(500) NOT NULL,
+        DecisionReasonCode varchar(64) NULL,
+        DecisionNote nvarchar(500) NULL,
         ApprovedBy nvarchar(256) NOT NULL,
         ApprovedAtUtc datetime2(7) NOT NULL
             CONSTRAINT DF_SalesOrderLineWorkOrderDecisionEvent_ApprovedAtUtc
@@ -45,6 +47,14 @@ BEGIN
                 OR (DecisionAction IN ('REPLACE', 'REVOKE') AND SupersedesDecisionId IS NOT NULL)),
         CONSTRAINT CK_SalesOrderLineWorkOrderDecisionEvent_Reason
             CHECK (LEN(LTRIM(RTRIM(DecisionReason))) >= 3),
+        CONSTRAINT CK_SalesOrderLineWorkOrderDecisionEvent_ReasonCode
+            CHECK (DecisionReasonCode IS NULL OR DecisionReasonCode IN
+                ('ERP_CONFIRMED_CANDIDATE_MATCH','SALES_ORDER_ITEM_MATCH',
+                 'HISTORICAL_RELATIONSHIP_VERIFIED','SUPPORTING_DOCUMENTATION_VERIFIED',
+                 'CUSTOMER_RMA_RELATIONSHIP_VERIFIED','SUPERVISOR_REVIEW','OTHER')),
+        CONSTRAINT CK_SalesOrderLineWorkOrderDecisionEvent_OtherNote
+            CHECK (DecisionReasonCode IS NULL OR DecisionReasonCode <> 'OTHER'
+                OR NULLIF(LTRIM(RTRIM(DecisionNote)),N'') IS NOT NULL),
         CONSTRAINT CK_SalesOrderLineWorkOrderDecisionEvent_CandidateJson
             CHECK (ISJSON(CandidateSetJson) = 1),
         CONSTRAINT UQ_SalesOrderLineWorkOrderDecisionEvent_Correlation
@@ -82,7 +92,8 @@ SELECT
     CandidateResolutionStatusAtDecision, CanonicalExactWorkOrderAtDecision,
     CandidateSnapshotIdAtDecision,
     CandidateSnapshotImportRunId, CandidateSetHash, CandidateSetJson,
-    SelectionSource, DecisionReason, ApprovedBy, ApprovedAtUtc,
+    SelectionSource, DecisionReason, DecisionReasonCode, DecisionNote,
+    ApprovedBy, ApprovedAtUtc,
     RequestCorrelationId
 FROM RankedEvents
 WHERE EventRank = 1

@@ -55,6 +55,12 @@ const context = vm.createContext({
   window: {
     OperationsCenter: {},
     DleApiClient: {
+      async getRmaReworkCases() {
+        return { items: [], totalItems: 0 };
+      },
+      async getWorkOrderApprovalReview() {
+        return { currentApproval: null };
+      },
       liveCanonical: {
         async getCanonicalSalesOrders(options) {
           calls.push(options);

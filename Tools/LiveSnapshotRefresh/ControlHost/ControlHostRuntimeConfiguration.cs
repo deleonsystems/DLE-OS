@@ -1,0 +1,27 @@
+using Microsoft.Data.SqlClient;
+
+internal static class ControlHostRuntimeConfiguration
+{
+    private const string ProductionOperationalConnection =
+        @"Server=lpc:.\SQLEXPRESS;Database=DLE_OS_CANONICAL_LIVE;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;Connect Timeout=5;Application Intent=ReadWrite;";
+
+    internal static bool IsIsolatedDevelopment => string.Equals(
+        Environment.GetEnvironmentVariable("DLE_OS_ISOLATED_DEVELOPMENT"),
+        "true", StringComparison.OrdinalIgnoreCase);
+
+    internal static string OperationalConnectionString =>
+        Environment.GetEnvironmentVariable("DLE_OS_OPERATIONAL_CONNECTION_STRING") ??
+        Environment.GetEnvironmentVariable("DLE_OS_WORK_ORDER_APPROVAL_CONNECTION_STRING") ??
+        ProductionOperationalConnection;
+
+    internal static string CanonicalApiBaseUrl =>
+        Environment.GetEnvironmentVariable("DLE_OS_CANONICAL_API_BASE_URL") ??
+        "http://DLE-OS-HOST:5042";
+
+    internal static string ControlPrefix =>
+        Environment.GetEnvironmentVariable("DLE_OS_CONTROL_PREFIX") ??
+        "http://dle-os-host:5043";
+
+    internal static string OperationalDatabaseName =>
+        new SqlConnectionStringBuilder(OperationalConnectionString).InitialCatalog;
+}
