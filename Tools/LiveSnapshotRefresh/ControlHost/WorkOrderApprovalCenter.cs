@@ -80,6 +80,7 @@ internal static class WorkOrderApprovalCenter
 internal sealed class WorkOrderApprovalService
 {
     private readonly ApprovalRepository _repository = new();
+    private readonly RmaReworkRepository _rmaRepository = new();
     private readonly HttpClient _canonical;
 
     public WorkOrderApprovalService()
@@ -96,12 +97,13 @@ internal sealed class WorkOrderApprovalService
     {
         var relationship = await LoadRelationshipAsync(key, cancellationToken);
         var current = await _repository.GetCurrentAsync(key, cancellationToken);
-        var choices = relationship.ApprovalChoices;
+        var membership = await GetActiveRmaMembershipAsync(key, cancellationToken);
+        var choices = membership is null ? relationship.ApprovalChoices : Array.Empty<string>();
         var workOrderExists = current is null || string.IsNullOrEmpty(current.ApprovedWorkOrderNumber) ||
             await WorkOrderExistsAsync(current.ApprovedWorkOrderNumber, cancellationToken);
         var classification = Classify(current?.ApprovedWorkOrderNumber, relationship, workOrderExists);
         var history = await _repository.GetHistoryAsync(key, cancellationToken);
-        return BuildReview(key, relationship, current, history, classification, choices);
+        return BuildReview(key, relationship, current, history, classification, choices, membership);
     }
 
     public async Task<object> DecideAsync(LineKey key, string action, ApprovalActionRequest request,
@@ -111,6 +113,9 @@ internal sealed class WorkOrderApprovalService
             ? WorkOrderApprovalReasonCatalog.Resolve(action, request.ReasonCode,
                 request.ReasonText, request.DecisionNote)
             : WorkOrderApprovalReasonCatalog.ResolveLegacy(request.DecisionReason);
+
+        var membership = await GetActiveRmaMembershipAsync(key, cancellationToken);
+        EnsureRmaAllowsApprovalAction(membership, action);
 
         var relationship = await LoadRelationshipAsync(key, cancellationToken);
         var current = await _repository.GetCurrentAsync(key, cancellationToken);
@@ -150,14 +155,16 @@ internal sealed class WorkOrderApprovalService
         var history = await _repository.GetHistoryAsync(key, cancellationToken);
         var exists = refreshed is null || string.IsNullOrEmpty(refreshed.ApprovedWorkOrderNumber) ||
             await WorkOrderExistsAsync(refreshed.ApprovedWorkOrderNumber, cancellationToken);
+        membership = await GetActiveRmaMembershipAsync(key, cancellationToken);
         return BuildReview(key, relationship, refreshed, history,
             Classify(refreshed?.ApprovedWorkOrderNumber, relationship, exists),
-            relationship.ApprovalChoices, decision.RequestCorrelationId);
+            membership is null ? relationship.ApprovalChoices : Array.Empty<string>(),
+            membership, decision.RequestCorrelationId);
     }
 
     private object BuildReview(LineKey key, CanonicalRelationship relationship,
         DecisionRecord? current, IReadOnlyList<DecisionRecord> history, string classification,
-        IReadOnlyList<string> choices, Guid? correlationId = null) => new
+        IReadOnlyList<string> choices, RmaReworkMembership? membership = null, Guid? correlationId = null) => new
     {
         identity = new { customerNumber = key.Customer, salesOrderNumber = key.SalesOrder, salesOrderLineNumber = key.Line },
         canonicalRelationship = relationship.Raw,
@@ -168,13 +175,30 @@ internal sealed class WorkOrderApprovalService
         availableApprovalChoices = choices,
         permissions = new
         {
-            canApprove = current is null && choices.Count > 0,
-            canReplace = current is not null && choices.Any(value => value != current.ApprovedWorkOrderNumber),
-            canRevoke = current is not null
+            canApprove = membership is null && current is null && choices.Count > 0,
+            canReplace = membership is null && current is not null && choices.Any(value => value != current.ApprovedWorkOrderNumber),
+            canRevoke = membership is null && current is not null
+        },
+        rmaReworkControl = membership is null ? null : new
+        {
+            active = true,
+            caseId = membership.CaseId,
+            caseReference = membership.CaseReference,
+            suppressionReason = "rma_rework_controls_work_order_decision",
+            operationalRoute = "RMA / Rework",
+            workOrderDecision = "Decision Pending",
+            priorApprovalStatus = current is null ? null : "Superseded by active RMA/Rework case"
         },
         reasonCatalogs = WorkOrderApprovalReasonCatalog.ForClient,
         requestCorrelationId = correlationId
     };
+
+    private async Task<RmaReworkMembership?> GetActiveRmaMembershipAsync(LineKey key, CancellationToken token)
+    {
+        var memberships = await _rmaRepository.GetActiveMembershipsAsync(
+            [new RmaReworkLineIdentity(key.Customer, key.SalesOrder, key.Line)], token);
+        return memberships.GetValueOrDefault(key.Customer + "|" + key.SalesOrder + "|" + key.Line);
+    }
 
     internal static string Classify(string? approved, CanonicalRelationship relationship, bool workOrderExists)
     {
@@ -188,6 +212,13 @@ internal sealed class WorkOrderApprovalService
         if (relationship.ApprovalChoices.Contains(approved))
             return "APPROVED_SUPPORTED_CANDIDATE";
         return "APPROVED_NOT_IN_CURRENT_CANDIDATES";
+    }
+
+    internal static void EnsureRmaAllowsApprovalAction(RmaReworkMembership? membership, string action)
+    {
+        if (membership is not null && action is ("APPROVE" or "REPLACE"))
+            throw ApprovalProblem.Conflict("rma_rework_controls_work_order_decision",
+                "The active RMA/Rework case controls the Work Order decision for this Sales Order line.");
     }
 
     private async Task<CanonicalRelationship> LoadRelationshipAsync(LineKey key, CancellationToken cancellationToken)
@@ -372,6 +403,10 @@ ORDER BY DecisionSequence DESC;
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(token);
         await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.Serializable, token);
+        if (action is "APPROVE" or "REPLACE")
+            WorkOrderApprovalService.EnsureRmaAllowsApprovalAction(
+                await RmaReworkRepository.GetActiveMembershipAsync(
+                    key.Customer, key.SalesOrder, key.Line, connection, transaction, token), action);
         var actual = await GetCurrentAsync(key, token, connection, transaction);
         if (actual?.DecisionId != expectedCurrent)
             throw ApprovalProblem.Conflict("current_decision_changed",

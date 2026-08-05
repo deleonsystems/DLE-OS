@@ -260,6 +260,47 @@
     ].join('/');
   }
 
+  async function requestKittingDisposition(workOrderNumber, suffix = '', options = {}) {
+    const normalized = String(workOrderNumber || '').trim();
+    if (!/^[0-9]{1,7}$/.test(normalized)) throw new TypeError('Work Order number is malformed.');
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/kitting-dispositions/v1/work-orders/' +
+        encodeURIComponent(normalized.padStart(7, '0')) + suffix,
+      {
+        method: options.method || 'GET', cache: 'no-store', credentials: 'include', signal: options.signal,
+        headers: { Accept: 'application/json', ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      }
+    );
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok) {
+      const requestError = new Error(body?.message || 'Kitting disposition control returned HTTP ' + response.status + '.');
+      requestError.name = 'DleApiError'; requestError.status = response.status;
+      requestError.code = body?.code || 'kitting_disposition_http_error'; throw requestError;
+    }
+    return body;
+  }
+
+  async function requestRmaRework(path, options = {}) {
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/rma-rework/v1/' + String(path).replace(/^\/+/, ''),
+      {
+        method: options.method || 'GET', cache: 'no-store', credentials: 'include', signal: options.signal,
+        headers: { Accept: 'application/json', ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      }
+    );
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok) {
+      const requestError = new Error(body?.message || 'RMA/Rework case control returned HTTP ' + response.status + '.');
+      requestError.name = 'DleApiError'; requestError.status = response.status;
+      requestError.code = body?.code || 'rma_rework_http_error'; throw requestError;
+    }
+    return body;
+  }
+
   async function requestCustomerFiles(path, options = {}) {
     const response = await fetch(
       CUSTOMER_FILES_CONTROL_BASE_URL + '/' + String(path).replace(/^\/+/, ''),
@@ -1014,6 +1055,45 @@
         buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber) + '/' + action,
         { ...options, method: 'POST', body: request }
       );
+    },
+    getKittingDisposition(workOrderNumber, options = {}) {
+      return requestKittingDisposition(workOrderNumber, '', options);
+    },
+    getKittingDispositionHistory(workOrderNumber, options = {}) {
+      return requestKittingDisposition(workOrderNumber, '/history', options);
+    },
+    appendKittingDisposition(workOrderNumber, request, options = {}) {
+      return requestKittingDisposition(workOrderNumber, '/events',
+        { ...options, method: 'POST', body: request });
+    },
+    reviewRmaReworkCaseMembers(members, options = {}) {
+      return requestRmaRework('case-candidates/review', {
+        ...options, method: 'POST', body: { members }
+      });
+    },
+    matchRmaReworkCase(request, options = {}) {
+      return requestRmaRework('case-candidates/match', { ...options, method: 'POST', body: request });
+    },
+    createRmaReworkCase(request, options = {}) {
+      return requestRmaRework('cases', { ...options, method: 'POST', body: request });
+    },
+    addRmaReworkCaseMember(caseId, request, options = {}) {
+      return requestRmaRework('cases/' + encodeURIComponent(String(caseId || '')) + '/members', {
+        ...options, method: 'POST', body: request
+      });
+    },
+    getRmaReworkCases(options = {}) {
+      const parameters = new URLSearchParams();
+      Object.entries(options).forEach(([key, value]) => {
+        if (key !== 'signal' && value !== undefined && value !== null && value !== '') parameters.set(key, String(value));
+      });
+      return requestRmaRework('cases' + (parameters.size ? '?' + parameters.toString() : ''), options);
+    },
+    getRmaReworkCase(caseId, options = {}) {
+      return requestRmaRework('cases/' + encodeURIComponent(String(caseId || '')), options);
+    },
+    getRmaReworkCaseHistory(caseId, options = {}) {
+      return requestRmaRework('cases/' + encodeURIComponent(String(caseId || '')) + '/history', options);
     },
     getCustomerFolderStatus(customerNumber, options = {}) {
       return requestCustomerFiles(

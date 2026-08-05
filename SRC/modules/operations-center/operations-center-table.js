@@ -102,9 +102,7 @@
       }
       if (column.key === 'workOrder') {
         const presentation = viewModel.getWorkOrderPresentation(record);
-        return '<td class="operations-center-official-cell operations-center-work-order-' +
-          escapeHtml(presentation.status.toLowerCase()) + '" title="' +
-          escapeHtml(presentation.reason) + '">' + escapeHtml(presentation.label) + '</td>';
+        return renderWorkOrderCell(presentation);
       }
       if (column.key === 'operationalStatus') {
         return renderOperationalStatusCell(value);
@@ -113,6 +111,9 @@
     }).join('');
 
     const overlayCells = overlayFields.map(field => {
+      if (record?.rmaReworkMembership && isOrdinaryProductionOverlay(field.key)) {
+        return '<td class="operations-center-overlay-cell operations-center-rma-suppressed">RMA / Rework</td>';
+      }
       if (field.documentLink) return renderDocumentLinkCell(field, record);
 
       const overlay = stateActions.getOverlayRecord(masterRecordKey);
@@ -130,6 +131,39 @@
     }).join('');
 
     return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + projectionCell + officialCells + overlayCells + '</tr>';
+  }
+
+  function isOrdinaryProductionOverlay(key) {
+    return ['productionShipping', 'kitShort', 'purchasingComplete', 'kitComplete'].includes(key);
+  }
+
+  function renderWorkOrderCell(presentation) {
+    const statusClass = escapeHtml(String(presentation.status || 'unresolved').toLowerCase());
+    if (presentation.status !== 'RMA_CONTROLLED') {
+      const secondary = presentation.secondaryLabel
+        ? '<span class="operations-center-work-order-secondary">' + escapeHtml(presentation.secondaryLabel) + '</span>'
+        : '';
+      return '<td class="operations-center-official-cell operations-center-work-order-' + statusClass +
+        '" title="' + escapeHtml(presentation.reason) + '"><strong>' +
+        escapeHtml(presentation.label) + '</strong>' + secondary + '</td>';
+    }
+
+    const evidence = Array.isArray(presentation.evidence) && presentation.evidence.length
+      ? '<ul>' + presentation.evidence.map(item => '<li>' + escapeHtml(item) + '</li>').join('') + '</ul>'
+      : '<p>No prior Work Order evidence.</p>';
+    const caseReference = presentation.caseReference
+      ? '<span class="operations-center-work-order-case">' + escapeHtml(presentation.caseReference) + '</span>'
+      : '';
+    return [
+      '<td class="operations-center-official-cell operations-center-work-order-', statusClass,
+      '" title="', escapeHtml(presentation.reason), '">',
+      '<strong>', escapeHtml(presentation.label), '</strong>',
+      '<span class="operations-center-work-order-secondary">', escapeHtml(presentation.secondaryLabel), '</span>',
+      caseReference,
+      '<details class="operations-center-work-order-evidence"><summary>Review evidence</summary>',
+      '<strong>', escapeHtml(presentation.evidenceLabel), '</strong>', evidence, '</details>',
+      '</td>'
+    ].join('');
   }
 
   function renderSourceStatus() {

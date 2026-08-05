@@ -48,6 +48,27 @@ Check("no approval", WorkOrderApprovalService.Classify(null, ambiguous, true) ==
 var unresolved = Relationship("UNRESOLVED", null);
 Check("unresolved has no choices", unresolved.ApprovalChoices.Count == 0);
 
+var controlledMembership = new RmaReworkMembership(Guid.NewGuid(), "RMA-123");
+try
+{
+    WorkOrderApprovalService.EnsureRmaAllowsApprovalAction(controlledMembership, "APPROVE");
+    failures.Add("RMA-controlled approve rejected");
+}
+catch (ApprovalProblem problem)
+{
+    Check("RMA-controlled approve rejected", problem.Code == "rma_rework_controls_work_order_decision");
+}
+try
+{
+    WorkOrderApprovalService.EnsureRmaAllowsApprovalAction(controlledMembership, "REPLACE");
+    failures.Add("RMA-controlled replacement rejected");
+}
+catch (ApprovalProblem problem)
+{
+    Check("RMA-controlled replacement rejected", problem.Code == "rma_rework_controls_work_order_decision");
+}
+WorkOrderApprovalService.EnsureRmaAllowsApprovalAction(controlledMembership, "REVOKE");
+
 foreach (var expected in new Dictionary<string, string>
 {
     ["MATCHES_CONFIRMED_WO_ON_SAME_SALES_ORDER"] = "Matches confirmed WO on another SO line",

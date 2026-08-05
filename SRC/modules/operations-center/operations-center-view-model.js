@@ -148,6 +148,45 @@
     const relationship = record?.workOrderRelationship || {};
     const candidates = Array.isArray(relationship.candidates) ? relationship.candidates : [];
     const status = String(relationship.status || 'UNRESOLVED');
+    const membership = record?.rmaReworkMembership;
+    if (membership) {
+      const approvalNumber = normalizeOperationsValue(
+        record?.workOrderApprovalReview?.currentApproval?.approvedWorkOrderNumber
+      );
+      const exactNumber = status === 'EXACT_LINE_UNIQUE'
+        ? normalizeOperationsValue(relationship.actionableWorkOrderNumber)
+        : '';
+      const candidateNumbers = candidates
+        .map(candidate => normalizeOperationsValue(candidate?.workOrderNumber))
+        .filter(Boolean);
+      const evidence = [];
+      if (approvalNumber) evidence.push('Prior approval: ' + approvalNumber);
+      if (exactNumber) evidence.push('Exact relationship: ' + exactNumber);
+      candidateNumbers.forEach(number => evidence.push('Candidate: ' + number));
+      return {
+        status: 'RMA_CONTROLLED',
+        label: 'Decision Pending',
+        secondaryLabel: 'RMA / Rework',
+        actionable: false,
+        reason: 'Active RMA/Rework case controls this Sales Order line. Prior actionable evidence is superseded.',
+        caseReference: normalizeOperationsValue(membership.caseReference || membership.caseId),
+        evidenceLabel: 'Superseded by active RMA/Rework case',
+        evidence: Array.from(new Set(evidence))
+      };
+    }
+
+    const approvedWorkOrder = normalizeOperationsValue(
+      record?.workOrderApprovalReview?.currentApproval?.approvedWorkOrderNumber
+    );
+    if (approvedWorkOrder) {
+      return {
+        status: 'APPROVED',
+        label: approvedWorkOrder,
+        secondaryLabel: 'Approved',
+        actionable: true,
+        reason: 'Current governed operational Work Order approval.'
+      };
+    }
     if (status === 'EXACT_LINE_UNIQUE') {
       const workOrder = String(relationship.actionableWorkOrderNumber || '').trim();
       return { status, label: workOrder, actionable: !!workOrder, reason: '' };

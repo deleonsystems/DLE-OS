@@ -351,6 +351,8 @@ app.MapDailyOperationsSync(
     authorizedOperator,
     "SnapshotRefreshOperator");
 app.MapWorkOrderApprovals("SnapshotRefreshOperator");
+app.MapKittingDispositions("SnapshotRefreshOperator");
+app.MapRmaRework("SnapshotRefreshOperator");
 
 app.Run();
 

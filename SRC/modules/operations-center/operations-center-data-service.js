@@ -11,6 +11,7 @@
   const SOURCE_NAME = 'DLE_OS_CANONICAL_LIVE';
   const SOURCE_ENDPOINT = '/api/platform/live/v1/sales-orders';
   const RELATIONSHIP_ENDPOINT = '/api/platform/live/v1/sales-order-work-order-relationships';
+  const LOOKUP_CONCURRENCY = 8;
   let activeController = null;
   let requestSequence = 0;
 
@@ -57,7 +58,11 @@
       throw new Error('Canonical Sales Orders returned ' + items.length + ' of ' + expectedTotal + ' records.');
     }
 
-    const relationships = await loadAllRelationships(client, controller.signal);
+    const [relationships, rmaReworkByLineKey, approvalsByLineKey] = await Promise.all([
+      loadAllRelationships(client, controller.signal),
+      loadAllActiveRmaReworkMemberships(controller.signal),
+      loadAllApprovalReviews(items, controller.signal)
+    ]);
     const relationshipByKey = new Map(relationships.map(relationship => [
       relationshipKey(relationship.customerNumber, relationship.salesOrderNumber, relationship.salesOrderLineNumber),
       relationship
@@ -68,7 +73,12 @@
       if (!relationship) {
         throw new Error('The governed Work Order relationship API omitted Sales Order line ' + key + '.');
       }
-      return normalizeRow(source, relationship);
+      return normalizeRow(
+        source,
+        relationship,
+        rmaReworkByLineKey.get(key) || null,
+        approvalsByLineKey.get(key) || null
+      );
     });
     validateUniqueIdentities(rows);
     return {
@@ -111,6 +121,89 @@
     return items;
   }
 
+  async function loadAllActiveRmaReworkMemberships(signal) {
+    const getter = window.DleApiClient?.getRmaReworkCases;
+    if (typeof getter !== 'function') {
+      throw new Error('Active RMA/Rework membership is unavailable. Operations Center routing is blocked.');
+    }
+
+    const cases = [];
+    let page = 1;
+    let expectedTotal = null;
+    while (expectedTotal === null || cases.length < expectedTotal) {
+      const response = await getter({ status: 'ACTIVE', page, pageSize: PAGE_SIZE, signal });
+      const pageItems = Array.isArray(response?.items) ? response.items : null;
+      const totalItems = Number(response?.totalItems);
+      if (!pageItems || !Number.isInteger(totalItems) || totalItems < 0) {
+        throw new Error('Active RMA/Rework membership returned an incomplete read model.');
+      }
+      if (expectedTotal === null) expectedTotal = totalItems;
+      else if (expectedTotal !== totalItems) {
+        throw new Error('Active RMA/Rework membership changed during paging. Refresh Operations Center.');
+      }
+      cases.push(...pageItems);
+      if (!pageItems.length && cases.length < expectedTotal) {
+        throw new Error('Active RMA/Rework membership paging ended before all cases were loaded.');
+      }
+      page += 1;
+    }
+
+    const caseIds = new Set(cases.map(caseRecord => cleanText(caseRecord?.caseId)).filter(Boolean));
+    if (cases.length !== expectedTotal || caseIds.size !== cases.length) {
+      throw new Error('Active RMA/Rework membership could not be verified completely.');
+    }
+
+    const memberships = new Map();
+    cases.forEach(caseRecord => (caseRecord.members || []).forEach(member => {
+      const key = relationshipKey(
+        member.customerNumber,
+        member.salesOrderNumber,
+        member.salesOrderLineNumber
+      );
+      if (memberships.has(key)) {
+        throw new Error('An active Sales Order line belongs to more than one RMA/Rework case.');
+      }
+      memberships.set(key, {
+        caseId: cleanText(caseRecord.caseId),
+        caseReference: cleanText(caseRecord.caseReference),
+        caseType: cleanText(caseRecord.caseType),
+        caseStatus: cleanText(caseRecord.caseStatus),
+        member: { ...member }
+      });
+    }));
+    return memberships;
+  }
+
+  async function loadAllApprovalReviews(rows, signal) {
+    const getter = window.DleApiClient?.getWorkOrderApprovalReview;
+    if (typeof getter !== 'function') {
+      throw new Error('Current governed Work Order approvals are unavailable. Operations Center routing is blocked.');
+    }
+    const reviews = new Map();
+    await mapWithConcurrency(rows, LOOKUP_CONCURRENCY, async source => {
+      const key = relationshipKey(source.customerNumber, source.salesOrderNumber, source.lineNumber);
+      const review = await getter(
+        source.customerNumber,
+        source.salesOrderNumber,
+        source.lineNumber,
+        { signal }
+      );
+      reviews.set(key, review || {});
+    });
+    return reviews;
+  }
+
+  async function mapWithConcurrency(items, concurrency, worker) {
+    let index = 0;
+    const runners = Array.from({ length: Math.min(concurrency, Math.max(items.length, 1)) }, async () => {
+      while (index < items.length) {
+        const current = index++;
+        await worker(items[current], current);
+      }
+    });
+    await Promise.all(runners);
+  }
+
   function validatePage(response, page) {
     if (!response || typeof response !== 'object' || !Array.isArray(response.items)) {
       throw new Error('Canonical Sales Orders returned a malformed page.');
@@ -123,7 +216,7 @@
     }
   }
 
-  function normalizeRow(source, workOrderRelationship = null) {
+  function normalizeRow(source, workOrderRelationship = null, rmaReworkMembership = null, approvalReview = null) {
     if (!source || typeof source !== 'object') {
       throw new Error('Canonical Sales Orders contains a malformed record.');
     }
@@ -167,6 +260,8 @@
       salesOrderLineNumber: lineNumber,
       workOrderNumber: workOrder,
       workOrderRelationship: relationship,
+      rmaReworkMembership: rmaReworkMembership ? { ...rmaReworkMembership } : null,
+      workOrderApprovalReview: approvalReview ? { ...approvalReview } : null,
       itemNumber,
       description,
       estimatedShipDate: dueDate,

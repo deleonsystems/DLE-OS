@@ -50,6 +50,10 @@ assert.match(server, /canonical_work_order_missing/);
 assert.match(server, /sales_order_line_not_found/);
 assert.match(server, /work_order_outside_current_evidence/);
 assert.match(server, /decision_reason_required/);
+assert.match(server, /rma_rework_controls_work_order_decision/);
+assert.match(server, /GetActiveMembershipAsync/);
+assert.match(server, /canApprove = membership is null/);
+assert.match(server, /canReplace = membership is null/);
 assert.match(server, /decision_reason_code_required/);
 assert.match(server, /decision_reason_code_invalid/);
 assert.match(server, /browser-supplied labels are deliberately ignored/i);
@@ -113,6 +117,19 @@ for (const [classification, label] of [
 state.approvalReviews.clear();
 assert.equal(api.getWorkOrderPresentation(row).secondary, 'Candidate');
 assert.equal(api.getWorkOrderPresentation(row).actionable, false);
+state.rmaMemberships.set('001082|0011998|040', {
+  caseId: 'case-1', caseReference: 'RMA-123', caseRecord: { caseType: 'CUSTOMER_REWORK' }
+});
+state.approvalReviews.set('001082|0011998|040', {
+  currentApproval: { approvedWorkOrderNumber: '0115505' },
+  conflictClassification: 'APPROVED_SUPPORTED_CANDIDATE'
+});
+const rmaControlled = api.getWorkOrderPresentation(row);
+assert.equal(rmaControlled.status, 'RMA_CONTROLLED');
+assert.equal(rmaControlled.primary, 'Decision Pending');
+assert.equal(rmaControlled.secondary, 'RMA / Rework · RMA-123');
+assert.equal(rmaControlled.actionable, false);
+state.rmaMemberships.clear();
 
 const approvalRow = (salesOrder, line, status, workOrder, customer = '001082') => ({
   official: {
@@ -192,5 +209,7 @@ assert.match(dashboard, /error\.status === 409/);
 assert.match(dashboard, /Evidence changed\. Reloading/);
 assert.match(dashboard, /openSalesOrderDashboardWorkOrder/);
 assert.match(dashboard, /updateRequestToShipAction/);
+
+assert.match(server, /Superseded by active RMA\/Rework case/);
 
 console.log('WORKORDER-APPROVAL-001 governed contract: PASS');

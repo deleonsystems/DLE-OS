@@ -309,6 +309,12 @@
   color: #94a3b8;
 }
 
+.operations-center-rma-suppressed {
+  color: #bfdbfe;
+  font-style: italic;
+  white-space: nowrap;
+}
+
 .operations-center-work-order-sales_order_item_unique_candidate,
 .operations-center-work-order-sales_order_level_candidate {
   color: #facc15;
@@ -318,6 +324,50 @@
 .operations-center-work-order-unresolved {
   color: #fda4af;
   font-weight: 600;
+}
+
+.operations-center-work-order-rma_controlled {
+  min-width: 154px;
+  color: #f8fafc;
+  white-space: normal;
+}
+
+.operations-center-work-order-rma_controlled > strong,
+.operations-center-work-order-secondary,
+.operations-center-work-order-case {
+  display: block;
+}
+
+.operations-center-work-order-rma_controlled > strong {
+  color: #fbbf24;
+}
+
+.operations-center-work-order-secondary {
+  color: #bfdbfe;
+  margin-top: 2px;
+}
+
+.operations-center-work-order-case {
+  color: #cbd5e1;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.operations-center-work-order-evidence {
+  margin-top: 5px;
+  color: #cbd5e1;
+  font-size: 11px;
+}
+
+.operations-center-work-order-evidence summary {
+  color: #93c5fd;
+  cursor: pointer;
+}
+
+.operations-center-work-order-evidence ul,
+.operations-center-work-order-evidence p {
+  margin: 4px 0 0;
+  padding-left: 16px;
 }
 
 .operations-center-empty {
