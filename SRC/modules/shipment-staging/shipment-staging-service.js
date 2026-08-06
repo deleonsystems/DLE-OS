@@ -20,6 +20,12 @@
 
   let lastShipmentStagingLoadSource = SHIPMENT_STAGING_DATA_PATH;
   let lastShipmentStagingLoadMode = 'Project JSON loaded read-only';
+  let operationalShipmentStagingPoll = null;
+
+  function usesOperationalShipmentStaging() {
+    return window.location.port === '5051' &&
+      typeof window.DleApiClient?.getShipmentStaging === 'function';
+  }
 
   async function initializeShipmentStagingPersistence() {
     try {
@@ -35,12 +41,14 @@
           ? records.length + ' persisted Shipment Staging record' + (records.length === 1 ? '' : 's') + ' restored.'
           : 'Shipment Staging persistence loaded. No persisted records found.'
       );
+      startOperationalShipmentStagingPoll();
     } catch (error) {
       reportShipmentStagingPersistenceError(error);
     }
   }
 
   async function loadConnectedShipmentStagingDataset() {
+    if (usesOperationalShipmentStaging()) return null;
     const handle = await readStoredShipmentStagingFileHandle();
     if (!handle) return null;
 
@@ -61,6 +69,12 @@
   }
 
   async function loadShipmentStagingDataset() {
+    if (usesOperationalShipmentStaging()) {
+      const page = await window.DleApiClient.getShipmentStaging({ page: 1, pageSize: 200 });
+      lastShipmentStagingLoadSource = 'DLE_OS_OPERATIONAL_DEV';
+      lastShipmentStagingLoadMode = 'Governed operational SQL';
+      return mapOperationalShipmentStagingDataset(page);
+    }
     if (window.DleApiClient?.getJsonWithFallback) {
       const result = await window.DleApiClient.getJsonWithFallback('shipmentStaging', SHIPMENT_STAGING_DATA_PATH, {
         apiPersistenceMode: 'DLE-OS-HOST API read-only',
@@ -152,6 +166,9 @@
   }
 
   async function persistShipmentStagingDataset(reason = 'Shipment Staging Update', options = {}) {
+    if (usesOperationalShipmentStaging()) {
+      throw new Error('Shipment Staging on development port 5051 accepts governed API commands only.');
+    }
     const dataset = buildShipmentStagingDatasetForWrite(reason);
     validateShipmentStagingDataset(dataset);
     const handle = options.fileHandle || await getWritableShipmentStagingFileHandle();
@@ -511,6 +528,100 @@
     };
   }
 
+  function mapOperationalShipmentStagingDataset(page) {
+    const items = Array.isArray(page?.items) ? page.items : [];
+    const records = items.map(item => ({
+      schema: 'DLE_SHIPMENT_STAGING_RECORD_V2',
+      shipmentStagingId: item.shipmentStagingId,
+      shipmentTransactionId: item.shipmentStagingId,
+      shipmentId: item.shipmentNumber,
+      requestId: item.requestId || '',
+      shipmentDateTime: item.processedAtUtc,
+      createdTimestamp: item.createdAtUtc,
+      processedTimestamp: item.processedAtUtc,
+      customerNumber: item.customerNumber || '',
+      customerName: item.customerNameSnapshot || '',
+      salesOrder: item.salesOrderNumber || '',
+      salesOrderLine: item.salesOrderLineNumber || '',
+      workOrder: item.workOrderNumber || '',
+      workOrderRelationshipSource: item.workOrderRelationshipSource || '',
+      directFulfillment: !!item.directFulfillment,
+      rmaReworkCaseId: item.rmaReworkCaseId || null,
+      itemNumber: item.itemNumber || '',
+      assembly: item.itemNumber || '',
+      revision: item.revision || '',
+      quantityShipped: Number(item.quantityProcessed || 0),
+      canonicalOpenQuantityAtShipment: item.canonicalOpenQuantityAtShipment == null
+        ? null : Number(item.canonicalOpenQuantityAtShipment),
+      unitOfMeasure: item.unitOfMeasure || '',
+      shipmentReference: item.shipmentReference || '',
+      operationalStatus: item.currentStatus,
+      status: item.currentStatus,
+      user: item.processedBy || '',
+      proposedMatchId: item.proposedMatchId || null,
+      proposedInvoiceHistoryLineId: item.proposedInvoiceHistoryLineId || null,
+      proposedInvoiceNumber: item.proposedInvoiceNumber || null,
+      proposedInvoiceLineNumber: item.proposedInvoiceLineNumber || null,
+      proposedInvoiceDate: item.proposedInvoiceDate || null,
+      proposedInvoiceQuantity: item.proposedInvoiceQuantity,
+      matchClassification: item.matchClassification || null,
+      matchScore: item.matchScore,
+      evidenceSummary: item.evidenceSummary || null,
+      contradictionSummary: item.contradictionSummary || null
+    }));
+    return {
+      schema: SHIPMENT_STAGING_SCHEMA,
+      version: SHIPMENT_STAGING_VERSION,
+      createdAt: '',
+      lastUpdated: new Date().toISOString(),
+      lastReason: 'Governed operational read model',
+      recordCount: records.length,
+      records
+    };
+  }
+
+  async function refreshOperationalShipmentStaging() {
+    if (!usesOperationalShipmentStaging()) return shipmentStagingState.records;
+    const prior = new Map((shipmentStagingState.records || []).map(record => [
+      record.shipmentStagingId,
+      operationalShipmentSignature(record)
+    ]));
+    const dataset = await loadShipmentStagingDataset();
+    validateShipmentStagingDataset(dataset);
+    applyShipmentStagingDataset(dataset);
+    if (typeof window.renderShipmentStagingModule === 'function') {
+      window.renderShipmentStagingModule();
+    }
+    const changed = shipmentStagingState.records.filter(record =>
+      prior.get(record.shipmentStagingId) !== operationalShipmentSignature(record));
+    if (changed.length && typeof window.DleApiClient?.publishOperationalLineStateChange === 'function') {
+      await window.DleApiClient.publishOperationalLineStateChange(changed.map(record => ({
+        customerNumber: record.customerNumber,
+        salesOrderNumber: record.salesOrder,
+        lineNumber: record.salesOrderLine
+      })), 'shipment-staging-read-model-change');
+    }
+    return shipmentStagingState.records;
+  }
+
+  function operationalShipmentSignature(record) {
+    return [record?.status, record?.proposedMatchId, record?.proposedInvoiceHistoryLineId,
+      record?.matchClassification, record?.matchScore].join('|');
+  }
+
+  function startOperationalShipmentStagingPoll() {
+    if (!usesOperationalShipmentStaging() || operationalShipmentStagingPoll) return;
+    operationalShipmentStagingPoll = window.setInterval(() => {
+      const screen = document.getElementById('shipmentStaging');
+      const workspaceView = document.getElementById('shippingShipmentStaging');
+      const stagingVisible = !!screen && screen.offsetParent !== null;
+      const workspaceVisible = !!workspaceView && workspaceView.offsetParent !== null;
+      if (!stagingVisible && !workspaceVisible) return;
+      refreshOperationalShipmentStaging().catch(error =>
+        console.warn('Visible Shipment Staging refresh failed; the next poll will retry.', error));
+    }, 15000);
+  }
+
   function createEmptyShipmentStagingRecord() {
     return {
       shipmentTransactionId: '',
@@ -628,6 +739,8 @@
   window.writeShipmentStagingDatasetToHandle = writeShipmentStagingDatasetToHandle;
   window.applyShipmentStagingDatasetToState = applyShipmentStagingDatasetToState;
   window.verifyShipmentStagingShipmentIdsAbsent = verifyShipmentStagingShipmentIdsAbsent;
+  window.refreshOperationalShipmentStaging = refreshOperationalShipmentStaging;
+  window.usesOperationalShipmentStaging = usesOperationalShipmentStaging;
 })();
 
 

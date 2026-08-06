@@ -20,3 +20,21 @@
 .shipment-staging-row {
   cursor: pointer;
 }
+.shipment-staging-review-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--border-color, #aeb8c4);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.shipment-staging-review-dialog::backdrop { background: rgba(15, 23, 42, 0.55); }
+.shipment-staging-review-dialog dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; }
+.shipment-staging-review-dialog dt { font-weight: 700; }
+.shipment-staging-review-dialog dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.shipment-staging-review-dialog textarea { box-sizing: border-box; display: block; min-height: 76px; width: 100%; }
+.shipment-staging-review-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+
+@media (max-width: 700px) {
+  .shipment-staging-review-dialog dl { grid-template-columns: 1fr; }
+}

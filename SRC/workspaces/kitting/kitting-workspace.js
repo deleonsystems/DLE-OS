@@ -106,6 +106,7 @@
 
   function buildReadModelLine(record) {
     const viewModel = window.OperationsCenter?.viewModel;
+    const shipmentProjection = viewModel?.getShipmentProjection?.(record) || null;
     const customerNumber = cleanText(record?.customerNumber || record?.vpro5?.customerNumber);
     const salesOrderNumber = cleanText(record?.salesOrderNumber || record?.vpro5?.salesOrder);
     const salesOrderLineNumber = cleanText(record?.lineNumber || record?.vpro5?.sequenceLine);
@@ -120,6 +121,9 @@
       operationalQuantityOpen: viewModel?.getOfficialField
         ? viewModel.getOfficialField(record, "opQtyOpen")
         : record?.erpQuantityOpen,
+      stagedQuantity: shipmentProjection?.stagedQuantity || 0,
+      shipmentOperationalRoute: shipmentProjection?.operationalRoute || "",
+      shipmentOperationalStatus: shipmentProjection?.operationalStatus || "",
       dueDate: cleanText(record?.estimatedShipDate || record?.vpro5?.dueDate),
       relationship: record?.workOrderRelationship || {},
       sourceRecord: record

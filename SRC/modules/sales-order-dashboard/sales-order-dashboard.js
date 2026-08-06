@@ -148,7 +148,10 @@
 
     const relatedRows = getRelatedRows();
     if (!relatedRows.length) {
-      rows.innerHTML = '<tr><td class="sales-order-dashboard-empty" colspan="6">Select a Sales Order from Operations Center.</td></tr>';
+      const message = dashboardState.selectedOperationsRecord
+        ? 'No active Sales Order lines remain. Shipped lines are available in Shipment Staging.'
+        : 'Select a Sales Order from Operations Center.';
+      rows.innerHTML = '<tr><td class="sales-order-dashboard-empty" colspan="6">' + message + '</td></tr>';
       return;
     }
 
@@ -162,6 +165,16 @@
       const lineKey = getApprovalKey(row);
       const membership = dashboardState.rmaMemberships.get(lineKey);
       const quantities = getRmaLineQuantities(row);
+      const shipmentProjection = getShipmentProjection(row);
+      const quantityDisplay = shipmentProjection.isPartiallyStaged
+        ? formatDashboardQuantity(quantities.operationalQuantityOpen) +
+          '<br><span class="sales-order-dashboard-shipment-pending">' +
+          escapeDashboardHtml(formatDashboardQuantity(shipmentProjection.stagedQuantity)) +
+          ' staged · awaiting ERP evidence</span>'
+        : escapeDashboardHtml(formatDashboardQuantity(quantities.operationalQuantityOpen));
+      const operationalStatus = !isRmaControlledRow(row) && shipmentProjection.statusLabel
+        ? shipmentProjection.statusLabel
+        : official.operationalStatus;
       return [
         '<tr class="',
         rowClass,
@@ -179,12 +192,12 @@
         '<td>',
         escapeDashboardHtml(official.partNumber || 'N/A'), membership ? '<br><span class="sales-order-dashboard-rma-badge">RMA / Rework</span>' : '',
         '</td>',
-        '<td>', escapeDashboardHtml(formatDashboardQuantity(quantities.operationalQuantityOpen)), '</td>',
+        '<td>', quantityDisplay, '</td>',
         '<td>',
         escapeDashboardHtml(official.dueDate || 'N/A'),
         '</td>',
         '<td>',
-        renderOperationalStatus(official.operationalStatus, 'sales-order-dashboard-status-pill'),
+        renderOperationalStatus(operationalStatus, 'sales-order-dashboard-status-pill'),
         '</td>',
         '</tr>'
       ].join('');
@@ -440,6 +453,7 @@
   function buildRequestDialogLine(sourceWorkOrder, index) {
     const official = sourceWorkOrder?.official || {};
     const masterVpro5 = sourceWorkOrder?.masterRecord?.vpro5 || {};
+    const shipmentProjection = getShipmentProjection(sourceWorkOrder);
     return {
       lineIndex: index,
       masterRecordKey: sourceWorkOrder?.masterRecordKey || '',
@@ -453,7 +467,7 @@
         ? 'No Work Order Required' : '',
       assembly: official.partNumber || masterVpro5.partNumber || '',
       description: official.description || masterVpro5.description || '',
-      openQuantity: parseDashboardQuantity(official.opQtyOpen ?? masterVpro5.qtyOpen),
+      openQuantity: shipmentProjection.operationalRemainingQuantity,
       dueDate: official.dueDate || masterVpro5.dueDate || '',
       sourceWorkOrder
     };
@@ -653,9 +667,33 @@
   function getRelatedRows() {
     const selectedOrder = dashboardState.selectedOrder;
     if (!selectedOrder) return [];
-    return Array.isArray(selectedOrder.relatedRows) && selectedOrder.relatedRows.length
+    const rows = Array.isArray(selectedOrder.relatedRows) && selectedOrder.relatedRows.length
       ? selectedOrder.relatedRows
       : [selectedOrder];
+    return rows.filter(row => isRmaControlledRow(row) || !getShipmentProjection(row).isFullyStaged);
+  }
+
+  function getShipmentProjection(row) {
+    const source = row?.masterRecord || row || {};
+    const projector = window.ShipmentOperationalProjection;
+    if (projector?.projectLine) return projector.projectLine(source);
+    const canonicalOpenQuantity = parseDashboardQuantity(
+      row?.official?.erpQtyOpen ?? source?.erpQuantityOpen ?? source?.vpro5?.qtyOpen
+    );
+    return {
+      canonicalOpenQuantity,
+      stagedQuantity: 0,
+      operationalRemainingQuantity: canonicalOpenQuantity,
+      isFullyStaged: false,
+      isPartiallyStaged: false,
+      statusLabel: ''
+    };
+  }
+
+  function isRmaControlledRow(row) {
+    const route = getApprovalReview(row)?.operationalRelationship?.operationalRoute;
+    return !!row?.masterRecord?.rmaReworkMembership ||
+      ['RMA_REWORK', 'RETURN_RMA_REVIEW_REQUIRED'].includes(route);
   }
 
   function countRelatedWorkOrders() {
@@ -1106,12 +1144,13 @@
     const official = row?.official || {};
     const source = row?.masterRecord || {};
     const vpro5 = source.vpro5 || {};
+    const shipmentProjection = getShipmentProjection(row);
     return {
       revision: String(source.drawingRevision || source.bomRevision || official.revision || vpro5.revision || '').trim(),
       quantityOrdered: parseDashboardQuantity(official.quantityOrdered ?? source.quantityOrdered ?? vpro5.quantityOrdered),
       erpQuantityOpen: parseDashboardQuantity(official.erpQtyOpen ?? source.erpQuantityOpen ?? vpro5.qtyOpen),
-      pendingInvoiceQuantity: parseDashboardQuantity(official.pendingInvoiceQty),
-      operationalQuantityOpen: parseDashboardQuantity(official.opQtyOpen ?? source.erpQuantityOpen ?? vpro5.qtyOpen)
+      pendingInvoiceQuantity: shipmentProjection.stagedQuantity,
+      operationalQuantityOpen: shipmentProjection.operationalRemainingQuantity
     };
   }
 
@@ -1484,6 +1523,8 @@
     selectedWorkOrders: dashboardState.selectedWorkOrders.slice(),
     requestDialogLines: dashboardState.requestDialogLines.slice()
   });
+  window.SalesOrderDashboard.getActiveRelatedRows = getRelatedRows;
+  window.SalesOrderDashboard.getShipmentProjection = getShipmentProjection;
   window.SalesOrderDashboard.openWorkOrderDashboard = openWorkOrderDashboard;
   window.SalesOrderDashboard.getWorkOrderPresentation = getWorkOrderPresentation;
   window.SalesOrderDashboard.openWorkOrderApprovalReview = openWorkOrderApprovalReview;

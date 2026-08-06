@@ -12,6 +12,33 @@
 
   <div class="shipping-workspace-layout">
     <main class="shipping-workspace-main">
+      <section id="shippingShipmentStaging" class="shipping-workspace-region shipping-shipment-staging" aria-labelledby="shippingShipmentStagingTitle" aria-busy="false">
+        <div class="shipping-workspace-region-heading shipping-shipment-staging-heading">
+          <div>
+            <h2 id="shippingShipmentStagingTitle">Current Shipment Staging</h2>
+            <p>Authoritative operational shipments awaiting or completing ERP invoice reconciliation.</p>
+          </div>
+          <div class="shipping-queue-heading-actions">
+            <span id="shippingShipmentStagingCount" class="shipping-queue-count">0 shipments</span>
+            <button id="shippingShipmentStagingRefreshButton" type="button" onclick="refreshShippingShipmentStaging()">Refresh</button>
+          </div>
+        </div>
+        <div class="shipping-shipment-staging-controls">
+          <label for="shippingShipmentStagingSearch">
+            <span>Search</span>
+            <input id="shippingShipmentStagingSearch" type="search" placeholder="Shipment, customer, sales order, line, or item" oninput="filterShippingShipmentStaging()">
+          </label>
+          <label for="shippingShipmentStagingStatusFilter">
+            <span>Status</span>
+            <select id="shippingShipmentStagingStatusFilter" onchange="filterShippingShipmentStaging()">
+              <option value="">All statuses</option>
+            </select>
+          </label>
+        </div>
+        <div id="shippingShipmentStagingStatus" class="shipping-shipment-staging-status" role="status" aria-live="polite">Loading current Shipment Staging…</div>
+        <div id="shippingShipmentStagingTable" class="operations-center-table-wrap shipping-shipment-staging-table-wrap"></div>
+      </section>
+
       <section class="shipping-workspace-region" aria-labelledby="shippingQueueTitle">
         <div class="shipping-workspace-region-heading">
           <div>

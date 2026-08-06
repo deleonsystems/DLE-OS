@@ -128,6 +128,17 @@
   });
   const OPERATIONAL_LINE_STATE_CHANGE_EVENT = 'dle:sales-order-line-operational-state-change';
 
+  function createRequestCorrelationId() {
+    const bytes = new Uint8Array(16);
+    if (window.crypto?.getRandomValues) window.crypto.getRandomValues(bytes);
+    else for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+    return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16),
+      hex.slice(16, 20), hex.slice(20)].join('-');
+  }
+
   function normalizeOperationalLineIdentities(lines) {
     const unique = new Map();
     (Array.isArray(lines) ? lines : [lines]).forEach(line => {
@@ -261,9 +272,17 @@
       requestError.name = 'DleApiError';
       requestError.status = response.status;
       requestError.code = typeof body?.code === 'string' ? body.code : 'http_error';
+      requestError.requestId = body?.requestId || response.headers.get('X-Request-ID') || null;
       throw requestError;
     }
     return body;
+  }
+
+  function requestShipmentStaging(path, options = {}) {
+    return requestLiveSnapshotRefresh(
+      '/api/shipment-staging/v1/' + String(path || '').replace(/^\/+/, ''),
+      options
+    );
   }
 
   async function requestWorkOrderApproval(path, options = {}) {
@@ -1115,6 +1134,7 @@
       return liveCanonicalClient.searchCanonicalCustomers(query, options);
     },
     searchHistoricalAssemblies,
+    createRequestCorrelationId,
     publishOperationalLineStateChange,
     subscribeOperationalLineStateChange,
     getWorkOrderApprovalReview(customerNumber, salesOrderNumber, lineNumber, options = {}) {
@@ -1183,6 +1203,46 @@
     },
     getRmaReworkCaseHistory(caseId, options = {}) {
       return requestRmaRework('cases/' + encodeURIComponent(String(caseId || '')) + '/history', options);
+    },
+    createShipmentStaging(request, options = {}) {
+      return requestShipmentStaging('shipments', {
+        ...options, method: 'POST', body: request
+      });
+    },
+    getShipmentStaging(options = {}) {
+      const parameters = new URLSearchParams();
+      Object.entries(options).forEach(([key, value]) => {
+        if (key !== 'signal' && value !== undefined && value !== null && value !== '') {
+          parameters.set(key, String(value));
+        }
+      });
+      return requestShipmentStaging(
+        'shipments' + (parameters.size ? '?' + parameters.toString() : ''), options
+      );
+    },
+    getShipmentStagingDetail(shipmentStagingId, options = {}) {
+      return requestShipmentStaging(
+        'shipments/' + encodeURIComponent(String(shipmentStagingId || '')), options
+      );
+    },
+    getShipmentStagingHistory(shipmentStagingId, options = {}) {
+      return requestShipmentStaging(
+        'shipments/' + encodeURIComponent(String(shipmentStagingId || '')) + '/history', options
+      );
+    },
+    runShipmentReconciliation(request = {}, options = {}) {
+      return requestShipmentStaging('reconciliation/run', {
+        ...options, method: 'POST', body: request
+      });
+    },
+    submitShipmentMatchDecision(shipmentStagingId, action, request, options = {}) {
+      if (!['confirm-match', 'reject-match', 'mark-exception', 'cancel'].includes(action)) {
+        throw new TypeError('Shipment match decision action is invalid.');
+      }
+      return requestShipmentStaging(
+        'shipments/' + encodeURIComponent(String(shipmentStagingId || '')) + '/' + action,
+        { ...options, method: 'POST', body: request }
+      );
     },
     getCustomerFolderStatus(customerNumber, options = {}) {
       return requestCustomerFiles(

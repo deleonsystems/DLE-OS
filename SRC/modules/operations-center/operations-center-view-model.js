@@ -8,7 +8,6 @@
   window.OperationsCenter = window.OperationsCenter || {};
 
   const PACKING_OPERATIONAL_STATUS = 'Packing';
-  const SHIPMENT_STAGING_EXIT_STATUS = 'Pending Invoice';
 
   function getMasterData() {
     const state = window.OperationsCenter.state;
@@ -26,17 +25,10 @@
   }
 
   function getOperationsCenterRecords() {
-    const stagedRecordKeys = new Set(
-      getShipmentStagingRecordsForProjection()
-        .filter(record => normalizeOperationsValue(record?.status).toLowerCase() === SHIPMENT_STAGING_EXIT_STATUS.toLowerCase())
-        .flatMap(getShipmentStagingMasterRecordKeys)
-        .filter(Boolean)
-    );
-
-    if (!stagedRecordKeys.size) return getMasterRecords();
-    return getMasterRecords().filter(record =>
-      !stagedRecordKeys.has(normalizeOperationsValue(getMasterRecordKey(record)))
-    );
+    return getMasterRecords().filter(record => {
+      if (isActiveRmaReworkRecord(record)) return true;
+      return !getShipmentProjection(record).isFullyStaged;
+    });
   }
 
   function isActiveRmaReworkRecord(record) {
@@ -136,33 +128,35 @@
     const projectionMap = {
       quantityOrdered: item => formatOperationsQuantity(item?.quantityOrdered),
       erpQtyOpen: item => formatOperationsQuantity(item?.erpQuantityOpen),
-      pendingInvoiceQty: item => formatOperationsQuantity(getPendingShipmentQuantityForMasterRecord(item)),
-      opQtyOpen: getOperationalQuantityOpen
+      pendingInvoiceQty: item => formatOperationsQuantity(getShipmentProjection(item).stagedQuantity),
+      opQtyOpen: getOperationalQuantityOpen,
+      operationalStatus: item => getShipmentProjection(item).statusLabel
     };
     return projectionMap[field] ? projectionMap[field](record) : '';
   }
 
   function getOperationalQuantityOpen(record) {
-    const erpQtyOpen = parseOperationsQuantity(record?.erpQuantityOpen);
-    const pendingShipmentQuantity = getPendingShipmentQuantityForMasterRecord(record);
-    return formatOperationsQuantity(Math.max(erpQtyOpen - pendingShipmentQuantity, 0));
+    return formatOperationsQuantity(getShipmentProjection(record).operationalRemainingQuantity);
   }
 
   function getPendingShipmentQuantityForMasterRecord(record) {
-    const shipmentRecords = getShipmentStagingRecordsForProjection();
-    const customerNumber = normalizeOperationsValue(record?.customerNumber);
-    const salesOrder = normalizeOperationsValue(record?.salesOrderNumber);
-    const sequenceLine = normalizeOperationsValue(record?.salesOrderLineNumber);
-    if (!customerNumber || !salesOrder || !sequenceLine) return 0;
+    return getShipmentProjection(record).stagedQuantity;
+  }
 
-    return shipmentRecords
-      .filter(shipmentRecord => normalizeOperationsValue(shipmentRecord.status) === 'Pending Invoice')
-      .filter(shipmentRecord =>
-        normalizeOperationsValue(shipmentRecord.customerNumber) === customerNumber &&
-        normalizeOperationsValue(shipmentRecord.salesOrder) === salesOrder &&
-        normalizeOperationsValue(shipmentRecord.salesOrderLine) === sequenceLine
-      )
-      .reduce((total, shipmentRecord) => total + parseOperationsQuantity(shipmentRecord.quantityShipped), 0);
+  function getShipmentProjection(record) {
+    const projector = window.ShipmentOperationalProjection;
+    if (!projector?.projectLine) {
+      const erpQuantityOpen = parseOperationsQuantity(record?.erpQuantityOpen);
+      return {
+        canonicalOpenQuantity: erpQuantityOpen,
+        stagedQuantity: 0,
+        operationalRemainingQuantity: erpQuantityOpen,
+        isFullyStaged: false,
+        isPartiallyStaged: false,
+        statusLabel: ''
+      };
+    }
+    return projector.projectLine(record, getShipmentStagingRecordsForProjection());
   }
 
   function getShipmentStagingRecordsForProjection() {
@@ -403,6 +397,7 @@
     getOperationsCenterSearchText,
     getMasterRecordKey,
     getOperationalProjectionField,
+    getShipmentProjection,
     getOfficialField,
     getWorkOrderPresentation,
     getOperationalStatusPresentation,

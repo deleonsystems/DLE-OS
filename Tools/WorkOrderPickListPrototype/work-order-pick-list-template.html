@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WO 0115621 — Released BOM</title>
+  <style>
+    :root { color-scheme:light; --ink:#111; --rule:#1e2933; --muted:#4d5962; --paper:#fff; --desk:#c9ced2; --accent:#075985; --soft:#e8f1f5; --warn:#7c4a03; }
+    * { box-sizing:border-box; }
+    html, body { margin:0; min-height:100%; background:var(--desk); color:var(--ink); }
+    body { font-family:"Courier New",Courier,monospace; font-size:12px; line-height:1.2; }
+    .toolbar { position:sticky; top:0; z-index:4; display:flex; align-items:center; gap:8px; padding:8px max(12px,calc((100% - 1180px)/2)); color:#e8edf0; background:#252c31; border-bottom:3px solid #111; }
+    .toolbar strong { letter-spacing:.05em; }
+    .toolbar .status { color:#b9e3c4; }
+    .toolbar-actions { margin-left:auto; display:flex; gap:8px; }
+    .toolbar button { padding:7px 9px; border:1px solid #e6ecef; border-radius:2px; color:#111; background:#f7f7f2; font:700 11px "Courier New",monospace; cursor:pointer; }
+    .view-toggle { display:flex; border:1px solid #aab5bb; border-radius:3px; overflow:hidden; }
+    .view-toggle button { border:0; border-right:1px solid #aab5bb; border-radius:0; }
+    .view-toggle button:last-child { border-right:0; }
+    .view-toggle button.active { color:#fff; background:var(--accent); box-shadow:inset 0 -2px 0 #7dd3fc; }
+    .report { width:980px; margin:18px auto 32px; }
+    .sheet { position:relative; min-height:1260px; margin:0 0 18px; padding:30px 34px 42px; background:var(--paper); box-shadow:0 2px 12px rgba(0,0,0,.28); break-after:page; page-break-after:always; }
+    .sheet:last-child { break-after:auto; page-break-after:auto; }
+    .company { text-align:center; font-size:17px; font-weight:700; letter-spacing:.08em; }
+    h1 { margin:3px 0 8px; text-align:center; font-size:15px; letter-spacing:.045em; }
+    .top-rule { border-top:3px double var(--rule); }
+    .header-grid { display:grid; grid-template-columns:1.08fr 1.16fr 1.22fr; gap:5px 24px; padding:8px 0; border-bottom:2px solid var(--rule); }
+    .field { display:grid; grid-template-columns:max-content 1fr; gap:6px; min-width:0; }
+    .field .label { font-weight:700; }
+    .field .value { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .runtime-line { display:flex; justify-content:space-between; gap:18px; padding:5px 0; color:var(--muted); font-size:10px; border-bottom:1px solid var(--rule); }
+    .view-label { color:var(--accent); font-weight:700; }
+    table { width:100%; border-collapse:collapse; table-layout:fixed; }
+    col.seq { width:42px; } col.item { width:170px; } col.desc { width:auto; } col.um { width:32px; } col.date { width:76px; } col.qty { width:66px; }
+    thead { display:table-header-group; }
+    th { padding:5px 4px 4px; text-align:left; vertical-align:bottom; border-top:2px solid var(--rule); border-bottom:2px solid var(--rule); font-size:10px; text-transform:uppercase; }
+    th.num, td.num { text-align:right; }
+    td { padding:3px 4px; vertical-align:top; border-bottom:1px solid #aeb5ba; }
+    tr.component td { white-space:nowrap; overflow:hidden; text-overflow:clip; }
+    tr.component td.description { white-space:normal; }
+    tr.message td { padding-top:2px; padding-bottom:4px; border-bottom:1px dashed #90999f; font-weight:700; }
+    tr.message .message-text { padding-left:8px; white-space:normal; }
+    .type-tag { color:#59636a; font-size:9px; }
+    .assembly-instructions { margin:8px 0 10px; padding:8px 10px; border:2px solid var(--rule); background:#f6f8f8; }
+    .assembly-instructions h2 { margin:0 0 5px; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+    .assembly-instructions p { margin:2px 0; }
+    .assembly-instructions .sequence { display:inline-block; width:38px; color:var(--muted); font-weight:700; }
+    .grouped-table col.find { width:43px; } .grouped-table col.primary { width:154px; } .grouped-table col.related { width:145px; }
+    .grouped-table col.group-description { width:auto; } .grouped-table col.group-qty { width:62px; } .grouped-table col.refs { width:168px; }
+    .grouped-table td { padding:5px 4px; }
+    .grouped-table .group-main td { border-top:1px solid #6f7b82; }
+    .grouped-table .group-main:first-child td { border-top:0; }
+    .grouped-table .primary-part { font-weight:700; }
+    .grouped-table .related-part { color:var(--warn); font-weight:700; }
+    .probable-label { display:block; margin-top:2px; font-size:8px; text-transform:uppercase; }
+    .refs-list { word-break:break-word; }
+    .group-notes td { padding:3px 6px 6px 46px; color:#38444b; background:#f4f7f8; border-bottom:1px solid #8e989e; font-size:9px; }
+    .raw-message { display:block; margin-top:2px; color:#111; font-weight:700; }
+    .parse-status { font-weight:700; }
+    .parse-status.unresolved { color:#9a3412; }
+    .replica-sheet { padding:22px 30px 42px; font-size:11px; }
+    .replica-identity { display:grid; grid-template-columns:1fr 2fr 1fr; align-items:start; min-height:48px; }
+    .replica-identity .generated { line-height:1.45; }
+    .replica-title { text-align:center; }
+    .replica-title strong { display:block; font-size:14px; letter-spacing:.04em; }
+    .replica-title span { display:block; margin-top:3px; font-size:13px; }
+    .replica-page { text-align:right; }
+    .replica-header { display:grid; grid-template-columns:1fr 1fr; gap:0 76px; margin:14px 0 9px; padding:8px 34px 8px; border-bottom:1px dashed #111; }
+    .replica-header-column { display:grid; gap:3px; align-content:start; }
+    .replica-field { display:grid; grid-template-columns:142px 1fr; gap:7px; }
+    .replica-field .replica-label { text-align:right; }
+    .replica-columns, .replica-component-line { display:grid; grid-template-columns:46px 52px minmax(220px,1fr) 45px 76px 88px 88px 88px; column-gap:5px; align-items:baseline; }
+    .replica-columns { padding:5px 0 6px; border-bottom:1px dashed #111; font-weight:700; }
+    .replica-columns span:nth-last-child(-n+5), .replica-component-line span:nth-last-child(-n+5) { text-align:right; }
+    .replica-body { padding-top:6px; }
+    .replica-row { break-inside:avoid; page-break-inside:avoid; }
+    .replica-row.component { padding:3px 0 2px; }
+    .replica-component-line .part { white-space:nowrap; }
+    .replica-description { margin:2px 0 0 103px; min-height:13px; white-space:normal; }
+    .replica-message { padding:2px 0 3px 64px; white-space:normal; }
+    .write-line { display:inline-block; width:72px; border-bottom:1px solid #111; }
+    .replica-signoff { width:260px; margin:22px 48px 0 auto; padding:8px 0; break-inside:avoid; page-break-inside:avoid; }
+    .replica-signoff div { display:grid; grid-template-columns:90px 1fr; gap:8px; margin:7px 0; }
+    .replica-signoff span:first-child { text-align:right; }
+    .replica-signoff .sign-line { border-bottom:1px solid #111; }
+    .replica-source-note { font-size:9px; }
+    body[data-report-view="pick"] { --pick-support:#20262a; --pick-low:#3f484e; }
+    .pick-sheet { padding:24px 30px 42px; }
+    .pick-header { padding-bottom:6px; border-bottom:2px solid var(--rule); }
+    .pick-title-row { display:flex; align-items:baseline; justify-content:space-between; gap:16px; }
+    .pick-header h1 { margin:0; text-align:left; font-size:15px; }
+    .pick-page { text-align:right; }
+    .pick-continuation-header { padding:7px 0 6px; }
+    .pick-continuation-title { display:flex; align-items:baseline; justify-content:space-between; gap:16px; font-size:12px; font-weight:700; letter-spacing:.04em; }
+    .pick-continuation-fields { display:grid; grid-template-columns:auto auto minmax(180px,1fr) auto auto; gap:8px 15px; align-items:baseline; margin-top:5px; color:var(--pick-support); font-size:9.5px; font-weight:500; }
+    .pick-continuation-fields span { min-width:0; overflow-wrap:anywhere; }
+    .pick-continuation-fields strong { font-weight:700; }
+    .pick-context { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; margin-top:5px; }
+    .pick-context-section { display:grid; grid-template-columns:86px minmax(0,1fr); gap:1px 6px; align-content:start; min-width:0; }
+    .pick-context-heading { grid-column:1 / -1; margin-bottom:1px; padding-bottom:1px; border-bottom:1px solid #8b949a; font-size:9px; font-weight:700; letter-spacing:.04em; }
+    .pick-context-label { color:var(--pick-low); font-size:9.5px; font-weight:600; }
+    .pick-context-value { min-width:0; overflow-wrap:anywhere; color:var(--pick-support); font-size:10.5px; font-weight:500; }
+    .pick-context-value.prominent { font-weight:700; }
+    .pick-order-schedule { margin-top:5px; }
+    .pick-order-schedule h2 { margin:0 0 2px; font-size:9px; letter-spacing:.04em; text-transform:uppercase; }
+    .pick-order-schedule table { color:var(--pick-support); font-size:9.5px; font-weight:500; }
+    .pick-order-schedule th, .pick-order-schedule td { padding:2px 4px; border:1px solid #929ba0; }
+    .pick-order-schedule th { border-top:1px solid #929ba0; border-bottom:1px solid #929ba0; font-size:8.5px; font-weight:700; }
+    .pick-order-schedule col.schedule-line { width:72px; } .pick-order-schedule col.schedule-item { width:auto; } .pick-order-schedule col.schedule-qty { width:90px; } .pick-order-schedule col.schedule-date { width:112px; }
+    .pick-local-note { margin-top:4px; color:var(--pick-low); font-size:9px; font-weight:500; }
+    .pick-instructions { margin:8px 0 10px; padding:7px 9px; border:1px solid var(--rule); background:#f7f8f8; }
+    .pick-instructions h2 { margin:0 0 4px; font-size:11.5px; text-transform:uppercase; }
+    .pick-instructions p { margin:2px 0; color:var(--pick-support); font-size:12.5px; font-weight:500; line-height:1.24; }
+    .pick-table col.pick-seq { width:46px; } .pick-table col.pick-find { width:38px; } .pick-table col.pick-part { width:180px; }
+    .pick-table col.pick-detail { width:auto; } .pick-table col.pick-required { width:118px; } .pick-table col.pick-write { width:72px; } .pick-table col.pick-po { width:102px; }
+    .pick-table th { padding:5px 4px; font-size:10.5px; }
+    .pick-table td { padding:4px; border-bottom:1px solid #7f898f; vertical-align:top; }
+    .pick-sequence { display:block; font-size:13px; font-weight:700; white-space:nowrap; }
+    .pick-find-number { font-size:14.5px; font-weight:700; }
+    .pick-primary { display:block; font-size:13px; font-weight:700; }
+    .pick-related-label { display:block; margin-top:3px; color:var(--pick-low); font-size:9px; font-weight:600; line-height:10.2px; text-transform:uppercase; }
+    .pick-related { display:block; margin-top:1px; color:var(--pick-support); font-size:12.5px; font-weight:600; line-height:14.4px; }
+    .pick-related + .pick-related { margin-top:0; }
+    .pick-related-sequences { display:block; margin-top:3px; padding-top:11.2px; }
+    .pick-related-sequence { display:block; color:var(--pick-support); font-size:10.5px; font-weight:500; line-height:14.4px; white-space:nowrap; }
+    .pick-dnp { display:inline-block; margin-top:4px; padding:1px 4px; border:1px solid #111; font-size:9px; font-weight:700; }
+    .pick-details { color:var(--pick-support); font-size:12.5px; font-weight:500; line-height:1.28; }
+    .pick-refs { display:block; margin-top:3px; }
+    .pick-note { display:block; margin-top:3px; color:var(--pick-support); font-size:10px; font-weight:500; }
+    .pick-required { text-align:right; font-size:13px; font-weight:700; white-space:nowrap; }
+    .pick-required-layout { display:grid; grid-template-columns:minmax(44px,auto) max-content; justify-content:end; align-items:baseline; gap:6px; white-space:nowrap; }
+    .pick-qty-assy { color:var(--pick-low); font-size:10px; font-weight:500; line-height:1; text-align:right; white-space:nowrap; }
+    .pick-required-heading { display:grid; grid-template-columns:minmax(44px,auto) max-content; justify-content:end; align-items:end; gap:6px; white-space:nowrap; }
+    .pick-qty-assy-heading { color:var(--pick-low); font-size:9px; font-weight:500; line-height:1; text-transform:none; }
+    .pick-write-cell { text-align:center; }
+    .pick-entry-input { min-height:36px; padding:4px 5px; border:1.5px solid #28343b; border-radius:2px; color:#111; background:#fff; font:700 14px "Courier New",Courier,monospace; }
+    .pick-entry-input:focus { outline:3px solid #7dd3fc; outline-offset:1px; }
+    .pick-quantity-input { width:64px; text-align:right; }
+    .pick-po-input { width:94px; text-align:left; }
+    .source-proof { margin-top:10px; padding:8px; border:1px solid #333; font-size:10px; }
+    .sheet-footer { position:absolute; right:34px; bottom:18px; left:34px; display:flex; justify-content:space-between; padding-top:5px; border-top:2px solid var(--rule); font-size:10px; }
+    body[data-report-view="pick"] .sheet-footer { color:var(--pick-low); font-size:10.5px; font-weight:500; }
+    body[data-report-view="pick"]:not(.print-preview):not(.print-rendering) .report { width:min(1180px,calc(100% - 24px)); container-type:inline-size; }
+    body[data-report-view="pick"]:not(.print-preview):not(.print-rendering) .pick-screen-sheet { min-height:0; padding:24px 30px 28px; }
+    body[data-report-view="pick"]:not(.print-preview):not(.print-rendering) .pick-screen-scroll { overflow:visible; }
+    body[data-report-view="pick"]:not(.print-preview):not(.print-rendering) .pick-screen-sheet .pick-table thead { position:sticky; top:51px; z-index:2; background:#fff; }
+    body[data-report-view="pick"]:not(.print-preview):not(.print-rendering) .pick-screen-sheet .sheet-footer { position:static; margin-top:12px; }
+    @container (max-width:900px) {
+      .pick-screen-scroll { max-width:100%; overflow-x:auto; border-right:1px solid #7f898f; border-left:1px solid #7f898f; }
+      .pick-screen-scroll .pick-table { min-width:920px; }
+    }
+    body.print-preview .toolbar { display:none; }
+    body.print-preview .report { margin-top:14px; }
+    body.print-preview .pick-entry-input { min-height:28px; padding:3px 5px; border:1px solid #111; border-radius:0; appearance:textfield; -moz-appearance:textfield; outline:none; box-shadow:none; }
+    body.print-preview .pick-quantity-input { width:60px; }
+    body.print-preview .pick-po-input { width:90px; }
+    body.print-preview .pick-table td { padding-top:4px; padding-bottom:4px; }
+    body.print-preview .pick-quantity-input::-webkit-inner-spin-button, body.print-preview .pick-quantity-input::-webkit-outer-spin-button { margin:0; appearance:none; -webkit-appearance:none; }
+    body.print-preview::before { content:"PRINT-FRIENDLY PREVIEW — " attr(data-view-label) " — browser print / Save as PDF"; display:block; width:980px; margin:10px auto 0; padding:7px; text-align:center; color:#fff; background:#39434a; font-weight:700; letter-spacing:.04em; }
+    @media screen and (max-width:1320px) { #derivedStatus { display:none; } .toolbar strong { font-size:10px; } }
+    @media screen and (max-width:1000px) {
+      .toolbar { flex-wrap:wrap; padding:8px 12px; }
+      .toolbar-actions { margin-left:0; }
+      .view-toggle { max-width:100%; overflow-x:auto; }
+      .view-toggle button { flex:0 0 auto; }
+      body[data-report-view="pick"]:not(.print-preview):not(.print-rendering) .pick-screen-scroll { max-width:100%; overflow-x:auto; border-right:1px solid #7f898f; border-left:1px solid #7f898f; }
+      body[data-report-view="pick"]:not(.print-preview):not(.print-rendering) .pick-screen-scroll .pick-table { min-width:920px; }
+      body[data-report-view="pick"]:not(.print-preview):not(.print-rendering) .pick-screen-sheet .pick-table thead { top:92px; }
+    }
+    @page { size:Letter portrait; margin:.25in; }
+    @page pickReport { size:Letter portrait; margin:.16in; }
+    @media print {
+      html, body { background:#fff; }
+      body::before, .toolbar { display:none !important; }
+      body[data-report-view="pick"] { --pick-support:#000; --pick-low:#111; }
+      body[data-report-view="pick"] .report { width:980px; margin:0 auto; zoom:.80; }
+      body[data-report-view="pick"] .pick-sheet { page:pickReport; display:flex; flex-direction:column; width:980px; height:1260px; min-height:1260px; margin:0; padding:22px 28px 34px; overflow:hidden; box-shadow:none; break-inside:avoid; page-break-inside:avoid; }
+      body[data-report-view="pick"] .pick-header { padding-bottom:5px; }
+      body[data-report-view="pick"] .pick-header h1 { font-size:16px; }
+      body[data-report-view="pick"] .pick-continuation-header { padding:6px 0 5px; }
+      body[data-report-view="pick"] .pick-continuation-title { font-size:13px; }
+      body[data-report-view="pick"] .pick-continuation-fields { margin-top:4px; color:#000; font-size:10.5px; font-weight:600; }
+      body[data-report-view="pick"] .pick-context { margin-top:4px; }
+      body[data-report-view="pick"] .pick-context-section { gap:0 6px; }
+      body[data-report-view="pick"] .pick-context-heading { font-size:10px; color:#000; }
+      body[data-report-view="pick"] .pick-context-label { color:#000; font-size:10.5px; font-weight:600; }
+      body[data-report-view="pick"] .pick-context-value { color:#000; font-size:11.5px; font-weight:600; }
+      body[data-report-view="pick"] .pick-order-schedule { margin-top:4px; }
+      body[data-report-view="pick"] .pick-order-schedule h2 { font-size:10px; }
+      body[data-report-view="pick"] .pick-order-schedule table { color:#000; font-size:10.5px; font-weight:600; }
+      body[data-report-view="pick"] .pick-order-schedule th { font-size:9.5px; }
+      body[data-report-view="pick"] .pick-local-note { margin-top:3px; color:#111; font-size:10.5px; font-weight:600; }
+      body[data-report-view="pick"] .pick-instructions { margin:6px 0 8px; padding:6px 8px; }
+      body[data-report-view="pick"] .pick-instructions h2 { margin-bottom:3px; font-size:12.5px; }
+      body[data-report-view="pick"] .pick-instructions p { margin:1px 0; color:#000; font-size:13.5px; font-weight:600; line-height:1.15; }
+      body[data-report-view="pick"] .pick-table th { padding:4px 4px 3px; color:#000; font-size:11px; }
+      body[data-report-view="pick"] .pick-table td { padding:3px 4px; }
+      body[data-report-view="pick"] .pick-sequence { color:#000; font-size:14px; font-weight:700; }
+      body[data-report-view="pick"] .pick-find-number { color:#000; font-size:15.5px; font-weight:700; }
+      body[data-report-view="pick"] .pick-primary { color:#000; font-size:14px; font-weight:700; }
+      body[data-report-view="pick"] .pick-related-label { margin-top:2px; color:#000; font-size:10px; font-weight:600; line-height:10.8px; }
+      body[data-report-view="pick"] .pick-related { color:#000; font-size:13.5px; font-weight:600; line-height:14.4px; }
+      body[data-report-view="pick"] .pick-related-sequences { margin-top:2px; padding-top:11.8px; }
+      body[data-report-view="pick"] .pick-related-sequence { color:#000; font-size:11.5px; font-weight:600; line-height:14.4px; }
+      body[data-report-view="pick"] .pick-details { color:#000; font-size:13.5px; font-weight:600; line-height:1.13; }
+      body[data-report-view="pick"] .pick-refs { margin-top:1px; color:#000; font-size:13px; font-weight:600; line-height:1.12; }
+      body[data-report-view="pick"] .pick-note { margin-top:2px; color:#000; font-size:11.25px; font-weight:600; line-height:1.12; }
+      body[data-report-view="pick"] .pick-required { color:#000; font-size:14px; font-weight:700; }
+      body[data-report-view="pick"] .pick-qty-assy { color:#111; font-size:11px; font-weight:600; }
+      body[data-report-view="pick"] .pick-qty-assy-heading { color:#111; font-size:10px; font-weight:600; }
+      body[data-report-view="pick"] .sheet-footer { position:static; right:auto; bottom:auto; left:auto; flex:none; margin-top:auto; color:#111; font-size:11px; font-weight:600; }
+      body[data-report-view="pick"] .pick-sheet[data-page-number="3"] .sheet-footer { position:absolute; right:28px; bottom:34px; left:28px; margin-top:0; }
+      body:not([data-report-view="pick"]) .report { width:auto; margin:0; }
+      body:not([data-report-view="pick"]) .sheet { min-height:9.95in; margin:0; padding:0 0 .25in; box-shadow:none; }
+      body:not([data-report-view="pick"]) .replica-sheet { min-height:9.95in; }
+      .pick-entry-input { min-height:28px; padding:3px 5px; border:1px solid #111; border-radius:0; appearance:textfield; -moz-appearance:textfield; outline:none; box-shadow:none; }
+      .pick-quantity-input { width:60px; }
+      .pick-po-input { width:90px; }
+      .pick-table td { padding-top:4px; padding-bottom:4px; }
+      .pick-quantity-input::-webkit-inner-spin-button, .pick-quantity-input::-webkit-outer-spin-button { margin:0; appearance:none; -webkit-appearance:none; }
+      .sheet-footer { right:0; bottom:0; left:0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <strong>DLE-OS · DEVELOPMENT-ONLY REPORT</strong>
+    <span class="status" data-testid="qualification-status">✓ 100 SOURCE ROWS QUALIFIED</span>
+    <span id="derivedStatus">46 OPERATOR GROUPS</span>
+    <div class="view-toggle" role="group" aria-label="Released BOM view">
+      <button id="kittingPickView" type="button" onclick="setReportView('pick')">Kitting Pick View</button>
+      <button id="groupedOperatorView" type="button" onclick="setReportView('grouped')">Grouped Operator View</button>
+      <button id="vproReplicaView" type="button" onclick="setReportView('vpro')">VPro Replica View</button>
+      <button id="rawSourceView" type="button" onclick="setReportView('raw')">Raw Source View</button>
+    </div>
+    <div class="toolbar-actions">
+      <button id="printReleasedBom" type="button" onclick="printReleasedBom()">Print Released BOM</button>
+      <button id="backToWorkOrder" type="button" onclick="backToWorkOrder()">Back to Work Order</button>
+    </div>
+  </div>
+  <main id="report" class="report" data-testid="report"></main>
+  <output id="reportQualification" hidden></output>
+  <script>
+    const reportData = __REPORT_DATA__;
+    const reportParameters = new URLSearchParams(location.search);
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const quantity = value => {
+      const number = Number(value);
+      if (number !== 0 && Math.abs(number) < 0.001) return number.toFixed(4);
+      return number.toFixed(3);
+    };
+    const stamp = new Date(reportData.generatedAt).toLocaleString([], {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const h = reportData.header;
+    let selectedView = ['pick', 'grouped', 'vpro', 'raw'].includes(reportParameters.get('view')) ? reportParameters.get('view') : 'pick';
+    let printRendering = false;
+    const pickEntryState = new Map();
+
+    function paginateRaw(rows) {
+      const pages = []; let page = []; let load = 0;
+      for (const row of rows) {
+        const weight = row.classification === 'MESSAGE' ? 0.72 : 1.2;
+        if (page.length && load + weight > 25.5) { pages.push(page); page = []; load = 0; }
+        page.push(row); load += weight;
+      }
+      if (page.length) pages.push(page);
+      return pages;
+    }
+
+    function parseFindMessage(rawMessage) {
+      const raw = String(rawMessage ?? '');
+      const numbered = raw.match(/^\((\d+)\)\s*(.*)$/);
+      if (!numbered) return {findNumber:null, rawMessage:raw, rawRemainder:raw, references:[], note:'', status:'NOT_NUMBERED'};
+      const rawRemainder = numbered[2];
+      const referencePattern = rawRemainder.match(/^([A-Za-z]+\d+(?:\s*,\s*(?:[A-Za-z]+\d+|\d+))*)(?:\s+\((.+)\))?$/);
+      if (!referencePattern) return {findNumber:Number(numbered[1]), rawMessage:raw, rawRemainder, references:[], note:'', status:'UNRESOLVED'};
+      let prefix = '';
+      const references = referencePattern[1].split(',').map(token => {
+        const clean = token.trim();
+        const explicit = clean.match(/^([A-Za-z]+)(\d+)$/);
+        if (explicit) { prefix = explicit[1].toUpperCase(); return `${prefix}${explicit[2]}`; }
+        return /^\d+$/.test(clean) && prefix ? `${prefix}${clean}` : clean;
+      });
+      return {findNumber:Number(numbered[1]), rawMessage:raw, rawRemainder, references, note:referencePattern[2] || '', status:referencePattern[2] ? 'PARSED_WITH_NOTE' : 'PARSED'};
+    }
+
+    function relatedPartReason(primary, candidate) {
+      const primaryCode = String(primary.itemNumber || '').replace(/\s+/g, '').toUpperCase();
+      const candidateCode = String(candidate.itemNumber || '').replace(/\s+/g, '').toUpperCase();
+      if (Number(candidate.requiredEach) === 0.0001) return 'required-each 0.0001 rule';
+      if (primaryCode && candidateCode.startsWith(primaryCode) && candidateCode.length > primaryCode.length) return 'manufacturer-suffix pattern';
+      return '';
+    }
+
+    function buildGroupedModel(rows) {
+      const assemblyInstructions = [];
+      const groups = [];
+      let active = null;
+      for (const row of rows) {
+        if (row.classification === 'MESSAGE') {
+          if (!active) assemblyInstructions.push(row);
+          else active.messageRows.push(row);
+          continue;
+        }
+        const reason = active && active.messageRows.length === 0 ? relatedPartReason(active.primaryPart, row) : '';
+        if (reason) {
+          active.relatedParts.push({row, relationship:'Probable Alternate / Related Part', reason});
+          active.sourceSequences.push(row.sequence);
+          continue;
+        }
+        active = {
+          groupId:`G${String(groups.length + 1).padStart(3, '0')}`,
+          primaryPart:row,
+          relatedParts:[],
+          messageRows:[],
+          sourceSequences:[row.sequence]
+        };
+        groups.push(active);
+      }
+      for (const group of groups) {
+        const parsedMessages = group.messageRows.map(row => ({row, parsed:parseFindMessage(row.materialMessage)}));
+        const numbered = parsedMessages.filter(entry => entry.parsed.findNumber !== null);
+        const primaryMessage = numbered[0] || null;
+        group.findNumber = primaryMessage?.parsed.findNumber ?? null;
+        group.parsedReferences = primaryMessage?.parsed.references ?? [];
+        group.rawReferenceMessage = primaryMessage?.parsed.rawMessage ?? '';
+        group.additionalMessages = parsedMessages
+          .filter(entry => entry !== primaryMessage)
+          .map(entry => entry.row.materialMessage);
+        if (primaryMessage?.parsed.note) group.additionalMessages.push(primaryMessage.parsed.note);
+        group.requiredEach = group.primaryPart.requiredEach;
+        group.totalWorkOrderUnits = group.primaryPart.totalWorkOrderUnits;
+        group.sourceSequences.push(...group.messageRows.map(row => row.sequence));
+        group.parsingStatus = !primaryMessage || primaryMessage.parsed.status === 'UNRESOLVED' ? 'UNRESOLVED REFERENCE' : primaryMessage.parsed.status.replaceAll('_', ' ');
+        group.confidenceStatus = group.parsingStatus === 'UNRESOLVED REFERENCE' ? 'UNRESOLVED' : 'CONFIDENT PARSE';
+        group.primarySourceSequence = group.primaryPart.sequence;
+        group.primaryPartNumber = group.primaryPart.itemNumber;
+        group.primaryDescription = group.primaryPart.description;
+        group.primaryUnitOfMeasure = group.primaryPart.unitOfMeasure;
+        group.primaryRequiredEach = group.primaryPart.requiredEach;
+        group.primaryTotalRequired = group.primaryPart.totalWorkOrderUnits;
+        group.groupClassification = group.primaryPart.itemNumber === 'DO NOT POPULATE' ? 'DNP' : Number(group.primaryPart.requiredEach) < 1 ? 'FRACTIONAL' : 'STANDARD';
+      }
+      return {assemblyInstructions, groups};
+    }
+
+    function paginateGroups(groups) {
+      const pages = []; let page = []; let load = 0;
+      for (const group of groups) {
+        const weight = 1.25 + (group.relatedParts.length * 0.35) + (group.additionalMessages.length * 0.2);
+        if (page.length && load + weight > 13.4) { pages.push(page); page = []; load = 0; }
+        page.push(group); load += weight;
+      }
+      if (page.length) pages.push(page);
+      return pages;
+    }
+
+    function paginatePickGroups(groups) {
+      const pages = []; let page = []; let load = 0;
+      for (const group of groups) {
+        const noteCount = group.additionalMessages?.length || 0;
+        const weight = 1.05 + (group.relatedParts.length * 0.3) + (noteCount * 0.2) + (group.confidenceStatus === 'UNRESOLVED' ? 0.2 : 0);
+        const pageCapacity = pages.length === 0 ? 20 : 26;
+        if (page.length && load + weight > pageCapacity) { pages.push(page); page = []; load = 0; }
+        page.push(group); load += weight;
+      }
+      if (page.length) pages.push(page);
+      return pages;
+    }
+
+    function paginateReplica(rows) {
+      const pages = []; let page = []; let load = 0;
+      for (const row of rows) {
+        const weight = row.classification === 'MESSAGE' ? 0.75 : 1.45;
+        if (page.length && load + weight > 31) { pages.push(page); page = []; load = 0; }
+        page.push(row); load += weight;
+      }
+      if (page.length) pages.push(page);
+      return pages;
+    }
+
+    const field = (label, value) => `<div class="field"><span class="label">${esc(label)}:</span><span class="value">${esc(value)}</span></div>`;
+    const rawPages = paginateRaw(reportData.rows);
+    const groupedModel = buildGroupedModel(reportData.rows);
+    const groupedPages = paginateGroups(groupedModel.groups);
+    const pickPages = paginatePickGroups(groupedModel.groups);
+    const replicaPages = paginateReplica(reportData.rows);
+    const numberedMessageCount = reportData.rows.filter(row => row.classification === 'MESSAGE' && /^\(\d+\)/.test(row.materialMessage || '')).length;
+    const unresolvedGroups = groupedModel.groups.filter(group => group.confidenceStatus === 'UNRESOLVED').length;
+    const ambiguousGroups = groupedModel.groups.filter(group => group.confidenceStatus === 'AMBIGUOUS').length;
+    const probableRelationshipGroups = groupedModel.groups.filter(group => group.relatedParts.length > 0).length;
+    const parsedFindNumberGroups = groupedModel.groups.filter(group => group.findNumber !== null).length;
+    const groupsWithoutFindNumber = groupedModel.groups.length - parsedFindNumberGroups;
+    const ambiguousPickGroups = groupedModel.groups.filter(group => group.confidenceStatus === 'AMBIGUOUS').length;
+
+    function backToWorkOrder() {
+      const sameOriginReferrer = (() => {
+        try { return document.referrer && new URL(document.referrer).origin === location.origin; }
+        catch (_error) { return false; }
+      })();
+      if (reportParameters.get('source') === '5051-kitting' && sameOriginReferrer && history.length > 1) {
+        history.back();
+        return;
+      }
+      const returnPath = reportParameters.get('return') || '/';
+      location.assign(returnPath.startsWith('/') && !returnPath.startsWith('//') ? returnPath : '/');
+    }
+
+    function prepareKittingPrint() {
+      if (selectedView !== 'pick' || document.body.classList.contains('print-preview') || printRendering) return;
+      printRendering = true;
+      document.body.classList.add('print-rendering');
+      renderReport();
+      const qualificationOutput = document.getElementById('reportQualification');
+      qualificationOutput.dataset.lastPrintPageCount = String(document.querySelectorAll('.pick-sheet').length);
+      qualificationOutput.dataset.lastPrintPicked = document.querySelector('.pick-picked-input')?.value || '';
+      qualificationOutput.dataset.lastPrintShort = document.querySelector('.pick-short-input')?.value || '';
+      qualificationOutput.dataset.lastPrintPo = document.querySelector('.pick-po-input')?.value || '';
+    }
+
+    function restoreKittingScreen() {
+      if (!printRendering) return;
+      printRendering = false;
+      document.body.classList.remove('print-rendering');
+      renderReport();
+    }
+
+    function printReleasedBom() {
+      prepareKittingPrint();
+      window.print();
+      setTimeout(restoreKittingScreen, 500);
+    }
+
+    function setReportView(view) {
+      selectedView = ['pick', 'grouped', 'vpro', 'raw'].includes(view) ? view : 'pick';
+      reportParameters.set('view', selectedView);
+      history.replaceState(null, '', `${location.pathname}?${reportParameters.toString()}${location.hash}`);
+      renderReport();
+    }
+
+    function reportHeader(pageNumber, pageCount, viewLabel) {
+      return `<div class="company">${esc(h.company)}</div>
+        <h1>WORK ORDER RELEASED BOM</h1>
+        <div class="top-rule"></div>
+        <section class="header-grid">
+          ${field('Work Order', h.workOrder)} ${field('Bill Number', h.billNumber)} ${field('Customer', h.customer)}
+          ${field('Type', h.type)} ${field('Description', h.description)} ${field('Customer No.', h.customerNumber)}
+          ${field('Status', h.status)} ${field('Drawing / Rev', `${h.drawing} / ${h.revision}`)} ${field('Sales Order', `${h.salesOrder}  Line ${h.salesOrderLine}`)}
+          ${field('Category', h.category)} ${field('Scheduled Production', quantity(h.scheduledProduction))} ${field('Customer PO', h.customerPurchaseOrder)}
+          ${field('Warehouse', h.warehouse)} ${field('Yield / UM', `${Number(h.yield).toFixed(1)}% / ${h.unitOfMeasure}`)} ${field('Open Date', h.openDate)}
+        </section>
+        <div class="runtime-line"><span>DLE-OS GENERATED: ${esc(stamp)} · DEVELOPMENT ONLY · <span class="view-label">${esc(viewLabel)}</span></span><span>PAGE ${pageNumber} OF ${pageCount}</span></div>`;
+    }
+
+    function componentRow(row) {
+      return `<tr class="component" data-sequence="${esc(row.sequence)}">
+        <td>${esc(row.sequence)}</td><td>${esc(row.itemNumber)}</td><td class="description">${esc(row.description || '*** NOT ON FILE ***')}</td>
+        <td>${esc(row.unitOfMeasure)}</td><td>${esc(row.requiredDate)}</td><td class="num">${quantity(row.requiredEach)}</td>
+        <td class="num">${quantity(row.scrapFactor)}</td><td class="num">${quantity(row.alternateFactor)}</td><td class="num">${quantity(row.totalWorkOrderUnits)}</td>
+      </tr>`;
+    }
+
+    function messageRow(row) {
+      return `<tr class="message" data-sequence="${esc(row.sequence)}"><td>${esc(row.sequence)}</td><td colspan="8" class="message-text"><span class="type-tag">MESSAGE&nbsp;</span>${esc(row.materialMessage)}</td></tr>`;
+    }
+
+    function rawSourceProof() {
+      return `<div class="source-proof">ROW CONTROL: ${reportData.counts.total} TOTAL · ${reportData.counts.component} COMPONENT · ${reportData.counts.message} MESSAGE · ${reportData.counts.unresolved} UNRESOLVED<br>O_RDONLY · ZERO SOURCE WRITES · ZERO SOURCE LOCKS · PREFIX ${esc(reportData.sourceIdentity.prefixText)}</div>`;
+    }
+
+    function renderRaw() {
+      return rawPages.map((rows, index) => `<article class="sheet">
+        ${reportHeader(index + 1, rawPages.length, 'RAW SOURCE VIEW')}
+        <table aria-label="Work Order 0115621 raw source material requirements">
+          <colgroup><col class="seq"><col class="item"><col class="desc"><col class="um"><col class="date"><col class="qty"><col class="qty"><col class="qty"><col class="qty"></colgroup>
+          <thead><tr><th>Seq</th><th>Item Code</th><th>Description / Material Message</th><th>UM</th><th>Req Date</th><th class="num">Each</th><th class="num">Scrap</th><th class="num">Alt</th><th class="num">Total Units</th></tr></thead>
+          <tbody>${rows.map(row => row.classification === 'MESSAGE' ? messageRow(row) : componentRow(row)).join('')}</tbody>
+        </table>
+        ${index === rawPages.length - 1 ? rawSourceProof() : ''}
+        <footer class="sheet-footer"><span>Source: ${esc(reportData.sourceLabel)}</span><span>Page ${index + 1} of ${rawPages.length}</span></footer>
+      </article>`).join('');
+    }
+
+    function replicaEach(value) {
+      const number = Number(value);
+      if (Number.isInteger(number)) return String(number);
+      return number.toFixed(4).replace(/^0/, '').replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    function replicaTotal(value) {
+      const number = Number(value);
+      return number.toFixed(4).replace(/^0(?=\.)/, '');
+    }
+
+    const replicaField = (label, value) => `<div class="replica-field"><span class="replica-label">${esc(label)}:</span><span>${esc(value)}</span></div>`;
+
+    function replicaHeader(pageNumber) {
+      const generated = new Date(reportData.generatedAt);
+      const generatedDate = generated.toLocaleDateString([], {month:'2-digit',day:'2-digit',year:'2-digit'});
+      const generatedTime = generated.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      return `<header class="replica-report-header">
+        <div class="replica-identity">
+          <div class="generated">${esc(generatedDate)}<br>${esc(generatedTime)}</div>
+          <div class="replica-title"><strong>De Leon Enterprises</strong><span>Released Work Order BOM</span></div>
+          <div class="replica-page">Page&nbsp;&nbsp;${pageNumber}</div>
+        </div>
+        <section class="replica-header" aria-label="Work Order report header">
+          <div class="replica-header-column">
+            ${replicaField('Work Order Number', h.workOrder)}
+            ${replicaField('Bill Number', h.billNumber)}
+            ${replicaField('Description', h.description)}
+            ${replicaField('Prod Qty', quantity(h.scheduledProduction))}
+            ${replicaField('Warehouse Code', h.warehouse)}
+            ${replicaField('Drawing Number', h.drawing)}
+            ${replicaField('Drawing Revision', h.revision)}
+          </div>
+          <div class="replica-header-column">
+            ${replicaField('Unit of Measure', h.unitOfMeasure)}
+            ${replicaField('Estimated Yield %', Number(h.yield).toFixed(2))}
+            ${replicaField('Revision Code', h.revision)}
+            ${replicaField('Open Date', h.openDate)}
+            ${replicaField('As Of', generatedDate)}
+          </div>
+        </section>
+        <div class="replica-columns" role="row">
+          <span>Seq</span><span>Location</span><span>Component</span><span>U/M</span><span>CompQty</span><span>Prod Qty</span><span>Picked</span><span>Short</span>
+        </div>
+      </header>`;
+    }
+
+    function replicaComponent(row) {
+      return `<div class="replica-row component" data-sequence="${esc(row.sequence)}" data-row-classification="COMPONENT">
+        <div class="replica-component-line">
+          <span>${esc(row.sequence)}</span><span aria-label="Location not qualified"></span><span class="part">${esc(row.itemNumber)}</span><span>${esc(row.unitOfMeasure)}</span>
+          <span>[${esc(replicaEach(row.requiredEach))}]</span><span>${esc(replicaTotal(row.totalWorkOrderUnits))}</span><span><i class="write-line" aria-hidden="true"></i></span><span><i class="write-line" aria-hidden="true"></i></span>
+        </div>
+        <div class="replica-description">${esc(row.description || '*** NOT ON FILE ***')}</div>
+      </div>`;
+    }
+
+    function replicaMessage(row) {
+      return `<div class="replica-row replica-message" data-sequence="${esc(row.sequence)}" data-row-classification="MESSAGE">${esc(row.materialMessage)}</div>`;
+    }
+
+    function replicaSignoff() {
+      return `<section class="replica-signoff" aria-label="Printed signoff lines">
+        <div><span>Assembled</span><span class="sign-line"></span></div>
+        <div><span>Checked</span><span class="sign-line"></span></div>
+        <div><span>Packed</span><span class="sign-line"></span></div>
+      </section>`;
+    }
+
+    function renderReplica() {
+      return replicaPages.map((rows, index) => `<article class="sheet replica-sheet" data-page-number="${index + 1}">
+        ${replicaHeader(index + 1)}
+        <div class="replica-body" aria-label="Work Order 0115621 VPro-style source rows">
+          ${rows.map(row => row.classification === 'MESSAGE' ? replicaMessage(row) : replicaComponent(row)).join('')}
+        </div>
+        ${index === replicaPages.length - 1 ? replicaSignoff() : ''}
+        <footer class="sheet-footer"><span class="replica-source-note">VPro-style replica generated by DLE-OS from stored Work Order material requirements.</span><span>Page ${index + 1} of ${replicaPages.length}</span></footer>
+      </article>`).join('');
+    }
+
+    function pickRequired(value) {
+      const number = Number(value);
+      if (Number.isInteger(number)) return String(number);
+      if (Math.abs(number) < 1) return number.toFixed(3);
+      return number.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    function pickQuantityPerAssembly(value) {
+      const number = Number(value);
+      if (Number.isInteger(number)) return String(number);
+      const precision = Math.abs(number) < 0.001 ? 4 : 3;
+      return number.toFixed(precision).replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    function pickMessageRemainder(rawMessage) {
+      return String(rawMessage || '').replace(/^\(\d+\)\s*/, '').trim();
+    }
+
+    function pickNotes(group) {
+      const notes = [...group.additionalMessages];
+      if (!group.parsedReferences.length && group.rawReferenceMessage) notes.unshift(pickMessageRemainder(group.rawReferenceMessage));
+      return [...new Set(notes.filter(Boolean))];
+    }
+
+    function pickContextField(label, value, prominent = false) {
+      return `<span class="pick-context-label">${esc(label)}</span><span class="pick-context-value${prominent ? ' prominent' : ''}">${esc(value)}</span>`;
+    }
+
+    function pickHeader(pageNumber, pageCount = pickPages.length, screenPresentation = false) {
+      if (pageNumber > 1) {
+        return `<header class="pick-header pick-continuation-header">
+          <div class="pick-continuation-title"><span>DE LEON ENTERPRISES — KITTING PICK LIST</span><span>PAGE ${pageNumber} OF ${pageCount}</span></div>
+          <div class="pick-continuation-fields" aria-label="Continuation packet identity">
+            <span><strong>WO:</strong> ${esc(h.workOrder)}</span>
+            <span><strong>Assembly:</strong> ${esc(h.billNumber)} Rev ${esc(h.revision)}</span>
+            <span><strong>Customer:</strong> ${esc(h.customer)}</span>
+            <span><strong>SO:</strong> ${esc(h.salesOrder)} / Line ${esc(h.salesOrderLine)}</span>
+            <span><strong>Customer P.O.:</strong> ${esc(h.customerPurchaseOrder)}</span>
+          </div>
+        </header>`;
+      }
+      return `<header class="pick-header">
+        <div class="pick-title-row"><h1>KITTING PICK VIEW</h1>${screenPresentation ? '' : `<div class="pick-page">PAGE ${pageNumber} OF ${pageCount}</div>`}</div>
+        <section class="pick-context" aria-label="Work Order and customer order context">
+          <div class="pick-context-section">
+            <div class="pick-context-heading">WORK ORDER / BUILD</div>
+            ${pickContextField('Work Order', h.workOrder, true)}
+            ${pickContextField('Assembly', h.billNumber, true)}
+            ${pickContextField('Revision', h.revision)}
+            ${pickContextField('Description', h.description)}
+            ${pickContextField('Build Qty', `${pickRequired(h.scheduledProduction)} ${h.unitOfMeasure}`)}
+            ${pickContextField('Warehouse', h.warehouse)}
+            ${pickContextField('Open Date', h.openDate)}
+          </div>
+          <div class="pick-context-section">
+            <div class="pick-context-heading">CUSTOMER / ORDER</div>
+            ${pickContextField('Customer', h.customer, true)}
+            ${pickContextField('Customer No.', h.customerNumber)}
+            ${pickContextField('Sales Order', h.salesOrder, true)}
+            ${pickContextField('SO Line', h.salesOrderLine)}
+            ${pickContextField('Customer P.O.', h.customerPurchaseOrder, true)}
+          </div>
+        </section>
+        <section class="pick-order-schedule" aria-label="Order Schedule">
+          <h2>${esc(reportData.orderScheduleAssessment.title)}</h2>
+          <table><colgroup><col class="schedule-line"><col class="schedule-item"><col class="schedule-qty"><col class="schedule-date"></colgroup>
+            <thead><tr><th>SO Line</th><th>Item</th><th class="num">Qty Ordered</th><th>Estimated Ship</th></tr></thead>
+            <tbody>${reportData.orderSchedule.map(row => `<tr><td>${esc(row.salesOrderLine)}</td><td>${esc(row.itemNumber)}</td><td class="num">${esc(pickRequired(row.quantityOrdered))} ${esc(row.unitOfMeasure)}</td><td>${esc(row.estimatedShip)}</td></tr>`).join('')}</tbody>
+          </table>
+        </section>
+        <div class="pick-local-note">DEVELOPMENT ONLY · Component P.O. = unverified DLE purchasing entry for material traceability · Entry values are not calculated or saved</div>
+      </header>`;
+    }
+
+    function updateSessionEntry(input) {
+      if (input.type === 'number' && input.value !== '' && input.valueAsNumber < 0) input.value = '';
+      input.setAttribute('value', input.value);
+      pickEntryState.set(`${input.dataset.entryKind}:${input.dataset.woSequence}`, input.value);
+    }
+
+    function pickEntryValue(kind, sequence) {
+      return esc(pickEntryState.get(`${kind}:${sequence}`) || '');
+    }
+
+    function pickGroupRow(group) {
+      const relatedParts = group.relatedParts.map(part => `<span class="pick-related">${esc(part.row.itemNumber)}</span>`).join('');
+      const relatedSequences = group.relatedParts.map(part => `<span class="pick-related-sequence">${esc(part.row.sequence)}</span>`).join('');
+      const references = group.parsedReferences.length ? group.parsedReferences.join(', ') : '—';
+      const notes = pickNotes(group);
+      const isDnp = group.groupClassification === 'DNP';
+      const relationshipReview = group.confidenceStatus === 'AMBIGUOUS' ? '<span class="pick-note">Relationship needs review</span>' : '';
+      return `<tr class="pick-group" data-group-id="${esc(group.groupId)}" data-source-sequences="${esc(group.sourceSequences.join(','))}" data-group-classification="${esc(group.groupClassification)}">
+        <td><span class="pick-sequence">${esc(group.primarySourceSequence)}</span>${relatedSequences ? `<span class="pick-related-sequences" aria-label="Related component sequences">${relatedSequences}</span>` : ''}</td>
+        <td><span class="pick-find-number">${esc(group.findNumber ?? '—')}</span></td>
+        <td><span class="pick-primary">${esc(group.primaryPartNumber)}</span>${relatedParts ? `<span class="pick-related-label">Related / MFR Part</span>${relatedParts}` : ''}${relationshipReview}</td>
+        <td class="pick-details">${esc(group.primaryDescription || '*** NOT ON FILE ***')}${isDnp ? '<span class="pick-dnp">DNP</span>' : ''}<span class="pick-refs">Refs: ${esc(references)}</span>${notes.length ? `<span class="pick-note">Note: ${esc(notes.join(' · '))}</span>` : ''}</td>
+        <td class="pick-required"><span class="pick-required-layout"><span class="pick-qty-assy">[${esc(pickQuantityPerAssembly(group.primaryRequiredEach))}]</span><span class="pick-required-total">${esc(pickRequired(group.primaryTotalRequired))} ${esc(group.primaryUnitOfMeasure)}</span></span></td>
+        <td class="pick-write-cell"><input class="pick-entry-input pick-quantity-input pick-picked-input" type="number" inputmode="decimal" min="0" step="any" value="${pickEntryValue('picked', group.primarySourceSequence)}" autocomplete="off" aria-label="Picked quantity for WO sequence ${esc(group.primarySourceSequence)}, find ${esc(group.findNumber ?? 'unassigned')}" data-entry-kind="picked" data-wo-sequence="${esc(group.primarySourceSequence)}" data-find-number="${esc(group.findNumber ?? '')}" oninput="updateSessionEntry(this)"></td>
+        <td class="pick-write-cell"><input class="pick-entry-input pick-quantity-input pick-short-input" type="number" inputmode="decimal" min="0" step="any" value="${pickEntryValue('short', group.primarySourceSequence)}" autocomplete="off" aria-label="Short quantity for WO sequence ${esc(group.primarySourceSequence)}, find ${esc(group.findNumber ?? 'unassigned')}" data-entry-kind="short" data-wo-sequence="${esc(group.primarySourceSequence)}" data-find-number="${esc(group.findNumber ?? '')}" oninput="updateSessionEntry(this)"></td>
+        <td class="pick-write-cell"><input class="pick-entry-input pick-po-input" type="text" size="10" maxlength="20" value="${pickEntryValue('po', group.primarySourceSequence)}" autocomplete="off" aria-label="Purchase order for WO sequence ${esc(group.primarySourceSequence)}, find ${esc(group.findNumber ?? 'unassigned')}" data-entry-kind="po" data-wo-sequence="${esc(group.primarySourceSequence)}" data-find-number="${esc(group.findNumber ?? '')}" oninput="updateSessionEntry(this)"></td>
+      </tr>`;
+    }
+
+    function pickTable(groups) {
+      return `<table class="pick-table" aria-label="Work Order 0115621 logical Kitting pick groups">
+        <colgroup><col class="pick-seq"><col class="pick-find"><col class="pick-part"><col class="pick-detail"><col class="pick-required"><col class="pick-write"><col class="pick-write"><col class="pick-po"></colgroup>
+        <thead><tr><th>WO Seq</th><th>Find</th><th>Part / Related Part</th><th>Description / References</th><th class="num"><span class="pick-required-heading"><span class="pick-qty-assy-heading">Qty/Assy</span><span>Required</span></span></th><th>Picked</th><th>Short</th><th>P.O.</th></tr></thead>
+        <tbody>${groups.map(pickGroupRow).join('')}</tbody>
+      </table>`;
+    }
+
+    function renderKittingPick() {
+      const paginated = document.body.classList.contains('print-preview') || printRendering;
+      if (!paginated) {
+        return `<article class="sheet pick-sheet pick-screen-sheet">
+          ${pickHeader(1, 1, true)}
+          <section class="pick-instructions"><h2>Assembly Instructions</h2>${groupedModel.assemblyInstructions.map(row => `<p>${esc(row.materialMessage)}</p>`).join('')}</section>
+          <div class="pick-screen-scroll" role="region" aria-label="Scrollable Kitting pick report table" tabindex="0">${pickTable(groupedModel.groups)}</div>
+          <footer class="sheet-footer"><span>Logical groups derived in memory from the qualified 100-row Released BOM</span><span>Continuous screen report</span></footer>
+        </article>`;
+      }
+      return pickPages.map((groups, index) => `<article id="pick-page-${index + 1}" class="sheet pick-sheet" data-page-number="${index + 1}">
+        ${pickHeader(index + 1)}
+        ${index === 0 ? `<section class="pick-instructions"><h2>Assembly Instructions</h2>${groupedModel.assemblyInstructions.map(row => `<p>${esc(row.materialMessage)}</p>`).join('')}</section>` : ''}
+        ${pickTable(groups)}
+        <footer class="sheet-footer"><span>Logical groups derived in memory from the qualified 100-row Released BOM</span><span>Page ${index + 1} of ${pickPages.length}</span></footer>
+      </article>`).join('');
+    }
+
+    function groupedRow(group) {
+      const related = group.relatedParts.length ? group.relatedParts.map(part => `<span class="related-part">${esc(part.row.itemNumber)}</span><span class="probable-label">Probable Alternate / Related Part</span>`).join('<br>') : '—';
+      const refs = group.parsedReferences.length ? group.parsedReferences.join(', ') : 'Unresolved — see raw message';
+      const notes = [
+        `Group ${group.groupId} · Source seq ${group.sourceSequences.join(', ')} · <span class="parse-status ${group.confidenceStatus === 'UNRESOLVED' ? 'unresolved' : ''}">${esc(group.parsingStatus)}</span>`,
+        group.rawReferenceMessage ? `<span class="raw-message">Raw: ${esc(group.rawReferenceMessage)}</span>` : '',
+        group.additionalMessages.length ? `<span class="raw-message">Additional: ${esc(group.additionalMessages.join(' · '))}</span>` : ''
+      ].filter(Boolean).join('');
+      return `<tr class="group-main" data-group-id="${group.groupId}" data-primary-sequence="${esc(group.primaryPart.sequence)}" data-source-sequences="${esc(group.sourceSequences.join(','))}" data-confidence="${esc(group.confidenceStatus)}">
+        <td>${group.findNumber ?? '—'}</td>
+        <td class="primary-part">${esc(group.primaryPart.itemNumber)}</td>
+        <td>${related}</td>
+        <td>${esc(group.primaryPart.description || '*** NOT ON FILE ***')}</td>
+        <td class="num">${quantity(group.requiredEach)}</td>
+        <td class="num">${quantity(group.totalWorkOrderUnits)}</td>
+        <td class="refs-list">${esc(refs)}</td>
+      </tr><tr class="group-notes"><td colspan="7">${notes}</td></tr>`;
+    }
+
+    function renderGrouped() {
+      return groupedPages.map((groups, index) => `<article class="sheet">
+        ${reportHeader(index + 1, groupedPages.length, 'GROUPED OPERATOR VIEW')}
+        ${index === 0 ? `<section class="assembly-instructions"><h2>Assembly Instructions</h2>${groupedModel.assemblyInstructions.map(row => `<p><span class="sequence">SEQ ${esc(row.sequence)}</span>${esc(row.materialMessage)}</p>`).join('')}</section>` : ''}
+        <table class="grouped-table" aria-label="Work Order 0115621 grouped operator released BOM">
+          <colgroup><col class="find"><col class="primary"><col class="related"><col class="group-description"><col class="group-qty"><col class="group-qty"><col class="refs"></colgroup>
+          <thead><tr><th>Find</th><th>Primary Part</th><th>Related / Probable Alternate</th><th>Description</th><th class="num">Each</th><th class="num">WO Total</th><th>Refs</th></tr></thead>
+          <tbody>${groups.map(groupedRow).join('')}</tbody>
+        </table>
+        ${index === groupedPages.length - 1 ? `<div class="source-proof">DERIVED CONTROL: ${groupedModel.groups.length} GROUPS · ${numberedMessageCount} FIND-NUMBER MESSAGES · ${groupedModel.assemblyInstructions.length} ASSEMBLY INSTRUCTIONS · ${unresolvedGroups} UNRESOLVED · ${ambiguousGroups} AMBIGUOUS · ${probableRelationshipGroups} PROBABLE RELATIONSHIP GROUPS<br>${rawSourceProof().replace(/^<div class="source-proof">|<\/div>$/g, '')}</div>` : ''}
+        <footer class="sheet-footer"><span>Derived in memory from qualified ${reportData.counts.total}-row source · no reload</span><span>Page ${index + 1} of ${groupedPages.length}</span></footer>
+      </article>`).join('');
+    }
+
+    function renderReport() {
+      const pick = selectedView === 'pick';
+      const grouped = selectedView === 'grouped';
+      const replica = selectedView === 'vpro';
+      const raw = selectedView === 'raw';
+      document.getElementById('report').innerHTML = pick ? renderKittingPick() : grouped ? renderGrouped() : replica ? renderReplica() : renderRaw();
+      document.getElementById('kittingPickView').classList.toggle('active', pick);
+      document.getElementById('groupedOperatorView').classList.toggle('active', grouped);
+      document.getElementById('vproReplicaView').classList.toggle('active', replica);
+      document.getElementById('rawSourceView').classList.toggle('active', raw);
+      document.getElementById('kittingPickView').setAttribute('aria-pressed', String(pick));
+      document.getElementById('groupedOperatorView').setAttribute('aria-pressed', String(grouped));
+      document.getElementById('vproReplicaView').setAttribute('aria-pressed', String(replica));
+      document.getElementById('rawSourceView').setAttribute('aria-pressed', String(raw));
+      document.body.dataset.viewLabel = pick ? 'KITTING PICK VIEW' : grouped ? 'GROUPED OPERATOR VIEW' : replica ? 'VPRO REPLICA VIEW' : 'RAW SOURCE VIEW';
+      document.body.dataset.reportView = selectedView;
+    }
+
+    const qualification = document.getElementById('reportQualification');
+    Object.assign(qualification.dataset, {
+      rawTotal:reportData.counts.total,
+      rawComponent:reportData.counts.component,
+      rawMessage:reportData.counts.message,
+      groupCount:groupedModel.groups.length,
+      findNumberMessageCount:numberedMessageCount,
+      assemblyInstructionCount:groupedModel.assemblyInstructions.length,
+      unresolvedGroupCount:unresolvedGroups,
+      ambiguousGroupCount:ambiguousGroups,
+      probableRelationshipGroupCount:probableRelationshipGroups,
+      pickGroupCount:groupedModel.groups.length,
+      pickRelatedGroupCount:probableRelationshipGroups,
+      pickParsedFindCount:parsedFindNumberGroups,
+      pickMissingFindCount:groupsWithoutFindNumber,
+      pickAmbiguousGroupCount:ambiguousPickGroups,
+      replicaPageCount:replicaPages.length,
+      replicaSourceRowCount:replicaPages.reduce((count, rows) => count + rows.length, 0)
+    });
+    if (reportParameters.get('print') === '1') document.body.classList.add('print-preview');
+    addEventListener('beforeprint', prepareKittingPrint);
+    addEventListener('afterprint', restoreKittingScreen);
+    renderReport();
+  </script>
+</body>
+</html>

@@ -102,9 +102,9 @@
     <section class="work-order-dashboard-module-documents-card" data-work-order-dashboard-section="manufacturing-documents" aria-label="Manufacturing Documents">
       <h3>Manufacturing Documents</h3>
       <div class="work-order-dashboard-module-document-grid">
-        <button type="button" disabled>
-          Released BOM
-          <span>Original released manufacturing BOM</span>
+        <button id="workOrderDashboardReleasedBom" type="button" onclick="openWorkOrderDashboardReleasedBom()" hidden disabled>
+          <strong id="workOrderDashboardReleasedBomLabel">View Released BOM</strong>
+          <span id="workOrderDashboardReleasedBomMessage">Released BOM prototype not yet available.</span>
         </button>
         <button id="workOrderDashboardKittedBomPlaceholder" type="button" disabled>
           Kitted BOM

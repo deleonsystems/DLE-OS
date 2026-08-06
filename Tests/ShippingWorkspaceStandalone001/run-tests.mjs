@@ -1,0 +1,127 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
+
+class Element {
+  constructor(id = '') {
+    this.id = id;
+    this.dataset = {};
+    this.value = '';
+    this.innerHTML = '';
+    this.textContent = '';
+    this.hidden = false;
+    this.disabled = false;
+    this.offsetParent = {};
+    this.attributes = new Map();
+  }
+  setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  getAttribute(name) { return this.attributes.get(name) || null; }
+  focus() {}
+}
+
+const elements = new Map([
+  'shippingShipmentStaging', 'shippingShipmentStagingTable', 'shippingShipmentStagingStatus',
+  'shippingShipmentStagingRefreshButton', 'shippingShipmentStagingCount',
+  'shippingShipmentStagingSearch', 'shippingShipmentStagingStatusFilter'
+].map(id => [id, new Element(id)]));
+const mount = new Element('shippingMount');
+mount.dataset.workspaceLoaded = 'true';
+const subscribers = [];
+let operationalReads = 0;
+let createCalls = 0;
+let selectedShipment = '';
+let reviewOpened = 0;
+
+const meggitt = {
+  shipmentStagingId: 'staging-guid', shipmentId: 'SHP-20260805-5AA4FE93',
+  processedTimestamp: '2026-08-05T23:05:00Z', customerNumber: '001037',
+  customerName: 'Meggitt N. Hollywood', salesOrder: '0012087', salesOrderLine: '010',
+  itemNumber: 'TEST-PART', quantityShipped: 100, status: 'AWAITING_ERP_EVIDENCE',
+  operationalStatus: 'AWAITING_ERP_EVIDENCE', workOrder: '', directFulfillment: true,
+  workOrderRelationshipSource: 'NO_WORK_ORDER_REQUIRED'
+};
+const shipmentStagingState = { records: [meggitt], lastUpdated: '2026-08-05T23:05:00Z' };
+const document = {
+  body: { dataset: { workspaceView: 'shipping' } },
+  getElementById(id) { return elements.get(id) || null; },
+  querySelector(selector) { return selector === '[data-workspace-mount="shipping"]' ? mount : null; },
+  querySelectorAll() { return []; },
+  addEventListener() {}
+};
+const window = {
+  location: { port: '5051' },
+  DleApiClient: {
+    subscribeOperationalLineStateChange(handler) { subscribers.push(handler); return () => {}; },
+    createShipmentStaging() { createCalls += 1; }
+  },
+  usesOperationalShipmentStaging() { return true; },
+  async refreshOperationalShipmentStaging() { operationalReads += 1; return shipmentStagingState.records; },
+  getShipmentStagingDisplayLines(records) { return records.map(record => ({ ...record })); },
+  selectShipmentStagingTransaction(_event, id) { selectedShipment = id; },
+  openShipmentStagingReview() { reviewOpened += 1; },
+  DleWorkspaces: {}
+};
+const context = vm.createContext({
+  window, document, shipmentStagingState, console,
+  fetch() { throw new Error('Shipping activation must not fetch legacy JSON or a duplicate template.'); },
+  setTimeout, clearTimeout
+});
+vm.runInContext(read('SRC/modules/shipping/shipping-workspace.js'), context);
+
+assert.equal(window.DleWorkspaces.shipping, window.ShippingWorkspace,
+  'Shipping Workspace is registered under the Workspace View id');
+await window.DleWorkspaces.shipping.render();
+assert.equal(operationalReads, 1, 'direct activation refreshes the authoritative operational read model');
+assert.match(elements.get('shippingShipmentStagingTable').innerHTML, /SHP-20260805-5AA4FE93/,
+  'direct activation renders the existing Meggitt shipment');
+assert.match(elements.get('shippingShipmentStagingTable').innerHTML, /0012087/);
+assert.match(elements.get('shippingShipmentStagingTable').innerHTML, /AWAITING_ERP_EVIDENCE/);
+assert.equal(createCalls, 0, 'loading the workspace never creates a duplicate shipment');
+
+window.ShippingWorkspace.enqueueRequest({ requestId: 'OPERATIONS-HANDOFF' });
+assert.match(elements.get('shippingShipmentStagingTable').innerHTML, /SHP-20260805-5AA4FE93/,
+  'Operations handoff does not replace the staging population');
+
+shipmentStagingState.records = [];
+window.ShippingWorkspace.renderShipmentStaging();
+assert.match(elements.get('shippingShipmentStagingTable').innerHTML, /Shipment Staging is empty/,
+  'an empty authoritative population has a valid empty state');
+
+const serviceError = new Error('5054 unavailable');
+serviceError.requestId = 'request-5054';
+window.refreshOperationalShipmentStaging = async () => { operationalReads += 1; throw serviceError; };
+await window.ShippingWorkspace.refreshShipmentStaging();
+assert.match(elements.get('shippingShipmentStagingStatus').textContent, /5054 unavailable/);
+assert.match(elements.get('shippingShipmentStagingStatus').textContent, /request-5054/,
+  'API failures expose their request id');
+
+window.refreshOperationalShipmentStaging = async () => { operationalReads += 1; return shipmentStagingState.records; };
+shipmentStagingState.records = [meggitt];
+subscribers[0]({ source: 'shipment-staging-read-model-change' });
+assert.match(elements.get('shippingShipmentStagingTable').innerHTML, /SHP-20260805-5AA4FE93/,
+  'shared state events update an already-open workspace');
+
+window.openShippingShipmentStagingReview({
+  currentTarget: { dataset: { shipmentId: meggitt.shipmentId } }, stopPropagation() {}
+});
+assert.equal(selectedShipment, meggitt.shipmentId);
+assert.equal(reviewOpened, 1, 'workspace review uses the governed Shipment Staging review action');
+
+const serviceSource = read('SRC/modules/shipment-staging/shipment-staging-service.js');
+assert.match(read('SRC/shell/workspace-registry.js'), /id: "shipping",\s+label: "Shipping Workspace"/,
+  'Workspace View presents the requested Shipping Workspace label');
+assert.match(serviceSource, /window\.location\.port === '5051'/);
+assert.match(serviceSource, /DleApiClient\.getShipmentStaging/);
+assert.match(serviceSource, /if \(usesOperationalShipmentStaging\(\)\) return null;/,
+  'isolated development bypasses browser-held file handles');
+assert.match(read('SRC/api/dle-api-client.js'), /DleOsRuntimeConfig\?\.operationalControlBaseUrl/,
+  'the operational client honors the injected runtime boundary');
+assert.match(read('Tools/DevelopmentRuntime/DleOs.DevelopmentFrontend/appsettings.json'), /DLE-OS-HOST:5054/,
+  'the isolated frontend configures its operational API route for 5054');
+
+console.log('Shipping Workspace standalone operational staging contract: PASS');

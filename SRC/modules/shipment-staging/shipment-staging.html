@@ -31,8 +31,10 @@
         <div id="shipmentStagingSummary" class="open-order-report-count">0 shipments recorded.</div>
       </div>
       <div class="open-orders-actions">
-        <button type="button" onclick="openShipmentStagingWritableFile()">Open Writable Staging</button>
-        <button type="button" onclick="renderShipmentStagingModule()">Refresh Shipment Staging</button>
+        <button type="button" id="shipmentStagingLegacyFileButton" onclick="openShipmentStagingWritableFile()">Open Writable Staging</button>
+        <button type="button" onclick="refreshShipmentStagingView()">Refresh Shipment Staging</button>
+        <button type="button" id="reconcileShipmentStagingButton" onclick="reconcileShipmentStaging()">Reconcile ERP Evidence</button>
+        <button type="button" id="reviewShipmentStagingButton" onclick="openShipmentStagingReview()" disabled>Review Selected</button>
         <button type="button" id="undoSelectedShipmentButton" onclick="undoSelectedShipment()" disabled title="Select a Pending Invoice shipment before undoing.">Undo Selected Shipment</button>
         <button type="button" disabled title="Clear Shipment Staging is reserved for a future developer tool.">Clear Shipment Staging</button>
       </div>
@@ -40,4 +42,30 @@
 
     <div id="shipmentStagingTable" class="open-orders-table-wrap"></div>
   </div>
+  <dialog id="shipmentStagingReviewDialog" class="shipment-staging-review-dialog" aria-labelledby="shipmentStagingReviewTitle">
+    <form method="dialog" onsubmit="return false">
+      <h3 id="shipmentStagingReviewTitle">Review ERP Invoice Evidence</h3>
+      <dl>
+        <div><dt>Shipment</dt><dd id="shipmentStagingReviewShipment">—</dd></div>
+        <div><dt>Status</dt><dd id="shipmentStagingReviewStatus">—</dd></div>
+        <div><dt>Sales Order / line</dt><dd id="shipmentStagingReviewSalesOrder">—</dd></div>
+        <div><dt>Processed quantity</dt><dd id="shipmentStagingReviewQuantity">—</dd></div>
+        <div><dt>Proposed invoice / line</dt><dd id="shipmentStagingReviewInvoice">—</dd></div>
+        <div><dt>Invoice quantity / date</dt><dd id="shipmentStagingReviewInvoiceFacts">—</dd></div>
+        <div><dt>Evidence</dt><dd id="shipmentStagingReviewEvidence">—</dd></div>
+        <div><dt>Contradictions</dt><dd id="shipmentStagingReviewContradictions">None identified</dd></div>
+      </dl>
+      <label>Decision explanation
+        <textarea id="shipmentStagingDecisionNote" maxlength="1000" aria-describedby="shipmentStagingReviewMessage"></textarea>
+      </label>
+      <p id="shipmentStagingReviewMessage" role="alert">Review canonical evidence before making a decision. No match is confirmed automatically.</p>
+      <div class="shipment-staging-review-actions">
+        <button type="button" onclick="closeShipmentStagingReview()">Leave Pending</button>
+        <button type="button" onclick="submitShipmentStagingDecision('reject-match')">Reject Match</button>
+        <button type="button" onclick="submitShipmentStagingDecision('mark-exception')">Mark Exception</button>
+        <button type="button" onclick="submitShipmentStagingDecision('cancel')">Cancel Shipment</button>
+        <button type="button" id="confirmShipmentStagingMatchButton" onclick="submitShipmentStagingDecision('confirm-match')">Confirm Match</button>
+      </div>
+    </form>
+  </dialog>
 </section>

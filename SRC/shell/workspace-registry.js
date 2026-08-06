@@ -54,7 +54,7 @@
     },
     {
       id: "shipping",
-      label: "Shipping",
+      label: "Shipping Workspace",
       purpose: "Request to Ship preparation and customer shipment operations."
     },
     {

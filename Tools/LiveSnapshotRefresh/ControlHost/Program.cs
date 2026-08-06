@@ -55,6 +55,10 @@ builder.Services.AddCors(options =>
             .WithHeaders("Accept", "Content-Type")
             .AllowCredentials());
 });
+if (isolatedDevelopment)
+{
+    builder.Services.AddHostedService<ShipmentReconciliationMonitor>();
+}
 
 var app = builder.Build();
 app.UseCors(corsPolicy);
@@ -75,7 +79,8 @@ app.Use(async (context, next) =>
         "/api/work-order-approvals/",
         "/api/kitting-dispositions/",
         "/api/rma-rework/",
-        "/api/operational-work-order-relationships/"
+        "/api/operational-work-order-relationships/",
+        "/api/shipment-staging/"
     ];
     if (allowedDevelopmentPaths.Any(value => path.StartsWith(value, StringComparison.OrdinalIgnoreCase)))
     {
@@ -389,6 +394,10 @@ app.MapWorkOrderApprovals("SnapshotRefreshOperator");
 app.MapKittingDispositions("SnapshotRefreshOperator");
 app.MapRmaRework("SnapshotRefreshOperator");
 app.MapOperationalWorkOrderRelationships("SnapshotRefreshOperator");
+if (isolatedDevelopment)
+{
+    app.MapShipmentStaging("SnapshotRefreshOperator");
+}
 
 app.Run();
 

@@ -21,16 +21,19 @@
   }
 
   function renderShipmentStagingModule() {
+    configureShipmentStagingControls();
     renderShipmentStagingSummary();
     renderShipmentStagingTable();
     filterShipmentStaging();
+    window.ShippingWorkspace?.renderShipmentStaging?.();
   }
 
   function renderShipmentStagingSummary() {
     const records = Array.isArray(shipmentStagingState.records) ? shipmentStagingState.records : [];
     const displayLines = getShipmentStagingDisplayLines(records);
     const shipmentCount = new Set(records.map(getShipmentStagingRecordId).filter(Boolean)).size;
-    const pendingCount = displayLines.filter(line => line.status === 'Pending Invoice').length;
+    const pendingCount = displayLines.filter(line =>
+      !['ERP_CONFIRMED', 'CANCELLED'].includes(line.status)).length;
     const lastUpdated = shipmentStagingState.lastUpdated ||
       records[records.length - 1]?.shipmentDateTime ||
       'Not available';
@@ -82,6 +85,9 @@
     <th>Description</th>
     <th>Qty Shipped</th>
     <th>Status</th>
+    <th>Proposed Invoice</th>
+    <th>Evidence</th>
+    <th>Action</th>
 </tr>
 `;
 
@@ -102,6 +108,11 @@
     <td class="nowrap">${escapeHtml(line.description)}</td>
     <td>${escapeHtml(String(line.quantityShipped))}</td>
     <td>${escapeHtml(line.operationalStatus || line.status)}</td>
+    <td>${escapeHtml(line.proposedInvoiceNumber
+      ? line.proposedInvoiceNumber + (line.proposedInvoiceLineNumber ? ' / ' + line.proposedInvoiceLineNumber : '')
+      : '—')}</td>
+    <td>${escapeHtml(line.evidenceSummary || line.contradictionSummary || 'Awaiting ERP evidence')}</td>
+    <td><button type="button" onclick="event.stopPropagation(); selectShipmentStagingTransaction(event, '${escapeHtml(shipmentId)}'); openShipmentStagingReview();">Review</button></td>
 </tr>
 `;
     });
@@ -134,7 +145,11 @@
         quantityShipped: detailLine?.quantityShipped ?? detailLine?.qtyRequested ??
           record?.quantityShipped ?? record?.qtyRequested ?? '',
         operationalStatus: detailLine?.operationalStatus || record?.operationalStatus || '',
-        status: detailLine?.status || record?.status || 'Pending Invoice'
+        status: detailLine?.status || record?.status || 'Pending Invoice',
+        proposedInvoiceNumber: detailLine?.proposedInvoiceNumber || record?.proposedInvoiceNumber || '',
+        proposedInvoiceLineNumber: detailLine?.proposedInvoiceLineNumber || record?.proposedInvoiceLineNumber || '',
+        evidenceSummary: detailLine?.evidenceSummary || record?.evidenceSummary || '',
+        contradictionSummary: detailLine?.contradictionSummary || record?.contradictionSummary || ''
       }));
     });
   }
@@ -174,6 +189,7 @@
     selectedShipmentStagingId = shipmentId || '';
     renderShipmentStagingTable();
     updateUndoSelectedShipmentButton();
+    updateShipmentStagingReviewButton();
 
     const status = document.getElementById('shipmentStagingStatus');
     const selectedRecords = getSelectedShipmentStagingRecords();
@@ -204,13 +220,130 @@
     if (!button) return;
 
     const selectedRecords = getSelectedShipmentStagingRecords();
-    const canUndo = selectedRecords.length > 0 &&
+    const canUndo = !window.usesOperationalShipmentStaging?.() && selectedRecords.length > 0 &&
       selectedRecords.every(record => record.status === 'Pending Invoice');
 
     button.disabled = !canUndo;
     button.title = canUndo
       ? 'Undo selected Pending Invoice shipment.'
       : 'Select a shipment where every line is Pending Invoice before undoing.';
+  }
+
+  function configureShipmentStagingControls() {
+    const operational = window.usesOperationalShipmentStaging?.() === true;
+    const legacyButton = document.getElementById('shipmentStagingLegacyFileButton');
+    if (legacyButton) legacyButton.hidden = operational;
+    const reconcileButton = document.getElementById('reconcileShipmentStagingButton');
+    if (reconcileButton) reconcileButton.hidden = !operational;
+    const reviewButton = document.getElementById('reviewShipmentStagingButton');
+    if (reviewButton) reviewButton.hidden = !operational;
+    const undoButton = document.getElementById('undoSelectedShipmentButton');
+    if (undoButton) undoButton.hidden = operational;
+  }
+
+  function updateShipmentStagingReviewButton() {
+    const button = document.getElementById('reviewShipmentStagingButton');
+    if (!button) return;
+    button.disabled = getSelectedShipmentStagingRecords().length !== 1;
+  }
+
+  async function refreshShipmentStagingView() {
+    const status = document.getElementById('shipmentStagingStatus');
+    try {
+      if (window.usesOperationalShipmentStaging?.()) {
+        if (status) status.textContent = 'Refreshing governed Shipment Staging…';
+        await window.refreshOperationalShipmentStaging();
+      } else {
+        renderShipmentStagingModule();
+      }
+    } catch (error) {
+      if (status) status.textContent = 'Shipment Staging refresh failed: ' + (error?.message || error);
+    }
+  }
+
+  async function reconcileShipmentStaging() {
+    const status = document.getElementById('shipmentStagingStatus');
+    const button = document.getElementById('reconcileShipmentStagingButton');
+    try {
+      if (button) button.disabled = true;
+      if (status) status.textContent = 'Comparing pending shipments with canonical ERP invoice evidence…';
+      const result = await window.DleApiClient.runShipmentReconciliation({
+        requestCorrelationId: window.DleApiClient.createRequestCorrelationId(),
+        triggerType: 'MANUAL'
+      });
+      await window.refreshOperationalShipmentStaging();
+      if (status) status.textContent = 'Reconciliation completed for ' + result.shipmentCount +
+        ' shipment' + (result.shipmentCount === 1 ? '.' : 's.') + ' No matches were auto-confirmed.';
+    } catch (error) {
+      if (status) status.textContent = 'Shipment reconciliation failed: ' + (error?.message || error) +
+        (error?.requestId ? ' Request ' + error.requestId + '.' : '');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function openShipmentStagingReview() {
+    const record = getSelectedShipmentStagingRecords()[0];
+    const dialog = document.getElementById('shipmentStagingReviewDialog');
+    if (!record || !dialog) return;
+    setReviewText('shipmentStagingReviewShipment', record.shipmentId);
+    setReviewText('shipmentStagingReviewStatus', record.status);
+    setReviewText('shipmentStagingReviewSalesOrder', record.salesOrder + ' / ' + record.salesOrderLine);
+    setReviewText('shipmentStagingReviewQuantity', String(record.quantityShipped));
+    setReviewText('shipmentStagingReviewInvoice', record.proposedInvoiceNumber
+      ? record.proposedInvoiceNumber + ' / ' + (record.proposedInvoiceLineNumber || '—') : 'No proposal');
+    setReviewText('shipmentStagingReviewInvoiceFacts', record.proposedInvoiceNumber
+      ? String(record.proposedInvoiceQuantity ?? '—') + ' / ' + (record.proposedInvoiceDate || '—') : '—');
+    setReviewText('shipmentStagingReviewEvidence', record.evidenceSummary || 'No canonical invoice evidence found.');
+    setReviewText('shipmentStagingReviewContradictions', record.contradictionSummary || 'None identified');
+    document.getElementById('shipmentStagingDecisionNote').value = '';
+    setReviewText('shipmentStagingReviewMessage',
+      'Review canonical evidence before making a decision. No match is confirmed automatically.');
+    const confirmButton = document.getElementById('confirmShipmentStagingMatchButton');
+    if (confirmButton) confirmButton.disabled = !record.proposedMatchId || record.status === 'ERP_CONFIRMED';
+    dialog.showModal();
+  }
+
+  function closeShipmentStagingReview() {
+    document.getElementById('shipmentStagingReviewDialog')?.close();
+  }
+
+  async function submitShipmentStagingDecision(action) {
+    const record = getSelectedShipmentStagingRecords()[0];
+    const message = document.getElementById('shipmentStagingReviewMessage');
+    const note = String(document.getElementById('shipmentStagingDecisionNote')?.value || '').trim();
+    if (!record?.shipmentStagingId) return;
+    if (action !== 'confirm-match' && !note) {
+      if (message) message.textContent = 'Enter a decision explanation before this governed action.';
+      document.getElementById('shipmentStagingDecisionNote')?.focus();
+      return;
+    }
+    const reasons = {
+      'confirm-match': 'OPERATOR_VERIFIED_CANONICAL_INVOICE',
+      'reject-match': 'INCORRECT_INVOICE_EVIDENCE',
+      'mark-exception': 'ERP_EVIDENCE_CONTRADICTION',
+      cancel: 'SHIPMENT_CANCELLED_BY_OPERATOR'
+    };
+    try {
+      if (message) message.textContent = 'Recording governed shipment decision…';
+      await window.DleApiClient.submitShipmentMatchDecision(record.shipmentStagingId, action, {
+        proposalId: record.proposedMatchId,
+        confirmedQuantity: action === 'confirm-match' ? Number(record.quantityShipped) : null,
+        reasonCode: reasons[action],
+        note: note || null,
+        requestCorrelationId: window.DleApiClient.createRequestCorrelationId()
+      });
+      closeShipmentStagingReview();
+      await window.refreshOperationalShipmentStaging();
+    } catch (error) {
+      if (message) message.textContent = (error?.message || 'The decision could not be recorded.') +
+        (error?.requestId ? ' Request ' + error.requestId + '.' : '');
+    }
+  }
+
+  function setReviewText(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value || '—';
   }
 
   function undoSelectedShipment() {
@@ -274,4 +407,9 @@
   window.getSelectedShipmentStagingRecords = getSelectedShipmentStagingRecords;
   window.updateUndoSelectedShipmentButton = updateUndoSelectedShipmentButton;
   window.undoSelectedShipment = undoSelectedShipment;
+  window.refreshShipmentStagingView = refreshShipmentStagingView;
+  window.reconcileShipmentStaging = reconcileShipmentStaging;
+  window.openShipmentStagingReview = openShipmentStagingReview;
+  window.closeShipmentStagingReview = closeShipmentStagingReview;
+  window.submitShipmentStagingDecision = submitShipmentStagingDecision;
 })();

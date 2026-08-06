@@ -3,6 +3,7 @@
 
   const WORKSPACE_ID = "shipping";
   const TEMPLATE_PATH = "SRC/modules/shipping/shipping-workspace.html";
+  let operationalStateSubscription = null;
   const state = {
     requests: [],
     packingRequests: [],
@@ -10,6 +11,8 @@
     selectedPackingRequest: null,
     returnDialogRequest: null,
     processingPackingRequest: null,
+    shipmentStagingLoading: false,
+    shipmentStagingError: null,
     expandedShippingRequests: new Set(),
     expandedPackingRequests: new Set()
   };
@@ -30,7 +33,47 @@
       mount.dataset.workspaceLoaded = "true";
     }
 
+    ensureShipmentStagingSubscription();
     renderShippingWorkspace();
+    await initializeShippingShipmentStaging();
+  }
+
+  function ensureShipmentStagingSubscription() {
+    if (operationalStateSubscription || !window.DleApiClient?.subscribeOperationalLineStateChange) return;
+    operationalStateSubscription = window.DleApiClient.subscribeOperationalLineStateChange(detail => {
+      if (!isShippingWorkspaceActive()) return;
+      if (detail.source === "shipment-staging-read-model-change") {
+        renderShippingShipmentStaging();
+        return;
+      }
+      const refresh = initializeShippingShipmentStaging();
+      detail.waitUntil?.(refresh);
+      return refresh;
+    });
+  }
+
+  function isShippingWorkspaceActive() {
+    return document.body?.dataset?.workspaceView === WORKSPACE_ID &&
+      !!document.getElementById("shippingShipmentStaging");
+  }
+
+  async function initializeShippingShipmentStaging() {
+    state.shipmentStagingLoading = true;
+    state.shipmentStagingError = null;
+    renderShippingShipmentStaging();
+    try {
+      if (window.usesOperationalShipmentStaging?.()) {
+        if (typeof window.refreshOperationalShipmentStaging !== "function") {
+          throw new Error("The governed Shipment Staging read service is unavailable.");
+        }
+        await window.refreshOperationalShipmentStaging();
+      }
+    } catch (error) {
+      state.shipmentStagingError = error;
+    } finally {
+      state.shipmentStagingLoading = false;
+      renderShippingShipmentStaging();
+    }
   }
 
   function openRequest(requestToShip) {
@@ -55,9 +98,161 @@
   }
 
   function renderShippingWorkspace() {
+    renderShippingShipmentStaging();
     renderShippingQueue();
     renderPackingQueue();
     renderShippingActions();
+  }
+
+  function renderShippingShipmentStaging() {
+    const host = document.getElementById("shippingShipmentStaging");
+    const table = document.getElementById("shippingShipmentStagingTable");
+    const status = document.getElementById("shippingShipmentStagingStatus");
+    const refreshButton = document.getElementById("shippingShipmentStagingRefreshButton");
+    if (!host || !table || !status) return;
+
+    host.setAttribute("aria-busy", state.shipmentStagingLoading ? "true" : "false");
+    if (refreshButton) refreshButton.disabled = state.shipmentStagingLoading;
+    if (state.shipmentStagingLoading) {
+      status.dataset.state = "loading";
+      status.textContent = "Loading current governed Shipment Staging from the isolated development service…";
+    } else if (state.shipmentStagingError) {
+      status.dataset.state = "error";
+      status.textContent = "Shipment Staging could not be loaded: " +
+        (state.shipmentStagingError.message || "unknown service error") +
+        (state.shipmentStagingError.requestId ? " Request " + state.shipmentStagingError.requestId + "." : "");
+    } else {
+      status.dataset.state = "ready";
+    }
+
+    const records = typeof shipmentStagingState !== "undefined" && Array.isArray(shipmentStagingState.records)
+      ? shipmentStagingState.records
+      : [];
+    const lines = typeof window.getShipmentStagingDisplayLines === "function"
+      ? window.getShipmentStagingDisplayLines(records)
+      : [];
+    configureShippingShipmentStagingStatuses(lines);
+
+    if (!lines.length) {
+      table.innerHTML = '<div class="shipping-shipment-staging-empty">' +
+        (state.shipmentStagingError
+          ? "No cached Shipment Staging rows are available. Use Refresh after the service is restored."
+          : state.shipmentStagingLoading
+            ? "Loading Shipment Staging records…"
+            : "Shipment Staging is empty. No operational shipments are currently staged.") +
+        '</div>';
+      updateShippingShipmentStagingCount(0, 0);
+      if (!state.shipmentStagingLoading && !state.shipmentStagingError) {
+        status.textContent = "Shipment Staging loaded successfully with no current records.";
+      }
+      return;
+    }
+
+    table.innerHTML = [
+      '<table class="operations-center-table shipping-shipment-staging-table">',
+      '<thead><tr>',
+      '<th>Processed</th><th>Shipment ID</th><th>Customer</th><th>Sales Order</th><th>Line</th>',
+      '<th>Item</th><th>Staged Quantity</th><th>Operational Remaining</th><th>ERP Evidence Status</th><th>Proposed Invoice</th><th>Action</th>',
+      '</tr></thead><tbody>',
+      lines.map((line, index) => renderShippingShipmentStagingRow(line, index)).join(""),
+      '</tbody></table>'
+    ].join("");
+    filterShippingShipmentStaging();
+    if (!state.shipmentStagingLoading && !state.shipmentStagingError) {
+      status.textContent = lines.length + " authoritative Shipment Staging line" +
+        (lines.length === 1 ? " is" : "s are") + " available from the operational read model.";
+    }
+  }
+
+  function renderShippingShipmentStagingRow(line, index) {
+    const status = line.operationalStatus || line.status || "";
+    const invoice = line.proposedInvoiceNumber
+      ? line.proposedInvoiceNumber + (line.proposedInvoiceLineNumber ? " / " + line.proposedInvoiceLineNumber : "")
+      : "None";
+    const customer = [line.customerNumber, line.customerName].filter(Boolean).join(" - ");
+    const operationalLine = (window.OperationsCenter?.state?.canonicalRows || []).find(record =>
+      window.ShipmentOperationalProjection?.recordLineKey?.(record) ===
+        window.ShipmentOperationalProjection?.recordLineKey?.(line)
+    );
+    const operationalRemaining = operationalLine && window.ShipmentOperationalProjection?.projectLine
+      ? window.ShipmentOperationalProjection.projectLine(operationalLine).operationalRemainingQuantity
+      : null;
+    return [
+      '<tr class="', index % 2 === 0 ? 'rowEven' : 'rowOdd',
+      ' shipping-shipment-staging-row" tabindex="0" data-shipment-id="', escapeHtml(line.shipmentId),
+      '" data-status="', escapeHtml(status),
+      '" onclick="openShippingShipmentStagingReview(event)" onkeydown="handleShippingShipmentStagingRowKeydown(event)">',
+      renderCell(formatShippingTimestamp(line.processedTimestamp || line.shipmentDateTime)),
+      renderCell(line.shipmentId || "N/A"),
+      renderCell(customer || "N/A"),
+      renderCell(line.salesOrder || "N/A"),
+      renderCell(line.salesOrderLine || "N/A"),
+      renderCell(line.itemNumber || "N/A"),
+      renderCell(formatQuantity(line.quantityShipped)),
+      renderCell(operationalRemaining == null ? "N/A" : formatQuantity(operationalRemaining)),
+      renderCell(status || "Awaiting ERP evidence"),
+      renderCell(invoice),
+      '<td><button type="button" data-shipment-id="', escapeHtml(line.shipmentId),
+      '" onclick="openShippingShipmentStagingReview(event)">Review</button></td>',
+      '</tr>'
+    ].join("");
+  }
+
+  function configureShippingShipmentStagingStatuses(lines) {
+    const select = document.getElementById("shippingShipmentStagingStatusFilter");
+    if (!select) return;
+    const selected = select.value;
+    const statuses = Array.from(new Set(lines.map(line => line.operationalStatus || line.status).filter(Boolean))).sort();
+    select.innerHTML = '<option value="">All statuses</option>' + statuses.map(status =>
+      '<option value="' + escapeHtml(status) + '">' + escapeHtml(status) + '</option>'
+    ).join("");
+    select.value = statuses.includes(selected) ? selected : "";
+  }
+
+  function filterShippingShipmentStaging() {
+    const search = String(document.getElementById("shippingShipmentStagingSearch")?.value || "").trim().toUpperCase();
+    const selectedStatus = document.getElementById("shippingShipmentStagingStatusFilter")?.value || "";
+    const rows = Array.from(document.querySelectorAll("#shippingShipmentStagingTable tbody tr"));
+    let visible = 0;
+    rows.forEach(row => {
+      const matches = (!search || row.textContent.toUpperCase().includes(search)) &&
+        (!selectedStatus || row.dataset.status === selectedStatus);
+      row.hidden = !matches;
+      if (matches) visible += 1;
+    });
+    updateShippingShipmentStagingCount(visible, rows.length);
+  }
+
+  function updateShippingShipmentStagingCount(visible, total) {
+    const count = document.getElementById("shippingShipmentStagingCount");
+    if (!count) return;
+    count.textContent = visible === total
+      ? total + (total === 1 ? " shipment" : " shipments")
+      : visible + " of " + total + " shown";
+  }
+
+  async function refreshShippingShipmentStaging() {
+    await initializeShippingShipmentStaging();
+  }
+
+  function openShippingShipmentStagingReview(event) {
+    event?.stopPropagation?.();
+    const shipmentId = event?.currentTarget?.dataset?.shipmentId || "";
+    if (!shipmentId) return;
+    window.selectShipmentStagingTransaction?.(null, shipmentId);
+    window.openShipmentStagingReview?.();
+  }
+
+  function handleShippingShipmentStagingRowKeydown(event) {
+    if (event?.target !== event?.currentTarget || !["Enter", " "].includes(event?.key)) return;
+    event.preventDefault();
+    openShippingShipmentStagingReview(event);
+  }
+
+  function formatShippingTimestamp(value) {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
   }
 
   function renderShippingQueue() {
@@ -381,8 +576,10 @@
       setShippingWorkspaceStatus("Shipment Staging is not available.");
       return null;
     }
+    const operationalStaging = window.usesOperationalShipmentStaging?.() === true;
     if (typeof window.buildShipmentStagingRecordsFromShippingRequest !== "function" ||
-        typeof window.persistShipmentStagingDataset !== "function") {
+        (!operationalStaging && typeof window.persistShipmentStagingDataset !== "function") ||
+        (operationalStaging && typeof window.DleApiClient?.createShipmentStaging !== "function")) {
       console.error("Shipment Staging persistence service is not available.");
       setShippingWorkspaceStatus("Shipment Staging persistence service is not available.");
       return null;
@@ -403,24 +600,66 @@
       setShippingWorkspaceStatus("Shipment Processed was not completed because no shipment detail lines were available.");
       return null;
     }
+    const invalidStagingRecord = stagingRecords.find(record => {
+      const validation = window.ShipmentOperationalProjection?.validateShipmentQuantity?.({
+        customerNumber: record.customerNumber,
+        salesOrderNumber: record.salesOrder,
+        salesOrderLineNumber: record.salesOrderLine,
+        erpQuantityOpen: record.originalOpenQuantity,
+        quantityOrdered: record.originalOpenQuantity
+      }, record.quantityShipped);
+      return validation && !validation.valid;
+    });
+    if (invalidStagingRecord) {
+      setShippingWorkspaceStatus(
+        "Shipment Processed was not completed because the requested quantity exceeds the current operational remaining quantity. Refresh Shipping Workspace and review the Sales Order line."
+      );
+      return null;
+    }
 
     state.processingPackingRequest = request;
     renderShippingActions();
     setShippingWorkspaceStatus("Persisting " + stagingRecords.length + " shipment line" + (stagingRecords.length === 1 ? "" : "s") + "...");
-    shipmentStagingState.records.push(...stagingRecords);
-    shipmentStagingState.lastUpdated = processedTimestamp;
-
+    let persistedResult = null;
     try {
-      await window.persistShipmentStagingDataset("Shipment Processed");
+      if (operationalStaging) {
+        const correlationId = window.DleApiClient.createRequestCorrelationId();
+        persistedResult = await window.DleApiClient.createShipmentStaging({
+          requestId: String(request.requestId || '').trim(),
+          idempotencyKey: 'packing-request:' + String(request.requestId || '').trim(),
+          requestCorrelationId: correlationId,
+          lines: stagingRecords.map(record => ({
+            customerNumber: record.customerNumber,
+            customerName: record.customerName,
+            salesOrderNumber: record.salesOrder,
+            salesOrderLineNumber: record.salesOrderLine,
+            itemNumber: record.itemNumber,
+            revision: record.revision || null,
+            quantityProcessed: Number(record.quantityShipped),
+            canonicalOpenQuantityAtShipment: Number(record.originalOpenQuantity),
+            unitOfMeasure: record.unitOfMeasure || null,
+            shipmentReference: request.packingSlipNumber || request.shipmentReference || null
+          }))
+        });
+        await window.refreshOperationalShipmentStaging?.();
+      } else {
+        shipmentStagingState.records.push(...stagingRecords);
+        shipmentStagingState.lastUpdated = processedTimestamp;
+        await window.persistShipmentStagingDataset("Shipment Processed");
+      }
     } catch (error) {
-      shipmentStagingState.records = previousStagingRecords;
-      shipmentStagingState.lastUpdated = previousStagingLastUpdated;
+      if (!operationalStaging) {
+        shipmentStagingState.records = previousStagingRecords;
+        shipmentStagingState.lastUpdated = previousStagingLastUpdated;
+      }
       state.processingPackingRequest = null;
       renderShippingWorkspace();
       if (typeof renderShipmentStagingModule === "function") {
         renderShipmentStagingModule();
       }
-      setShippingWorkspaceStatus("Shipment was not processed because Shipment Staging could not be persisted.");
+      setShippingWorkspaceStatus("Shipment was not processed: " +
+        (error?.message || "the governed Shipment Staging write failed.") +
+        (error?.requestId ? " Request " + error.requestId + "." : ""));
       console.error("Shipment Staging persistence failed:", error);
       return null;
     }
@@ -428,7 +667,7 @@
     state.packingRequests.splice(requestIndex, 1);
     state.expandedPackingRequests.delete(request);
     request.status = "Pending Invoice";
-    request.shipmentId = stagingRecords[0].shipmentId;
+    request.shipmentId = persistedResult?.shipments?.[0]?.shipmentNumber || stagingRecords[0].shipmentId;
     state.selectedPackingRequest = null;
     state.processingPackingRequest = null;
 
@@ -827,6 +1066,8 @@
     openRequest,
     enqueueRequest,
     render: loadShippingWorkspace,
+    renderShipmentStaging: renderShippingShipmentStaging,
+    refreshShipmentStaging: initializeShippingShipmentStaging,
     getState: () => ({
       requests: state.requests.slice(),
       packingRequests: state.packingRequests.slice(),
@@ -840,6 +1081,10 @@
   });
 
   window.selectShippingQueueRow = selectShippingQueueRow;
+  window.filterShippingShipmentStaging = filterShippingShipmentStaging;
+  window.refreshShippingShipmentStaging = refreshShippingShipmentStaging;
+  window.openShippingShipmentStagingReview = openShippingShipmentStagingReview;
+  window.handleShippingShipmentStagingRowKeydown = handleShippingShipmentStagingRowKeydown;
   window.handleShippingQueueRowKeydown = handleShippingQueueRowKeydown;
   window.selectPackingQueueRow = selectPackingQueueRow;
   window.handlePackingQueueRowKeydown = handlePackingQueueRowKeydown;

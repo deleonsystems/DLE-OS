@@ -130,6 +130,73 @@
   min-width: 0;
 }
 
+.shipping-shipment-staging {
+  min-height: 330px;
+}
+
+.shipping-shipment-staging-heading {
+  align-items: center;
+}
+
+.shipping-shipment-staging-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.shipping-shipment-staging-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.shipping-shipment-staging-controls input,
+.shipping-shipment-staging-controls select {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.shipping-shipment-staging-status {
+  min-height: 20px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shipping-shipment-staging-status[data-state="error"] {
+  color: #fca5a5;
+}
+
+.shipping-shipment-staging-table-wrap {
+  width: 100%;
+  min-width: 0;
+  max-height: 430px;
+  margin-top: 12px;
+}
+
+.shipping-shipment-staging-table {
+  min-width: 1120px;
+}
+
+.shipping-shipment-staging-row {
+  cursor: pointer;
+}
+
+.shipping-shipment-staging-row:focus-visible {
+  outline: 2px solid rgba(47, 140, 255, .85);
+  outline-offset: -2px;
+}
+
+.shipping-shipment-staging-empty {
+  border: 1px dashed rgba(255, 255, 255, .18);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 18px;
+}
+
 .shipping-queue-table-wrap {
   width: 100%;
   min-width: 0;
@@ -153,6 +220,12 @@
   border-radius: 8px;
   color: var(--muted);
   padding: 16px;
+}
+
+@media (max-width: 760px) {
+  .shipping-shipment-staging-controls {
+    grid-template-columns: 1fr;
+  }
 }
 
 .shipping-queue-row,

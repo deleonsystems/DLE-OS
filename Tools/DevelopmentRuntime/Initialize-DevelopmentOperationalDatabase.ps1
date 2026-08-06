@@ -23,7 +23,9 @@ $migrationPaths = @(
     'Tools\WorkOrderApproval\Database\001_AddSalesOrderLineWorkOrderDecision.sql',
     'Tools\WorkOrderApproval\Database\002_AddGovernedDecisionReasons.sql',
     'Tools\WorkOrderApproval\Database\003_AddNoWorkOrderRequiredDecision.sql',
-    'Tools\KittingDisposition\Database\001_AddKittingDispositionEvent.sql'
+    'Tools\KittingDisposition\Database\001_AddKittingDispositionEvent.sql',
+    'Tools\ShipmentStaging\Database\001_AddOperationalShipmentStaging.sql',
+    'Tools\ShipmentStaging\Database\002_AddShipmentQuantityBaseline.sql'
 )
 
 function Open-Connection([string] $ConnectionString) {

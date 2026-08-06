@@ -18,6 +18,8 @@
   let dispositionRequestId = 0;
   let operationalStateSubscription = null;
   const kittedBomEndpoint = '/api/development/kitting-documents/v1/work-orders/';
+  const releasedBomPrototypeWorkOrder = '0115621';
+  const releasedBomPrototypePath = '/Artifacts/WorkOrderReleasedBom004/WORKORDER-RELEASED-BOM-004/index.html';
 
   const dashboardViews = {
     standard: ['overview', 'scheduled-releases', 'manufacturing-documents', 'module-placeholder'],
@@ -127,6 +129,7 @@
     syncScheduledReleasesCollapseState();
     renderSelectedWorkOrderSummary();
     renderRelatedWorkOrders();
+    renderReleasedBomControl();
     renderKittedBomEvidenceControl();
     renderKittingDisposition();
     if (currentView === 'kitting') {
@@ -140,6 +143,47 @@
     dispositionReview = null;
     dispositionHistory = [];
     dispositionState = 'idle';
+  }
+
+  function normalizeReleasedBomWorkOrder(value) {
+    const workOrder = cleanText(value);
+    if (!/^\d{6,7}$/.test(workOrder)) return '';
+    return workOrder.padStart(7, '0');
+  }
+
+  function getSelectedReleasedBomWorkOrder() {
+    return normalizeReleasedBomWorkOrder(
+      selectedWorkOrder?.workOrderNumber || selectedWorkOrder?.official?.workOrder
+    );
+  }
+
+  function isReleasedBomPrototypeAvailable() {
+    return window.location.port === '5051' && currentView === 'kitting' &&
+      getSelectedReleasedBomWorkOrder() === releasedBomPrototypeWorkOrder;
+  }
+
+  function renderReleasedBomControl() {
+    const button = document.getElementById('workOrderDashboardReleasedBom');
+    if (!button) return;
+    const inDevelopmentKittingView = window.location.port === '5051' && currentView === 'kitting';
+    const available = isReleasedBomPrototypeAvailable();
+    button.hidden = !inDevelopmentKittingView;
+    button.disabled = !available;
+    setText('workOrderDashboardReleasedBomLabel', available
+      ? 'View Released BOM' : 'Released BOM prototype not yet available');
+    setText('workOrderDashboardReleasedBomMessage', available
+      ? 'WO 0115621 · 52 components · 48 messages · read only'
+      : 'Available only for canonical WO 0115621 in development Kitting view.');
+  }
+
+  function openReleasedBomPrototype() {
+    if (!isReleasedBomPrototypeAvailable()) return false;
+    const reportUrl = new URL(releasedBomPrototypePath, window.location.origin);
+    reportUrl.searchParams.set('source', '5051-kitting');
+    reportUrl.searchParams.set('workOrder', releasedBomPrototypeWorkOrder);
+    reportUrl.searchParams.set('return', window.location.pathname + window.location.search + window.location.hash);
+    window.location.assign(reportUrl.href);
+    return true;
   }
 
   async function ensureKittingDisposition(force = false) {
@@ -654,6 +698,8 @@
   window.WorkOrderDashboardModule.returnToKitting = returnToKittingWorkspace;
   window.WorkOrderDashboardModule.openKittedBom = openKittedBomDocument;
   window.WorkOrderDashboardModule.openKittingDisposition = openKittingDispositionDialog;
+  window.WorkOrderDashboardModule.openReleasedBom = openReleasedBomPrototype;
+  window.WorkOrderDashboardModule.normalizeReleasedBomWorkOrder = normalizeReleasedBomWorkOrder;
   window.WorkOrderDashboardModule.getCurrentView = () => currentView;
   window.WorkOrderDashboardModule.getSelectedHandoff = () => selectedWorkOrder;
   window.WorkOrderDashboardModule.supportedViews = Object.freeze(Array.from(supportedDashboardViews));
@@ -666,6 +712,7 @@
   window.renderWorkOrderDashboardModule = renderWorkOrderDashboardModule;
   window.returnToKittingWorkspace = returnToKittingWorkspace;
   window.openWorkOrderDashboardKittedBom = openKittedBomDocument;
+  window.openWorkOrderDashboardReleasedBom = openReleasedBomPrototype;
   window.openWorkOrderDashboardDispositionDialog = openKittingDispositionDialog;
   window.updateWorkOrderDashboardDispositionDialog = updateKittingDispositionDialog;
   window.closeWorkOrderDashboardDispositionDialog = closeKittingDispositionDialog;

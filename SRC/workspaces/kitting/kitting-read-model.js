@@ -30,6 +30,7 @@
     const rmaAwarenessByWorkOrder = new Map();
     const rmaGroups = new Map();
     const directFulfillmentLines = [];
+    const shipmentReconciliationLines = [];
 
     lines.forEach(line => {
       const approvalReview = approvalsByLineKey.get(line.lineKey);
@@ -61,6 +62,13 @@
           awareness.push({ ...line, authority, rmaReworkCase: rmaMembership });
           rmaAwarenessByWorkOrder.set(authority.workOrderNumber, awareness);
         }
+        return;
+      }
+      if (line.shipmentOperationalRoute === "SHIPMENT_RECONCILIATION" &&
+          parseQuantity(line.operationalQuantityOpen) <= 0) {
+        shipmentReconciliationLines.push({ ...line, authority,
+          operationalRoute: "SHIPMENT_RECONCILIATION",
+          operationalStatus: "SHIPPED_AWAITING_ERP_EVIDENCE" });
         return;
       }
       if (cleanText(operational?.operationalRoute) === "DIRECT_FULFILLMENT" &&
@@ -116,7 +124,8 @@
       kitComplete,
       rmaRework
     };
-    const counts = buildCounts(lines, queues, rmaReworkByLineKey, directFulfillmentLines);
+    const counts = buildCounts(lines, queues, rmaReworkByLineKey, directFulfillmentLines,
+      shipmentReconciliationLines);
 
     return Object.freeze({
       generatedAt: new Date().toISOString(),
@@ -124,6 +133,7 @@
       primaryQueues: PRIMARY_QUEUES,
       readyRows: governedRows,
       directFulfillmentLines: Object.freeze(directFulfillmentLines.slice()),
+      shipmentReconciliationLines: Object.freeze(shipmentReconciliationLines.slice()),
       queues,
       counts
     });
@@ -134,6 +144,7 @@
     const rmaMemberships = asLookup(rmaReworkByLineKey);
     return Array.from(new Set((Array.isArray(lines) ? lines : []).map(normalizeLine)
       .filter(line => !rmaMemberships.has(line.lineKey))
+      .filter(line => parseQuantity(line.operationalQuantityOpen) > 0)
       .map(line => resolveLineAuthority(line, approvals.get(line.lineKey)))
       .filter(authority => authority.actionable && authority.workOrderNumber)
       .map(authority => authority.workOrderNumber)))
@@ -337,7 +348,7 @@
     });
   }
 
-  function buildCounts(lines, queues, rmaReworkByLineKey, directFulfillmentLines = []) {
+  function buildCounts(lines, queues, rmaReworkByLineKey, directFulfillmentLines = [], shipmentReconciliationLines = []) {
     const primaryRows = [
       ...queues.notClassified,
       ...queues.needsResolution,
@@ -362,6 +373,7 @@
       rmaReworkExcludedLines: queues.rmaRework.reduce(
         (total, row) => total + row.relatedOpenSalesOrderLineCount, 0),
       directFulfillmentExcludedLines: directFulfillmentLines.length,
+      shipmentReconciliationExcludedLines: shipmentReconciliationLines.length,
       uniqueGovernedWorkOrders: governed.length,
       exactWorkOrders: exact.length,
       approvedWorkOrders: approved.length,
@@ -407,6 +419,9 @@
       itemNumber: cleanText(line.itemNumber),
       quantityOrdered: parseQuantity(line.quantityOrdered),
       operationalQuantityOpen: parseQuantity(line.operationalQuantityOpen),
+      stagedQuantity: parseQuantity(line.stagedQuantity),
+      shipmentOperationalRoute: cleanText(line.shipmentOperationalRoute),
+      shipmentOperationalStatus: cleanText(line.shipmentOperationalStatus),
       dueDate: cleanText(line.dueDate),
       relationship: line.relationship || {},
       sourceRecord: line.sourceRecord || null
