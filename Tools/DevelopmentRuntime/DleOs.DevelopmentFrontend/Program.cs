@@ -1,4 +1,5 @@
 using DleOs.Security;
+using DleOs.TrustedIdentity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Server.HttpSys;
 using Microsoft.Data.SqlClient;
@@ -16,6 +17,8 @@ const string kittingDocumentRoute = "/api/development/kitting-documents/v1/work-
 const string kittingShortageRoot = @"\\deleon-server\Production\KITTING\KIT-SHORTAGES";
 const string kittingCompleteRoot = @"\\deleon-server\Production\KITTING\KIT-COMPLETE";
 const string requiredRuntimeIdentity = @"DLE-OS-HOST\DLE-OS";
+var identitySigningKeyPath = Environment.GetEnvironmentVariable(
+    "DLE_OS_IDENTITY_SIGNING_PRIVATE_KEY_PATH");
 
 if (!string.Equals(WindowsIdentity.GetCurrent().Name, requiredRuntimeIdentity,
         StringComparison.OrdinalIgnoreCase))
@@ -40,6 +43,9 @@ builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IIdentityResolver>(new SqlIdentityResolver(securityConnectionString));
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddSingleton<IIdentityAssertionIssuer>(_ =>
+    new Es256IdentityAssertionIssuer(
+        IdentityAssertionKeyLoader.LoadPrivateKey(identitySigningKeyPath ?? "")));
 builder.Services.AddDevelopmentCompatibilityProxy();
 
 var app = builder.Build();

@@ -47,7 +47,8 @@ assert.match(program, /authorizedOperator/);
 for (const action of ['approve', 'replace', 'approve-no-work-order',
   'replace-no-work-order', 'revoke']) assert.match(server, new RegExp('"' + action + '"'));
 assert.match(server, /RequireAuthorization\(policy\)/);
-assert.match(server, /context\.User\.Identity!\.Name/);
+assert.match(server, /TrustedDevelopmentIdentity\.RequireActorName\(context\)/,
+  'development decisions use the validated DLE-OS actor rather than the service account');
 assert.match(server, /SYSUTCDATETIME\(\)/);
 assert.doesNotMatch(server, /request\.ApprovedBy|request\.ApprovedAt/);
 assert.match(server, /stale_relationship_evidence/);

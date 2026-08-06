@@ -19,6 +19,7 @@ $evidencePath = Join-Path $evidenceDirectory '5051-service-worker-launch.json'
 $stdoutPath = Join-Path $evidenceDirectory '5051-authenticated.stdout.log'
 $stderrPath = Join-Path $evidenceDirectory '5051-authenticated.stderr.log'
 $protectedPorts = 5041,5042,5043,5052,5053
+$identityPrivateKeyPath = 'C:\ProgramData\DLE-OS\DevelopmentIdentity\Keys\issuer-private.pem'
 
 if ([Security.Principal.WindowsIdentity]::GetCurrent().Name -ine $requiredIdentity) {
     throw "Authenticated development frontend startup requires $requiredIdentity."
@@ -77,6 +78,10 @@ $evidence = [ordered]@{
 }
 
 try {
+    if (-not (Test-Path -LiteralPath $identityPrivateKeyPath -PathType Leaf)) {
+        throw 'The development identity assertion signing key is absent.'
+    }
+    $env:DLE_OS_IDENTITY_SIGNING_PRIVATE_KEY_PATH = $identityPrivateKeyPath
     $listenerPid = Get-ListenerPid 5051
     if ($null -ne $listenerPid) {
         $workers = @(Get-FrontendWorkers)

@@ -19,7 +19,7 @@ internal static class OperationalWorkOrderRelationshipCenter
                 string lineNumber, OperationalInterpretationRequest request, HttpContext context,
                 CancellationToken token) => await Execute(() => service.AppendAsync(
                     LineKey.Create(customerNumber, salesOrderNumber, lineNumber), request,
-                    context.User.Identity?.Name ?? "", token)))
+                    TrustedDevelopmentIdentity.RequireActorName(context), token)))
             .RequireAuthorization(policy);
     }
 

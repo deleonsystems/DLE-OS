@@ -38,7 +38,7 @@ internal static class WorkOrderApprovalCenter
                 await Execute(context, app.Logger, () => service.DecideAsync(
                     LineKey.Create(customerNumber, salesOrderNumber, lineNumber),
                     decisionAction, decisionClassification, request,
-                    context.User.Identity!.Name!, cancellationToken)))
+                    TrustedDevelopmentIdentity.RequireActorName(context), cancellationToken)))
             .RequireAuthorization(policy);
     }
 

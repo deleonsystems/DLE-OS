@@ -17,7 +17,7 @@ internal static class KittingDispositionCenter
         app.MapPost(Route + "/events", async (string workOrderNumber, KittingDispositionRequest request,
                 HttpContext context, CancellationToken token) =>
             await Execute(() => service.AppendAsync(workOrderNumber, request,
-                context.User.Identity?.Name ?? "", token))).RequireAuthorization(policy);
+                TrustedDevelopmentIdentity.RequireActorName(context), token))).RequireAuthorization(policy);
     }
 
     private static async Task<IResult> Execute(Func<Task<object>> operation)

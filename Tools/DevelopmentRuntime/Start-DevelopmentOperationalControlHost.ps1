@@ -27,6 +27,10 @@ $env:DLE_OS_ISOLATED_DEVELOPMENT = 'true'
 $env:DLE_OS_CONTROL_PREFIX = 'http://dle-os-host:5054'
 $env:DLE_OS_CANONICAL_API_BASE_URL = 'http://DLE-OS-HOST:5052'
 $env:DLE_OS_OPERATIONAL_CONNECTION_STRING = 'Server=lpc:.\SQLEXPRESS;Database=DLE_OS_OPERATIONAL_DEV;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;Connect Timeout=5;Application Intent=ReadWrite;'
+$env:DLE_OS_IDENTITY_SIGNING_PUBLIC_KEY_PATH = 'C:\ProgramData\DLE-OS\DevelopmentIdentity\Keys\validator-public.pem'
+if (-not (Test-Path -LiteralPath $env:DLE_OS_IDENTITY_SIGNING_PUBLIC_KEY_PATH -PathType Leaf)) {
+    throw 'The development identity assertion verification key is absent.'
+}
 $logRoot = 'C:\ProgramData\DLE-OS\DevelopmentOperationalControl\Logs'
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 $process = Start-Process -FilePath $exe -WorkingDirectory $runtime -WindowStyle Hidden -PassThru `

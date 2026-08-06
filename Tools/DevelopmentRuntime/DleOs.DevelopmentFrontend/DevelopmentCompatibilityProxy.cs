@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using DleOs.TrustedIdentity;
 
 public static class DevelopmentCompatibilityProxy
 {
@@ -7,13 +8,13 @@ public static class DevelopmentCompatibilityProxy
     private const long MaximumRequestBodyBytes = 2 * 1024 * 1024;
 
     private static readonly ProxyBoundary Canonical = new(
-        "canonical-read", new Uri("http://DLE-OS-HOST:5052"), [HttpMethods.Get]);
+        "canonical-read", new Uri("http://DLE-OS-HOST:5052"), [HttpMethods.Get], null);
     private static readonly ProxyBoundary Operational = new(
         "operational-development", new Uri("http://DLE-OS-HOST:5054"),
-        [HttpMethods.Get, HttpMethods.Post]);
+        [HttpMethods.Get, HttpMethods.Post], TrustedIdentityContract.OperationalAudience);
     private static readonly ProxyBoundary CustomerFiles = new(
         "customer-files-control", new Uri("http://DLE-OS-HOST:5053"),
-        [HttpMethods.Get, HttpMethods.Post]);
+        [HttpMethods.Get, HttpMethods.Post], null);
 
     public static void AddDevelopmentCompatibilityProxy(this IServiceCollection services)
     {
@@ -28,30 +29,36 @@ public static class DevelopmentCompatibilityProxy
     public static void MapDevelopmentCompatibilityProxy(this WebApplication app)
     {
         app.MapMethods("/api/platform/live/v1/{**path}", [HttpMethods.Get],
-            (HttpContext context, ICurrentUserContext users, IHttpClientFactory clients,
+            (HttpContext context, ICurrentUserContext users, IIdentityAssertionIssuer assertions,
+                IHttpClientFactory clients,
                 ILoggerFactory logs, CancellationToken token) =>
-                ForwardAsync(context, users, clients, logs, Canonical, token));
+                ForwardAsync(context, users, assertions, clients, logs, Canonical, token));
 
         MapOperational(app, "/api/work-order-approvals/{**path}");
         MapOperational(app, "/api/operational-work-order-relationships/{**path}");
         MapOperational(app, "/api/kitting-dispositions/{**path}");
         MapOperational(app, "/api/rma-rework/{**path}");
         MapOperational(app, "/api/shipment-staging/{**path}");
+        MapOperational(app, "/api/development/identity/{**path}");
+
         app.MapMethods("/api/customer-files/{**path}", [HttpMethods.Get, HttpMethods.Post],
-            (HttpContext context, ICurrentUserContext users, IHttpClientFactory clients,
+            (HttpContext context, ICurrentUserContext users, IIdentityAssertionIssuer assertions,
+                IHttpClientFactory clients,
                 ILoggerFactory logs, CancellationToken token) =>
-                ForwardAsync(context, users, clients, logs, CustomerFiles, token));
+                ForwardAsync(context, users, assertions, clients, logs, CustomerFiles, token));
     }
 
     private static void MapOperational(WebApplication app, string pattern) =>
         app.MapMethods(pattern, [HttpMethods.Get, HttpMethods.Post],
-            (HttpContext context, ICurrentUserContext users, IHttpClientFactory clients,
+            (HttpContext context, ICurrentUserContext users, IIdentityAssertionIssuer assertions,
+                IHttpClientFactory clients,
                 ILoggerFactory logs, CancellationToken token) =>
-                ForwardAsync(context, users, clients, logs, Operational, token));
+                ForwardAsync(context, users, assertions, clients, logs, Operational, token));
 
     private static async Task ForwardAsync(
         HttpContext context,
         ICurrentUserContext currentUsers,
+        IIdentityAssertionIssuer assertions,
         IHttpClientFactory clientFactory,
         ILoggerFactory loggerFactory,
         ProxyBoundary boundary,
@@ -94,6 +101,19 @@ public static class DevelopmentCompatibilityProxy
         using var request = new HttpRequestMessage(new HttpMethod(context.Request.Method), downstreamUri);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Headers.TryAddWithoutValidation("X-DLE-OS-Correlation-ID", correlationId);
+        if (boundary.Audience is not null)
+        {
+            var assertion = assertions.Issue(new IdentityAssertionIssueRequest(
+                current.User.UserId,
+                current.User.UserName,
+                current.User.DisplayName,
+                current.User.Roles.Select(role => role.RoleCode).ToArray(),
+                current.User.IsSuperAdmin,
+                boundary.Audience,
+                TrustedIdentityContract.DevelopmentEnvironment,
+                correlationId));
+            request.Headers.TryAddWithoutValidation(TrustedIdentityContract.HeaderName, assertion);
+        }
         if (context.Request.ContentLength is > 0)
         {
             request.Content = new StreamContent(context.Request.Body);
@@ -153,5 +173,6 @@ public static class DevelopmentCompatibilityProxy
     private sealed record ProxyBoundary(
         string Name,
         Uri BaseAddress,
-        string[] Methods);
+        string[] Methods,
+        string? Audience);
 }

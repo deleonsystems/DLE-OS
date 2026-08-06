@@ -13,7 +13,7 @@ internal static class ShipmentStagingCenter
         var service = new ShipmentStagingService();
         app.MapPost(BaseRoute + "/shipments", async (ShipmentStagingCreateRequest request,
                 HttpContext context, CancellationToken token) => await Execute(context,
-                () => service.CreateAsync(request, context.User.Identity?.Name ?? "", token)))
+                () => service.CreateAsync(request, TrustedDevelopmentIdentity.RequireActorName(context), token)))
             .RequireAuthorization(policy);
         app.MapGet(BaseRoute + "/shipments", async (string? status, string? customerNumber,
                 string? salesOrderNumber, string? lineNumber, int? page, int? pageSize,
@@ -31,31 +31,31 @@ internal static class ShipmentStagingCenter
             .RequireAuthorization(policy);
         app.MapPost(BaseRoute + "/reconciliation/run", async (ShipmentReconciliationRequest request,
                 HttpContext context, CancellationToken token) => await Execute(context,
-                () => service.ReconcileAsync(request, context.User.Identity?.Name ?? "", token)))
+                () => service.ReconcileAsync(request, TrustedDevelopmentIdentity.RequireActorName(context), token)))
             .RequireAuthorization(policy);
         app.MapPost(BaseRoute + "/shipments/{shipmentStagingId:guid}/confirm-match",
                 async (Guid shipmentStagingId, ShipmentMatchDecisionRequest request,
                     HttpContext context, CancellationToken token) => await Execute(context,
                     () => service.DecideAsync(shipmentStagingId, "CONFIRM_MATCH", request,
-                        context.User.Identity?.Name ?? "", token)))
+                        TrustedDevelopmentIdentity.RequireActorName(context), token)))
             .RequireAuthorization(policy);
         app.MapPost(BaseRoute + "/shipments/{shipmentStagingId:guid}/reject-match",
                 async (Guid shipmentStagingId, ShipmentMatchDecisionRequest request,
                     HttpContext context, CancellationToken token) => await Execute(context,
                     () => service.DecideAsync(shipmentStagingId, "REJECT_MATCH", request,
-                        context.User.Identity?.Name ?? "", token)))
+                        TrustedDevelopmentIdentity.RequireActorName(context), token)))
             .RequireAuthorization(policy);
         app.MapPost(BaseRoute + "/shipments/{shipmentStagingId:guid}/mark-exception",
                 async (Guid shipmentStagingId, ShipmentMatchDecisionRequest request,
                     HttpContext context, CancellationToken token) => await Execute(context,
                     () => service.DecideAsync(shipmentStagingId, "MARK_EXCEPTION", request,
-                        context.User.Identity?.Name ?? "", token)))
+                        TrustedDevelopmentIdentity.RequireActorName(context), token)))
             .RequireAuthorization(policy);
         app.MapPost(BaseRoute + "/shipments/{shipmentStagingId:guid}/cancel",
                 async (Guid shipmentStagingId, ShipmentMatchDecisionRequest request,
                     HttpContext context, CancellationToken token) => await Execute(context,
                     () => service.DecideAsync(shipmentStagingId, "CANCEL_SHIPMENT", request,
-                        context.User.Identity?.Name ?? "", token)))
+                        TrustedDevelopmentIdentity.RequireActorName(context), token)))
             .RequireAuthorization(policy);
     }
 

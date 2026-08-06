@@ -22,6 +22,11 @@ internal static class ControlHostRuntimeConfiguration
         Environment.GetEnvironmentVariable("DLE_OS_CONTROL_PREFIX") ??
         "http://dle-os-host:5043";
 
+    internal static string IdentityAssertionPublicKeyPath =>
+        Environment.GetEnvironmentVariable("DLE_OS_IDENTITY_SIGNING_PUBLIC_KEY_PATH") ??
+        throw new InvalidOperationException(
+            "The development identity assertion verification key is not configured.");
+
     internal static string OperationalDatabaseName =>
         new SqlConnectionStringBuilder(OperationalConnectionString).InitialCatalog;
 }

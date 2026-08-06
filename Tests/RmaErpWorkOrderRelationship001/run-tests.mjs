@@ -46,7 +46,8 @@ assert.match(server, /PredatesCurrentOccurrence/);
 assert.match(server, /ExpectedPriorEventId/);
 assert.match(server, /interpretation_changed/);
 assert.match(server, /authenticated_identity_required/);
-assert.match(server, /context\.User\.Identity/);
+assert.match(server, /TrustedDevelopmentIdentity\.RequireActorName\(context\)/,
+  'operational interpretations use the validated DLE-OS actor rather than the service account');
 assert.match(server, /RequireAuthorization\(policy\)/);
 assert.match(server, /BeginTransactionAsync\(\s*IsolationLevel\.Serializable/);
 assert.doesNotMatch(server, /UPDATE canonical\.|DELETE FROM canonical\.|INSERT canonical\./);
@@ -86,7 +87,10 @@ class QualificationCustomEvent extends Event {
 }
 const eventDocument = new EventTarget();
 const eventWindow = {
-  location: { protocol: 'http:', hostname: '127.0.0.1', port: '5051' },
+  location: {
+    protocol: 'http:', hostname: '127.0.0.1', port: '5051',
+    origin: 'http://127.0.0.1:5051'
+  },
   localStorage: { getItem(){ return null; }, setItem(){} }
 };
 const eventContext = {

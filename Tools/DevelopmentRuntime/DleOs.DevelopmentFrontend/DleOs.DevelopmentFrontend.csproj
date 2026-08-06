@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\SecurityFoundation\DleOs.Security\DleOs.Security.csproj" />
+    <ProjectReference Include="..\..\TrustedIdentity\DleOs.TrustedIdentity\DleOs.TrustedIdentity.csproj" />
   </ItemGroup>
 </Project>

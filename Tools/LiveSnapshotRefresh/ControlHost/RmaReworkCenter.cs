@@ -21,7 +21,7 @@ internal static class RmaReworkCenter
             .RequireAuthorization(policy);
         app.MapPost(BaseRoute + "/cases", async (RmaReworkCreateRequest request, HttpContext context,
                 CancellationToken token) => await Execute(() => service.CreateAsync(
-                request, context.User.Identity?.Name ?? "", token)))
+                request, TrustedDevelopmentIdentity.RequireActorName(context), token)))
             .RequireAuthorization(policy);
         app.MapGet(BaseRoute + "/cases", async (string? status, string? customerNumber,
                 string? salesOrderNumber, string? lineNumber, int? page, int? pageSize,
@@ -35,7 +35,7 @@ internal static class RmaReworkCenter
         app.MapPost(BaseRoute + "/cases/{caseId:guid}/members", async (Guid caseId,
                 RmaReworkAddMemberRequest request, HttpContext context, CancellationToken token) =>
             await Execute(() => service.AddMemberAsync(caseId, request,
-                context.User.Identity?.Name ?? "", token))).RequireAuthorization(policy);
+                TrustedDevelopmentIdentity.RequireActorName(context), token))).RequireAuthorization(policy);
     }
 
     private static async Task<IResult> Execute(Func<Task<object>> action)
