@@ -4,261 +4,125 @@ param()
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$repository = (Resolve-Path -LiteralPath (
-    Join-Path $PSScriptRoot '..\..')).Path
-$projectDirectory = Join-Path $repository (
-    'Tools\DevelopmentRuntime\DleOs.DevelopmentFrontend')
+$requiredIdentity = 'DLE-OS-HOST\DLE-OS'
+$repository = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+$projectDirectory = Join-Path $repository 'Tools\DevelopmentRuntime\DleOs.DevelopmentFrontend'
 $project = Join-Path $projectDirectory 'DleOs.DevelopmentFrontend.csproj'
-$runtime = Join-Path $projectDirectory 'bin\Release\net8.0'
+$runtime = Join-Path $projectDirectory 'bin\Release\net8.0-windows'
 $assembly = Join-Path $runtime 'DleOs.DevelopmentFrontend.dll'
-$runtimeSettings = Join-Path $runtime 'appsettings.json'
-$dotnetCommand = Get-Command dotnet.exe -ErrorAction Stop
-$dotnet = $dotnetCommand.Source
-$binding = 'http://0.0.0.0:5051'
-$healthUri = 'http://localhost:5051/'
+$dotnet = (Get-Command dotnet.exe -ErrorAction Stop).Source
+$binding = 'http://dle-os-host:5051'
+$rootUri = "$binding/"
+$identityUri = "$binding/api/auth/me"
 $evidenceDirectory = Join-Path $repository '.tmp\development-runtime'
-$evidencePath = Join-Path $evidenceDirectory '5051-launch.json'
-$startupLogPath = Join-Path $evidenceDirectory '5051-startup.log'
-$developmentIndicator = 'DEVELOPMENT ' + [char]0x2014 + ' READ ONLY'
+$evidencePath = Join-Path $evidenceDirectory '5051-service-worker-launch.json'
+$stdoutPath = Join-Path $evidenceDirectory '5051-authenticated.stdout.log'
+$stderrPath = Join-Path $evidenceDirectory '5051-authenticated.stderr.log'
+$protectedPorts = 5041,5042,5043,5052,5053
 
-if (-not (Test-Path -LiteralPath $project -PathType Leaf)) {
-    throw "Development Frontend project is absent: $project"
+if ([Security.Principal.WindowsIdentity]::GetCurrent().Name -ine $requiredIdentity) {
+    throw "Authenticated development frontend startup requires $requiredIdentity."
 }
 
-function Get-ListenerProcessIds {
-    param([int] $Port)
+function Get-ListenerPid([int] $Port) {
+    $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue)
+    if ($listeners.Count -eq 0) { return $null }
+    $ids = @($listeners.OwningProcess | Sort-Object -Unique)
+    if ($ids.Count -ne 1) { throw "Port $Port has multiple listener owners." }
+    return [int]$ids[0]
+}
 
-    $rows = netstat.exe -ano -p tcp |
-        Select-String -Pattern (
-            '^\s*TCP\s+\S+:' + $Port +
-            '\s+\S+\s+LISTENING\s+\d+\s*$')
+function Get-FrontendWorkers {
     return @(
-        $rows |
-            ForEach-Object { [int]((-split $_.Line)[-1]) } |
-            Sort-Object -Unique
+        Get-CimInstance Win32_Process -Filter "Name='dotnet.exe'" -ErrorAction SilentlyContinue |
+            Where-Object {
+                -not [string]::IsNullOrWhiteSpace($_.CommandLine) -and
+                $_.CommandLine.IndexOf($assembly,[StringComparison]::OrdinalIgnoreCase) -ge 0
+            }
     )
 }
 
-function Get-ProcessRecord {
-    param([int] $ProcessId)
-
-    return Get-CimInstance Win32_Process `
-        -Filter "ProcessId=$ProcessId" `
-        -ErrorAction Stop
+function Get-ProtectedSnapshot {
+    $snapshot = [ordered]@{}
+    foreach ($port in $protectedPorts) { $snapshot[[string]$port] = Get-ListenerPid $port }
+    return $snapshot
 }
 
-function Test-ApprovedFrontendProcess {
-    param($ProcessRecord)
-
-    if ($null -eq $ProcessRecord) { return $false }
-    if ($ProcessRecord.Name -ine 'dotnet.exe') { return $false }
-    if ([string]::IsNullOrWhiteSpace($ProcessRecord.CommandLine)) {
-        return $false
+function Test-ServiceIdentitySeparation {
+    $status = $null
+    try {
+        Invoke-WebRequest -UseBasicParsing -UseDefaultCredentials -Uri $identityUri `
+            -TimeoutSec 15 -ErrorAction Stop | Out-Null
+        throw 'The service identity unexpectedly received a DLE-OS application identity.'
     }
-    return $ProcessRecord.CommandLine.IndexOf(
-        $assembly,
-        [StringComparison]::OrdinalIgnoreCase) -ge 0
-}
-
-function Test-FrontendHealth {
-    $lastError = $null
-    for ($attempt = 0; $attempt -lt 12; $attempt++) {
-        try {
-            $response = Invoke-WebRequest `
-                -Uri $healthUri `
-                -UseBasicParsing `
-                -TimeoutSec 10
-            $cacheControl = [string]$response.Headers['Cache-Control']
-            $pragma = [string]$response.Headers['Pragma']
-            $response.RawContentStream.Position = 0
-            $reader = [IO.StreamReader]::new(
-                $response.RawContentStream,
-                [Text.Encoding]::UTF8,
-                $true,
-                4096,
-                $true)
-            try {
-                $content = $reader.ReadToEnd()
-            }
-            finally {
-                $reader.Dispose()
-            }
-            if ($response.StatusCode -ne 200) {
-                throw "Unexpected HTTP status $($response.StatusCode)."
-            }
-            if ($cacheControl -notmatch 'no-store') {
-                throw 'The response is missing the no-store cache directive.'
-            }
-            if ($pragma -notmatch 'no-cache') {
-                throw 'The response is missing the no-cache pragma.'
-            }
-            if (-not $content.Contains($developmentIndicator)) {
-                throw 'The development read-only indicator is absent.'
-            }
-            return [ordered]@{
-                StatusCode = [int]$response.StatusCode
-                CacheControl = $cacheControl
-                Pragma = $pragma
-                Expires = [string]$response.Headers['Expires']
-                DevelopmentIndicator = $developmentIndicator
-            }
-        }
-        catch {
-            $lastError = $_.Exception.Message
-            Write-StartupLog (
-                "Health attempt $($attempt + 1) failed: $lastError")
-            Start-Sleep -Milliseconds 250
-        }
+    catch {
+        if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode.value__ }
+        if ($status -ne 403) { throw }
     }
-    throw "Development Frontend health check failed: $lastError"
+    return [ordered]@{
+        StatusCode = $status
+        ServiceIdentityIsNotProvisioned = $true
+    }
 }
 
 New-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null
-Set-Content `
-    -LiteralPath $startupLogPath `
-    -Value ("{0} Launcher started." -f [DateTimeOffset]::UtcNow.ToString('O')) `
-    -Encoding utf8
-
-function Write-StartupLog {
-    param([string] $Message)
-
-    Add-Content `
-        -LiteralPath $startupLogPath `
-        -Value ("{0} {1}" -f [DateTimeOffset]::UtcNow.ToString('O'), $Message) `
-        -Encoding utf8
-}
-
+$protectedBefore = Get-ProtectedSnapshot
 $evidence = [ordered]@{
     Verdict = 'FAIL'
-    CheckedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
-    Repository = $repository
-    Assembly = $assembly
-    Binding = $binding
-    HealthUri = $healthUri
+    StartedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
     Identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    BuildPerformed = $false
-    StartedNewProcess = $false
+    Binding = $binding
+    Authentication = 'HTTP.sys Negotiate + NTLM; anonymous disabled'
+    ProtectedBefore = $protectedBefore
 }
-$startedProcess = $null
 
 try {
-    $listenerPids = @(Get-ListenerProcessIds -Port 5051)
-    if ($listenerPids.Count -gt 1) {
-        throw 'Port 5051 has more than one listener owner.'
-    }
-    if ($listenerPids.Count -eq 1) {
-        $existingProcess = Get-ProcessRecord -ProcessId $listenerPids[0]
-        if (-not (Test-ApprovedFrontendProcess $existingProcess)) {
-            throw (
-                'Port 5051 is owned by an unrelated process. ' +
-                "PID: $($listenerPids[0]).")
+    $listenerPid = Get-ListenerPid 5051
+    if ($null -ne $listenerPid) {
+        $workers = @(Get-FrontendWorkers)
+        if ($listenerPid -ne 4 -or $workers.Count -ne 1) {
+            throw 'Port 5051 is not owned by the authenticated HTTP.sys development frontend.'
         }
-        $evidence.ProcessId = [int]$listenerPids[0]
+        $evidence.ProcessId = [int]$workers[0].ProcessId
+        $evidence.HttpSysListenerPid = 4
         $evidence.AlreadyRunning = $true
-        Write-StartupLog (
-            "Approved process $($listenerPids[0]) already owns port 5051.")
-        $evidence.Health = Test-FrontendHealth
-        $evidence.Verdict = 'PASS'
-        $evidence |
-            ConvertTo-Json -Depth 6 |
-            Set-Content -LiteralPath $evidencePath -Encoding utf8
-        Write-StartupLog 'Existing process health check passed.'
-        Write-Host (
-            'Development Frontend is already running on port 5051 ' +
-            "(PID $($listenerPids[0])).")
-        [pscustomobject]$evidence
-        exit 0
+        $evidence.ServiceIdentityBoundary = Test-ServiceIdentitySeparation
     }
-
-    $buildRequired = -not (
-        (Test-Path -LiteralPath $assembly -PathType Leaf) -and
-        (Test-Path -LiteralPath $runtimeSettings -PathType Leaf))
-    if (-not $buildRequired) {
-        $assemblyTime = (Get-Item -LiteralPath $assembly).LastWriteTimeUtc
-        $sourceInputs = Get-ChildItem `
-            -LiteralPath $projectDirectory `
-            -Recurse `
-            -File |
-            Where-Object {
-                $_.FullName -notmatch '[\\/](bin|obj)[\\/]' -and
-                $_.Extension -in '.cs', '.csproj', '.json'
-            }
-        $buildRequired = $null -ne (
-            $sourceInputs |
-                Where-Object { $_.LastWriteTimeUtc -gt $assemblyTime } |
-                Select-Object -First 1)
-    }
-
-    if ($buildRequired) {
-        & $dotnet build $project --configuration Release --nologo
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Development Frontend Release build failed.'
+    else {
+        if (-not (Test-Path -LiteralPath $assembly -PathType Leaf)) {
+            throw 'The authenticated development frontend Release assembly is absent.'
         }
-        $evidence.BuildPerformed = $true
-    }
-    if (-not (Test-Path -LiteralPath $assembly -PathType Leaf)) {
-        throw "Development Frontend assembly is absent: $assembly"
-    }
-    if (-not (Test-Path -LiteralPath $runtimeSettings -PathType Leaf)) {
-        throw "Development Frontend settings are absent: $runtimeSettings"
-    }
-
-    $listenerPids = @(Get-ListenerProcessIds -Port 5051)
-    if ($listenerPids.Count -ne 0) {
-        throw 'Port 5051 became occupied during startup preparation.'
-    }
-
-    $startInfo = [Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $dotnet
-    $startInfo.Arguments = (
-        '"{0}" --contentRoot "{1}" --urls {2}' -f
-            $assembly,
-            $runtime,
-            $binding)
-    $startInfo.WorkingDirectory = $runtime
-    $startInfo.UseShellExecute = $true
-    $startInfo.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
-    Write-StartupLog 'Starting detached process.'
-    $startedProcess = [Diagnostics.Process]::Start($startInfo)
-    if ($null -eq $startedProcess) {
-        throw 'Windows did not return the Development Frontend process.'
-    }
-    Write-StartupLog "Process $($startedProcess.Id) created."
-    $evidence.ProcessId = $startedProcess.Id
-    $evidence.StartedNewProcess = $true
-    $evidence.Health = Test-FrontendHealth
-    Write-StartupLog 'Health check passed.'
-
-    $listenerPids = @(Get-ListenerProcessIds -Port 5051)
-    if (
-        $listenerPids.Count -ne 1 -or
-        $listenerPids[0] -ne $startedProcess.Id
-    ) {
-        throw 'The launched process does not exclusively own port 5051.'
-    }
-    if (@(Get-ListenerProcessIds -Port 5000) -contains $startedProcess.Id) {
-        throw 'The launched process unexpectedly owns port 5000.'
+        $process = Start-Process -FilePath $dotnet -ArgumentList @(
+            "`"$assembly`"", '--contentRoot', "`"$runtime`"") -WorkingDirectory $runtime `
+            -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `
+            -WindowStyle Hidden -PassThru
+        for ($attempt=0; $attempt -lt 60; $attempt++) {
+            Start-Sleep -Milliseconds 250
+            if ((Get-ListenerPid 5051) -eq 4) { break }
+            $process.Refresh()
+            if ($process.HasExited) { throw "Frontend exited during startup. See $stderrPath" }
+        }
+        if ((Get-ListenerPid 5051) -ne 4) { throw 'HTTP.sys did not bind development port 5051.' }
+        $evidence.ProcessId = $process.Id
+        $evidence.HttpSysListenerPid = 4
+        $evidence.AlreadyRunning = $false
+        $evidence.ServiceIdentityBoundary = Test-ServiceIdentitySeparation
     }
 
-    $evidence.AlreadyRunning = $false
+    $protectedAfter = Get-ProtectedSnapshot
+    $evidence.ProtectedAfter = $protectedAfter
+    if (($protectedBefore | ConvertTo-Json -Compress) -ne ($protectedAfter | ConvertTo-Json -Compress)) {
+        throw 'A protected listener changed during development frontend startup.'
+    }
     $evidence.Verdict = 'PASS'
-    $evidence |
-        ConvertTo-Json -Depth 6 |
-            Set-Content -LiteralPath $evidencePath -Encoding utf8
-    Write-StartupLog 'Launcher completed successfully.'
-    [pscustomobject]$evidence
 }
 catch {
     $evidence.Error = $_.Exception.Message
-    $evidence |
-        ConvertTo-Json -Depth 6 |
-            Set-Content -LiteralPath $evidencePath -Encoding utf8
-    Write-StartupLog ("Launcher failed: {0}" -f $_.Exception.Message)
-    if ($null -ne $startedProcess -and -not $startedProcess.HasExited) {
-        Stop-Process `
-            -Id $startedProcess.Id `
-            -Force `
-            -ErrorAction SilentlyContinue
-    }
     throw
 }
+finally {
+    $evidence.CompletedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
+    $evidence | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $evidencePath -Encoding utf8
+}
+
+[pscustomobject]$evidence

@@ -18,13 +18,15 @@
     canonicalBillsOfMaterial: '/api/platform/v1/bills-of-material',
     canonicalGeneralLedgerAccounts: '/api/platform/v1/general-ledger-accounts'
   });
-  const DEVELOPMENT_LIVE_CANONICAL_BASE_URL =
-    window.location.protocol + '//' + window.location.hostname + ':5052';
+  const DEVELOPMENT_BFF_BASE_URL = window.location.origin;
+  const DEVELOPMENT_LIVE_CANONICAL_BASE_URL = DEVELOPMENT_BFF_BASE_URL;
   const LIVE_CANONICAL_BASE_URL = window.location.port === '5051'
     ? DEVELOPMENT_LIVE_CANONICAL_BASE_URL
     : 'http://DLE-OS-HOST:5042';
   const LIVE_SNAPSHOT_REFRESH_BASE_URL = normalizeRuntimeBaseUrl(
-    window.DleOsRuntimeConfig?.operationalControlBaseUrl || 'http://DLE-OS-HOST:5043'
+    window.location.port === '5051'
+      ? DEVELOPMENT_BFF_BASE_URL
+      : window.DleOsRuntimeConfig?.operationalControlBaseUrl || 'http://DLE-OS-HOST:5043'
   );
 
   function normalizeRuntimeBaseUrl(value) {
@@ -35,7 +37,9 @@
     }
     return url.origin;
   }
-  const CUSTOMER_FILES_CONTROL_BASE_URL = 'http://DLE-OS-HOST:5053';
+  const CUSTOMER_FILES_CONTROL_BASE_URL = window.location.port === '5051'
+    ? DEVELOPMENT_BFF_BASE_URL
+    : 'http://DLE-OS-HOST:5053';
   const SHIPMENT_HISTORY_PATH = 'DATA/shipment-history/shipment-history.json';
   const LIVE_CANONICAL_ENDPOINTS = Object.freeze({
     platformReadiness: '/api/platform/live/v1/readiness',

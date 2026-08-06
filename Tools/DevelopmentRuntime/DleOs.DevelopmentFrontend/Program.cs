@@ -1,19 +1,51 @@
-using Microsoft.AspNetCore.StaticFiles;
+using DleOs.Security;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Server.HttpSys;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.StaticFiles;
 using System.Text.Json;
+using System.Security.Principal;
 
-var builder = WebApplication.CreateBuilder(args);
-var app = builder.Build();
 const string repository = @"C:\DLE-OS\Repositories\DLE-OS";
-var provider = new PhysicalFileProvider(repository);
-var contentTypes = new FileExtensionContentTypeProvider();
+const string frontendPrefix = "http://dle-os-host:5051";
+const string securityConnectionString =
+    @"Server=lpc:.\SQLEXPRESS;Database=DLE_OS_SECURITY_DEV;Integrated Security=True;" +
+    "Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadOnly;";
 const string kittingDocumentRoute = "/api/development/kitting-documents/v1/work-orders";
 const string kittingShortageRoot = @"\\deleon-server\Production\KITTING\KIT-SHORTAGES";
 const string kittingCompleteRoot = @"\\deleon-server\Production\KITTING\KIT-COMPLETE";
+const string requiredRuntimeIdentity = @"DLE-OS-HOST\DLE-OS";
+
+if (!string.Equals(WindowsIdentity.GetCurrent().Name, requiredRuntimeIdentity,
+        StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException(
+        $"The authenticated development BFF must run as {requiredRuntimeIdentity}.");
+
+var sqlBoundary = new SqlConnectionStringBuilder(securityConnectionString);
+if (!string.Equals(sqlBoundary.InitialCatalog, "DLE_OS_SECURITY_DEV", StringComparison.Ordinal) ||
+    sqlBoundary.InitialCatalog.Contains("LIVE", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("The development frontend security database boundary is invalid.");
+
+var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseHttpSys(options =>
+{
+    options.UrlPrefixes.Add(frontendPrefix);
+    options.Authentication.Schemes =
+        AuthenticationSchemes.Negotiate | AuthenticationSchemes.NTLM;
+    options.Authentication.AllowAnonymous = false;
+});
+builder.Services.AddAuthentication(HttpSysDefaults.AuthenticationScheme);
+builder.Services.AddAuthorization();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IIdentityResolver>(new SqlIdentityResolver(securityConnectionString));
+builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddDevelopmentCompatibilityProxy();
+
+var app = builder.Build();
+var provider = new PhysicalFileProvider(repository);
+var contentTypes = new FileExtensionContentTypeProvider();
 var kittingDocuments = new KittingDocumentService(kittingShortageRoot, kittingCompleteRoot);
-var operationalControlBaseUrl = builder.Configuration["DleOs:OperationalControlBaseUrl"] ??
-    Environment.GetEnvironmentVariable("DLE_OS_OPERATIONAL_CONTROL_BASE_URL") ??
-    "http://DLE-OS-HOST:5054";
 app.Lifetime.ApplicationStopped.Register(provider.Dispose);
 
 void NoStore(HttpResponse response)
@@ -23,50 +55,113 @@ void NoStore(HttpResponse response)
     response.Headers.Expires = "0";
 }
 
-app.MapGet("/", (HttpContext context) =>
+app.UseAuthentication();
+app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Equals("/api/auth/me", StringComparison.OrdinalIgnoreCase))
+    {
+        await next();
+        return;
+    }
+
+    var currentUser = await context.RequestServices
+        .GetRequiredService<ICurrentUserContext>()
+        .ResolveAsync(context.RequestAborted);
+    if (currentUser.Status == CurrentUserStatus.Active)
+    {
+        await next();
+        return;
+    }
+
+    NoStore(context.Response);
+    var denied = CurrentUserResponseFactory.Create(currentUser);
+    context.Response.StatusCode = denied.StatusCode;
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(denied.Body, context.RequestAborted);
+    }
+    else
+    {
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.WriteAsync(
+            DevelopmentIdentityUi.AccessStateDocument(denied.Code),
+            context.RequestAborted);
+    }
+});
+
+app.MapGet("/api/auth/me", async (
+    HttpContext context,
+    ICurrentUserContext currentUserContext,
+    ILoggerFactory loggerFactory) =>
 {
     NoStore(context.Response);
+    var currentUser = await currentUserContext.ResolveAsync(context.RequestAborted);
+    var response = CurrentUserResponseFactory.Create(currentUser);
+    loggerFactory.CreateLogger("DleOs.AuthenticatedFrontend").LogInformation(
+        "CurrentUser Status={Status}; ExternalSubject={ExternalSubject}; UserName={UserName}; " +
+        "DisplayName={DisplayName}; IsSuperAdmin={IsSuperAdmin}; UserAgent={UserAgent}",
+        currentUser.Status,
+        currentUser.ExternalSubject,
+        currentUser.User?.UserName,
+        currentUser.User?.DisplayName,
+        currentUser.User?.IsSuperAdmin,
+        context.Request.Headers.UserAgent.ToString());
+    return Results.Json(response.Body, statusCode: response.StatusCode);
+}).RequireAuthorization();
+
+app.MapDevelopmentCompatibilityProxy();
+
+app.MapGet("/", async (HttpContext context, ICurrentUserContext currentUserContext) =>
+{
+    NoStore(context.Response);
+    var currentUser = await currentUserContext.ResolveAsync(context.RequestAborted);
+    if (currentUser.Status != CurrentUserStatus.Active || currentUser.User is null)
+    {
+        var denied = CurrentUserResponseFactory.Create(currentUser);
+        return Results.Json(denied.Body, statusCode: denied.StatusCode);
+    }
+
     var html = File.ReadAllText(Path.Combine(repository, "DLE_Work_Center_v4.0.0.html"));
-    var runtimeConfiguration = JsonSerializer.Serialize(new { operationalControlBaseUrl });
+    var runtimeConfiguration = JsonSerializer.Serialize(new
+    {
+        authenticatedBffBaseUrl = frontendPrefix,
+        environment = "ISOLATED_DEVELOPMENT"
+    });
     const string headElement = "<head>";
     var headIndex = html.IndexOf(headElement, StringComparison.Ordinal);
     if (headIndex < 0)
         return Results.Problem("The development frontend document head is absent.", statusCode: 500);
     html = html.Insert(headIndex + headElement.Length,
         "<script>window.DleOsRuntimeConfig=" + runtimeConfiguration + ";</script>");
-    html = html.Replace("DEVELOPMENT — READ ONLY", "DEVELOPMENT — READ ONLY · Operational API 5054",
+    html = html.Replace("DEVELOPMENT — READ ONLY",
+        "DEVELOPMENT — AUTHENTICATED BFF · ISOLATED OPERATIONAL DATA",
         StringComparison.Ordinal);
+    html = DevelopmentIdentityUi.Inject(html);
     return Results.Text(html, "text/html");
-});
+}).RequireAuthorization();
 
 app.MapGet(kittingDocumentRoute + "/{workOrderNumber}", (HttpContext context, string workOrderNumber) =>
 {
     NoStore(context.Response);
     if (context.Request.Query.Count != 0)
         return Results.BadRequest(new { error = "Query parameters are not supported." });
-
     try
     {
         var evidence = kittingDocuments.GetEvidence(workOrderNumber);
-        object? DocumentResponse(KittingDocumentMatch? document) => document is null
-            ? null
-            : new
-            {
-                documentType = document.Kind == KittingDocumentKind.Complete ? "complete" : "shortage",
-                document.FileName,
-                folder = document.FolderLabel,
-                openUrl = $"{kittingDocumentRoute}/{evidence.WorkOrderNumber}/documents/" +
-                    (document.Kind == KittingDocumentKind.Complete ? "complete" : "shortage")
-            };
-
+        object? DocumentResponse(KittingDocumentMatch? document) => document is null ? null : new
+        {
+            documentType = document.Kind == KittingDocumentKind.Complete ? "complete" : "shortage",
+            document.FileName,
+            folder = document.FolderLabel,
+            openUrl = $"{kittingDocumentRoute}/{evidence.WorkOrderNumber}/documents/" +
+                (document.Kind == KittingDocumentKind.Complete ? "complete" : "shortage")
+        };
         return Results.Json(new
         {
-            evidence.WorkOrderNumber,
-            evidence.Aliases,
-            evidence.EvidenceStatus,
-            evidence.DisplayLabel,
-            evidence.PriorShortageEvidenceExists,
-            primaryDocument = DocumentResponse(evidence.Primary),
+            evidence.WorkOrderNumber, evidence.Aliases, evidence.EvidenceStatus, evidence.DisplayLabel,
+            evidence.PriorShortageEvidenceExists, primaryDocument = DocumentResponse(evidence.Primary),
             secondaryPriorShortageDocument = DocumentResponse(evidence.SecondaryPriorShortage)
         });
     }
@@ -74,7 +169,7 @@ app.MapGet(kittingDocumentRoute + "/{workOrderNumber}", (HttpContext context, st
     {
         return Results.BadRequest(new { error = exception.Message });
     }
-});
+}).RequireAuthorization();
 
 app.MapGet(kittingDocumentRoute + "/{workOrderNumber}/documents/{documentType}",
     (HttpContext context, string workOrderNumber, string documentType) =>
@@ -82,17 +177,12 @@ app.MapGet(kittingDocumentRoute + "/{workOrderNumber}/documents/{documentType}",
     NoStore(context.Response);
     if (context.Request.Query.Count != 0)
         return Results.BadRequest(new { error = "Query parameters are not supported." });
-
     try
     {
         var path = kittingDocuments.ResolveDocumentPath(workOrderNumber, documentType);
         if (path is null) return Results.NotFound(new { error = "Kitted BOM PDF was not found." });
-        var stream = new FileStream(
-            path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.ReadWrite | FileShare.Delete,
-            64 * 1024,
+        var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete, 64 * 1024,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
         return Results.Stream(stream, "application/pdf", enableRangeProcessing: true);
     }
@@ -108,7 +198,7 @@ app.MapGet(kittingDocumentRoute + "/{workOrderNumber}/documents/{documentType}",
     {
         return Results.Problem("The resolved Kitted BOM PDF is temporarily unavailable.", statusCode: 503);
     }
-});
+}).RequireAuthorization();
 
 app.UseStaticFiles(new StaticFileOptions
 {

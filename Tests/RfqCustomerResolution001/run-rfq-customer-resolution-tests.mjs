@@ -38,6 +38,7 @@ function makeClient(fetchImplementation) {
     window,
     localStorage: { getItem: () => null },
     fetch: fetchImplementation,
+    URL,
     URLSearchParams,
     AbortController,
     console

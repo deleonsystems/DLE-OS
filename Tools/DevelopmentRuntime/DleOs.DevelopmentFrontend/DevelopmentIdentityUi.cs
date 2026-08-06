@@ -1,0 +1,58 @@
+public static class DevelopmentIdentityUi
+{
+    public static string Inject(string html)
+    {
+        const string bodyEnd = "</body>";
+        var index = html.LastIndexOf(bodyEnd, StringComparison.OrdinalIgnoreCase);
+        if (index < 0) throw new InvalidOperationException("The development frontend document body is absent.");
+        return html.Insert(index, Markup);
+    }
+
+    public static string AccessStateDocument(string code) => code switch
+    {
+        "DLE_OS_USER_NOT_PROVISIONED" => Document("DLE-OS access is not provisioned for this Windows account."),
+        "DLE_OS_USER_DISABLED" => Document("This DLE-OS account is disabled."),
+        "DLE_OS_SECURITY_UNAVAILABLE" => Document("DLE-OS identity resolution is temporarily unavailable."),
+        _ => Document("Windows authentication is required.")
+    };
+
+    private static string Document(string message) =>
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>DLE-OS Access</title></head>" +
+        "<body><main><h1>DLE-OS</h1><p>" + System.Net.WebUtility.HtmlEncode(message) +
+        "</p></main></body></html>";
+
+    private const string Markup = """
+<style id="dle-auth-identity-style">
+  #dle-auth-identity{position:fixed;top:12px;right:18px;z-index:10000;display:flex;gap:10px;
+    align-items:center;padding:7px 12px;border:1px solid rgba(148,163,184,.35);border-radius:9px;
+    background:rgba(15,23,42,.94);color:#f8fafc;font:600 12px/1.25 system-ui,sans-serif;
+    box-shadow:0 4px 18px rgba(0,0,0,.25)}
+  #dle-auth-name{font-size:13px} #dle-auth-role{color:#93c5fd;font-size:11px;letter-spacing:.06em}
+  #dle-auth-identity[data-state="error"] #dle-auth-role{color:#fca5a5}
+</style>
+<aside id="dle-auth-identity" data-state="loading" aria-live="polite">
+  <span id="dle-auth-name">Resolving identity…</span><span id="dle-auth-role">DLE-OS</span>
+</aside>
+<script id="dle-auth-identity-script">
+(() => {
+  const root=document.getElementById('dle-auth-identity');
+  const name=document.getElementById('dle-auth-name');
+  const role=document.getElementById('dle-auth-role');
+  fetch('/api/auth/me',{credentials:'same-origin',headers:{Accept:'application/json'}})
+    .then(async response => {
+      const body=await response.json().catch(() => ({}));
+      if(!response.ok) throw new Error(body?.error?.code || 'DLE_OS_SECURITY_UNAVAILABLE');
+      name.textContent=body.user.displayName;
+      role.textContent=body.isSuperAdmin?'SUPER_ADMIN':(body.roles[0] || 'DLE-OS USER');
+      root.dataset.state='ready';
+    })
+    .catch(error => {
+      const messages={DLE_OS_USER_NOT_PROVISIONED:'Access not provisioned',
+        DLE_OS_USER_DISABLED:'Account disabled',WINDOWS_AUTHENTICATION_REQUIRED:'Sign-in required'};
+      name.textContent=messages[error.message] || 'Security service unavailable';
+      role.textContent='DLE-OS';root.dataset.state='error';
+    });
+})();
+</script>
+""";
+}

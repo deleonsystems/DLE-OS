@@ -3,8 +3,6 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>DleOs.WindowsAuthDiagnostic</AssemblyName>
   </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\SecurityFoundation\DleOs.Security\DleOs.Security.csproj" />
-  </ItemGroup>
 </Project>
