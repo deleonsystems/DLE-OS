@@ -19,7 +19,7 @@ if (!string.Equals(
 
 await ApplyMigration();
 var schemaChecks = await SchemaChecks();
-Check(schemaChecks.TableCount == 7, "all seven governed security tables exist");
+Check(schemaChecks.TableCount == 8, "all eight governed security tables exist");
 Check(schemaChecks.ForeignKeyCount >= 12, "security foreign keys exist");
 Check(schemaChecks.UniqueIndexCount >= 8, "security uniqueness indexes exist");
 

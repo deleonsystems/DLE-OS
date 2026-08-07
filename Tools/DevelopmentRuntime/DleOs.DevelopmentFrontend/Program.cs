@@ -43,6 +43,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IIdentityResolver>(new SqlIdentityResolver(securityConnectionString));
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddSingleton(new EmployeeDirectoryService(securityConnectionString));
 builder.Services.AddSingleton<IIdentityAssertionIssuer>(_ =>
     new Es256IdentityAssertionIssuer(
         IdentityAssertionKeyLoader.LoadPrivateKey(identitySigningKeyPath ?? "")));
@@ -117,6 +118,24 @@ app.MapGet("/api/auth/me", async (
     return Results.Json(response.Body, statusCode: response.StatusCode);
 }).RequireAuthorization();
 
+app.MapGet("/api/development/employees/v1/directory", async (
+    HttpContext context,
+    ICurrentUserContext currentUserContext,
+    EmployeeDirectoryService employees,
+    bool includeHistorical = false) =>
+{
+    NoStore(context.Response);
+    var current = await currentUserContext.ResolveAsync(context.RequestAborted);
+    if (!EmployeeDirectoryAuthorization.CanAdminister(current))
+        return Results.Json(new
+        {
+            code = "DLE_OS_EMPLOYEE_ADMIN_REQUIRED",
+            message = "Employee Directory administration requires an active DLE-OS SUPER_ADMIN."
+        }, statusCode: StatusCodes.Status403Forbidden);
+    var result = await employees.GetAsync(includeHistorical, context.RequestAborted);
+    return Results.Ok(result);
+}).RequireAuthorization();
+
 app.MapDevelopmentCompatibilityProxy();
 
 app.MapGet("/", async (HttpContext context, ICurrentUserContext currentUserContext) =>
@@ -145,6 +164,7 @@ app.MapGet("/", async (HttpContext context, ICurrentUserContext currentUserConte
         "DEVELOPMENT — AUTHENTICATED BFF · ISOLATED OPERATIONAL DATA",
         StringComparison.Ordinal);
     html = DevelopmentIdentityUi.Inject(html);
+    html = EmployeeDirectoryUi.Inject(html);
     return Results.Text(html, "text/html");
 }).RequireAuthorization();
 
