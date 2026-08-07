@@ -27,6 +27,14 @@ internal static class ControlHostRuntimeConfiguration
         throw new InvalidOperationException(
             "The development identity assertion verification key is not configured.");
 
+    internal static string SecurityConnectionString =>
+        Environment.GetEnvironmentVariable("DLE_OS_SECURITY_CONNECTION_STRING") ??
+        throw new InvalidOperationException(
+            "The development security database is not configured.");
+
+    internal static string SecurityDatabaseName =>
+        new SqlConnectionStringBuilder(SecurityConnectionString).InitialCatalog;
+
     internal static string OperationalDatabaseName =>
         new SqlConnectionStringBuilder(OperationalConnectionString).InitialCatalog;
 }

@@ -1,11 +1,13 @@
 using System.Collections.Concurrent;
 using System.Security.Principal;
 using System.Text.Json;
+using DleOs.Security;
 using DleOs.TrustedIdentity;
 
 internal sealed class TrustedDleOsUserContextAccessor
 {
     internal TrustedDleOsUserContext? Current { get; set; }
+    internal ResolvedSecurityUser? AuthorizedUser { get; set; }
 }
 
 internal sealed class DevelopmentAssertionReplayStore
@@ -75,14 +77,6 @@ internal static class TrustedDevelopmentIdentity
                     "The trusted DLE-OS identity assertion was not accepted.");
                 return;
             }
-            if (!validation.User.IsSuperAdmin)
-            {
-                await Deny(context, StatusCodes.Status403Forbidden,
-                    "DLE_OS_PERMISSION_DENIED",
-                    "The trusted DLE-OS user is not authorized for this development operation.");
-                return;
-            }
-
             if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
             {
                 var now = DateTimeOffset.UtcNow;
@@ -144,7 +138,7 @@ internal static class TrustedDevelopmentIdentity
             return context.User.Identity?.Name ?? throw new InvalidOperationException(
                 "The authenticated service actor is unavailable.");
         return context.RequestServices.GetRequiredService<TrustedDleOsUserContextAccessor>()
-                   .Current?.UserName ??
+                   .AuthorizedUser?.UserName ??
                throw new InvalidOperationException("Trusted downstream user context is unavailable.");
     }
 

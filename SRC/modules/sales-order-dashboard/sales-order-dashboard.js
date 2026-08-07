@@ -1033,7 +1033,15 @@
 
   function toggleApprovalAction(id, visible) {
     const button = document.getElementById(id);
-    if (button) button.hidden = !visible;
+    const permissions = {
+      workOrderApprovalApprove: 'work_orders.approve',
+      workOrderApprovalReplace: 'work_orders.replace',
+      workOrderApprovalRevoke: 'work_orders.revoke',
+      noWorkOrderApprove: 'work_orders.mark_no_work_order_required',
+      noWorkOrderReplace: 'work_orders.mark_no_work_order_required'
+    };
+    const allowed = !permissions[id] || window.DleOsCapabilities?.can(permissions[id]) !== false;
+    if (button) button.hidden = !visible || !allowed;
   }
 
   function formatWorkOrderApprovalFailure(error) {
@@ -1388,7 +1396,9 @@
         dashboardState.rmaMatch.proposedAction === 'AMBIGUOUS' ? 'More than one active case matches. No case was selected.' :
         'The proposed classification is not actionable.';
     const button = document.getElementById('rmaReworkConfirmButton');
-    if (button) button.disabled = !!message || dashboardState.rmaSubmitting;
+    const canManageRma = window.DleOsCapabilities?.can('rma_rework.manage') !== false;
+    if (button) button.disabled = !!message || dashboardState.rmaSubmitting || !canManageRma;
+    if (button) button.hidden = !canManageRma;
     if (button) button.textContent = dashboardState.rmaWorkflowMode === 'single' && !dashboardState.rmaMatch
       ? 'Review Reference Match' : dashboardState.rmaMatch?.proposedAction === 'ADD_TO_EXISTING_CASE'
         ? 'Confirm Add to Existing Case' : 'Confirm Case Creation';

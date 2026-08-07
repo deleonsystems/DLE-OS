@@ -554,6 +554,7 @@
     const activeSelection = state.selectedPackingRequest || state.selectedShippingRequest;
     const requestId = String(activeSelection?.requestId || "").trim();
     const processing = !!state.processingPackingRequest;
+    const canStage = window.DleOsCapabilities?.can('shipments.stage') !== false;
 
     if (selectedLabel) selectedLabel.textContent = requestId || "None selected";
     if (createButton) createButton.disabled = true;
@@ -561,7 +562,8 @@
     if (returnButton) returnButton.disabled = !state.selectedShippingRequest;
     if (printButton) printButton.disabled = !state.selectedPackingRequest || processing;
     if (processedButton) {
-      processedButton.disabled = !state.selectedPackingRequest || processing;
+      processedButton.disabled = !state.selectedPackingRequest || processing || !canStage;
+      processedButton.hidden = !canStage;
       processedButton.textContent = processing ? "Persisting Shipment..." : "Shipment Processed";
     }
   }

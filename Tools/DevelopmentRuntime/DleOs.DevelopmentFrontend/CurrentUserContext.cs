@@ -67,6 +67,7 @@ public static class CurrentUserResponseFactory
                 resolution.User.AccountStatus
             },
             roles = resolution.User.Roles.Select(role => role.RoleCode).ToArray(),
+            permissions = resolution.User.ExplicitPermissions.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
             resolution.User.IsSuperAdmin
         }),
         CurrentUserStatus.NotProvisioned => Error(403, "DLE_OS_USER_NOT_PROVISIONED",

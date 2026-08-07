@@ -143,6 +143,17 @@
       hex.slice(16, 20), hex.slice(20)].join('-');
   }
 
+  function requireDevelopmentCapability(permissionCode) {
+    if (window.location.port !== '5051') return;
+    const capabilities = window.DleOsCapabilities;
+    if (capabilities && !capabilities.can(permissionCode)) {
+      const error = new Error('This action requires DLE-OS permission ' + permissionCode + '.');
+      error.code = 'DLE_OS_PERMISSION_DENIED';
+      error.requiredPermission = permissionCode;
+      throw error;
+    }
+  }
+
   function normalizeOperationalLineIdentities(lines) {
     const unique = new Map();
     (Array.isArray(lines) ? lines : [lines]).forEach(line => {
@@ -1164,6 +1175,10 @@
           'replace-no-work-order', 'revoke'].includes(action)) {
         throw new TypeError('Work Order approval action is invalid.');
       }
+      requireDevelopmentCapability(action === 'approve' ? 'work_orders.approve'
+        : action === 'replace' ? 'work_orders.replace'
+          : action === 'revoke' ? 'work_orders.revoke'
+            : 'work_orders.mark_no_work_order_required');
       return requestWorkOrderApproval(
         buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber) + '/' + action,
         { ...options, method: 'POST', body: request }
@@ -1176,21 +1191,26 @@
       return requestKittingDisposition(workOrderNumber, '/history', options);
     },
     appendKittingDisposition(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('kitting.disposition');
       return requestKittingDisposition(workOrderNumber, '/events',
         { ...options, method: 'POST', body: request });
     },
     reviewRmaReworkCaseMembers(members, options = {}) {
+      requireDevelopmentCapability('rma_rework.manage');
       return requestRmaRework('case-candidates/review', {
         ...options, method: 'POST', body: { members }
       });
     },
     matchRmaReworkCase(request, options = {}) {
+      requireDevelopmentCapability('rma_rework.manage');
       return requestRmaRework('case-candidates/match', { ...options, method: 'POST', body: request });
     },
     createRmaReworkCase(request, options = {}) {
+      requireDevelopmentCapability('rma_rework.manage');
       return requestRmaRework('cases', { ...options, method: 'POST', body: request });
     },
     addRmaReworkCaseMember(caseId, request, options = {}) {
+      requireDevelopmentCapability('rma_rework.manage');
       return requestRmaRework('cases/' + encodeURIComponent(String(caseId || '')) + '/members', {
         ...options, method: 'POST', body: request
       });
@@ -1209,6 +1229,7 @@
       return requestRmaRework('cases/' + encodeURIComponent(String(caseId || '')) + '/history', options);
     },
     createShipmentStaging(request, options = {}) {
+      requireDevelopmentCapability('shipments.stage');
       return requestShipmentStaging('shipments', {
         ...options, method: 'POST', body: request
       });
@@ -1235,6 +1256,7 @@
       );
     },
     runShipmentReconciliation(request = {}, options = {}) {
+      requireDevelopmentCapability('shipments.reconcile');
       return requestShipmentStaging('reconciliation/run', {
         ...options, method: 'POST', body: request
       });
@@ -1243,6 +1265,7 @@
       if (!['confirm-match', 'reject-match', 'mark-exception', 'cancel'].includes(action)) {
         throw new TypeError('Shipment match decision action is invalid.');
       }
+      requireDevelopmentCapability(action === 'cancel' ? 'shipments.cancel' : 'shipments.confirm');
       return requestShipmentStaging(
         'shipments/' + encodeURIComponent(String(shipmentStagingId || '')) + '/' + action,
         { ...options, method: 'POST', body: request }

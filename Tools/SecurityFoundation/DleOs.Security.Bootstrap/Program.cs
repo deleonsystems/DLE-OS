@@ -22,26 +22,28 @@ if (!string.Equals(builder.InitialCatalog, database, StringComparison.Ordinal) |
     throw new InvalidOperationException("The security bootstrap database boundary is invalid.");
 
 var repository = Directory.GetCurrentDirectory();
-var migrationPath = Path.Combine(
-    repository,
-    "Tools",
-    "SecurityFoundation",
-    "Database",
-    "001_AddSecurityFoundation.sql");
-if (!File.Exists(migrationPath))
-    throw new FileNotFoundException("Security migration not found.", migrationPath);
+var migrationDirectory = Path.Combine(
+    repository, "Tools", "SecurityFoundation", "Database");
+var migrationPaths = Directory.GetFiles(migrationDirectory, "*.sql")
+    .Where(path => !Path.GetFileName(path).StartsWith("000_", StringComparison.Ordinal))
+    .OrderBy(path => path, StringComparer.Ordinal)
+    .ToArray();
+if (migrationPaths.Length == 0)
+    throw new FileNotFoundException("Security migrations were not found.", migrationDirectory);
 
 var before = await Counts();
 await using (var connection = new SqlConnection(connectionString))
 {
     await connection.OpenAsync();
-    var script = await File.ReadAllTextAsync(migrationPath);
-    foreach (var batch in Regex.Split(script, @"(?im)^\s*GO\s*$"))
+    foreach (var migrationPath in migrationPaths)
     {
-        if (string.IsNullOrWhiteSpace(batch))
-            continue;
-        await using var command = new SqlCommand(batch, connection) { CommandTimeout = 60 };
-        await command.ExecuteNonQueryAsync();
+        var script = await File.ReadAllTextAsync(migrationPath);
+        foreach (var batch in Regex.Split(script, @"(?im)^\s*GO\s*$"))
+        {
+            if (string.IsNullOrWhiteSpace(batch)) continue;
+            await using var command = new SqlCommand(batch, connection) { CommandTimeout = 60 };
+            await command.ExecuteNonQueryAsync();
+        }
     }
 }
 
@@ -60,6 +62,7 @@ var evidence = new
     nonProductionEvidence = "Dedicated DLE_OS_SECURITY_DEV database; fixed guard rejects LIVE and all other catalogs.",
     executedBy = new CurrentWindowsIdentitySource().Name,
     completedAtUtc = DateTimeOffset.UtcNow,
+    migrations = migrationPaths.Select(Path.GetFileName),
     countsBefore = before,
     countsAfter = after,
     bootstrap = result,

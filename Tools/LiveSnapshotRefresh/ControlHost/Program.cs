@@ -59,6 +59,7 @@ if (isolatedDevelopment)
 {
     builder.Services.AddHostedService<ShipmentReconciliationMonitor>();
     builder.Services.AddTrustedDevelopmentIdentity();
+    builder.Services.AddDevelopmentPermissionAuthorization();
 }
 
 var app = builder.Build();
@@ -68,6 +69,7 @@ app.UseAuthorization();
 if (isolatedDevelopment)
 {
     app.UseTrustedDevelopmentIdentity();
+    app.UseDevelopmentPermissionAuthorization();
 }
 app.Use(async (context, next) =>
 {
@@ -383,7 +385,9 @@ app.MapGet(
             runtimeMode = isolatedDevelopment ? "ISOLATED_DEVELOPMENT" : "PRODUCTION",
             controlPrefix,
             canonicalApiBaseUrl = ControlHostRuntimeConfiguration.CanonicalApiBaseUrl,
-            operationalDatabase = ControlHostRuntimeConfiguration.OperationalDatabaseName
+            operationalDatabase = ControlHostRuntimeConfiguration.OperationalDatabaseName,
+            securityDatabase = isolatedDevelopment
+                ? ControlHostRuntimeConfiguration.SecurityDatabaseName : null
         }))
     .RequireAuthorization("SnapshotRefreshOperator");
 

@@ -33,7 +33,7 @@ Check(countsAfterFirst.Users == 1 && countsAfterSecond.Users == 1, "bootstrap cr
 Check(countsAfterFirst.Mappings == 1 && countsAfterSecond.Mappings == 1, "bootstrap creates exactly one Windows mapping");
 Check(countsAfterFirst.SuperAdminRoles == 1 && countsAfterSecond.SuperAdminRoles == 1, "bootstrap creates exactly one SUPER_ADMIN role");
 Check(countsAfterFirst.Assignments == 1 && countsAfterSecond.Assignments == 1, "bootstrap creates exactly one active assignment");
-Check(countsAfterFirst.Permissions == 4 && countsAfterSecond.Permissions == 4, "bootstrap permission catalog is idempotent");
+Check(countsAfterFirst.Permissions == 18 && countsAfterSecond.Permissions == 18, "bootstrap permission catalog is idempotent");
 Check(countsAfterFirst.RolePermissions == 0 && countsAfterSecond.RolePermissions == 0, "SUPER_ADMIN has no enumerated grants");
 
 var resolver = new SqlIdentityResolver(connectionString);
@@ -175,15 +175,20 @@ async Task Expect<T>(Func<Task> action, string name) where T : Exception
 
 async Task ApplyMigration()
 {
-    var path = Path.Combine(repository, "Tools", "SecurityFoundation", "Database", "001_AddSecurityFoundation.sql");
-    var script = await File.ReadAllTextAsync(path);
     await using var connection = new SqlConnection(connectionString);
     await connection.OpenAsync();
-    foreach (var batch in Regex.Split(script, @"(?im)^\s*GO\s*$"))
+    var directory = Path.Combine(repository, "Tools", "SecurityFoundation", "Database");
+    foreach (var path in Directory.GetFiles(directory, "*.sql")
+                 .Where(path => !Path.GetFileName(path).StartsWith("000_", StringComparison.Ordinal))
+                 .OrderBy(path => path, StringComparer.Ordinal))
     {
-        if (string.IsNullOrWhiteSpace(batch)) continue;
-        await using var command = new SqlCommand(batch, connection) { CommandTimeout = 60 };
-        await command.ExecuteNonQueryAsync();
+        var script = await File.ReadAllTextAsync(path);
+        foreach (var batch in Regex.Split(script, @"(?im)^\s*GO\s*$"))
+        {
+            if (string.IsNullOrWhiteSpace(batch)) continue;
+            await using var command = new SqlCommand(batch, connection) { CommandTimeout = 60 };
+            await command.ExecuteNonQueryAsync();
+        }
     }
 }
 

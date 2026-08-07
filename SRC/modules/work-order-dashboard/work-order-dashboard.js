@@ -218,8 +218,10 @@
     setText('workOrderDashboardDispositionNote', [current?.reasonCode, current?.note].filter(Boolean).join(' — ') || 'N/A');
     const button = document.getElementById('workOrderDashboardSetDisposition');
     const actionable = isActionableKittingDocumentHandoff(selectedWorkOrder) && Number(selectedWorkOrder?.originQuantity) > 0;
+    const canDisposition = window.DleOsCapabilities?.can('kitting.disposition') !== false;
     if (button) {
-      button.disabled = dispositionState !== 'loaded' || !actionable;
+      button.disabled = dispositionState !== 'loaded' || !actionable || !canDisposition;
+      button.hidden = !canDisposition;
       button.textContent = current ? 'Change Disposition' : 'Set Kitting Disposition';
     }
     setText('workOrderDashboardDispositionMessage', dispositionState === 'error'

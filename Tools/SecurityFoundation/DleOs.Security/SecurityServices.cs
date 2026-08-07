@@ -112,6 +112,91 @@ public sealed class SqlIdentityResolver(string connectionString) : IIdentityReso
     }
 }
 
+public interface IUserAuthorizationResolver
+{
+    Task<ResolvedSecurityUser?> ResolveByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class SqlUserAuthorizationResolver(string connectionString) : IUserAuthorizationResolver
+{
+    public async Task<ResolvedSecurityUser?> ResolveByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId == Guid.Empty) return null;
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand(
+            """
+            SELECT u.UserId,u.UserName,u.DisplayName,u.AccountStatus
+            FROM security.[User] u WHERE u.UserId=@UserId;
+
+            SELECT r.RoleId,r.RoleCode,r.IsSuperAdmin
+            FROM security.UserRole ur
+            JOIN security.[Role] r ON r.RoleId=ur.RoleId
+            WHERE ur.UserId=@UserId AND ur.IsActive=1 AND r.IsActive=1
+            ORDER BY r.RoleCode;
+
+            SELECT DISTINCT p.PermissionCode
+            FROM security.UserRole ur
+            JOIN security.[Role] r ON r.RoleId=ur.RoleId AND r.IsActive=1
+            JOIN security.RolePermission rp ON rp.RoleId=r.RoleId AND rp.IsActive=1
+            JOIN security.Permission p ON p.PermissionId=rp.PermissionId AND p.IsActive=1
+            WHERE ur.UserId=@UserId AND ur.IsActive=1
+            ORDER BY p.PermissionCode;
+            """,
+            connection);
+        command.Parameters.AddWithValue("@UserId", userId);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+
+        var user = new
+        {
+            UserId = reader.GetGuid(0),
+            UserName = reader.GetString(1),
+            DisplayName = reader.GetString(2),
+            AccountStatus = reader.GetString(3)
+        };
+        var roles = new List<SecurityRole>();
+        await reader.NextResultAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            roles.Add(new SecurityRole(reader.GetGuid(0), reader.GetString(1), reader.GetBoolean(2)));
+        var permissions = new HashSet<string>(StringComparer.Ordinal);
+        await reader.NextResultAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) permissions.Add(reader.GetString(0));
+        return new ResolvedSecurityUser(user.UserId, user.UserName, user.DisplayName,
+            user.AccountStatus, roles, permissions);
+    }
+}
+
+public sealed record PermissionAuthorizationDecision(
+    bool Allowed,
+    string Code,
+    string RequiredPermission,
+    ResolvedSecurityUser? User);
+
+public sealed class PermissionAuthorizationService(
+    IUserAuthorizationResolver users,
+    AuthorizationEvaluator evaluator)
+{
+    public async Task<PermissionAuthorizationDecision> AuthorizeAsync(
+        Guid userId,
+        string requiredPermission,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await users.ResolveByUserIdAsync(userId, cancellationToken);
+        if (user is null)
+            return new(false, "DLE_OS_USER_NOT_PROVISIONED", requiredPermission, null);
+        if (!user.IsActive)
+            return new(false, "DLE_OS_USER_DISABLED", requiredPermission, user);
+        return evaluator.Can(user, requiredPermission)
+            ? new(true, "OK", requiredPermission, user)
+            : new(false, "DLE_OS_PERMISSION_DENIED", requiredPermission, user);
+    }
+}
+
 public sealed class AuthorizationEvaluator
 {
     private static readonly Regex PermissionCode = new(

@@ -4,9 +4,9 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>DleOs.WorkOrderApproval.Tests</AssemblyName>
+    <AssemblyName>DleOs.RolePermissionEnforcement.Tests</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Tools\LiveSnapshotRefresh\ControlHost\DleOs.LiveSnapshotRefresh.ControlHost.csproj" />
+    <ProjectReference Include="..\..\Tools\SecurityFoundation\DleOs.Security\DleOs.Security.csproj" />
   </ItemGroup>
 </Project>

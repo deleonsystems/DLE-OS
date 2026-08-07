@@ -27,6 +27,7 @@ $env:DLE_OS_ISOLATED_DEVELOPMENT = 'true'
 $env:DLE_OS_CONTROL_PREFIX = 'http://dle-os-host:5054'
 $env:DLE_OS_CANONICAL_API_BASE_URL = 'http://DLE-OS-HOST:5052'
 $env:DLE_OS_OPERATIONAL_CONNECTION_STRING = 'Server=lpc:.\SQLEXPRESS;Database=DLE_OS_OPERATIONAL_DEV;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;Connect Timeout=5;Application Intent=ReadWrite;'
+$env:DLE_OS_SECURITY_CONNECTION_STRING = 'Server=lpc:.\SQLEXPRESS;Database=DLE_OS_SECURITY_DEV;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;Connect Timeout=5;Application Intent=ReadOnly;'
 $env:DLE_OS_IDENTITY_SIGNING_PUBLIC_KEY_PATH = 'C:\ProgramData\DLE-OS\DevelopmentIdentity\Keys\validator-public.pem'
 if (-not (Test-Path -LiteralPath $env:DLE_OS_IDENTITY_SIGNING_PUBLIC_KEY_PATH -PathType Leaf)) {
     throw 'The development identity assertion verification key is absent.'
@@ -47,6 +48,7 @@ if (-not $listener) { throw 'The development operational ControlHost did not lis
 $health = Invoke-RestMethod -UseDefaultCredentials -Uri 'http://DLE-OS-HOST:5054/health' -TimeoutSec 20
 if ($health.status -ne 'Ready' -or $health.runtimeMode -ne 'ISOLATED_DEVELOPMENT' -or
     $health.operationalDatabase -ne 'DLE_OS_OPERATIONAL_DEV' -or
+    $health.securityDatabase -ne 'DLE_OS_SECURITY_DEV' -or
     $health.canonicalApiBaseUrl -ne 'http://DLE-OS-HOST:5052') {
     throw 'The development operational ControlHost readiness boundary is invalid.'
 }

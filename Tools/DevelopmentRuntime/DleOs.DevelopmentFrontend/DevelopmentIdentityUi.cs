@@ -38,12 +38,57 @@ public static class DevelopmentIdentityUi
   const root=document.getElementById('dle-auth-identity');
   const name=document.getElementById('dle-auth-name');
   const role=document.getElementById('dle-auth-role');
+  const rules=Object.freeze({
+    '#workOrderApprovalApprove':'work_orders.approve',
+    '#workOrderApprovalReplace':'work_orders.replace',
+    '#workOrderApprovalRevoke':'work_orders.revoke',
+    '#noWorkOrderApprove':'work_orders.mark_no_work_order_required',
+    '#noWorkOrderReplace':'work_orders.mark_no_work_order_required',
+    '#workOrderDashboardSetDisposition':'kitting.disposition',
+    '#workOrderDispositionConfirm':'kitting.disposition',
+    '#rmaReworkConfirmButton':'rma_rework.manage',
+    '#shippingShipmentProcessedButton':'shipments.stage',
+    '#reconcileShipmentStagingButton':'shipments.reconcile',
+    '#confirmShipmentStagingMatchButton':'shipments.confirm',
+    '#shipmentStagingReviewDialog button[onclick*="reject-match"]':'shipments.confirm',
+    '#shipmentStagingReviewDialog button[onclick*="mark-exception"]':'shipments.confirm',
+    '#shipmentStagingReviewDialog button[onclick*="cancel"]':'shipments.cancel'
+  });
+  function installCapabilities(body){
+    const granted=new Set(Array.isArray(body.permissions)?body.permissions:[]);
+    const capabilities=Object.freeze({
+      isSuperAdmin:body.isSuperAdmin===true,
+      permissions:Object.freeze(Array.from(granted).sort()),
+      can(code){return this.isSuperAdmin||granted.has(String(code||''));},
+      apply(){
+        Object.entries(rules).forEach(([selector,permission])=>{
+          document.querySelectorAll(selector).forEach(control=>{
+            const allowed=this.can(permission);
+            control.dataset.dleRequiredPermission=permission;
+            control.dataset.dlePermissionAllowed=String(allowed);
+            if(!allowed){
+              control.disabled=true;
+              control.hidden=true;
+              control.setAttribute('aria-disabled','true');
+              control.title='Unavailable: requires '+permission;
+            }
+          });
+        });
+      }
+    });
+    window.DleOsSession=Object.freeze(body);
+    window.DleOsCapabilities=capabilities;
+    capabilities.apply();
+    new MutationObserver(()=>capabilities.apply()).observe(document.body,{childList:true,subtree:true});
+    document.dispatchEvent(new CustomEvent('dle:capabilities-ready',{detail:capabilities}));
+  }
   fetch('/api/auth/me',{credentials:'same-origin',headers:{Accept:'application/json'}})
     .then(async response => {
       const body=await response.json().catch(() => ({}));
       if(!response.ok) throw new Error(body?.error?.code || 'DLE_OS_SECURITY_UNAVAILABLE');
       name.textContent=body.user.displayName;
       role.textContent=body.isSuperAdmin?'SUPER_ADMIN':(body.roles[0] || 'DLE-OS USER');
+      installCapabilities(body);
       root.dataset.state='ready';
     })
     .catch(error => {
