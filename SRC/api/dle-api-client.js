@@ -18,13 +18,15 @@
     canonicalBillsOfMaterial: '/api/platform/v1/bills-of-material',
     canonicalGeneralLedgerAccounts: '/api/platform/v1/general-ledger-accounts'
   });
+  const IS_DEVELOPMENT_RUNTIME =
+    window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT';
   const DEVELOPMENT_BFF_BASE_URL = window.location.origin;
   const DEVELOPMENT_LIVE_CANONICAL_BASE_URL = DEVELOPMENT_BFF_BASE_URL;
-  const LIVE_CANONICAL_BASE_URL = window.location.port === '5051'
+  const LIVE_CANONICAL_BASE_URL = IS_DEVELOPMENT_RUNTIME
     ? DEVELOPMENT_LIVE_CANONICAL_BASE_URL
     : 'http://DLE-OS-HOST:5042';
   const LIVE_SNAPSHOT_REFRESH_BASE_URL = normalizeRuntimeBaseUrl(
-    window.location.port === '5051'
+    IS_DEVELOPMENT_RUNTIME
       ? DEVELOPMENT_BFF_BASE_URL
       : window.DleOsRuntimeConfig?.operationalControlBaseUrl || 'http://DLE-OS-HOST:5043'
   );
@@ -37,7 +39,7 @@
     }
     return url.origin;
   }
-  const CUSTOMER_FILES_CONTROL_BASE_URL = window.location.port === '5051'
+  const CUSTOMER_FILES_CONTROL_BASE_URL = IS_DEVELOPMENT_RUNTIME
     ? DEVELOPMENT_BFF_BASE_URL
     : 'http://DLE-OS-HOST:5053';
   const SHIPMENT_HISTORY_PATH = 'DATA/shipment-history/shipment-history.json';
@@ -144,7 +146,7 @@
   }
 
   function requireDevelopmentCapability(permissionCode) {
-    if (window.location.port !== '5051') return;
+    if (!IS_DEVELOPMENT_RUNTIME) return;
     const capabilities = window.DleOsCapabilities;
     if (capabilities && !capabilities.can(permissionCode)) {
       const error = new Error('This action requires DLE-OS permission ' + permissionCode + '.');

@@ -11,6 +11,7 @@ public static class DevelopmentIdentityUi
     public static string AccessStateDocument(string code) => code switch
     {
         "DLE_OS_USER_NOT_PROVISIONED" => Document("DLE-OS access is not provisioned for this Windows account."),
+        "DLE_OS_AUTHENTICATION_PENDING" => Document("This DLE-OS account is awaiting an external sign-in identity."),
         "DLE_OS_USER_DISABLED" => Document("This DLE-OS account is disabled."),
         "DLE_OS_SECURITY_UNAVAILABLE" => Document("DLE-OS identity resolution is temporarily unavailable."),
         _ => Document("Windows authentication is required.")
@@ -93,6 +94,7 @@ public static class DevelopmentIdentityUi
     })
     .catch(error => {
       const messages={DLE_OS_USER_NOT_PROVISIONED:'Access not provisioned',
+        DLE_OS_AUTHENTICATION_PENDING:'Sign-in identity pending',
         DLE_OS_USER_DISABLED:'Account disabled',WINDOWS_AUTHENTICATION_REQUIRED:'Sign-in required'};
       name.textContent=messages[error.message] || 'Security service unavailable';
       role.textContent='DLE-OS';root.dataset.state='error';

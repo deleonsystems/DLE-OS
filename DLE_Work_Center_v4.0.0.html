@@ -4660,7 +4660,7 @@ body {
 </head>
 <body>
   <script>
-    if (window.location.port === '5051') {
+    if (window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT') {
       document.body.dataset.developmentRuntime = 'true';
     }
   </script>

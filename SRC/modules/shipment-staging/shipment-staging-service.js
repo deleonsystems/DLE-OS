@@ -17,13 +17,15 @@
   const SHIPMENT_STAGING_HANDLE_DB = 'DLE_OS_SHIPMENT_STAGING_HANDLES';
   const SHIPMENT_STAGING_HANDLE_STORE = 'fileHandles';
   const SHIPMENT_STAGING_HANDLE_KEY = 'shipmentStaging';
+  const IS_DEVELOPMENT_RUNTIME =
+    window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT';
 
   let lastShipmentStagingLoadSource = SHIPMENT_STAGING_DATA_PATH;
   let lastShipmentStagingLoadMode = 'Project JSON loaded read-only';
   let operationalShipmentStagingPoll = null;
 
   function usesOperationalShipmentStaging() {
-    return window.location.port === '5051' &&
+    return IS_DEVELOPMENT_RUNTIME &&
       typeof window.DleApiClient?.getShipmentStaging === 'function';
   }
 

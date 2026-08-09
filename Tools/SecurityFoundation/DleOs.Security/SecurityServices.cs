@@ -189,6 +189,8 @@ public sealed class PermissionAuthorizationService(
         var user = await users.ResolveByUserIdAsync(userId, cancellationToken);
         if (user is null)
             return new(false, "DLE_OS_USER_NOT_PROVISIONED", requiredPermission, null);
+        if (string.Equals(user.AccountStatus, "PENDING", StringComparison.Ordinal))
+            return new(false, "DLE_OS_AUTHENTICATION_PENDING", requiredPermission, user);
         if (!user.IsActive)
             return new(false, "DLE_OS_USER_DISABLED", requiredPermission, user);
         return evaluator.Can(user, requiredPermission)

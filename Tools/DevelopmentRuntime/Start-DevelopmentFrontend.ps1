@@ -20,6 +20,11 @@ $stdoutPath = Join-Path $evidenceDirectory '5051-authenticated.stdout.log'
 $stderrPath = Join-Path $evidenceDirectory '5051-authenticated.stderr.log'
 $protectedPorts = 5041,5042,5043,5052,5053
 $identityPrivateKeyPath = 'C:\ProgramData\DLE-OS\DevelopmentIdentity\Keys\issuer-private.pem'
+$oidcClientSecretPath = 'C:\ProgramData\DLE-OS\Keycloak\Secrets\oidc-client-secret.dpapi'
+$oidcClientSecretEntropy = 'DLE-OS|Keycloak|OIDC-Client|v1'
+$oidcProtectedBytes = $null
+$oidcEntropyBytes = $null
+$oidcPlainBytes = $null
 
 if ([Security.Principal.WindowsIdentity]::GetCurrent().Name -ine $requiredIdentity) {
     throw "Authenticated development frontend startup requires $requiredIdentity."
@@ -82,6 +87,14 @@ try {
         throw 'The development identity assertion signing key is absent.'
     }
     $env:DLE_OS_IDENTITY_SIGNING_PRIVATE_KEY_PATH = $identityPrivateKeyPath
+    Add-Type -AssemblyName System.Security
+    $oidcProtectedBytes = [IO.File]::ReadAllBytes($oidcClientSecretPath)
+    $oidcEntropyBytes = [Text.Encoding]::UTF8.GetBytes($oidcClientSecretEntropy)
+    $oidcPlainBytes = [Security.Cryptography.ProtectedData]::Unprotect(
+        $oidcProtectedBytes,
+        $oidcEntropyBytes,
+        [Security.Cryptography.DataProtectionScope]::LocalMachine)
+    $env:DLE_OS_OIDC_CLIENT_SECRET = [Text.Encoding]::UTF8.GetString($oidcPlainBytes)
     $listenerPid = Get-ListenerPid 5051
     if ($null -ne $listenerPid) {
         $workers = @(Get-FrontendWorkers)
@@ -126,6 +139,10 @@ catch {
     throw
 }
 finally {
+    $env:DLE_OS_OIDC_CLIENT_SECRET = $null
+    if ($oidcPlainBytes) { [Array]::Clear($oidcPlainBytes, 0, $oidcPlainBytes.Length) }
+    if ($oidcEntropyBytes) { [Array]::Clear($oidcEntropyBytes, 0, $oidcEntropyBytes.Length) }
+    if ($oidcProtectedBytes) { [Array]::Clear($oidcProtectedBytes, 0, $oidcProtectedBytes.Length) }
     $evidence.CompletedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
     $evidence | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $evidencePath -Encoding utf8
 }

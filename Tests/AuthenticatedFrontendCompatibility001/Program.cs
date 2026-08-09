@@ -8,10 +8,20 @@ var proxySource = File.ReadAllText(Path.Combine(repository, "Tools", "Developmen
     "DleOs.DevelopmentFrontend", "DevelopmentCompatibilityProxy.cs"));
 var programSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
     "DleOs.DevelopmentFrontend", "Program.cs"));
+var shellSource = File.ReadAllText(Path.Combine(repository, "DLE_Work_Center_v4.0.0.html"));
+var workOrderSource = File.ReadAllText(Path.Combine(repository, "SRC", "modules",
+    "work-order-dashboard", "work-order-dashboard.js"));
+var shipmentStagingSource = File.ReadAllText(Path.Combine(repository, "SRC", "modules",
+    "shipment-staging", "shipment-staging-service.js"));
 
-Check(clientSource.Contains("window.location.port === '5051'") &&
-      clientSource.Contains("DEVELOPMENT_BFF_BASE_URL"),
-    "5051 browser dependencies use the same-origin authenticated BFF");
+Check(clientSource.Contains("window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT'") &&
+      clientSource.Contains("DEVELOPMENT_BFF_BASE_URL") &&
+      !clientSource.Contains("window.location.port"),
+    "HTTP 5051 and canonical HTTPS use the same-origin authenticated BFF runtime marker");
+Check(new[] { shellSource, workOrderSource, shipmentStagingSource }.All(source =>
+          source.Contains("DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT'") &&
+          !source.Contains("window.location.port")),
+    "all development-only browser features recognize both HTTP 5051 and canonical HTTPS");
 Check(proxySource.Contains("UseDefaultCredentials = true") &&
       proxySource.Contains("DLE-OS-HOST:5052") && proxySource.Contains("DLE-OS-HOST:5054") &&
       proxySource.Contains("DLE-OS-HOST:5053"),
@@ -33,6 +43,13 @@ Check(proxySource.Contains("UserId={UserId}") && proxySource.Contains("UserName=
 Check(programSource.Contains(@"DLE-OS-HOST\DLE-OS") &&
       programSource.Contains("requiredRuntimeIdentity"),
     "BFF execution identity is explicitly separated from Miguel's application identity");
+
+if (args.Contains("--static", StringComparer.OrdinalIgnoreCase))
+{
+    Console.WriteLine($"PASS: {checks.Count} static authenticated frontend compatibility checks.");
+    foreach (var check in checks) Console.WriteLine("  " + check);
+    return;
+}
 
 using var authenticated = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true })
 {

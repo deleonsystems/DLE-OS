@@ -1,10 +1,12 @@
 using DleOs.Security;
 using Microsoft.Data.SqlClient;
+using System.Security.Claims;
 
 public enum CurrentUserStatus
 {
     Unauthenticated,
     NotProvisioned,
+    PendingAuthentication,
     Disabled,
     SecurityUnavailable,
     Active
@@ -31,22 +33,35 @@ public sealed class CurrentUserContext(
 
     private async Task<CurrentUserResolution> ResolveCoreAsync(CancellationToken cancellationToken)
     {
-        var identity = httpContextAccessor.HttpContext?.User.Identity;
-        if (identity?.IsAuthenticated != true || string.IsNullOrWhiteSpace(identity.Name))
+        var principal = httpContextAccessor.HttpContext?.User;
+        var oidcIdentity = principal?.Identities.FirstOrDefault(identity =>
+            identity.IsAuthenticated &&
+            identity.HasClaim(claim => string.Equals(claim.Type, "sub", StringComparison.Ordinal) &&
+                                       !string.IsNullOrWhiteSpace(claim.Value)));
+        var provider = "WINDOWS";
+        var subject = principal?.Identity?.Name;
+        if (oidcIdentity is not null)
+        {
+            provider = "KEYCLOAK";
+            subject = oidcIdentity.FindFirst("sub")?.Value;
+        }
+        if (string.IsNullOrWhiteSpace(subject))
             return new(CurrentUserStatus.Unauthenticated, null, null);
 
         try
         {
-            var user = await identityResolver.ResolveAsync("WINDOWS", identity.Name, cancellationToken);
+            var user = await identityResolver.ResolveAsync(provider, subject, cancellationToken);
             if (user is null)
-                return new(CurrentUserStatus.NotProvisioned, identity.Name, null);
+                return new(CurrentUserStatus.NotProvisioned, subject, null);
+            if (string.Equals(user.AccountStatus, "PENDING", StringComparison.Ordinal))
+                return new(CurrentUserStatus.PendingAuthentication, subject, user);
             if (!user.IsActive)
-                return new(CurrentUserStatus.Disabled, identity.Name, user);
-            return new(CurrentUserStatus.Active, identity.Name, user);
+                return new(CurrentUserStatus.Disabled, subject, user);
+            return new(CurrentUserStatus.Active, subject, user);
         }
         catch (SqlException)
         {
-            return new(CurrentUserStatus.SecurityUnavailable, identity.Name, null);
+            return new(CurrentUserStatus.SecurityUnavailable, subject, null);
         }
     }
 }
@@ -71,12 +86,14 @@ public static class CurrentUserResponseFactory
             resolution.User.IsSuperAdmin
         }),
         CurrentUserStatus.NotProvisioned => Error(403, "DLE_OS_USER_NOT_PROVISIONED",
-            "Authenticated by Windows, but no active DLE-OS account exists."),
+            "Authenticated externally, but no active DLE-OS account exists."),
+        CurrentUserStatus.PendingAuthentication => Error(403, "DLE_OS_AUTHENTICATION_PENDING",
+            "The DLE-OS user exists, but an external sign-in identity is not configured."),
         CurrentUserStatus.Disabled => Error(403, "DLE_OS_USER_DISABLED",
             "The mapped DLE-OS account is not active."),
         CurrentUserStatus.SecurityUnavailable => Error(503, "DLE_OS_SECURITY_UNAVAILABLE",
-            "Windows authentication succeeded, but DLE-OS identity resolution is temporarily unavailable."),
-        _ => Error(401, "WINDOWS_AUTHENTICATION_REQUIRED", "Windows authentication is required.")
+            "External authentication succeeded, but DLE-OS identity resolution is temporarily unavailable."),
+        _ => Error(401, "AUTHENTICATION_REQUIRED", "DLE-OS authentication is required.")
     };
 
     private static CurrentUserHttpResponse Error(int status, string code, string message) =>

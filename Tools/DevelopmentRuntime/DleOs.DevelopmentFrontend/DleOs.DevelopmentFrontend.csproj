@@ -7,5 +7,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\SecurityFoundation\DleOs.Security\DleOs.Security.csproj" />
     <ProjectReference Include="..\..\TrustedIdentity\DleOs.TrustedIdentity\DleOs.TrustedIdentity.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.29" />
   </ItemGroup>
 </Project>

@@ -20,6 +20,8 @@
   const kittedBomEndpoint = '/api/development/kitting-documents/v1/work-orders/';
   const releasedBomPrototypeWorkOrder = '0115621';
   const releasedBomPrototypePath = '/Artifacts/WorkOrderReleasedBom004/WORKORDER-RELEASED-BOM-004/index.html';
+  const isDevelopmentRuntime =
+    window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT';
 
   const dashboardViews = {
     standard: ['overview', 'scheduled-releases', 'manufacturing-documents', 'module-placeholder'],
@@ -158,14 +160,14 @@
   }
 
   function isReleasedBomPrototypeAvailable() {
-    return window.location.port === '5051' && currentView === 'kitting' &&
+    return isDevelopmentRuntime && currentView === 'kitting' &&
       getSelectedReleasedBomWorkOrder() === releasedBomPrototypeWorkOrder;
   }
 
   function renderReleasedBomControl() {
     const button = document.getElementById('workOrderDashboardReleasedBom');
     if (!button) return;
-    const inDevelopmentKittingView = window.location.port === '5051' && currentView === 'kitting';
+    const inDevelopmentKittingView = isDevelopmentRuntime && currentView === 'kitting';
     const available = isReleasedBomPrototypeAvailable();
     button.hidden = !inDevelopmentKittingView;
     button.disabled = !available;

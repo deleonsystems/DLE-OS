@@ -59,6 +59,22 @@ Check(spoofResult.Status == CurrentUserStatus.NotProvisioned &&
       recordingResolver.Subjects.Single() == @"DLE-OS-HOST\Unknown",
     "client headers and query parameters cannot override the authenticated server principal");
 
+var oidcSubject = "phase62c-immutable-subject";
+var mixedPrincipal = new ClaimsPrincipal([
+    new ClaimsIdentity([new Claim(ClaimTypes.Name, @"DLE-OS-HOST\Miguel")], "Negotiate"),
+    new ClaimsIdentity([
+        new Claim("sub", oidcSubject),
+        new Claim("preferred_username", "miguel")
+    ], "AuthenticationTypes.Federation")
+]);
+var oidcContext = new DefaultHttpContext { User = mixedPrincipal };
+var oidcRecordingResolver = new RecordingResolver(resolver);
+await new CurrentUserContext(
+    new HttpContextAccessor { HttpContext = oidcContext }, oidcRecordingResolver).ResolveAsync();
+Check(oidcRecordingResolver.Providers.Single() == "KEYCLOAK" &&
+      oidcRecordingResolver.Subjects.Single() == oidcSubject,
+    "validated OIDC sub takes precedence over Windows fallback identity");
+
 var cachedResolver = new RecordingResolver(resolver);
 var cachedContext = new CurrentUserContext(
     new HttpContextAccessor { HttpContext = Context(@"DLE-OS-HOST\Miguel", true) }, cachedResolver);
@@ -180,12 +196,14 @@ sealed record DisabledFixture(Guid UserId, Guid AssignmentId, string Subject);
 
 sealed class RecordingResolver(IIdentityResolver inner) : IIdentityResolver
 {
+    public List<string> Providers { get; } = [];
     public List<string> Subjects { get; } = [];
     public async Task<ResolvedSecurityUser?> ResolveAsync(
         string provider,
         string subject,
         CancellationToken cancellationToken = default)
     {
+        Providers.Add(provider);
         Subjects.Add(subject);
         return await inner.ResolveAsync(provider, subject, cancellationToken);
     }
