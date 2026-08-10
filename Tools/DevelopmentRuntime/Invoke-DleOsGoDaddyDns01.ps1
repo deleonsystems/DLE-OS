@@ -22,6 +22,7 @@ $ProgressPreference = 'SilentlyContinue'
 $zone = 'dlemfg.com'
 $approvedIdentifiers = @(
     'dle-os.internal.dlemfg.com',
+    'dev.dle-os.internal.dlemfg.com',
     'auth.internal.dlemfg.com'
 )
 $secretPath = 'C:\ProgramData\DLE-OS\ACME\Secrets\godaddy-pat.dpapi'

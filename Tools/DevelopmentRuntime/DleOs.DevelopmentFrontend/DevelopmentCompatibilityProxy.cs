@@ -1,20 +1,12 @@
 using System.Net;
 using System.Net.Http.Headers;
+using DleOs.Security;
 using DleOs.TrustedIdentity;
 
 public static class DevelopmentCompatibilityProxy
 {
-    private const string EnvironmentName = "ISOLATED_DEVELOPMENT";
     private const long MaximumRequestBodyBytes = 2 * 1024 * 1024;
-
-    private static readonly ProxyBoundary Canonical = new(
-        "canonical-read", new Uri("http://DLE-OS-HOST:5052"), [HttpMethods.Get], null);
-    private static readonly ProxyBoundary Operational = new(
-        "operational-development", new Uri("http://DLE-OS-HOST:5054"),
-        [HttpMethods.Get, HttpMethods.Post], TrustedIdentityContract.OperationalAudience);
-    private static readonly ProxyBoundary CustomerFiles = new(
-        "customer-files-control", new Uri("http://DLE-OS-HOST:5053"),
-        [HttpMethods.Get, HttpMethods.Post], null);
+    private static readonly AuthorizationEvaluator Authorization = new();
 
     public static void AddDevelopmentCompatibilityProxy(this IServiceCollection services)
     {
@@ -26,34 +18,44 @@ public static class DevelopmentCompatibilityProxy
             });
     }
 
-    public static void MapDevelopmentCompatibilityProxy(this WebApplication app)
+    public static void MapDevelopmentCompatibilityProxy(
+        this WebApplication app, DleOsRuntimeConfiguration runtime)
     {
+        var canonical = new ProxyBoundary(
+            "canonical-read", new Uri(runtime.CanonicalApiBaseUrl), [HttpMethods.Get], null);
+        var operational = new ProxyBoundary(
+            "operational-write", new Uri(runtime.OperationalApiBaseUrl),
+            [HttpMethods.Get, HttpMethods.Post], TrustedIdentityContract.OperationalAudience);
+        var customerFiles = new ProxyBoundary(
+            "customer-files-control", new Uri(runtime.CustomerFilesApiBaseUrl),
+            [HttpMethods.Get, HttpMethods.Post], null);
         app.MapMethods("/api/platform/live/v1/{**path}", [HttpMethods.Get],
             (HttpContext context, ICurrentUserContext users, IIdentityAssertionIssuer assertions,
                 IHttpClientFactory clients,
                 ILoggerFactory logs, CancellationToken token) =>
-                ForwardAsync(context, users, assertions, clients, logs, Canonical, token));
+                ForwardAsync(context, users, assertions, clients, logs, runtime, canonical, token));
 
-        MapOperational(app, "/api/work-order-approvals/{**path}");
-        MapOperational(app, "/api/operational-work-order-relationships/{**path}");
-        MapOperational(app, "/api/kitting-dispositions/{**path}");
-        MapOperational(app, "/api/rma-rework/{**path}");
-        MapOperational(app, "/api/shipment-staging/{**path}");
-        MapOperational(app, "/api/development/identity/{**path}");
+        MapOperational(app, runtime, operational, "/api/work-order-approvals/{**path}");
+        MapOperational(app, runtime, operational, "/api/operational-work-order-relationships/{**path}");
+        MapOperational(app, runtime, operational, "/api/kitting-dispositions/{**path}");
+        MapOperational(app, runtime, operational, "/api/rma-rework/{**path}");
+        MapOperational(app, runtime, operational, "/api/shipment-staging/{**path}");
+        MapOperational(app, runtime, operational, "/api/development/identity/{**path}");
 
         app.MapMethods("/api/customer-files/{**path}", [HttpMethods.Get, HttpMethods.Post],
             (HttpContext context, ICurrentUserContext users, IIdentityAssertionIssuer assertions,
                 IHttpClientFactory clients,
                 ILoggerFactory logs, CancellationToken token) =>
-                ForwardAsync(context, users, assertions, clients, logs, CustomerFiles, token));
+                ForwardAsync(context, users, assertions, clients, logs, runtime, customerFiles, token));
     }
 
-    private static void MapOperational(WebApplication app, string pattern) =>
+    private static void MapOperational(WebApplication app, DleOsRuntimeConfiguration runtime,
+        ProxyBoundary operational, string pattern) =>
         app.MapMethods(pattern, [HttpMethods.Get, HttpMethods.Post],
             (HttpContext context, ICurrentUserContext users, IIdentityAssertionIssuer assertions,
                 IHttpClientFactory clients,
                 ILoggerFactory logs, CancellationToken token) =>
-                ForwardAsync(context, users, assertions, clients, logs, Operational, token));
+                ForwardAsync(context, users, assertions, clients, logs, runtime, operational, token));
 
     private static async Task ForwardAsync(
         HttpContext context,
@@ -61,18 +63,34 @@ public static class DevelopmentCompatibilityProxy
         IIdentityAssertionIssuer assertions,
         IHttpClientFactory clientFactory,
         ILoggerFactory loggerFactory,
+        DleOsRuntimeConfiguration runtime,
         ProxyBoundary boundary,
         CancellationToken cancellationToken)
     {
         var current = await currentUsers.ResolveAsync(cancellationToken);
-        if (current.Status != CurrentUserStatus.Active || current.User is null ||
-            !current.User.IsSuperAdmin)
+        if (current.Status != CurrentUserStatus.Active || current.User is null)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             await context.Response.WriteAsJsonAsync(new
             {
-                code = "DLE_OS_DEVELOPMENT_SUPER_ADMIN_REQUIRED",
-                message = "This development compatibility route requires an active DLE-OS SUPER_ADMIN."
+                code = "DLE_OS_ACTIVE_USER_REQUIRED",
+                message = "This development compatibility route requires an active DLE-OS user."
+            }, cancellationToken);
+            return;
+        }
+
+        var requiredPermission = ResolvePermission(context.Request);
+        if (!current.User.IsSuperAdmin &&
+            (requiredPermission is null || !Authorization.Can(current.User, requiredPermission)))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                code = "DLE_OS_PERMISSION_DENIED",
+                message = requiredPermission is null
+                    ? "This development route remains restricted to SUPER_ADMIN."
+                    : "The DLE-OS user does not have the required application permission.",
+                requiredPermission
             }, cancellationToken);
             return;
         }
@@ -95,7 +113,7 @@ public static class DevelopmentCompatibilityProxy
         logger.LogInformation(
             "CompatibilityRequest UserId={UserId}; UserName={UserName}; Environment={Environment}; " +
             "Boundary={Boundary}; Method={Method}; Route={Route}; CorrelationId={CorrelationId}",
-            current.User.UserId, current.User.UserName, EnvironmentName, boundary.Name,
+            current.User.UserId, current.User.UserName, runtime.RuntimeMarker, boundary.Name,
             context.Request.Method, context.Request.Path, correlationId);
 
         using var request = new HttpRequestMessage(new HttpMethod(context.Request.Method), downstreamUri);
@@ -168,6 +186,28 @@ public static class DevelopmentCompatibilityProxy
                 context.Response.Headers["X-Request-ID"] = requestIds.ToArray();
             await downstream.Content.CopyToAsync(context.Response.Body, cancellationToken);
         }
+    }
+
+    internal static string? ResolvePermission(HttpRequest request)
+    {
+        var path = request.Path.Value ?? "";
+        var write = !HttpMethods.IsGet(request.Method) && !HttpMethods.IsHead(request.Method);
+        if (path.StartsWith("/api/platform/live/v1/sales-orders", StringComparison.OrdinalIgnoreCase))
+            return "kitting.view";
+        if (path.StartsWith("/api/platform/live/v1/work-orders", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/api/platform/live/v1/sales-order-work-order-relationships",
+                StringComparison.OrdinalIgnoreCase))
+            return "work_orders.view";
+        if (path.StartsWith("/api/work-order-approvals/", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/api/operational-work-order-relationships/", StringComparison.OrdinalIgnoreCase))
+            return write ? "work_orders.approve" : "work_orders.view";
+        if (path.StartsWith("/api/kitting-dispositions/", StringComparison.OrdinalIgnoreCase))
+            return write ? "kitting.disposition" : "kitting.view";
+        if (path.StartsWith("/api/rma-rework/", StringComparison.OrdinalIgnoreCase))
+            return write ? "rma_rework.manage" : "rma_rework.view";
+        if (path.StartsWith("/api/shipment-staging/", StringComparison.OrdinalIgnoreCase))
+            return write ? "shipments.stage" : "shipments.view";
+        return null;
     }
 
     private sealed record ProxyBoundary(

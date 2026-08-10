@@ -24,7 +24,7 @@ internal sealed class DevelopmentAssertionReplayStore
 
 internal static class TrustedDevelopmentIdentity
 {
-    private const string ServiceIdentity = @"DLE-OS-HOST\DLE-OS";
+    private const string ServiceIdentity = @"DLE-OS-HOST\DLE-OS-DEV-FRONTEND";
 
     internal static void AddTrustedDevelopmentIdentity(this IServiceCollection services)
     {

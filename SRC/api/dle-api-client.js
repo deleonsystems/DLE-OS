@@ -513,6 +513,7 @@
       requestError.name = 'DleApiError';
       requestError.status = response.status;
       requestError.code = typeof body?.code === 'string' ? body.code : 'http_error';
+      requestError.payload = body;
       throw requestError;
     }
 

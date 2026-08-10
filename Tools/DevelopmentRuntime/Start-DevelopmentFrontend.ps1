@@ -25,6 +25,25 @@ $oidcClientSecretEntropy = 'DLE-OS|Keycloak|OIDC-Client|v1'
 $oidcProtectedBytes = $null
 $oidcEntropyBytes = $null
 $oidcPlainBytes = $null
+$startupMutex = $null
+$startupMutexAcquired = $false
+$startupMutexName = 'Global\DLE-OS-DevelopmentFrontend-5051-Startup'
+$process = $null
+
+# Explicit runtime identity and governed destinations. No classification is
+# inferred from a port or hostname.
+$env:DLE_OS_ENVIRONMENT = 'Development'
+$env:DLE_OS_REPOSITORY_ROOT = $repository
+$env:DLE_OS_REQUIRED_RUNTIME_IDENTITY = $requiredIdentity
+$env:DLE_OS_RUNTIME_MARKER = 'ISOLATED_DEVELOPMENT'
+$env:DLE_OS_ENVIRONMENT_LABEL = 'DEVELOPMENT - ISOLATED OPERATIONAL DATA'
+$env:DLE_OS_APPLICATION_ORIGIN = 'https://dev.dle-os.internal.dlemfg.com'
+$env:DLE_OS_OIDC_CLIENT_ID = 'dle-os-development-bff'
+$env:DLE_OS_CANONICAL_API_BASE_URL = 'http://DLE-OS-HOST:5052'
+$env:DLE_OS_OPERATIONAL_API_BASE_URL = 'http://DLE-OS-HOST:5054'
+$env:DLE_OS_CUSTOMER_FILES_API_BASE_URL = 'http://DLE-OS-HOST:5053'
+$env:DLE_OS_SECURITY_DATABASE = 'DLE_OS_SECURITY_DEV'
+$env:DLE_OS_FRONTEND_PREFIXES = 'http://dle-os-host:5051;http://192.168.0.105:5051;https://dev.dle-os.internal.dlemfg.com:443;https://auth.internal.dlemfg.com:443'
 
 if ([Security.Principal.WindowsIdentity]::GetCurrent().Name -ine $requiredIdentity) {
     throw "Authenticated development frontend startup requires $requiredIdentity."
@@ -55,15 +74,24 @@ function Get-ProtectedSnapshot {
 }
 
 function Test-ServiceIdentitySeparation {
-    $status = $null
+    Add-Type -AssemblyName System.Net.Http
+    $handler = [System.Net.Http.HttpClientHandler]::new()
+    $handler.UseDefaultCredentials = $true
+    $handler.AllowAutoRedirect = $false
+    $client = [System.Net.Http.HttpClient]::new($handler)
+    $client.Timeout = [TimeSpan]::FromSeconds(15)
+    $response = $null
     try {
-        Invoke-WebRequest -UseBasicParsing -UseDefaultCredentials -Uri $identityUri `
-            -TimeoutSec 15 -ErrorAction Stop | Out-Null
-        throw 'The service identity unexpectedly received a DLE-OS application identity.'
+        $response = $client.GetAsync($identityUri).GetAwaiter().GetResult()
+        $status = [int]$response.StatusCode
+        if ($status -notin 302,401,403) {
+            throw "The service identity boundary returned unexpected HTTP status $status."
+        }
     }
-    catch {
-        if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode.value__ }
-        if ($status -ne 403) { throw }
+    finally {
+        if ($response) { $response.Dispose() }
+        $client.Dispose()
+        $handler.Dispose()
     }
     return [ordered]@{
         StatusCode = $status
@@ -83,6 +111,17 @@ $evidence = [ordered]@{
 }
 
 try {
+    $startupMutex = [Threading.Mutex]::new($false, $startupMutexName)
+    try {
+        $startupMutexAcquired = $startupMutex.WaitOne([TimeSpan]::FromSeconds(30))
+    }
+    catch [Threading.AbandonedMutexException] {
+        $startupMutexAcquired = $true
+    }
+    if (-not $startupMutexAcquired) {
+        throw "Timed out waiting for the single-worker startup lock $startupMutexName."
+    }
+
     if (-not (Test-Path -LiteralPath $identityPrivateKeyPath -PathType Leaf)) {
         throw 'The development identity assertion signing key is absent.'
     }
@@ -133,6 +172,21 @@ try {
         throw 'A protected listener changed during development frontend startup.'
     }
     $evidence.Verdict = 'PASS'
+
+    # Keep the scheduled-task action alive through the governed deployment
+    # validation window. MultipleInstances=IgnoreNew applies to the action,
+    # not to a detached child after this script exits.
+    if ($process) {
+        $ownershipDeadline = [DateTimeOffset]::UtcNow.AddSeconds(30)
+        do {
+            Start-Sleep -Milliseconds 250
+            $process.Refresh()
+            if ($process.HasExited) {
+                throw "Frontend exited during the scheduled-task ownership window with code $($process.ExitCode)."
+            }
+        } while ([DateTimeOffset]::UtcNow -lt $ownershipDeadline)
+        $evidence.ScheduledTaskOwnershipWindowSeconds = 30
+    }
 }
 catch {
     $evidence.Error = $_.Exception.Message
@@ -140,8 +194,19 @@ catch {
 }
 finally {
     $env:DLE_OS_OIDC_CLIENT_SECRET = $null
+    if ($startupMutexAcquired) {
+        $startupMutex.ReleaseMutex()
+        $startupMutexAcquired = $false
+    }
+    if ($startupMutex) { $startupMutex.Dispose() }
     if ($oidcPlainBytes) { [Array]::Clear($oidcPlainBytes, 0, $oidcPlainBytes.Length) }
     if ($oidcEntropyBytes) { [Array]::Clear($oidcEntropyBytes, 0, $oidcEntropyBytes.Length) }
+    @('DLE_OS_ENVIRONMENT','DLE_OS_REPOSITORY_ROOT','DLE_OS_REQUIRED_RUNTIME_IDENTITY',
+      'DLE_OS_RUNTIME_MARKER','DLE_OS_ENVIRONMENT_LABEL',
+      'DLE_OS_APPLICATION_ORIGIN','DLE_OS_OIDC_CLIENT_ID','DLE_OS_CANONICAL_API_BASE_URL',
+      'DLE_OS_OPERATIONAL_API_BASE_URL','DLE_OS_CUSTOMER_FILES_API_BASE_URL',
+      'DLE_OS_SECURITY_DATABASE','DLE_OS_FRONTEND_PREFIXES') |
+        ForEach-Object { [Environment]::SetEnvironmentVariable($_, $null, 'Process') }
     if ($oidcProtectedBytes) { [Array]::Clear($oidcProtectedBytes, 0, $oidcProtectedBytes.Length) }
     $evidence.CompletedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
     $evidence | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $evidencePath -Encoding utf8

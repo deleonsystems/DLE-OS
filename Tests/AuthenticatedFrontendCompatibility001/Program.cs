@@ -4,6 +4,8 @@ using System.Text.Json;
 var checks = new List<string>();
 var repository = Directory.GetCurrentDirectory();
 var clientSource = File.ReadAllText(Path.Combine(repository, "SRC", "api", "dle-api-client.js"));
+var canonicalViewerSource = File.ReadAllText(Path.Combine(repository, "SRC", "modules",
+    "canonical-data-viewer", "canonical-data-viewer.js"));
 var proxySource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
     "DleOs.DevelopmentFrontend", "DevelopmentCompatibilityProxy.cs"));
 var programSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
@@ -13,36 +15,60 @@ var workOrderSource = File.ReadAllText(Path.Combine(repository, "SRC", "modules"
     "work-order-dashboard", "work-order-dashboard.js"));
 var shipmentStagingSource = File.ReadAllText(Path.Combine(repository, "SRC", "modules",
     "shipment-staging", "shipment-staging-service.js"));
+var runtimeSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
+    "DleOs.DevelopmentFrontend", "DleOsRuntimeConfiguration.cs"));
+var startupSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
+    "Start-DevelopmentFrontend.ps1"));
+var serviceBootstrapSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
+    "DleOs.DevelopmentFrontend", "DleOsWindowsServiceBootstrap.cs"));
 
 Check(clientSource.Contains("window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT'") &&
       clientSource.Contains("DEVELOPMENT_BFF_BASE_URL") &&
       !clientSource.Contains("window.location.port"),
     "HTTP 5051 and canonical HTTPS use the same-origin authenticated BFF runtime marker");
+Check(clientSource.Contains("requestError.payload = body") &&
+      canonicalViewerSource.Contains("NotReadySourceCheckExpired") &&
+      canonicalViewerSource.Contains("qualified-stale") &&
+      canonicalViewerSource.Contains("no freshness requirement has been bypassed or marked green") &&
+      canonicalViewerSource.Contains("IS_ISOLATED_DEVELOPMENT"),
+    "isolated DEV separates qualified snapshot readability from expired freshness readiness");
 Check(new[] { shellSource, workOrderSource, shipmentStagingSource }.All(source =>
           source.Contains("DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT'") &&
           !source.Contains("window.location.port")),
     "all development-only browser features recognize both HTTP 5051 and canonical HTTPS");
 Check(proxySource.Contains("UseDefaultCredentials = true") &&
-      proxySource.Contains("DLE-OS-HOST:5052") && proxySource.Contains("DLE-OS-HOST:5054") &&
-      proxySource.Contains("DLE-OS-HOST:5053"),
-    "BFF uses its service identity for fixed development downstreams");
-Check(!proxySource.Contains("DLE-OS-HOST:5043") &&
+      proxySource.Contains("runtime.CanonicalApiBaseUrl") &&
+      proxySource.Contains("runtime.OperationalApiBaseUrl") &&
+      proxySource.Contains("runtime.CustomerFilesApiBaseUrl"),
+    "BFF uses its service identity for explicitly configured downstreams");
+Check(runtimeSource.Contains("DLE_OS_ENVIRONMENT") &&
+      runtimeSource.Contains("Development isolation requires 5052, 5054") &&
+      startupSource.Contains("DLE_OS_CANONICAL_API_BASE_URL = 'http://DLE-OS-HOST:5052'") &&
+      startupSource.Contains("DLE_OS_OPERATIONAL_API_BASE_URL = 'http://DLE-OS-HOST:5054'") &&
+      !startupSource.Contains("DLE_OS_CANONICAL_API_BASE_URL = 'http://DLE-OS-HOST:5042'") &&
+      !startupSource.Contains("DLE_OS_OPERATIONAL_API_BASE_URL = 'http://DLE-OS-HOST:5043'"),
+    "Development routing is explicit and fail-closed against production boundaries");
+Check(!proxySource.Contains("/api/platform/refresh/v1") &&
       !proxySource.Contains("/api/platform/refresh/v1") &&
       !proxySource.Contains("/api/platform/operations-refresh/v1"),
     "BFF exposes no production or administrative control route");
-Check(proxySource.Contains("current.User.IsSuperAdmin") &&
-      proxySource.Contains("CurrentUserStatus.Active"),
-    "compatibility routes require active DLE-OS SUPER_ADMIN authorization");
-Check(!proxySource.Contains("Authorization") && !proxySource.Contains("Cookie") &&
+Check(proxySource.Contains("CurrentUserStatus.Active") && proxySource.Contains("ResolvePermission") &&
+      proxySource.Contains("DLE_OS_PERMISSION_DENIED") &&
+      proxySource.Contains("current.User.IsSuperAdmin"),
+    "compatibility routes require an active user and fresh server-side permissions");
+Check(!proxySource.Contains("context.Request.Headers.Authorization") &&
+      !proxySource.Contains("context.Request.Headers.Cookie") &&
       !proxySource.Contains("X-DLE-OS-User") && !proxySource.Contains("X-Windows-Identity"),
     "BFF does not forward browser authorization or identity material");
 Check(proxySource.Contains("UserId={UserId}") && proxySource.Contains("UserName={UserName}") &&
       proxySource.Contains("CorrelationId={CorrelationId}") &&
-      proxySource.Contains("ISOLATED_DEVELOPMENT"),
+      proxySource.Contains("runtime.RuntimeMarker"),
     "compatibility requests are safely audited with internal identity and correlation");
-Check(programSource.Contains(@"DLE-OS-HOST\DLE-OS") &&
-      programSource.Contains("requiredRuntimeIdentity"),
-    "BFF execution identity is explicitly separated from Miguel's application identity");
+Check(programSource.Contains("DLE_OS_REQUIRED_RUNTIME_IDENTITY") &&
+      startupSource.Contains(@"DLE-OS-HOST\DLE-OS") &&
+      serviceBootstrapSource.Contains(@"DLE-OS-HOST\DLE-OS") &&
+      serviceBootstrapSource.Contains("WindowsIdentity.GetCurrent().Name.Equals"),
+    "legacy rollback and SCM service identities are explicit and fail-closed");
 
 if (args.Contains("--static", StringComparer.OrdinalIgnoreCase))
 {
@@ -84,6 +110,24 @@ var sales = await GetJson(authenticated,
     "/api/platform/live/v1/sales-orders?page=1&pageSize=2");
 var salesItems = sales.GetProperty("items");
 Check(salesItems.GetArrayLength() > 0, "canonical Sales Orders load through 5051");
+var workOrders = await GetJson(authenticated,
+    "/api/platform/live/v1/work-orders?page=1&pageSize=2");
+Check(workOrders.GetProperty("items").GetArrayLength() > 0,
+    "canonical Work Orders load through 5051");
+using (var readinessResponse = await authenticated.GetAsync(
+    "/api/platform/live/v1/readiness"))
+{
+    var readinessBody = JsonDocument.Parse(
+        await readinessResponse.Content.ReadAsStringAsync()).RootElement;
+    Check(readinessResponse.StatusCode == HttpStatusCode.ServiceUnavailable &&
+          readinessBody.GetProperty("readinessState").GetString() ==
+              "NotReadySourceCheckExpired",
+        "DEV BFF preserves the expired freshness readiness response without weakening it");
+}
+var snapshot = await GetJson(authenticated, "/api/platform/live/v1/snapshot");
+Check(snapshot.GetProperty("sourceChangeStatus").GetString() == "Qualified" &&
+      snapshot.GetProperty("totalCount").GetInt32() > 0,
+    "DEV BFF exposes the still-qualified read-only canonical snapshot");
 var line = salesItems[0];
 var customer = line.GetProperty("customerNumber").GetString()!;
 var order = line.GetProperty("salesOrderNumber").GetString()!;

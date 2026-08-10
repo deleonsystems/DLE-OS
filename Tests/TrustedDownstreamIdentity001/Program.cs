@@ -103,13 +103,25 @@ var proxySource = File.ReadAllText(Path.Combine(repository, "Tools", "Developmen
     "DleOs.DevelopmentFrontend", "DevelopmentCompatibilityProxy.cs"));
 var downstreamSource = File.ReadAllText(Path.Combine(repository, "Tools", "LiveSnapshotRefresh",
     "ControlHost", "TrustedDevelopmentIdentity.cs"));
+var controlHostProgram = File.ReadAllText(Path.Combine(repository, "Tools", "LiveSnapshotRefresh",
+    "ControlHost", "Program.cs"));
 Check(proxySource.Contains("current.User.UserId") && proxySource.Contains("current.User.IsSuperAdmin"),
     "5051 assertion facts originate in the resolved Phase 2 user");
+Check(proxySource.Contains("TrustedIdentityContract.DevelopmentEnvironment") &&
+      !proxySource.Contains("runtime.RuntimeMarker,\n                correlationId"),
+    "5051 signs the canonical DEVELOPMENT environment rather than the display runtime marker");
 Check(!proxySource.Contains("context.Request.Headers[TrustedIdentityContract.HeaderName]"),
     "5051 never accepts a browser assertion as its issuing source");
 Check(downstreamSource.Contains("DLE_OS_IDENTITY_CALLER_NOT_TRUSTED") &&
-      downstreamSource.Contains("ServiceIdentity"),
+      downstreamSource.Contains("ServiceIdentity") &&
+      downstreamSource.Contains(@"DLE-OS-HOST\DLE-OS-DEV-FRONTEND") &&
+      !downstreamSource.Contains(
+          "private const string ServiceIdentity = @\"DLE-OS-HOST\\DLE-OS\""),
     "downstream requires the approved OS service caller separately");
+Check(controlHostProgram.Contains("authorizedServiceCallers.Contains") &&
+      controlHostProgram.Contains(@"DLE-OS-HOST\DLE-OS-DEV-FRONTEND") &&
+      controlHostProgram.Contains("authorizedOperator"),
+    "outer policy admits only the governed control and DEV frontend service callers");
 Check(downstreamSource.Contains("DLE_OS_IDENTITY_ASSERTION_REPLAYED") &&
       downstreamSource.Contains("TryConsume"), "controlled writes have one-time JTI replay defense");
 Check(downstreamSource.Contains("actorUserId") && downstreamSource.Contains("executionIdentity"),

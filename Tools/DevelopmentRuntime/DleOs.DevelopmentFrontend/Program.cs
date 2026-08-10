@@ -14,23 +14,24 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text.Json;
 using System.Security.Principal;
 
-const string repository = @"C:\DLE-OS\Repositories\DLE-OS";
-const string frontendPrefix = "http://dle-os-host:5051";
-const string temporaryPhase61AIpPrefix = "http://192.168.0.105:5051";
-const string governedPhase62AHostnamePrefix = "http://dle-os.internal.dlemfg.com:5051";
-const string governedPhase62BHttpsPrefix = "https://dle-os.internal.dlemfg.com:443";
-const string governedPhase62CIdentityPrefix = "https://auth.internal.dlemfg.com:443";
-const string canonicalApplicationOrigin = "https://dle-os.internal.dlemfg.com";
 const string keycloakAuthority = "https://auth.internal.dlemfg.com/realms/dle-os";
-const string securityConnectionString =
-    @"Server=lpc:.\SQLEXPRESS;Database=DLE_OS_SECURITY_DEV;Integrated Security=True;" +
-    "Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadOnly;";
 const string kittingDocumentRoute = "/api/development/kitting-documents/v1/work-orders";
 const string kittingShortageRoot = @"\\deleon-server\Production\KITTING\KIT-SHORTAGES";
 const string kittingCompleteRoot = @"\\deleon-server\Production\KITTING\KIT-COMPLETE";
-const string requiredRuntimeIdentity = @"DLE-OS-HOST\DLE-OS";
+var serviceBootstrap = DleOsWindowsServiceBootstrap.Apply(args);
+var applicationArgs = serviceBootstrap.ApplicationArguments;
+var repository = Environment.GetEnvironmentVariable("DLE_OS_REPOSITORY_ROOT") ??
+    throw new InvalidOperationException("Required explicit runtime setting DLE_OS_REPOSITORY_ROOT is absent.");
+var requiredRuntimeIdentity = Environment.GetEnvironmentVariable("DLE_OS_REQUIRED_RUNTIME_IDENTITY") ??
+    throw new InvalidOperationException("Required explicit runtime setting DLE_OS_REQUIRED_RUNTIME_IDENTITY is absent.");
 var identitySigningKeyPath = Environment.GetEnvironmentVariable(
     "DLE_OS_IDENTITY_SIGNING_PRIVATE_KEY_PATH");
+var runtime = DleOsRuntimeConfiguration.Load();
+var canonicalApplicationOrigin = runtime.ApplicationOrigin;
+var canonicalApplicationHost = new Uri(canonicalApplicationOrigin).Host;
+var securityConnectionString =
+    $@"Server=lpc:.\SQLEXPRESS;Database={runtime.SecurityDatabase};Integrated Security=True;" +
+    "Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadWrite;";
 var oidcClientSecret = Environment.GetEnvironmentVariable("DLE_OS_OIDC_CLIENT_SECRET");
 
 if (!string.Equals(WindowsIdentity.GetCurrent().Name, requiredRuntimeIdentity,
@@ -41,18 +42,16 @@ if (string.IsNullOrWhiteSpace(oidcClientSecret) || oidcClientSecret.Length < 32)
     throw new InvalidOperationException("The protected DLE-OS OIDC client secret is unavailable.");
 
 var sqlBoundary = new SqlConnectionStringBuilder(securityConnectionString);
-if (!string.Equals(sqlBoundary.InitialCatalog, "DLE_OS_SECURITY_DEV", StringComparison.Ordinal) ||
-    sqlBoundary.InitialCatalog.Contains("LIVE", StringComparison.OrdinalIgnoreCase))
-    throw new InvalidOperationException("The development frontend security database boundary is invalid.");
+if (!string.Equals(sqlBoundary.InitialCatalog, runtime.SecurityDatabase, StringComparison.Ordinal))
+    throw new InvalidOperationException("The configured frontend security database boundary is invalid.");
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(applicationArgs);
+if (serviceBootstrap.IsWindowsService)
+    builder.Host.UseWindowsService(options => options.ServiceName = DleOsWindowsServiceBootstrap.ServiceName);
 builder.WebHost.UseHttpSys(options =>
 {
-    options.UrlPrefixes.Add(frontendPrefix);
-    options.UrlPrefixes.Add(temporaryPhase61AIpPrefix);
-    options.UrlPrefixes.Add(governedPhase62AHostnamePrefix);
-    options.UrlPrefixes.Add(governedPhase62BHttpsPrefix);
-    options.UrlPrefixes.Add(governedPhase62CIdentityPrefix);
+    foreach (var prefix in runtime.FrontendPrefixes)
+        options.UrlPrefixes.Add(prefix);
     options.Authentication.Schemes =
         AuthenticationSchemes.Negotiate | AuthenticationSchemes.NTLM;
     options.Authentication.AllowAnonymous = true;
@@ -73,11 +72,16 @@ builder.Services.AddAuthentication(options =>
         options.Cookie.Path = "/";
         options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
         options.SlidingExpiration = false;
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
     })
     .AddOpenIdConnect(DleOsOidcSchemes.OpenIdConnect, options =>
     {
         options.Authority = keycloakAuthority;
-        options.ClientId = "dle-os-development-bff";
+        options.ClientId = runtime.OidcClientId;
         options.ClientSecret = oidcClientSecret;
         options.ResponseType = OpenIdConnectResponseType.Code;
         options.ResponseMode = OpenIdConnectResponseMode.Query;
@@ -233,7 +237,7 @@ app.MapGet("/auth/signin", (HttpContext context) =>
 {
     NoStore(context.Response);
     if (!context.Request.IsHttps ||
-        !context.Request.Host.Host.Equals("dle-os.internal.dlemfg.com", StringComparison.OrdinalIgnoreCase))
+        !context.Request.Host.Host.Equals(canonicalApplicationHost, StringComparison.OrdinalIgnoreCase))
         return Results.Redirect(canonicalApplicationOrigin + "/auth/signin");
     return Results.Challenge(
         new AuthenticationProperties { RedirectUri = canonicalApplicationOrigin + "/" },
@@ -309,7 +313,7 @@ app.MapGet("/api/development/employees/v1/directory", async (
     return Results.Ok(result);
 }).RequireAuthorization();
 
-app.MapDevelopmentCompatibilityProxy();
+app.MapDevelopmentCompatibilityProxy(runtime);
 
 app.MapGet("/", async (
     HttpContext context,
@@ -327,8 +331,12 @@ app.MapGet("/", async (
     var html = File.ReadAllText(Path.Combine(repository, "DLE_Work_Center_v4.0.0.html"));
     var runtimeConfiguration = JsonSerializer.Serialize(new
     {
-        authenticatedBffBaseUrl = frontendPrefix,
-        environment = "ISOLATED_DEVELOPMENT"
+        authenticatedBffBaseUrl = runtime.ApplicationOrigin,
+        environment = runtime.RuntimeMarker,
+        environmentName = runtime.Environment,
+        environmentLabel = runtime.DisplayLabel,
+        canonicalApiBaseUrl = runtime.CanonicalApiBaseUrl,
+        operationalControlBaseUrl = runtime.OperationalApiBaseUrl
     });
     const string headElement = "<head>";
     var headIndex = html.IndexOf(headElement, StringComparison.Ordinal);
@@ -337,7 +345,7 @@ app.MapGet("/", async (
     html = html.Insert(headIndex + headElement.Length,
         "<script>window.DleOsRuntimeConfig=" + runtimeConfiguration + ";</script>");
     html = html.Replace("DEVELOPMENT — READ ONLY",
-        "DEVELOPMENT — AUTHENTICATED BFF · ISOLATED OPERATIONAL DATA",
+        runtime.DisplayLabel,
         StringComparison.Ordinal);
     html = DevelopmentIdentityUi.Inject(html);
     var antiforgeryToken = antiforgery.GetAndStoreTokens(context).RequestToken ??

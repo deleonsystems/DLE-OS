@@ -7,6 +7,8 @@
   const REQUEST_TIMEOUT_MS = 15000;
   const WORK_ORDER_SEARCH_DEBOUNCE_MS = 300;
   const PAGE_SIZES = Object.freeze([25, 50, 100, 200]);
+  const IS_ISOLATED_DEVELOPMENT =
+    window.DleOsRuntimeConfig?.environment === "ISOLATED_DEVELOPMENT";
   const NULL_MARKER = "—";
   const VIEWER_PROFILES = Object.freeze({
     historical: Object.freeze({
@@ -973,6 +975,7 @@
       activeEntity: "workOrders",
       readiness: "checking",
       readinessPayload: null,
+      readAvailability: "checking",
       snapshot: "checking",
       snapshotPayload: null,
       invoiceHistoryAvailable: false,
@@ -1057,7 +1060,7 @@
       await refreshStatus({ loadDefaultEntity: true });
       return;
     }
-    if (state.readiness === "ready" && ["idle", "cancelled"].includes(state.entities[state.activeEntity].status)) {
+    if (canonicalReadsAvailable() && ["idle", "cancelled"].includes(state.entities[state.activeEntity].status)) {
       await loadEntity(state.activeEntity);
     }
   }
@@ -1137,7 +1140,7 @@
       await refreshStatus({ loadDefaultEntity: true });
       return;
     }
-    if (state.readiness === "ready" && ["idle", "cancelled"].includes(currentEntityState().status)) {
+    if (canonicalReadsAvailable() && ["idle", "cancelled"].includes(currentEntityState().status)) {
       await loadEntity(state.activeEntity);
     }
   }
@@ -1164,7 +1167,7 @@
       return;
     }
     if (!input.matches('[data-canonical-live-search="true"]')) return;
-    if (state.activeEntity !== "workOrders" || state.readiness !== "ready") return;
+    if (state.activeEntity !== "workOrders" || !canonicalReadsAvailable()) return;
 
     const form = input.closest("[data-canonical-filters]");
     if (!form) return;
@@ -1175,7 +1178,7 @@
     cancelDebouncedWorkOrderSearch();
     workOrderSearchTimer = window.setTimeout(() => {
       workOrderSearchTimer = null;
-      if (active && state.activeEntity === "workOrders" && state.readiness === "ready") {
+      if (active && state.activeEntity === "workOrders" && canonicalReadsAvailable()) {
         loadEntity("workOrders");
       }
     }, WORK_ORDER_SEARCH_DEBOUNCE_MS);
@@ -1322,7 +1325,7 @@
       state.readinessPayload = readinessResult.value;
       state.readiness = readinessVerdict(readinessResult.value) === "Ready" ? "ready" : "not-ready";
     } else {
-      state.readinessPayload = null;
+      state.readinessPayload = readinessResult.reason?.payload ?? null;
       state.readiness = readinessResult.reason?.status === 503 ? "not-ready" : "unavailable";
     }
 
@@ -1333,6 +1336,9 @@
       state.snapshotPayload = null;
       state.snapshot = "unavailable";
     }
+    state.readAvailability = canonicalReadAvailability(
+      state.readinessPayload,
+      state.snapshotPayload);
     state.invoiceHistoryAvailable =
       activeProfileKey === "live" &&
       invoiceHistoryResult.status === "fulfilled" &&
@@ -1380,6 +1386,11 @@
       state.statusMessage = activeProfileKey === "live"
         ? "Ready — entity requests use only the qualified Live Source Snapshot; this is not real-time data."
         : "Ready. Entity requests use the qualified historical canonical snapshot only.";
+    } else if (state.readAvailability === "qualified-stale") {
+      state.statusMessage =
+        "Freshness readiness is Not Ready because the approved-source check expired. " +
+        "The last qualified snapshot remains read-only and available in isolated DEV; " +
+        "no freshness requirement has been bypassed or marked green.";
     } else if (state.readiness === "not-ready") {
       state.statusMessage = activeProfileKey === "live"
         ? "The LIVE canonical platform is Not Ready: " +
@@ -1395,7 +1406,7 @@
     renderStatus();
     renderEntity();
 
-    if (options.loadDefaultEntity && state.readiness === "ready" && currentEntityState().status === "idle") {
+    if (options.loadDefaultEntity && canonicalReadsAvailable() && currentEntityState().status === "idle") {
       await loadEntity(state.activeEntity);
     }
     if (activeProfileKey === "live") {
@@ -1564,10 +1575,10 @@
   }
 
   async function loadEntity(entityKey) {
-    if (!active || state.readiness !== "ready") {
+    if (!active || !canonicalReadsAvailable()) {
       const entityState = state.entities[entityKey];
       entityState.status = "blocked";
-      entityState.message = "Entity requests require API readiness. No fallback source is available.";
+      entityState.message = "Entity requests require a qualified canonical snapshot. No fallback source is available.";
       renderEntity();
       return;
     }
@@ -1625,7 +1636,7 @@
   }
 
   async function openDetail(identifier) {
-    if (state.readiness !== "ready") return;
+    if (!canonicalReadsAvailable()) return;
     const definition = currentDefinition();
     const entityState = currentEntityState();
     const detail = query("[data-canonical-detail]");
@@ -1736,7 +1747,7 @@
     renderInvoiceHistoryRefreshControl();
     const tab = query('[data-canonical-tab="' + entityKey + '"]');
     if (options.focusTab) tab?.focus();
-    if (state.readiness === "ready" && state.entities[entityKey].status === "idle") {
+    if (canonicalReadsAvailable() && state.entities[entityKey].status === "idle") {
       loadEntity(entityKey);
     }
     if (entityKey === "invoiceHistory") {
@@ -2054,7 +2065,7 @@
     if (!mounted) return;
     const definition = currentDefinition();
     const entityState = currentEntityState();
-    const queryEnabled = state.readiness === "ready";
+    const queryEnabled = canonicalReadsAvailable();
 
     queryAll("[data-canonical-tab]").forEach(tab => {
       const selected = tab.dataset.canonicalTab === state.activeEntity;
@@ -2113,7 +2124,7 @@
       }
       input.value = entityState.filters[filter.name] ?? "";
       input.autocomplete = "off";
-      input.disabled = state.readiness !== "ready";
+      input.disabled = !canonicalReadsAvailable();
       if (filter.placeholder) input.placeholder = filter.placeholder;
       if (filter.liveSearch) input.dataset.canonicalLiveSearch = "true";
       label.append(labelText, input);
@@ -2131,7 +2142,7 @@
       }
     }
     queryAll("[data-canonical-filters] button").forEach(button => {
-      button.disabled = state.readiness !== "ready" || entityState.status === "loading";
+      button.disabled = !canonicalReadsAvailable() || entityState.status === "loading";
     });
   }
 
@@ -2313,6 +2324,31 @@
     return payload?.readinessVerdict ?? payload?.status ?? "Unavailable";
   }
 
+  function canonicalReadAvailability(readiness, snapshot) {
+    if (readinessVerdict(readiness) === "Ready" && snapshotIsReady(snapshot)) {
+      return "ready";
+    }
+    if (!IS_ISOLATED_DEVELOPMENT || activeProfileKey !== "live" ||
+        readiness?.readinessState !== "NotReadySourceCheckExpired") {
+      return "blocked";
+    }
+    const qualifiedSnapshot =
+      snapshot?.dataEnvironment === "LIVE" &&
+      snapshot?.database === "DLE_OS_CANONICAL_LIVE" &&
+      snapshot?.contractVersion === "1.2" &&
+      snapshot?.sourceChangeStatus === "Qualified" &&
+      typeof snapshot?.currentImportRunId === "string" &&
+      typeof snapshot?.packageHash === "string" &&
+      typeof snapshot?.snapshotTimestampUtc === "string" &&
+      Number(snapshot?.totalCount) > 0;
+    return qualifiedSnapshot ? "qualified-stale" : "blocked";
+  }
+
+  function canonicalReadsAvailable() {
+    return state.readAvailability === "ready" ||
+      state.readAvailability === "qualified-stale";
+  }
+
   function snapshotIsReady(payload) {
     return activeProfileKey === "live"
       ? Boolean(payload?.snapshotTimestampUtc) && payload?.readinessVerdict === "Ready"
@@ -2355,6 +2391,7 @@
       activeProfile: activeProfileKey,
       activeEntity: state.activeEntity,
       readiness: state.readiness,
+      readAvailability: state.readAvailability,
       snapshot: state.snapshot,
       entityStatuses: Object.fromEntries(Object.entries(state.entities).map(([key, value]) => [key, value.status])),
       approvedMemberCount: Object.values(ENTITIES)

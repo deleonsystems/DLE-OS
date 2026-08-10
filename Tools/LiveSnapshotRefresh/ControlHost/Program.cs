@@ -5,6 +5,11 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Server.HttpSys;
 
 const string authorizedOperator = @"DLE-OS-HOST\DLE-OS";
+string[] authorizedServiceCallers =
+[
+    authorizedOperator,
+    @"DLE-OS-HOST\DLE-OS-DEV-FRONTEND"
+];
 string[] allowedOrigins =
     ["http://dle-os-host:5041", "http://dle-os-host:5051"];
 var controlPrefix = ControlHostRuntimeConfiguration.ControlPrefix;
@@ -39,10 +44,9 @@ builder.Services.AddAuthorization(options =>
     {
         policy.RequireAuthenticatedUser();
         policy.RequireAssertion(context =>
-            string.Equals(
-                context.User.Identity?.Name,
-                authorizedOperator,
-                StringComparison.OrdinalIgnoreCase));
+            authorizedServiceCallers.Contains(
+                context.User.Identity?.Name ?? "",
+                StringComparer.OrdinalIgnoreCase));
     });
 });
 builder.Services.AddCors(options =>

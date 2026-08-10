@@ -4,7 +4,7 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$hostname = 'dle-os.internal.dlemfg.com'
+$hostname = 'dev.dle-os.internal.dlemfg.com'
 $hostnamePort = "$hostname`:443"
 $renewalTaskName = 'win-acme renew (acme-v02.api.letsencrypt.org)'
 $healthDirectory = 'C:\ProgramData\DLE-OS\ACME\Health'

@@ -1,0 +1,23 @@
+{
+  "environment": "Development",
+  "runtimeMarker": "ISOLATED_DEVELOPMENT",
+  "environmentLabel": "DEVELOPMENT - ISOLATED OPERATIONAL DATA",
+  "applicationOrigin": "https://dev.dle-os.internal.dlemfg.com",
+  "oidcClientId": "dle-os-development-bff",
+  "canonicalApiBaseUrl": "http://DLE-OS-HOST:5052",
+  "operationalApiBaseUrl": "http://DLE-OS-HOST:5054",
+  "customerFilesApiBaseUrl": "http://DLE-OS-HOST:5053",
+  "securityDatabase": "DLE_OS_SECURITY_DEV",
+  "enableUserProvisioning": true,
+  "frontendPrefixes": [
+    "http://dle-os-host:5051",
+    "http://192.168.0.105:5051",
+    "https://dev.dle-os.internal.dlemfg.com:443",
+    "https://auth.internal.dlemfg.com:443"
+  ],
+  "repositoryRoot": "C:\\DLE-OS\\Repositories\\DLE-OS",
+  "requiredRuntimeIdentity": "DLE-OS-HOST\\DLE-OS-DEV-FRONTEND",
+  "identitySigningPrivateKeyPath": "C:\\ProgramData\\DLE-OS\\DevelopmentIdentity\\Keys\\issuer-private.pem",
+  "oidcClientSecretPath": "C:\\ProgramData\\DLE-OS\\Keycloak\\Secrets\\oidc-client-secret.dpapi",
+  "provisioningClientSecretPath": "C:\\ProgramData\\DLE-OS\\Keycloak\\Secrets\\provisioning-client-secret.dpapi"
+}

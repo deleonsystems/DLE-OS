@@ -10,9 +10,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$hostname = 'dle-os.internal.dlemfg.com'
+$hostname = 'dev.dle-os.internal.dlemfg.com'
 $hostnamePort = "$hostname`:443"
-$applicationId = '{f6c755fb-cb3f-4fa2-8e94-6e53634a12db}'
+$applicationId = '{9e03bf22-a48d-45af-93eb-767be09ba991}'
 $normalizedThumbprint = $NewThumbprint.Replace(' ', '').ToUpperInvariant()
 $certificate = Get-Item -LiteralPath "Cert:\LocalMachine\My\$normalizedThumbprint"
 
@@ -46,7 +46,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $serviceState = netsh http show servicestate view=requestq 2>&1 | Out-String
-if ($serviceState -notmatch 'HTTPS://DLE-OS\.INTERNAL\.DLEMFG\.COM:443/') {
+if ($serviceState -notmatch 'HTTPS://DEV\.DLE-OS\.INTERNAL\.DLEMFG\.COM:443/') {
     Write-Output 'HTTPS_BINDING_PASS; ENDPOINT_VALIDATION_DEFERRED_UNTIL_LISTENER_DEPLOYMENT'
     exit 0
 }
