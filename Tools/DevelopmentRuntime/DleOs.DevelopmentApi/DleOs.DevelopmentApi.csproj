@@ -21,6 +21,10 @@
     <Compile Include="..\..\..\..\DLE-OS-Server\Data\Platform\Live\**\*.cs" />
     <Compile Include="..\..\..\..\DLE-OS-Server\Models\Platform\*.cs" />
     <Compile Include="..\..\..\..\DLE-OS-Server\Options\LiveApiOptions.cs" />
+    <Compile Remove="..\..\..\..\DLE-OS-Server\Data\Platform\LivePlatformStatusRepository.cs" />
+    <Compile Remove="..\..\..\..\DLE-OS-Server\Options\LiveApiOptions.cs" />
+    <Compile Include="..\..\..\Tools\PlatformFreshnessCache\ServerOverlay\Data\Platform\LivePlatformStatusRepository.cs" Link="Data\Platform\LivePlatformStatusRepository.cs" />
+    <Compile Include="..\..\..\Tools\PlatformFreshnessCache\ServerOverlay\Options\LiveApiOptions.cs" Link="Options\LiveApiOptions.cs" />
     <Compile Include="..\..\..\Tools\CustomerMaster\ServerOverlay\Contracts\Platform\CustomerDirectoryDtos.cs" />
     <Compile Include="..\..\..\Tools\CustomerMaster\ServerOverlay\Controllers\Platform\LiveCustomerDirectoryController.cs" />
     <Compile Include="..\..\..\Tools\CustomerMaster\ServerOverlay\Data\Platform\CustomerDirectoryRepository.cs" />

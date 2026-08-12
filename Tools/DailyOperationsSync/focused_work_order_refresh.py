@@ -10,12 +10,14 @@ import json
 import re
 import shutil
 import subprocess
+import os
 from datetime import date, datetime, timezone
 from pathlib import Path
 
 REPO = Path(r"C:\DLE-OS\Repositories\DLE-OS")
 ROOT = Path(r"C:\DLE-OS\Canonical\DailyOperationsSync\Runs")
-SOURCE = Path(r"X:\AON\ADATA\WOE-01")
+SOURCE_ROOT = Path(r"\\deleon-server\Add-ON\AON\ADATA")
+SOURCE = SOURCE_ROOT / "WOE-01"
 CURRENT = Path(r"C:\DLE-OS\Canonical\LiveMirror\Current")
 TEMPLATE = REPO / "Tools/DailyOperationsSync/VPro/FOCUSED_WORK_ORDER_READER.src"
 COMPILER = Path(r"C:\BASIS\VPRO5\pro5cpl.exe")
@@ -50,6 +52,11 @@ def identity() -> dict[str, object]:
 
 
 def main() -> int:
+    lease = Path(r"C:\ProgramData\DLE-OS\SyncOperations\lease.json")
+    if lease.exists():
+        owner = json.loads(lease.read_text(encoding="utf-8-sig")).get("RunId", "")
+        if owner != os.environ.get("DLE_OS_SYNC_OPERATIONS_RUN_ID", ""):
+            raise RuntimeError(f"ALREADY_RUNNING: Sync Operations {owner} owns the lease")
     parser = argparse.ArgumentParser()
     parser.add_argument("--sync-run-id", required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -75,6 +82,7 @@ def main() -> int:
     source = compile_root / "FOCUSED_WORK_ORDER_READER.src"
     source.write_text(
         TEMPLATE.read_text(encoding="ascii")
+        .replace(r"X:\AON\ADATA", str(SOURCE_ROOT))
         .replace("__RUN_ID__", args.sync_run_id)
         .replace("__OUTPUT__", str(raw))
         .replace("__FAILURE__", str(failure)), encoding="ascii")

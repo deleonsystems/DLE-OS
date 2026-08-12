@@ -64,6 +64,7 @@ if (isolatedDevelopment)
     builder.Services.AddHostedService<ShipmentReconciliationMonitor>();
     builder.Services.AddTrustedDevelopmentIdentity();
     builder.Services.AddDevelopmentPermissionAuthorization();
+    builder.Services.AddSingleton<SyncOperationsCenter>();
 }
 
 var app = builder.Build();
@@ -92,6 +93,7 @@ app.Use(async (context, next) =>
         "/api/rma-rework/",
         "/api/operational-work-order-relationships/",
         "/api/shipment-staging/",
+        "/api/sync/operations",
         "/api/development/identity/"
     ];
     if (allowedDevelopmentPaths.Any(value => path.StartsWith(value, StringComparison.OrdinalIgnoreCase)))
@@ -412,6 +414,7 @@ if (isolatedDevelopment)
 {
     app.MapShipmentStaging("SnapshotRefreshOperator");
     app.MapDevelopmentIdentityAuditFixture("SnapshotRefreshOperator");
+    app.MapSyncOperations("SnapshotRefreshOperator");
 }
 
 app.Run();

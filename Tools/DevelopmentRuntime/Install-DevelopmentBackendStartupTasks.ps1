@@ -167,7 +167,7 @@ $action5054 = New-ScheduledTaskAction `
 $principal5054 = New-ScheduledTaskPrincipal `
     -UserId 'DLE-OS-HOST\DLE-OS' `
     -LogonType Password `
-    -RunLevel Highest
+    -RunLevel Limited
 
 $credential = Get-Credential -UserName 'DLE-OS-HOST\DLE-OS' -Message (
     'Enter the existing DLE-OS operator credential once so Windows Task ' +

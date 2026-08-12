@@ -14,6 +14,13 @@ var liveBoundaryConfiguration = new ConfigurationBuilder()
         qualifiedLiveConfiguration,
         optional: false,
         reloadOnChange: false)
+    .AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["LiveApi:AcceptLatestQualifiedOperationalSnapshot"] = "true",
+        ["LiveApi:AllowedBrowserOrigin"] = "http://dle-os-host:5051",
+        ["LiveApi:StartupEvidencePath"] =
+            @"C:\ProgramData\DLE-OS\DevelopmentCanonicalApi\Logs\startup-task-evidence.json"
+    })
     .Build();
 
 builder.Services.AddControllers();

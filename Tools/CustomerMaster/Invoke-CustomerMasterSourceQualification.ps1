@@ -39,16 +39,9 @@ $config = Join-Path $programs 'configCUSTOMERMASTERPLATFORM001.aon'
 $compiler = 'C:\BASIS\VPRO5\pro5cpl.exe'
 $lister = 'C:\BASIS\VPRO5\pro5lst.exe'
 $vpro = 'C:\BASIS\VPRO5\vpro5.exe'
-$sourcePaths = @(
-    'X:\AON\ADATA\ARM-01',
-    'X:\AON\ADATA\ARM-02',
-    'X:\AON\ADATA\ARM-03',
-    'X:\AON\ADATA\ARM-05',
-    'X:\AON\ADATA\ARM-06',
-    'X:\AON\ADATA\ARM-09',
-    'X:\AON\ADATA\ARM-10',
-    'X:\AON\ADATA\ARM-14'
-)
+$sourceRoot = '\\deleon-server\Add-ON\AON\ADATA'
+$sourcePaths = @('ARM-01','ARM-02','ARM-03','ARM-05','ARM-06','ARM-09','ARM-10','ARM-14') |
+    ForEach-Object { Join-Path $sourceRoot $_ }
 $executionEvidence = Join-Path $artifactRoot (
     'CUSTOMER_MASTER_SOURCE_EXECUTION.json')
 $errorEvidence = Join-Path $artifactRoot (
@@ -200,6 +193,7 @@ function Get-NormalizedPassHash {
 
 $sourceText = Get-Content -Raw -LiteralPath $template
 $sourceText = $sourceText.Replace('__RUN_ID__', $runId)
+$sourceText = $sourceText.Replace('X:\AON\ADATA', $sourceRoot)
 $sourceText = $sourceText.Replace(
     '__LAB_RUNTIME__',
     $runtime.TrimEnd('\'))
@@ -312,8 +306,9 @@ $processStart = [Diagnostics.ProcessStartInfo]::new()
 $processStart.FileName = $vpro
 $processStart.Arguments = $arguments -join ' '
 $processStart.WorkingDirectory = $programs
-$processStart.UseShellExecute = $true
-$processStart.WindowStyle = [Diagnostics.ProcessWindowStyle]::Normal
+$processStart.UseShellExecute = $false
+$processStart.CreateNoWindow = $true
+$processStart.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
 $process = [Diagnostics.Process]::Start($processStart)
 [ordered]@{
     Verdict = 'RUNNING'
@@ -321,7 +316,7 @@ $process = [Diagnostics.Process]::Start($processStart)
     AttemptId = $attemptId
     ProcessId = $process.Id
     Arguments = $arguments
-    UseShellExecute = $true
+    UseShellExecute = $false
     ProgramSha256 = $compiledHash
     StartupTimeoutSeconds = $startupTimeoutSeconds
     ProgressTimeoutSeconds = $progressTimeoutSeconds

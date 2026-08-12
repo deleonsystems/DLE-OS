@@ -1902,8 +1902,8 @@
     const control = query("[data-canonical-refresh-control]");
     const button = query('[data-canonical-action="run-erp-refresh"]');
     if (!control || !button) return;
-    control.hidden = !isLive;
-    button.hidden = !isLive || !state.refresh.authorized;
+    control.hidden = true;
+    button.hidden = true;
     button.disabled = state.refresh.running || !state.refresh.available;
     query("[data-canonical-refresh-message]").textContent =
       state.refresh.message || refreshResultMessage(state.refresh);
@@ -1928,10 +1928,7 @@
       '[data-canonical-action="run-invoice-history-refresh"]'
     );
     if (!control || !button) return;
-    const visible =
-      activeProfileKey === "live" &&
-      state.activeEntity === "invoiceHistory" &&
-      state.invoiceHistoryAvailable;
+    const visible = false;
     control.hidden = !visible;
     if (!visible) return;
     const refresh = state.invoiceRefresh;
@@ -1969,7 +1966,7 @@
   function refreshResultMessage(refresh) {
     if (refresh.lastFailureReason) return refresh.lastFailureReason;
     if (refresh.status === "SUCCESS") {
-      return "A qualified snapshot was promoted. Select Refresh View when you are ready to load it.";
+      return "A qualified snapshot was promoted. Select Reload View when you are ready to load it.";
     }
     if (refresh.status === "NO_SOURCE_CHANGES") {
       return "The qualified ERP source indicators have not changed. The active snapshot was retained.";

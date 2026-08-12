@@ -7,6 +7,7 @@
 
   window.OperationsCenter = window.OperationsCenter || {};
   let operationalStateSubscription = null;
+  let syncOperationsPollTimer = null;
 
   async function loadOperationsCenterModule() {
     const placeholder = document.getElementById('operationsCenter');
@@ -35,6 +36,7 @@
     populateOperationsCenterDocumentTypes();
     window.OperationsCenter.table.updateSaveStatus('No unsaved changes.', 'saved');
     await refreshOperationsCenterCanonicalData();
+    await refreshSyncOperationsStatus();
   }
 
   function renderOperationsCenterModule() {
@@ -54,6 +56,64 @@
     }
     window.OperationsCenter.table.renderModule();
     return !window.OperationsCenter.state.canonicalError;
+  }
+
+  function syncValue(state, name) {
+    return state?.[name] ?? state?.[name.charAt(0).toUpperCase() + name.slice(1)];
+  }
+
+  function formatSyncDate(value) {
+    if (!value) return 'Never';
+    const date = new Date(value);
+    return Number.isNaN(date.valueOf()) ? String(value) : date.toLocaleString();
+  }
+
+  function renderSyncOperationsStatus(state) {
+    const root = document.getElementById('syncOperationsStatus');
+    const button = document.getElementById('syncOperationsButton');
+    if (!root) return;
+    const status = String(syncValue(state, 'status') || 'NEVER_RUN');
+    const running = ['QUEUED', 'RUNNING'].includes(status);
+    const daily = syncValue(state, 'dailyOperations');
+    const invoice = syncValue(state, 'invoiceHistory');
+    const dailyCounts = syncValue(daily, 'components') || [];
+    const countSummary = dailyCounts.filter(item => syncValue(item, 'recordCount') !== null && syncValue(item, 'recordCount') !== undefined)
+      .map(item => syncValue(item, 'id') + ': ' + syncValue(item, 'recordCount')).join(' · ');
+    const invoiceImport = syncValue(syncValue(invoice, 'details'), 'import');
+    const invoiceChanges = syncValue(invoiceImport, 'ChangeCount') ?? syncValue(invoiceImport, 'changeCount');
+    root.dataset.status = status.toLowerCase();
+    root.innerHTML = '<strong>Sync Operations — ' + escapeOptionText(status.replaceAll('_', ' ')) + '</strong>' +
+      '<span>' + escapeOptionText(syncValue(state, 'currentStep') || syncValue(state, 'result') || 'No synchronization has run.') + '</span>' +
+      '<small>Requested by ' + escapeOptionText(syncValue(state, 'requestedBy') || '—') +
+      ' · started ' + escapeOptionText(formatSyncDate(syncValue(state, 'startedAtUtc'))) +
+      ' · elapsed ' + escapeOptionText(syncValue(state, 'elapsedSeconds') ?? 0) + 's' +
+      (countSummary ? ' · ' + escapeOptionText(countSummary) : '') +
+      (invoiceChanges !== undefined ? ' · invoice changes: ' + escapeOptionText(invoiceChanges) : '') + '</small>';
+    if (button) button.disabled = running;
+    if (syncOperationsPollTimer) window.clearTimeout(syncOperationsPollTimer);
+    syncOperationsPollTimer = running ? window.setTimeout(refreshSyncOperationsStatus, 2000) : null;
+  }
+
+  async function refreshSyncOperationsStatus() {
+    try {
+      renderSyncOperationsStatus(await window.DleApiClient.liveCanonical.getSyncOperationsCurrent());
+    } catch (error) {
+      const root = document.getElementById('syncOperationsStatus');
+      if (root) root.innerHTML = '<strong>Sync Operations unavailable</strong><span>' +
+        escapeOptionText(error?.message || error) + '</span>';
+    }
+  }
+
+  async function startSyncOperations() {
+    if (!window.confirm('Start the governed focused synchronization now? This updates Customer Master, Work Orders, Open Sales Orders, relationships, and the 45-day Invoice History window.')) return;
+    const button = document.getElementById('syncOperationsButton');
+    if (button) button.disabled = true;
+    try {
+      renderSyncOperationsStatus(await window.DleApiClient.liveCanonical.startSyncOperations());
+    } catch (error) {
+      window.alert('Sync Operations was not started.\n\n' + (error?.message || error));
+      await refreshSyncOperationsStatus();
+    }
   }
 
   function filterOperationsCenter() {
@@ -178,6 +238,8 @@
   window.OperationsCenter.updateProjectionSelection = updateOperationsCenterProjectionSelection;
   window.OperationsCenter.updateOverlayField = updateOperationsCenterOverlayField;
   window.OperationsCenter.saveOverlay = saveOperationsCenterOverlay;
+  window.OperationsCenter.refreshSyncOperationsStatus = refreshSyncOperationsStatus;
+  window.OperationsCenter.startSyncOperations = startSyncOperations;
 
   window.loadOperationsCenterModule = loadOperationsCenterModule;
   window.initializeOperationsCenter = initializeOperationsCenter;
@@ -193,4 +255,6 @@
   window.updateOperationsCenterProjectionSelection = updateOperationsCenterProjectionSelection;
   window.updateOperationsCenterOverlayField = updateOperationsCenterOverlayField;
   window.saveOperationsCenterOverlay = saveOperationsCenterOverlay;
+  window.refreshSyncOperationsStatus = refreshSyncOperationsStatus;
+  window.startSyncOperations = startSyncOperations;
 })();

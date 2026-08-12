@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Manual', 'Scheduled')]
+    [ValidateSet('Manual', 'Scheduled', 'SyncOperations')]
     [string] $Trigger = 'Manual',
+    [switch] $CanonicalApiOnlyFinalization,
     [ValidateSet('', 'customer-master', 'work-orders', 'sales-orders',
         'relationships', 'validation', 'sql-import', 'promotion',
         'finalization')]
@@ -10,6 +11,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+. 'C:\DLE-OS\Repositories\DLE-OS\Tools\SyncOperations\Assert-SyncOperationsLease.ps1'
 
 $approvedIdentity = 'DLE-OS-HOST\DLE-OS'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -33,11 +35,10 @@ $workOrderRunner = Join-Path $repo 'Tools\DailyOperationsSync\focused_work_order
 $importer = Join-Path $repo 'Tools\DailyOperationsSync\Import-DailyOperationsSnapshot.ps1'
 $finalizer = Join-Path $repo 'Tools\DailyOperationsSync\Finalize-DailyOperationsPromotion.ps1'
 $python = 'C:\Users\DLE-OS\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+$sourceRoot = '\\deleon-server\Add-ON\AON\ADATA'
 $sourcePaths = @(
-    'X:\AON\ADATA\ARM-01','X:\AON\ADATA\ARM-02','X:\AON\ADATA\ARM-03',
-    'X:\AON\ADATA\ARM-05','X:\AON\ADATA\ARM-06','X:\AON\ADATA\ARM-09',
-    'X:\AON\ADATA\ARM-10','X:\AON\ADATA\ARM-14','X:\AON\ADATA\ARE-03',
-    'X:\AON\ADATA\ARE-13','X:\AON\ADATA\WOE-01','X:\AON\ADATA\WOE-03')
+    'ARM-01','ARM-02','ARM-03','ARM-05','ARM-06','ARM-09','ARM-10','ARM-14',
+    'ARE-03','ARE-13','WOE-01','WOE-03') | ForEach-Object { Join-Path $sourceRoot $_ }
 foreach ($path in @($customerRunner,$salesRunner,$workOrderRunner,$importer,$finalizer,$python) + $sourcePaths) {
     if (-not (Test-Path -LiteralPath $path)) { throw "Required SYNC-001 path is unavailable: $path" }
 }
@@ -239,6 +240,33 @@ try {
     if($QualificationFailStep -eq 'finalization'){
         throw 'Controlled post-promotion finalization failure.'
     }
+    if ($CanonicalApiOnlyFinalization) {
+        Set-Component 'boundary-finalization' 'Passed' (
+            'SQL transaction is the qualified DEV boundary; no LIVE boundary was changed.')
+        Set-Component 'api-5042-readiness' 'Passed' (
+            'Not applicable: Sync Operations does not inspect, start, or change LIVE API 5042.')
+        Set-Component 'api-5052-readiness' 'Running' (
+            'Waiting for DEV canonical API 5052 to expose the promoted generation.')
+        $deadline=[DateTimeOffset]::UtcNow.AddSeconds(60)
+        $ready5052=$null
+        do {
+            try {
+                $ready5052=Invoke-RestMethod -UseDefaultCredentials -TimeoutSec 10 `
+                    'http://dle-os-host:5052/api/platform/live/v1/readiness'
+            } catch {$ready5052=$null}
+            if($ready5052 -and $ready5052.readinessState -ceq 'ReadyFresh' -and
+                ([Guid]$ready5052.currentImportRunId) -eq ([Guid]$import.ImportRunId)){break}
+            Start-Sleep -Seconds 2
+        } while([DateTimeOffset]::UtcNow -lt $deadline)
+        if(-not $ready5052 -or $ready5052.readinessState -cne 'ReadyFresh' -or
+            ([Guid]$ready5052.currentImportRunId) -ne ([Guid]$import.ImportRunId)){
+            Set-Component 'api-5052-readiness' 'Failed' (
+                'SQL promotion committed, but DEV API 5052 did not expose the generation.')
+            throw 'PROMOTED_BUT_NOT_VISIBLE: DEV API 5052 did not expose the promoted generation.'
+        }
+        Set-Component 'api-5052-readiness' 'Passed' (
+            'Development API 5052 is ReadyFresh on the promoted generation.')
+    } else {
     $finalizationOutput=& powershell.exe -NoLogo -NoProfile `
         -ExecutionPolicy Bypass -File $finalizer -RunId $runId `
         -ImportRunId $import.ImportRunId -PackageHash $packageHash
@@ -285,6 +313,7 @@ try {
         'Production API 5042 is ReadyFresh on the promoted boundary.')
     Set-Component 'api-5052-readiness' 'Passed' (
         'Development API 5052 is ReadyFresh on the promoted boundary.')
+    }
     $script:currentComponent=''
     $script:overall='PASSED_PROMOTED_READY'
     Write-State $overall

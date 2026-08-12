@@ -1110,6 +1110,18 @@
         { ...options, method: 'POST' }
       );
     },
+    getSyncOperationsCurrent(options = {}) {
+      return requestLiveSnapshotRefresh('/api/sync/operations/current', options);
+    },
+    getSyncOperationsRun(runId, options = {}) {
+      return requestLiveSnapshotRefresh(
+        '/api/sync/operations/runs/' + encodeURIComponent(String(runId || '')), options);
+    },
+    startSyncOperations(options = {}) {
+      requireDevelopmentCapability('sync.operations');
+      return requestLiveSnapshotRefresh(
+        '/api/sync/operations', { ...options, method: 'POST', body: { operation: 'focused' } });
+    },
     baseUrl: LIVE_CANONICAL_BASE_URL,
     endpoints: LIVE_CANONICAL_ENDPOINTS
   });

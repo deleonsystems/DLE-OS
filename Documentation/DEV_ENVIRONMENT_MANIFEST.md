@@ -13,6 +13,7 @@ bootstrap states. Read it before changing or qualifying DEV runtime behavior.
 | DEV runtime identity | `https://dev.dle-os.internal.dlemfg.com/api/runtime/info` | Safe read-only metadata for the exact deployed release. It is intentionally anonymous in DEV so deployment qualification does not require a user session. |
 | Canonical API | `http://dle-os-host:5052/` | Read-only API over the qualified canonical LIVE mirror. `GET /api/platform/live/v1/readiness` is the readiness endpoint; use Windows credentials where required. |
 | Operational ControlHost | `http://dle-os-host:5054/` | Isolated DEV operational API. It may write only to governed DEV operational data. `GET /health` uses Windows authentication and returns the runtime/database boundary to an authorized caller. |
+| Sync Operations | 5051 BFF → 5054 | Permission-gated focused VPro5 synchronization. Durable state and lease are under `C:\ProgramData\DLE-OS\SyncOperations`; see `Documentation/SYNC_OPERATIONS.md`. |
 | Keycloak | `https://auth.internal.dlemfg.com/` | DEV identity provider. `GET /realms/dle-os/.well-known/openid-configuration` is the external discovery check. Host-local readiness is `http://127.0.0.1:9190/health/ready`. |
 
 `https://dev.dle-os.internal.dlemfg.com/shared` is the preferred exact-hostname

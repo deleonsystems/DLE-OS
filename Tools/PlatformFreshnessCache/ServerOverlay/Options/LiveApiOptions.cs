@@ -12,6 +12,7 @@ public sealed class LiveApiOptions
     public Guid ExpectedImportRunId { get; init; }
     public string ExpectedMirrorRunId { get; init; } = string.Empty;
     public string ExpectedPackageHash { get; init; } = string.Empty;
+    public bool AcceptLatestQualifiedOperationalSnapshot { get; init; }
     public long ExpectedBillOfMaterialCount { get; init; }
     public long ExpectedInventoryItemCount { get; init; }
     public long ExpectedWorkOrderCount { get; init; }

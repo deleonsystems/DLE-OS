@@ -14,6 +14,8 @@ $orchestrator=Text 'Tools\DailyOperationsSync\Invoke-DailyOperationsSync.ps1'
 $importer=Text 'Tools\DailyOperationsSync\Import-DailyOperationsSnapshot.ps1'
 $finalizer=Text 'Tools\DailyOperationsSync\Finalize-DailyOperationsPromotion.ps1'
 $promoter=Text 'Tools\LiveSnapshotRefresh\Promote-DailyOperationsQualifiedBoundary.ps1'
+$releaseDeclaration=Text 'Tools\LiveSnapshotRefresh\qualified-production-canonical-api-release.json'
+$releaseQualification=Text 'Tools\LiveSnapshotRefresh\Test-QualifiedProductionCanonicalApiRelease.ps1'
 $developmentLauncher=Text 'Tools\DevelopmentRuntime\Start-DevelopmentApi.ps1'
 $reader=Text 'Tools\DailyOperationsSync\VPro\FOCUSED_WORK_ORDER_READER.src'
 $builder=Text 'Artifacts\Platform002\Qualification\build_sales_order_package.py'
@@ -83,6 +85,19 @@ Test-Rule 'no boundary promotion after failed SQL promotion' {
 }
 Test-Rule 'canonical facts immutable in finalization' {foreach($value in @('CanonicalSignaturesBefore','CanonicalSignaturesAfter','Canonical facts changed during readiness finalization')){Require $finalizer.Contains($value) "missing integrity evidence $value"}}
 Test-Rule '5052 reload preserves deployed binary' {Require $developmentLauncher.Contains('ReloadQualifiedBoundary') 'reload mode absent';Require $developmentLauncher.Contains('The development API assembly changed during boundary reload.') 'assembly immutability gate absent'}
+Test-Rule 'single governed 5042 release declaration' {
+    $release=$releaseDeclaration|ConvertFrom-Json
+    Require ($release.ReleaseId -ceq 'WORKORDER-APPROVAL-001A') 'qualified release id differs'
+    Require ($release.AssemblySha256 -ceq 'DB71C5FD91EA12208552D16A987A3116B87E1D1041F44513D6B6C7A6BF4F9699') 'qualified assembly hash differs'
+    Require (-not $finalizer.Contains('4806AFFE55C801A744CA1D412F0AFDFDAEC4DABDD71A4B6B31B58353B58A5043')) 'stale finalizer hash remains'
+    Require (-not $promoter.Contains('4806AFFE55C801A744CA1D412F0AFDFDAEC4DABDD71A4B6B31B58353B58A5043')) 'stale promoter hash remains'
+    Require $finalizer.Contains('qualified-production-canonical-api-release.json') 'finalizer does not consume declaration'
+    Require $promoter.Contains('qualified-production-canonical-api-release.json') 'promoter does not consume declaration'
+}
+Test-Rule 'qualified release fails closed' {
+    foreach($value in @('InstalledAssemblyPath','PreservedArtifactPath','AcceptanceEvidencePath','AcceptanceEvidenceSha256','RequiredContracts')){Require $releaseDeclaration.Contains($value) "release declaration omits $value"}
+    foreach($value in @('RequireRuntimeContracts','ContractReceiptPath','The preserved production acceptance evidence is not a qualified PASS','invalid or stale')){Require $releaseQualification.Contains($value) "release qualifier omits $value"}
+}
 
 $failed=@($results|Where-Object Result -eq 'FAIL')
 $results|Format-Table -AutoSize|Out-String|Write-Output

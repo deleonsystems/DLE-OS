@@ -96,6 +96,22 @@
   border-color: rgba(252, 165, 165, .5);
 }
 
+.sync-operations-status {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(96, 165, 250, .4);
+  border-radius: 8px;
+  background: rgba(30, 64, 175, .12);
+}
+.sync-operations-status strong { color: #93c5fd; }
+.sync-operations-status span { color: #e2e8f0; }
+.sync-operations-status small { color: #aab7c8; }
+.sync-operations-status[data-status="succeeded"] { border-color: rgba(134, 239, 172, .45); }
+.sync-operations-status[data-status="failed"],
+.sync-operations-status[data-status="promoted_but_not_visible"] { border-color: rgba(252, 165, 165, .55); }
+
 .operations-center-projection-summary {
   display: flex;
   gap: 12px;

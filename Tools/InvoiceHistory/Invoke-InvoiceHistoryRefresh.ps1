@@ -5,6 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+. 'C:\DLE-OS\Repositories\DLE-OS\Tools\SyncOperations\Assert-SyncOperationsLease.ps1'
 
 $approvedIdentity = 'DLE-OS-HOST\DLE-OS'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -44,7 +45,8 @@ $config =
 
 foreach ($path in @(
     $template, $exporter, $builder, $importer, $python, $compiler,
-    $vpro, $config, 'X:\AON\ADATA\ART-03', 'X:\AON\ADATA\ART-13'
+    $vpro, $config, '\\deleon-server\Add-ON\AON\ADATA\ART-03',
+    '\\deleon-server\Add-ON\AON\ADATA\ART-13'
 )) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Required fixed refresh path is unavailable: $path"
@@ -115,6 +117,7 @@ try {
         $null 'Reading 45-Day Window'
 
     $source = Get-Content -LiteralPath $template -Raw
+    $source = $source.Replace('X:\AON\ADATA', '\\deleon-server\Add-ON\AON\ADATA')
     $source = $source -replace (
         '(?m)^0060 LET ROOT\$=.*$'),
         ('0060 LET ROOT$="' + $extractionRoot + '\"')

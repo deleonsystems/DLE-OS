@@ -10,9 +10,11 @@ internal static class DevelopmentPermissionCatalog
         "work_orders.view", "work_orders.approve", "work_orders.replace",
         "work_orders.revoke", "work_orders.mark_no_work_order_required",
         "kitting.view", "kitting.disposition",
+        "pick_list.view",
         "rma_rework.view", "rma_rework.manage",
         "shipments.view", "shipments.stage", "shipments.cancel",
         "shipments.confirm", "shipments.reconcile"
+        , "sync.operations"
     ];
 
     internal static DevelopmentPermissionRequirement? Resolve(HttpRequest request)
@@ -38,6 +40,10 @@ internal static class DevelopmentPermissionCatalog
             return write
                 ? new("kitting.disposition", "kitting.disposition")
                 : new("kitting.view", "kitting.view");
+        if (path.StartsWith("/api/pick-list/", StringComparison.OrdinalIgnoreCase))
+            return write
+                ? new("kitting.disposition", "pick_list.write")
+                : new("pick_list.view", "pick_list.view");
         if (path.StartsWith("/api/rma-rework/", StringComparison.OrdinalIgnoreCase))
             return write
                 ? new("rma_rework.manage", "rma_rework.manage")
@@ -55,6 +61,8 @@ internal static class DevelopmentPermissionCatalog
         }
         if (path.StartsWith("/api/development/identity/", StringComparison.OrdinalIgnoreCase))
             return new("system.manage", "development.identity_fixture");
+        if (path.StartsWith("/api/sync/operations", StringComparison.OrdinalIgnoreCase))
+            return new("sync.operations", write ? "sync.operations.start" : "sync.operations.view");
         return null;
     }
 }
@@ -132,6 +140,8 @@ internal static class DevelopmentPermissionAuthorization
             await Deny(context, StatusCodes.Status403Forbidden, decision.Code,
                 requirement.Code, decision.Code == "DLE_OS_USER_DISABLED"
                     ? "The mapped DLE-OS account is not active."
+                    : decision.Code == "DLE_OS_AUTHENTICATION_PENDING"
+                    ? "The DLE-OS account is awaiting an external sign-in identity."
                     : "The DLE-OS user does not have the required application permission.");
             return;
         }

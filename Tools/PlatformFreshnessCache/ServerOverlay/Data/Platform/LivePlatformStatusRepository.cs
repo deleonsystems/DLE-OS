@@ -286,13 +286,25 @@ JOIN liveapi.SnapshotOperationalStatus AS status
         LiveSnapshotRow row,
         LiveApiOptions options)
     {
-        var expectedCounts =
+        var configuredCounts =
             row.BillOfMaterialCount == options.ExpectedBillOfMaterialCount &&
             row.InventoryItemCount == options.ExpectedInventoryItemCount &&
             row.WorkOrderCount == options.ExpectedWorkOrderCount &&
             row.GeneralLedgerAccountCount ==
                 options.ExpectedGeneralLedgerAccountCount &&
             row.TotalCount == options.ExpectedTotalCount;
+        var selfQualifiedOperationalSnapshot =
+            options.AcceptLatestQualifiedOperationalSnapshot &&
+            string.Equals(row.SourceChangeStatus, "Qualified", StringComparison.Ordinal) &&
+            string.Equals(row.LastSourceCheckResult, "DAILY_OPERATIONS_SYNC_QUALIFIED",
+                StringComparison.Ordinal) &&
+            row.ImportRunId != Guid.Empty &&
+            row.MirrorRunId.StartsWith("DAILYOPSSYNC-", StringComparison.Ordinal) &&
+            row.PackageHash.Length == 64 &&
+            row.BillOfMaterialCount >= 0 && row.InventoryItemCount >= 0 &&
+            row.WorkOrderCount >= 0 && row.GeneralLedgerAccountCount >= 0 &&
+            row.TotalCount == row.BillOfMaterialCount + row.InventoryItemCount +
+                row.WorkOrderCount + row.GeneralLedgerAccountCount;
 
         return
         [
@@ -319,31 +331,29 @@ JOIN liveapi.SnapshotOperationalStatus AS status
                 $"Stored contract version is {row.ContractVersion}."),
             Check(
                 "importRun",
-                row.ImportRunId == options.ExpectedImportRunId,
+                selfQualifiedOperationalSnapshot || row.ImportRunId == options.ExpectedImportRunId,
                 $"Current ImportRunId is {row.ImportRunId:D}."),
             Check(
                 "mirrorRun",
-                string.Equals(
-                    row.MirrorRunId,
-                    options.ExpectedMirrorRunId,
-                    StringComparison.Ordinal),
+                selfQualifiedOperationalSnapshot || string.Equals(
+                    row.MirrorRunId, options.ExpectedMirrorRunId, StringComparison.Ordinal),
                 $"Current MirrorRunId is {row.MirrorRunId}."),
             Check(
                 "packageHash",
-                string.Equals(
-                    row.PackageHash,
-                    options.ExpectedPackageHash,
-                    StringComparison.Ordinal),
+                selfQualifiedOperationalSnapshot || string.Equals(
+                    row.PackageHash, options.ExpectedPackageHash, StringComparison.Ordinal),
                 "Current package hash matches the qualified package."),
             Check(
                 "entityCounts",
-                expectedCounts,
+                selfQualifiedOperationalSnapshot || configuredCounts,
                 $"Counts are BOM={row.BillOfMaterialCount}, Inventory={row.InventoryItemCount}, WorkOrder={row.WorkOrderCount}, GL={row.GeneralLedgerAccountCount}, Total={row.TotalCount}."),
             Check(
                 "operationalStatus",
                 row.SourceCheckedAtUtc != default &&
                 row.QualificationCompletedAtUtc != default &&
-                !string.IsNullOrWhiteSpace(row.SourceIndicatorFingerprint),
+                !string.IsNullOrWhiteSpace(row.SourceIndicatorFingerprint) &&
+                (!options.AcceptLatestQualifiedOperationalSnapshot ||
+                    selfQualifiedOperationalSnapshot),
                 "Separated snapshot/source-check/qualification status is present.")
         ];
     }

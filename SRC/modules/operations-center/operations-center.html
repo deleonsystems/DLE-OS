@@ -27,7 +27,8 @@
           aria-label="Hide active RMA/Rework records"
           aria-pressed="false"
           onclick="toggleOperationsCenterRmaVisibility()">Hide RMA/Rework</button>
-        <button type="button" onclick="refreshOperationsCenterCanonicalData()">Refresh</button>
+        <button type="button" onclick="refreshOperationsCenterCanonicalData()">Reload View</button>
+        <button id="syncOperationsButton" type="button" onclick="startSyncOperations()">Sync Operations</button>
         <select
           id="operationsCenterDocumentType"
           class="operations-center-document-type"
@@ -47,6 +48,10 @@
       <strong>Source: DLE_OS_CANONICAL_LIVE</strong>
       <span>Waiting for canonical Sales Orders.</span>
     </div>
+    <section id="syncOperationsStatus" class="sync-operations-status" aria-live="polite">
+      <strong>Sync Operations</strong>
+      <span>Loading governed synchronization status…</span>
+    </section>
 
     <div id="operationsCenterProjectionSummary" class="operations-center-projection-summary" hidden>
       <div>

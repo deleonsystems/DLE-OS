@@ -620,23 +620,60 @@ WHERE NOT EXISTS
 
 DECLARE @ChangeCount int =
  @HeaderInsert + @HeaderUpdate + @LineInsert + @LineUpdate;
+DECLARE @NextImportRunId uniqueidentifier = @CurrentImportRunId;
 DECLARE @FinalStatus nvarchar(32) =
  CASE
   WHEN @HeaderMissing>0 OR @LineMissing>0
     THEN N'SUCCESS_WITH_CLARIFICATIONS'
   WHEN @ChangeCount=0 THEN N'NO_SOURCE_CHANGES'
-  ELSE N'SUCCESS'
+ ELSE N'SUCCESS'
  END;
 IF @ChangeCount>0
+BEGIN
+ SET @NextImportRunId=@RefreshRunId;
+ INSERT platform.InvoiceHistoryImportRun
+ (
+  InvoiceHistoryImportRunId,SourceExtractionRunId,SourceQualificationRunId,
+  PackageContentHash,PackageManifestHash,PackageSchema,PackageSchemaVersion,
+  ContractVersion,StartedAtUtc,CompletedAtUtc,ActivatedAtUtc,ImportStatus,
+  IsCommitted,IsNoOp,CustomerInvoiceCount,CustomerInvoiceLineCount,
+  UniqueWorkOrderCount,UnresolvedWorkOrderCount,AmbiguousWorkOrderCount,
+  NegativeQuantityCount
+ )
+ SELECT
+  @NextImportRunId,@ExecutionRunId,@ExecutionRunId,@PackageHash,@ManifestHash,
+  currentRun.PackageSchema,currentRun.PackageSchemaVersion,currentRun.ContractVersion,
+  SYSUTCDATETIME(),SYSUTCDATETIME(),SYSUTCDATETIME(),N'SUCCESS',1,0,
+  (SELECT COUNT(*) FROM canonical.CustomerInvoice),
+  (SELECT COUNT(*) FROM canonical.CustomerInvoiceLine),
+  (SELECT COUNT(*) FROM canonical.CustomerInvoiceLine WHERE WorkOrderResolutionStatus=N'Unique'),
+  (SELECT COUNT(*) FROM canonical.CustomerInvoiceLine WHERE WorkOrderResolutionStatus=N'Unresolved'),
+  (SELECT COUNT(*) FROM canonical.CustomerInvoiceLine WHERE WorkOrderResolutionStatus=N'Ambiguous'),
+  (SELECT COUNT(*) FROM canonical.CustomerInvoiceLine WHERE QuantityShipped<0)
+ FROM platform.InvoiceHistoryImportRun currentRun
+ WHERE currentRun.InvoiceHistoryImportRunId=@CurrentImportRunId;
+
+ UPDATE canonical.CustomerInvoice
+ SET InvoiceHistoryImportRunId=@NextImportRunId
+ WHERE InvoiceHistoryImportRunId=@CurrentImportRunId;
+ UPDATE canonical.CustomerInvoiceLine
+ SET InvoiceHistoryImportRunId=@NextImportRunId
+ WHERE InvoiceHistoryImportRunId=@CurrentImportRunId;
+ UPDATE platform.InvoiceHistoryImportRun
+ SET IsCommitted=0
+ WHERE InvoiceHistoryImportRunId=@CurrentImportRunId;
+
  UPDATE platform.InvoiceHistoryRefreshRun
  SET IsCommitted=0
  WHERE IsCommitted=1
  AND InvoiceHistoryRefreshRunId<>@RefreshRunId;
+END;
 UPDATE platform.InvoiceHistoryRefreshRun
 SET CompletedAtUtc=SYSUTCDATETIME(),RefreshStatus=@FinalStatus,
     IsCommitted=CASE WHEN @ChangeCount>0 THEN 1 ELSE 0 END
 WHERE InvoiceHistoryRefreshRunId=@RefreshRunId;
-SELECT @FinalStatus AS RefreshStatus,@ChangeCount AS ChangeCount;
+SELECT @FinalStatus AS RefreshStatus,@ChangeCount AS ChangeCount,
+       @NextImportRunId AS InvoiceHistoryImportRunId;
 '@
     [void]$apply.Parameters.AddWithValue('@RefreshRunId', $refreshRunId)
     [void]$apply.Parameters.AddWithValue(
@@ -671,7 +708,7 @@ SELECT @FinalStatus AS RefreshStatus,@ChangeCount AS ChangeCount;
         Result = [string]$outcome.Rows[0].RefreshStatus
         ChangeCount = [int]$outcome.Rows[0].ChangeCount
         InvoiceHistoryRefreshRunId = $refreshRunId
-        InvoiceHistoryImportRunId = [Guid]$actual.CurrentImportRunId
+        InvoiceHistoryImportRunId = [Guid]$outcome.Rows[0].InvoiceHistoryImportRunId
         PackageContentHash = $manifest.packageContentSha256
         ExpectedCounts = $expected
     } | ConvertTo-Json -Depth 5

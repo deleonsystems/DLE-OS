@@ -24,7 +24,8 @@ BUILDER = REPO / "Artifacts/Platform002/Qualification/build_sales_order_package.
 BASE = Path(r"C:\DLE-OS\Canonical\LiveMirror\Current")
 COMPILER = Path(r"C:\BASIS\VPRO5\pro5cpl.exe")
 VPRO = Path(r"C:\BASIS\VPRO5\vpro5.exe")
-SOURCES = tuple(Path(rf"X:\AON\ADATA\{name}") for name in (
+SOURCE_ROOT = Path(r"\\deleon-server\Add-ON\AON\ADATA")
+SOURCES = tuple(SOURCE_ROOT / name for name in (
     "ARE-03", "ARE-13", "ARM-01", "ARM-10", "WOE-03"))
 RUN_RE = re.compile(r"^OPENSALESREFRESH-\d{8}T\d{6}Z-[A-F0-9]{8}$")
 
@@ -153,7 +154,7 @@ def bounded_source(run_id: str, runtime: Path, seed_keys: list[str]) -> str:
 0040 LET RUN$="{run_id}",ROOT$="{str(runtime)}\\",Q$=$22$,CH10=0,OUT20=0
 0050 DIM P$[{len(seed_keys)}]
 {assignments}
-{loop_line:04d} OPEN (10,MODE="O_RDONLY",ERR=29100)"X:\\AON\\ADATA\\WOE-03";LET CH10=1
+{loop_line:04d} OPEN (10,MODE="O_RDONLY",ERR=29100)"{str(SOURCE_ROOT)}\\WOE-03";LET CH10=1
 {loop_line + 10:04d} LET FID1$=FID(10),FIN1$=FIN(10),ACTIVE1=DEC(FIN1$(77,4))
 {loop_line + 20:04d} OPEN (20,MODE="O_CREATE,O_TRUNC",ERR=29200)ROOT$+"WOE03_FULL.csv";LET OUT20=1
 {loop_line + 30:04d} PRINT (20)"pass,source_file,source_key_hex,record_raw_hex,layout_id,decoded_record_material"
@@ -183,6 +184,11 @@ def bounded_source(run_id: str, runtime: Path, seed_keys: list[str]) -> str:
 
 
 def main() -> int:
+    lease = Path(r"C:\ProgramData\DLE-OS\SyncOperations\lease.json")
+    if lease.exists():
+        owner = json.loads(lease.read_text(encoding="utf-8-sig")).get("RunId", "")
+        if owner != os.environ.get("DLE_OS_SYNC_OPERATIONS_RUN_ID", ""):
+            raise RuntimeError(f"ALREADY_RUNNING: Sync Operations {owner} owns the lease")
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--run-root", required=True, type=Path)
@@ -223,6 +229,7 @@ def main() -> int:
     base_source = compile_root / "OPEN_SALES_ORDER_BASE_QUALIFIER.src"
     base_source.write_text(
         TEMPLATE.read_text(encoding="ascii")
+        .replace(r"X:\AON\ADATA", str(SOURCE_ROOT))
         .replace("__RUN_ID__", args.run_id)
         .replace("__RUNTIME__", str(runtime)),
         encoding="ascii")

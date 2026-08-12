@@ -24,7 +24,7 @@ public static class DevelopmentIdentityUi
 
     private const string Markup = """
 <style id="dle-auth-identity-style">
-  #dle-auth-identity{position:fixed;top:12px;right:18px;z-index:10000;display:flex;gap:10px;
+  #dle-auth-identity{position:static;display:flex;gap:10px;
     align-items:center;padding:7px 12px;border:1px solid rgba(148,163,184,.35);border-radius:9px;
     background:rgba(15,23,42,.94);color:#f8fafc;font:600 12px/1.25 system-ui,sans-serif;
     box-shadow:0 4px 18px rgba(0,0,0,.25)}
@@ -46,6 +46,8 @@ public static class DevelopmentIdentityUi
     '#noWorkOrderApprove':'work_orders.mark_no_work_order_required',
     '#noWorkOrderReplace':'work_orders.mark_no_work_order_required',
     '#workOrderDashboardSetDisposition':'kitting.disposition',
+    '#workOrderDashboardKitReleasedBom':'kitting.disposition',
+    '#activeKittingTrialSubmit':'kitting.disposition',
     '#workOrderDispositionConfirm':'kitting.disposition',
     '#rmaReworkConfirmButton':'rma_rework.manage',
     '#shippingShipmentProcessedButton':'shipments.stage',
@@ -53,14 +55,18 @@ public static class DevelopmentIdentityUi
     '#confirmShipmentStagingMatchButton':'shipments.confirm',
     '#shipmentStagingReviewDialog button[onclick*="reject-match"]':'shipments.confirm',
     '#shipmentStagingReviewDialog button[onclick*="mark-exception"]':'shipments.confirm',
-    '#shipmentStagingReviewDialog button[onclick*="cancel"]':'shipments.cancel'
+    '#shipmentStagingReviewDialog button[onclick*="cancel"]':'shipments.cancel',
+    '#syncOperationsButton':'sync.operations'
   });
+  const workspaceRules=Object.freeze({kitting:'kitting.view','operations-center':'sync.operations'});
   function installCapabilities(body){
     const granted=new Set(Array.isArray(body.permissions)?body.permissions:[]);
     const capabilities=Object.freeze({
       isSuperAdmin:body.isSuperAdmin===true,
       permissions:Object.freeze(Array.from(granted).sort()),
       can(code){return this.isSuperAdmin||granted.has(String(code||''));},
+      kittingWorkspaceAvailable:body.isSuperAdmin===true||granted.has('kitting.view'),
+      pickListReadAvailable:body.isSuperAdmin===true||granted.has('pick_list.view'),
       apply(){
         Object.entries(rules).forEach(([selector,permission])=>{
           document.querySelectorAll(selector).forEach(control=>{
@@ -75,6 +81,19 @@ public static class DevelopmentIdentityUi
             }
           });
         });
+        const selector=document.getElementById('workspaceViewSelect');
+        if(selector){
+          Array.from(selector.options).forEach(option=>{
+            const permission=workspaceRules[option.value];
+            const allowed=this.isSuperAdmin||(permission&&this.can(permission));
+            option.disabled=!allowed;option.hidden=!allowed;
+            option.dataset.dleRequiredPermission=permission||'SUPER_ADMIN';
+          });
+          if(selector.selectedOptions[0]?.disabled&&this.kittingWorkspaceAvailable){
+            selector.value='kitting';
+            if(typeof window.setWorkspaceView==='function')window.setWorkspaceView('kitting');
+          }
+        }
       }
     });
     window.DleOsSession=Object.freeze(body);

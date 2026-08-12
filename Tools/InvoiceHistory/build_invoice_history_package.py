@@ -31,14 +31,14 @@ PACKAGE_ROOT = Path(r"C:\DLE-OS\Canonical\InvoiceHistory")
 
 SOURCE_IDENTITIES = {
     "ART-03": {
-        "path": r"X:\AON\ADATA\ART-03",
+        "path": r"\\deleon-server\Add-ON\AON\ADATA\ART-03",
         "length": 4_809_216,
         "lastWriteTimeUtc": "2026-07-28T17:14:34.1080000Z",
         "sha256": "2C74E6FE76D5FA6C7506AB7839CEFA32E9C9E60E03356660B80DD4A02B56B9CF",
         "openMode": 'MODE="O_RDONLY"',
     },
     "ART-13": {
-        "path": r"X:\AON\ADATA\ART-13",
+        "path": r"\\deleon-server\Add-ON\AON\ADATA\ART-13",
         "length": 22_113_792,
         "lastWriteTimeUtc": "2026-07-28T17:14:21.0850000Z",
         "sha256": "300266F4C955C9DBF2857E598C2D8F5429EEBA64D8A0637269014AE438C9AEC2",

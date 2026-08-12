@@ -8,6 +8,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+. 'C:\DLE-OS\Repositories\DLE-OS\Tools\SyncOperations\Assert-SyncOperationsLease.ps1'
 
 $approvedIdentity = 'DLE-OS-HOST\DLE-OS'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()

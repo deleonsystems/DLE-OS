@@ -40,6 +40,8 @@ public static class DevelopmentCompatibilityProxy
         MapOperational(app, runtime, operational, "/api/kitting-dispositions/{**path}");
         MapOperational(app, runtime, operational, "/api/rma-rework/{**path}");
         MapOperational(app, runtime, operational, "/api/shipment-staging/{**path}");
+        MapOperational(app, runtime, operational, "/api/sync/operations");
+        MapOperational(app, runtime, operational, "/api/sync/operations/{**path}");
         MapOperational(app, runtime, operational, "/api/development/identity/{**path}");
 
         app.MapMethods("/api/customer-files/{**path}", [HttpMethods.Get, HttpMethods.Post],
@@ -134,7 +136,13 @@ public static class DevelopmentCompatibilityProxy
         }
         if (context.Request.ContentLength is > 0)
         {
-            request.Content = new StreamContent(context.Request.Body);
+            // The downstream client authenticates to 5054 with Windows authentication.
+            // Buffer the already size-limited body so HttpClient can replay it after the
+            // Negotiate challenge; a StreamContent over the inbound request cannot be
+            // replayed and causes body-bearing POSTs to arrive anonymously.
+            using var body = new MemoryStream();
+            await context.Request.Body.CopyToAsync(body, cancellationToken);
+            request.Content = new ByteArrayContent(body.ToArray());
             if (!string.IsNullOrWhiteSpace(context.Request.ContentType))
                 request.Content.Headers.TryAddWithoutValidation("Content-Type", context.Request.ContentType);
         }
@@ -207,6 +215,8 @@ public static class DevelopmentCompatibilityProxy
             return write ? "rma_rework.manage" : "rma_rework.view";
         if (path.StartsWith("/api/shipment-staging/", StringComparison.OrdinalIgnoreCase))
             return write ? "shipments.stage" : "shipments.view";
+        if (path.StartsWith("/api/sync/operations", StringComparison.OrdinalIgnoreCase))
+            return "sync.operations";
         return null;
     }
 
