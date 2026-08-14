@@ -59,6 +59,10 @@
           <span id="workOrderDashboardSummaryStatus">N/A</span>
         </div>
         <div class="work-order-dashboard-module-summary-item">
+          <strong>Material Status</strong>
+          <span id="workOrderDashboardMaterialStatus" class="work-order-dashboard-material-status">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item">
           <strong>Canonical Anchor</strong>
           <span id="workOrderDashboardCanonicalAnchor">N/A</span>
         </div>
@@ -106,6 +110,11 @@
           <strong id="workOrderDashboardReleasedBomLabel">View Released BOM</strong>
           <span id="workOrderDashboardReleasedBomMessage">Released BOM prototype not yet available.</span>
         </button>
+        <button id="workOrderDashboardKitReleasedBom" type="button" onclick="startOrResumeWorkOrderDashboardKitting()" hidden disabled>
+          <strong id="workOrderDashboardKitReleasedBomLabel">Start Kitting</strong>
+          <span id="workOrderDashboardKitReleasedBomMessage">Governed Kitting Case status is loading.</span>
+        </button>
+        <div id="workOrderDashboardKittingCaseSummary" class="work-order-dashboard-kitting-case-summary" hidden></div>
         <button id="workOrderDashboardKittedBomPlaceholder" type="button" disabled>
           Kitted BOM
           <span>Open from Kitting View to inspect filesystem evidence</span>
@@ -134,8 +143,29 @@
       </div>
     </section>
 
+    <section id="workOrderDashboardActiveKitting" class="active-kitting-trial" aria-label="Kit Released BOM" hidden>
+      <header class="active-kitting-trial-header">
+        <div>
+          <span class="active-kitting-trial-eyebrow">Governed Kitting Case</span>
+          <h3>Kit Released BOM</h3>
+          <p>Persistent requirement and allocation evidence against the unchanged released BOM.</p>
+        </div>
+        <div class="active-kitting-header-actions">
+          <label class="active-kitting-traceability-control">P.O. Traceability
+            <select id="activeKittingPoTraceability" onchange="setWorkOrderDashboardKittingPoTraceability(this.value)">
+              <option value="required">REQUIRED</option>
+              <option value="optional">OPTIONAL</option>
+            </select>
+          </label>
+          <button id="activeKittingSaveExit" type="button" onclick="saveAndExitWorkOrderDashboardKitting()">Save &amp; Exit</button>
+        </div>
+      </header>
+      <div id="activeKittingTrialStatus" class="active-kitting-trial-status" role="status" aria-live="polite">Ready to load.</div>
+      <div id="activeKittingTrialBody"></div>
+    </section>
+
     <section class="work-order-dashboard-module-workspace-card" data-work-order-dashboard-section="kitting-workspace" aria-label="Kitting Workspace" hidden>
-      <h3>Manual Kitting Disposition</h3>
+      <h3>Legacy Manual Kitting Disposition History</h3>
       <div class="work-order-dashboard-module-workspace-grid">
         <div class="work-order-dashboard-module-workspace-item">
           <strong>Kitting Disposition</strong>
@@ -155,8 +185,8 @@
         </div>
       </div>
       <div class="work-order-dashboard-module-disposition-actions">
-        <button id="workOrderDashboardSetDisposition" type="button" onclick="openWorkOrderDashboardDispositionDialog()" disabled>Set Kitting Disposition</button>
-        <span id="workOrderDashboardDispositionMessage" role="status">Loading manual disposition...</span>
+        <button id="workOrderDashboardSetDisposition" type="button" onclick="openWorkOrderDashboardDispositionDialog()" hidden disabled>Set Kitting Disposition</button>
+        <span id="workOrderDashboardDispositionMessage" role="status">Material Status is system-derived from the persistent Kitting Case. Legacy events remain read-only.</span>
       </div>
       <details class="work-order-dashboard-module-disposition-history">
         <summary>Disposition history</summary>

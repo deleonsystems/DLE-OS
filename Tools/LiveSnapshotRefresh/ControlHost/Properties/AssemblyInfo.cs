@@ -1,3 +1,4 @@
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("DleOs.ShipmentStagingReconciliation.Tests")]
+[assembly: InternalsVisibleTo("KittingPoTraceability001")]
+[assembly: InternalsVisibleTo("LegacyKittingMaterialStatus001")]

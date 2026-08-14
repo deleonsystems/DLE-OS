@@ -55,7 +55,7 @@ builder.Services.AddCors(options =>
         corsPolicy,
         policy => policy
             .WithOrigins(allowedOrigins)
-            .WithMethods(HttpMethods.Get, HttpMethods.Post)
+            .WithMethods(HttpMethods.Get, HttpMethods.Post, HttpMethods.Put)
             .WithHeaders("Accept", "Content-Type")
             .AllowCredentials());
 });
@@ -68,6 +68,8 @@ if (isolatedDevelopment)
 }
 
 var app = builder.Build();
+if (isolatedDevelopment)
+    await KittingCaseSchema.EnsureAsync();
 app.UseCors(corsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
@@ -90,6 +92,7 @@ app.Use(async (context, next) =>
         "/health",
         "/api/work-order-approvals/",
         "/api/kitting-dispositions/",
+        "/api/kitting-cases/",
         "/api/rma-rework/",
         "/api/operational-work-order-relationships/",
         "/api/shipment-staging/",
@@ -408,6 +411,9 @@ app.MapDailyOperationsSync(
     "SnapshotRefreshOperator");
 app.MapWorkOrderApprovals("SnapshotRefreshOperator");
 app.MapKittingDispositions("SnapshotRefreshOperator");
+app.MapKittingCases("SnapshotRefreshOperator");
+if (isolatedDevelopment)
+    app.MapLegacyKittingMaterialStatus("SnapshotRefreshOperator");
 app.MapRmaRework("SnapshotRefreshOperator");
 app.MapOperationalWorkOrderRelationships("SnapshotRefreshOperator");
 if (isolatedDevelopment)

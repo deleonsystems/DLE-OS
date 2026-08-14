@@ -39,6 +39,19 @@
     selector.value = selectedWorkspaceId || registry().defaultWorkspaceId;
   }
 
+  function updateWorkAreaChrome(workspace) {
+    const isHome = workspace.id === "dle-home";
+    const mode = document.getElementById("activeWorkAreaLabel");
+    const change = document.getElementById("changeWorkAreaButton");
+    const selector = document.querySelector(".workspace-selector");
+    if (mode) {
+      mode.textContent = isHome ? "" : "\u2022 " + workspace.label.toUpperCase();
+      mode.hidden = isHome;
+    }
+    if (change) change.hidden = isHome;
+    if (selector) selector.hidden = !window.DleOsCapabilities?.isSuperAdmin;
+  }
+
   function activateWorkspace(value) {
     const workspace = registry().resolve(value);
     const activeWorkbenchId = window.DleWorkbenchShell?.getCurrent?.()?.workbenchId;
@@ -50,6 +63,7 @@
 
     document.body.dataset.workspaceView = workspace.id;
     document.body.dataset.workspaceLabel = workspace.label;
+    updateWorkAreaChrome(workspace);
 
     const selector = getSelector();
     if (selector && selector.value !== workspace.id) {
@@ -82,5 +96,9 @@
       activateWorkspace(selectedWorkspaceId || registry().defaultWorkspaceId);
     },
     getCurrentWorkspace
+  });
+
+  document.addEventListener("dle:capabilities-ready", () => {
+    updateWorkAreaChrome(getCurrentWorkspace());
   });
 })(window, document);

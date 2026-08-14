@@ -58,7 +58,7 @@ public static class DevelopmentIdentityUi
     '#shipmentStagingReviewDialog button[onclick*="cancel"]':'shipments.cancel',
     '#syncOperationsButton':'sync.operations'
   });
-  const workspaceRules=Object.freeze({kitting:'kitting.view','operations-center':'sync.operations'});
+  const workspaceRules=Object.freeze({'dle-home':null,kitting:'kitting.view','operations-center':'sync.operations'});
   function installCapabilities(body){
     const granted=new Set(Array.isArray(body.permissions)?body.permissions:[]);
     const capabilities=Object.freeze({
@@ -85,13 +85,13 @@ public static class DevelopmentIdentityUi
         if(selector){
           Array.from(selector.options).forEach(option=>{
             const permission=workspaceRules[option.value];
-            const allowed=this.isSuperAdmin||(permission&&this.can(permission));
+            const allowed=option.value==='dle-home'||this.isSuperAdmin||(permission&&this.can(permission));
             option.disabled=!allowed;option.hidden=!allowed;
             option.dataset.dleRequiredPermission=permission||'SUPER_ADMIN';
           });
-          if(selector.selectedOptions[0]?.disabled&&this.kittingWorkspaceAvailable){
-            selector.value='kitting';
-            if(typeof window.setWorkspaceView==='function')window.setWorkspaceView('kitting');
+          if(selector.selectedOptions[0]?.disabled){
+            selector.value='dle-home';
+            if(typeof window.setWorkspaceView==='function')window.setWorkspaceView('dle-home');
           }
         }
       }

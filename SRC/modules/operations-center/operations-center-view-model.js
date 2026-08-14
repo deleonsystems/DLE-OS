@@ -130,6 +130,7 @@
       erpQtyOpen: item => formatOperationsQuantity(item?.erpQuantityOpen),
       pendingInvoiceQty: item => formatOperationsQuantity(getShipmentProjection(item).stagedQuantity),
       opQtyOpen: getOperationalQuantityOpen,
+      materialStatus: item => item?.materialStatus?.label || '',
       operationalStatus: item => getShipmentProjection(item).statusLabel
     };
     return projectionMap[field] ? projectionMap[field](record) : '';

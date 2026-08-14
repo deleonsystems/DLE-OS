@@ -145,6 +145,7 @@ internal static class TrustedDevelopmentIdentity
     private static bool IsIdentityAwareOperationalPath(string path) =>
         path.StartsWith("/api/work-order-approvals/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/kitting-dispositions/", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("/api/kitting-cases/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/rma-rework/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/operational-work-order-relationships/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/shipment-staging/", StringComparison.OrdinalIgnoreCase) ||

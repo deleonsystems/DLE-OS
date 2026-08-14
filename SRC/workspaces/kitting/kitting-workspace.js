@@ -4,8 +4,10 @@
   const WORKSPACE_ID = "kitting";
   const TEMPLATE_PATH = "SRC/workspaces/kitting/kitting-workspace.html";
   const LOOKUP_CONCURRENCY = 8;
+  const TEMPLATE_FETCH_TIMEOUT_MS = 10000;
+  const TEMPLATE_FETCH_ATTEMPTS = 2;
   const workspaceState = {
-    activeQueue: "NOT_CLASSIFIED",
+    activeQueue: "NEEDS_KITTING",
     loading: false,
     model: null,
     canonicalRows: [],
@@ -13,17 +15,24 @@
     loadError: ""
   };
   let operationalStateSubscription = null;
+  let materialStatusSubscription = null;
 
   async function loadKittingWorkspace() {
+    workspaceState.activeQueue = "NEEDS_KITTING";
     ensureOperationalStateSubscription();
     const mount = document.querySelector('[data-workspace-mount="kitting"]');
     if (!mount) return;
     if (mount.dataset.workspaceLoaded !== "true") {
       mount.innerHTML = '<div class="workspace-dashboard-card"><h3>Loading Kitting Workspace</h3><p>Preparing the governed read model...</p></div>';
-      const response = await fetch(TEMPLATE_PATH, { cache: "no-store" });
-      if (!response.ok) throw new Error("Unable to load Kitting Workspace.");
-      mount.innerHTML = await response.text();
-      mount.dataset.workspaceLoaded = "true";
+      try {
+        const response = await fetchWorkspaceTemplate();
+        mount.innerHTML = await response.text();
+        mount.dataset.workspaceLoaded = "true";
+        enableLegacyRecoveryPanel();
+      } catch (error) {
+        renderWorkspaceBootstrapFailure(mount, error);
+        return;
+      }
     }
 
     if (workspaceState.model) {
@@ -31,6 +40,144 @@
       return;
     }
     await refreshKittingWorkspace();
+  }
+
+  async function fetchWorkspaceTemplate() {
+    let lastError = null;
+    for (let attempt = 1; attempt <= TEMPLATE_FETCH_ATTEMPTS; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), TEMPLATE_FETCH_TIMEOUT_MS);
+      try {
+        const response = await fetch(TEMPLATE_PATH, {
+          cache: "no-store",
+          credentials: "same-origin",
+          signal: controller.signal
+        });
+        if (response.status === 401 ||
+            response.headers?.get("X-DLE-OS-Authentication-Required") === "true") {
+          const sessionError = new Error("The authenticated DEV session is no longer active.");
+          sessionError.code = "SESSION_REQUIRED";
+          throw sessionError;
+        }
+        if (!response.ok) {
+          throw new Error("Kitting workspace template returned HTTP " + response.status + ".");
+        }
+        return response;
+      } catch (error) {
+        lastError = error;
+        if (error?.code === "SESSION_REQUIRED") throw error;
+        if (attempt < TEMPLATE_FETCH_ATTEMPTS) await delay(250);
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+    throw lastError || new Error("Unable to load Kitting Workspace.");
+  }
+
+  function renderWorkspaceBootstrapFailure(mount, error) {
+    const sessionRequired = error?.code === "SESSION_REQUIRED";
+    const primaryAction = sessionRequired
+      ? '<button type="button" data-kitting-bootstrap-signin>Sign in again</button>'
+      : '<button type="button" data-kitting-bootstrap-retry>Retry Kitting</button>';
+    mount.dataset.workspaceLoaded = "false";
+    mount.innerHTML = [
+      '<div class="workspace-dashboard-card kitting-workspace-bootstrap-error" role="alert">',
+      '<h3>Kitting Workspace could not start</h3>',
+      '<p>', sessionRequired
+        ? 'Your authenticated DEV session is no longer active. Reload DEV and sign in again.'
+        : 'The Kitting workspace template could not be retrieved. A DEV deployment may have interrupted the active session.',
+      '</p>',
+      '<div class="kitting-workspace-bootstrap-actions">',
+      primaryAction,
+      '<button type="button" data-kitting-bootstrap-reload>Reload DEV</button>',
+      '</div></div>'
+    ].join("");
+    mount.querySelector('[data-kitting-bootstrap-retry]')?.addEventListener("click", () => {
+      void loadKittingWorkspace();
+    });
+    mount.querySelector('[data-kitting-bootstrap-signin]')?.addEventListener("click", () => {
+      window.location.assign("/auth/signin");
+    });
+    mount.querySelector('[data-kitting-bootstrap-reload]')?.addEventListener("click", () => {
+      window.location.reload();
+    });
+    console.error("Unable to load the Kitting workspace template.", error);
+  }
+
+  function delay(milliseconds) {
+    return new Promise(resolve => window.setTimeout(resolve, milliseconds));
+  }
+
+  function enableLegacyRecoveryPanel() {
+    const panel = document.getElementById("legacyKittingRecovery");
+    if (panel && window.DleOsRuntimeConfig?.environment === "ISOLATED_DEVELOPMENT") panel.hidden = false;
+  }
+
+  async function assessLegacyKittingMaterialStatus() {
+    const target = document.getElementById("legacyKittingRecoveryResult");
+    if (target) target.textContent = "Scanning governed legacy evidence...";
+    try {
+      const assessment = await window.DleApiClient.assessLegacyKittingMaterialStatus();
+      renderLegacyRecoveryResult({ action: "ASSESSMENT", assessment });
+      return assessment;
+    } catch (error) {
+      if (target) target.textContent = "Assessment failed: " + (error?.message || String(error));
+      throw error;
+    }
+  }
+
+  async function backfillLegacyKittingMaterialStatus() {
+    const target = document.getElementById("legacyKittingRecoveryResult");
+    if (target) target.textContent = "Reassessing evidence and applying only high-confidence DEV records...";
+    try {
+      const result = await window.DleApiClient.backfillLegacyKittingMaterialStatus();
+      window.MaterialStatus?.invalidate?.(result.insertedWorkOrders || []);
+      renderLegacyRecoveryResult({ action: "BACKFILL", result });
+      workspaceState.model = null;
+      await refreshKittingWorkspace();
+      return result;
+    } catch (error) {
+      if (target) target.textContent = "Backfill failed: " + (error?.message || String(error));
+      throw error;
+    }
+  }
+
+  function renderLegacyRecoveryResult(payload) {
+    const target = document.getElementById("legacyKittingRecoveryResult");
+    if (!target) return;
+    const assessment = payload.assessment || payload.result?.assessment || {};
+    target.textContent = JSON.stringify({
+      action: payload.action,
+      verdict: payload.result?.verdict,
+      assessmentCorrelationId: assessment.assessmentCorrelationId,
+      assessedAtUtc: assessment.assessedAtUtc,
+      inventory: assessment.inventory,
+      counts: assessment.counts,
+      insertedCount: payload.result?.insertedCount,
+      insertedWorkOrders: payload.result?.insertedWorkOrders,
+      highConfidence: (assessment.highConfidence || []).map(item => ({
+        workOrderNumber: item.workOrderNumber,
+        materialStatus: item.materialStatus,
+        evidenceSource: item.evidenceSource,
+        classification: item.classification,
+        completeEvidence: item.completeEvidence?.path || null,
+        shortageEvidence: item.shortageEvidence?.path || null,
+        manualDisposition: item.manualDisposition?.resultingDisposition || null
+      })),
+      conflicts: (assessment.conflicts || []).map(item => ({
+        workOrderNumber: item.workOrderNumber,
+        category: item.category,
+        detail: item.detail,
+        manualDisposition: item.manualDisposition?.resultingDisposition || null,
+        completeEvidence: (item.completeEvidence || []).map(file => file.path),
+        shortageEvidence: (item.shortageEvidence || []).map(file => file.path)
+      })),
+      ambiguousOrUnmatchedFiles: (assessment.files || [])
+        .filter(file => file.associationConfidence !== "HIGH")
+        .map(file => ({ fileName: file.fileName, evidenceType: file.evidenceType,
+          path: file.path, associationConfidence: file.associationConfidence,
+          associationRule: file.associationRule, workOrderNumber: file.workOrderNumber }))
+    }, null, 2);
   }
 
   function ensureOperationalStateSubscription() {
@@ -43,12 +190,21 @@
       detail.waitUntil?.(refresh);
       return refresh;
     });
+    if (!materialStatusSubscription && window.MaterialStatus?.subscribe) {
+      materialStatusSubscription = window.MaterialStatus.subscribe(() => {
+        workspaceState.model = null;
+        const mount = document.querySelector('[data-workspace-mount="kitting"]');
+        if (mount?.dataset.workspaceLoaded === "true") void refreshKittingWorkspace();
+      });
+    }
   }
 
-  async function refreshKittingWorkspace() {
+  async function refreshKittingWorkspace(options = {}) {
     if (workspaceState.loading) return;
+    const forceMaterialStatus = options.forceMaterialStatus === true;
     workspaceState.loading = true;
     workspaceState.loadError = "";
+    setRefreshButtonState(true);
     setStatus("Loading canonical and governed evidence", "");
     renderQueueMessage("Loading canonical Sales Orders, relationship decisions, and Work Orders...");
 
@@ -62,7 +218,9 @@
       );
       const workOrdersByNumber = await loadCanonicalWorkOrders(workOrderNumbers);
       const documentsByWorkOrder = buildDocumentEvidence(workOrderNumbers);
-      const dispositionsByWorkOrder = await loadKittingDispositions(workOrderNumbers);
+      const materialStatusesByWorkOrder = await loadMaterialStatuses(workOrderNumbers, {
+        force: forceMaterialStatus
+      });
 
       workspaceState.canonicalRows = canonicalRows;
       workspaceState.model = window.KittingReadModel.buildReadModel({
@@ -70,7 +228,7 @@
         approvalsByLineKey,
         workOrdersByNumber,
         documentsByWorkOrder,
-        dispositionsByWorkOrder,
+        materialStatusesByWorkOrder,
         rmaReworkByLineKey
       });
       renderWorkspace();
@@ -87,7 +245,12 @@
       renderQueueMessage(workspaceState.loadError);
     } finally {
       workspaceState.loading = false;
+      setRefreshButtonState(false);
     }
+  }
+
+  function refreshKittingQueue() {
+    return refreshKittingWorkspace({ forceMaterialStatus: true });
   }
 
   async function loadCanonicalSalesOrderRows() {
@@ -116,6 +279,7 @@
       customerName: cleanText(record?.customerName || record?.vpro5?.customer),
       salesOrderNumber,
       salesOrderLineNumber,
+      customerPurchaseOrderNumber: cleanText(record?.customerPurchaseOrderNumber || record?.official?.customerPo),
       itemNumber: cleanText(record?.itemNumber || record?.vpro5?.partNumber),
       quantityOrdered: record?.quantityOrdered,
       operationalQuantityOpen: viewModel?.getOfficialField
@@ -181,6 +345,43 @@
       catch (error) { results.set(workOrderNumber, { currentDisposition: "NOT_DISPOSITIONED", loadError: true }); }
     });
     return results;
+  }
+
+  async function loadKittingCases(workOrderNumbers) {
+    const getter = window.DleApiClient?.getKittingCase;
+    if (typeof getter !== "function") throw new Error("The governed Kitting Case service is unavailable.");
+    const results = new Map();
+    const failures = [];
+    await mapWithConcurrency(workOrderNumbers, Math.min(2, LOOKUP_CONCURRENCY), async workOrderNumber => {
+      try {
+        const response = await getter(workOrderNumber);
+        if (response?.kittingCase) results.set(workOrderNumber, response.kittingCase);
+      } catch (error) {
+        failures.push({
+          workOrderNumber,
+          message: error?.message || "Unknown Kitting Case lookup failure."
+        });
+      }
+    });
+    if (failures.length) {
+      const first = failures[0];
+      throw new Error(
+        `Kitting Case projection failed for ${failures.length} Work Order(s). ` +
+        `First failure: ${first.workOrderNumber}: ${first.message}`
+      );
+    }
+    return results;
+  }
+
+  async function loadMaterialStatuses(workOrderNumbers, options = {}) {
+    if (!window.MaterialStatus?.getMany) throw new Error("The shared Material Status projection is unavailable.");
+    if (options.force) {
+      window.MaterialStatus.invalidate?.(workOrderNumbers, { notify: false });
+    }
+    return window.MaterialStatus.getMany(workOrderNumbers, {
+      concurrency: 2,
+      force: options.force === true
+    });
   }
 
   async function loadActiveRmaReworkMemberships() {
@@ -254,36 +455,7 @@
   function renderWorkspace() {
     const model = workspaceState.model;
     if (!model) return;
-    renderSummary(model.counts);
-    setCount("kittingNotClassifiedCount", model.counts.notClassified);
-    setCount("kittingNeedsResolutionCount", model.counts.needsResolution);
-    setCount("kittingNeedsKittingCount", model.counts.needsKitting);
-    setCount("kittingKitShortCount", model.counts.kitShort);
-    setCount("kittingKitCompleteCount", model.counts.kitComplete);
-    setCount("kittingRmaReworkCount", model.counts.rmaRework);
-    document.querySelectorAll("[data-kitting-queue-button]").forEach(button => {
-      button.classList.toggle("active", button.dataset.kittingQueueButton === workspaceState.activeQueue);
-    });
-    renderActiveQueue();
-  }
-
-  function renderSummary(counts) {
-    const target = document.getElementById("kittingReadinessSummary");
-    if (!target) return;
-    target.innerHTML = [
-      summaryCard("Ready", counts.ready),
-      summaryCard("Exact Work Orders", counts.exactWorkOrders),
-      summaryCard("Approved Work Orders", counts.approvedWorkOrders),
-      summaryCard("Needs Resolution", counts.needsResolution),
-      summaryCard("Open SO Lines", counts.openSalesOrderLinesEvaluated),
-      summaryCard("RMA/Rework Lines Excluded", counts.rmaReworkExcludedLines),
-      summaryCard("Multi-line WOs", counts.uniqueWorkOrdersWithMultipleLines)
-    ].join("");
-  }
-
-  function summaryCard(label, value) {
-    return '<div class="kitting-summary-card"><span>' + escapeHtml(label) + '</span><strong>' +
-      escapeHtml(value) + '</strong></div>';
+    renderOperatorQueues();
   }
 
   function selectQueue(queueName) {
@@ -293,20 +465,73 @@
   }
 
   function renderActiveQueue() {
-    const target = document.getElementById("kittingQueue");
-    const title = document.getElementById("kittingQueueTitle");
-    const explanation = document.getElementById("kittingQueueExplanation");
-    if (!target || !title || !explanation || !workspaceState.model) return;
-    const definition = queueDefinition(workspaceState.activeQueue);
-    title.textContent = definition.title;
-    explanation.textContent = definition.explanation;
-    const rows = filterAndSortRows(getActiveQueueRows());
-    if (!rows.length) {
-      renderQueueMessage(definition.emptyMessage);
-      return;
-    }
-    target.innerHTML = workspaceState.activeQueue === "RMA_REWORK"
-      ? renderRmaReworkQueueTable(rows) : renderQueueTable(rows);
+    renderOperatorQueues();
+  }
+
+  function renderOperatorQueues() {
+    if (!workspaceState.model) return;
+    const queues = workspaceState.model.queues || {};
+    const searchActive = Boolean(cleanText(document.getElementById("kittingSearch")?.value));
+    const needsKitting = filterAndSortRows([
+      ...(queues.needsKitting || []),
+      ...(queues.kittingInProgress || []),
+    ]);
+    const kitShort = filterAndSortRows(queues.kitShort || []);
+    const kitComplete = filterAndSortRows(queues.kitComplete || []);
+    const allKittingSearchRows = searchActive ? filterAndSortRows([
+      ...(queues.needsKitting || []),
+      ...(queues.kittingInProgress || []),
+      ...(queues.kitShort || []),
+      ...(queues.kitComplete || [])
+    ]) : [];
+    setCount("kittingNeedsKittingTabCount", needsKitting.length);
+    setCount("kittingKitShortTabCount", kitShort.length);
+    setCount("kittingKitCompleteTabCount", kitComplete.length);
+    const views = {
+      NEEDS_KITTING: {
+        title: "Needs Kitting",
+        description: "New and in-progress jobs that have not been established as Kit Short or Kit Complete.",
+        rows: needsKitting,
+        empty: "No jobs currently need Kitting."
+      },
+      KIT_SHORT: {
+        title: "Kit Short / Awaiting Parts",
+        description: "Jobs with an established material shortage that still need Kitting attention.",
+        rows: kitShort,
+        empty: "No kits are currently awaiting parts."
+      },
+      KIT_COMPLETE: {
+        title: "Kit Complete",
+        description: "Completed kits still associated with active/open canonical demand.",
+        rows: kitComplete,
+        empty: "No active/open jobs are currently Kit Complete."
+      }
+    };
+    const selected = searchActive ? {
+      title: "Search Results \u2014 " + allKittingSearchRows.length,
+      description: "Searching all Kitting lifecycle states.",
+      rows: allKittingSearchRows,
+      empty: "No Kitting jobs match this search."
+    } : views[workspaceState.activeQueue] || views.NEEDS_KITTING;
+    const tabs = document.querySelector(".kitting-lifecycle-tabs");
+    tabs?.classList.toggle("searching", searchActive);
+    document.getElementById("kittingSelectedQueueTitle").textContent = selected.title;
+    document.getElementById("kittingSelectedQueueDescription").textContent = selected.description;
+    document.querySelectorAll("[data-kitting-lifecycle-tab]").forEach(button => {
+      const active = !searchActive && button.dataset.kittingLifecycleTab === workspaceState.activeQueue;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    renderOperatorQueue("kittingSelectedJobs", "", selected.rows, selected.empty);
+  }
+
+  function renderOperatorQueue(targetId, countId, rows, emptyMessage) {
+    const target = document.getElementById(targetId);
+    if (countId) setCount(countId, rows.length);
+    if (!target) return;
+    target.innerHTML = rows.length
+      ? '<div class="kitting-compact-list">' + rows.map(renderCompactQueueRow).join("") + '</div>'
+      : '<div class="kitting-kit-queue-empty">' + escapeHtml(emptyMessage) + '</div>';
   }
 
   function getActiveQueueRows() {
@@ -315,6 +540,7 @@
       NOT_CLASSIFIED: queues.notClassified,
       NEEDS_RESOLUTION: queues.needsResolution,
       NEEDS_KITTING: queues.needsKitting,
+      KITTING_IN_PROGRESS: queues.kittingInProgress,
       KIT_SHORT: queues.kitShort,
       KIT_COMPLETE: queues.kitComplete,
       RMA_REWORK: queues.rmaRework
@@ -323,9 +549,6 @@
 
   function filterAndSortRows(rows) {
     const search = cleanText(document.getElementById("kittingSearch")?.value).toLowerCase();
-    const relationship = cleanText(document.getElementById("kittingRelationshipFilter")?.value || "ALL");
-    const documentFilter = cleanText(document.getElementById("kittingDocumentFilter")?.value || "ALL");
-    const sort = cleanText(document.getElementById("kittingSort")?.value || "DUE_ASC");
     const filtered = (rows || []).filter(row => {
       const haystack = [
         row.workOrderNumber,
@@ -334,22 +557,45 @@
         row.customerNumber,
         row.customerName,
         row.assemblyItemNumber,
+        row.canonicalWorkOrder?.customerPurchaseOrderNumber,
         ...(row.candidateWorkOrderNumbers || []),
-        ...row.relatedLines.flatMap(line => [line.salesOrderNumber, line.salesOrderLineNumber, line.itemNumber])
+        ...row.relatedLines.flatMap(line => [line.salesOrderNumber, line.salesOrderLineNumber,
+          line.itemNumber, line.customerPurchaseOrderNumber])
       ].join(" ").toLowerCase();
-      const relationshipMatch = workspaceState.activeQueue === "RMA_REWORK" || relationship === "ALL" ||
-        (relationship === "READY" && row.ready) || row.relationshipStates.includes(relationship);
-      const documentMatch = workspaceState.activeQueue === "RMA_REWORK" ||
-        documentFilter === "ALL" || row.documentPresence.state === documentFilter;
-      return (!search || haystack.includes(search)) && relationshipMatch && documentMatch;
+      return !search || haystack.includes(search);
     });
     return filtered.sort((left, right) => {
-      if (sort === "WORK_ORDER") return (left.workOrderNumber || left.queueKey)
-        .localeCompare(right.workOrderNumber || right.queueKey);
-      if (sort === "CUSTOMER") return left.customerName.localeCompare(right.customerName) ||
-        left.queueKey.localeCompare(right.queueKey);
       return left.earliestDueDateTime - right.earliestDueDateTime || left.queueKey.localeCompare(right.queueKey);
     });
+  }
+
+  function renderCompactQueueRow(row) {
+    const customer = [row.customerNumber, row.customerName].filter(Boolean).join(" \u00b7 ") || "Customer N/A";
+    const revision = row.revision ? "Rev " + row.revision : "Rev N/A";
+    const quantity = row.canonicalWorkOrderQuantity === null
+      ? "N/A" : formatQuantity(row.canonicalWorkOrderQuantity);
+    const dueDate = row.earliestDueDate || "N/A";
+    return [
+      '<button type="button" class="kitting-compact-row" data-kitting-queue-key="',
+      escapeHtml(row.queueKey), '" onclick="openKittingWorkOrder(event)">',
+      '<span class="kitting-compact-wo">WO ', escapeHtml(row.workOrderNumber), '</span>',
+      '<span class="kitting-compact-assembly"><strong>', escapeHtml(row.assemblyItemNumber || "Part N/A"),
+      '</strong><small>', escapeHtml(revision), '</small></span>',
+      '<span class="kitting-compact-metric kitting-compact-quantity"><small>QTY</small><strong>',
+      escapeHtml(quantity), '</strong></span>',
+      '<span class="kitting-compact-metric kitting-compact-due"><small>DUE</small><strong>',
+      escapeHtml(dueDate), '</strong></span>',
+      '<span class="kitting-compact-customer">', escapeHtml(customer), '</span>',
+      '<span class="kitting-compact-state">', escapeHtml(operatorStatus(row.materialStatus)), '</span>',
+      '<span class="kitting-compact-arrow" aria-hidden="true">\u2192</span>',
+      '</button>'
+    ].join("");
+  }
+
+  function operatorStatus(status) {
+    return status === "KITTING_IN_PROGRESS" ? "IN PROGRESS" :
+      status === "KIT_SHORT" ? "KIT SHORT" :
+      status === "KIT_COMPLETE" ? "KIT COMPLETE" : "NEW";
   }
 
   function renderQueueTable(rows) {
@@ -358,7 +604,7 @@
       '<table class="operations-center-table"><thead><tr>',
       '<th>Work Order</th><th>Customer</th><th>Assembly</th><th>Revision</th>',
       '<th>WO Qty</th><th>Total OP Qty Open</th><th>Earliest Due</th><th>Open Lines</th>',
-      '<th>Governing Source</th><th>Relationship</th><th>Documents</th><th>Classification</th><th>Sales Order Lines</th>',
+      '<th>Governing Source</th><th>Relationship</th><th>Documents</th><th>Material Status</th><th>Sales Order Lines</th>',
       '</tr></thead><tbody>',
       rows.map(renderQueueRow).join(""),
       '</tbody></table></div>'
@@ -379,7 +625,7 @@
       '<td>', escapeHtml(row.governingSource), '</td>',
       '<td><span class="kitting-state-badge">', escapeHtml(row.relationshipState), '</span></td>',
       '<td>', renderDocumentEvidence(row.documentPresence), '</td>',
-      '<td>', escapeHtml(row.currentKittingClassification), renderRmaAwareness(row), '</td>',
+      '<td><span class="kitting-state-badge">', escapeHtml(row.materialStatusLabel), '</span>', renderRmaAwareness(row), '</td>',
       '<td>', renderRelatedLines(row.relatedLines), '</td>',
       '</tr>'
     ].join("");
@@ -514,6 +760,7 @@
       relationshipStatus: originLine.authority.relationshipState,
       approvalDecisionId: originLine.authority.decisionId,
       governingSource: row.governingSource,
+      materialStatus: row.materialStatusProjection,
       operationalRelationship: originLine.operationalRelationship || null,
       preferredDashboardView: "kitting",
       sourceWorkspaceId: WORKSPACE_ID,
@@ -543,13 +790,18 @@
     return {
       NOT_CLASSIFIED: {
         title: "Needs Disposition",
-        explanation: "Ready exact or approved Work Orders with open Sales Order lines and no current manual kitting disposition.",
-        emptyMessage: "No governed Work Orders match the current filters. Document presence never creates a kitting classification."
+        explanation: "Legacy queue retained for historical compatibility. Eligible Work Orders now receive system-derived Material Status.",
+        emptyMessage: "No governed Work Orders require a manual normal-lifecycle disposition."
       },
       NEEDS_KITTING: {
         title: "Needs Kitting",
-        explanation: "Eligible Work Orders intentionally confirmed as active work requiring kitting.",
-        emptyMessage: "No governed Work Orders have a current manual Needs Kitting disposition."
+        explanation: "Eligible Work Orders with no active persistent Kitting Case.",
+        emptyMessage: "No governed Work Orders currently need kitting."
+      },
+      KITTING_IN_PROGRESS: {
+        title: "Kitting In Progress",
+        explanation: "Persistent Kitting Cases with saved work that have not reached an immutable submission.",
+        emptyMessage: "No governed Work Orders currently have Kitting in progress."
       },
       NEEDS_RESOLUTION: {
         title: "Needs Resolution",
@@ -558,13 +810,13 @@
       },
       KIT_SHORT: {
         title: "Kit Short",
-        explanation: "Eligible Work Orders with a current authoritative manual Kit Short disposition.",
-        emptyMessage: "No governed Work Orders have a current manual Kit Short disposition."
+        explanation: "Persistent Kitting Cases whose latest immutable submission has unresolved shortages.",
+        emptyMessage: "No governed Work Orders currently have a Kit Short Material Status."
       },
       KIT_COMPLETE: {
         title: "Kit Complete",
-        explanation: "Eligible Work Orders with a current authoritative manual Kit Complete disposition.",
-        emptyMessage: "No governed Work Orders have a current manual Kit Complete disposition."
+        explanation: "Terminal persistent Kitting Cases with a complete immutable submission.",
+        emptyMessage: "No governed Work Orders currently have a Kit Complete Material Status."
       },
       RMA_REWORK: {
         title: "RMA / Rework",
@@ -575,8 +827,10 @@
   }
 
   function renderQueueMessage(message) {
-    const target = document.getElementById("kittingQueue");
-    if (target) target.innerHTML = '<div class="kitting-kit-queue-empty">' + escapeHtml(message) + '</div>';
+    ["kittingSelectedJobs"].forEach(id => {
+      const target = document.getElementById(id);
+      if (target) target.innerHTML = '<div class="kitting-kit-queue-empty">' + escapeHtml(message) + '</div>';
+    });
   }
 
   function setStatus(message, state) {
@@ -584,6 +838,14 @@
     if (!target) return;
     target.textContent = message;
     target.dataset.state = state || "";
+  }
+
+  function setRefreshButtonState(refreshing) {
+    const button = document.querySelector(".kitting-refresh");
+    if (!button) return;
+    button.disabled = refreshing;
+    button.setAttribute("aria-busy", String(refreshing));
+    button.textContent = refreshing ? "Refreshing..." : "↻ Refresh Queue";
   }
 
   function setCount(id, value) {
@@ -623,10 +885,13 @@
   }
 
   window.refreshKittingWorkspace = refreshKittingWorkspace;
+  window.refreshKittingQueue = refreshKittingQueue;
   window.filterKittingWorkspace = renderActiveQueue;
   window.selectKittingQueue = selectQueue;
   window.openKittingWorkOrder = openGovernedWorkOrder;
   window.renderKittingKitQueue = renderActiveQueue;
+  window.assessLegacyKittingMaterialStatus = assessLegacyKittingMaterialStatus;
+  window.backfillLegacyKittingMaterialStatus = backfillLegacyKittingMaterialStatus;
 
   window.DleWorkspaces = window.DleWorkspaces || {};
   ensureOperationalStateSubscription();

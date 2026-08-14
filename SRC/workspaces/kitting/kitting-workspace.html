@@ -1,78 +1,35 @@
 <div class="kitting-workspace" data-workspace-layout="kitting">
   <header class="kitting-workspace-header">
     <div>
-      <span class="small-icon">KT</span>
-      <h1>Kitting Workspace</h1>
-      <p>Governed Work Order readiness and queue navigation</p>
+      <h1>Kitting</h1>
+      <p>Start a new kit or resume work that still needs attention.</p>
     </div>
-    <div id="kittingWorkspaceStatus" class="kitting-workspace-status" role="status" aria-live="polite">Loading governed data</div>
+    <div id="kittingWorkspaceStatus" class="kitting-workspace-status" role="status" aria-live="polite">Loading jobs</div>
   </header>
 
   <section class="kitting-workspace-controls" aria-label="Kitting queue controls">
-    <label>
-      Search
-      <input id="kittingSearch" type="search" placeholder="Work Order, customer, Sales Order, or assembly" oninput="filterKittingWorkspace()">
+    <label class="kitting-search-control">
+      <span class="sr-only">Search Kitting jobs</span>
+      <input id="kittingSearch" type="search" placeholder="Search Work Order, Part, Customer, PO..." oninput="filterKittingWorkspace()">
     </label>
-    <label>
-      Relationship readiness
-      <select id="kittingRelationshipFilter" onchange="filterKittingWorkspace()">
-        <option value="ALL">All states</option>
-        <option value="READY">Ready (Exact or Approved)</option>
-        <option value="EXACT">Exact</option>
-        <option value="APPROVED">Approved</option>
-        <option value="CANDIDATE">Candidate</option>
-        <option value="AMBIGUOUS">Ambiguous</option>
-        <option value="UNRESOLVED">Unresolved</option>
-      </select>
-    </label>
-    <label>
-      Document presence
-      <select id="kittingDocumentFilter" onchange="filterKittingWorkspace()">
-        <option value="ALL">All evidence</option>
-        <option value="PRESENT">Document present</option>
-        <option value="ABSENT">No matching document</option>
-        <option value="UNAVAILABLE">Folders not connected</option>
-      </select>
-    </label>
-    <label>
-      Sort
-      <select id="kittingSort" onchange="filterKittingWorkspace()">
-        <option value="DUE_ASC">Earliest due date</option>
-        <option value="WORK_ORDER">Work Order</option>
-        <option value="CUSTOMER">Customer</option>
-      </select>
-    </label>
-    <button type="button" class="secondary-btn" onclick="refreshKittingWorkspace()">Refresh</button>
+    <button type="button" class="secondary-btn kitting-refresh" onclick="refreshKittingQueue()">↻ Refresh Queue</button>
   </section>
 
-  <section id="kittingReadinessSummary" class="kitting-readiness-summary" aria-label="Kitting readiness summary"></section>
-
-  <nav class="kitting-queue-tabs" aria-label="Kitting queues">
-    <button type="button" data-kitting-queue-button="NOT_CLASSIFIED" onclick="selectKittingQueue('NOT_CLASSIFIED')">
-      Needs Disposition <span id="kittingNotClassifiedCount">0</span>
+  <nav class="kitting-lifecycle-tabs" aria-label="Kitting lifecycle">
+    <button type="button" data-kitting-lifecycle-tab="NEEDS_KITTING" onclick="selectKittingQueue('NEEDS_KITTING')" aria-pressed="true">
+      <span>Needs Kitting</span><strong id="kittingNeedsKittingTabCount">0</strong>
     </button>
-    <button type="button" data-kitting-queue-button="NEEDS_KITTING" onclick="selectKittingQueue('NEEDS_KITTING')">
-      Needs Kitting <span id="kittingNeedsKittingCount">0</span>
+    <button type="button" data-kitting-lifecycle-tab="KIT_SHORT" onclick="selectKittingQueue('KIT_SHORT')" aria-pressed="false">
+      <span>Kit Short / Awaiting Parts</span><strong id="kittingKitShortTabCount">0</strong>
     </button>
-    <button type="button" data-kitting-queue-button="NEEDS_RESOLUTION" onclick="selectKittingQueue('NEEDS_RESOLUTION')">
-      Needs Resolution <span id="kittingNeedsResolutionCount">0</span>
-    </button>
-    <button type="button" data-kitting-queue-button="KIT_SHORT" onclick="selectKittingQueue('KIT_SHORT')">
-      Kit Short <span id="kittingKitShortCount">0</span>
-    </button>
-    <button type="button" data-kitting-queue-button="KIT_COMPLETE" onclick="selectKittingQueue('KIT_COMPLETE')">
-      Kit Complete <span id="kittingKitCompleteCount">0</span>
-    </button>
-    <button type="button" data-kitting-queue-button="RMA_REWORK" onclick="selectKittingQueue('RMA_REWORK')">
-      RMA / Rework <span id="kittingRmaReworkCount">0</span>
+    <button type="button" data-kitting-lifecycle-tab="KIT_COMPLETE" onclick="selectKittingQueue('KIT_COMPLETE')" aria-pressed="false">
+      <span>Kit Complete</span><strong id="kittingKitCompleteTabCount">0</strong>
     </button>
   </nav>
 
-  <section class="kitting-workspace-region kitting-workspace-region-wide" aria-labelledby="kittingQueueTitle">
-    <div>
-      <h2 id="kittingQueueTitle">Needs Disposition</h2>
-      <p id="kittingQueueExplanation">Governed exact or approved Work Orders that are ready for read-only kitting review. No authoritative kitting status exists yet.</p>
-      <div id="kittingQueue" class="kitting-kit-queue"></div>
-    </div>
+  <section class="kitting-operator-queue" aria-labelledby="kittingSelectedQueueTitle">
+    <h2 id="kittingSelectedQueueTitle">Needs Kitting</h2>
+    <p id="kittingSelectedQueueDescription">New and in-progress jobs that have not been established as Kit Short or Kit Complete.</p>
+    <div id="kittingSelectedJobs" class="kitting-kit-queue"></div>
   </section>
 </div>

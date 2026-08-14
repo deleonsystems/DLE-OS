@@ -3,6 +3,11 @@
 
   const WORKSPACE_DEFINITIONS = [
     {
+      id: "dle-home",
+      label: "DLE-OS Home",
+      purpose: "Choose an assigned operational work area."
+    },
+    {
       id: "administration",
       label: "Administration",
       purpose: "Development, system management, ERP import, reconciliation, configuration, and developer tools."
@@ -40,7 +45,12 @@
     {
       id: "kitting",
       label: "Kitting",
-      purpose: "Kit preparation, kit shortages, and material issue to production."
+      purpose: "Kit preparation, kit shortages, and material issue to production.",
+      home: Object.freeze({
+        label: "Kitting",
+        description: "Pick \u2022 Count \u2022 Shortages \u2022 Traceability",
+        requiredPermission: "kitting.view"
+      })
     },
     {
       id: "production",
@@ -73,7 +83,7 @@
   const workspaceByLabel = new Map(WORKSPACE_DEFINITIONS.map(workspace => [workspace.label, workspace]));
 
   window.DleWorkspaceRegistry = Object.freeze({
-    defaultWorkspaceId: WORKSPACE_DEFINITIONS[0].id,
+    defaultWorkspaceId: "dle-home",
     all() {
       return WORKSPACE_DEFINITIONS.slice();
     },

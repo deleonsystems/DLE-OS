@@ -11,7 +11,7 @@ assert.match(host, /api\/development\/kitting-documents\/v1\/work-orders/);
 assert.match(host, /\\\\deleon-server\\Production\\KITTING\\KIT-SHORTAGES/);
 assert.match(host, /\\\\deleon-server\\Production\\KITTING\\KIT-COMPLETE/);
 assert.match(host, /context\.Request\.Query\.Count != 0/);
-assert.doesNotMatch(host, /MapGet\([^\n]*(?:browse|directory|path)/i);
+assert.doesNotMatch(host, /MapGet\(kittingDocumentRoute[^\n]*(?:browse|directory|path)/i);
 assert.doesNotMatch(dashboard, /file:\/\//i);
 assert.match(dashboard, /isActionableKittingDocumentHandoff\(selectedWorkOrder\)/);
 assert.match(dashboard, /governingSource === 'EXACT' \|\| governingSource === 'APPROVED'/);

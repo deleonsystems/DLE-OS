@@ -13,5 +13,17 @@
              Link="PlatformRefreshRegistry.json"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\KittingCase\Database\001_AddKittingCase.sql"
+             Link="KittingCaseMigration.sql"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\KittingCase\Database\002_AddKittingCaseRuns.sql"
+             Link="KittingCaseRunMigration.sql"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\KittingCase\Database\003_AddLegacyKittingMaterialEvidence.sql"
+             Link="LegacyKittingMaterialEvidenceMigration.sql"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

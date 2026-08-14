@@ -14,6 +14,7 @@
     { key: 'salesOrder', label: 'Sales Order' },
     { key: 'sequenceLine', label: 'SO Line' },
     { key: 'workOrder', label: 'Work Order' },
+    { key: 'materialStatus', label: 'Material Status' },
     { key: 'quantityOrdered', label: 'Qty Ordered', diagnostic: true },
     { key: 'erpQtyOpen', label: 'ERP Qty Open', diagnostic: true },
     { key: 'pendingInvoiceQty', label: 'Pending Invoice Qty', diagnostic: true },
@@ -27,7 +28,6 @@
   ];
 
   window.OperationsCenter.overlayFields = [
-    { key: 'status', label: 'STATUS' },
     { key: 'productionShipping', label: 'Production / Shipping' },
     {
       key: 'kitShort',

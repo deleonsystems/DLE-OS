@@ -13,6 +13,7 @@
     NOT_CLASSIFIED: "NOT_CLASSIFIED",
     NEEDS_RESOLUTION: "NEEDS_RESOLUTION",
     NEEDS_KITTING: "NEEDS_KITTING",
+    KITTING_IN_PROGRESS: "KITTING_IN_PROGRESS",
     KIT_SHORT: "KIT_SHORT",
     KIT_COMPLETE: "KIT_COMPLETE",
     RMA_REWORK: "RMA_REWORK"
@@ -24,6 +25,8 @@
     const workOrdersByNumber = asLookup(options.workOrdersByNumber);
     const documentsByWorkOrder = asLookup(options.documentsByWorkOrder);
     const dispositionsByWorkOrder = asLookup(options.dispositionsByWorkOrder);
+    const casesByWorkOrder = asLookup(options.casesByWorkOrder);
+    const materialStatusesByWorkOrder = asLookup(options.materialStatusesByWorkOrder);
     const rmaReworkByLineKey = asLookup(options.rmaReworkByLineKey);
     const governedGroups = new Map();
     const needsResolution = [];
@@ -107,10 +110,13 @@
 
     const governedRows = Array.from(governedGroups.values())
       .map(group => buildGovernedRow(group, documentsByWorkOrder.get(group.workOrderNumber),
-        dispositionsByWorkOrder.get(group.workOrderNumber), rmaAwarenessByWorkOrder.get(group.workOrderNumber) || []))
+        dispositionsByWorkOrder.get(group.workOrderNumber), casesByWorkOrder.get(group.workOrderNumber),
+        rmaAwarenessByWorkOrder.get(group.workOrderNumber) || [],
+        materialStatusesByWorkOrder.get(group.workOrderNumber)))
       .sort(compareQueueRows);
     const notClassified = governedRows.filter(row => row.primaryQueue === PRIMARY_QUEUES.NOT_CLASSIFIED);
     const needsKitting = governedRows.filter(row => row.primaryQueue === PRIMARY_QUEUES.NEEDS_KITTING);
+    const kittingInProgress = governedRows.filter(row => row.primaryQueue === PRIMARY_QUEUES.KITTING_IN_PROGRESS);
     const kitShort = governedRows.filter(row => row.primaryQueue === PRIMARY_QUEUES.KIT_SHORT);
     const kitComplete = governedRows.filter(row => row.primaryQueue === PRIMARY_QUEUES.KIT_COMPLETE);
     needsResolution.sort(compareQueueRows);
@@ -120,6 +126,7 @@
       notClassified,
       needsResolution,
       needsKitting,
+      kittingInProgress,
       kitShort,
       kitComplete,
       rmaRework
@@ -231,7 +238,8 @@
     };
   }
 
-  function buildGovernedRow(group, documentEvidence, dispositionReview, rmaReworkLines) {
+  function buildGovernedRow(group, documentEvidence, dispositionReview, caseReview, rmaReworkLines,
+      materialStatusReview) {
     const canonical = group.canonicalWorkOrder;
     const lines = group.lines.slice().sort(compareLines);
     const sources = Array.from(group.sources).sort();
@@ -242,17 +250,24 @@
     const customerNames = unique(lines.map(line => line.customerName));
 
     const disposition = normalizeDisposition(dispositionReview);
-    const primaryQueue = disposition.currentDisposition === "NEEDS_KITTING"
-      ? PRIMARY_QUEUES.NEEDS_KITTING : disposition.currentDisposition === "KIT_SHORT"
-        ? PRIMARY_QUEUES.KIT_SHORT : disposition.currentDisposition === "KIT_COMPLETE"
-          ? PRIMARY_QUEUES.KIT_COMPLETE : PRIMARY_QUEUES.NOT_CLASSIFIED;
+    const materialStatus = materialStatusReview || Object.freeze({
+      workOrderNumber: group.workOrderNumber,
+      machineValue: PRIMARY_QUEUES.NEEDS_KITTING,
+      label: "Needs Kitting",
+      source: "KITTING_ELIGIBILITY",
+      kittingCase: null
+    });
+    const primaryQueue = Object.values(PRIMARY_QUEUES).includes(materialStatus.machineValue)
+      ? materialStatus.machineValue : PRIMARY_QUEUES.NEEDS_KITTING;
     return Object.freeze({
       queueKey: "WO|" + group.workOrderNumber,
       primaryQueue,
-      currentKittingClassification: primaryQueue === PRIMARY_QUEUES.NEEDS_KITTING
-        ? "Needs Kitting" : primaryQueue === PRIMARY_QUEUES.KIT_SHORT
-          ? "Kit Short" : primaryQueue === PRIMARY_QUEUES.KIT_COMPLETE ? "Kit Complete" : "Needs Disposition",
+      materialStatus: materialStatus.machineValue,
+      materialStatusLabel: materialStatus.label,
+      materialStatusProjection: materialStatus,
+      currentKittingClassification: materialStatus.label,
       manualKittingDisposition: disposition,
+      kittingCase: materialStatus.kittingCase || caseReview || null,
       ready: true,
       actionable: true,
       workOrderNumber: group.workOrderNumber,
@@ -353,6 +368,7 @@
       ...queues.notClassified,
       ...queues.needsResolution,
       ...queues.needsKitting,
+      ...queues.kittingInProgress,
       ...queues.kitShort,
       ...queues.kitComplete
     ];
@@ -362,7 +378,8 @@
       set.add(row.primaryQueue);
       membership.set(row.queueKey, set);
     });
-    const governed = [...queues.notClassified, ...queues.needsKitting, ...queues.kitShort, ...queues.kitComplete];
+    const governed = [...queues.notClassified, ...queues.needsKitting, ...queues.kittingInProgress,
+      ...queues.kitShort, ...queues.kitComplete];
     const exact = governed.filter(row => row.governingSource === "EXACT");
     const approved = governed.filter(row => row.governingSource === "APPROVED");
     const resolutionLines = queues.needsResolution.flatMap(row => row.relatedLines);
@@ -389,6 +406,7 @@
       notClassified: queues.notClassified.length,
       needsResolution: queues.needsResolution.length,
       needsKitting: queues.needsKitting.length,
+      kittingInProgress: queues.kittingInProgress.length,
       kitShort: queues.kitShort.length,
       kitComplete: queues.kitComplete.length,
       rmaRework: queues.rmaRework.length,

@@ -92,19 +92,19 @@ assert.equal(model.counts.kitShortInferredFromDocumentPresence, 0);
 assert.equal(model.counts.kitCompleteInferredWithoutAuthoritativeStatus, 0);
 assert.equal(model.counts.unclassifiedRelationshipStates, 0);
 
-const consolidated = model.queues.notClassified.find(row => row.workOrderNumber === 'WO100');
+const consolidated = model.queues.needsKitting.find(row => row.workOrderNumber === 'WO100');
 assert.equal(consolidated.relatedOpenSalesOrderLineCount, 2);
 assert.equal(consolidated.totalOperationalOpenQuantity, 16);
-assert.equal(consolidated.currentKittingClassification, 'Needs Disposition');
+assert.equal(consolidated.currentKittingClassification, 'Needs Kitting');
 assert.equal(consolidated.documentPresence.state, 'PRESENT');
 assert.equal(model.queues.kitShort.length, 0, 'document presence must not imply Kit Short');
 
-const approved = model.queues.notClassified.find(row => row.workOrderNumber === 'WO200');
+const approved = model.queues.needsKitting.find(row => row.workOrderNumber === 'WO200');
 assert.equal(approved.relationshipState, 'APPROVED');
 assert.equal(approved.actionable, true);
 assert.equal(modelApi.collectActionableWorkOrderNumbers(lines, approvals).join(','), 'WO100,WO200,WO300');
 
-assert.equal(model.queues.notClassified.some(row => row.workOrderNumber === 'WO300'), true,
+assert.equal(model.queues.needsKitting.some(row => row.workOrderNumber === 'WO300'), true,
   'different Work Orders must remain separate');
 assert.equal(model.queues.needsResolution.every(row => row.actionable === false), true);
 assert.equal(model.queues.needsResolution.every(row => row.workOrderNumber === ''), true,

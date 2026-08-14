@@ -7,6 +7,7 @@
 
   window.OperationsCenter = window.OperationsCenter || {};
   let operationalStateSubscription = null;
+  let materialStatusSubscription = null;
   let syncOperationsPollTimer = null;
 
   async function loadOperationsCenterModule() {
@@ -25,6 +26,14 @@
   async function initializeOperationsCenter() {
     if (!operationalStateSubscription && window.DleApiClient?.subscribeOperationalLineStateChange) {
       operationalStateSubscription = window.DleApiClient.subscribeOperationalLineStateChange(detail => {
+        if (!window.OperationsCenter.state?.canonicalLoaded) return;
+        const refresh = refreshOperationsCenterCanonicalData();
+        detail.waitUntil?.(refresh);
+        return refresh;
+      });
+    }
+    if (!materialStatusSubscription && window.MaterialStatus?.subscribe) {
+      materialStatusSubscription = window.MaterialStatus.subscribe(detail => {
         if (!window.OperationsCenter.state?.canonicalLoaded) return;
         const refresh = refreshOperationsCenterCanonicalData();
         detail.waitUntil?.(refresh);

@@ -82,6 +82,7 @@
         approvalsByLineKey.get(key) || null
       );
     });
+    await applyMaterialStatusProjection(rows, controller.signal);
     validateUniqueIdentities(rows);
     return {
       rows,
@@ -92,6 +93,35 @@
       source: SOURCE_NAME,
       endpoint: SOURCE_ENDPOINT
     };
+  }
+
+  async function applyMaterialStatusProjection(rows, signal) {
+    const projection = window.MaterialStatus;
+    if (!projection?.getMany) throw new Error('The shared Material Status projection is unavailable.');
+    const workOrderNumbers = rows.map(resolveMaterialStatusWorkOrder).filter(Boolean);
+    const statuses = await projection.getMany(workOrderNumbers, { signal, concurrency: 4 });
+    rows.forEach(row => {
+      const workOrderNumber = resolveMaterialStatusWorkOrder(row);
+      row.materialStatus = workOrderNumber ? statuses.get(workOrderNumber) || null : null;
+      row.materialStatusWorkOrderNumber = workOrderNumber;
+    });
+  }
+
+  function resolveMaterialStatusWorkOrder(row) {
+    const operational = row?.workOrderApprovalReview?.operationalRelationship;
+    const route = cleanText(operational?.operationalRoute);
+    const active = cleanText(operational?.activeWorkOrderNumber);
+    if (route === 'NORMAL_PRODUCTION' && active) return normalizeWorkOrderNumber(active);
+    if (['RMA_REWORK', 'RETURN_RMA_REVIEW_REQUIRED'].includes(route)) return '';
+    const approved = cleanText(row?.workOrderApprovalReview?.currentApproval?.approvedWorkOrderNumber);
+    if (approved) return normalizeWorkOrderNumber(approved);
+    return row?.workOrderRelationship?.status === 'EXACT_LINE_UNIQUE'
+      ? normalizeWorkOrderNumber(row.workOrderRelationship.actionableWorkOrderNumber) : '';
+  }
+
+  function normalizeWorkOrderNumber(value) {
+    const text = cleanText(value);
+    return /^\d+$/.test(text) ? text.padStart(7, '0') : '';
   }
 
   async function loadAllRelationships(client, signal) {

@@ -392,6 +392,68 @@
     return body;
   }
 
+  async function requestKittingCase(workOrderNumber, suffix = '', options = {}) {
+    const normalized = String(workOrderNumber || '').trim();
+    if (!/^[0-9]{1,7}$/.test(normalized)) throw new TypeError('Work Order number is malformed.');
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/kitting-cases/v1/work-orders/' +
+        encodeURIComponent(normalized.padStart(7, '0')) + suffix,
+      {
+        method: options.method || 'GET', cache: 'no-store', credentials: 'include', signal: options.signal,
+        headers: { Accept: 'application/json', ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      }
+    );
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok) {
+      const requestError = new Error(body?.message || 'Kitting Case control returned HTTP ' + response.status + '.');
+      requestError.name = 'DleApiError'; requestError.status = response.status;
+      requestError.code = body?.code || 'kitting_case_http_error'; throw requestError;
+    }
+    return body;
+  }
+
+  async function requestAcceptedMaterialLabel(partNumber, purchaseOrder, options = {}) {
+    const parameters = new URLSearchParams({
+      partNumber: String(partNumber || '').trim(),
+      purchaseOrder: String(purchaseOrder || '').trim()
+    });
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/kitting-cases/v1/accepted-material-label?' + parameters,
+      { method: 'GET', cache: 'no-store', credentials: 'include', signal: options.signal,
+        headers: { Accept: 'application/json' } }
+    );
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok) {
+      const requestError = new Error(body?.message ||
+        'Accepted Material label resolution returned HTTP ' + response.status + '.');
+      requestError.name = 'DleApiError'; requestError.status = response.status;
+      requestError.code = body?.code || 'accepted_material_label_http_error'; throw requestError;
+    }
+    return body;
+  }
+
+  async function requestLegacyKittingMaterialStatus(suffix = '', options = {}) {
+    const response = await fetch(
+      LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/kitting-cases/v1/legacy-material-status/assessment' + suffix,
+      {
+        method: options.method || 'GET', cache: 'no-store', credentials: 'include', signal: options.signal,
+        headers: { Accept: 'application/json' }
+      }
+    );
+    let body = null;
+    try { body = await response.json(); } catch (error) { body = null; }
+    if (!response.ok) {
+      const requestError = new Error(body?.message ||
+        'Legacy Kitting Material Status control returned HTTP ' + response.status + '.');
+      requestError.name = 'DleApiError'; requestError.status = response.status;
+      requestError.code = body?.code || 'legacy_kitting_material_status_http_error'; throw requestError;
+    }
+    return body;
+  }
+
   async function requestRmaRework(path, options = {}) {
     const response = await fetch(
       LIVE_SNAPSHOT_REFRESH_BASE_URL + '/api/rma-rework/v1/' + String(path).replace(/^\/+/, ''),
@@ -1209,6 +1271,47 @@
       requireDevelopmentCapability('kitting.disposition');
       return requestKittingDisposition(workOrderNumber, '/events',
         { ...options, method: 'POST', body: request });
+    },
+    getKittingCase(workOrderNumber, options = {}) {
+      return requestKittingCase(workOrderNumber, '', options);
+    },
+    getKittingCaseSubmissions(workOrderNumber, options = {}) {
+      return requestKittingCase(workOrderNumber, '/submissions', options);
+    },
+    resolveAcceptedMaterialLabel(partNumber, purchaseOrder, options = {}) {
+      return requestAcceptedMaterialLabel(partNumber, purchaseOrder, options);
+    },
+    assessLegacyKittingMaterialStatus(options = {}) {
+      return requestLegacyKittingMaterialStatus('', options);
+    },
+    backfillLegacyKittingMaterialStatus(options = {}) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestLegacyKittingMaterialStatus('/backfill', { ...options, method: 'POST' });
+    },
+    startKittingCase(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/start', { ...options, method: 'POST', body: request });
+    },
+    resumeKittingCase(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/resume', { ...options, method: 'POST', body: request });
+    },
+    setKittingCasePoTraceability(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/po-traceability',
+        { ...options, method: 'PUT', body: request });
+    },
+    saveKittingCaseDraft(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/draft', { ...options, method: 'PUT', body: request });
+    },
+    saveAndExitKittingCase(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/save-exit', { ...options, method: 'POST', body: request });
+    },
+    submitKittingCase(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/submit', { ...options, method: 'POST', body: request });
     },
     reviewRmaReworkCaseMembers(members, options = {}) {
       requireDevelopmentCapability('rma_rework.manage');

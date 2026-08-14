@@ -40,6 +40,10 @@ internal static class DevelopmentPermissionCatalog
             return write
                 ? new("kitting.disposition", "kitting.disposition")
                 : new("kitting.view", "kitting.view");
+        if (path.StartsWith("/api/kitting-cases/", StringComparison.OrdinalIgnoreCase))
+            return write
+                ? new("kitting.disposition", "kitting.case.write")
+                : new("kitting.view", "kitting.case.view");
         if (path.StartsWith("/api/pick-list/", StringComparison.OrdinalIgnoreCase))
             return write
                 ? new("kitting.disposition", "pick_list.write")

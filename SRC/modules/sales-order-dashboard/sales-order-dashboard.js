@@ -47,6 +47,7 @@
   let rmaDialogReturnFocus = null;
   let temporaryRequestSequence = 0;
   let operationalStateSubscription = null;
+  let materialStatusSubscription = null;
 
   /*
     Sales Order Dashboard is the future digital replacement for the
@@ -73,6 +74,11 @@
         const refresh = refreshChangedOperationalLines(detail.lines);
         detail.waitUntil?.(refresh);
         return refresh;
+      });
+    }
+    if (!materialStatusSubscription && window.MaterialStatus?.subscribe) {
+      materialStatusSubscription = window.MaterialStatus.subscribe(detail => {
+        void refreshSelectedMaterialStatuses(detail.workOrderNumbers || []);
       });
     }
     renderSalesOrderDashboardModule();
@@ -103,6 +109,7 @@
     renderSalesOrderDashboardModule();
     loadSelectedOrderApprovalReviews(generation);
     loadSelectedOrderRmaMemberships(rmaGeneration);
+    void refreshSelectedMaterialStatuses([]);
   }
 
   function renderSalesOrderDashboardModule() {
@@ -127,10 +134,7 @@
     setText('salesOrderSummaryCustomerPo', official.customerPo || 'N/A');
     setText('salesOrderSummaryLineItems', String(getRelatedRows().length));
     setText('salesOrderSummaryWorkOrders', String(countRelatedWorkOrders()));
-    setOperationalStatus(
-      'salesOrderSummaryOperationalStatus',
-      selectedWorkOrder.operationalStatus || official.operationalStatus
-    );
+    setText('salesOrderSummaryMaterialStatus', getSalesOrderMaterialStatusSummary());
     setText('salesOrderDashboardSelectedSalesOrder', official.salesOrder || 'None selected');
     setText(
       'salesOrderDashboardSelectedWorkOrder',
@@ -172,9 +176,7 @@
           escapeDashboardHtml(formatDashboardQuantity(shipmentProjection.stagedQuantity)) +
           ' staged · awaiting ERP evidence</span>'
         : escapeDashboardHtml(formatDashboardQuantity(quantities.operationalQuantityOpen));
-      const operationalStatus = !isRmaControlledRow(row) && shipmentProjection.statusLabel
-        ? shipmentProjection.statusLabel
-        : official.operationalStatus;
+      const materialStatus = getRowMaterialStatus(row);
       return [
         '<tr class="',
         rowClass,
@@ -197,11 +199,54 @@
         escapeDashboardHtml(official.dueDate || 'N/A'),
         '</td>',
         '<td>',
-        renderOperationalStatus(operationalStatus, 'sales-order-dashboard-status-pill'),
+        '<span class="sales-order-dashboard-status-pill">',
+        escapeDashboardHtml(materialStatus?.label || getUnavailableMaterialStatusLabel(row)),
+        '</span>',
         '</td>',
         '</tr>'
       ].join('');
     }).join('');
+  }
+
+  function getRowMaterialStatus(row) {
+    return row?.masterRecord?.materialStatus || null;
+  }
+
+  function getUnavailableMaterialStatusLabel(row) {
+    const presentation = getWorkOrderPresentation(row);
+    return presentation.actionable ? 'Loading' :
+      presentation.kind === 'conflict' || presentation.kind === 'candidate' || presentation.kind === 'unknown'
+        ? 'Needs Relationship Resolution' : 'Not Applicable';
+  }
+
+  function getSalesOrderMaterialStatusSummary() {
+    const rows = getRelatedRows();
+    const actionable = rows.map(row => ({ row, workOrder: String(getWorkOrderPresentation(row).primary || '').trim() }))
+      .filter(item => getWorkOrderPresentation(item.row).actionable && item.workOrder);
+    const workOrders = new Set(actionable.map(item => item.workOrder));
+    if (workOrders.size > 1) return 'Multiple Work Orders — see line status';
+    if (workOrders.size === 1) return getRowMaterialStatus(actionable[0].row)?.label || 'Loading';
+    return rows.length ? 'Needs Relationship Resolution' : 'N/A';
+  }
+
+  async function refreshSelectedMaterialStatuses(changedWorkOrders) {
+    const rows = getRelatedRows();
+    if (!rows.length || !window.MaterialStatus?.getMany) return;
+    const targets = rows.map(row => ({ row, presentation: getWorkOrderPresentation(row) }))
+      .filter(item => item.presentation.actionable && /^\d+$/.test(String(item.presentation.primary || '')));
+    const normalizedChanges = new Set((changedWorkOrders || []).map(value =>
+      window.MaterialStatus.normalizeWorkOrderNumber(value)).filter(Boolean));
+    if (normalizedChanges.size && !targets.some(item => normalizedChanges.has(
+      window.MaterialStatus.normalizeWorkOrderNumber(item.presentation.primary)))) return;
+    const statuses = await window.MaterialStatus.getMany(targets.map(item => item.presentation.primary));
+    targets.forEach(item => {
+      const workOrderNumber = window.MaterialStatus.normalizeWorkOrderNumber(item.presentation.primary);
+      item.row.masterRecord = item.row.masterRecord || {};
+      item.row.masterRecord.materialStatus = statuses.get(workOrderNumber) || null;
+      item.row.official = item.row.official || {};
+      item.row.official.materialStatus = item.row.masterRecord.materialStatus?.label || '';
+    });
+    renderSalesOrderDashboardModule();
   }
 
   function selectWorkOrder(event) {
@@ -774,7 +819,10 @@
         console.warn('Governed Work Order approval state is unavailable for ' + getApprovalKey(row) + '.', error);
       }
     }));
-    if (generation === dashboardState.approvalRequestGeneration) renderSalesOrderDashboardModule();
+    if (generation === dashboardState.approvalRequestGeneration) {
+      await refreshSelectedMaterialStatuses([]);
+      renderSalesOrderDashboardModule();
+    }
   }
 
   async function openWorkOrderApprovalReview(event) {
