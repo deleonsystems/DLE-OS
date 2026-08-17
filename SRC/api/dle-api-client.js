@@ -408,8 +408,13 @@
     try { body = await response.json(); } catch (error) { body = null; }
     if (!response.ok) {
       const requestError = new Error(body?.message || 'Kitting Case control returned HTTP ' + response.status + '.');
-      requestError.name = 'DleApiError'; requestError.status = response.status;
-      requestError.code = body?.code || 'kitting_case_http_error'; throw requestError;
+      requestError.name = 'DleApiError';
+      requestError.status = response.status;
+      requestError.code = body?.code || 'kitting_case_http_error';
+      requestError.authenticationRequired =
+        response.status === 401 ||
+        response.headers?.get('X-DLE-OS-Authentication-Required') === 'true';
+      throw requestError;
     }
     return body;
   }

@@ -295,6 +295,30 @@
     return !!clean(group.entry.purchaseOrder);
   }
 
+  function isCompleteDispositionEntry(entry) {
+    if (!entry) return false;
+    return entry.method === METHODS.COMPLETE || entry.method === METHODS.COMPLETE_MIN_EXTRA ||
+      (entry.shortageQuantity !== null && Number(entry.shortageQuantity) === 0);
+  }
+
+  function getRequiredPoTraceabilityBlockers(draft, poTraceabilityRequired = false, options = {}) {
+    if (!poTraceabilityRequired) return [];
+    const sequence = clean(options.sequence);
+    return (draft?.groups || []).filter(group => {
+      if (!group?.actionable || !group.entry) return false;
+      if (sequence && group.sequence !== sequence) return false;
+      const submitted = group.rowState === 'SUBMITTED';
+      const editingComplete = options.includeEditingComplete === true &&
+        group.rowState !== 'SUBMITTED' && isCompleteDispositionEntry(group.entry);
+      return (submitted || editingComplete) && !hasRequiredPoTraceability(group);
+    }).map(group => ({
+      sequence: group.sequence,
+      method: group.entry?.method || '',
+      rowState: group.rowState || '',
+      message: 'P.O. is required before this Complete Kitting result can be saved or closed.'
+    }));
+  }
+
   function submitGroup(draft, sequence, poTraceabilityRequired = false) {
     const group = findGroup(draft, sequence);
     if (!group?.actionable || group.rowState === 'SUBMITTED' ||
@@ -381,6 +405,7 @@
     removeAllocation,
     submitGroup,
     hasRequiredPoTraceability,
+    getRequiredPoTraceabilityBlockers,
     editGroup,
     getSubmittedVisualState,
     getSummary

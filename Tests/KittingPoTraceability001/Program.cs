@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-static JsonElement Draft(string method, decimal quantity, string po, bool submitted=true)
+static JsonElement Draft(string method, decimal quantity, string po, bool submitted=true, string sequence="010")
 {
     var required = 20m;
     var shortage = method == "COUNT" ? Math.Max(required - quantity, 0m) : 0m;
@@ -10,20 +10,20 @@ static JsonElement Draft(string method, decimal quantity, string po, bool submit
             pickedQuantity=quantity,shortageQuantity=shortage,extraQuantity=Math.Max(quantity-required,0m) }
         : new { method, selectedPartNumber="PART-A", purchaseOrder=po, allocations=Array.Empty<object>(),
             pickedQuantity=(decimal?)null,shortageQuantity=shortage,extraQuantity=(decimal?)null };
-    var value = new { workOrder="0115621",groups=new[] { new { sequence="010",actionable=true,
+    var value = new { workOrder="0115621",groups=new[] { new { sequence,actionable=true,
         rowState=submitted?"SUBMITTED":"EDITING",eligibleParts=new[]{"PART-A"},requiredQuantity=required,entry } } };
     return JsonSerializer.SerializeToElement(value);
 }
 
-static void Pass(JsonElement draft, bool required, string label)
+static void Pass(JsonElement draft, bool required, string label, bool requireComplete=true)
 {
-    KittingDraftValidator.Validate(draft,"0115621",true,required);
+    KittingDraftValidator.Validate(draft,"0115621",requireComplete,required);
     Console.WriteLine("PASS " + label);
 }
 
-static void Block(JsonElement draft, string label)
+static void Block(JsonElement draft, string label, bool requireComplete=true)
 {
-    try { KittingDraftValidator.Validate(draft,"0115621",true,true); }
+    try { KittingDraftValidator.Validate(draft,"0115621",requireComplete,true); }
     catch (KittingCaseProblem problem) when (problem.Code=="po_traceability_required")
     { Console.WriteLine("PASS " + label); return; }
     throw new Exception("Expected P.O. traceability blocker: " + label);
@@ -32,8 +32,16 @@ static void Block(JsonElement draft, string label)
 Block(Draft("COMPLETE",0,""),"Required Complete blank P.O. blocked");
 Block(Draft("COMPLETE_MIN_EXTRA",0,""),"Required Min Extra blank P.O. blocked");
 Block(Draft("COUNT",5,""),"Required positive Count blank P.O. blocked");
+Block(Draft("COMPLETE",0,"",submitted:false,sequence:"220"),
+    "WO 0115621 line 220 editing Complete blank P.O. cannot be saved", requireComplete:false);
+Block(Draft("COUNT",20,"",submitted:false,sequence:"220"),
+    "WO 0115621 line 220 editing counted Complete blank P.O. cannot be saved", requireComplete:false);
 Pass(Draft("COMPLETE",0,"PO-100"),true,"Complete P.O. satisfies gate");
+Pass(Draft("COMPLETE",0,"PO-115621-220",submitted:false,sequence:"220"),true,
+    "WO 0115621 line 220 editing Complete valid P.O. can be saved", requireComplete:false);
 Pass(Draft("COUNT",0,""),true,"Zero allocation full shortage needs no P.O.");
+Pass(Draft("COUNT",5,"",submitted:false,sequence:"220"),true,
+    "WO 0115621 line 220 editing partial shortage is not forced to fake a P.O. on draft save", requireComplete:false);
 Pass(Draft("COUNT",5,""),false,"Optional positive Count permits blank P.O.");
 
 var multi=JsonSerializer.SerializeToElement(new { workOrder="0115621",groups=new[] { new { sequence="010",

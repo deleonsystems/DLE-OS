@@ -105,6 +105,46 @@ for (const method of [trial.METHODS.COMPLETE, trial.METHODS.COMPLETE_MIN_EXTRA])
   assert.equal(trial.getSummary(policyDraft, true).traceabilityBlockerCount, 1,
     'switching the policy back to REQUIRED exposes existing missing evidence as a blocker');
 }
+{
+  const line220Draft = trial.createDraft(report, 'Michelle');
+  const line220 = line220Draft.groups.find(group => group.sequence === '220') ||
+    line220Draft.groups.find(group => group.actionable && group.eligibleParts.length > 0);
+  assert.ok(line220, 'WO 0115621 line 220 reference row is available for Kitting P.O. validation');
+  trial.applyMethod(line220Draft, line220.sequence, trial.METHODS.COMPLETE);
+  if (!line220.entry.selectedPartNumber) {
+    trial.setSelectedPart(line220Draft, line220.sequence, line220.eligibleParts[0]);
+  }
+  assert.deepEqual(plain(trial.getRequiredPoTraceabilityBlockers(line220Draft, true, {
+    includeEditingComplete: true,
+    sequence: line220.sequence
+  })), [{
+    sequence: line220.sequence,
+    method: trial.METHODS.COMPLETE,
+    rowState: 'EDITING',
+    message: 'P.O. is required before this Complete Kitting result can be saved or closed.'
+  }], 'WO 0115621 line 220 Complete with blank P.O. is blocked before close/save');
+  assert.equal(trial.submitGroup(line220Draft, line220.sequence, true), null,
+    'WO 0115621 line 220 cannot commit Complete with blank required P.O.');
+  trial.setPurchaseOrder(line220Draft, line220.sequence, 'PO-115621-220');
+  assert.deepEqual(trial.getRequiredPoTraceabilityBlockers(line220Draft, true, {
+    includeEditingComplete: true,
+    sequence: line220.sequence
+  }), [], 'WO 0115621 line 220 valid P.O. clears the close/save blocker');
+  assert.equal(trial.submitGroup(line220Draft, line220.sequence, true), line220,
+    'WO 0115621 line 220 Complete with valid P.O. submits normally');
+}
+{
+  const optionalDraft = trial.createDraft(report, 'Michelle');
+  const optionalRow = optionalDraft.groups.find(group => group.actionable && group.eligibleParts.length > 0);
+  trial.applyMethod(optionalDraft, optionalRow.sequence, trial.METHODS.COMPLETE);
+  if (!optionalRow.entry.selectedPartNumber) {
+    trial.setSelectedPart(optionalDraft, optionalRow.sequence, optionalRow.eligibleParts[0]);
+  }
+  assert.deepEqual(trial.getRequiredPoTraceabilityBlockers(optionalDraft, false, {
+    includeEditingComplete: true,
+    sequence: optionalRow.sequence
+  }), [], 'non-P.O.-required rows keep the existing optional workflow');
+}
 
 const dnp = draft.groups.find(group => group.classification === 'DNP');
 assert.ok(dnp, 'DNP requirement is represented');
@@ -324,6 +364,10 @@ assert.match(dashboard, /poTraceabilityRequired \? 'Required' : 'Optional'/,
   'the result dialog labels P.O. evidence from the persisted case policy');
 assert.match(dashboard, /class="active-kitting-dialog-submit"/,
   'row Submit lives inside the result transaction dialog');
+assert.match(dashboard, /oncancel="return cancelWorkOrderDashboardKittingResultDialog\(event\)"/,
+  'Escape and touch cancel paths use the shared required-P.O. blocker');
+assert.match(dashboard, /getRequiredPoTraceabilityBlockers\(activeKittingTrialDraft/,
+  'close, save, and submit paths share the model-level required-P.O. blocker');
 assert.doesNotMatch(dashboard, /data-active-kitting-action/,
   'the main table has no persistent Submit or Edit controls');
 assert.match(dashboard, /input type="text" inputmode="decimal" pattern="\[0-9\]\*\[\.\]\?\[0-9\]\*"/,
@@ -337,6 +381,22 @@ assert.match(dashboard, /openActiveKittingResultDialog\(sequence, 'submit'\)/,
 const completeCountBody = dashboard.match(/function completeActiveKittingCount[\s\S]*?\n  }/)?.[0] ?? '';
 assert.doesNotMatch(completeCountBody, /submitActiveKittingRow/,
   'Enter never submits or locks the Kitting row');
+const submitRowBody = dashboard.match(/function submitActiveKittingRow[\s\S]*?\n  }/)?.[0] ?? '';
+assert.match(submitRowBody, /positionNextActiveKittingRow\(sequence\)/,
+  'successful row submit deliberately positions the next actionable row');
+assert.doesNotMatch(submitRowBody, /positionNextActiveKittingRow\(sequence\)[\s\S]*return false/,
+  'validation failure does not advance the operator viewport');
+const positionNextBody = dashboard.match(/function positionNextActiveKittingRow[\s\S]*?\n  }/)?.[0] ?? '';
+assert.match(positionNextBody, /group\.rowState !== 'SUBMITTED'/,
+  'next-row positioning skips already submitted rows');
+assert.match(positionNextBody, /data-active-kitting-row/,
+  'next-row positioning targets the stable governed row identity');
+assert.match(positionNextBody, /scrollIntoView\(\{ behavior: 'smooth', block: 'center', inline: 'nearest' \}\)/,
+  'the next row is placed predictably around the viewport center without fixed pixel scrolling');
+assert.match(positionNextBody, /focus\(\{ preventScroll: true \}\)/,
+  'focus does not ask the browser to perform a second uncontrolled scroll');
+assert.doesNotMatch(positionNextBody, /openActiveKittingResultDialog/,
+  'next-row assistance never auto-opens the result dialog');
 assert.match(dashboard, /renderActiveKittingCountPreview\(entry, group\)/,
   'accepted Count interpretation remains visible while the result dialog stays open');
 assert.match(dashboard, /<strong>Kitted /,
@@ -345,6 +405,10 @@ assert.match(styles, /active-kitting-count-preview/,
   'the accepted Count interpretation has a compact dialog treatment');
 assert.match(styles, /active-kitting-methods[\s\S]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
   'the three result methods form one compact touch-friendly row');
+assert.match(styles, /scroll-margin-top:\s*128px/,
+  'next-row targeting accounts for the fixed DLE-OS header');
+assert.match(styles, /active-kitting-next-row/,
+  'the positioned next row receives a brief visual cue');
 assert.match(styles, /active-kitting-material-primary/,
   'the compact material identification grid is styled');
 assert.match(dashboard, /editWorkOrderDashboardKittingRow/);

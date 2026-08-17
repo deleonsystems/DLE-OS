@@ -1034,6 +1034,57 @@
   opacity: .84;
 }
 
+.active-kitting-recovery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid rgba(245, 158, 11, .42);
+  border-radius: 9px;
+  background: rgba(69, 45, 9, .42);
+  color: #f8fafc;
+}
+
+.active-kitting-recovery div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.active-kitting-recovery strong {
+  color: #fde68a;
+  font-size: 13px;
+}
+
+.active-kitting-recovery span,
+.active-kitting-recovery small {
+  color: #e2e8f0;
+  font-size: 12px;
+}
+
+.active-kitting-recovery button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.active-kitting-trial-table tr[data-active-kitting-row] {
+  scroll-margin-top: 128px;
+  scroll-margin-bottom: 38vh;
+}
+
+.active-kitting-trial-table tr.active-kitting-next-row {
+  background: rgba(47, 140, 255, .18);
+  box-shadow: inset 4px 0 0 #69b7e9, 0 0 0 1px rgba(105, 183, 233, .38);
+  transition: background .35s ease, box-shadow .35s ease;
+}
+
+.active-kitting-trial-table tr.active-kitting-next-row .active-kitting-result-trigger {
+  outline: 2px solid rgba(105, 183, 233, .85);
+  outline-offset: 2px;
+}
+
 .active-kitting-result-dialog {
   width: min(760px, calc(100vw - 40px));
   max-width: calc(100vw - 40px);

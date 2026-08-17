@@ -818,6 +818,19 @@ internal static class KittingDraftValidator
                         ValidatePo(Text(allocation,"purchaseOrder"));
                         ValidateAcceptedMaterial(allocation,part,Text(allocation,"purchaseOrder"));
                     }
+                if(poTraceabilityRequired&&IsCompleteDraftEntry(entry)&&!HasPoEvidence(entry)&&
+                    (method is "COMPLETE" or "COMPLETE_MIN_EXTRA"))
+                    throw Bad("po_traceability_required",
+                        "P.O. is required before a Complete Kitting result can be saved or closed.");
+                if(poTraceabilityRequired&&IsCompleteDraftEntry(entry)&&method=="COUNT"&&
+                    entry.TryGetProperty("allocations",out var completeDraftAllocations)&&
+                    completeDraftAllocations.ValueKind==JsonValueKind.Array)
+                    foreach(var allocation in completeDraftAllocations.EnumerateArray())
+                    {
+                        if(Decimal(allocation,"quantity",out var quantity)&&quantity>0&&!HasPoEvidence(allocation))
+                            throw Bad("po_traceability_required",
+                                "Every positive material allocation requires its own P.O. traceability evidence.");
+                    }
                 continue;
             }
             if(method is "COMPLETE" or "COMPLETE_MIN_EXTRA")
@@ -856,6 +869,9 @@ internal static class KittingDraftValidator
     // This evidence boundary intentionally centralizes allocation traceability so future governed
     // Customer Supplied Material and Approved Exception evidence can be added without changing case policy.
     private static bool HasPoEvidence(JsonElement value)=>!string.IsNullOrWhiteSpace(Text(value,"purchaseOrder"));
+    private static bool IsCompleteDraftEntry(JsonElement entry)=>
+        Text(entry,"method") is "COMPLETE" or "COMPLETE_MIN_EXTRA" ||
+        Decimal(entry,"shortageQuantity",out var shortage)&&Math.Abs(shortage)<=0.0001m;
     private static void ValidatePo(string? value){if((value??"").Length>80)throw Bad("purchase_order_too_long","P.O. evidence is limited to 80 characters.");}
     private static void ValidateAcceptedMaterial(JsonElement source,string? part,string? purchaseOrder)
     {
