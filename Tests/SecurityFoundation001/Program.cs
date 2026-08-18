@@ -6,6 +6,29 @@ using Microsoft.Data.SqlClient;
 
 var checks = new List<string>();
 var repository = Directory.GetCurrentDirectory();
+if (args.Contains("--static", StringComparer.OrdinalIgnoreCase))
+{
+    var lifecycle = await File.ReadAllTextAsync(Path.Combine(repository, "Tools",
+        "SecurityFoundation", "Database", "006_AddUserProvisioningLifecycle.sql"));
+    var grants = await File.ReadAllTextAsync(Path.Combine(repository, "Tools",
+        "SecurityFoundation", "Database", "007_GrantDevelopmentFrontendService.sql"));
+    Check(lifecycle.Contains("IF DB_NAME() <> N'DLE_OS_SECURITY_DEV'", StringComparison.Ordinal) &&
+          !lifecycle.Contains(@"TO [DLE-OS-HOST\DLE-OS];", StringComparison.OrdinalIgnoreCase) &&
+          !Regex.IsMatch(lifecycle, @"(?im)^\s*GRANT\s+"),
+        "lifecycle migration is DEV-guarded and delegates all service grants to migration 007");
+    var grantLines = Regex.Matches(grants, @"(?im)^\s*GRANT\s+.*$")
+        .Select(match => match.Value.Trim()).ToArray();
+    Check(grantLines.Length == 14 &&
+          grantLines.Count(line => line.StartsWith("GRANT SELECT ", StringComparison.OrdinalIgnoreCase)) == 7 &&
+          grantLines.Count(line => line.StartsWith("GRANT EXECUTE ", StringComparison.OrdinalIgnoreCase)) == 7 &&
+          grantLines.All(line => line.EndsWith(
+              @"TO [DLE-OS-HOST\DLE-OS-DEV-FRONTEND];", StringComparison.OrdinalIgnoreCase)) &&
+          !grants.Contains(@"TO [DLE-OS-HOST\DLE-OS];", StringComparison.OrdinalIgnoreCase),
+        "migration 007 grants only seven reads and seven procedure executions to the current DEV frontend principal");
+    Console.WriteLine($"PASS: {checks.Count} static security-foundation checks.");
+    foreach (var check in checks) Console.WriteLine("  " + check);
+    return;
+}
 var connectionString = Environment.GetEnvironmentVariable("DLE_OS_SECURITY_CONNECTION_STRING")
     ?? throw new InvalidOperationException("DLE_OS_SECURITY_CONNECTION_STRING is required.");
 var boundary = new SqlConnectionStringBuilder(connectionString);
@@ -29,11 +52,14 @@ var countsAfterFirst = await BootstrapCounts();
 var second = await bootstrapper.BootstrapMiguelAsync();
 var countsAfterSecond = await BootstrapCounts();
 Check(first.UserId == second.UserId && first.RoleId == second.RoleId, "bootstrap returns stable immutable IDs");
-Check(countsAfterFirst.Users == 1 && countsAfterSecond.Users == 1, "bootstrap creates exactly one Miguel user");
+Check(countsAfterFirst.Users == 1 && countsAfterSecond.Users == 1,
+    "bootstrap preserves exactly one Miguel user");
 Check(countsAfterFirst.Mappings == 1 && countsAfterSecond.Mappings == 1, "bootstrap creates exactly one Windows mapping");
 Check(countsAfterFirst.SuperAdminRoles == 1 && countsAfterSecond.SuperAdminRoles == 1, "bootstrap creates exactly one SUPER_ADMIN role");
-Check(countsAfterFirst.Assignments == 1 && countsAfterSecond.Assignments == 1, "bootstrap creates exactly one active assignment");
-Check(countsAfterFirst.Permissions == 18 && countsAfterSecond.Permissions == 18, "bootstrap permission catalog is idempotent");
+Check(countsAfterFirst.Assignments == 1 && countsAfterSecond.Assignments == 1,
+    "bootstrap preserves exactly one active Miguel SUPER_ADMIN assignment");
+Check(countsAfterFirst.Permissions == 19 && countsAfterSecond.Permissions == 19,
+    "bootstrap and pilot permission catalog are idempotent");
 Check(countsAfterFirst.RolePermissions == 0 && countsAfterSecond.RolePermissions == 0, "SUPER_ADMIN has no enumerated grants");
 
 var resolver = new SqlIdentityResolver(connectionString);

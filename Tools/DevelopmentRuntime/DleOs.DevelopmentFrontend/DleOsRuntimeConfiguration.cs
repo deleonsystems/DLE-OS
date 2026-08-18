@@ -21,6 +21,12 @@ public sealed record DleOsRuntimeConfiguration(
         var canonical = Required("DLE_OS_CANONICAL_API_BASE_URL");
         var operational = Required("DLE_OS_OPERATIONAL_API_BASE_URL");
         var securityDatabase = Required("DLE_OS_SECURITY_DATABASE");
+        var enableUserProvisioning =
+            bool.TryParse(System.Environment.GetEnvironmentVariable("DLE_OS_ENABLE_USER_PROVISIONING"),
+                out var enabled) && enabled;
+        if (enableUserProvisioning && environment != "Development")
+            throw new InvalidOperationException(
+                "DLE-OS user provisioning can be enabled only in the Development environment.");
         var prefixes = Required("DLE_OS_FRONTEND_PREFIXES")
             .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (prefixes.Distinct(StringComparer.OrdinalIgnoreCase).Count() != prefixes.Length)
@@ -50,7 +56,7 @@ public sealed record DleOsRuntimeConfiguration(
             Required("DLE_OS_OIDC_CLIENT_ID"), authenticationStateRoot,
             canonical.TrimEnd('/'), operational.TrimEnd('/'),
             Required("DLE_OS_CUSTOMER_FILES_API_BASE_URL").TrimEnd('/'), securityDatabase,
-            bool.TryParse(System.Environment.GetEnvironmentVariable("DLE_OS_ENABLE_USER_PROVISIONING"), out var enabled) && enabled,
+            enableUserProvisioning,
             prefixes);
     }
 }

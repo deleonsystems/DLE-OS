@@ -29,6 +29,8 @@ var requiredRuntimeIdentity = Environment.GetEnvironmentVariable("DLE_OS_REQUIRE
     throw new InvalidOperationException("Required explicit runtime setting DLE_OS_REQUIRED_RUNTIME_IDENTITY is absent.");
 var identitySigningKeyPath = Environment.GetEnvironmentVariable(
     "DLE_OS_IDENTITY_SIGNING_PRIVATE_KEY_PATH");
+var oidcClientSecret = Environment.GetEnvironmentVariable("DLE_OS_OIDC_CLIENT_SECRET");
+var keycloakProvisioningClientSecret = Environment.GetEnvironmentVariable("DLE_OS_KEYCLOAK_PROVISIONING_CLIENT_SECRET");
 var runtime = DleOsRuntimeConfiguration.Load();
 var runtimeBuildInfo = DevRuntimeBuildInfo.Load(
     Path.Combine(AppContext.BaseDirectory, "runtime-build-info.json"));
@@ -39,7 +41,6 @@ var authenticationTicketRoot = Path.Combine(runtime.AuthenticationStateRoot, "Ti
 var securityConnectionString =
     $@"Server=lpc:.\SQLEXPRESS;Database={runtime.SecurityDatabase};Integrated Security=True;" +
     "Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadWrite;";
-var oidcClientSecret = Environment.GetEnvironmentVariable("DLE_OS_OIDC_CLIENT_SECRET");
 
 if (!string.Equals(WindowsIdentity.GetCurrent().Name, requiredRuntimeIdentity,
         StringComparison.OrdinalIgnoreCase))
@@ -47,6 +48,9 @@ if (!string.Equals(WindowsIdentity.GetCurrent().Name, requiredRuntimeIdentity,
         $"The authenticated development BFF must run as {requiredRuntimeIdentity}.");
 if (string.IsNullOrWhiteSpace(oidcClientSecret) || oidcClientSecret.Length < 32)
     throw new InvalidOperationException("The protected DLE-OS OIDC client secret is unavailable.");
+if (runtime.EnableUserProvisioning &&
+    (string.IsNullOrWhiteSpace(keycloakProvisioningClientSecret) || keycloakProvisioningClientSecret.Length < 32))
+    throw new InvalidOperationException("The protected Keycloak provisioning client secret is unavailable.");
 
 var sqlBoundary = new SqlConnectionStringBuilder(securityConnectionString);
 if (!string.Equals(sqlBoundary.InitialCatalog, runtime.SecurityDatabase, StringComparison.Ordinal))
@@ -196,6 +200,14 @@ builder.Services.AddHttpClient("KeycloakLoopback")
 builder.Services.AddSingleton<IIdentityResolver>(new SqlIdentityResolver(securityConnectionString));
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddSingleton(new EmployeeDirectoryService(securityConnectionString));
+if (runtime.EnableUserProvisioning)
+{
+    builder.Services.AddSingleton(sp => new KeycloakProvisioningClient(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("KeycloakLoopback"),
+        keycloakProvisioningClientSecret!));
+    builder.Services.AddSingleton<UserProvisioningService>(sp => new(
+        securityConnectionString, sp.GetRequiredService<KeycloakProvisioningClient>()));
+}
 builder.Services.AddSingleton<IIdentityAssertionIssuer>(_ =>
     new Es256IdentityAssertionIssuer(
         IdentityAssertionKeyLoader.LoadPrivateKey(identitySigningKeyPath ?? "")));
@@ -393,7 +405,68 @@ app.MapGet("/api/development/employees/v1/directory", async (
         }, statusCode: StatusCodes.Status403Forbidden);
     var result = await employees.GetAsync(includeHistorical, context.RequestAborted);
     return Results.Ok(result);
-}).RequireAuthorization();
+}).RequireAuthorization(employeeDirectoryApiPolicy);
+
+app.MapGet("/api/development/employees/v1/{employeeId:guid}/administration", async (
+    HttpContext context, Guid employeeId, ICurrentUserContext currentUserContext,
+    UserProvisioningService provisioning) =>
+{
+    NoStore(context.Response);
+    var current=await currentUserContext.ResolveAsync(context.RequestAborted);
+    if(!EmployeeDirectoryAuthorization.CanAdminister(current)) return Results.Json(new {code="DLE_OS_EMPLOYEE_ADMIN_REQUIRED"},statusCode:403);
+    try { return Results.Ok(await provisioning.GetAdministrationAsync(employeeId,context.RequestAborted)); }
+    catch(UserProvisioningException failure) { return Results.Json(new {code=failure.Code,message=failure.Message},statusCode:(int)failure.Status); }
+}).RequireAuthorization(employeeDirectoryApiPolicy);
+
+app.MapPost("/api/development/employees/v1/provision", async (
+    HttpContext context, ProvisionEmployeeUserRequest request, ICurrentUserContext currentUserContext,
+    UserProvisioningService provisioning, IAntiforgery antiforgery) =>
+{
+    NoStore(context.Response);
+    try { await antiforgery.ValidateRequestAsync(context); }
+    catch(AntiforgeryValidationException) { return Results.Json(new {code="DLE_OS_CSRF_INVALID"},statusCode:400); }
+    var current=await currentUserContext.ResolveAsync(context.RequestAborted);
+    if(!EmployeeDirectoryAuthorization.CanAdminister(current)||current.User is null) return Results.Json(new {code="DLE_OS_EMPLOYEE_ADMIN_REQUIRED"},statusCode:403);
+    try { return Results.Ok(await provisioning.ProvisionAsync(request,current.User.UserId,$"DLE_OS:{current.User.UserName}",Guid.NewGuid(),context.RequestAborted)); }
+    catch(UserProvisioningException failure) { return Results.Json(new {code=failure.Code,message=failure.Message},statusCode:(int)failure.Status); }
+    catch(SqlException failure) { return Results.Json(new {code="DLE_OS_PROVISIONING_REJECTED",message=failure.Message},statusCode:409); }
+}).RequireAuthorization(employeeDirectoryApiPolicy);
+
+app.MapPost("/api/development/employees/v1/credentials/reset", async (
+    HttpContext context, ResetUserCredentialRequest request, ICurrentUserContext currentUserContext,
+    UserProvisioningService provisioning, IAntiforgery antiforgery) =>
+{
+    NoStore(context.Response); try { await antiforgery.ValidateRequestAsync(context); } catch(AntiforgeryValidationException){return Results.Json(new{code="DLE_OS_CSRF_INVALID"},statusCode:400);}
+    var current=await currentUserContext.ResolveAsync(context.RequestAborted); if(!EmployeeDirectoryAuthorization.CanAdminister(current)||current.User is null)return Results.Json(new{code="DLE_OS_EMPLOYEE_ADMIN_REQUIRED"},statusCode:403);
+    try{return Results.Ok(await provisioning.ResetCredentialAsync(request,current.User.UserId,$"DLE_OS:{current.User.UserName}",Guid.NewGuid(),context.RequestAborted));}
+    catch(UserProvisioningException failure){return Results.Json(new{code=failure.Code,message=failure.Message},statusCode:(int)failure.Status);}
+}).RequireAuthorization(employeeDirectoryApiPolicy);
+
+app.MapPost("/api/development/employees/v1/users/{action:regex(^(disable|reenable|sessions-revoke)$)}", async (
+    HttpContext context,string action,SetUserEnabledRequest request,ICurrentUserContext currentUserContext,
+    UserProvisioningService provisioning,IAntiforgery antiforgery) =>
+{
+    NoStore(context.Response);try{await antiforgery.ValidateRequestAsync(context);}catch(AntiforgeryValidationException){return Results.Json(new{code="DLE_OS_CSRF_INVALID"},statusCode:400);}
+    var current=await currentUserContext.ResolveAsync(context.RequestAborted);if(!EmployeeDirectoryAuthorization.CanAdminister(current)||current.User is null)return Results.Json(new{code="DLE_OS_EMPLOYEE_ADMIN_REQUIRED"},statusCode:403);
+    try
+    {
+        if(action=="sessions-revoke")await provisioning.RevokeSessionsAsync(request.UserId,current.User.UserId,$"DLE_OS:{current.User.UserName}",Guid.NewGuid(),context.RequestAborted);
+        else await provisioning.SetEnabledAsync(request.UserId,action=="reenable",current.User.UserId,$"DLE_OS:{current.User.UserName}",Guid.NewGuid(),context.RequestAborted);
+        return Results.Ok(new{status="OK"});
+    }
+    catch(UserProvisioningException failure){return Results.Json(new{code=failure.Code,message=failure.Message},statusCode:(int)failure.Status);}
+    catch(SqlException failure){return Results.Json(new{code="DLE_OS_USER_LIFECYCLE_REJECTED",message=failure.Message},statusCode:409);}
+}).RequireAuthorization(employeeDirectoryApiPolicy);
+
+app.MapPost("/api/development/employees/v1/roles", async (
+    HttpContext context,SetUserRolesRequest request,ICurrentUserContext currentUserContext,
+    UserProvisioningService provisioning,IAntiforgery antiforgery) =>
+{
+    NoStore(context.Response);try{await antiforgery.ValidateRequestAsync(context);}catch(AntiforgeryValidationException){return Results.Json(new{code="DLE_OS_CSRF_INVALID"},statusCode:400);}
+    var current=await currentUserContext.ResolveAsync(context.RequestAborted);if(!EmployeeDirectoryAuthorization.CanAdminister(current)||current.User is null)return Results.Json(new{code="DLE_OS_EMPLOYEE_ADMIN_REQUIRED"},statusCode:403);
+    try{await provisioning.SetRolesAsync(request,current.User.UserId,$"DLE_OS:{current.User.UserName}",Guid.NewGuid(),context.RequestAborted);return Results.Ok(new{status="OK"});}
+    catch(SqlException failure){return Results.Json(new{code="DLE_OS_ROLE_CHANGE_REJECTED",message=failure.Message},statusCode:409);}
+}).RequireAuthorization(employeeDirectoryApiPolicy);
 
 app.MapDevelopmentCompatibilityProxy(runtime);
 
@@ -437,7 +510,8 @@ app.MapGet("/", async (
         throw new InvalidOperationException("The governed logout antiforgery token was not generated.");
     html = SharedDeviceSessionUi.Inject(html, antiforgeryToken);
     html = RuntimeIdentityUi.Inject(html, runtimeBuildInfo);
-    html = EmployeeDirectoryUi.Inject(html);
+    html = EmployeeDirectoryUi.Inject(html, antiforgeryToken);
+    html = TestIdentitiesUi.Inject(html);
     return Results.Text(html, "text/html");
 }).RequireAuthorization();
 

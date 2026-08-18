@@ -1,89 +1,73 @@
 public static class EmployeeDirectoryUi
 {
-    public static string Inject(string html)
+    public static string Inject(string html,string antiforgeryToken)
     {
-        const string bodyEnd = "</body>";
-        var index = html.LastIndexOf(bodyEnd, StringComparison.OrdinalIgnoreCase);
-        if (index < 0) throw new InvalidOperationException("The development frontend document body is absent.");
-        return html.Insert(index, Markup);
+        const string bodyEnd="</body>";
+        var index=html.LastIndexOf(bodyEnd,StringComparison.OrdinalIgnoreCase);
+        if(index<0)throw new InvalidOperationException("The development frontend document body is absent.");
+        return html.Insert(index,Markup.Replace("__DLE_EMPLOYEE_CSRF__",
+            System.Net.WebUtility.HtmlEncode(antiforgeryToken),StringComparison.Ordinal));
     }
 
-    private const string Markup = """
+    private const string Markup="""
 <style id="dle-employee-directory-style">
-  #dle-employee-directory-open{position:static;flex:0 0 auto;border:1px solid #60a5fa;
-    border-radius:8px;background:#1d4ed8;color:#fff;padding:8px 13px;font:600 12px system-ui,sans-serif;
-    box-shadow:none;cursor:pointer}
-  #dle-employee-directory[hidden],#dle-employee-directory-open[hidden]{display:none!important}
-  #dle-employee-directory{position:fixed;inset:0;z-index:12000;background:rgba(2,6,23,.78);padding:4vh 3vw;
-    font:13px/1.4 system-ui,sans-serif;color:#e2e8f0}
-  .dle-employee-directory-card{height:92vh;box-sizing:border-box;overflow:auto;background:#0f172a;
-    border:1px solid #334155;border-radius:12px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-  .dle-employee-directory-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
-  .dle-employee-directory-head h2{margin:0 0 5px;color:#f8fafc}.dle-employee-directory-head p{margin:0;color:#94a3b8}
-  #dle-employee-directory-close{border:1px solid #64748b;border-radius:7px;background:#1e293b;color:#fff;padding:7px 11px;cursor:pointer}
-  .dle-employee-directory-controls{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:18px 0 12px}
-  #dle-employee-directory-summary{color:#93c5fd;font-weight:600}
-  .dle-employee-directory-table-wrap{overflow:auto;border:1px solid #334155;border-radius:9px}
-  #dle-employee-directory-table{width:100%;border-collapse:collapse;white-space:nowrap}
-  #dle-employee-directory-table th{position:sticky;top:0;background:#1e293b;color:#cbd5e1;text-align:left;padding:10px;border-bottom:1px solid #475569}
-  #dle-employee-directory-table td{padding:9px 10px;border-bottom:1px solid #1e293b;color:#e2e8f0}
-  #dle-employee-directory-table tr[data-status="HISTORICAL_RETAINED"] td{color:#cbd5e1;background:#172033}
-  #dle-employee-directory-table tr[data-status="SOURCE_REVIEW"] td{background:#3f2a18;color:#fde68a}
-  .dle-dir-yes{color:#86efac}.dle-dir-no{color:#cbd5e1}.dle-dir-error{color:#fca5a5;padding:14px 0}
+  #dle-employee-directory-open{position:static;flex:0 0 auto;border:1px solid #60a5fa;border-radius:8px;background:#1d4ed8;color:#fff;padding:8px 13px;font:600 12px system-ui;box-shadow:none;cursor:pointer}
+  #dle-employee-directory[hidden],#dle-employee-directory-open[hidden],#dle-user-admin[hidden],.dle-hidden{display:none!important}
+  #dle-employee-directory{position:fixed;inset:0;z-index:12000;background:#020617c7;padding:4vh 3vw;font:13px/1.4 system-ui;color:#e2e8f0}
+  .dle-dir-card{height:92vh;box-sizing:border-box;overflow:auto;background:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;box-shadow:0 20px 60px #0008}
+  .dle-dir-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.dle-dir-head h2,.dle-dir-head h3{margin:0 0 5px;color:#f8fafc}.dle-dir-head p{margin:0;color:#94a3b8}
+  .dle-dir-button{border:1px solid #64748b;border-radius:7px;background:#1e293b;color:#fff;padding:7px 11px;cursor:pointer}.dle-dir-button.primary{background:#1d4ed8;border-color:#60a5fa}.dle-dir-button.danger{background:#7f1d1d;border-color:#f87171}
+  .dle-dir-controls{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:18px 0 12px}#dle-employee-directory-summary{color:#93c5fd;font-weight:600}
+  .dle-dir-table-wrap{overflow:auto;border:1px solid #334155;border-radius:9px}#dle-employee-directory-table{width:100%;border-collapse:collapse;white-space:nowrap}
+  #dle-employee-directory-table th{position:sticky;top:0;background:#1e293b;color:#cbd5e1;text-align:left;padding:10px;border-bottom:1px solid #475569}#dle-employee-directory-table td{padding:9px 10px;border-bottom:1px solid #1e293b}
+  #dle-employee-directory-table tr[data-status="HISTORICAL_RETAINED"] td{color:#cbd5e1;background:#172033}.dle-dir-yes{color:#86efac}.dle-dir-error{color:#fca5a5;padding:12px 0}
+  #dle-user-admin{position:absolute;inset:6vh 5vw;z-index:2;background:#111827;border:1px solid #60a5fa;border-radius:12px;padding:20px;overflow:auto;box-shadow:0 24px 70px #000c}
+  .dle-admin-grid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(300px,1.2fr);gap:18px;margin-top:18px}.dle-admin-box{border:1px solid #334155;border-radius:9px;padding:15px;background:#0b1220}.dle-admin-box h4{margin:0 0 10px;color:#bfdbfe}
+  .dle-admin-field{display:grid;gap:5px;margin:10px 0}.dle-admin-field input[type=text],.dle-admin-field input[type=password]{box-sizing:border-box;width:100%;background:#1e293b;border:1px solid #64748b;border-radius:6px;color:white;padding:9px}
+  #dle-admin-roles label{display:block;padding:5px}.dle-admin-permissions{color:#a7f3d0;min-height:40px}.dle-admin-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  #dle-one-time{border:2px solid #fbbf24;background:#29200d;border-radius:9px;padding:14px;margin-top:14px}#dle-one-time output{display:block;user-select:all;font:700 18px monospace;margin:9px 0;color:#fff}
+  #dle-admin-history{max-height:210px;overflow:auto;padding-left:18px;color:#cbd5e1}@media(max-width:800px){.dle-admin-grid{grid-template-columns:1fr}#dle-user-admin{inset:3vh 3vw}}
 </style>
 <button id="dle-employee-directory-open" type="button" hidden>Employee Directory</button>
-<section id="dle-employee-directory" role="dialog" aria-modal="true" aria-labelledby="dle-employee-directory-title" hidden>
-  <div class="dle-employee-directory-card">
-    <header class="dle-employee-directory-head"><div>
-      <h2 id="dle-employee-directory-title">Employee Directory</h2>
-      <p>Development workforce identity and preliminary provisioning — no account activation.</p>
-    </div><button id="dle-employee-directory-close" type="button">Close</button></header>
-    <div class="dle-employee-directory-controls">
-      <label><input id="dle-employee-directory-historical" type="checkbox"> Include historical retained</label>
-      <output id="dle-employee-directory-summary" aria-live="polite">Loading…</output>
+<section id="dle-employee-directory" role="dialog" aria-modal="true" aria-labelledby="dle-employee-directory-title" hidden><div class="dle-dir-card">
+  <header class="dle-dir-head"><div><h2 id="dle-employee-directory-title">Employee Directory</h2><p>Governed employee identity, access status, and SUPER_ADMIN provisioning.</p></div><button id="dle-employee-directory-close" class="dle-dir-button" type="button">Close</button></header>
+  <div class="dle-dir-controls"><label><input id="dle-employee-directory-historical" type="checkbox"> Include historical retained</label><output id="dle-employee-directory-summary" aria-live="polite">Loading…</output></div>
+  <div id="dle-employee-directory-error" class="dle-dir-error" hidden></div><div class="dle-dir-table-wrap"><table id="dle-employee-directory-table"><thead><tr><th>Employee #</th><th>Employee</th><th>Department</th><th>Job Title</th><th>Workforce</th><th>Provisioning</th><th>Username</th><th>Role</th><th>Access</th><th>Administration</th></tr></thead><tbody></tbody></table></div>
+  <section id="dle-user-admin" aria-labelledby="dle-user-admin-title" hidden>
+    <header class="dle-dir-head"><div><h3 id="dle-user-admin-title">User Administration</h3><p id="dle-user-admin-identity"></p></div><button id="dle-user-admin-close" class="dle-dir-button" type="button">Back to Directory</button></header>
+    <div id="dle-user-admin-error" class="dle-dir-error" hidden></div><div class="dle-admin-grid">
+      <div class="dle-admin-box"><h4>Account</h4><div id="dle-admin-account-state"></div>
+        <label class="dle-admin-field">Username<input id="dle-admin-username" type="text" maxlength="100" autocomplete="off"></label>
+        <div class="dle-admin-field"><span>Initial credential</span><label><input type="radio" name="dle-password-mode" value="generate" checked> Securely generate</label><label><input type="radio" name="dle-password-mode" value="enter"> Enter locally</label></div>
+        <label id="dle-admin-password-wrap" class="dle-admin-field dle-hidden">Initial password<input id="dle-admin-password" type="password" minlength="15" maxlength="128" autocomplete="new-password"></label>
+        <label><input id="dle-admin-temporary" type="checkbox" checked> Require password change at first login</label>
+        <div class="dle-admin-actions"><button id="dle-admin-provision" class="dle-dir-button primary" type="button">Review and Provision</button><button id="dle-admin-reset" class="dle-dir-button" type="button" hidden>Reset Credential</button><button id="dle-admin-toggle" class="dle-dir-button danger" type="button" hidden></button><button id="dle-admin-revoke" class="dle-dir-button" type="button" hidden>Revoke Sessions</button></div>
+        <div id="dle-one-time" hidden><strong>One-time generated password</strong><output id="dle-one-time-value"></output><span>Copy it now. DLE-OS will not retain or reveal it again.</span><button id="dle-one-time-dismiss" class="dle-dir-button" type="button">I have saved it</button></div>
+      </div>
+      <div><div class="dle-admin-box"><h4>Existing roles</h4><div id="dle-admin-roles"></div><h4>Effective permissions</h4><div id="dle-admin-permissions" class="dle-admin-permissions"></div><button id="dle-admin-save-roles" class="dle-dir-button primary" type="button" hidden>Save Role Changes</button></div><div class="dle-admin-box" style="margin-top:18px"><h4>Account history</h4><ol id="dle-admin-history"></ol></div></div>
     </div>
-    <div id="dle-employee-directory-error" class="dle-dir-error" hidden></div>
-    <div class="dle-employee-directory-table-wrap"><table id="dle-employee-directory-table">
-      <thead><tr><th>Employee #</th><th>Employee</th><th>Department</th><th>Job Title</th>
-      <th>Workforce Status</th><th>Training Eligible</th><th>Provisioning</th>
-      <th>Proposed Username</th><th>DLE-OS User</th></tr></thead><tbody></tbody>
-    </table></div>
-  </div>
-</section>
+  </section>
+</div></section>
 <script id="dle-employee-directory-script">
 (()=>{
-  const open=document.getElementById('dle-employee-directory-open');
-  const dialog=document.getElementById('dle-employee-directory');
-  const close=document.getElementById('dle-employee-directory-close');
-  const historical=document.getElementById('dle-employee-directory-historical');
-  const summary=document.getElementById('dle-employee-directory-summary');
-  const error=document.getElementById('dle-employee-directory-error');
-  const body=document.querySelector('#dle-employee-directory-table tbody');
-  const headerControls=document.getElementById('dleDevControlsUtilities');if(headerControls)headerControls.append(open);
-  const words=value=>String(value||'').toLowerCase().replace(/(^|_)([a-z])/g,(_,space,letter)=>(space?' ':'')+letter.toUpperCase());
-  const cell=(row,value,className)=>{const td=document.createElement('td');td.textContent=value??'—';if(className)td.className=className;row.appendChild(td)};
-  async function load(){
-    error.hidden=true;summary.textContent='Loading…';body.replaceChildren();
-    try{
-      const response=await fetch('/api/development/employees/v1/directory?includeHistorical='+historical.checked,
-        {credentials:'same-origin',headers:{Accept:'application/json'}});
-      const result=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(result?.message||result?.code||'Employee Directory unavailable.');
-      result.items.forEach(item=>{
-        const row=document.createElement('tr');row.dataset.status=item.dleWorkforceStatus;
-        cell(row,item.employeeNumber);cell(row,item.displayName);cell(row,item.departmentName);cell(row,item.jobTitle);
-        cell(row,words(item.dleWorkforceStatus));cell(row,item.trainingEligible?'Yes':'No',item.trainingEligible?'dle-dir-yes':'dle-dir-no');
-        cell(row,words(item.provisioningStatus));cell(row,item.proposedUserName);
-        cell(row,item.dleOsUserDisplayName||item.dleOsUserName);
-        body.appendChild(row);
-      });
-      summary.textContent=`${result.totalEmployees} employees · ${result.currentEmployees} current · ${result.linkedUsers} linked · ${result.unprovisionedEmployees} unprovisioned`;
-    }catch(failure){error.textContent=failure.message;error.hidden=false;summary.textContent='Unavailable';}
-  }
-  document.addEventListener('dle:capabilities-ready',event=>{if(event.detail?.isSuperAdmin)open.hidden=false});
-  open.addEventListener('click',()=>{dialog.hidden=false;load()});close.addEventListener('click',()=>{dialog.hidden=true});
-  historical.addEventListener('change',load);dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.hidden=true});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!dialog.hidden)dialog.hidden=true});
+  const csrf='__DLE_EMPLOYEE_CSRF__',open=document.getElementById('dle-employee-directory-open'),dialog=document.getElementById('dle-employee-directory'),close=document.getElementById('dle-employee-directory-close'),historical=document.getElementById('dle-employee-directory-historical'),summary=document.getElementById('dle-employee-directory-summary'),error=document.getElementById('dle-employee-directory-error'),body=document.querySelector('#dle-employee-directory-table tbody');
+  const headerControls=document.getElementById('dleDevControlsUtilities');if(headerControls)headerControls.append(open)
+  const panel=document.getElementById('dle-user-admin'),adminError=document.getElementById('dle-user-admin-error'),rolesRoot=document.getElementById('dle-admin-roles'),permissions=document.getElementById('dle-admin-permissions'),username=document.getElementById('dle-admin-username'),password=document.getElementById('dle-admin-password'),temporary=document.getElementById('dle-admin-temporary'),provision=document.getElementById('dle-admin-provision'),reset=document.getElementById('dle-admin-reset'),toggle=document.getElementById('dle-admin-toggle'),revoke=document.getElementById('dle-admin-revoke'),saveRoles=document.getElementById('dle-admin-save-roles'),oneTime=document.getElementById('dle-one-time'),oneTimeValue=document.getElementById('dle-one-time-value');let selected=null;
+  const words=v=>String(v||'').toLowerCase().replace(/(^|_)([a-z])/g,(_,s,l)=>(s?' ':'')+l.toUpperCase()),cell=(r,v,c)=>{const d=document.createElement('td');d.textContent=v??'—';if(c)d.className=c;r.append(d)};
+  async function api(url,options={}){const response=await fetch(url,{credentials:'same-origin',headers:{Accept:'application/json',...(options.method?{'Content-Type':'application/json','RequestVerificationToken':csrf}:{}),...(options.headers||{})},...options});if(response.status===401){location.assign('/auth/signin');throw new Error('Sign-in required.')}const value=await response.json().catch(()=>({}));if(!response.ok)throw new Error(value.message||value.code||'Request failed.');return value}
+  function chosenRoles(){return [...rolesRoot.querySelectorAll('input:checked')].map(x=>x.value)}
+  function updatePermissions(){const chosen=new Set(chosenRoles()),values=[...new Set(selected.availableRoles.filter(r=>chosen.has(r.roleCode)).flatMap(r=>r.permissions))].sort();permissions.textContent=values.join(' · ')||'No effective permissions.'}
+  async function load(){error.hidden=true;summary.textContent='Loading…';body.replaceChildren();try{const result=await api('/api/development/employees/v1/directory?includeHistorical='+historical.checked);result.items.forEach(item=>{const row=document.createElement('tr');row.dataset.status=item.dleWorkforceStatus;cell(row,item.employeeNumber);cell(row,item.dleOsUserDisplayName||item.displayName);cell(row,item.departmentName);cell(row,item.jobTitle);cell(row,words(item.dleWorkforceStatus));cell(row,words(item.provisioningStatus));cell(row,item.dleOsUserName||item.proposedUserName);cell(row,item.dleOsRoleCode);cell(row,words(item.accessReadiness));const action=document.createElement('td'),button=document.createElement('button');button.className='dle-dir-button';button.textContent=item.dleOsAccountStatus==='ACTIVE'?'Manage':'Provision / Manage';button.onclick=()=>admin(item.employeeId);action.append(button);row.append(action);body.append(row)});summary.textContent=`${result.totalEmployees} employees · ${result.currentEmployees} current · ${result.linkedUsers} linked · ${result.unprovisionedEmployees} unprovisioned`;}catch(e){error.textContent=e.message;error.hidden=false;summary.textContent='Unavailable'}}
+  async function admin(employeeId){adminError.hidden=true;oneTime.hidden=true;password.value='';try{selected=await api(`/api/development/employees/v1/${employeeId}/administration`);document.getElementById('dle-user-admin-title').textContent=selected.userId?'Manage DLE-OS User':'Provision DLE-OS User';document.getElementById('dle-user-admin-identity').textContent=`${selected.employeeNumber||''} ${selected.displayName}`;document.getElementById('dle-admin-account-state').textContent=`Provisioning: ${words(selected.provisioningStatus)} · Account: ${selected.accountStatus||'Not provisioned'}`;username.value=selected.userName||selected.proposedUserName||'';username.disabled=!!selected.keycloakSubject;rolesRoot.replaceChildren();selected.availableRoles.forEach(role=>{const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.value=role.roleCode;box.checked=selected.assignedRoles.includes(role.roleCode);box.onchange=updatePermissions;label.append(box,` ${role.displayName} (${role.roleCode})`);rolesRoot.append(label)});updatePermissions();const active=selected.accountStatus==='ACTIVE',disabled=selected.accountStatus==='DISABLED',provisioned=!!selected.keycloakSubject;provision.hidden=provisioned;reset.hidden=!provisioned;toggle.hidden=!provisioned;revoke.hidden=!provisioned;saveRoles.hidden=!provisioned;toggle.textContent=disabled?'Re-enable Account':'Disable Account';toggle.className='dle-dir-button '+(active?'danger':'primary');document.getElementById('dle-admin-history').replaceChildren(...selected.history.map(h=>{const li=document.createElement('li');li.textContent=`${new Date(h.recordedAtUtc+'Z').toLocaleString()} — ${words(h.eventType)} by ${h.actorIdentity}`;return li}));panel.hidden=false}catch(e){adminError.textContent=e.message;adminError.hidden=false;panel.hidden=false}}
+  function passwordChoice(){const generate=document.querySelector('input[name=dle-password-mode]:checked').value==='generate';return {generate,password:generate?null:password.value}}
+  async function mutate(url,payload){adminError.hidden=true;try{return await api(url,{method:'POST',body:JSON.stringify(payload)})}catch(e){adminError.textContent=e.message;adminError.hidden=false;throw e}finally{password.value=''}}
+  provision.onclick=async()=>{const roles=chosenRoles(),choice=passwordChoice();if(!username.value.trim()||!roles.length){adminError.textContent='Username and at least one role are required.';adminError.hidden=false;return}const preview=`Employee: ${selected.employeeNumber} ${selected.displayName}\nUsername: ${username.value.trim()}\nRoles: ${roles.join(', ')}\nPermissions: ${permissions.textContent}\nRequire password change: ${temporary.checked?'Yes':'No'}\n\nProvision and activate this user?`;if(!confirm(preview))return;try{const result=await mutate('/api/development/employees/v1/provision',{employeeId:selected.employeeId,userName:username.value.trim(),roleCodes:roles,initialPassword:choice.password,generatePassword:choice.generate,requirePasswordChange:temporary.checked});await admin(selected.employeeId);if(result.initialPassword){oneTimeValue.textContent=result.initialPassword;oneTime.hidden=false}await load()}catch{}};
+  reset.onclick=async()=>{const choice=passwordChoice();if(!confirm(`Reset credentials for ${selected.userName}? Existing credentials will no longer work.`))return;try{const result=await mutate('/api/development/employees/v1/credentials/reset',{userId:selected.userId,password:choice.password,generatePassword:choice.generate,requirePasswordChange:temporary.checked});await admin(selected.employeeId);if(result.initialPassword){oneTimeValue.textContent=result.initialPassword;oneTime.hidden=false}}catch{}};
+  toggle.onclick=async()=>{const action=selected.accountStatus==='DISABLED'?'reenable':'disable';if(!confirm(`${words(action)} ${selected.userName}?`))return;try{await mutate(`/api/development/employees/v1/users/${action}`,{userId:selected.userId});await admin(selected.employeeId);await load()}catch{}};
+  revoke.onclick=async()=>{if(!confirm(`Revoke all active sessions for ${selected.userName}?`))return;try{await mutate('/api/development/employees/v1/users/sessions-revoke',{userId:selected.userId});await admin(selected.employeeId)}catch{}};
+  saveRoles.onclick=async()=>{const roles=chosenRoles();if(!roles.length||!confirm(`Replace assigned roles with: ${roles.join(', ')}?`))return;try{await mutate('/api/development/employees/v1/roles',{userId:selected.userId,roleCodes:roles});await admin(selected.employeeId);await load()}catch{}};
+  document.querySelectorAll('input[name=dle-password-mode]').forEach(x=>x.onchange=()=>document.getElementById('dle-admin-password-wrap').classList.toggle('dle-hidden',x.value==='generate'?x.checked:!x.checked));document.getElementById('dle-one-time-dismiss').onclick=()=>{oneTimeValue.textContent='';oneTime.hidden=true};document.getElementById('dle-user-admin-close').onclick=()=>{oneTimeValue.textContent='';panel.hidden=true};
+  document.addEventListener('dle:capabilities-ready',e=>{if(e.detail?.isSuperAdmin)open.hidden=false});open.onclick=()=>{dialog.hidden=false;load()};close.onclick=()=>{oneTimeValue.textContent='';password.value='';dialog.hidden=true};historical.onchange=load;document.addEventListener('keydown',e=>{if(e.key==='Escape'){oneTimeValue.textContent='';password.value='';if(!panel.hidden)panel.hidden=true;else dialog.hidden=true}});
 })();
 </script>
 """;

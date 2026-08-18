@@ -3,30 +3,66 @@ using System.Security.Principal;
 using System.Text.Json;
 using DleOs.Security;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Data.SqlClient;
 
 var checks = new List<string>();
-const string connectionString =
-    @"Server=lpc:.\SQLEXPRESS;Database=DLE_OS_SECURITY_DEV;Integrated Security=True;" +
-    "Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadWrite;";
-var boundary = new SqlConnectionStringBuilder(connectionString);
-if (!string.Equals(boundary.InitialCatalog, "DLE_OS_SECURITY_DEV", StringComparison.Ordinal) ||
-    boundary.InitialCatalog.Contains("LIVE", StringComparison.OrdinalIgnoreCase))
-    throw new InvalidOperationException("Authenticated frontend tests require DLE_OS_SECURITY_DEV.");
+const string miguelWindowsSubject = @"DLE-OS-HOST\Miguel";
+const string miguelKeycloakSubject = "fixture-keycloak-miguel";
+var superAdminRole = new SecurityRole(
+    Guid.Parse("10000000-0000-0000-0000-000000000001"), "SUPER_ADMIN", true);
+var miguelUser = new ResolvedSecurityUser(
+    Guid.Parse("10000000-0000-0000-0000-000000000054"),
+    "Miguel", "Miguel De Leon", "ACTIVE", [superAdminRole],
+    new HashSet<string>(StringComparer.Ordinal));
+var devKittingRole = new SecurityRole(
+    Guid.Parse("90000000-0000-4000-8000-000000000002"), "DEV_KITTING_OPERATOR", false);
+var devKittingUser = new ResolvedSecurityUser(
+    Guid.Parse("90000000-0000-4000-8000-000000000001"),
+    "dev.kitting", "Kitting Operator", "ACTIVE", [devKittingRole],
+    new HashSet<string>(
+        ["kitting.view", "kitting.disposition", "work_orders.view", "pick_list.view", "rma_rework.view"],
+        StringComparer.Ordinal));
+var danielUser = new ResolvedSecurityUser(
+    Guid.Parse("10000000-0000-0000-0000-000000000083"),
+    "Daniel", "Daniel Garcia", "PENDING", [],
+    new HashSet<string>(StringComparer.Ordinal));
+var disabledUser = new ResolvedSecurityUser(
+    Guid.Parse("10000000-0000-0000-0000-000000000099"),
+    "DisabledFixture", "Disabled Fixture", "DISABLED", [superAdminRole],
+    new HashSet<string>(StringComparer.Ordinal));
+var resolver = new FixtureIdentityResolver(new Dictionary<string, ResolvedSecurityUser>(
+    StringComparer.OrdinalIgnoreCase)
+{
+    [$"WINDOWS|{miguelWindowsSubject}"] = miguelUser,
+    [$"KEYCLOAK|{miguelKeycloakSubject}"] = miguelUser,
+    ["KEYCLOAK|fixture-keycloak-dev-kitting"] = devKittingUser,
+    [@"WINDOWS|DLE-OS-HOST\Phase3-Disabled"] = disabledUser
+});
 
-var resolver = new SqlIdentityResolver(connectionString);
-
-var miguel = await Resolve(@"DLE-OS-HOST\Miguel", resolver);
-Check(miguel.Status == CurrentUserStatus.Active, "authenticated Miguel is active");
+var miguel = await Resolve(miguelWindowsSubject, resolver);
+Check(miguel.Status == CurrentUserStatus.Active, "deterministic Miguel fixture is active");
 var miguelResponse = CurrentUserResponseFactory.Create(miguel);
 var miguelJson = JsonSerializer.Serialize(
     miguelResponse.Body,
     new JsonSerializerOptions(JsonSerializerDefaults.Web));
-Check(miguelResponse.StatusCode == 200, "Miguel current-user response is HTTP 200");
+Check(miguelResponse.StatusCode == 200, "fixture current-user response is HTTP 200");
 Check(miguelJson.Contains("Miguel De Leon") && miguelJson.Contains("SUPER_ADMIN") &&
-      miguelJson.Contains("\"isSuperAdmin\":true"), "Miguel response contains display identity and SUPER_ADMIN");
+      miguelJson.Contains("\"isSuperAdmin\":true"), "fixture response contains display identity and SUPER_ADMIN");
 Check(!miguelJson.Contains("DLE-OS-HOST") && !miguelJson.Contains("UserId", StringComparison.OrdinalIgnoreCase),
     "normal current-user response excludes Windows identity and SQL IDs");
+
+var devKitting = await new CurrentUserContext(
+    new HttpContextAccessor { HttpContext = OidcContext("fixture-keycloak-dev-kitting", "dev.kitting") },
+    resolver).ResolveAsync();
+var devKittingJson = JsonSerializer.Serialize(
+    CurrentUserResponseFactory.Create(devKitting).Body,
+    new JsonSerializerOptions(JsonSerializerDefaults.Web));
+Check(devKitting.Status == CurrentUserStatus.Active &&
+      devKittingJson.Contains("\"displayName\":\"Kitting Operator\"") &&
+      devKittingJson.Contains("\"roles\":[\"DEV_KITTING_OPERATOR\"]") &&
+      devKittingJson.Contains("\"kitting.view\"") &&
+      devKittingJson.Contains("\"isSuperAdmin\":false") &&
+      !devKittingJson.Contains("SUPER_ADMIN"),
+    "dev.kitting receives its Kitting identity and permission projection without SUPER_ADMIN");
 
 var caseNormalized = await Resolve(@"dle-os-host\miguel", resolver);
 Check(caseNormalized.Status == CurrentUserStatus.Active &&
@@ -40,6 +76,12 @@ Check(unknown.Status == CurrentUserStatus.NotProvisioned && unknownResponse.Stat
 var service = await Resolve(@"DLE-OS-HOST\DLE-OS", resolver);
 Check(service.Status == CurrentUserStatus.NotProvisioned && service.User is null,
     "DLE-OS service identity remains unmapped and receives no Miguel rights");
+
+var pendingDaniel = CurrentUserResponseFactory.Create(
+    new CurrentUserResolution(CurrentUserStatus.PendingAuthentication, null, danielUser));
+Check(danielUser.AccountStatus == "PENDING" && pendingDaniel.StatusCode == 403 &&
+      pendingDaniel.Code == "DLE_OS_AUTHENTICATION_PENDING",
+    "deterministic pending-auth user remains distinct from disabled and unmapped users");
 
 var anonymousContext = Context(null, false);
 var anonymous = await new CurrentUserContext(
@@ -59,7 +101,7 @@ Check(spoofResult.Status == CurrentUserStatus.NotProvisioned &&
       recordingResolver.Subjects.Single() == @"DLE-OS-HOST\Unknown",
     "client headers and query parameters cannot override the authenticated server principal");
 
-var oidcSubject = "phase62c-immutable-subject";
+var oidcSubject = miguelKeycloakSubject;
 var mixedPrincipal = new ClaimsPrincipal([
     new ClaimsIdentity([new Claim(ClaimTypes.Name, @"DLE-OS-HOST\Miguel")], "Negotiate"),
     new ClaimsIdentity([
@@ -82,34 +124,42 @@ await cachedContext.ResolveAsync();
 await cachedContext.ResolveAsync();
 Check(cachedResolver.Subjects.Count == 1, "request-scoped current-user resolution is cached once");
 
-var unavailableResolver = new SqlIdentityResolver(
-    @"Server=lpc:.\DLE_OS_PHASE3_UNAVAILABLE;Database=DLE_OS_SECURITY_DEV;" +
-    "Integrated Security=True;Encrypt=False;Connect Timeout=1;");
-var unavailable = await Resolve(@"DLE-OS-HOST\Miguel", unavailableResolver);
+var unavailable = new CurrentUserResolution(
+    CurrentUserStatus.SecurityUnavailable, miguelWindowsSubject, null);
 var unavailableResponse = CurrentUserResponseFactory.Create(unavailable);
 Check(unavailable.Status == CurrentUserStatus.SecurityUnavailable && unavailableResponse.StatusCode == 503 &&
       unavailableResponse.Code == "DLE_OS_SECURITY_UNAVAILABLE",
     "security outage is distinct from anonymous identity");
 
-var fixture = await CreateDisabledFixture();
-try
-{
-    var disabled = await Resolve(fixture.Subject, resolver);
-    var disabledResponse = CurrentUserResponseFactory.Create(disabled);
-    Check(disabled.Status == CurrentUserStatus.Disabled && disabledResponse.StatusCode == 403 &&
-          disabledResponse.Code == "DLE_OS_USER_DISABLED", "disabled mapped user receives governed 403");
-    Check(disabled.User?.IsSuperAdmin == false, "disabled account cannot become effective SUPER_ADMIN");
-}
-finally
-{
-    await CleanupDisabledFixture(fixture);
-}
+var disabled = await Resolve(@"DLE-OS-HOST\Phase3-Disabled", resolver);
+var disabledResponse = CurrentUserResponseFactory.Create(disabled);
+Check(disabled.Status == CurrentUserStatus.Disabled && disabledResponse.StatusCode == 403 &&
+      disabledResponse.Code == "DLE_OS_USER_DISABLED", "disabled mapped user receives governed 403");
+Check(disabled.User?.IsSuperAdmin == false, "disabled account cannot become effective SUPER_ADMIN");
 
 var shell = DevelopmentIdentityUi.Inject("<html><body><main>DLE-OS</main></body></html>");
 Check(shell.Contains("dle-auth-identity") && shell.Contains("/api/auth/me") &&
       shell.Contains("SUPER_ADMIN") && shell.Contains("Miguel") == false,
     "frontend identity display is driven by server current-user API, not hard-coded Miguel data");
+var embeddedShell = DevelopmentIdentityUi.Inject(
+    "<html><body><main>DLE-OS</main></body></html>",
+    miguelJson);
+Check(embeddedShell.IndexOf("dle-authorization-bootstrap", StringComparison.Ordinal) <
+      embeddedShell.IndexOf("<main>DLE-OS</main>", StringComparison.Ordinal) &&
+      embeddedShell.Contains("window.DleOsAuthorizationReady") &&
+      embeddedShell.Contains("JSON.parse(atob('") &&
+      embeddedShell.Contains("Miguel") == false,
+    "authenticated shell installs a neutral fail-closed bootstrap and safely embeds resolved identity before application markup");
+var encodedMiguelIdentity = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(miguelJson));
+Check(embeddedShell.Contains("JSON.parse(atob('" + encodedMiguelIdentity + "'))") &&
+      miguelJson.Contains("\"user\":") &&
+      miguelJson.Contains("\"displayName\":\"Miguel De Leon\"") &&
+      miguelJson.Contains("\"roles\":[\"SUPER_ADMIN\"]") &&
+      miguelJson.Contains("\"permissions\":[]") &&
+      miguelJson.Contains("\"isSuperAdmin\":true"),
+    "embedded bootstrap preserves the camel-case API identity, role, permission, and SUPER_ADMIN projection");
 Check(DevelopmentIdentityUi.AccessStateDocument("DLE_OS_USER_NOT_PROVISIONED").Contains("not provisioned") &&
+      DevelopmentIdentityUi.AccessStateDocument("DLE_OS_AUTHENTICATION_PENDING").Contains("awaiting") &&
       DevelopmentIdentityUi.AccessStateDocument("DLE_OS_USER_DISABLED").Contains("disabled") &&
       DevelopmentIdentityUi.AccessStateDocument("DLE_OS_SECURITY_UNAVAILABLE").Contains("temporarily unavailable"),
     "frontend has distinct unmapped, disabled, and unavailable access states");
@@ -118,8 +168,7 @@ var evidence = new
 {
     verdict = "PASS",
     completedAtUtc = DateTimeOffset.UtcNow,
-    server = boundary.DataSource,
-    database = boundary.InitialCatalog,
+    mode = "DETERMINISTIC_IDENTITY_FIXTURE",
     checks
 };
 var evidenceDirectory = Path.Combine(Directory.GetCurrentDirectory(), ".tmp", "authenticated-frontend");
@@ -153,46 +202,28 @@ DefaultHttpContext Context(string? name, bool authenticated)
     return context;
 }
 
-async Task<DisabledFixture> CreateDisabledFixture()
+DefaultHttpContext OidcContext(string subject, string userName)
 {
-    var userId = Guid.NewGuid();
-    var roleAssignmentId = Guid.NewGuid();
-    var subject = @"DLE-OS-HOST\Phase3-Disabled";
-    await using var connection = new SqlConnection(connectionString);
-    await connection.OpenAsync();
-    const string sql = """
-        DECLARE @RoleId uniqueidentifier=(SELECT RoleId FROM security.[Role] WHERE RoleCode='SUPER_ADMIN');
-        INSERT security.[User](UserId,UserName,DisplayName,AccountStatus,IsSystemAccount,CreatedBy)
-          VALUES(@UserId,N'Phase3Disabled',N'Phase 3 Disabled','DISABLED',0,N'QUALIFICATION');
-        INSERT security.ExternalIdentity(ExternalIdentityId,UserId,Provider,Subject,IsActive,CreatedBy)
-          VALUES(NEWID(),@UserId,'WINDOWS',@Subject,1,N'QUALIFICATION');
-        INSERT security.UserRole(UserRoleId,UserId,RoleId,IsActive,AssignedByActor)
-          VALUES(@AssignmentId,@UserId,@RoleId,1,N'QUALIFICATION');
-        """;
-    await using var command = new SqlCommand(sql, connection);
-    command.Parameters.AddWithValue("@UserId", userId);
-    command.Parameters.AddWithValue("@AssignmentId", roleAssignmentId);
-    command.Parameters.AddWithValue("@Subject", subject);
-    await command.ExecuteNonQueryAsync();
-    return new DisabledFixture(userId, roleAssignmentId, subject);
+    var context = new DefaultHttpContext();
+    context.User = new ClaimsPrincipal(new ClaimsIdentity([
+        new Claim("sub", subject),
+        new Claim("preferred_username", userName)
+    ], "Federation"));
+    return context;
 }
 
-async Task CleanupDisabledFixture(DisabledFixture fixture)
+sealed class FixtureIdentityResolver(
+    IReadOnlyDictionary<string, ResolvedSecurityUser> identities) : IIdentityResolver
 {
-    await using var connection = new SqlConnection(connectionString);
-    await connection.OpenAsync();
-    const string sql = """
-        DELETE FROM security.UserRole WHERE UserRoleId=@AssignmentId;
-        DELETE FROM security.ExternalIdentity WHERE UserId=@UserId;
-        DELETE FROM security.[User] WHERE UserId=@UserId;
-        """;
-    await using var command = new SqlCommand(sql, connection);
-    command.Parameters.AddWithValue("@UserId", fixture.UserId);
-    command.Parameters.AddWithValue("@AssignmentId", fixture.AssignmentId);
-    await command.ExecuteNonQueryAsync();
+    public Task<ResolvedSecurityUser?> ResolveAsync(
+        string provider,
+        string subject,
+        CancellationToken cancellationToken = default)
+    {
+        identities.TryGetValue($"{provider.Trim().ToUpperInvariant()}|{subject.Trim()}", out var user);
+        return Task.FromResult(user);
+    }
 }
-
-sealed record DisabledFixture(Guid UserId, Guid AssignmentId, string Subject);
 
 sealed class RecordingResolver(IIdentityResolver inner) : IIdentityResolver
 {

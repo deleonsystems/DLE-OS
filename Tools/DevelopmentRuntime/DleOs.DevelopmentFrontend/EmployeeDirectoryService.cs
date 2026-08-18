@@ -15,7 +15,9 @@ public sealed record EmployeeDirectoryItem(
     string? DleOsUserName,
     string? DleOsUserDisplayName,
     string? DleOsAccountStatus,
+    string? DleOsRoleCode,
     bool HasDleOsAccess,
+    string AccessReadiness,
     bool MissingFromSource,
     string? SourceReviewReason);
 
@@ -46,7 +48,8 @@ public sealed class EmployeeDirectoryService(string connectionString)
             SELECT EmployeeId,EmployeeNumber,DisplayName,DepartmentName,JobTitle,
                    SourceEmploymentStatus,DleWorkforceStatus,AccessEligible,TrainingEligible,
                    ProvisioningStatus,ProposedUserName,DleOsUserName,DleOsUserDisplayName,
-                   DleOsAccountStatus,HasDleOsAccess,MissingFromSource,SourceReviewReason
+                   DleOsAccountStatus,DleOsRoleCode,HasDleOsAccess,AccessReadiness,
+                   MissingFromSource,SourceReviewReason
             FROM hr.EmployeeDirectoryView
             WHERE @IncludeHistorical=1 OR DleWorkforceStatus<>'HISTORICAL_RETAINED'
             ORDER BY CASE DleWorkforceStatus WHEN 'CURRENT' THEN 0 WHEN 'SOURCE_REVIEW' THEN 1
@@ -82,9 +85,11 @@ public sealed class EmployeeDirectoryService(string connectionString)
                 reader.IsDBNull(11) ? null : reader.GetString(11),
                 reader.IsDBNull(12) ? null : reader.GetString(12),
                 reader.IsDBNull(13) ? null : reader.GetString(13),
-                reader.GetBoolean(14),
+                reader.IsDBNull(14) ? null : reader.GetString(14),
                 reader.GetBoolean(15),
-                reader.IsDBNull(16) ? null : reader.GetString(16)));
+                reader.GetString(16),
+                reader.GetBoolean(17),
+                reader.IsDBNull(18) ? null : reader.GetString(18)));
         }
         await reader.NextResultAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))

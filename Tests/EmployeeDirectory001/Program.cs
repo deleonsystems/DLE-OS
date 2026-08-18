@@ -6,6 +6,48 @@ using DleOs.Security;
 using Microsoft.Data.SqlClient;
 
 var checks = new List<string>();
+var liveDev = args.Contains("--live-dev", StringComparer.OrdinalIgnoreCase);
+var miguelUser = new ResolvedSecurityUser(
+    Guid.Parse("10000000-0000-0000-0000-000000000054"),
+    "Miguel", "Miguel De Leon", "ACTIVE",
+    [new SecurityRole(Guid.Parse("10000000-0000-0000-0000-000000000001"),
+        "SUPER_ADMIN", true)],
+    new HashSet<string>(StringComparer.Ordinal));
+Check(EmployeeDirectoryAuthorization.CanAdminister(
+        new CurrentUserResolution(CurrentUserStatus.Active, @"DLE-OS-HOST\Miguel", miguelUser)),
+    "deterministic active SUPER_ADMIN fixture can administer the Employee Directory");
+var ordinary = new ResolvedSecurityUser(
+    Guid.Parse("10000000-0000-0000-0000-000000000063"),
+    "Ordinary", "Ordinary User", "ACTIVE", [],
+    new HashSet<string>(StringComparer.Ordinal));
+Check(!EmployeeDirectoryAuthorization.CanAdminister(
+        new CurrentUserResolution(CurrentUserStatus.Active, @"DLE-OS-HOST\Ordinary", ordinary)),
+    "deterministic active non-SUPER_ADMIN fixture cannot administer the Employee Directory");
+
+var publicFields = typeof(EmployeeDirectoryItem).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+    .Select(property => property.Name).ToHashSet(StringComparer.Ordinal);
+var prohibitedTokens = new[] { "Pay", "Salary", "Ssn", "Tax", "Bank", "Address", "Medical", "Password", "Pin" };
+Check(prohibitedTokens.All(token => publicFields.All(field =>
+        !field.Contains(token, StringComparison.OrdinalIgnoreCase))),
+    "Employee Directory API contract exposes no payroll, credential, or private-HR fields");
+
+if (!liveDev)
+{
+    var deterministicOutput = Path.Combine(Directory.GetCurrentDirectory(), ".tmp",
+        "employee-directory", "deterministic-tests.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(deterministicOutput)!);
+    await File.WriteAllTextAsync(deterministicOutput, JsonSerializer.Serialize(new
+    {
+        verdict = "PASS",
+        completedAtUtc = DateTimeOffset.UtcNow,
+        mode = "DETERMINISTIC_IDENTITY_AND_CONTRACT_FIXTURES",
+        checks
+    }, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
+    Console.WriteLine($"PASS: {checks.Count} deterministic Employee Directory checks.");
+    foreach (var check in checks) Console.WriteLine("  " + check);
+    return;
+}
+
 var connectionString = Environment.GetEnvironmentVariable("DLE_OS_SECURITY_CONNECTION_STRING")
     ?? throw new InvalidOperationException("DLE_OS_SECURITY_CONNECTION_STRING is required.");
 var boundary = new SqlConnectionStringBuilder(connectionString);
@@ -21,14 +63,14 @@ Check(directory.TotalEmployees == 11 && directory.Items.Count == 11,
 Check(directory.CurrentEmployees == 10 && directory.HistoricalRetainedEmployees == 1 &&
       directory.ReviewEmployees == 0,
     "workforce population is 10 CURRENT, 1 HISTORICAL_RETAINED, 0 SOURCE_REVIEW");
-Check(directory.LinkedUsers == 1 && directory.UnprovisionedEmployees == 9,
-    "only Miguel is linked and nine current employees remain unprovisioned");
+Check(directory.LinkedUsers == 2 && directory.UnprovisionedEmployees == 8,
+    "Miguel and Daniel are linked while eight current employees remain unprovisioned");
 await using (var populationConnection = new SqlConnection(connectionString))
 {
     await populationConnection.OpenAsync();
     await using var userCount = new SqlCommand("SELECT COUNT(*) FROM security.[User];", populationConnection);
-    Check(Convert.ToInt32(await userCount.ExecuteScalarAsync()) == 1,
-        "employee sync creates no additional security users");
+    Check(Convert.ToInt32(await userCount.ExecuteScalarAsync()) == 2,
+        "employee sync preserves exactly the governed Miguel and Daniel users");
 }
 Check(directory.Items.Select(item => item.EmployeeId).Distinct().Count() == 11,
     "every employee has a unique immutable EmployeeId");
@@ -51,32 +93,24 @@ Check(miguelEmployee.DisplayName == "MIGUEL DE LEON, JR." &&
       miguelEmployee.ProposedUserName == "miguel" &&
       miguelEmployee.DleOsUserName == "Miguel" && miguelEmployee.HasDleOsAccess,
     "0054 is explicitly linked to the existing active Miguel user");
-Check(directory.Items.Where(item => item.EmployeeNumber is not ("0001" or "0054"))
+
+var danielEmployee = directory.Items.Single(item => item.EmployeeNumber == "0083");
+Check(danielEmployee.DleWorkforceStatus == "CURRENT" && danielEmployee.TrainingEligible &&
+      danielEmployee.ProvisioningStatus == "PROVISIONED_PENDING_AUTH" &&
+      danielEmployee.ProposedUserName == "daniel" && danielEmployee.DleOsUserName == "daniel" &&
+      danielEmployee.DleOsUserDisplayName == "Daniel Miranda" &&
+      danielEmployee.DleOsAccountStatus == "PENDING" &&
+      danielEmployee.DleOsRoleCode == "KITTING_PILOT" && !danielEmployee.HasDleOsAccess &&
+      danielEmployee.AccessReadiness == "NOT_YET_SIGN_IN_READY",
+    "0083 is linked to pending-auth Daniel with the KITTING_PILOT role");
+Check(directory.Items.Where(item => item.EmployeeNumber is not ("0001" or "0054" or "0083"))
         .All(item => item.DleWorkforceStatus == "CURRENT" &&
                      item.ProvisioningStatus == "NOT_PROVISIONED" &&
                      item.DleOsUserName is null && item.TrainingEligible),
-    "all other current employees are training-eligible and unprovisioned");
+    "all eight other current employees are training-eligible and unprovisioned");
 Check(directory.Items.Where(item => item.DleWorkforceStatus == "CURRENT")
         .All(item => !string.IsNullOrWhiteSpace(item.ProposedUserName)),
     "all current employees have reviewable username proposals");
-
-var resolver = new SqlIdentityResolver(connectionString);
-var miguelUser = await resolver.ResolveAsync("WINDOWS", @"DLE-OS-HOST\Miguel")
-    ?? throw new Exception("Miguel did not resolve.");
-Check(EmployeeDirectoryAuthorization.CanAdminister(
-        new CurrentUserResolution(CurrentUserStatus.Active, @"DLE-OS-HOST\Miguel", miguelUser)),
-    "active SUPER_ADMIN can administer the Employee Directory");
-var ordinary = new ResolvedSecurityUser(Guid.NewGuid(), "Ordinary", "Ordinary User", "ACTIVE", [],
-    new HashSet<string>(StringComparer.Ordinal));
-Check(!EmployeeDirectoryAuthorization.CanAdminister(
-        new CurrentUserResolution(CurrentUserStatus.Active, @"DLE-OS-HOST\Ordinary", ordinary)),
-    "active non-SUPER_ADMIN cannot administer the Employee Directory");
-
-var publicFields = typeof(EmployeeDirectoryItem).GetProperties(BindingFlags.Public | BindingFlags.Instance)
-    .Select(property => property.Name).ToHashSet(StringComparer.Ordinal);
-var prohibitedTokens = new[] { "Pay", "Salary", "Ssn", "Tax", "Bank", "Address", "Medical", "Password", "Pin" };
-Check(prohibitedTokens.All(token => publicFields.All(field => !field.Contains(token, StringComparison.OrdinalIgnoreCase))),
-    "Employee Directory API contract exposes no payroll, credential, or private-HR fields");
 
 await TransactionalSyncQualification();
 await HttpQualification();
@@ -86,6 +120,7 @@ var report = new
     verdict = "PASS",
     completedAtUtc = DateTimeOffset.UtcNow,
     database = boundary.InitialCatalog,
+    mode = "LIVE_DEV_TRANSACTIONAL_INTEGRATION",
     checks,
     population = new
     {
@@ -117,7 +152,11 @@ async Task TransactionalSyncQualification()
     await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
     var before = await EmployeeIds(connection, transaction);
     var rows = await SourceRows(connection, transaction);
-    await ExecuteSync(connection, transaction, rows, miguelUser.UserId, "QUALIFICATION_REPEAT");
+    var actorUserId = await LiveMiguelUserId(connection, transaction);
+    var originalProposalStatus = await ScalarString(connection, transaction,
+        "SELECT ProvisioningStatus FROM hr.Employee " +
+        "WHERE SourceSystem='VPRO5_PRM01' AND SourceEmployeeIdRaw='006300000';");
+    await ExecuteSync(connection, transaction, rows, actorUserId, "QUALIFICATION_REPEAT");
     var after = await EmployeeIds(connection, transaction);
     Check(before.Count == after.Count && before.All(pair => after[pair.Key] == pair.Value),
         "duplicate sync preserves EmployeeId and creates no duplicates");
@@ -126,7 +165,7 @@ async Task TransactionalSyncQualification()
         "UPDATE hr.Employee SET ProvisioningStatus='PROPOSED' WHERE SourceSystem='VPRO5_PRM01' AND SourceEmployeeIdRaw='006300000';",
         connection, transaction))
         await proposal.ExecuteNonQueryAsync();
-    await ExecuteSync(connection, transaction, rows, miguelUser.UserId, "QUALIFICATION_PRESERVE_DECISION");
+    await ExecuteSync(connection, transaction, rows, actorUserId, "QUALIFICATION_PRESERVE_DECISION");
     await using (var proposalCheck = new SqlCommand(
         "SELECT ProvisioningStatus FROM hr.Employee WHERE SourceSystem='VPRO5_PRM01' AND SourceEmployeeIdRaw='006300000';",
         connection, transaction))
@@ -134,7 +173,7 @@ async Task TransactionalSyncQualification()
             "repeat sync preserves an existing provisioning decision");
 
     var missingRows = rows.Where(row => row.SourceEmployeeIdRaw != "009100000").ToArray();
-    await ExecuteSync(connection, transaction, missingRows, miguelUser.UserId, "QUALIFICATION_MISSING_SOURCE");
+    await ExecuteSync(connection, transaction, missingRows, actorUserId, "QUALIFICATION_MISSING_SOURCE");
     await using (var missingCheck = new SqlCommand(
         "SELECT DleWorkforceStatus,MissingFromSource,SourceReviewReason FROM hr.Employee " +
         "WHERE SourceSystem='VPRO5_PRM01' AND SourceEmployeeIdRaw='009100000';",
@@ -151,7 +190,7 @@ async Task TransactionalSyncQualification()
         new SourceRow("01","ABCD12345","INVALID","SOURCE","INVALID SOURCE FORMAT",
             "99","Review","99","Review","ACTIVE","invalid.source")
     }).ToArray();
-    await ExecuteSync(connection, transaction, invalidRows, miguelUser.UserId, "QUALIFICATION_INVALID_RAW");
+    await ExecuteSync(connection, transaction, invalidRows, actorUserId, "QUALIFICATION_INVALID_RAW");
     await using (var command = new SqlCommand(
         "SELECT EmployeeNumber,DleWorkforceStatus,SourceReviewReason FROM hr.Employee " +
         "WHERE SourceSystem='VPRO5_PRM01' AND FirmId='01' AND SourceEmployeeIdRaw='ABCD12345';",
@@ -170,7 +209,7 @@ async Task TransactionalSyncQualification()
             "INSERT security.UserEmployeeLink(UserEmployeeLinkId,UserId,EmployeeId,IsActive," +
             "LinkEvidenceCode,LinkedByUserId) VALUES(NEWID(),@UserId,@EmployeeId,1,'QUALIFICATION',@UserId);",
             connection, transaction);
-        duplicateLink.Parameters.AddWithValue("@UserId", miguelUser.UserId);
+        duplicateLink.Parameters.AddWithValue("@UserId", actorUserId);
         duplicateLink.Parameters.AddWithValue("@EmployeeId", otherEmployee);
         await duplicateLink.ExecuteNonQueryAsync();
         throw new Exception("FAILED: employee/user one-to-one constraint");
@@ -180,6 +219,33 @@ async Task TransactionalSyncQualification()
         checks.Add("employee/user active one-to-one link is enforced by a unique constraint");
     }
     await transaction.RollbackAsync();
+    var restoredProposalStatus = await ScalarString(connection, null,
+        "SELECT ProvisioningStatus FROM hr.Employee " +
+        "WHERE SourceSystem='VPRO5_PRM01' AND SourceEmployeeIdRaw='006300000';");
+    await using var rollbackCheck = new SqlCommand(
+        "SELECT COUNT(*) FROM hr.Employee WHERE SourceSystem='VPRO5_PRM01' " +
+        "AND FirmId='01' AND SourceEmployeeIdRaw='ABCD12345';", connection);
+    Check(restoredProposalStatus == originalProposalStatus &&
+          Convert.ToInt32(await rollbackCheck.ExecuteScalarAsync()) == 0,
+        "live integration transaction rollback restores employee state and removes its fixture row");
+}
+
+async Task<string?> ScalarString(
+    SqlConnection connection,
+    SqlTransaction? transaction,
+    string sql)
+{
+    await using var command = new SqlCommand(sql, connection, transaction);
+    return (string?)await command.ExecuteScalarAsync();
+}
+
+async Task<Guid> LiveMiguelUserId(SqlConnection connection, SqlTransaction transaction)
+{
+    await using var command = new SqlCommand(
+        "SELECT UserId FROM security.[User] WHERE NormalizedUserName=N'MIGUEL';",
+        connection, transaction);
+    return (Guid)(await command.ExecuteScalarAsync()
+        ?? throw new Exception("Live DEV integration fixture requires the governed Miguel user."));
 }
 
 async Task HttpQualification()
@@ -190,16 +256,8 @@ async Task HttpQualification()
     };
     using var response = await authenticated.GetAsync(
         "/api/development/employees/v1/directory?includeHistorical=true");
-    var json = await response.Content.ReadAsStringAsync();
-    Check(response.StatusCode == HttpStatusCode.OK, "Miguel can read the authenticated Employee Directory API");
-    using var document = JsonDocument.Parse(json);
-    Check(document.RootElement.GetProperty("totalEmployees").GetInt32() == 11 &&
-          document.RootElement.GetProperty("items").GetArrayLength() == 11,
-        "live Employee Directory API returns the complete safe population");
-    var serialized = json.ToLowerInvariant();
-    Check(!new[] { "salary", "ssn", "taxid", "bank", "password", "payrate" }
-        .Any(token => serialized.Contains(token, StringComparison.Ordinal)),
-        "live Employee Directory response contains no sensitive field names");
+    Check(response.StatusCode == HttpStatusCode.Unauthorized,
+        "Windows credentials cannot replace the required OIDC Employee Directory session");
 
     using var anonymous = new HttpClient(new HttpClientHandler { UseDefaultCredentials = false })
     {
