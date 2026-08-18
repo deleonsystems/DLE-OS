@@ -297,21 +297,42 @@ assert.deepEqual(JSON.parse(JSON.stringify(averyBatch.surfaces.map(surface => su
 assert.equal(JSON.stringify(draft), batchDraftBefore,
   'building a batch does not mutate Kitting requirements, entries, allocations, or traceability');
 
-const averyDocument = labels.avery5163Document(draft);
+const averyDocument = labels.avery5163Document(draft, {
+  returnUrl: 'https://dev.dle-os.internal.dlemfg.com/'
+});
 assert.match(averyDocument, /@page\{size:letter;margin:0\}/);
 assert.match(averyDocument, /\.avery-5163-sheet\{position:relative;width:8\.5in;height:11in;padding:0\.5in 0 0 0\.16in;/,
   'Avery sheets use the official US Letter top and side origins');
 assert.match(averyDocument, /grid-template-columns:repeat\(2,4in\);grid-template-rows:repeat\(5,2in\);column-gap:\.19in;row-gap:0/,
   'Avery 5163 uses two columns, five rows, 4.19 inch horizontal pitch, and 2 inch vertical pitch');
-assert.match(averyDocument, /\.avery-5163-slot\{width:4in;height:2in;/);
+assert.match(averyDocument, /\.avery-5163-slot\{width:4in;height:2in;[^}]*outline:0\}/,
+  'batch preview slots retain exact dimensions without a screen-only perimeter guide');
+assert.doesNotMatch(averyDocument, /outline:1px dashed/,
+  'batch preview does not substitute a dashed rectangle for the removed label perimeter');
 assert.match(averyDocument, /\.kitting-bag-label-avery\{width:101\.6mm;height:50\.8mm/,
   'the shared bag-label design fills each Avery 4 x 2 inch cell without Brother placement calibration');
+assert.match(averyDocument, /\.kitting-bag-label-avery\{width:101\.6mm;height:50\.8mm;border:\.35mm solid transparent/,
+  'batch labels suppress perimeter ink without changing the border-box geometry');
+assert.match(document, /\.kitting-bag-label\{width:92mm;height:50\.8mm;border:\.35mm solid #000/,
+  'individual Bag Labels retain the existing solid perimeter border');
+assert.match(averyDocument, /\.kitting-bag-label-avery \.kitting-bag-label-recovery-rail\{[^}]*border-right:\.25mm solid #000/,
+  'batch labels retain their internal recovery-rail separator');
+assert.match(averyDocument, /\.kitting-bag-label-avery\.has-detail \.kitting-bag-label-component\{border-bottom:\.3mm solid #000\}/,
+  'batch labels retain their internal component/detail separator');
 assert.equal((averyDocument.match(/class="avery-5163-sheet"/g) || []).length, 5);
 assert.equal((averyDocument.match(/class="avery-5163-slot(?: blank)?"/g) || []).length, 50);
 assert.equal((averyDocument.match(/<article class="kitting-bag-label-avery/g) || []).length, 44);
 assert.equal((averyDocument.match(/class="avery-5163-slot blank"/g) || []).length, 6);
-assert.match(averyDocument, /@media print\{\.print-actions\{display:none\}\.avery-5163-slot\{outline:0\}\}/,
-  'screen-only qualification guides do not print');
+assert.match(averyDocument, /class="print-return" href="https:\/\/dev\.dle-os\.internal\.dlemfg\.com\/"/);
+assert.match(averyDocument, /&#8592; Back to WO 0115621/,
+  'the screen surface identifies the exact Kitting Job destination');
+assert.match(averyDocument, /Bag Labels &middot; Batch Print/);
+assert.match(averyDocument, /window\.opener\.focus\(\);window\.close\(\);if\(window\.closed\)return false/,
+  'an intact opener returns to the exact live workspace before closing the generated view');
+assert.match(averyDocument, /@media print\{\.print-toolbar\{display:none!important\}\.avery-5163-slot\{outline:0\}\}/,
+  'DLE-OS navigation and screen-only qualification guides do not print');
+assert.match(averyDocument, /\.print-return,\.print-actions button\{[^}]*min-height:44px/,
+  'return and print actions remain touch-friendly in app-mode use');
 assert.match(averyDocument, /Print Avery 5163 Sheets/);
 assert.equal(JSON.stringify(draft), batchDraftBefore,
   'rendering the complete Avery document remains read-only');
@@ -368,12 +389,35 @@ assert.doesNotMatch(styles, /\.kitting-bag-label-panel|\.kitting-bag-label-actio
   'the removed automatic viewer no longer reserves panel space at desktop or tablet sizes');
 assert.match(styles, /\.kitting-bag-label-print-action button \{ min-height: 40px; margin: 0; \}/,
   'the on-demand print action remains touch-usable without dominating the dialog');
-assert.match(dashboard, /Print All Bag Labels/);
+assert.doesNotMatch(dashboard, />Print All Bag Labels<\/button>/,
+  'the one-off operator control is removed');
+assert.match(dashboard, /<details class="kitting-label-menu" ontoggle="handleKittingJobPrintLabelsToggle\(this\)"><summary>Print Labels/,
+  'the case area exposes one compact label menu coordinated with the other primary tools');
+const labelMenu = dashboard.slice(dashboard.indexOf('<details class="kitting-label-menu"'),
+  dashboard.indexOf('</div></details>', dashboard.indexOf('<details class="kitting-label-menu"')));
+assert.ok(labelMenu.indexOf('>Bag Labels</button>') < labelMenu.indexOf('<span>Kit ID</span>'));
+assert.ok(labelMenu.indexOf('<span>Kit ID</span>') < labelMenu.indexOf('<span>Master Kit ID</span>'));
+assert.match(labelMenu, /printAllWorkOrderDashboardKittingBagLabels\(\)/,
+  'Bag Labels reuses the governed batch-print entry point');
+assert.match(labelMenu, /<button type="button" role="menuitem" disabled><span>Kit ID<\/span><small>Coming Soon<\/small><\/button>/);
+assert.match(labelMenu, /<button type="button" role="menuitem" disabled><span>Master Kit ID<\/span><small>Coming Soon<\/small><\/button>/);
+assert.equal((labelMenu.match(/disabled/g) || []).length, 2,
+  'only the two future label types are disabled');
+assert.match(styles, /\.kitting-label-menu summary \{[^}]*min-height: 44px/s,
+  'the Print Labels trigger retains an iPad-friendly touch target');
+assert.match(styles, /\.kitting-label-menu-options \{[^}]*min-width: 220px/s,
+  'the compact menu remains readable without consuming permanent workspace height');
+assert.match(styles, /\.kitting-label-menu-options button \{[^}]*min-height: 44px/s,
+  'each label choice retains an iPad-friendly touch target');
 assert.match(dashboard, /Read-only printing does not start or modify a Kitting Case\./,
   'the batch action is surfaced before Start Kitting without changing workflow state');
-assert.match(dashboard, /KittingBagLabel\.avery5163Document\(draft\)/);
+assert.match(dashboard, /KittingBagLabel\.avery5163Document\(draft, \{/);
 const batchPrintFunction = dashboard.slice(dashboard.indexOf('async function printAllKittingBagLabels'),
   dashboard.indexOf('function acceptedMaterialKey'));
+assert.match(batchPrintFunction, /returnUrl: window\.location\.href/,
+  'the generated view has a real same-origin fallback route');
+assert.doesNotMatch(batchPrintFunction, /preview\.opener = null/,
+  'the batch view retains its trusted same-origin opener for exact-state return');
 assert.doesNotMatch(batchPrintFunction,
   /startKittingCase|resumeKittingCase|saveKittingCaseDraft|setActiveKittingPoTraceability/,
   'the batch print path does not start, resume, save, or reconfigure a Kitting Case');

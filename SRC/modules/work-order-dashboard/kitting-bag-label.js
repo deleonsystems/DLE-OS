@@ -282,9 +282,9 @@
       detailMarkup + '</div></div></section>' : '') + '</div></article>';
   }
 
-  function layoutStyles(root, widthMm = BROTHER_SAFE_WIDTH_MM) {
+  function layoutStyles(root, widthMm = BROTHER_SAFE_WIDTH_MM, outerBorderColor = '#000') {
     return root + '{width:' + widthMm + 'mm;height:' + CORE_HEIGHT_MM +
-      'mm;border:.35mm solid #000;display:grid;grid-template-columns:6mm 1fr;overflow:hidden;' +
+      'mm;border:.35mm solid ' + outerBorderColor + ';display:grid;grid-template-columns:6mm 1fr;overflow:hidden;' +
       '--fn-seq-width:8%;' +
       'box-sizing:border-box;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif}' +
       root + ' *{box-sizing:border-box}' +
@@ -355,8 +355,15 @@
       '</body></html>';
   }
 
-  function avery5163Document(draft) {
+  function avery5163Document(draft, navigation = {}) {
     const batch = createAvery5163Batch(draft);
+    const workOrder = draft?.workOrder || draft?.header?.workOrder || '';
+    const returnUrl = String(navigation?.returnUrl || '');
+    const returnAction = returnUrl
+      ? '<a class="print-return" href="' + escapeHtml(returnUrl) + '" ' +
+        'onclick="if(window.opener&&!window.opener.closed){window.opener.focus();window.close();' +
+        'if(window.closed)return false}">&#8592; Back to WO ' + escapeHtml(workOrder) + '</a>'
+      : '';
     const labelWidthMm = AVERY_5163.labelWidthIn * 25.4;
     const sheets = batch.sheets.map((slots, sheetIndex) => '<section class="avery-5163-sheet" data-sheet="' +
       (sheetIndex + 1) + '">' + slots.map((surface, slotIndex) => '<div class="avery-5163-slot' +
@@ -364,21 +371,27 @@
         (surface ? labelMarkup(surface.model, surface.page, 'kitting-bag-label-avery') : '') +
         '</div>').join('') + '</section>').join('');
     return '<!doctype html><html><head><meta charset="utf-8"><title>WO ' +
-      escapeHtml(draft?.workOrder || draft?.header?.workOrder) + ' Bag Labels - Avery 5163</title><style>' +
+      escapeHtml(workOrder) + ' Bag Labels - Avery 5163</title><style>' +
       '@page{size:letter;margin:0}*{box-sizing:border-box}html,body{margin:0;background:#fff;color:#000;' +
       'font-family:Arial,Helvetica,sans-serif}.avery-5163-sheet{position:relative;width:8.5in;height:11in;' +
       'padding:' + AVERY_5163.topMarginIn + 'in 0 0 ' + AVERY_5163.sideMarginIn + 'in;display:grid;' +
       'grid-template-columns:repeat(2,4in);grid-template-rows:repeat(5,2in);column-gap:.19in;row-gap:0;' +
       'break-after:page;page-break-after:always}.avery-5163-sheet:last-of-type{break-after:auto;page-break-after:auto}' +
-      '.avery-5163-slot{width:4in;height:2in;display:flex;align-items:center;justify-content:center;overflow:hidden}' +
-      layoutStyles('.kitting-bag-label-avery', labelWidthMm) +
-      '.print-actions{position:fixed;right:8px;bottom:8px}.print-actions button{min-height:40px;padding:7px 13px;' +
-      'border:2px solid #000;background:#fff;font-weight:700}@media screen{body{background:#d8dde2}' +
-      '.avery-5163-sheet{margin:12px auto;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.25)}' +
-      '.avery-5163-slot{outline:1px dashed rgba(40,70,90,.22)}}@media print{.print-actions{display:none}' +
+      '.avery-5163-slot{width:4in;height:2in;display:flex;align-items:center;justify-content:center;overflow:hidden;outline:0}' +
+      layoutStyles('.kitting-bag-label-avery', labelWidthMm, 'transparent') +
+      '.print-toolbar{position:sticky;z-index:10;top:0;display:flex;align-items:center;gap:12px;min-height:60px;' +
+      'padding:8px 12px;background:#07121f;color:#eef5f8;box-shadow:0 2px 12px rgba(0,0,0,.32)}' +
+      '.print-return,.print-actions button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;' +
+      'padding:8px 13px;border:1px solid #5f87a8;border-radius:7px;background:#102b40;color:#eef5f8;' +
+      'font:700 14px Arial,Helvetica,sans-serif;text-decoration:none}.print-toolbar strong{flex:1;font-size:15px}' +
+      '.print-actions{margin-left:auto}.print-actions button{border-color:#71d7a8;background:#123b3a;cursor:pointer}' +
+      '@media screen{body{background:#d8dde2}' +
+      '.avery-5163-sheet{margin:12px auto;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.25)}}' +
+      '@media print{.print-toolbar{display:none!important}' +
       '.avery-5163-slot{outline:0}}' +
-      '</style></head><body>' + sheets +
-      '<div class="print-actions"><button type="button" onclick="window.print()">Print Avery 5163 Sheets</button></div>' +
+      '</style></head><body><header class="print-toolbar">' + returnAction +
+      '<strong>Bag Labels &middot; Batch Print</strong><div class="print-actions">' +
+      '<button type="button" onclick="window.print()">Print Avery 5163 Sheets</button></div></header>' + sheets +
       '</body></html>';
   }
 

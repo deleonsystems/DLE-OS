@@ -7,6 +7,7 @@ const identityUi = fs.readFileSync(
 const server = fs.readFileSync(
   'Tools/DevelopmentRuntime/DleOs.DevelopmentFrontend/Program.cs', 'utf8');
 const workspaceShell = fs.readFileSync('SRC/shell/workspace-shell.js', 'utf8');
+const kittingWorkspace = fs.readFileSync('SRC/workspaces/kitting/kitting-job-workspace.js', 'utf8');
 
 assert.match(identityUi, /data-dle-bootstrap-state="resolving"[\s\S]*display:none!important/,
   'unresolved authorization withholds application children rather than painting privileged chrome');
@@ -37,11 +38,20 @@ const initialize = shell.slice(
   shell.indexOf('function getDleMasterDataConnectionStatusLabel'));
 assert.ok(initialize.indexOf('await window.DleOsAuthorizationReady') < initialize.indexOf('loadSystemCenterModule'),
   'module bootstrap waits for resolved authorization');
-assert.ok(initialize.indexOf('initializeWorkOrderDashboardModule()') <
+assert.ok(initialize.indexOf('initializeWorkOrderDashboardModule() === true') <
   initialize.indexOf('activateInitialWorkspace()'),
-  'default workspace activation occurs after module initialization');
+  'return handoff is offered the destination before default workspace activation');
 assert.ok(initialize.indexOf('window.DleOsBootstrap.complete()') <
   initialize.indexOf('initializeDleMasterDataAutoLoad()'),
   'non-critical master-data reads no longer block revealing an authorized destination');
 
-console.log('Authorization bootstrap contracts: PASS');
+const openKittingJob = kittingWorkspace.slice(
+  kittingWorkspace.indexOf('function open(handoff)'),
+  kittingWorkspace.indexOf('function createReleasedBomReturnPath'));
+assert.ok(openKittingJob.indexOf("setWorkspaceView?.('kitting')") <
+  openKittingJob.indexOf("window.go('kittingJobWorkspace')"),
+  'report return establishes Kitting chrome before opening the selected Job Workspace');
+assert.match(kittingWorkspace, /sessionStorage\.removeItem\(storageKey\)/,
+  'return handoff remains one-time');
+
+console.log('Authorization bootstrap and direct Kitting report-return contracts: PASS');

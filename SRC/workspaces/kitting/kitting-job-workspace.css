@@ -1,0 +1,112 @@
+.kitting-job-workspace { min-height:100%;background:var(--bg);color:var(--text); }
+.kitting-job-shell { width:min(1500px,calc(100% - 32px));margin:12px auto 40px; }
+.kitting-job-header { padding:14px 18px;background:linear-gradient(145deg,rgba(14,27,43,.94),rgba(8,15,25,.92));color:var(--text);border:1px solid var(--border);border-radius:12px 12px 0 0; }
+.kitting-job-heading h2 { margin:2px 0 0;font-size:25px; }
+.kitting-job-heading h2 small { margin-left:10px;color:#c9d7dd;font-size:16px;font-weight:500; }
+.kitting-job-identity-line { display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap; }
+.kitting-job-eyebrow { color:#79b8ff;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase; }
+.kitting-job-status { flex:0 0 auto;border:1px solid rgba(147,197,253,.42);border-radius:999px;background:rgba(37,99,235,.16);color:#bfdbfe;font:850 10px/1 system-ui,sans-serif;letter-spacing:.06em;padding:5px 8px;white-space:nowrap; }
+.kitting-job-status[data-status="KIT_SHORT"] { border-color:rgba(245,158,11,.5);background:rgba(146,90,12,.22);color:#fde68a; }
+.kitting-job-status[data-status="KIT_COMPLETE"] { border-color:rgba(52,211,153,.46);background:rgba(16,106,76,.24);color:#a7f3d0; }
+.kitting-job-status[data-status="KITTING_IN_PROGRESS"] { border-color:rgba(96,165,250,.52);background:rgba(30,91,171,.28);color:#bfdbfe; }
+.kitting-job-context,.kitting-job-state-context,.kitting-job-releases,.kitting-job-actions,.kitting-job-reports { background:var(--panel);border:1px solid var(--border);color:var(--text); }
+.kitting-job-context { padding:12px 18px; }
+.kitting-job-context>dl { display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:10px 20px;margin:0; }
+.kitting-job-context dl div { min-width:0; }
+.kitting-job-context dt { color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.055em;text-transform:uppercase; }
+.kitting-job-context dd { margin:3px 0 0;color:var(--text);font-weight:750;overflow-wrap:anywhere; }
+.kitting-job-state-context { display:flex;align-items:center;gap:10px 24px;padding:7px 18px;border-top:0; }
+.kitting-job-state-context>div { display:flex;align-items:center;gap:7px;min-width:0; }
+.kitting-job-state-context>div>span { color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.065em;text-transform:uppercase;white-space:nowrap; }
+.kitting-job-traceability { color:#dbeafe;font-size:11px;font-weight:850;letter-spacing:.045em;white-space:nowrap; }
+.kitting-job-traceability[data-policy="REQUIRED"] { color:#fde68a; }
+.kitting-job-traceability[data-policy="OPTIONAL"] { color:#a7f3d0; }
+.kitting-job-releases summary { cursor:pointer;font-weight:800; }
+.kitting-job-releases { padding:10px 18px;border-top:0; }
+.kitting-job-releases summary span { display:inline-block;min-width:22px;margin-left:6px;border:1px solid var(--border);border-radius:999px;background:rgba(47,140,255,.14);color:#bfdbfe;padding:2px 7px;text-align:center; }
+.kitting-job-table-wrap { overflow-x: auto; padding-top: 12px; }
+.kitting-job-table-wrap table { width:100%;border-collapse:collapse;color:var(--text); }
+.kitting-job-table-wrap th,.kitting-job-table-wrap td { border-top:1px solid var(--border);padding:8px 10px;text-align:left; }
+.kitting-job-table-wrap th { color:#93c5fd;font-size:11px;letter-spacing:.04em;text-transform:uppercase; }
+.kitting-job-table-wrap td { color:#d8e5ef; }
+.kitting-job-main { display:grid;gap:14px;margin-top:14px;padding:0; }
+.kitting-job-actions,.kitting-job-reports { padding:16px 18px;border-radius:10px; }
+.kitting-job-action-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch; }
+.kitting-job-action-grid>button,.kitting-job-action-slot,.kitting-job-action-slot>.kitting-label-menu { width:100%;min-width:0;margin:0; }
+.kitting-job-action-grid>button,.kitting-job-action-slot .kitting-label-menu summary { min-height:70px;border-radius:9px;text-align:left; }
+.kitting-job-action-slot .kitting-label-menu summary { width:100%;justify-content:space-between;padding:12px 14px;border-color:rgba(139,188,255,.58);background:linear-gradient(145deg,rgba(35,99,171,.34),rgba(14,45,83,.52));color:#f4f8ff;font-size:14px; }
+.kitting-job-action-grid>button span { display:block;margin-top:5px;color:#9ba8b8;font-size:11px;line-height:1.3; }
+.kitting-job-reports-toggle { border-color:rgba(139,188,255,.58);background:linear-gradient(145deg,rgba(35,99,171,.34),rgba(14,45,83,.52));color:#f4f8ff; }
+.kitting-job-reports-toggle strong { display:block; }
+.kitting-job-reports-toggle strong::after { content:'\25BE';float:right;font-size:13px; }
+.kitting-job-reports-toggle[aria-expanded="true"] strong::after { content:'\25B4'; }
+.kitting-job-action-grid>button.is-active,.kitting-job-action-slot .kitting-label-menu.is-active summary { border-color:#71d7a8;background:linear-gradient(145deg,rgba(24,103,90,.5),rgba(12,55,61,.68));box-shadow:0 0 0 2px rgba(113,215,168,.16); }
+.kitting-job-reports { padding:12px 14px; }
+.kitting-job-reports-header { display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:8px; }
+.kitting-job-reports-header h3 { margin:0;font-size:14px; }
+.kitting-job-reports-header button { min-height:32px;margin:0;padding:5px 10px;font-size:11px; }
+.kitting-job-report-menu { display:grid;gap:6px; }
+.kitting-job-report-entry { min-width:0;margin:0;border:1px solid var(--border);border-radius:8px;background:rgba(8,22,34,.42); }
+.kitting-job-released-bom-entry { padding:0; }
+.kitting-job-released-bom-entry #workOrderDashboardReleasedBom { width:100%;min-height:52px;margin:0;border:0;background:transparent;text-align:left; }
+.kitting-job-released-bom-entry #workOrderDashboardReleasedBom span { display:block;margin-top:3px;color:#9ba8b8;font-size:11px;line-height:1.25; }
+.kitting-job-report-disclosure>summary { display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;padding:8px 12px;cursor:pointer;list-style:none; }
+.kitting-job-report-disclosure>summary::-webkit-details-marker { display:none; }
+.kitting-job-report-disclosure>summary strong,.kitting-job-report-disclosure>summary small { display:block; }
+.kitting-job-report-disclosure>summary strong { color:#dbeafe;font-size:13px; }
+.kitting-job-report-disclosure>summary small { margin-top:2px;color:var(--muted);font-size:11px; }
+.kitting-job-report-disclosure>summary>span:last-child { color:#93c5fd;font-size:22px;line-height:1;transition:transform .15s ease; }
+.kitting-job-report-disclosure[open]>summary>span:last-child { transform:rotate(90deg); }
+.kitting-job-report-disclosure[open]>summary { border-bottom:1px solid var(--border); }
+.kitting-job-report-disclosure>.kitting-job-history-content,.kitting-job-development-report-body { padding:10px 12px; }
+.kitting-job-development-report-body { display:grid;gap:10px; }
+.kitting-job-development-report-body section { min-width:0;padding:10px;border:1px solid rgba(92,125,153,.42);border-radius:7px; }
+.kitting-job-development-report-body h4 { margin:0 0 8px;color:#dbeafe;font-size:12px; }
+.kitting-job-report-empty { margin:0;color:var(--muted);font-size:12px; }
+.kitting-job-history-content { margin:0; }
+.kitting-job-report-disclosure .work-order-dashboard-module-kitted-bom { margin:0;padding:10px;border:0;background:transparent; }
+.kitting-job-development-reports [data-work-order-dashboard-section="kitting-workspace"] { margin:0; }
+.kitting-job-workspace.is-focused-kitting .kitting-job-header,
+.kitting-job-workspace.is-focused-kitting .kitting-job-context,
+.kitting-job-workspace.is-focused-kitting .kitting-job-state-context,
+.kitting-job-workspace.is-focused-kitting .kitting-job-releases,
+.kitting-job-workspace.is-focused-kitting .kitting-job-actions,
+.kitting-job-workspace.is-focused-kitting .kitting-job-reports { display:none; }
+.kitting-job-workspace.is-focused-kitting .kitting-job-shell { margin-top:0; }
+.kitting-job-workspace.is-focused-kitting .kitting-job-main { gap:0;margin-top:0; }
+.kitting-job-workspace.is-focused-kitting .active-kitting-trial { padding:0 14px 14px; }
+.kitting-job-workspace.is-focused-kitting .active-kitting-sticky-context { position:sticky;top:var(--kitting-focused-sticky-top,0px);z-index:20;margin:0 -14px 10px;padding:10px 14px 8px;border-bottom:1px solid rgba(111,200,177,.32);border-radius:13px 13px 0 0;background:rgba(4,14,20,.97);box-shadow:0 8px 18px rgba(0,0,0,.24); }
+.kitting-job-workspace.is-focused-kitting .active-kitting-trial-header { align-items:center; }
+.kitting-job-workspace.is-focused-kitting .active-kitting-trial-header h3 { margin:1px 0;font-size:16px; }
+.kitting-job-workspace.is-focused-kitting .active-kitting-trial-description { display:none; }
+.active-kitting-focused-identity { display:none; }
+.kitting-job-workspace.is-focused-kitting .active-kitting-focused-identity { display:block;margin:3px 0 0;color:#cfe2e0;font-size:11px;font-weight:700;line-height:1.35; }
+.kitting-job-workspace.is-focused-kitting .active-kitting-trial-status { margin:6px 0 0;padding:5px 8px;font-size:11px; }
+.kitting-job-workspace.is-focused-kitting .active-kitting-trial-context { display:none; }
+.kitting-job-workspace.is-focused-kitting .active-kitting-trial-table-wrap { max-height:none;min-height:0;overflow-x:auto;overflow-y:hidden; }
+.kitting-navigation-guard { width:min(520px,calc(100% - 28px));max-width:none;margin:auto;padding:0;border:1px solid rgba(147,197,253,.42);border-radius:16px;background:#0b1b2b;color:#f4f8ff;box-shadow:0 28px 80px rgba(0,0,0,.58); }
+.kitting-navigation-guard::backdrop { background:rgba(2,8,16,.72);backdrop-filter:blur(3px); }
+.kitting-navigation-guard-panel { padding:24px; }
+.kitting-navigation-guard h2 { margin:0;font-size:24px;line-height:1.15; }
+.kitting-navigation-guard p { margin:9px 0 0;color:#b9cad9;font-size:15px; }
+.kitting-navigation-guard-error { padding:9px 11px;border:1px solid rgba(248,113,113,.42);border-radius:8px;background:rgba(127,29,29,.24);color:#fecaca!important; }
+.kitting-navigation-guard-actions { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px; }
+.kitting-navigation-guard-actions button { min-height:50px;margin:0;padding:10px 14px;border:1px solid rgba(148,163,184,.46);border-radius:9px;background:rgba(30,41,59,.84);color:#f8fafc;font-size:14px;font-weight:800;touch-action:manipulation; }
+.kitting-navigation-guard-actions button.primary { grid-column:1/-1;border-color:#6ec4f5;background:linear-gradient(180deg,#2588c6,#176da7); }
+.kitting-navigation-guard-actions button.leave { border-color:rgba(245,158,11,.55);color:#fde7b0; }
+.kitting-navigation-guard-actions button:focus-visible { outline:3px solid #a8ddff;outline-offset:2px; }
+.kitting-navigation-guard-actions button:disabled { opacity:.58;cursor:wait; }
+@media (max-width: 800px) {
+  .kitting-job-shell { width: min(100% - 16px, 1500px); }
+  .kitting-job-heading h2 small { display: block; margin: 4px 0 0; }
+  .kitting-job-context > dl { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+  .kitting-job-state-context { flex-wrap:wrap;gap:7px 18px; }
+  .kitting-job-action-grid { grid-template-columns:1fr; }
+  .kitting-job-workspace.is-focused-kitting .kitting-job-shell { width:calc(100% - 8px); }
+  .kitting-job-workspace.is-focused-kitting .active-kitting-trial { padding:0 8px 8px; }
+  .kitting-job-workspace.is-focused-kitting .active-kitting-sticky-context { margin-inline:-8px;padding-inline:8px; }
+  .kitting-job-workspace.is-focused-kitting .active-kitting-header-actions { width:100%;justify-content:flex-start; }
+  .kitting-navigation-guard-panel { padding:20px; }
+  .kitting-navigation-guard-actions { grid-template-columns:1fr; }
+  .kitting-navigation-guard-actions button.primary { grid-column:auto; }
+}

@@ -25,7 +25,7 @@ public static class DevelopmentCompatibilityProxy
             "canonical-read", new Uri(runtime.CanonicalApiBaseUrl), [HttpMethods.Get], null);
         var operational = new ProxyBoundary(
             "operational-write", new Uri(runtime.OperationalApiBaseUrl),
-            [HttpMethods.Get, HttpMethods.Post], TrustedIdentityContract.OperationalAudience);
+            [HttpMethods.Get, HttpMethods.Post, HttpMethods.Put], TrustedIdentityContract.OperationalAudience);
         var customerFiles = new ProxyBoundary(
             "customer-files-control", new Uri(runtime.CustomerFilesApiBaseUrl),
             [HttpMethods.Get, HttpMethods.Post], null);
@@ -38,6 +38,7 @@ public static class DevelopmentCompatibilityProxy
         MapOperational(app, runtime, operational, "/api/work-order-approvals/{**path}");
         MapOperational(app, runtime, operational, "/api/operational-work-order-relationships/{**path}");
         MapOperational(app, runtime, operational, "/api/kitting-dispositions/{**path}");
+        MapOperational(app, runtime, operational, "/api/kitting-cases/{**path}");
         MapOperational(app, runtime, operational, "/api/rma-rework/{**path}");
         MapOperational(app, runtime, operational, "/api/shipment-staging/{**path}");
         MapOperational(app, runtime, operational, "/api/sync/operations");
@@ -53,7 +54,7 @@ public static class DevelopmentCompatibilityProxy
 
     private static void MapOperational(WebApplication app, DleOsRuntimeConfiguration runtime,
         ProxyBoundary operational, string pattern) =>
-        app.MapMethods(pattern, [HttpMethods.Get, HttpMethods.Post],
+        app.MapMethods(pattern, [HttpMethods.Get, HttpMethods.Post, HttpMethods.Put],
             (HttpContext context, ICurrentUserContext users, IIdentityAssertionIssuer assertions,
                 IHttpClientFactory clients,
                 ILoggerFactory logs, CancellationToken token) =>
@@ -210,6 +211,8 @@ public static class DevelopmentCompatibilityProxy
             path.StartsWith("/api/operational-work-order-relationships/", StringComparison.OrdinalIgnoreCase))
             return write ? "work_orders.approve" : "work_orders.view";
         if (path.StartsWith("/api/kitting-dispositions/", StringComparison.OrdinalIgnoreCase))
+            return write ? "kitting.disposition" : "kitting.view";
+        if (path.StartsWith("/api/kitting-cases/", StringComparison.OrdinalIgnoreCase))
             return write ? "kitting.disposition" : "kitting.view";
         if (path.StartsWith("/api/rma-rework/", StringComparison.OrdinalIgnoreCase))
             return write ? "rma_rework.manage" : "rma_rework.view";

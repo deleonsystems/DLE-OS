@@ -53,10 +53,9 @@ public static class SharedDeviceSessionUi
       }catch{resolve();}
     });
   }
-  form.addEventListener('submit',async event=>{
-    event.preventDefault();
+  async function continueSignOut(){
     button.disabled=true;
-    const veil=document.createElement('div');veil.id='dle-signout-veil';veil.textContent='Returning to DLE-OS sign inâ€¦';
+    const veil=document.createElement('div');veil.id='dle-signout-veil';veil.textContent='Returning to DLE-OS sign in...';
     document.body.append(veil);
     try{sessionStorage.clear();}catch{}
     try{Object.keys(localStorage).filter(key=>key.startsWith('DLE_OS_')).forEach(key=>localStorage.removeItem(key));}catch{}
@@ -64,6 +63,11 @@ public static class SharedDeviceSessionUi
     try{if(window.caches){const keys=await caches.keys();await Promise.all(keys.map(key=>caches.delete(key)));}}catch{}
     try{if(window.indexedDB){await Promise.all([forgetDatabase('DLE_OS_FILE_HANDLES'),forgetDatabase('DLE_OS_SHIPMENT_STAGING_HANDLES')]);}}catch{}
     form.submit();
+  }
+  form.addEventListener('submit',event=>{
+    event.preventDefault();
+    if(window.DleOsKittingNavigationGuard?.request?.(continueSignOut))return;
+    void continueSignOut();
   });
 })();
 </script>

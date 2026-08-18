@@ -4661,6 +4661,7 @@ body {
   <link rel="stylesheet" href="SRC/modules/rfq-workspace/rfq-workspace.css" />
   <link rel="stylesheet" href="SRC/modules/canonical-data-viewer/canonical-data-viewer.css?v=20260729-02" />
   <link rel="stylesheet" href="SRC/workspaces/kitting/kitting-workspace.css" />
+  <link rel="stylesheet" href="SRC/workspaces/kitting/kitting-job-workspace.css" />
   <link rel="stylesheet" href="SRC/shell/operator-header.css" />
   <link rel="stylesheet" href="SRC/home/work-area-home.css" />
   <link rel="stylesheet" href="SRC/workbenches/kitting/kitting-workbench.css" />
@@ -5371,6 +5372,7 @@ BOM Viewer</h2>
    480 - HTML: WORK ORDER DASHBOARD MODULE
 ===================================================== -->
 
+<section id="kittingJobWorkspace" class="screen" data-module-placeholder="kitting-job-workspace"></section>
 <section id="workOrderDashboardModule" class="screen" data-module-placeholder="work-order-dashboard"></section>
 
 <!-- =====================================================
@@ -6710,6 +6712,7 @@ BOM Viewer</h2>
   <script src="SRC/modules/work-order-dashboard/accepted-material-label.js"></script>
   <script src="SRC/modules/work-order-dashboard/kitting-bag-label.js"></script>
   <script src="SRC/modules/work-order-dashboard/active-kitting-trial.js"></script>
+  <script src="SRC/workspaces/kitting/kitting-job-workspace.js"></script>
   <script src="SRC/modules/work-order-dashboard/work-order-dashboard.js"></script>
   <script src="SRC/modules/shipment-staging/shipment-staging-service.js?v=20260721-03"></script>
   <script src="SRC/modules/shipment-staging/shipment-staging.js"></script>
@@ -6784,6 +6787,9 @@ BOM Viewer</h2>
       if (id === 'workOrderDashboardModule') {
         renderWorkOrderDashboardModule();
       }
+      if (id === 'kittingJobWorkspace') {
+        renderWorkOrderDashboardModule();
+      }
       if (id === 'home') {
         updateWorkspaceHomeView();
       }
@@ -6792,19 +6798,27 @@ BOM Viewer</h2>
     }
 
     function goBack() {
-      const previousScreen = screenHistory.pop();
-      if (!previousScreen) return;
-      go(previousScreen, false);
+      const navigate = () => {
+        const previousScreen = screenHistory.pop();
+        if (!previousScreen) return;
+        go(previousScreen, false);
+      };
+      if (window.DleOsKittingNavigationGuard?.request?.(navigate)) return;
+      navigate();
     }
 
     function goHome() {
-      screenHistory = [];
-      window.DleWorkbenchShell?.close?.();
-      setWorkspaceView('dle-home');
-      go('home', false);
-      window.DleWorkAreaHome?.render?.();
-      window.scrollTo({ top: 0, behavior: 'auto' });
-      updateBackButton();
+      const navigate = () => {
+        screenHistory = [];
+        window.DleWorkbenchShell?.close?.();
+        setWorkspaceView('dle-home');
+        go('home', false);
+        window.DleWorkAreaHome?.render?.();
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        updateBackButton();
+      };
+      if (window.DleOsKittingNavigationGuard?.request?.(navigate)) return;
+      navigate();
     }
 
     function updateBackButton() {
@@ -19483,6 +19497,7 @@ async function initializeDleWorkCenter() {
     typeof loadShipmentStagingModule === 'function' ? loadShipmentStagingModule() : null,
     typeof loadShipmentHistoryModule === 'function' ? loadShipmentHistoryModule() : null,
     typeof loadSalesOrderDashboardModule === 'function' ? loadSalesOrderDashboardModule() : null,
+    typeof loadKittingJobWorkspace === 'function' ? loadKittingJobWorkspace() : null,
     typeof loadWorkOrderDashboardModule === 'function' ? loadWorkOrderDashboardModule() : null
   ]);
   configureDocumentProcessingLibraries();
@@ -19502,10 +19517,15 @@ async function initializeDleWorkCenter() {
   if (typeof initializeSalesOrderDashboard === 'function') {
     initializeSalesOrderDashboard();
   }
-  if (typeof initializeWorkOrderDashboardModule === 'function') {
-    initializeWorkOrderDashboardModule();
+  if (typeof initializeKittingJobWorkspace === 'function') {
+    initializeKittingJobWorkspace();
   }
-  window.DleWorkspaceShell.activateInitialWorkspace();
+  const restoredReleasedBomReturn = typeof initializeWorkOrderDashboardModule === 'function'
+    ? initializeWorkOrderDashboardModule() === true
+    : false;
+  if (!restoredReleasedBomReturn) {
+    window.DleWorkspaceShell.activateInitialWorkspace();
+  }
   window.DleOsBootstrap.complete();
   await initializeDleMasterDataAutoLoad();
   initDocumentIntake();

@@ -59,9 +59,10 @@ const governedHandoff = preferredDashboardView => ({
   relatedRows: []
 });
 
-const kittingHandoff = governedHandoff('kitting');
+const kittingHandoff = { ...governedHandoff('kitting'), preferredPresentation: 'kitting-job' };
 dashboard.setSelectedWorkOrder(kittingHandoff);
 assert.equal(dashboard.getCurrentView(), 'kitting');
+assert.equal(dashboard.getPresentationMode(), 'kitting-job');
 assert.equal(dashboard.getSelectedHandoff().workOrderNumber, '0115619');
 assert.equal(dashboard.getSelectedHandoff().canonicalSalesOrderNumber, '0012097');
 assert.equal(dashboard.getSelectedHandoff().canonicalAnchorLine, '010');
@@ -80,6 +81,7 @@ salesHandoff.sourceWorkspaceId = 'sales-order-dashboard';
 salesHandoff.returnWorkspaceId = 'sales-order-dashboard';
 dashboard.setSelectedWorkOrder(salesHandoff);
 assert.equal(dashboard.getCurrentView(), 'standard');
+assert.equal(dashboard.getPresentationMode(), 'dashboard');
 assert.equal(dashboard.getSelectedHandoff().workOrderNumber, '0115619');
 
 const missingPreference = governedHandoff(undefined);
@@ -97,6 +99,7 @@ assert.deepEqual(workspaceSelections, ['kitting']);
 
 assert.deepEqual(Array.from(dashboard.supportedViews), ['standard', 'kitting', 'production']);
 assert.match(kittingSource, /preferredDashboardView:\s*"kitting"/);
+assert.match(kittingSource, /preferredPresentation:\s*"kitting-job"/);
 assert.match(salesOrderSource, /preferredDashboardView:\s*'standard'/);
 assert.match(kittingSource, /if \(!row\?\.actionable \|\| !row\.workOrderNumber \|\| !row\.canonicalWorkOrder\) return false/);
 

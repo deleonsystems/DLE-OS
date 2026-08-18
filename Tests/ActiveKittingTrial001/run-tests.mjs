@@ -126,10 +126,10 @@ for (const method of [trial.METHODS.COMPLETE, trial.METHODS.COMPLETE_MIN_EXTRA])
   assert.equal(trial.submitGroup(line220Draft, line220.sequence, true), null,
     'WO 0115621 line 220 cannot commit Complete with blank required P.O.');
   trial.setPurchaseOrder(line220Draft, line220.sequence, 'PO-115621-220');
-  assert.deepEqual(trial.getRequiredPoTraceabilityBlockers(line220Draft, true, {
+  assert.deepEqual(plain(trial.getRequiredPoTraceabilityBlockers(line220Draft, true, {
     includeEditingComplete: true,
     sequence: line220.sequence
-  }), [], 'WO 0115621 line 220 valid P.O. clears the close/save blocker');
+  })), [], 'WO 0115621 line 220 valid P.O. clears the close/save blocker');
   assert.equal(trial.submitGroup(line220Draft, line220.sequence, true), line220,
     'WO 0115621 line 220 Complete with valid P.O. submits normally');
 }
@@ -140,10 +140,10 @@ for (const method of [trial.METHODS.COMPLETE, trial.METHODS.COMPLETE_MIN_EXTRA])
   if (!optionalRow.entry.selectedPartNumber) {
     trial.setSelectedPart(optionalDraft, optionalRow.sequence, optionalRow.eligibleParts[0]);
   }
-  assert.deepEqual(trial.getRequiredPoTraceabilityBlockers(optionalDraft, false, {
+  assert.deepEqual(plain(trial.getRequiredPoTraceabilityBlockers(optionalDraft, false, {
     includeEditingComplete: true,
     sequence: optionalRow.sequence
-  }), [], 'non-P.O.-required rows keep the existing optional workflow');
+  })), [], 'non-P.O.-required rows keep the existing optional workflow');
 }
 
 const dnp = draft.groups.find(group => group.classification === 'DNP');

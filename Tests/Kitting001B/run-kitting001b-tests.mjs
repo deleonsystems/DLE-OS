@@ -120,7 +120,7 @@ assert.doesNotMatch(workspaceSource, /isKitShortStatus|isKitCompleteStatus|\.pdf
 assert.doesNotMatch(workspaceSource, /DleWorkbenchShell|temporaryKitting/i,
   'the governed queue must not open or depend on the placeholder Kitting Workbench');
 assert.doesNotMatch(workspaceHtml, /contenteditable|Date Kit Status Submitted|Kit Shortage PDF placeholder|Load DLE Master Data/i);
-assert.match(workspaceSource, /WorkOrderDashboardModule\.setSelectedWorkOrder\(handoff\)/);
+assert.match(workspaceSource, /KittingJobWorkspace\.open\(handoff\)/);
 assert.match(workspaceSource, /if \(!row\?\.actionable \|\| !row\.workOrderNumber/);
 assert.match(workspaceSource, /sourceWorkspaceId: WORKSPACE_ID/);
 assert.match(workspaceSource, /loadCanonicalRows[\s\S]*requestScope:\s*["']kitting["']/,

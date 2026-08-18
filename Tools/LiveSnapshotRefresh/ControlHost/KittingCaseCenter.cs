@@ -49,6 +49,10 @@ internal static class KittingCaseCenter
                 HttpContext context, CancellationToken token) =>
             await Execute(() => service.SaveDraftAsync(workOrderNumber, request,
                 TrustedDevelopmentIdentity.RequireActorName(context), true, token))).RequireAuthorization(policy);
+        app.MapPost(Route + "/abandon", async (string workOrderNumber, KittingEditableRequest request,
+                HttpContext context, CancellationToken token) =>
+            await Execute(() => service.AbandonEditingAsync(workOrderNumber, request,
+                TrustedDevelopmentIdentity.RequireActorName(context), token))).RequireAuthorization(policy);
         app.MapPost(Route + "/submit", async (string workOrderNumber, SaveKittingDraftRequest request,
                 HttpContext context, CancellationToken token) =>
             await Execute(() => service.SubmitAsync(workOrderNumber, request,
@@ -589,6 +593,29 @@ UPDATE operational.KittingCase SET DraftJson=@Draft,ActionableCount=@Actionable,
         await command.ExecuteNonQueryAsync(token);
         await AppendEventAsync(connection,transaction,current.CaseId,release?"SAVE_EXIT":"AUTOSAVED",actor,next,
             JsonSerializer.Serialize(new { validation.CompletedCount,validation.ActionableCount }),token);
+        await transaction.CommitAsync(token);
+        return await GetRequiredAsync(workOrder,token);
+    }
+
+    internal async Task<object> AbandonEditingAsync(string workOrderValue, KittingEditableRequest request,
+        string actor, CancellationToken token)
+    {
+        var workOrder=NormalizeWorkOrder(workOrderValue);RequireActor(actor);var now=DateTime.UtcNow;
+        await using var connection=new SqlConnection(connectionString);await connection.OpenAsync(token);
+        await using var transaction=(SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.Serializable,token);
+        var current=await ReadCaseAsync(connection,transaction,workOrder,true,token)??
+            throw KittingCaseProblem.NotFound("kitting_case_not_found","No Kitting Case exists for this Work Order.");
+        RequireEditable(current,request,actor,now);
+        var next=current.WorkingVersion+1;
+        var command=new SqlCommand("""
+UPDATE operational.KittingCase SET EditingSessionId=NULL,EditingOwner=NULL,
+ EditingAcquiredAtUtc=NULL,EditingExpiresAtUtc=NULL,WorkingVersion=@Version,UpdatedAtUtc=@Now
+WHERE CaseId=@CaseId;
+""",connection,transaction);
+        Add(command,"@Version",next);Add(command,"@Now",now);Add(command,"@CaseId",current.CaseId);
+        await command.ExecuteNonQueryAsync(token);
+        await AppendEventAsync(connection,transaction,current.CaseId,"EDITING_ABANDONED",actor,next,
+            JsonSerializer.Serialize(new { draftSaved=false }),token);
         await transaction.CommitAsync(token);
         return await GetRequiredAsync(workOrder,token);
     }

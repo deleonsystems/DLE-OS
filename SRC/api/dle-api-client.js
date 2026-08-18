@@ -1314,6 +1314,10 @@
       requireDevelopmentCapability('kitting.disposition');
       return requestKittingCase(workOrderNumber, '/save-exit', { ...options, method: 'POST', body: request });
     },
+    abandonKittingCase(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/abandon', { ...options, method: 'POST', body: request });
+    },
     submitKittingCase(workOrderNumber, request, options = {}) {
       requireDevelopmentCapability('kitting.disposition');
       return requestKittingCase(workOrderNumber, '/submit', { ...options, method: 'POST', body: request });

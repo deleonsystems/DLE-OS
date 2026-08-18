@@ -211,16 +211,23 @@
     try {
       const canonicalRows = await loadCanonicalSalesOrderRows();
       const lines = canonicalRows.map(buildReadModelLine);
-      const rmaReworkByLineKey = await loadActiveRmaReworkMemberships();
-      const approvalsByLineKey = await loadApprovalReviews(lines);
+      const hasEmbeddedProjections = lines.every(hasEmbeddedGovernedProjections);
+      const rmaReworkByLineKey = hasEmbeddedProjections
+        ? buildEmbeddedRmaReworkMemberships(lines)
+        : await loadActiveRmaReworkMemberships();
+      const approvalsByLineKey = hasEmbeddedProjections
+        ? buildEmbeddedApprovalReviews(lines)
+        : await loadApprovalReviews(lines);
       const workOrderNumbers = window.KittingReadModel.collectActionableWorkOrderNumbers(
         lines, approvalsByLineKey, rmaReworkByLineKey
       );
-      const workOrdersByNumber = await loadCanonicalWorkOrders(workOrderNumbers);
+      const [workOrdersByNumber, materialStatusesByWorkOrder] = await Promise.all([
+        loadCanonicalWorkOrders(workOrderNumbers),
+        hasEmbeddedProjections && !forceMaterialStatus
+          ? Promise.resolve(buildEmbeddedMaterialStatuses(lines, workOrderNumbers))
+          : loadMaterialStatuses(workOrderNumbers, { force: forceMaterialStatus })
+      ]);
       const documentsByWorkOrder = buildDocumentEvidence(workOrderNumbers);
-      const materialStatusesByWorkOrder = await loadMaterialStatuses(workOrderNumbers, {
-        force: forceMaterialStatus
-      });
 
       workspaceState.canonicalRows = canonicalRows;
       workspaceState.model = window.KittingReadModel.buildReadModel({
@@ -290,8 +297,44 @@
       shipmentOperationalStatus: shipmentProjection?.operationalStatus || "",
       dueDate: cleanText(record?.estimatedShipDate || record?.vpro5?.dueDate),
       relationship: record?.workOrderRelationship || {},
+      rmaReworkMembership: record?.rmaReworkMembership || null,
+      workOrderApprovalReview: record?.workOrderApprovalReview || null,
+      materialStatus: record?.materialStatus || null,
+      materialStatusWorkOrderNumber: cleanText(record?.materialStatusWorkOrderNumber),
       sourceRecord: record
     };
+  }
+
+  function hasEmbeddedGovernedProjections(line) {
+    const record = line?.sourceRecord;
+    return Boolean(record) &&
+      Object.prototype.hasOwnProperty.call(record, "rmaReworkMembership") &&
+      Object.prototype.hasOwnProperty.call(record, "workOrderApprovalReview") &&
+      Object.prototype.hasOwnProperty.call(record, "materialStatus") &&
+      Object.prototype.hasOwnProperty.call(record, "materialStatusWorkOrderNumber");
+  }
+
+  function buildEmbeddedRmaReworkMemberships(lines) {
+    return new Map(lines
+      .filter(line => line.rmaReworkMembership)
+      .map(line => [line.lineKey, line.rmaReworkMembership]));
+  }
+
+  function buildEmbeddedApprovalReviews(lines) {
+    workspaceState.approvalWarnings = 0;
+    return new Map(lines.map(line => [line.lineKey, line.workOrderApprovalReview || {}]));
+  }
+
+  function buildEmbeddedMaterialStatuses(lines, workOrderNumbers) {
+    const actionable = new Set(workOrderNumbers);
+    const statuses = new Map();
+    lines.forEach(line => {
+      const workOrderNumber = normalizeWorkOrderNumber(line.materialStatusWorkOrderNumber);
+      if (workOrderNumber && actionable.has(workOrderNumber)) {
+        statuses.set(workOrderNumber, line.materialStatus || null);
+      }
+    });
+    return statuses;
   }
 
   async function loadApprovalReviews(lines) {
@@ -569,12 +612,23 @@
     });
   }
 
+  function formatQueueDueDate(value) {
+    const text = cleanText(value);
+    if (!text) return "N/A";
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+    if (!match) return text;
+    const parsed = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    const isValid = parsed.getUTCFullYear() === Number(match[1]) &&
+      parsed.getUTCMonth() === Number(match[2]) - 1 && parsed.getUTCDate() === Number(match[3]);
+    return isValid ? `${match[2]}/${match[3]}/${match[1]}` : text;
+  }
+
   function renderCompactQueueRow(row) {
     const customer = [row.customerNumber, row.customerName].filter(Boolean).join(" \u00b7 ") || "Customer N/A";
     const revision = row.revision ? "Rev " + row.revision : "Rev N/A";
     const quantity = row.canonicalWorkOrderQuantity === null
       ? "N/A" : formatQuantity(row.canonicalWorkOrderQuantity);
-    const dueDate = row.earliestDueDate || "N/A";
+    const dueDate = formatQueueDueDate(row.earliestDueDate);
     return [
       '<button type="button" class="kitting-compact-row" data-kitting-queue-key="',
       escapeHtml(row.queueKey), '" onclick="openKittingWorkOrder(event)">',
@@ -727,13 +781,11 @@
     if (!row?.actionable || !row.workOrderNumber || !row.canonicalWorkOrder) return false;
     const originLine = row.relatedLines.find(line => Number(line.operationalQuantityOpen) > 0) || row.relatedLines[0];
     const handoff = buildGovernedHandoff(row, originLine);
-    if (typeof window.WorkOrderDashboardModule?.setSelectedWorkOrder !== "function" || typeof window.go !== "function") {
-      setStatus("Work Order Dashboard navigation is unavailable", "error");
+    if (typeof window.KittingJobWorkspace?.open !== "function") {
+      setStatus("Kitting Job Workspace navigation is unavailable", "error");
       return false;
     }
-    window.WorkOrderDashboardModule.setSelectedWorkOrder(handoff);
-    window.go("workOrderDashboardModule");
-    return true;
+    return window.KittingJobWorkspace.open(handoff);
   }
 
   function buildGovernedHandoff(row, originLine) {
@@ -754,6 +806,10 @@
       originCustomerName: originLine.customerName,
       originSalesOrderNumber: originLine.salesOrderNumber,
       originSalesOrderLine: originLine.salesOrderLineNumber,
+      originCustomerPurchaseOrderNumber: cleanText(
+        originLine.customerPurchaseOrderNumber || originLine.sourceRecord?.customerPurchaseOrderNumber ||
+        originLine.sourceRecord?.customerPo || originLine.sourceRecord?.purchaseOrderNumber
+      ),
       originItemNumber: originLine.itemNumber,
       originQuantity: originLine.operationalQuantityOpen,
       originDueDate: originLine.dueDate,
@@ -763,6 +819,7 @@
       materialStatus: row.materialStatusProjection,
       operationalRelationship: originLine.operationalRelationship || null,
       preferredDashboardView: "kitting",
+      preferredPresentation: "kitting-job",
       sourceWorkspaceId: WORKSPACE_ID,
       returnWorkspaceId: WORKSPACE_ID
     };

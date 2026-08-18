@@ -1232,10 +1232,80 @@
 .work-order-dashboard-kitting-case-summary[hidden] { display: none; }
 .work-order-dashboard-kitting-case-summary strong { color: #71d7a8; }
 .work-order-dashboard-kitting-case-summary span { color: #b8c9cc; font-size: 12px; }
-.work-order-dashboard-kitting-case-summary .kitting-print-all-labels {
+.kitting-label-menu {
+  position: relative;
   width: fit-content;
-  min-height: 40px;
   margin: 4px 0 0;
+}
+.kitting-label-menu summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 13px;
+  border: 1px solid rgba(130, 170, 210, .36);
+  border-radius: 8px;
+  background: rgba(18, 46, 65, .88);
+  color: #edf5f4;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 750;
+  list-style: none;
+  user-select: none;
+}
+.kitting-label-menu summary::-webkit-details-marker { display: none; }
+.kitting-label-menu[open] summary,
+.kitting-label-menu summary:focus-visible {
+  border-color: #71d7a8;
+  outline: 2px solid rgba(113, 215, 168, .24);
+  outline-offset: 2px;
+}
+.kitting-label-menu-options {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  width: max-content;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid rgba(130, 170, 210, .3);
+  border-radius: 10px;
+  background: #0b1725;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .42);
+}
+.kitting-label-menu-options button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #edf5f4;
+  text-align: left;
+}
+.kitting-label-menu-options button:not(:disabled) { cursor: pointer; }
+.kitting-label-menu-options button:not(:disabled):hover,
+.kitting-label-menu-options button:not(:disabled):focus-visible {
+  background: rgba(76, 138, 183, .25);
+  outline: none;
+}
+.kitting-label-menu-options button:disabled {
+  color: #83909e;
+  cursor: not-allowed;
+}
+.kitting-label-menu-options small {
+  color: #6f7c89;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
 }
 .work-order-dashboard-kitting-submissions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
 .work-order-dashboard-kitting-submissions strong { flex-basis: 100%; font-size: 12px; }

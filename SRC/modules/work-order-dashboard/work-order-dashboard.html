@@ -144,23 +144,26 @@
     </section>
 
     <section id="workOrderDashboardActiveKitting" class="active-kitting-trial" aria-label="Kit Released BOM" hidden>
-      <header class="active-kitting-trial-header">
-        <div>
-          <span class="active-kitting-trial-eyebrow">Governed Kitting Case</span>
-          <h3>Kit Released BOM</h3>
-          <p>Persistent requirement and allocation evidence against the unchanged released BOM.</p>
-        </div>
-        <div class="active-kitting-header-actions">
-          <label class="active-kitting-traceability-control">P.O. Traceability
-            <select id="activeKittingPoTraceability" onchange="setWorkOrderDashboardKittingPoTraceability(this.value)">
-              <option value="required">REQUIRED</option>
-              <option value="optional">OPTIONAL</option>
-            </select>
-          </label>
-          <button id="activeKittingSaveExit" type="button" onclick="saveAndExitWorkOrderDashboardKitting()">Save &amp; Exit</button>
-        </div>
-      </header>
-      <div id="activeKittingTrialStatus" class="active-kitting-trial-status" role="status" aria-live="polite">Ready to load.</div>
+      <div class="active-kitting-sticky-context">
+        <header class="active-kitting-trial-header">
+          <div>
+            <span class="active-kitting-trial-eyebrow">Governed Kitting Case</span>
+            <h3>Kit Released BOM</h3>
+            <p class="active-kitting-trial-description">Persistent requirement and allocation evidence against the unchanged released BOM.</p>
+            <p id="activeKittingFocusedIdentity" class="active-kitting-focused-identity">Preparing focused Kitting context...</p>
+          </div>
+          <div class="active-kitting-header-actions">
+            <label class="active-kitting-traceability-control">P.O. Traceability
+              <select id="activeKittingPoTraceability" onchange="setWorkOrderDashboardKittingPoTraceability(this.value)">
+                <option value="required">REQUIRED</option>
+                <option value="optional">OPTIONAL</option>
+              </select>
+            </label>
+            <button id="activeKittingSaveExit" type="button" onclick="saveAndExitWorkOrderDashboardKitting()">Save &amp; Exit</button>
+          </div>
+        </header>
+        <div id="activeKittingTrialStatus" class="active-kitting-trial-status" role="status" aria-live="polite">Ready to load.</div>
+      </div>
       <div id="activeKittingTrialBody"></div>
     </section>
 
