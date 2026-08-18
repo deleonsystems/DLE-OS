@@ -4,6 +4,7 @@
   "environmentLabel": "DEVELOPMENT - ISOLATED OPERATIONAL DATA",
   "applicationOrigin": "https://dev.dle-os.internal.dlemfg.com",
   "oidcClientId": "dle-os-development-bff",
+  "authenticationStateRoot": "C:\\ProgramData\\DLE-OS\\DevelopmentFrontend\\AuthState",
   "canonicalApiBaseUrl": "http://DLE-OS-HOST:5052",
   "operationalApiBaseUrl": "http://DLE-OS-HOST:5054",
   "customerFilesApiBaseUrl": "http://DLE-OS-HOST:5053",

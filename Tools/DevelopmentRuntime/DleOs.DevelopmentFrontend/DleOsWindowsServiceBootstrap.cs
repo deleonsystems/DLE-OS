@@ -14,6 +14,7 @@ internal sealed class DleOsWindowsServiceConfiguration
     public string EnvironmentLabel { get; init; } = "";
     public string ApplicationOrigin { get; init; } = "";
     public string OidcClientId { get; init; } = "";
+    public string AuthenticationStateRoot { get; init; } = "";
     public string CanonicalApiBaseUrl { get; init; } = "";
     public string OperationalApiBaseUrl { get; init; } = "";
     public string CustomerFilesApiBaseUrl { get; init; } = "";
@@ -31,6 +32,7 @@ internal static class DleOsWindowsServiceBootstrap
 {
     internal const string ServiceName = "DleOsDevelopmentFrontend";
     internal const string ServiceIdentity = @"DLE-OS-HOST\DLE-OS-DEV-FRONTEND";
+    internal const string AuthenticationStateRoot = @"C:\ProgramData\DLE-OS\DevelopmentFrontend\AuthState";
     private const string KittingShortageRoot = @"\\deleon-server\Production\KITTING\KIT-SHORTAGES";
     private const string KittingCompleteRoot = @"\\deleon-server\Production\KITTING\KIT-COMPLETE";
     private const string ServiceSwitch = "--dle-os-windows-service";
@@ -67,6 +69,9 @@ internal static class DleOsWindowsServiceBootstrap
         if (!configuration.Environment.Equals("Development", StringComparison.Ordinal) ||
             !configuration.RequiredRuntimeIdentity.Equals(ServiceIdentity, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The Windows Service configuration is not the isolated DEV identity boundary.");
+        if (!Path.GetFullPath(configuration.AuthenticationStateRoot)
+                .Equals(AuthenticationStateRoot, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The Windows Service authentication state root is not the isolated DEV boundary.");
         if (configuration.FrontendPrefixes.Length != DevelopmentFrontendPrefixes.Length ||
             configuration.FrontendPrefixes.Distinct(StringComparer.OrdinalIgnoreCase).Count() !=
                 configuration.FrontendPrefixes.Length ||
@@ -84,6 +89,7 @@ internal static class DleOsWindowsServiceBootstrap
         Set("DLE_OS_ENVIRONMENT_LABEL", configuration.EnvironmentLabel);
         Set("DLE_OS_APPLICATION_ORIGIN", configuration.ApplicationOrigin);
         Set("DLE_OS_OIDC_CLIENT_ID", configuration.OidcClientId);
+        Set("DLE_OS_AUTHENTICATION_STATE_ROOT", Path.GetFullPath(configuration.AuthenticationStateRoot));
         Set("DLE_OS_CANONICAL_API_BASE_URL", configuration.CanonicalApiBaseUrl);
         Set("DLE_OS_OPERATIONAL_API_BASE_URL", configuration.OperationalApiBaseUrl);
         Set("DLE_OS_CUSTOMER_FILES_API_BASE_URL", configuration.CustomerFilesApiBaseUrl);

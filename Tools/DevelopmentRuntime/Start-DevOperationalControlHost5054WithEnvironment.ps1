@@ -11,6 +11,12 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $allowedRoot = 'C:\DLE-OS\Development\OperationalControlHost5054\'
+$runtimePointer =
+    'C:\ProgramData\DLE-OS\DevelopmentOperationalControl\CurrentRuntime.txt'
+if (Test-Path -LiteralPath $runtimePointer -PathType Leaf) {
+    $pointedRuntime = (Get-Content -Raw -LiteralPath $runtimePointer).Trim()
+    if ($pointedRuntime) { $Runtime = $pointedRuntime }
+}
 $resolvedRuntime = (Resolve-Path -LiteralPath $Runtime).Path
 if (-not $resolvedRuntime.StartsWith($allowedRoot, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'The 5054 runtime is outside the governed DEV runtime root.'

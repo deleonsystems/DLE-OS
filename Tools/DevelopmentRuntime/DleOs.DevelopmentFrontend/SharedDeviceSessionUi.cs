@@ -12,8 +12,12 @@ public static class SharedDeviceSessionUi
 
     private const string Markup = """
 <style id="dle-shared-session-style">
-  #dle-auth-identity{gap:12px!important;padding:8px 10px 8px 13px!important}
-  #dle-auth-details{display:flex;min-width:128px;flex-direction:column;gap:2px}
+  body>header{position:sticky;top:0;z-index:1000;box-sizing:border-box}
+  body>header .top-pills{min-width:0;flex:0 1 auto;justify-content:flex-end;flex-wrap:wrap}
+  #dle-auth-identity{position:static!important;inset:auto!important;z-index:auto!important;flex:0 0 auto;
+    width:100%;box-sizing:border-box;justify-content:space-between;gap:8px!important;
+    padding:6px 8px 6px 10px!important;box-shadow:none!important}
+  #dle-auth-details{display:flex;min-width:116px;flex-direction:column;gap:2px}
   #dle-auth-name,#dle-auth-role{display:block}
   #dle-auth-signout-form{margin:0}#dle-auth-signout{min-height:34px;padding:7px 11px;border:1px solid rgba(147,197,253,.48);
     border-radius:7px;background:rgba(30,64,99,.58);color:#e8f3ff;font:700 11px/1 system-ui,sans-serif;
@@ -23,6 +27,8 @@ public static class SharedDeviceSessionUi
   #dle-auth-signout:disabled{opacity:.65;cursor:wait}
   #dle-signout-veil{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;
     background:#07111f;color:#dcecff;font:700 18px/1.4 system-ui,sans-serif}
+  @media(max-width:1100px){#dle-auth-identity{margin-left:auto}}
+  @media(max-width:760px){#dle-auth-identity{flex:1 1 230px;justify-content:flex-end}}
 </style>
 <script id="dle-shared-session-script">
 (() => {
@@ -30,6 +36,8 @@ public static class SharedDeviceSessionUi
   const name=document.getElementById('dle-auth-name');
   const role=document.getElementById('dle-auth-role');
   if(!root||!name||!role||document.getElementById('dle-auth-signout'))return;
+  const headerControls=document.querySelector('body>header .top-pills');
+  if(headerControls)headerControls.append(root);
   const details=document.createElement('span');details.id='dle-auth-details';
   root.insertBefore(details,name);details.append(name,role);
   const form=document.createElement('form');form.id='dle-auth-signout-form';form.method='post';form.action='/auth/logout';

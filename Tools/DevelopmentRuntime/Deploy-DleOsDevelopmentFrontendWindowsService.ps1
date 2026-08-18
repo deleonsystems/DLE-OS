@@ -7,6 +7,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'DevFrontendDeployment.Common.ps1')
+
 $serviceName = 'DleOsDevelopmentFrontend'
 $serviceIdentity = 'DLE-OS-HOST\DLE-OS-DEV-FRONTEND'
 $rejectedTaskName = 'DLE-OS Development Authenticated Frontend 5051'
@@ -20,6 +22,9 @@ $artifacts = Join-Path $workRoot 'artifacts'
 $evidencePath = Join-Path $workRoot 'deployment.json'
 $release = "C:\ProgramData\DLE-OS\DevelopmentFrontend\Service\releases\$stamp"
 $serviceConfiguration = Join-Path $release 'service-runtime.json'
+$authenticationStateRoot = 'C:\ProgramData\DLE-OS\DevelopmentFrontend\AuthState'
+$authenticationKeyRoot = Join-Path $authenticationStateRoot 'DataProtectionKeys'
+$authenticationTicketRoot = Join-Path $authenticationStateRoot 'Tickets'
 $protectedPorts = 5041,5042,5043,5052,5053,5054
 $urls = @(
     'http://dle-os-host:5051/',
@@ -65,14 +70,17 @@ function Get-FrontendWorkers{
 }
 function Get-HttpPrefixRegistration([string]$Prefix){
     $state=Invoke-Native netsh.exe @('http','show','servicestate','view=requestq')
-    $blocks=@($state-split'(?im)(?=^Request queue name:)'|Where-Object{$_.ToUpperInvariant().Contains($Prefix.ToUpperInvariant())})
+    $prefixForms=@(Get-DleOsHttpPrefixDisplayForms $Prefix)
+    $blocks=@($state-split'(?im)(?=^Request queue name:)'|Where-Object{
+        $block=$_.ToUpperInvariant();@($prefixForms|Where-Object{$block.Contains($_)}).Count-gt 0
+    })
     $ids=@($blocks|ForEach-Object{[regex]::Matches($_,'(?im)^\s*ID:\s*(\d+),')|ForEach-Object{[int]$_.Groups[1].Value}}|Sort-Object -Unique)
     [pscustomobject]@{Registered=$blocks.Count-gt 0;ProcessIds=$ids}
 }
 function Wait-ServiceState([string]$State,[int]$Seconds=45){
     $deadline=[DateTimeOffset]::UtcNow.AddSeconds($Seconds)
     do{$service=Get-CimInstance Win32_Service -Filter "Name='$serviceName'" -ErrorAction SilentlyContinue
-        if($service-and[string]$service.State-eq$State){return$service};Start-Sleep -Milliseconds 250
+        if($service-and[string]$service.State-eq$State){return $service};Start-Sleep -Milliseconds 250
     }while([DateTimeOffset]::UtcNow-lt$deadline)
     throw "$serviceName did not reach $State. Last state=$($service.State)."
 }
@@ -84,7 +92,7 @@ function Wait-Release([int]$PriorPid,[int]$Seconds=45){
     }while([DateTimeOffset]::UtcNow-lt$deadline)
     throw "Service release timeout. PID=$PriorPid; TCP=$($tcp-join','); registrations=$($registered.Count)."
 }
-function Assert-ServiceCandidate{
+function Assert-ServiceCandidate([object]$ExpectedRuntimeInfo=$null){
     $service=Wait-ServiceState Running 45
     $workers=@(Get-FrontendWorkers)
     if($service.ProcessId-le 0-or$workers.Count-ne 1-or$workers[0].ProcessId-ne$service.ProcessId-or
@@ -97,10 +105,50 @@ function Assert-ServiceCandidate{
         $response=Invoke-WebRequest -UseBasicParsing -Uri $uri -TimeoutSec 20
         if([int]$response.StatusCode-ne 200){throw "$uri did not return 200."}
     }
+    if($ExpectedRuntimeInfo){
+        $runtimeInfo=Invoke-RestMethod -UseBasicParsing -Uri 'https://dev.dle-os.internal.dlemfg.com/api/runtime/info' -TimeoutSec 20
+        if($runtimeInfo.environment-ne'Development'-or
+           $runtimeInfo.releaseId-ne$ExpectedRuntimeInfo.releaseId-or
+           $runtimeInfo.gitHead-ne$ExpectedRuntimeInfo.gitHead-or
+           $runtimeInfo.sourceDirty-ne$ExpectedRuntimeInfo.sourceDirty-or
+           $runtimeInfo.sourceDigestSha256-ne$ExpectedRuntimeInfo.sourceDigestSha256){
+            throw 'The served runtime identity does not match the deployment candidate.'
+        }
+        $evidence.RuntimeInfoQualified=$true
+    }
     $evidence.ServiceProcessId=[int]$service.ProcessId
 }
 function Set-ServiceBinaryPath([string]$BinaryPath){
     $null=Invoke-Native sc.exe @('config',$serviceName,'binPath=',$BinaryPath)
+}
+function Initialize-AuthenticationStateStorage([string]$ExpectedServiceSid){
+    New-Item -ItemType Directory -Path $authenticationStateRoot -Force|Out-Null
+    $null=Invoke-Native icacls.exe @($authenticationStateRoot,'/inheritance:r')
+    $null=Invoke-Native icacls.exe @($authenticationStateRoot,'/grant:r',
+        'NT AUTHORITY\SYSTEM:(OI)(CI)(F)','BUILTIN\Administrators:(OI)(CI)(F)',
+        "${serviceIdentity}:(OI)(CI)(M)")
+    New-Item -ItemType Directory -Path $authenticationKeyRoot,$authenticationTicketRoot -Force|Out-Null
+
+    $acl=Get-Acl -LiteralPath $authenticationStateRoot
+    $forbiddenSids=@('S-1-1-0','S-1-5-11','S-1-5-32-545')
+    $serviceModify=$false
+    foreach($rule in $acl.Access){
+        $ruleSid=try{$rule.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value}catch{''}
+        if($ruleSid-eq$ExpectedServiceSid-and$rule.AccessControlType-eq'Allow'-and
+           ($rule.FileSystemRights-band[Security.AccessControl.FileSystemRights]::Modify)){$serviceModify=$true}
+        if($ruleSid-in$forbiddenSids-and$rule.AccessControlType-eq'Allow'){
+            throw "DEV authentication state grants a forbidden broad principal: $ruleSid."
+        }
+    }
+    if(-not$serviceModify){throw 'The DEV frontend service identity lacks Modify access to authentication state.'}
+    [ordered]@{
+        Root=$authenticationStateRoot
+        DataProtection='DPAPI LocalMachine plus restricted filesystem ACL'
+        TicketProtection='ASP.NET Core Data Protection purpose isolation'
+        ServiceSid=$ExpectedServiceSid
+        BroadLocalAccess=$false
+        Qualified=$true
+    }
 }
 
 New-Item -ItemType Directory -Path $workRoot -Force|Out-Null
@@ -108,19 +156,43 @@ try{
     Assert-Administrator
     if(-not$ApproveDevelopmentDeployment){throw 'Explicit -ApproveDevelopmentDeployment is required.'}
     if(-not$PSCmdlet.ShouldProcess($serviceName,'deploy a new versioned DEV frontend release')){throw 'Deployment approval was declined.'}
+    $null=Assert-DleOsDevelopmentFrontendConfiguration $configurationSource
+    $sourceIdentity=Get-DleOsDevelopmentFrontendSourceIdentity $repository
+    $runtimeBuildInfo=[ordered]@{
+        schemaVersion=1
+        environment='Development'
+        releaseId=$stamp
+        builtAtUtc=[DateTimeOffset]::UtcNow.ToString('o')
+        gitHead=$sourceIdentity.GitHead
+        sourceDirty=[bool]$sourceIdentity.SourceDirty
+        sourceDigestSha256=$sourceIdentity.SourceDigestSha256
+        sourceFileCount=[int]$sourceIdentity.SourceFileCount
+        serviceName=$serviceName
+        serviceIdentity=$serviceIdentity
+    }
+    $evidence.RuntimeIdentity=$runtimeBuildInfo
+    $evidence.SourceHead=$sourceIdentity.GitHead
+    $evidence.SourceDirty=[bool]$sourceIdentity.SourceDirty
+    $evidence.SourceDigestSha256=$sourceIdentity.SourceDigestSha256
+    $evidence.SourceFileCount=[int]$sourceIdentity.SourceFileCount
+    $evidence.SourceStatus=@($sourceIdentity.StatusEntries)
     $service=Get-CimInstance Win32_Service -Filter "Name='$serviceName'" -ErrorAction Stop
-    if($service.StartName-ine$serviceIdentity){throw "$serviceName uses unexpected identity $($service.StartName)."}
+    $expectedServiceSid=Get-DleOsAccountSid $serviceIdentity
+    $actualServiceSid=Get-DleOsAccountSid ([string]$service.StartName)
+    if($actualServiceSid-ne$expectedServiceSid){throw "$serviceName uses unexpected identity $($service.StartName)."}
+    $evidence.ServiceIdentity=[ordered]@{Configured=[string]$service.StartName;Sid=$actualServiceSid}
+    $evidence.AuthenticationState=Initialize-AuthenticationStateStorage $expectedServiceSid
     $retainedTask=Get-ScheduledTask -TaskName $rejectedTaskName -ErrorAction SilentlyContinue
     if($retainedTask-and([bool]$retainedTask.Settings.Enabled-or[string]$retainedTask.State-eq'Running')){throw 'The retained legacy Scheduled Task is enabled or running; SCM must remain the only active frontend owner.'}
     $evidence.LegacyScheduledTask=if($retainedTask){[pscustomobject]@{Retained=$true;Enabled=$false;State=[string]$retainedTask.State}}else{[pscustomobject]@{Retained=$false}}
     $previousBinaryPath=[string]$service.PathName
     $evidence.PreviousBinaryPath=$previousBinaryPath
-    $evidence.SourceHead=(git -c "safe.directory=$($repository.Replace('\','/'))" -C $repository rev-parse HEAD)
-    $evidence.GitBefore=@(git -c "safe.directory=$($repository.Replace('\','/'))" -C $repository status --porcelain=v1)
+    $evidence.ReleasePath=$release
     $evidence.ProtectedBefore=Get-ProtectedSnapshot
 
     & dotnet.exe publish $project -c Release -o $publish --artifacts-path $artifacts
     if($LASTEXITCODE-ne 0){throw 'DEV Windows Service publish failed.'}
+    $runtimeBuildInfo|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $publish 'runtime-build-info.json') -Encoding utf8
     New-Item -ItemType Directory -Path $release -Force|Out-Null
     Copy-Item -Path (Join-Path $publish '*') -Destination $release -Recurse -Force
     Copy-Item -LiteralPath $configurationSource -Destination $serviceConfiguration -Force
@@ -136,7 +208,7 @@ try{
     $candidateBinaryPath=('"{0}" --dle-os-windows-service --service-config "{1}"'-f(Join-Path $release 'DleOs.DevelopmentFrontend.exe'),$serviceConfiguration)
     Set-ServiceBinaryPath $candidateBinaryPath
     Start-Service -Name $serviceName
-    Assert-ServiceCandidate
+    Assert-ServiceCandidate $runtimeBuildInfo
     $evidence.ProtectedAfter=Get-ProtectedSnapshot
     foreach ($port in $protectedPorts) {if(($evidence.ProtectedBefore[[string]$port]-join',')-ne($evidence.ProtectedAfter[[string]$port]-join',')){throw "Protected listener $port changed."}}
     $evidence.Verdict='PASS'
@@ -147,9 +219,11 @@ try{
         if($serviceStopped-and$previousBinaryPath){Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
             $null=Wait-ServiceState Stopped 45;Set-ServiceBinaryPath $previousBinaryPath;Start-Service -Name $serviceName;Assert-ServiceCandidate
             $evidence.PreviousReleaseRestored=$true}
-        $evidence.ProtectedAfterRollback=Get-ProtectedSnapshot
-        foreach ($port in $protectedPorts) {if(($evidence.ProtectedBefore[[string]$port]-join',')-ne($evidence.ProtectedAfterRollback[[string]$port]-join',')){throw "Protected listener $port changed during rollback."}}
-        $evidence.ProtectedRollbackVerified=$true
+        if($evidence.Contains('ProtectedBefore')){
+            $evidence.ProtectedAfterRollback=Get-ProtectedSnapshot
+            foreach ($port in $protectedPorts) {if(($evidence.ProtectedBefore[[string]$port]-join',')-ne($evidence.ProtectedAfterRollback[[string]$port]-join',')){throw "Protected listener $port changed during rollback."}}
+            $evidence.ProtectedRollbackVerified=$true
+        }
     }catch{$evidence.RollbackError=$_.Exception.Message}
     throw
 }finally{

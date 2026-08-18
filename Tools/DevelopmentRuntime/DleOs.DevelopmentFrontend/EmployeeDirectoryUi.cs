@@ -10,9 +10,9 @@ public static class EmployeeDirectoryUi
 
     private const string Markup = """
 <style id="dle-employee-directory-style">
-  #dle-employee-directory-open{position:fixed;top:58px;right:18px;z-index:9999;border:1px solid #60a5fa;
+  #dle-employee-directory-open{position:static;flex:0 0 auto;border:1px solid #60a5fa;
     border-radius:8px;background:#1d4ed8;color:#fff;padding:8px 13px;font:600 12px system-ui,sans-serif;
-    box-shadow:0 4px 16px rgba(0,0,0,.22);cursor:pointer}
+    box-shadow:none;cursor:pointer}
   #dle-employee-directory[hidden],#dle-employee-directory-open[hidden]{display:none!important}
   #dle-employee-directory{position:fixed;inset:0;z-index:12000;background:rgba(2,6,23,.78);padding:4vh 3vw;
     font:13px/1.4 system-ui,sans-serif;color:#e2e8f0}
@@ -59,6 +59,7 @@ public static class EmployeeDirectoryUi
   const summary=document.getElementById('dle-employee-directory-summary');
   const error=document.getElementById('dle-employee-directory-error');
   const body=document.querySelector('#dle-employee-directory-table tbody');
+  const headerControls=document.getElementById('dleDevControlsUtilities');if(headerControls)headerControls.append(open);
   const words=value=>String(value||'').toLowerCase().replace(/(^|_)([a-z])/g,(_,space,letter)=>(space?' ':'')+letter.toUpperCase());
   const cell=(row,value,className)=>{const td=document.createElement('td');td.textContent=value??'—';if(className)td.className=className;row.appendChild(td)};
   async function load(){

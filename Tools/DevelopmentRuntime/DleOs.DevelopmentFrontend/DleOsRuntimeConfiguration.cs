@@ -1,6 +1,6 @@
 public sealed record DleOsRuntimeConfiguration(
     string Environment, string RuntimeMarker, string DisplayLabel,
-    string ApplicationOrigin, string OidcClientId,
+    string ApplicationOrigin, string OidcClientId, string AuthenticationStateRoot,
     string CanonicalApiBaseUrl, string OperationalApiBaseUrl,
     string CustomerFilesApiBaseUrl, string SecurityDatabase,
     bool EnableUserProvisioning, string[] FrontendPrefixes)
@@ -33,6 +33,11 @@ public sealed record DleOsRuntimeConfiguration(
              operational.Contains(":5043", StringComparison.OrdinalIgnoreCase) ||
              securityDatabase.Contains("LIVE", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("Development isolation requires 5052, 5054, and a non-LIVE security database.");
+        var authenticationStateRoot = Path.GetFullPath(Required("DLE_OS_AUTHENTICATION_STATE_ROOT"));
+        if (environment == "Development" &&
+            !authenticationStateRoot.Equals(DleOsWindowsServiceBootstrap.AuthenticationStateRoot,
+                StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Development authentication state must use the isolated DEV storage root.");
         if (environment == "Production" &&
             (!canonical.EndsWith(":5042", StringComparison.OrdinalIgnoreCase) ||
              !operational.EndsWith(":5043", StringComparison.OrdinalIgnoreCase) ||
@@ -42,7 +47,8 @@ public sealed record DleOsRuntimeConfiguration(
 
         return new(environment, Required("DLE_OS_RUNTIME_MARKER"),
             Required("DLE_OS_ENVIRONMENT_LABEL"), Required("DLE_OS_APPLICATION_ORIGIN").TrimEnd('/'),
-            Required("DLE_OS_OIDC_CLIENT_ID"), canonical.TrimEnd('/'), operational.TrimEnd('/'),
+            Required("DLE_OS_OIDC_CLIENT_ID"), authenticationStateRoot,
+            canonical.TrimEnd('/'), operational.TrimEnd('/'),
             Required("DLE_OS_CUSTOMER_FILES_API_BASE_URL").TrimEnd('/'), securityDatabase,
             bool.TryParse(System.Environment.GetEnvironmentVariable("DLE_OS_ENABLE_USER_PROVISIONING"), out var enabled) && enabled,
             prefixes);

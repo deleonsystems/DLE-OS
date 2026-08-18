@@ -88,6 +88,10 @@ evidence.
 - Identity: `DLE-OS-HOST\DLE-OS`.
 - Runtime root:
   `C:\DLE-OS\Development\OperationalControlHost5054\<UTC-build-id>`.
+- Governed runtime pointer:
+  `C:\ProgramData\DLE-OS\DevelopmentOperationalControl\CurrentRuntime.txt`.
+  The launcher accepts only a resolved path under the DEV runtime root, so a
+  versioned 5054 release does not require changing the password-backed task.
 - Owned prefix: `http://dle-os-host:5054/`.
 - Boot wrapper:
   `Tools\DevelopmentRuntime\Start-DevOperationalControlHost5054WithEnvironment.ps1`.

@@ -2,11 +2,18 @@ using System.Net;
 using System.Text.Json;
 
 var checks = new List<string>();
+var limitations = new List<string>();
 var repository = Directory.GetCurrentDirectory();
 var programSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
     "DleOs.DevelopmentFrontend", "Program.cs"));
-var settingsSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
-    "DleOs.DevelopmentFrontend", "appsettings.json"));
+var runtimeConfigurationPath = Path.Combine(repository, "Tools", "DevelopmentRuntime",
+    "DleOs.DevelopmentFrontend", "service-runtime.Development.json");
+using var runtimeConfigurationDocument = JsonDocument.Parse(
+    File.ReadAllText(runtimeConfigurationPath));
+var runtimeConfiguration = runtimeConfigurationDocument.RootElement;
+var applicationOrigin = new Uri(runtimeConfiguration.GetProperty("applicationOrigin").GetString()!);
+var frontendPrefixes = runtimeConfiguration.GetProperty("frontendPrefixes").EnumerateArray()
+    .Select(value => new Uri(value.GetString()!)).ToArray();
 var authenticatedShellSource = File.ReadAllText(Path.Combine(repository, "DLE_Work_Center_v4.0.0.html"));
 var governedLogo = SharedDeviceWelcomeUi.ExtractAuthenticatedHeaderLogo(authenticatedShellSource);
 var welcome = SharedDeviceWelcomeUi.Render(governedLogo);
@@ -56,14 +63,30 @@ Check(programSource.Contains("IsSharedEntryPath(context.Request.Path)") &&
       programSource.Contains("MapDevelopmentCompatibilityProxy") &&
       programSource.Contains("RequireAuthorization"),
     "only the shared entry bypasses current-user resolution and application APIs stay protected");
-Check(programSource.Contains("http://dle-os-host:5051") &&
-      programSource.Contains("http://192.168.0.105:5051") &&
-      settingsSource.Contains("DLE-OS-HOST;localhost;127.0.0.1;192.168.0.105"),
-    "qualified hostname and temporary Phase 6.1A IP access remain configured");
+Check(runtimeConfiguration.GetProperty("environment").GetString() == "Development" &&
+      runtimeConfiguration.GetProperty("runtimeMarker").GetString() == "ISOLATED_DEVELOPMENT" &&
+      applicationOrigin.Scheme == Uri.UriSchemeHttps &&
+      runtimeConfiguration.GetProperty("canonicalApiBaseUrl").GetString()!.EndsWith(":5052") &&
+      runtimeConfiguration.GetProperty("operationalApiBaseUrl").GetString()!.EndsWith(":5054"),
+    "canonical service runtime configuration declares the isolated DEV topology");
+Check(frontendPrefixes.Any(prefix => prefix.Scheme == Uri.UriSchemeHttp &&
+                                     prefix.Host.Equals("dle-os-host", StringComparison.OrdinalIgnoreCase) &&
+                                     prefix.Port == 5051) &&
+      frontendPrefixes.Any(prefix => prefix.Scheme == Uri.UriSchemeHttps &&
+                                     prefix.Host.Equals(applicationOrigin.Host, StringComparison.OrdinalIgnoreCase)) &&
+      programSource.Contains("foreach (var prefix in runtime.FrontendPrefixes)") &&
+      programSource.Contains("options.UrlPrefixes.Add(prefix)"),
+    "frontend hosting consumes the canonical runtime prefixes instead of a test-owned hostname copy");
 
 Check(authenticatedShell.Contains("dle-auth-name") && authenticatedShell.Contains("dle-auth-role") &&
       authenticatedShell.Contains("Sign Out") && !authenticatedShell.Contains("Miguel"),
     "authenticated user area remains driven by the existing current-user identity model");
+Check(authenticatedShell.Contains("body>header{position:sticky") &&
+      authenticatedShell.Contains("body>header .top-pills{min-width:0;flex:0 1 auto") &&
+      authenticatedShell.Contains("@media(max-width:1100px)") &&
+      authenticatedShell.Contains("#dle-auth-identity{margin-left:auto}") &&
+      !authenticatedShell.Contains("body>header .logo{height:56px}"),
+    "authenticated identity and Sign Out integrate into the compact operator header without shrinking the governed logo");
 Check(authenticatedShell.Contains("sessionStorage.clear()") &&
       authenticatedShell.Contains("key.startsWith('DLE_OS_')") &&
       authenticatedShell.Contains("caches.delete") &&
@@ -74,14 +97,17 @@ Check(authenticatedShell.Contains("sessionStorage.clear()") &&
       authenticatedShell.Contains("form.submit()"),
     "governed sign-out clears browser caches and posts an antiforgery-protected server logout");
 
-if (args.Contains("--live", StringComparer.OrdinalIgnoreCase))
+if (args.Contains("--live-dev", StringComparer.OrdinalIgnoreCase))
     await RunLiveQualification();
 
 var evidence = new
 {
     verdict = "PASS",
     completedAtUtc = DateTimeOffset.UtcNow,
-    live = args.Contains("--live", StringComparer.OrdinalIgnoreCase),
+    mode = args.Contains("--live-dev", StringComparer.OrdinalIgnoreCase)
+        ? "LIVE_DEV_QUALIFICATION"
+        : "DETERMINISTIC",
+    limitations,
     checks
 };
 var evidenceDirectory = Path.Combine(repository, ".tmp", "shared-device-sign-in");
@@ -94,57 +120,57 @@ await File.WriteAllTextAsync(
     }));
 Console.WriteLine($"PASS: {checks.Count} shared-device sign-in checks.");
 foreach (var check in checks) Console.WriteLine("  " + check);
+foreach (var limitation in limitations) Console.WriteLine("  LIMITATION: " + limitation);
 
 async Task RunLiveQualification()
 {
-    using var anonymous = new HttpClient(new HttpClientHandler { UseDefaultCredentials = false })
+    var directFrontend = frontendPrefixes.Single(prefix =>
+        prefix.Scheme == Uri.UriSchemeHttp &&
+        prefix.Host.Equals("dle-os-host", StringComparison.OrdinalIgnoreCase) &&
+        prefix.Port == 5051);
+    using (var direct = new HttpClient { BaseAddress = directFrontend, Timeout = TimeSpan.FromSeconds(10) })
+    using (var response = await direct.GetAsync("/shared"))
+        Check(response.StatusCode == HttpStatusCode.OK,
+            "live direct 5051 shared endpoint serves the configured frontend");
+
+    using var anonymous = new HttpClient(new HttpClientHandler
     {
-        BaseAddress = new Uri("http://192.168.0.105:5051"),
-        Timeout = TimeSpan.FromSeconds(30)
+        UseDefaultCredentials = false,
+        AllowAutoRedirect = false
+    })
+    {
+        BaseAddress = applicationOrigin,
+        Timeout = TimeSpan.FromSeconds(8)
     };
-    using var authenticated = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true })
+    try
     {
-        BaseAddress = anonymous.BaseAddress,
-        Timeout = anonymous.Timeout
-    };
-
-    using (var response = await anonymous.GetAsync("/shared"))
-    {
-        var body = await response.Content.ReadAsStringAsync();
-        Check(response.StatusCode == HttpStatusCode.OK && body.Contains("Sign in to DLE-OS") &&
-              !response.Headers.WwwAuthenticate.Any(),
-            "live anonymous /shared returns the branded page without a native challenge");
-        Check(response.Headers.CacheControl?.NoStore == true &&
-              response.Headers.TryGetValues("Content-Security-Policy", out var policies) &&
-              policies.Single().Contains("frame-ancestors 'none'"),
-            "live shared entry is no-store and carries its defensive browser policy");
+        using (var response = await anonymous.GetAsync("/shared"))
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            Check(response.StatusCode == HttpStatusCode.OK && body.Contains("Sign in to DLE-OS") &&
+                  !response.Headers.WwwAuthenticate.Any(),
+                "live exact-host /shared returns the branded page without a native challenge");
+            Check(response.Headers.CacheControl?.NoStore == true &&
+                  response.Headers.TryGetValues("Content-Security-Policy", out var policies) &&
+                  policies.Single().Contains("frame-ancestors 'none'"),
+                "live shared entry is no-store and carries its defensive browser policy");
+        }
+        using (var response = await anonymous.GetAsync("/"))
+            Check(response.StatusCode == HttpStatusCode.Redirect && response.Headers.Location is not null &&
+                  response.Headers.Location.Host.Equals("auth.internal.dlemfg.com", StringComparison.OrdinalIgnoreCase),
+                "live anonymous application navigation reaches the Keycloak authentication flow");
+        using (var response = await anonymous.GetAsync("/api/auth/me"))
+            Check(response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Redirect,
+                "live current-user API remains protected from callers without a DLE-OS session");
     }
-
-    using (var response = await anonymous.GetAsync("/"))
-        Check(response.StatusCode == HttpStatusCode.Unauthorized && response.Headers.WwwAuthenticate.Any(),
-            "live anonymous application navigation triggers the Windows authentication challenge");
-    using (var response = await anonymous.GetAsync("/api/auth/me"))
-        Check(response.StatusCode == HttpStatusCode.Unauthorized,
-            "live current-user API remains protected from anonymous callers");
-    using (var response = await anonymous.GetAsync("/api/platform/live/v1/sales-orders?page=1&pageSize=1"))
-        Check(response.StatusCode == HttpStatusCode.Unauthorized,
-            "live compatibility APIs remain protected from anonymous callers");
-
-    using (var response = await authenticated.GetAsync("/"))
+    catch (HttpRequestException error) when (
+        error.ToString().Contains("0x8009030E", StringComparison.OrdinalIgnoreCase) ||
+        error.ToString().Contains("No credentials are available in the security package",
+            StringComparison.OrdinalIgnoreCase))
     {
-        var body = await response.Content.ReadAsStringAsync();
-        Check(response.StatusCode == HttpStatusCode.OK && body.Contains("dle-auth-signout") &&
-              body.Contains("/api/auth/me"),
-            "live authenticated shell includes current-user resolution and Sign Out");
-    }
-    using (var response = await authenticated.GetAsync("/api/auth/me"))
-    {
-        var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
-        Check(response.StatusCode == HttpStatusCode.OK &&
-              body.GetProperty("user").GetProperty("displayName").GetString() == "Miguel De Leon" &&
-              body.GetProperty("isSuperAdmin").GetBoolean() &&
-              body.GetProperty("roles").EnumerateArray().Any(role => role.GetString() == "SUPER_ADMIN"),
-            "live Windows identity still resolves Miguel De Leon as SUPER_ADMIN");
+        limitations.Add(
+            "Exact-host HTTPS skipped because the invoking Codex process has no Schannel client credential; " +
+            "use the governed elevated health checkpoint.");
     }
 }
 

@@ -46,6 +46,11 @@ Normal host startup uses scheduled task
 successful 5052 readiness response before launching the isolated DEV runtime.
 Startup evidence is written to
 `C:\ProgramData\DLE-OS\DevelopmentOperationalControl\Logs\startup.evidence.json`.
+The stable task action invokes the governed launcher, which may resolve the
+active versioned release from
+`C:\ProgramData\DLE-OS\DevelopmentOperationalControl\CurrentRuntime.txt`.
+The launcher rejects pointers outside the DEV 5054 runtime root. Runtime
+promotion therefore does not retrieve, expose, or re-enter the task password.
 
 Install or repair both unattended tasks with the governed DEV-only installer:
 

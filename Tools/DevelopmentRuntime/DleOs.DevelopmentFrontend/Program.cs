@@ -3,9 +3,11 @@ using DleOs.TrustedIdentity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Server.HttpSys;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.StaticFiles;
@@ -15,6 +17,7 @@ using System.Text.Json;
 using System.Security.Principal;
 
 const string keycloakAuthority = "https://auth.internal.dlemfg.com/realms/dle-os";
+const string employeeDirectoryApiPolicy = "DLE-OS-EMPLOYEE-DIRECTORY-API";
 const string kittingDocumentRoute = "/api/development/kitting-documents/v1/work-orders";
 const string kittingShortageRoot = @"\\deleon-server\Production\KITTING\KIT-SHORTAGES";
 const string kittingCompleteRoot = @"\\deleon-server\Production\KITTING\KIT-COMPLETE";
@@ -27,8 +30,12 @@ var requiredRuntimeIdentity = Environment.GetEnvironmentVariable("DLE_OS_REQUIRE
 var identitySigningKeyPath = Environment.GetEnvironmentVariable(
     "DLE_OS_IDENTITY_SIGNING_PRIVATE_KEY_PATH");
 var runtime = DleOsRuntimeConfiguration.Load();
+var runtimeBuildInfo = DevRuntimeBuildInfo.Load(
+    Path.Combine(AppContext.BaseDirectory, "runtime-build-info.json"));
 var canonicalApplicationOrigin = runtime.ApplicationOrigin;
 var canonicalApplicationHost = new Uri(canonicalApplicationOrigin).Host;
+var authenticationKeyRoot = Path.Combine(runtime.AuthenticationStateRoot, "DataProtectionKeys");
+var authenticationTicketRoot = Path.Combine(runtime.AuthenticationStateRoot, "Tickets");
 var securityConnectionString =
     $@"Server=lpc:.\SQLEXPRESS;Database={runtime.SecurityDatabase};Integrated Security=True;" +
     "Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadWrite;";
@@ -56,12 +63,26 @@ builder.WebHost.UseHttpSys(options =>
         AuthenticationSchemes.Negotiate | AuthenticationSchemes.NTLM;
     options.Authentication.AllowAnonymous = true;
 });
-builder.Services.AddSingleton<ServerSideOidcTicketStore>();
+builder.Services.AddDataProtection()
+    .SetApplicationName("DLE-OS-DevelopmentFrontend-DEV")
+    .PersistKeysToFileSystem(new DirectoryInfo(authenticationKeyRoot))
+    .ProtectKeysWithDpapi(protectToLocalMachine: true);
+builder.Services.AddSingleton<ServerSideOidcTicketStore>(services => new(
+    authenticationTicketRoot,
+    services.GetRequiredService<IDataProtectionProvider>(),
+    services.GetRequiredService<ILogger<ServerSideOidcTicketStore>>()));
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = DleOsOidcSchemes.Cookie;
         options.DefaultSignInScheme = DleOsOidcSchemes.Cookie;
-        options.DefaultChallengeScheme = DleOsOidcSchemes.OpenIdConnect;
+        options.DefaultChallengeScheme = DleOsOidcSchemes.Challenge;
+    })
+    .AddPolicyScheme(DleOsOidcSchemes.Challenge, DleOsOidcSchemes.Challenge, options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            OidcChallengeBehavior.RequiresStatusCode(context.Request)
+                ? DleOsOidcSchemes.Cookie
+                : DleOsOidcSchemes.OpenIdConnect;
     })
     .AddCookie(DleOsOidcSchemes.Cookie, options =>
     {
@@ -74,7 +95,17 @@ builder.Services.AddAuthentication(options =>
         options.SlidingExpiration = false;
         options.Events.OnRedirectToLogin = context =>
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.StatusCode = OidcChallengeBehavior.IsBrowserFetch(context.Request)
+                ? StatusCodes.Status403Forbidden
+                : StatusCodes.Status401Unauthorized;
+            context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+            if (OidcChallengeBehavior.RequiresStatusCode(context.Request))
+                context.Response.Headers["X-DLE-OS-Authentication-Required"] = "true";
+            context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("DleOs.Authentication")
+                .LogWarning(
+                    "Authentication required for non-interactive request {Method} {Path}; returning {StatusCode}.",
+                    context.Request.Method, context.Request.Path.Value, context.Response.StatusCode);
             return Task.CompletedTask;
         };
     })
@@ -115,14 +146,13 @@ builder.Services.AddAuthentication(options =>
         {
             OnRedirectToIdentityProvider = context =>
             {
-                context.ProtocolMessage.Prompt = "login";
                 context.ProtocolMessage.RedirectUri = canonicalApplicationOrigin + "/signin-oidc";
                 return Task.CompletedTask;
             },
             OnRedirectToIdentityProviderForSignOut = context =>
             {
                 context.ProtocolMessage.IdTokenHint = context.Properties.GetTokenValue("id_token");
-                context.ProtocolMessage.PostLogoutRedirectUri = canonicalApplicationOrigin + "/shared";
+                context.ProtocolMessage.PostLogoutRedirectUri = canonicalApplicationOrigin + "/auth/signin";
                 return Task.CompletedTask;
             },
             OnRemoteFailure = context =>
@@ -140,6 +170,11 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
+    options.AddPolicy(employeeDirectoryApiPolicy, policy =>
+    {
+        policy.AddAuthenticationSchemes(DleOsOidcSchemes.Cookie);
+        policy.RequireAuthenticatedUser();
+    });
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddAntiforgery(options =>
@@ -165,12 +200,20 @@ builder.Services.AddSingleton<IIdentityAssertionIssuer>(_ =>
     new Es256IdentityAssertionIssuer(
         IdentityAssertionKeyLoader.LoadPrivateKey(identitySigningKeyPath ?? "")));
 builder.Services.AddDevelopmentCompatibilityProxy();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
 
 var app = builder.Build();
 var provider = new PhysicalFileProvider(repository);
 var contentTypes = new FileExtensionContentTypeProvider();
+var brandingAssetRoot = Path.Combine(repository, "ASSETS", "ICONS");
 var kittingDocuments = new KittingDocumentService(kittingShortageRoot, kittingCompleteRoot);
 var authenticatedShellSource = File.ReadAllText(Path.Combine(repository, "DLE_Work_Center_v4.0.0.html"));
+var shellIdentityJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var sharedDeviceWelcomeDocument = SharedDeviceWelcomeUi.Render(
     SharedDeviceWelcomeUi.ExtractAuthenticatedHeaderLogo(authenticatedShellSource));
 app.Lifetime.ApplicationStopped.Register(provider.Dispose);
@@ -182,13 +225,15 @@ void NoStore(HttpResponse response)
     response.Headers.Expires = "0";
 }
 
+app.UseResponseCompression();
 app.UseMiddleware<KeycloakGatewayMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 app.Use(async (context, next) =>
 {
-    if (IsSharedEntryPath(context.Request.Path) || IsAuthenticationPath(context.Request.Path))
+    if (IsSharedEntryPath(context.Request.Path) || IsAuthenticationPath(context.Request.Path) ||
+        IsRuntimeInfoPath(context.Request.Path) || IsBrandingAssetPath(context.Request.Path))
     {
         await next();
         return;
@@ -233,6 +278,43 @@ app.MapGet("/shared", (HttpContext context) =>
     return Results.Text(sharedDeviceWelcomeDocument, "text/html; charset=utf-8");
 }).AllowAnonymous();
 
+app.MapGet("/api/runtime/info", (HttpContext context) =>
+{
+    NoStore(context.Response);
+    return Results.Ok(runtimeBuildInfo.ToSafeResponse());
+}).AllowAnonymous();
+
+app.MapGet("/apple-touch-icon.png", (HttpContext context) =>
+{
+    NoStore(context.Response);
+    return Results.File(Path.Combine(brandingAssetRoot, "apple-touch-icon.png"), "image/png");
+}).AllowAnonymous();
+
+app.MapGet("/favicon-32x32.png", (HttpContext context) =>
+{
+    NoStore(context.Response);
+    return Results.File(Path.Combine(brandingAssetRoot, "favicon-32x32.png"), "image/png");
+}).AllowAnonymous();
+
+app.MapGet("/dle-os-icon-192.png", (HttpContext context) =>
+{
+    NoStore(context.Response);
+    return Results.File(Path.Combine(brandingAssetRoot, "dle-os-icon-192.png"), "image/png");
+}).AllowAnonymous();
+
+app.MapGet("/dle-os-icon-512.png", (HttpContext context) =>
+{
+    NoStore(context.Response);
+    return Results.File(Path.Combine(brandingAssetRoot, "dle-os-icon-512.png"), "image/png");
+}).AllowAnonymous();
+
+app.MapGet("/site.webmanifest", (HttpContext context) =>
+{
+    NoStore(context.Response);
+    return Results.File(Path.Combine(brandingAssetRoot, "site.webmanifest"),
+        "application/manifest+json");
+}).AllowAnonymous();
+
 app.MapGet("/auth/signin", (HttpContext context) =>
 {
     NoStore(context.Response);
@@ -267,7 +349,7 @@ app.MapPost("/auth/logout", async (HttpContext context, IAntiforgery antiforgery
     var idToken = await context.GetTokenAsync(DleOsOidcSchemes.Cookie, "id_token");
     var properties = new AuthenticationProperties
     {
-        RedirectUri = canonicalApplicationOrigin + "/shared"
+        RedirectUri = canonicalApplicationOrigin + "/auth/signin"
     };
     if (!string.IsNullOrWhiteSpace(idToken))
         properties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = idToken }]);
@@ -347,10 +429,14 @@ app.MapGet("/", async (
     html = html.Replace("DEVELOPMENT — READ ONLY",
         runtime.DisplayLabel,
         StringComparison.Ordinal);
-    html = DevelopmentIdentityUi.Inject(html);
+    var identityPayload = JsonSerializer.Serialize(
+        CurrentUserResponseFactory.Create(currentUser).Body,
+        shellIdentityJsonOptions);
+    html = DevelopmentIdentityUi.Inject(html, identityPayload);
     var antiforgeryToken = antiforgery.GetAndStoreTokens(context).RequestToken ??
         throw new InvalidOperationException("The governed logout antiforgery token was not generated.");
     html = SharedDeviceSessionUi.Inject(html, antiforgeryToken);
+    html = RuntimeIdentityUi.Inject(html, runtimeBuildInfo);
     html = EmployeeDirectoryUi.Inject(html);
     return Results.Text(html, "text/html");
 }).RequireAuthorization();
@@ -416,13 +502,25 @@ app.MapGet(kittingDocumentRoute + "/{workOrderNumber}/documents/{documentType}",
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = provider,
-    OnPrepareResponse = context => NoStore(context.Context.Response)
+    OnPrepareResponse = context =>
+        context.Context.Response.Headers.CacheControl = "public, max-age=0, must-revalidate"
 });
 app.Run();
 
 static bool IsSharedEntryPath(PathString path) =>
     path.Equals("/shared", StringComparison.OrdinalIgnoreCase) ||
     path.Equals("/shared/", StringComparison.OrdinalIgnoreCase);
+
+static bool IsRuntimeInfoPath(PathString path) =>
+    path.Equals("/api/runtime/info", StringComparison.OrdinalIgnoreCase) ||
+    path.Equals("/api/runtime/info/", StringComparison.OrdinalIgnoreCase);
+
+static bool IsBrandingAssetPath(PathString path) =>
+    path.Equals("/apple-touch-icon.png", StringComparison.OrdinalIgnoreCase) ||
+    path.Equals("/favicon-32x32.png", StringComparison.OrdinalIgnoreCase) ||
+    path.Equals("/dle-os-icon-192.png", StringComparison.OrdinalIgnoreCase) ||
+    path.Equals("/dle-os-icon-512.png", StringComparison.OrdinalIgnoreCase) ||
+    path.Equals("/site.webmanifest", StringComparison.OrdinalIgnoreCase);
 
 static bool IsAuthenticationPath(PathString path) =>
     path.StartsWithSegments("/auth") ||

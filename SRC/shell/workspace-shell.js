@@ -42,13 +42,11 @@
   function updateWorkAreaChrome(workspace) {
     const isHome = workspace.id === "dle-home";
     const mode = document.getElementById("activeWorkAreaLabel");
-    const change = document.getElementById("changeWorkAreaButton");
     const selector = document.querySelector(".workspace-selector");
     if (mode) {
-      mode.textContent = isHome ? "" : "\u2022 " + workspace.label.toUpperCase();
-      mode.hidden = isHome;
+      mode.textContent = isHome ? "HOME" : workspace.label.toUpperCase();
+      mode.hidden = false;
     }
-    if (change) change.hidden = isHome;
     if (selector) selector.hidden = !window.DleOsCapabilities?.isSuperAdmin;
   }
 
@@ -86,11 +84,16 @@
   function initWorkspaceShell() {
     selectedWorkspaceId = registry().defaultWorkspaceId;
     renderWorkspaceSelector();
-    activateWorkspace(selectedWorkspaceId);
+    return getCurrentWorkspace();
+  }
+
+  function activateInitialWorkspace() {
+    return activateWorkspace(selectedWorkspaceId || registry().defaultWorkspaceId);
   }
 
   window.DleWorkspaceShell = Object.freeze({
     init: initWorkspaceShell,
+    activateInitialWorkspace,
     setWorkspaceView: activateWorkspace,
     updateWorkspaceHomeView() {
       activateWorkspace(selectedWorkspaceId || registry().defaultWorkspaceId);

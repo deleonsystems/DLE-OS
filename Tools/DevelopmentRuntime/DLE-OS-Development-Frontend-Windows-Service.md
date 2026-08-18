@@ -1,5 +1,12 @@
 # DLE-OS Development Frontend Windows Service
 
+> **Status:** The migration and rollback sections below are retained as a
+> historical implementation record. They are not current operating guidance
+> and their migration/restore scripts must not be used for routine DEV work.
+> Current topology is defined by
+> [`Documentation/DEV_ENVIRONMENT_MANIFEST.md`](../../Documentation/DEV_ENVIRONMENT_MANIFEST.md);
+> the supported frontend deployment command is `.\Deploy-DevFrontend.cmd`.
+
 ## Decision and scope
 
 The DEV frontend moves to the native SCM service `DleOsDevelopmentFrontend`. SCM launches `DleOs.DevelopmentFrontend.exe` directly as `DLE-OS-HOST\DLE-OS-DEV-FRONTEND`; the service creates no detached child.
@@ -97,6 +104,29 @@ The DELEON-SERVER bootstrap is intentionally not controlled remotely. A host fai
 
 After a successful migration, `Restore-DleOsDevelopmentFrontendDetachedRuntime.ps1` can consume the migration evidence to remove the service and restore the actual detached runtime. File-server cleanup, when authorized, remains a separate local DELEON-SERVER rollback.
 
-## Future DEV deployment
+## Supported DEV frontend deployment
 
-`Deploy-DleOsDevelopmentFrontendWindowsService.ps1` refuses to run if the rejected Scheduled Task reappears. It stops SCM, confirms service/PID/TCP/prefix release, switches to a versioned release, validates singleton ownership, and restores the previous service ImagePath on failure.
+From the repository root, run:
+
+```powershell
+.\Deploy-DevFrontend.cmd
+```
+
+This is the supported developer/operator entry point. It validates that the
+configuration is DEV-only, requests one UAC approval when needed, builds and
+publishes a versioned release, transitions only the
+`DleOsDevelopmentFrontend` service, and prints the release, service PID,
+evidence path, and final verdict.
+
+The underlying engine refuses to run if the rejected Scheduled Task reappears.
+It confirms service/PID/TCP/HTTP.sys-prefix release, validates singleton SCM
+ownership and DEV/auth health, preserves protected listeners, and restores the
+previous service ImagePath if a candidate fails. Direct engine invocation is
+an implementation and recovery interface, not the normal deployment command.
+
+Routine deployments preserve valid DEV OIDC sessions in the protected
+`C:\ProgramData\DLE-OS\DevelopmentFrontend\AuthState` boundary. The deployment
+engine creates and verifies its restricted ACL before starting a candidate.
+ASP.NET Core Data Protection encrypts tickets and uses a DPAPI-protected key
+ring there; no token or credential is written in plaintext. Explicit Sign Out
+still deletes the server-side ticket and ends the Keycloak session.

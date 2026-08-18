@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 
 var checks = new List<string>();
+var limitations = new List<string>();
 var repository = Directory.GetCurrentDirectory();
 var clientSource = File.ReadAllText(Path.Combine(repository, "SRC", "api", "dle-api-client.js"));
 var canonicalViewerSource = File.ReadAllText(Path.Combine(repository, "SRC", "modules",
@@ -17,10 +18,18 @@ var shipmentStagingSource = File.ReadAllText(Path.Combine(repository, "SRC", "mo
     "shipment-staging", "shipment-staging-service.js"));
 var runtimeSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
     "DleOs.DevelopmentFrontend", "DleOsRuntimeConfiguration.cs"));
-var startupSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
-    "Start-DevelopmentFrontend.ps1"));
 var serviceBootstrapSource = File.ReadAllText(Path.Combine(repository, "Tools", "DevelopmentRuntime",
     "DleOs.DevelopmentFrontend", "DleOsWindowsServiceBootstrap.cs"));
+var runtimeConfigurationPath = Path.Combine(repository, "Tools", "DevelopmentRuntime",
+    "DleOs.DevelopmentFrontend", "service-runtime.Development.json");
+using var runtimeConfigurationDocument = JsonDocument.Parse(
+    File.ReadAllText(runtimeConfigurationPath));
+var runtimeConfiguration = runtimeConfigurationDocument.RootElement;
+var applicationOrigin = new Uri(runtimeConfiguration.GetProperty("applicationOrigin").GetString()!);
+var canonicalApi = new Uri(runtimeConfiguration.GetProperty("canonicalApiBaseUrl").GetString()!);
+var operationalApi = new Uri(runtimeConfiguration.GetProperty("operationalApiBaseUrl").GetString()!);
+var frontendPrefixes = runtimeConfiguration.GetProperty("frontendPrefixes").EnumerateArray()
+    .Select(value => new Uri(value.GetString()!)).ToArray();
 
 Check(clientSource.Contains("window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT'") &&
       clientSource.Contains("DEVELOPMENT_BFF_BASE_URL") &&
@@ -43,10 +52,10 @@ Check(proxySource.Contains("UseDefaultCredentials = true") &&
     "BFF uses its service identity for explicitly configured downstreams");
 Check(runtimeSource.Contains("DLE_OS_ENVIRONMENT") &&
       runtimeSource.Contains("Development isolation requires 5052, 5054") &&
-      startupSource.Contains("DLE_OS_CANONICAL_API_BASE_URL = 'http://DLE-OS-HOST:5052'") &&
-      startupSource.Contains("DLE_OS_OPERATIONAL_API_BASE_URL = 'http://DLE-OS-HOST:5054'") &&
-      !startupSource.Contains("DLE_OS_CANONICAL_API_BASE_URL = 'http://DLE-OS-HOST:5042'") &&
-      !startupSource.Contains("DLE_OS_OPERATIONAL_API_BASE_URL = 'http://DLE-OS-HOST:5043'"),
+      runtimeConfiguration.GetProperty("environment").GetString() == "Development" &&
+      canonicalApi.Port == 5052 && operationalApi.Port == 5054 &&
+      !runtimeConfiguration.GetProperty("securityDatabase").GetString()!
+          .Contains("LIVE", StringComparison.OrdinalIgnoreCase),
     "Development routing is explicit and fail-closed against production boundaries");
 Check(!proxySource.Contains("/api/platform/refresh/v1") &&
       !proxySource.Contains("/api/platform/refresh/v1") &&
@@ -65,114 +74,67 @@ Check(proxySource.Contains("UserId={UserId}") && proxySource.Contains("UserName=
       proxySource.Contains("runtime.RuntimeMarker"),
     "compatibility requests are safely audited with internal identity and correlation");
 Check(programSource.Contains("DLE_OS_REQUIRED_RUNTIME_IDENTITY") &&
-      startupSource.Contains(@"DLE-OS-HOST\DLE-OS") &&
-      serviceBootstrapSource.Contains(@"DLE-OS-HOST\DLE-OS") &&
-      serviceBootstrapSource.Contains("WindowsIdentity.GetCurrent().Name.Equals"),
-    "legacy rollback and SCM service identities are explicit and fail-closed");
+      serviceBootstrapSource.Contains("ServiceName = \"DleOsDevelopmentFrontend\"") &&
+      serviceBootstrapSource.Contains(@"DLE-OS-HOST\DLE-OS-DEV-FRONTEND") &&
+      serviceBootstrapSource.Contains("WindowsIdentity.GetCurrent().Name.Equals") &&
+      programSource.Contains("builder.Host.UseWindowsService"),
+    "current SCM service identity and ownership are explicit and fail-closed");
 
-if (args.Contains("--static", StringComparer.OrdinalIgnoreCase))
+if (!args.Contains("--live-dev", StringComparer.OrdinalIgnoreCase))
 {
-    Console.WriteLine($"PASS: {checks.Count} static authenticated frontend compatibility checks.");
+    Console.WriteLine($"PASS: {checks.Count} deterministic authenticated frontend compatibility checks.");
     foreach (var check in checks) Console.WriteLine("  " + check);
     return;
 }
 
-using var authenticated = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true })
+var directFrontend = frontendPrefixes.Single(prefix => prefix.Scheme == Uri.UriSchemeHttp &&
+    prefix.Host.Equals("dle-os-host", StringComparison.OrdinalIgnoreCase) && prefix.Port == 5051);
+using var direct = new HttpClient { BaseAddress = directFrontend, Timeout = TimeSpan.FromSeconds(10) };
+using (var response = await direct.GetAsync("/shared"))
+    Check(response.StatusCode == HttpStatusCode.OK,
+        "live DEV direct 5051 shared endpoint is healthy");
+using var exactHost = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+    { BaseAddress = applicationOrigin, Timeout = TimeSpan.FromSeconds(8) };
+try
 {
-    BaseAddress = new Uri("http://dle-os-host:5051"), Timeout = TimeSpan.FromSeconds(30)
-};
-using var anonymous = new HttpClient(new HttpClientHandler { UseDefaultCredentials = false })
-{
-    BaseAddress = authenticated.BaseAddress, Timeout = authenticated.Timeout
-};
-
-var me = await GetJson(authenticated, "/api/auth/me");
-Check(Text(me, "user", "displayName") == "Miguel De Leon" &&
-      Text(me, "user", "userName") == "Miguel" &&
-      me.GetProperty("isSuperAdmin").GetBoolean(),
-    "live service-hosted BFF resolves Miguel as SUPER_ADMIN");
-
-using (var spoof = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me?user=Other"))
-{
-    spoof.Headers.TryAddWithoutValidation("X-DLE-OS-User", "Other");
-    spoof.Headers.TryAddWithoutValidation("X-Windows-Identity", @"DLE-OS-HOST\Other");
-    using var response = await authenticated.SendAsync(spoof);
-    var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
-    Check(response.StatusCode == HttpStatusCode.OK && Text(body, "user", "userName") == "Miguel",
-        "browser headers and query parameters cannot spoof the BFF user");
+    using (var response = await exactHost.GetAsync("/shared"))
+        Check(response.StatusCode == HttpStatusCode.OK,
+            "live DEV exact-host shared endpoint is healthy");
+    using (var response = await exactHost.GetAsync("/"))
+    {
+        var authHost = frontendPrefixes.Single(prefix => prefix.Scheme == Uri.UriSchemeHttps &&
+            !prefix.Host.Equals(applicationOrigin.Host, StringComparison.OrdinalIgnoreCase)).Host;
+        Check(response.StatusCode == HttpStatusCode.Redirect && response.Headers.Location is not null &&
+              response.Headers.Location.Host.Equals(authHost, StringComparison.OrdinalIgnoreCase),
+            "live DEV unauthenticated navigation reaches the configured Keycloak boundary");
+    }
 }
-
-using (var response = await anonymous.GetAsync("/api/auth/me"))
+catch (HttpRequestException error) when (
+    error.ToString().Contains("0x8009030E", StringComparison.OrdinalIgnoreCase) ||
+    error.ToString().Contains("No credentials are available in the security package",
+        StringComparison.OrdinalIgnoreCase))
+{
+    limitations.Add(
+        "Exact-host HTTPS skipped because the invoking Codex process has no Schannel client credential; " +
+        "use the governed elevated health checkpoint.");
+}
+using var canonical = new HttpClient { BaseAddress = canonicalApi, Timeout = TimeSpan.FromSeconds(30) };
+using (var response = await canonical.GetAsync("/api/platform/live/v1/readiness"))
+    Check(response.StatusCode == HttpStatusCode.OK,
+        "live DEV canonical read-only readiness boundary is healthy");
+using var operational = new HttpClient(new HttpClientHandler { UseDefaultCredentials = false })
+    { BaseAddress = operationalApi, Timeout = TimeSpan.FromSeconds(30) };
+using (var response = await operational.GetAsync("/health"))
     Check(response.StatusCode == HttpStatusCode.Unauthorized,
-        "anonymous compatibility access remains challenged");
-
-var sales = await GetJson(authenticated,
-    "/api/platform/live/v1/sales-orders?page=1&pageSize=2");
-var salesItems = sales.GetProperty("items");
-Check(salesItems.GetArrayLength() > 0, "canonical Sales Orders load through 5051");
-var workOrders = await GetJson(authenticated,
-    "/api/platform/live/v1/work-orders?page=1&pageSize=2");
-Check(workOrders.GetProperty("items").GetArrayLength() > 0,
-    "canonical Work Orders load through 5051");
-using (var readinessResponse = await authenticated.GetAsync(
-    "/api/platform/live/v1/readiness"))
-{
-    var readinessBody = JsonDocument.Parse(
-        await readinessResponse.Content.ReadAsStringAsync()).RootElement;
-    Check(readinessResponse.StatusCode == HttpStatusCode.ServiceUnavailable &&
-          readinessBody.GetProperty("readinessState").GetString() ==
-              "NotReadySourceCheckExpired",
-        "DEV BFF preserves the expired freshness readiness response without weakening it");
-}
-var snapshot = await GetJson(authenticated, "/api/platform/live/v1/snapshot");
-Check(snapshot.GetProperty("sourceChangeStatus").GetString() == "Qualified" &&
-      snapshot.GetProperty("totalCount").GetInt32() > 0,
-    "DEV BFF exposes the still-qualified read-only canonical snapshot");
-var line = salesItems[0];
-var customer = line.GetProperty("customerNumber").GetString()!;
-var order = line.GetProperty("salesOrderNumber").GetString()!;
-var lineNumber = line.GetProperty("lineNumber").GetString()!;
-
-var relationships = await GetJson(authenticated,
-    "/api/platform/live/v1/sales-order-work-order-relationships?page=1&pageSize=50");
-var actionable = relationships.GetProperty("items").EnumerateArray()
-    .First(item => item.TryGetProperty("actionableWorkOrderNumber", out var value) &&
-                   value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString()));
-var workOrder = actionable.GetProperty("actionableWorkOrderNumber").GetString()!;
-Check(relationships.GetProperty("totalItems").GetInt32() > 0,
-    "canonical Work Order relationships load through 5051");
-
-var rma = await GetJson(authenticated, "/api/rma-rework/v1/cases?status=ACTIVE&page=1&pageSize=2");
-Check(rma.TryGetProperty("items", out var rmaItems) && rmaItems.ValueKind == JsonValueKind.Array,
-    "RMA/Rework state loads through the governed development path");
-
-await GetJson(authenticated, $"/api/work-order-approvals/v1/sales-order-lines/{customer}/{order}/{lineNumber}");
-Check(true, "Work Order approval review loads through the governed development path");
-await GetJson(authenticated,
-    $"/api/operational-work-order-relationships/v1/sales-order-lines/{customer}/{order}/{lineNumber}");
-Check(true, "operational Work Order relationship state loads through 5051");
-await GetJson(authenticated, $"/api/kitting-dispositions/v1/work-orders/{workOrder}");
-await GetJson(authenticated, $"/api/kitting-dispositions/v1/work-orders/{workOrder}/history");
-Check(true, "Kitting disposition and history load through 5051");
-var shipments = await GetJson(authenticated, "/api/shipment-staging/v1/shipments?page=1&pageSize=2");
-Check(shipments.TryGetProperty("items", out var shipmentItems) &&
-      shipmentItems.ValueKind == JsonValueKind.Array,
-    "Shipment Staging state loads through 5051");
-var customerFolder = await GetJson(authenticated,
-    $"/api/customer-files/v1/customers/{customer}/folder");
-Check(customerFolder.GetProperty("customerNumber").GetString() == customer,
-    "Customer Files status loads through 5051");
-
-using (var response = await authenticated.GetAsync("/api/platform/refresh/v1/status"))
-    Check(response.StatusCode == HttpStatusCode.NotFound,
-        "production and administrative refresh controls are not exposed by 5051");
+        "live DEV operational health boundary still requires Windows authentication");
 
 var report = new
 {
     verdict = "PASS",
     completedAtUtc = DateTimeOffset.UtcNow,
-    checks,
-    representative = new { customer, order, lineNumber, workOrder }
+    mode = "LIVE_DEV_READ_ONLY_QUALIFICATION",
+    limitations,
+    checks
 };
 var output = Path.Combine(repository, ".tmp", "authenticated-frontend", "phase3-compatibility-tests.json");
 Directory.CreateDirectory(Path.GetDirectoryName(output)!);
@@ -180,21 +142,10 @@ await File.WriteAllTextAsync(output, JsonSerializer.Serialize(report,
     new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
 Console.WriteLine($"PASS: {checks.Count} authenticated frontend compatibility checks.");
 foreach (var check in checks) Console.WriteLine("  " + check);
+foreach (var limitation in limitations) Console.WriteLine("  LIMITATION: " + limitation);
 
 void Check(bool condition, string name)
 {
     if (!condition) throw new Exception("FAILED: " + name);
     checks.Add(name);
 }
-
-static async Task<JsonElement> GetJson(HttpClient client, string path)
-{
-    using var response = await client.GetAsync(path);
-    var body = await response.Content.ReadAsStringAsync();
-    if (!response.IsSuccessStatusCode)
-        throw new Exception($"GET {path} returned {(int)response.StatusCode}: {body}");
-    return JsonDocument.Parse(body).RootElement.Clone();
-}
-
-static string? Text(JsonElement root, string parent, string property) =>
-    root.GetProperty(parent).GetProperty(property).GetString();

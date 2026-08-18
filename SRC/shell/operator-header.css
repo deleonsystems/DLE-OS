@@ -1,0 +1,34 @@
+body > header.dle-app-header { position:sticky;top:0;z-index:1000;display:block;min-height:0;padding:0;background:rgba(3,9,16,.96);border-bottom:1px solid var(--border);backdrop-filter:blur(12px) }
+body > header [hidden] { display:none!important }
+.dle-operator-header { min-height:102px;padding:8px 20px;display:flex;align-items:center;gap:16px }
+.dle-operator-nav { display:flex;align-items:center;gap:8px }
+.dle-operator-nav .nav-btn,.dle-operator-nav .home-btn,.dle-operator-header>.top-pills .home-btn { min-height:44px;padding:10px 14px;font-size:14px;white-space:nowrap;touch-action:manipulation }
+.dle-operator-header .logo { height:86px;flex:0 0 auto }
+.dle-operator-header .divider { height:54px;margin:0 2px }
+.dle-operator-header .title-wrap { min-width:175px;flex:1 1 auto }
+.dle-operator-header .app-title { font-size:clamp(19px,2vw,25px);white-space:nowrap }
+.dle-work-area-separator { color:#64748b;padding:0 3px }
+#activeWorkAreaLabel { color:#93c5fd;font-weight:800;letter-spacing:.045em }
+.dle-header-right { flex:0 0 auto;display:flex;align-items:flex-end;justify-content:flex-end;gap:8px }
+.dle-dev-secondary-slot { flex:0 0 auto;display:flex;align-items:center;justify-content:flex-start }
+.dle-dev-secondary-slot>.dle-environment-badge,.dle-dev-secondary-slot>.dle-dev-toggle { min-width:74px;min-height:36px;padding:8px 11px;text-align:center }
+.dle-identity-clock-stack { width:292px;max-width:100%;display:grid;align-content:center;grid-template-rows:auto auto;gap:5px }
+.dle-factory-clock { width:100%;min-height:32px;display:flex;align-items:center;justify-content:center;color:#b8c7d3;background:rgba(15,23,42,.52);border:1px solid rgba(148,163,184,.2);border-radius:7px;padding:4px 9px;font:650 12px/1.25 system-ui,sans-serif;letter-spacing:.01em;white-space:nowrap;text-align:center }
+.dle-environment-badge,.dle-dev-toggle { flex:0 0 auto;min-height:36px;border:1px solid #f59e0b;border-radius:999px;background:#fbbf24;color:#2b1b00;padding:8px 11px;font:900 12px/1 system-ui,sans-serif;letter-spacing:.08em;box-shadow:0 0 0 2px rgba(251,191,36,.10);white-space:nowrap }
+.dle-dev-toggle { cursor:pointer;touch-action:manipulation }
+.dle-dev-toggle:focus-visible { outline:3px solid #fde68a;outline-offset:2px }
+.dle-identity-clock-stack>.top-pills { width:100%;min-width:0;margin:0;display:flex;justify-content:flex-end;align-items:center;gap:0;box-sizing:border-box }
+.dle-identity-clock-stack #dle-auth-identity { width:100%;max-width:100%;box-sizing:border-box;justify-content:space-between }
+.dle-dev-controls { padding:10px 20px 12px;background:rgba(12,23,37,.98);border-top:1px solid rgba(148,163,184,.22);box-shadow:inset 0 1px rgba(255,255,255,.025) }
+.dle-dev-control-group { display:flex;align-items:center;gap:10px;flex-wrap:wrap }
+.dle-dev-controls .workspace-selector { padding:5px 8px 5px 11px }
+.dle-dev-controls .workspace-selector select { min-width:170px;padding:7px 9px }
+.dle-dev-utilities { display:flex;align-items:center;gap:8px;flex-wrap:wrap }
+.dle-dev-module-nav { display:flex;gap:6px;flex-wrap:wrap;margin-top:9px }
+.dle-dev-module-nav button,.dle-dev-utilities>button { min-height:36px;border:1px solid rgba(148,163,184,.34);border-radius:7px;background:rgba(30,41,59,.78);color:#dce9f5;padding:7px 10px;font:650 12px/1.2 system-ui,sans-serif;cursor:pointer;touch-action:manipulation }
+.dle-dev-meta { display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:9px;color:#8fa3b6;font-size:11px }
+.dle-dev-meta .development-read-only-indicator { display:inline-flex;margin:0 }
+body > main { margin-top:28px }
+@media(max-width:1100px){.dle-operator-header{flex-wrap:wrap;gap:7px 12px;padding:8px 14px}.dle-operator-header .logo{height:72px}.dle-operator-header .divider{height:44px}.dle-operator-header .title-wrap{flex:1 1 220px}.dle-header-right{flex:1 1 100%;justify-content:flex-end}}
+@media(max-width:760px){.dle-operator-header{align-items:center}.dle-operator-nav{order:1}.dle-operator-header .logo{order:2;height:64px}.dle-operator-header .divider{display:none}.dle-operator-header .title-wrap{order:3;min-width:150px}.dle-header-right{order:4;width:100%}.dle-factory-clock{font-size:11px;overflow:hidden;text-overflow:ellipsis}.dle-operator-header .app-title{white-space:normal}.dle-dev-controls{padding-inline:12px;max-height:55vh;overflow-y:auto}}
+@media(max-width:420px){.dle-header-right{display:grid;grid-template-columns:1fr;width:100%}.dle-identity-clock-stack{grid-row:1;width:100%}.dle-dev-secondary-slot{grid-row:2;justify-self:start}}
