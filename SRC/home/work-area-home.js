@@ -33,7 +33,7 @@
       '<section class="work-area-home-grid" aria-label="Assigned work areas">',
       workAreas.length ? workAreas.map(workspace => [
         '<button type="button" class="work-area-card" data-work-area="', escapeHtml(workspace.id), '">',
-        '<span class="work-area-card-mark" aria-hidden="true">KT</span>',
+        '<span class="work-area-card-mark" aria-hidden="true">', escapeHtml(workspace.home.mark || workspace.home.label.slice(0, 2)), '</span>',
         '<span><strong>', escapeHtml(workspace.home.label.toUpperCase()), '</strong>',
         '<small>', escapeHtml(workspace.home.description), '</small></span>',
         '<span class="work-area-card-arrow" aria-hidden="true">\u2192</span>',
@@ -48,8 +48,10 @@
   }
 
   function enter(workspaceId) {
+    const workspace = window.DleWorkspaceRegistry.getById(workspaceId);
+    const screenId = workspace?.home?.screenId || "home";
     window.setWorkspaceView(workspaceId);
-    window.go("home", false);
+    window.go(screenId, false);
     window.scrollTo({ top: 0, behavior: "auto" });
   }
 

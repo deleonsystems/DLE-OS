@@ -35,7 +35,14 @@
     {
       id: "operations-center",
       label: "Operations Center",
-      purpose: "Released jobs, scheduling, production priorities, and company-wide operational visibility."
+      purpose: "Released jobs, scheduling, production priorities, and company-wide operational visibility.",
+      home: Object.freeze({
+        label: "Operations Center",
+        description: "Schedule \u2022 Priorities \u2022 Sync \u2022 Visibility",
+        mark: "OC",
+        screenId: "operationsCenter",
+        requiredPermission: "sync.operations"
+      })
     },
     {
       id: "purchasing",
@@ -49,6 +56,7 @@
       home: Object.freeze({
         label: "Kitting",
         description: "Pick \u2022 Count \u2022 Shortages \u2022 Traceability",
+        mark: "KT",
         requiredPermission: "kitting.view"
       })
     },
