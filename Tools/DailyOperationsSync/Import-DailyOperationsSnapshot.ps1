@@ -76,7 +76,29 @@ function Bulk([Data.DataTable]$Table,[string]$Destination,[Data.SqlClient.SqlTra
     $copy=[Data.SqlClient.SqlBulkCopy]::new($connection,[Data.SqlClient.SqlBulkCopyOptions]::CheckConstraints,$Transaction)
     $copy.DestinationTableName=$Destination;$copy.BatchSize=1000;$copy.BulkCopyTimeout=240
     foreach($column in $Table.Columns){[void]$copy.ColumnMappings.Add($column.ColumnName,$column.ColumnName)}
-    $copy.WriteToServer($Table);$copy.Dispose()
+    $rows=$Table.Rows.Count
+    $startedAtUtc=[DateTimeOffset]::UtcNow
+    $stopwatch=[Diagnostics.Stopwatch]::StartNew()
+    Write-Host ("Bulk copy START {0} rows={1} startedAtUtc={2}" -f
+        $Destination,$rows,$startedAtUtc.ToString('O'))
+    try {
+        $copy.WriteToServer($Table)
+    }
+    catch {
+        $stopwatch.Stop()
+        $failedAtUtc=[DateTimeOffset]::UtcNow
+        $message=("Bulk copy FAILED {0} rows={1} startedAtUtc={2} failedAtUtc={3} elapsedMs={4} elapsedSeconds={5:F3} error={6}" -f
+            $Destination,$rows,$startedAtUtc.ToString('O'),$failedAtUtc.ToString('O'),
+            $stopwatch.ElapsedMilliseconds,$stopwatch.Elapsed.TotalSeconds,$_.Exception.Message)
+        Write-Host $message
+        throw
+    }
+    $stopwatch.Stop()
+    $completedAtUtc=[DateTimeOffset]::UtcNow
+    Write-Host ("Bulk copy COMPLETE {0} rows={1} startedAtUtc={2} completedAtUtc={3} elapsedMs={4} elapsedSeconds={5:F3}" -f
+        $Destination,$rows,$startedAtUtc.ToString('O'),$completedAtUtc.ToString('O'),
+        $stopwatch.ElapsedMilliseconds,$stopwatch.Elapsed.TotalSeconds)
+    $copy.Dispose()
 }
 function AddParams($Command,[hashtable]$Values){foreach($pair in $Values.GetEnumerator()){
     $parameterValue=if($null -eq $pair.Value){[DBNull]::Value}else{$pair.Value}

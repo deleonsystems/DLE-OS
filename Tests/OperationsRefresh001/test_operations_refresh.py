@@ -129,10 +129,24 @@ for source in ("ARE-03", "ARE-13", "ARM-01", "ARM-10"):
 check("base VPro explicit O_RDONLY", 'MODE="O_RDONLY"' in VPRO)
 for prohibited in ("WRITE RECORD", "INITFILE", "ERASE", "REMOVE", "EXTRACT"):
     check(f"base VPro excludes {prohibited}", prohibited not in VPRO.upper())
-check("WOE exact fixed source", r"X:\\AON\\ADATA\\WOE-03" in EXTRACTOR)
+check("WOE exact fixed UNC source", (
+    r'SOURCE_ROOT = Path(r"\\deleon-server\Add-ON\AON\ADATA")' in EXTRACTOR
+    and 'str(SOURCE_ROOT)}\\\\WOE-03' in EXTRACTOR))
 check("WOE exact seeded seek", 'READ RECORD (10,KEY=P$[X]' in EXTRACTOR)
 check("WOE sibling candidates retained", 'K$(1,19)<>P$[X](1,19)' in EXTRACTOR)
 check("WOE zero complete scans evidence", '"woe03CompleteScans": 0' in EXTRACTOR)
+check("ARE13 qualified bounded default", (
+    'choices=("bounded", "full"), default="bounded"' in EXTRACTOR
+    and "from bounded_sales_order_shadow import" in EXTRACTOR))
+check("ARE13 full fallback retained", (
+    'if args.are13_mode == "full"' in EXTRACTOR
+    and "OPEN_SALES_ORDER_BASE_QUALIFIER.src" in EXTRACTOR))
+check("ARE03 remains authoritative discovery", (
+    'single_file_full_source(' in EXTRACTOR
+    and 'eligible_header_prefixes(' in EXTRACTOR))
+check("ARE13 integration evidence", all(value in EXTRACTOR for value in (
+    '"are13ExtractionMode"', '"eligibleOrderPrefixCount"',
+    '"are13RecordsRead"')))
 check("source identity before after", "before = identity()" in EXTRACTOR and "after = identity()" in EXTRACTOR)
 check("source identity fail closed", 'raise RuntimeError("source identity changed' in EXTRACTOR)
 check("extractor exact run root", "run_root.parent != RUNS.resolve()" in EXTRACTOR)

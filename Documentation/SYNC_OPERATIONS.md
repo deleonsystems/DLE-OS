@@ -19,8 +19,6 @@ The v1 operation is intentionally focused:
 3. Open Sales Orders and Work Order relationship evidence
 4. one-transaction daily operational SQL promotion
 5. DEV canonical API 5052 generation/readiness verification
-6. bounded 45-day Invoice History synchronization
-7. final 5052 readiness verification
 
 It does not run Full or Force-Full Core Snapshot, BOM, Inventory, or GL.
 Legacy refresh controls remain in System Center as administrative recovery
@@ -41,9 +39,18 @@ Operations lease is owned.
 
 A successful daily SQL promotion must become `ReadyFresh` on 5052 with the
 same import run ID. A committed generation that is not visible is reported as
-`PROMOTED_BUT_NOT_VISIBLE`, not success. Changed Invoice History imports create
-a new committed dataset generation and refresh its counts, activation time,
-and import identity; a true no-change import retains the current generation.
+`PROMOTED_BUT_NOT_VISIBLE`, not success. Success means current operational
+demand was synchronized and is visible through 5052; it does not claim that
+historical invoice data was reconciled.
+
+Invoice History remains an independently governed refresh capability and is
+not launched by normal Sync Operations. Its result cannot determine the normal
+Sync Operations outcome. The independent workflow retains progress-aware VPro
+monitoring with a 180-second no-progress timeout and a 600-second absolute
+ceiling, governed child-process cleanup, read-only (`O_RDONLY`) validation, and
+source-identity validation. Changed Invoice History imports create a new
+committed dataset generation and refresh its counts, activation time, and
+import identity; a true no-change import retains the current generation.
 
 Semantic endpoints:
 

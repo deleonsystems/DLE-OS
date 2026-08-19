@@ -84,20 +84,16 @@
     const status = String(syncValue(state, 'status') || 'NEVER_RUN');
     const running = ['QUEUED', 'RUNNING'].includes(status);
     const daily = syncValue(state, 'dailyOperations');
-    const invoice = syncValue(state, 'invoiceHistory');
     const dailyCounts = syncValue(daily, 'components') || [];
     const countSummary = dailyCounts.filter(item => syncValue(item, 'recordCount') !== null && syncValue(item, 'recordCount') !== undefined)
       .map(item => syncValue(item, 'id') + ': ' + syncValue(item, 'recordCount')).join(' · ');
-    const invoiceImport = syncValue(syncValue(invoice, 'details'), 'import');
-    const invoiceChanges = syncValue(invoiceImport, 'ChangeCount') ?? syncValue(invoiceImport, 'changeCount');
     root.dataset.status = status.toLowerCase();
     root.innerHTML = '<strong>Sync Operations — ' + escapeOptionText(status.replaceAll('_', ' ')) + '</strong>' +
-      '<span>' + escapeOptionText(syncValue(state, 'currentStep') || syncValue(state, 'result') || 'No synchronization has run.') + '</span>' +
+      '<span>' + escapeOptionText(syncValue(state, 'result') || syncValue(state, 'currentStep') || 'No synchronization has run.') + '</span>' +
       '<small>Requested by ' + escapeOptionText(syncValue(state, 'requestedBy') || '—') +
       ' · started ' + escapeOptionText(formatSyncDate(syncValue(state, 'startedAtUtc'))) +
       ' · elapsed ' + escapeOptionText(syncValue(state, 'elapsedSeconds') ?? 0) + 's' +
-      (countSummary ? ' · ' + escapeOptionText(countSummary) : '') +
-      (invoiceChanges !== undefined ? ' · invoice changes: ' + escapeOptionText(invoiceChanges) : '') + '</small>';
+      (countSummary ? ' · ' + escapeOptionText(countSummary) : '') + '</small>';
     if (button) button.disabled = running;
     if (syncOperationsPollTimer) window.clearTimeout(syncOperationsPollTimer);
     syncOperationsPollTimer = running ? window.setTimeout(refreshSyncOperationsStatus, 2000) : null;
@@ -114,7 +110,7 @@
   }
 
   async function startSyncOperations() {
-    if (!window.confirm('Start the governed focused synchronization now? This updates Customer Master, Work Orders, Open Sales Orders, relationships, and the 45-day Invoice History window.')) return;
+    if (!window.confirm('Start the governed operational synchronization now? This updates Customer Master, Work Orders, Open Sales Orders, and relationships, then verifies the promoted generation through API 5052.')) return;
     const button = document.getElementById('syncOperationsButton');
     if (button) button.disabled = true;
     try {

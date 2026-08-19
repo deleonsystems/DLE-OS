@@ -30,11 +30,9 @@ if ($identity -ine 'DLE-OS-HOST\DLE-OS') {
 
 $repo = 'C:\DLE-OS\Repositories\DLE-OS'
 $dailyScript = Join-Path $repo 'Tools\DailyOperationsSync\Invoke-DailyOperationsSync.ps1'
-$invoiceScript = Join-Path $repo 'Tools\InvoiceHistory\Invoke-InvoiceHistoryRefresh.ps1'
 $started = [DateTimeOffset]::UtcNow
 $env:DLE_OS_SYNC_OPERATIONS_RUN_ID = $RunId
 $daily = $null
-$invoice = $null
 $readiness = $null
 $status = 'RUNNING'
 $step = 'Starting governed synchronization'
@@ -55,7 +53,7 @@ function Write-RunState {
         StartedAtUtc=$started.ToString('O'); CompletedAtUtc=if($status -eq 'RUNNING'){$null}else{$now.ToString('O')}
         HeartbeatAtUtc=$now.ToString('O'); ElapsedSeconds=[long]($now-$started).TotalSeconds
         OwnerProcessId=$PID; ExecutionIdentity=$identity
-        DailyOperations=$daily; InvoiceHistory=$invoice; CanonicalReadiness=$readiness
+        DailyOperations=$daily; CanonicalReadiness=$readiness
         Result=$result
     }
     Write-AtomicJson $StatePath $state
@@ -117,14 +115,6 @@ try {
         throw "Daily operational synchronization returned $($daily.OverallStatus)."
     }
 
-    $step = 'Synchronizing 45-day Invoice History'
-    Write-RunState
-    $invoice = Invoke-GovernedChild 'invoice-history' $invoiceScript @() `
-        'C:\DLE-OS\Canonical\InvoiceHistory\Refresh\State\status.json' $step
-    if ($invoice.Result -notin @('SUCCESS','SUCCESS_WITH_CLARIFICATIONS','NO_SOURCE_CHANGES')) {
-        throw "Invoice History synchronization returned $($invoice.Result)."
-    }
-
     $step = 'Verifying canonical API 5052 readiness and visibility'
     Write-RunState
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds(60)
@@ -146,7 +136,7 @@ try {
 
     $status = 'SUCCEEDED'
     $step = 'Complete'
-    $result = 'Focused operational synchronization committed and is visible through API 5052.'
+    $result = 'Current operational demand successfully synchronized and is visible through API 5052.'
     Write-RunState
 }
 catch {

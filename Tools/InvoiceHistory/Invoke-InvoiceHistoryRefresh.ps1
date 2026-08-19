@@ -33,6 +33,8 @@ $builder = Join-Path $repo (
     'Tools\InvoiceHistory\build_invoice_history_refresh_package.py')
 $importer = Join-Path $repo (
     'Tools\InvoiceHistory\Import-InvoiceHistoryRefresh.ps1')
+$waitHelper = Join-Path $repo (
+    'Tools\InvoiceHistory\InvoiceHistoryVProWait.ps1')
 $python =
     'C:\Users\DLE-OS\.cache\codex-runtimes\codex-primary-runtime\' +
     'dependencies\python\python.exe'
@@ -45,13 +47,14 @@ $config =
 
 foreach ($path in @(
     $template, $exporter, $builder, $importer, $python, $compiler,
-    $vpro, $config, '\\deleon-server\Add-ON\AON\ADATA\ART-03',
+    $waitHelper, $vpro, $config, '\\deleon-server\Add-ON\AON\ADATA\ART-03',
     '\\deleon-server\Add-ON\AON\ADATA\ART-13'
 )) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Required fixed refresh path is unavailable: $path"
     }
 }
+. $waitHelper
 
 New-Item -ItemType Directory -Path $runsRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $stateRoot -Force | Out-Null
@@ -81,6 +84,53 @@ $packageRoot = Join-Path $runRoot 'Package'
 $windowEnd = (Get-Date).Date
 $windowStart = $windowEnd.AddDays(-44)
 $startedAt = [DateTimeOffset]::UtcNow
+$sourceProcess = $null
+$sourceProcessStartedAt = $null
+$sourceWaitResult = $null
+$noProgressTimeoutSeconds = 180
+$absoluteTimeoutSeconds = 600
+
+function Write-LockOwnership {
+    param([System.Collections.IDictionary] $Value)
+    $bytes = [Text.Encoding]::UTF8.GetBytes(
+        ($Value | ConvertTo-Json -Depth 5))
+    $lock.SetLength(0)
+    $lock.Position = 0
+    $lock.Write($bytes, 0, $bytes.Length)
+    $lock.Flush()
+}
+
+function Test-StartedSourceProcessAlive {
+    if (-not $sourceProcess) { return $false }
+    try {
+        $sourceProcess.Refresh()
+        return -not $sourceProcess.HasExited
+    }
+    catch { return $false }
+}
+
+function Stop-StartedSourceProcess {
+    param([Parameter(Mandatory)][string] $Reason)
+    if (-not (Test-StartedSourceProcessAlive)) {
+        $script:sourceProcessActive = $false
+        return
+    }
+    $actualStart = $sourceProcess.StartTime.ToUniversalTime()
+    if ([Math]::Abs(
+        ($actualStart - $sourceProcessStartedAt.UtcDateTime).TotalSeconds
+    ) -gt 1) {
+        throw (
+            "Refusing cleanup because VPro PID $($sourceProcess.Id) " +
+            'no longer has the launched process start time.')
+    }
+    Stop-Process -Id $sourceProcess.Id -Force -ErrorAction Stop
+    if (-not $sourceProcess.WaitForExit(10000)) {
+        throw (
+            "Started VPro PID $($sourceProcess.Id) did not exit after " +
+            "$Reason cleanup.")
+    }
+    $script:sourceProcessActive = $false
+}
 
 function Write-Status {
     param(
@@ -179,39 +229,48 @@ try {
         -WindowStyle Hidden `
         -PassThru
     $sourceProcessActive = $true
-    $deadline = [DateTimeOffset]::UtcNow.AddMinutes(2)
+    $sourceProcessStartedAt = [DateTimeOffset](
+        $sourceProcess.StartTime.ToUniversalTime())
+    Write-LockOwnership ([ordered]@{
+        RefreshRunId = $runId
+        OrchestratorProcessId = $PID
+        SourceProcessId = $sourceProcess.Id
+        SourceProcessStartedAtUtc = $sourceProcessStartedAt.ToString('O')
+        AcquiredAtUtc = $startedAt.ToString('O')
+    })
     $summaryPath = Join-Path $extractionRoot 'BOUNDED_SUMMARY.csv'
-    $completion = $false
-    while ([DateTimeOffset]::UtcNow -lt $deadline) {
-        $summaryComplete = $false
-        if (Test-Path -LiteralPath $summaryPath -PathType Leaf) {
-            try {
-                $summaryComplete = (
-                    Get-Content -LiteralPath $summaryPath -Raw
-                ) -match '(?im)^open_mode,O_RDONLY\s*$'
-            }
-            catch {
-                $summaryComplete = $false
-            }
-        }
-        $liveProcess = @(
-            Get-CimInstance Win32_Process -Filter (
-                "ProcessId = $($sourceProcess.Id)") `
-                -ErrorAction SilentlyContinue |
-                Where-Object Name -IEQ 'vpro5.exe'
-        )
-        $sourceProcessActive = $liveProcess.Count -gt 0
-        if ($summaryComplete -and -not $sourceProcessActive) {
-            $completion = $true
-            break
-        }
-        Start-Sleep -Milliseconds 250
-    }
+    $sourceWaitResult = Wait-InvoiceHistoryVProExtraction `
+        -Process $sourceProcess `
+        -ProcessStartedAtUtc $sourceProcessStartedAt `
+        -SummaryPath $summaryPath `
+        -ProgressPaths @(
+            (Join-Path $extractionRoot 'BOUNDED_HEADERS.csv'),
+            (Join-Path $extractionRoot 'BOUNDED_LINES.csv'),
+            $summaryPath,
+            (Join-Path $runRoot 'vpro.stdout.log'),
+            (Join-Path $runRoot 'vpro.stderr.log')) `
+        -EvidencePath (Join-Path $runRoot 'vpro-wait.json') `
+        -NoProgressTimeoutSeconds $noProgressTimeoutSeconds `
+        -AbsoluteTimeoutSeconds $absoluteTimeoutSeconds
+    $sourceProcessActive = $sourceWaitResult.ProcessAlive
     $sourceStopwatch.Stop()
-    if (-not $completion) {
+    if ($sourceWaitResult.TimeoutReason) {
+        Stop-StartedSourceProcess -Reason $sourceWaitResult.TimeoutReason
         throw (
-            'The bounded source process did not complete within two minutes. ' +
-            'It was not terminated.')
+            "Invoice History VPro timeout $($sourceWaitResult.TimeoutReason): " +
+            "PID $($sourceProcess.Id), elapsedMs=" +
+            "$($sourceWaitResult.ElapsedMilliseconds), lastProgressUtc=" +
+            "$($sourceWaitResult.LastObservedProgressAtUtc.ToString('O')), " +
+            "outputBytes=$($sourceWaitResult.Output.TotalBytes).")
+    }
+    if ($sourceWaitResult.Result -ne 'COMPLETE') {
+        throw (
+            'The bounded source process exited without a valid final ' +
+            'O_RDONLY summary.')
+    }
+    $sourceProcess.WaitForExit()
+    if ($sourceProcess.ExitCode -ne 0) {
+        throw "The bounded source process exited with code $($sourceProcess.ExitCode)."
     }
     $summaryText = Get-Content -LiteralPath $summaryPath -Raw
     if ($summaryText -match '(?im)^failure,') {
@@ -257,8 +316,36 @@ try {
     Get-Content -LiteralPath $statusPath -Raw
 }
 catch {
+    if (Test-StartedSourceProcessAlive) {
+        try {
+            Stop-StartedSourceProcess -Reason 'WRAPPER_FAILURE'
+        }
+        catch {
+            $sourceProcessActive = Test-StartedSourceProcessAlive
+            Write-Status 'FAILED' (
+                'Invoice History failed and exact-owner VPro cleanup also ' +
+                "failed: $($_.Exception.Message)") ([ordered]@{
+                    SourceProcessActive = $sourceProcessActive
+                    SourceProcessId = if ($sourceProcess) {
+                        $sourceProcess.Id
+                    } else { $null }
+                    SourceProcessStartedAtUtc = if ($sourceProcessStartedAt) {
+                        $sourceProcessStartedAt.ToString('O')
+                    } else { $null }
+                    ActiveDatasetRetained = $true
+                    SourceWrites = 0
+                    SourceLocksRequested = 0
+                })
+            throw
+        }
+    }
     Write-Status 'FAILED' $_.Exception.Message ([ordered]@{
         SourceProcessActive = $sourceProcessActive
+        SourceProcessId = if ($sourceProcess) { $sourceProcess.Id } else { $null }
+        SourceProcessStartedAtUtc = if ($sourceProcessStartedAt) {
+            $sourceProcessStartedAt.ToString('O')
+        } else { $null }
+        WaitDiagnostics = $sourceWaitResult
         ActiveDatasetRetained = $true
         SourceWrites = 0
         SourceLocksRequested = 0
@@ -267,6 +354,7 @@ catch {
 }
 finally {
     $lock.Dispose()
+    $sourceProcessActive = Test-StartedSourceProcessAlive
     if (-not $sourceProcessActive -and (Test-Path -LiteralPath $lockPath)) {
         Remove-Item -LiteralPath $lockPath -Force
     }

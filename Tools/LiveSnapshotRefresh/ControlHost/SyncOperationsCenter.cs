@@ -113,10 +113,11 @@ internal sealed class SyncOperationsCenter
     {
         lock (gate)
         {
-            if (!File.Exists(CurrentPath))
+            var snapshot = SyncOperationsStatusSnapshot.ReadOptional(CurrentPath);
+            if (snapshot is null)
                 return Results.Json(new { status = "NEVER_RUN" });
             var state = JsonSerializer.Deserialize<SyncOperationsState>(
-                File.ReadAllText(CurrentPath), json);
+                snapshot, json);
             if (state is not null && state.Status is "QUEUED" or "RUNNING")
             {
                 var lease = ReadLease();
@@ -124,14 +125,23 @@ internal sealed class SyncOperationsCenter
                     RecoverStaleLease(lease);
                 else if (lease is null)
                     RecoverOrphanedCurrent(state);
+                snapshot = SyncOperationsStatusSnapshot.ReadOptional(CurrentPath);
+                if (snapshot is null)
+                    return Results.Json(new { status = "NEVER_RUN" });
             }
-            return Results.File(CurrentPath, "application/json", enableRangeProcessing: false);
+            return Results.Bytes(snapshot, "application/json");
         }
     }
 
-    internal IResult Run(string runId) => ValidRunId(runId) && File.Exists(RunPath(runId))
-        ? Results.File(RunPath(runId), "application/json", enableRangeProcessing: false)
-        : Results.NotFound(new { code = "SYNC_RUN_NOT_FOUND" });
+    internal IResult Run(string runId)
+    {
+        if (!ValidRunId(runId))
+            return Results.NotFound(new { code = "SYNC_RUN_NOT_FOUND" });
+        var snapshot = SyncOperationsStatusSnapshot.ReadOptional(RunPath(runId));
+        return snapshot is null
+            ? Results.NotFound(new { code = "SYNC_RUN_NOT_FOUND" })
+            : Results.Bytes(snapshot, "application/json");
+    }
 
     internal IResult Runs()
     {

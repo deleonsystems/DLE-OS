@@ -14,6 +14,11 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from bounded_sales_order_shadow import (
+    bounded_vpro_source as bounded_are13_source,
+    eligible_header_prefixes,
+)
+
 
 REPO = Path(r"C:\DLE-OS\Repositories\DLE-OS")
 ROOT = Path(r"C:\DLE-OS\Canonical\OpenSalesOrders\Refresh")
@@ -78,6 +83,24 @@ def compile_and_run(source: Path, program_dir: Path, config: Path) -> None:
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if completed.returncode != 0:
         raise RuntimeError(f"focused VPro reader returned {completed.returncode}")
+
+
+def single_file_full_source(
+        template: str, file_number: int, run_id: str, runtime: Path) -> str:
+    transformed = (template
+        .replace(r"X:\AON\ADATA", str(SOURCE_ROOT))
+        .replace("__RUN_ID__", f"{run_id}-FULL-{file_number}")
+        .replace("__RUNTIME__", str(runtime))
+        .replace("0200 FOR FILE=1 TO 4",
+                 f"0200 FOR FILE={file_number} TO {file_number}"))
+    if f"0200 FOR FILE={file_number} TO {file_number}" not in transformed:
+        raise RuntimeError("the authoritative full source loop was not bounded")
+    return transformed
+
+
+def csv_record_count(path: Path) -> int:
+    with path.open(newline="", encoding="utf-8-sig") as source:
+        return sum(1 for _ in csv.DictReader(source))
 
 
 def open_prefixes(runtime: Path) -> list[str]:
@@ -193,6 +216,9 @@ def main() -> int:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--run-root", required=True, type=Path)
     parser.add_argument("--base-package", type=Path, default=BASE)
+    parser.add_argument(
+        "--are13-mode", choices=("bounded", "full"), default="bounded",
+        help="Use the qualified bounded ARE-13 path or governed full fallback.")
     args = parser.parse_args()
     if not RUN_RE.fullmatch(args.run_id):
         raise ValueError("focused refresh run ID was rejected")
@@ -226,14 +252,40 @@ def main() -> int:
         encoding="ascii")
 
     before = identity()
-    base_source = compile_root / "OPEN_SALES_ORDER_BASE_QUALIFIER.src"
-    base_source.write_text(
-        TEMPLATE.read_text(encoding="ascii")
-        .replace(r"X:\AON\ADATA", str(SOURCE_ROOT))
-        .replace("__RUN_ID__", args.run_id)
-        .replace("__RUNTIME__", str(runtime)),
-        encoding="ascii")
-    compile_and_run(base_source, programs, config)
+    template = TEMPLATE.read_text(encoding="ascii")
+    eligible_order_prefixes: list[str]
+    if args.are13_mode == "full":
+        base_source = compile_root / "OPEN_SALES_ORDER_BASE_QUALIFIER.src"
+        base_source.write_text(
+            template
+            .replace(r"X:\AON\ADATA", str(SOURCE_ROOT))
+            .replace("__RUN_ID__", args.run_id)
+            .replace("__RUNTIME__", str(runtime)),
+            encoding="ascii")
+        compile_and_run(base_source, programs, config)
+        eligible_order_prefixes, _, _ = eligible_header_prefixes(
+            runtime / "ARE03_FULL.csv")
+    else:
+        write_progress(args.run_id, "Reading Open Order Headers")
+        for file_number, label in ((1, "ARE03"), (3, "ARM01"), (4, "ARM10")):
+            source = compile_root / f"OPEN_SALES_ORDER_FULL_{label}.src"
+            source.write_text(single_file_full_source(
+                template, file_number, args.run_id, runtime), encoding="ascii")
+            compile_and_run(source, programs, config)
+            if file_number == 1:
+                eligible_order_prefixes, _, _ = eligible_header_prefixes(
+                    runtime / "ARE03_FULL.csv")
+                write_progress(
+                    args.run_id, "Reading Open Order Lines", 0,
+                    len(eligible_order_prefixes))
+                bounded_are13 = compile_root / "OPEN_SALES_ORDER_ARE13_BOUNDED.src"
+                bounded_are13.write_text(
+                    bounded_are13_source(eligible_order_prefixes, runtime),
+                    encoding="ascii")
+                compile_and_run(bounded_are13, programs, config)
+                write_progress(
+                    args.run_id, "Reading Open Order Lines",
+                    len(eligible_order_prefixes), len(eligible_order_prefixes))
     if "qualification_verdict=PASS" not in (
             runtime / "RUNTIME_VERDICT.txt").read_text(encoding="utf-8"):
         raise RuntimeError("focused base reader did not return PASS")
@@ -288,6 +340,9 @@ def main() -> int:
         "sourceIdentityBefore": before,
         "sourceIdentityAfter": after,
         "sourceIdentityMatch": True,
+        "are13ExtractionMode": args.are13_mode,
+        "eligibleOrderPrefixCount": len(eligible_order_prefixes),
+        "are13RecordsRead": csv_record_count(runtime / "ARE13_FULL.csv"),
         "qualifyingLinePrefixCount": len(prefixes),
         "woe03BoundedSeekCount": len(seed_keys),
         "woe03RelationshipCount": len(actual_relationships),

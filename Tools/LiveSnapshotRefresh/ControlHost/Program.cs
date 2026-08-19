@@ -65,6 +65,7 @@ if (isolatedDevelopment)
     builder.Services.AddTrustedDevelopmentIdentity();
     builder.Services.AddDevelopmentPermissionAuthorization();
     builder.Services.AddSingleton<SyncOperationsCenter>();
+    builder.Services.AddSingleton<OpenSalesOrderShadowQualificationCenter>();
 }
 
 var app = builder.Build();
@@ -421,6 +422,7 @@ if (isolatedDevelopment)
     app.MapShipmentStaging("SnapshotRefreshOperator");
     app.MapDevelopmentIdentityAuditFixture("SnapshotRefreshOperator");
     app.MapSyncOperations("SnapshotRefreshOperator");
+    app.MapOpenSalesOrderShadowQualification("SnapshotRefreshOperator");
 }
 
 app.Run();
