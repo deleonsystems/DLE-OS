@@ -32,6 +32,9 @@
     canonicalSource: 'DLE_OS_CANONICAL_LIVE',
     canonicalEndpoint: '/api/platform/live/v1/sales-orders',
     canonicalRequestId: 0,
+    verifiedStatusByKey: {},
+    verifiedStatusLoading: false,
+    verifiedStatusError: '',
     hideRmaRework: false
   };
 
@@ -134,6 +137,39 @@
     return true;
   }
 
+  function setVerifiedStatusLoading(value) {
+    state.verifiedStatusLoading = !!value;
+    if (value) state.verifiedStatusError = '';
+  }
+
+  function setVerifiedStatusError(error) {
+    state.verifiedStatusLoading = false;
+    state.verifiedStatusError = String(error?.message || error || 'Last Verified Status is unavailable.');
+  }
+
+  function setVerifiedStatusRecords(records) {
+    state.verifiedStatusByKey = (Array.isArray(records) ? records : []).reduce((map, record) => {
+      if (record?.masterRecordKey) map[record.masterRecordKey] = record;
+      return map;
+    }, {});
+    state.verifiedStatusLoading = false;
+    state.verifiedStatusError = '';
+  }
+
+  function upsertVerifiedStatusRecord(record) {
+    if (!record?.masterRecordKey) return false;
+    state.verifiedStatusByKey = {
+      ...state.verifiedStatusByKey,
+      [record.masterRecordKey]: record
+    };
+    state.verifiedStatusError = '';
+    return true;
+  }
+
+  function getVerifiedStatusRecord(masterRecordKey) {
+    return state.verifiedStatusByKey[String(masterRecordKey || '')] || null;
+  }
+
   function setHideRmaRework(value) {
     state.hideRmaRework = !!value;
     return state.hideRmaRework;
@@ -153,6 +189,11 @@
     beginCanonicalLoad,
     commitCanonicalLoad,
     failCanonicalLoad,
+    setVerifiedStatusLoading,
+    setVerifiedStatusError,
+    setVerifiedStatusRecords,
+    upsertVerifiedStatusRecord,
+    getVerifiedStatusRecord,
     setHideRmaRework,
     toggleHideRmaRework
   };

@@ -140,6 +140,24 @@
     return '<td class="' + escapeHtml(className) + '">' + escapeHtml(value) + '</td>';
   }
 
+  function renderVerifiedStatusCell(record, masterRecordKey, className = 'operations-center-official-cell') {
+    const status = viewModel.getVerifiedStatusPresentation(record);
+    const hasStatus = !!status.statusText;
+    const meta = [status.recordedBy, status.timeLabel].filter(Boolean).join(' · ');
+    return [
+      '<td class="', escapeHtml(className), '">',
+      '<button type="button" class="operations-center-verified-status-action" data-master-record-key="',
+      escapeHtml(masterRecordKey),
+      '" onclick="openOperationsCenterVerifiedStatusLogger(event)">',
+      hasStatus
+        ? '<span>' + escapeHtml(status.statusText) + '</span>'
+        : '<span class="operations-center-verified-status-empty">Log status</span>',
+      meta ? '<small>' + escapeHtml(meta) + '</small>' : '',
+      '</button>',
+      '</td>'
+    ].join('');
+  }
+
   function renderOverlayCell(field, record, masterRecordKey) {
     const className = getColumnClassName({ type: 'overlay', field }, 'cell');
     if (isReturnReviewControlled(record) && isOrdinaryProductionOverlay(field.key)) {
@@ -257,10 +275,9 @@
 
   function getCurrentView() {
     const input = document.getElementById('operationsCenterSearch');
-    const searchTerms = String(input?.value || '')
-      .split(';')
-      .map(segment => segment.trim())
-      .filter(Boolean);
+    const searchTerms = typeof viewModel.parseSearchTerms === 'function'
+      ? viewModel.parseSearchTerms(input?.value || '')
+      : String(input?.value || '').split(';').map(segment => segment.trim()).filter(Boolean);
     if (typeof viewModel.getOperationsCenterView === 'function') {
       return viewModel.getOperationsCenterView({
         hideRmaRework: !!state.hideRmaRework,
@@ -486,4 +503,12 @@
   };
 
   window.openOperationsCenterSalesOrderDashboard = openSalesOrderDashboard;
+  window.openOperationsCenterVerifiedStatusLogger = function (event) {
+    const target = event?.currentTarget || event?.target;
+    const masterRecordKey = target?.dataset?.masterRecordKey || '';
+    const record = getDisplayedRecords().find(item => viewModel.getMasterRecordKey(item) === masterRecordKey);
+    if (record && typeof window.OperationsCenter.openVerifiedStatusLogger === 'function') {
+      window.OperationsCenter.openVerifiedStatusLogger(record);
+    }
+  };
 })();

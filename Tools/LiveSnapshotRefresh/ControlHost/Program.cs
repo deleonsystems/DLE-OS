@@ -96,6 +96,7 @@ app.Use(async (context, next) =>
         "/api/kitting-cases/",
         "/api/rma-rework/",
         "/api/operational-work-order-relationships/",
+        "/api/operations-center/",
         "/api/shipment-staging/",
         "/api/sync/operations",
         "/api/development/identity/"
@@ -417,6 +418,8 @@ if (isolatedDevelopment)
     app.MapLegacyKittingMaterialStatus("SnapshotRefreshOperator");
 app.MapRmaRework("SnapshotRefreshOperator");
 app.MapOperationalWorkOrderRelationships("SnapshotRefreshOperator");
+if (isolatedDevelopment)
+    app.MapOperationsCenterVerifiedStatuses("SnapshotRefreshOperator");
 if (isolatedDevelopment)
 {
     app.MapShipmentStaging("SnapshotRefreshOperator");

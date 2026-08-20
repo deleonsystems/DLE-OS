@@ -36,6 +36,7 @@
         </select>
         <button type="button" onclick="connectOperationsCenterDocumentFolder()">Connect Document Folder</button>
         <button id="operationsCenterSaveButton" type="button" onclick="saveOperationsCenterOverlay()">Save</button>
+        <button id="operationsCenterMobileViewToggle" type="button" onclick="toggleOperationsCenterMobileView()">Mobile View</button>
       </div>
     </div>
 
@@ -57,8 +58,36 @@
       <button id="operationsCenterProductionProjectionPrintButton" type="button" onclick="printProductionProjectionReport()">Print Production Projection Report</button>
     </div>
 
+    <div id="operationsCenterMobileView" class="operations-center-mobile-view" hidden>
+      <div class="operations-center-mobile-search-row">
+        <input type="text" id="operationsCenterMobileSearch" class="operations-center-mobile-search" placeholder="Search job..." oninput="filterOperationsCenterMobileView()">
+        <button type="button" onclick="toggleOperationsCenterMobileView(false)">Table</button>
+      </div>
+      <div id="operationsCenterMobileResults" class="operations-center-mobile-results"></div>
+      <div id="operationsCenterMobileDetail" class="operations-center-mobile-detail" hidden></div>
+    </div>
+
     <div id="operationsCenterTable" class="operations-center-table-wrap">
       <div class="operations-center-empty">Loading governed canonical Sales Orders...</div>
+    </div>
+
+    <div id="operationsCenterVerifiedStatusDialog" class="operations-center-status-dialog" hidden>
+      <form class="operations-center-status-dialog-box" onsubmit="submitOperationsCenterVerifiedStatus(event)">
+        <div class="operations-center-status-dialog-header">
+          <strong>Log Verified Status</strong>
+          <button type="button" aria-label="Close" onclick="closeOperationsCenterVerifiedStatusLogger()">×</button>
+        </div>
+        <div id="operationsCenterVerifiedStatusContext" class="operations-center-status-dialog-context"></div>
+        <label class="operations-center-status-dialog-field">
+          <span>Last Verified Status</span>
+          <textarea id="operationsCenterVerifiedStatusText" maxlength="1000" required></textarea>
+        </label>
+        <div id="operationsCenterVerifiedStatusMessage" class="operations-center-status-dialog-message" aria-live="polite"></div>
+        <div class="operations-center-status-dialog-actions">
+          <button type="button" onclick="closeOperationsCenterVerifiedStatusLogger()">Cancel</button>
+          <button id="operationsCenterVerifiedStatusSave" type="submit">Save</button>
+        </div>
+      </form>
     </div>
   </div>
 </section>

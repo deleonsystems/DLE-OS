@@ -148,6 +148,7 @@ internal static class TrustedDevelopmentIdentity
         path.StartsWith("/api/kitting-cases/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/rma-rework/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/operational-work-order-relationships/", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("/api/operations-center/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/shipment-staging/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/sync/operations", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/development/identity/", StringComparison.OrdinalIgnoreCase);

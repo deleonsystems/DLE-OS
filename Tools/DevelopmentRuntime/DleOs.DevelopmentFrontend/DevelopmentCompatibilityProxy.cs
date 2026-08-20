@@ -37,6 +37,7 @@ public static class DevelopmentCompatibilityProxy
 
         MapOperational(app, runtime, operational, "/api/work-order-approvals/{**path}");
         MapOperational(app, runtime, operational, "/api/operational-work-order-relationships/{**path}");
+        MapOperational(app, runtime, operational, "/api/operations-center/{**path}");
         MapOperational(app, runtime, operational, "/api/kitting-dispositions/{**path}");
         MapOperational(app, runtime, operational, "/api/kitting-cases/{**path}");
         MapOperational(app, runtime, operational, "/api/rma-rework/{**path}");
@@ -216,6 +217,10 @@ public static class DevelopmentCompatibilityProxy
             return write ? "kitting.disposition" : "kitting.view";
         if (path.StartsWith("/api/rma-rework/", StringComparison.OrdinalIgnoreCase))
             return write ? "rma_rework.manage" : "rma_rework.view";
+        if (path.StartsWith("/api/operations-center/v1/verified-statuses/latest", StringComparison.OrdinalIgnoreCase))
+            return "sync.operations";
+        if (path.StartsWith("/api/operations-center/", StringComparison.OrdinalIgnoreCase))
+            return write ? "operations-center.verified-status.write" : "sync.operations";
         if (path.StartsWith("/api/shipment-staging/", StringComparison.OrdinalIgnoreCase))
             return write ? "shipments.stage" : "shipments.view";
         if (path.StartsWith("/api/sync/operations", StringComparison.OrdinalIgnoreCase))

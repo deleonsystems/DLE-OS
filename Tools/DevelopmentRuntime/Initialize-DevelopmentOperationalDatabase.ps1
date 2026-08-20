@@ -25,7 +25,8 @@ $migrationPaths = @(
     'Tools\WorkOrderApproval\Database\003_AddNoWorkOrderRequiredDecision.sql',
     'Tools\KittingDisposition\Database\001_AddKittingDispositionEvent.sql',
     'Tools\ShipmentStaging\Database\001_AddOperationalShipmentStaging.sql',
-    'Tools\ShipmentStaging\Database\002_AddShipmentQuantityBaseline.sql'
+    'Tools\ShipmentStaging\Database\002_AddShipmentQuantityBaseline.sql',
+    'Tools\OperationsCenter\Database\001_AddVerifiedStatusEvent.sql'
 )
 
 function Open-Connection([string] $ConnectionString) {
@@ -53,7 +54,7 @@ function Get-OperationalCounts([string] $ConnectionString) {
     try {
         $tables = @('RmaReworkCase','RmaReworkCaseMember','RmaReworkCaseEvent',
             'SalesOrderLineWorkOrderInterpretationEvent','SalesOrderLineWorkOrderDecisionEvent',
-            'KittingDispositionEvent')
+            'KittingDispositionEvent','OperationsCenterVerifiedStatusEvent')
         $counts = [ordered]@{}
         foreach ($table in $tables) {
             $exists = [int](Invoke-Scalar $connection "SELECT COUNT(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name='operational' AND t.name='$table';")
@@ -136,7 +137,7 @@ try {
 
         $requiredTables = @('RmaReworkCase','RmaReworkCaseMember','RmaReworkCaseEvent',
             'SalesOrderLineWorkOrderInterpretationEvent','SalesOrderLineWorkOrderDecisionEvent',
-            'KittingDispositionEvent')
+            'KittingDispositionEvent','OperationsCenterVerifiedStatusEvent')
         foreach ($table in $requiredTables) {
             if ([int](Invoke-Scalar $connection "SELECT COUNT(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name='operational' AND t.name='$table';") -ne 1) {
                 throw "Required migrated table is absent: operational.$table"

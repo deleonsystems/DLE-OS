@@ -1,4 +1,4 @@
-﻿/* -----------------------------------------------------
+/* -----------------------------------------------------
    120 - JS: DLE API CLIENT
 ----------------------------------------------------- */
 
@@ -476,6 +476,13 @@
       requestError.code = body?.code || 'rma_rework_http_error'; throw requestError;
     }
     return body;
+  }
+
+  async function requestOperationsCenter(path, options = {}) {
+    return requestLiveSnapshotRefresh(
+      '/api/operations-center/v1/' + String(path || '').replace(/^\/+/, ''),
+      options
+    );
   }
 
   async function requestCustomerFiles(path, options = {}) {
@@ -1243,6 +1250,20 @@
       return requestOperationalWorkOrderRelationship(
         buildWorkOrderApprovalLinePath(customerNumber, salesOrderNumber, lineNumber), options
       );
+    },
+    getOperationsCenterVerifiedStatusLatest(masterRecordKeys, options = {}) {
+      return requestOperationsCenter('verified-statuses/latest', {
+        ...options, method: 'POST', body: { masterRecordKeys: Array.isArray(masterRecordKeys) ? masterRecordKeys : [] }
+      });
+    },
+    getOperationsCenterVerifiedStatusHistory(masterRecordKey, options = {}) {
+      return requestOperationsCenter('lines/' + encodeURIComponent(String(masterRecordKey || '')) +
+        '/verified-status-history', options);
+    },
+    appendOperationsCenterVerifiedStatus(masterRecordKey, request, options = {}) {
+      requireDevelopmentCapability('operations-center.verified-status.write');
+      return requestOperationsCenter('lines/' + encodeURIComponent(String(masterRecordKey || '')) +
+        '/verified-status-events', { ...options, method: 'POST', body: request });
     },
     appendOperationalWorkOrderInterpretation(customerNumber, salesOrderNumber, lineNumber,
         request, options = {}) {

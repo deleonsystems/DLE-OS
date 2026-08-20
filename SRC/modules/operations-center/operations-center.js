@@ -9,6 +9,9 @@
   let operationalStateSubscription = null;
   let materialStatusSubscription = null;
   let syncOperationsPollTimer = null;
+  let verifiedStatusDialogRecord = null;
+  let verifiedStatusSaving = false;
+  let mobileSelectedRecordKey = '';
 
   async function loadOperationsCenterModule() {
     const placeholder = document.getElementById('operationsCenter');
@@ -58,13 +61,27 @@
     window.OperationsCenter.table.renderModule();
     try {
       const result = await window.OperationsCenter.dataService.loadCanonicalRows();
-      stateActions.commitCanonicalLoad(result, requestId);
+      if (stateActions.commitCanonicalLoad(result, requestId)) {
+        await refreshOperationsCenterVerifiedStatuses();
+      }
     } catch (error) {
       if (error?.name === 'AbortError') return false;
       stateActions.failCanonicalLoad(error, requestId);
     }
     window.OperationsCenter.table.renderModule();
     return !window.OperationsCenter.state.canonicalError;
+  }
+
+  async function refreshOperationsCenterVerifiedStatuses() {
+    const stateActions = window.OperationsCenter.stateActions;
+    const service = window.OperationsCenter.verifiedStatusService;
+    if (!service?.loadLatestForRows) return;
+    stateActions.setVerifiedStatusLoading(true);
+    try {
+      await service.loadLatestForRows(window.OperationsCenter.state.canonicalRows);
+    } catch (error) {
+      stateActions.setVerifiedStatusError(error);
+    }
   }
 
   function syncValue(state, name) {
@@ -123,6 +140,94 @@
 
   function filterOperationsCenter() {
     window.OperationsCenter.table.filter();
+    renderOperationsCenterMobileView();
+  }
+
+  function getMobileSearchTerms() {
+    const input = document.getElementById('operationsCenterMobileSearch');
+    return window.OperationsCenter.viewModel.parseSearchTerms(input?.value || '');
+  }
+
+  function getMobileRecords() {
+    return window.OperationsCenter.viewModel.getOperationsCenterView({
+      hideRmaRework: !!window.OperationsCenter.state.hideRmaRework,
+      searchTerms: getMobileSearchTerms()
+    }).records;
+  }
+
+  function toggleOperationsCenterMobileView(force) {
+    const mobile = document.getElementById('operationsCenterMobileView');
+    const table = document.getElementById('operationsCenterTable');
+    const button = document.getElementById('operationsCenterMobileViewToggle');
+    if (!mobile || !table) return;
+    const active = typeof force === 'boolean' ? force : mobile.hidden;
+    mobile.hidden = !active;
+    table.hidden = active;
+    if (button) button.classList.toggle('active', active);
+    if (active) renderOperationsCenterMobileView();
+  }
+
+  function renderOperationsCenterMobileView() {
+    const results = document.getElementById('operationsCenterMobileResults');
+    if (!results || document.getElementById('operationsCenterMobileView')?.hidden) return;
+    const records = getMobileRecords().slice(0, 50);
+    if (!records.length) {
+      results.innerHTML = '<div class="operations-center-empty">No matching Operations Center lines.</div>';
+      renderOperationsCenterMobileDetail(null);
+      return;
+    }
+    results.innerHTML = records.map(renderMobileResultCard).join('');
+    const selected = records.find(record => window.OperationsCenter.viewModel.getMasterRecordKey(record) === mobileSelectedRecordKey) || records[0];
+    renderOperationsCenterMobileDetail(selected);
+  }
+
+  function renderMobileResultCard(record) {
+    const viewModel = window.OperationsCenter.viewModel;
+    const key = viewModel.getMasterRecordKey(record);
+    const active = key === mobileSelectedRecordKey ? ' active' : '';
+    return '<button type="button" class="operations-center-mobile-card' + active + '" data-master-record-key="' +
+      escapeOptionText(key) + '" onclick="selectOperationsCenterMobileRecord(event)">' +
+      '<strong>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + '</strong>' +
+      '<span>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) +
+      ' � Line ' + escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) +
+      ' � WO ' + escapeOptionText(viewModel.getOfficialField(record, 'workOrder')) + '</span>' +
+      '<small>' + escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' � ' +
+      escapeOptionText(viewModel.getOfficialField(record, 'description')) + '</small></button>';
+  }
+
+  function selectOperationsCenterMobileRecord(event) {
+    mobileSelectedRecordKey = event?.currentTarget?.dataset?.masterRecordKey || '';
+    renderOperationsCenterMobileView();
+  }
+
+  function renderOperationsCenterMobileDetail(record) {
+    const detail = document.getElementById('operationsCenterMobileDetail');
+    if (!detail) return;
+    if (!record) { detail.hidden = true; detail.innerHTML = ''; return; }
+    detail.hidden = false;
+    mobileSelectedRecordKey = window.OperationsCenter.viewModel.getMasterRecordKey(record);
+    const viewModel = window.OperationsCenter.viewModel;
+    const status = viewModel.getVerifiedStatusPresentation(record);
+    detail.innerHTML = '<div class="operations-center-mobile-detail-card">' +
+      '<h3>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + '</h3>' +
+      '<dl>' +
+      mobileFact('Customer P.O.', viewModel.getOfficialField(record, 'customerPo')) +
+      mobileFact('Sales Order', viewModel.getOfficialField(record, 'salesOrder') + ' / ' + viewModel.getOfficialField(record, 'sequenceLine')) +
+      mobileFact('Work Order', viewModel.getOfficialField(record, 'workOrder')) +
+      mobileFact('Item', viewModel.getOfficialField(record, 'partNumber')) +
+      mobileFact('Description', viewModel.getOfficialField(record, 'description')) +
+      mobileFact('Qty Open', viewModel.getOfficialField(record, 'opQtyOpen')) +
+      mobileFact('Due', viewModel.getOfficialField(record, 'dueDate')) +
+      mobileFact('Material', viewModel.getOfficialField(record, 'materialStatus')) +
+      '</dl>' +
+      '<div class="operations-center-mobile-latest"><strong>Last Verified Status</strong><span>' +
+      escapeOptionText(status.statusText || 'No status logged yet.') + '</span><small>' +
+      escapeOptionText([status.recordedBy, status.timeLabel].filter(Boolean).join(' � ')) + '</small></div>' +
+      '<button type="button" class="operations-center-mobile-log-button" onclick="openOperationsCenterVerifiedStatusLoggerForKey()">Log Verified Status</button></div>';
+  }
+
+  function mobileFact(label, value) {
+    return '<dt>' + escapeOptionText(label) + '</dt><dd>' + escapeOptionText(value || '-') + '</dd>';
   }
 
   function getSelectedOperationsCenterDocumentType() {
@@ -229,10 +334,86 @@
     }
   }
 
+
+  function openVerifiedStatusLogger(record) {
+    verifiedStatusDialogRecord = record;
+    const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
+    const context = document.getElementById('operationsCenterVerifiedStatusContext');
+    const text = document.getElementById('operationsCenterVerifiedStatusText');
+    const message = document.getElementById('operationsCenterVerifiedStatusMessage');
+    if (!dialog || !context || !text) return;
+    const viewModel = window.OperationsCenter.viewModel;
+    context.innerHTML = '<strong>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + '</strong>' +
+      '<span>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) +
+      ' / Line ' + escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) +
+      ' / WO ' + escapeOptionText(viewModel.getOfficialField(record, 'workOrder')) + '</span>' +
+      '<small>' + escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' � ' +
+      escapeOptionText(viewModel.getOfficialField(record, 'description')) + '</small>';
+    text.value = '';
+    if (message) message.textContent = '';
+    dialog.hidden = false;
+    text.focus();
+  }
+
+  function closeVerifiedStatusLogger() {
+    if (verifiedStatusSaving) return;
+    verifiedStatusDialogRecord = null;
+    const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
+    if (dialog) dialog.hidden = true;
+  }
+
+  function getCurrentMobileSelectedRecord() {
+    return window.OperationsCenter.viewModel.getOperationsCenterRecords()
+      .find(record => window.OperationsCenter.viewModel.getMasterRecordKey(record) === mobileSelectedRecordKey) || null;
+  }
+
+  function openVerifiedStatusLoggerForKey() {
+    const record = getCurrentMobileSelectedRecord();
+    if (record) openVerifiedStatusLogger(record);
+  }
+
+  async function submitVerifiedStatus(event) {
+    event?.preventDefault?.();
+    if (verifiedStatusSaving || !verifiedStatusDialogRecord) return;
+    const text = document.getElementById('operationsCenterVerifiedStatusText');
+    const button = document.getElementById('operationsCenterVerifiedStatusSave');
+    const message = document.getElementById('operationsCenterVerifiedStatusMessage');
+    const statusText = String(text?.value || '').trim();
+    if (!statusText) {
+      if (message) message.textContent = 'Last Verified Status is required.';
+      return;
+    }
+    verifiedStatusSaving = true;
+    if (button) button.disabled = true;
+    if (message) message.textContent = 'Saving...';
+    try {
+      await window.OperationsCenter.verifiedStatusService.appendForRecord(verifiedStatusDialogRecord, statusText);
+      if (message) message.textContent = 'Saved.';
+      closeVerifiedStatusLoggerAfterSave();
+      window.OperationsCenter.table.renderModule();
+      renderOperationsCenterMobileView();
+    } catch (error) {
+      if (message) message.textContent = 'Save failed: ' + (error?.message || error);
+    } finally {
+      verifiedStatusSaving = false;
+      if (button) button.disabled = false;
+    }
+  }
+
+  function closeVerifiedStatusLoggerAfterSave() {
+    verifiedStatusSaving = false;
+    verifiedStatusDialogRecord = null;
+    const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
+    if (dialog) dialog.hidden = true;
+  }
   window.OperationsCenter.loadModule = loadOperationsCenterModule;
   window.OperationsCenter.initialize = initializeOperationsCenter;
   window.OperationsCenter.render = renderOperationsCenterModule;
   window.OperationsCenter.refreshCanonicalData = refreshOperationsCenterCanonicalData;
+  window.OperationsCenter.refreshVerifiedStatuses = refreshOperationsCenterVerifiedStatuses;
+  window.OperationsCenter.toggleMobileView = toggleOperationsCenterMobileView;
+  window.OperationsCenter.renderMobileView = renderOperationsCenterMobileView;
+  window.OperationsCenter.openVerifiedStatusLogger = openVerifiedStatusLogger;
   window.OperationsCenter.filter = filterOperationsCenter;
   window.OperationsCenter.connectDocumentFolder = connectOperationsCenterDocumentFolder;
   window.OperationsCenter.openDocumentLink = openOperationsCenterDocumentLink;
@@ -250,6 +431,13 @@
   window.initializeOperationsCenter = initializeOperationsCenter;
   window.renderOperationsCenterModule = renderOperationsCenterModule;
   window.refreshOperationsCenterCanonicalData = refreshOperationsCenterCanonicalData;
+  window.refreshOperationsCenterVerifiedStatuses = refreshOperationsCenterVerifiedStatuses;
+  window.toggleOperationsCenterMobileView = toggleOperationsCenterMobileView;
+  window.filterOperationsCenterMobileView = renderOperationsCenterMobileView;
+  window.selectOperationsCenterMobileRecord = selectOperationsCenterMobileRecord;
+  window.openOperationsCenterVerifiedStatusLoggerForKey = openVerifiedStatusLoggerForKey;
+  window.closeOperationsCenterVerifiedStatusLogger = closeVerifiedStatusLogger;
+  window.submitOperationsCenterVerifiedStatus = submitVerifiedStatus;
   window.filterOperationsCenter = filterOperationsCenter;
   window.connectOperationsCenterDocumentFolder = connectOperationsCenterDocumentFolder;
   window.openOperationsCenterDocumentLink = openOperationsCenterDocumentLink;

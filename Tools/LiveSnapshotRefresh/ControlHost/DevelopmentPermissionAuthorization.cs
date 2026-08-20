@@ -14,7 +14,7 @@ internal static class DevelopmentPermissionCatalog
         "rma_rework.view", "rma_rework.manage",
         "shipments.view", "shipments.stage", "shipments.cancel",
         "shipments.confirm", "shipments.reconcile"
-        , "sync.operations"
+        , "sync.operations", "operations-center.verified-status.write"
     ];
 
     internal static DevelopmentPermissionRequirement? Resolve(HttpRequest request)
@@ -52,6 +52,12 @@ internal static class DevelopmentPermissionCatalog
             return write
                 ? new("rma_rework.manage", "rma_rework.manage")
                 : new("rma_rework.view", "rma_rework.view");
+        if (path.StartsWith("/api/operations-center/v1/verified-statuses/latest", StringComparison.OrdinalIgnoreCase))
+            return new("sync.operations", "operations_center.verified_status.view");
+        if (path.StartsWith("/api/operations-center/", StringComparison.OrdinalIgnoreCase))
+            return write
+                ? new("operations-center.verified-status.write", "operations_center.verified_status.write")
+                : new("sync.operations", "operations_center.verified_status.view");
         if (path.StartsWith("/api/shipment-staging/", StringComparison.OrdinalIgnoreCase))
         {
             if (!write) return new("shipments.view", "shipment.view");

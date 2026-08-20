@@ -43,6 +43,13 @@
       source === 'RMA_DECISION';
   }
 
+  function parseSearchTerms(value) {
+    return String(value || '')
+      .split(';')
+      .map(segment => segment.trim())
+      .filter(Boolean);
+  }
+
   function getOperationsCenterView(options = {}) {
     const records = Array.isArray(options.records)
       ? options.records.slice()
@@ -77,12 +84,14 @@
       'sequenceLine', 'workOrder', 'partNumber', 'description',
       'opQtyOpen', 'dueDate', 'price', 'extendedPrice', 'materialStatus', 'operationalStatus'
     ].map(field => getOfficialField(record, field));
+    const latestStatus = getVerifiedStatusPresentation(record);
     const overlay = window.OperationsCenter.stateActions.getOverlayRecord(getMasterRecordKey(record));
     const presentation = getWorkOrderPresentation(record);
     return collectSearchValues([
       official,
       overlay,
       presentation,
+      latestStatus,
       record?.workOrderApprovalReview?.operationalRelationship,
       record?.rmaReworkMembership
     ]).join(' ');
@@ -122,6 +131,28 @@
     if (typeof getMasterRecordKeyForRecord === 'function') return getMasterRecordKeyForRecord(record);
     const vpro5 = record?.vpro5 || {};
     return [vpro5.customerNumber || '', vpro5.salesOrder || '', vpro5.sequenceLine || ''].join('|');
+  }
+
+  function getVerifiedStatusRecord(record) {
+    return window.OperationsCenter.stateActions.getVerifiedStatusRecord(getMasterRecordKey(record));
+  }
+
+  function getVerifiedStatusPresentation(record) {
+    const latest = getVerifiedStatusRecord(record);
+    if (!latest) return { statusText: '', recordedBy: '', recordedAtUtc: '', timeLabel: '', summary: '' };
+    const date = latest.recordedAtUtc ? new Date(latest.recordedAtUtc) : null;
+    const timeLabel = date && !Number.isNaN(date.valueOf())
+      ? date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      : '';
+    const statusText = normalizeOperationsValue(latest.statusText);
+    const recordedBy = normalizeOperationsValue(latest.recordedBy);
+    return {
+      ...latest,
+      statusText,
+      recordedBy,
+      timeLabel,
+      summary: [statusText, recordedBy, timeLabel].filter(Boolean).join(' ')
+    };
   }
 
   function getOperationalProjectionField(record, field) {
@@ -393,6 +424,7 @@
     getMasterRecords,
     getOperationsCenterRecords,
     isActiveRmaReworkRecord,
+    parseSearchTerms,
     getOperationsCenterView,
     getOperationsCenterSearchText,
     getMasterRecordKey,
@@ -401,6 +433,7 @@
     getOfficialField,
     getWorkOrderPresentation,
     getOperationalStatusPresentation,
+    getVerifiedStatusPresentation,
     setPackingOperationalStatus
   };
 })();
