@@ -4,6 +4,7 @@ import vm from 'node:vm';
 
 const registrySource = fs.readFileSync('SRC/shell/workspace-registry.js', 'utf8');
 const homeSource = fs.readFileSync('SRC/home/work-area-home.js', 'utf8');
+const homeStyles = fs.readFileSync('SRC/home/work-area-home.css', 'utf8');
 const shellSource = fs.readFileSync('SRC/shell/workspace-shell.js', 'utf8');
 const operationsSource = fs.readFileSync('SRC/modules/operations-center/operations-center.js', 'utf8');
 const identityUiSource = fs.readFileSync(
@@ -66,5 +67,21 @@ assert.match(homeSource, /const screenId = workspace\?\.home\?\.screenId \|\| "h
   'Home tile navigation supports existing module screens without duplicating workspaces');
 assert.match(homeSource, /window\.setWorkspaceView\(workspaceId\);[\s\S]*window\.go\(screenId, false\)/,
   'Home tile navigation activates the selected work area and then opens its target screen');
+assert.match(homeSource, /window\.DleOperatorHeader\?\.isMobileView\?\.\(\)/,
+  'Mobile Home consumes the global shell-owned view mode');
+assert.match(homeSource, /workspace\.id === "operations-center"/,
+  'Operations Center is the explicitly mobile-ready workspace');
+assert.match(homeSource, /Open Mobile View/,
+  'Operations Center is presented as an actionable mobile launcher');
+assert.match(homeSource, /Mobile View Coming Soon/,
+  'non-mobile-ready assigned work areas communicate their state');
+assert.match(homeSource, /querySelectorAll\("\[data-mobile-work-area\]"\)/,
+  'only mobile-ready launchers receive navigation behavior');
+assert.match(homeSource, /document\.addEventListener\("dle:view-mode-change", render\)/,
+  'Home rerenders when the global presentation changes');
+assert.match(homeStyles, /body\[data-view-mode="mobile"\] \.work-area-home/,
+  'Mobile Home styling is gated by global Mobile View');
+assert.match(homeStyles, /env\(safe-area-inset-bottom,0\)/,
+  'Mobile Home accounts for the device safe area');
 
 console.log('Operations Center Home tile ordering and permission contracts: PASS');

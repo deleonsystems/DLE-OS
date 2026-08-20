@@ -2,6 +2,9 @@
   'use strict';
 
   const FACTORY_TIME_ZONE = 'America/Los_Angeles';
+  const DESKTOP_VIEW_MODE = 'desktop';
+  const MOBILE_VIEW_MODE = 'mobile';
+  let viewMode = DESKTOP_VIEW_MODE;
   const factoryTimeFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: FACTORY_TIME_ZONE,
     weekday: 'long',
@@ -31,6 +34,100 @@
     };
     render();
     window.setInterval(render, 1000);
+  }
+
+  function getViewMode() {
+    return viewMode;
+  }
+
+  function updateViewModeToggle() {
+    if (typeof document.querySelectorAll !== 'function') return;
+    document.querySelectorAll('[data-dle-view-mode-option]').forEach(button => {
+      const active = button.dataset.dleViewModeOption === viewMode;
+      button.setAttribute('aria-pressed', String(active));
+      button.classList.toggle('active', active);
+    });
+  }
+
+  function ensureViewModeToggle() {
+    if (typeof document.querySelector !== 'function' || typeof document.createElement !== 'function') return;
+    if (document.getElementById('dleViewModeToggle')) return;
+    const header = document.querySelector('.dle-operator-header');
+    const navigation = header?.querySelector('.dle-operator-nav');
+    if (!header || !navigation) return;
+
+    const toggle = document.createElement('div');
+    toggle.id = 'dleViewModeToggle';
+    toggle.className = 'dle-view-mode-toggle';
+    toggle.setAttribute('role', 'group');
+    toggle.setAttribute('aria-label', 'DLE-OS view mode');
+    [
+      [DESKTOP_VIEW_MODE, 'Desktop View'],
+      [MOBILE_VIEW_MODE, 'Mobile View']
+    ].forEach(([mode, label]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.dataset.dleViewModeOption = mode;
+      button.addEventListener('click', () => setViewMode(mode));
+      toggle.append(button);
+    });
+    navigation.insertAdjacentElement('afterend', toggle);
+    updateViewModeToggle();
+  }
+
+  function ensureMobileViewFallback() {
+    if (typeof document.querySelector !== 'function' || typeof document.createElement !== 'function') return null;
+    let fallback = document.getElementById('dleMobileViewFallback');
+    if (fallback) return fallback;
+    const main = document.querySelector('body > main');
+    if (!main) return null;
+
+    fallback = document.createElement('section');
+    fallback.id = 'dleMobileViewFallback';
+    fallback.className = 'dle-mobile-view-fallback';
+    fallback.hidden = true;
+    fallback.setAttribute('aria-live', 'polite');
+    fallback.innerHTML = '<div><strong>Mobile View Coming Soon</strong><span id="dleMobileViewFallbackWorkspace"></span></div>';
+    main.append(fallback);
+    return fallback;
+  }
+
+  function syncOperationsCenterViewMode() {
+    document.getElementById('operationsCenterMobileViewToggle')?.remove();
+    if (typeof document.querySelector === 'function') {
+      document.querySelector('.operations-center-mobile-search-row > button')?.remove();
+    }
+    const toggle = window.OperationsCenter?.toggleMobileView || window.toggleOperationsCenterMobileView;
+    if (typeof toggle === 'function') toggle(viewMode === MOBILE_VIEW_MODE);
+  }
+
+  function applyWorkspaceViewMode() {
+    if (document.body?.dataset) document.body.dataset.viewMode = viewMode;
+    const workspaceId = document.body?.dataset?.workspaceView || 'dle-home';
+    const homeActive = workspaceId === 'dle-home';
+    const operationsCenterActive = workspaceId === 'operations-center';
+    const fallback = ensureMobileViewFallback();
+    if (fallback) {
+      const showFallback = viewMode === MOBILE_VIEW_MODE && !homeActive && !operationsCenterActive;
+      fallback.hidden = !showFallback;
+      const label = document.getElementById('dleMobileViewFallbackWorkspace');
+      if (label) label.textContent = showFallback ? (document.body?.dataset?.workspaceLabel || '') : '';
+    }
+    if (homeActive) window.DleWorkAreaHome?.render?.();
+    if (operationsCenterActive) syncOperationsCenterViewMode();
+  }
+
+  function setViewMode(value) {
+    const nextMode = value === MOBILE_VIEW_MODE ? MOBILE_VIEW_MODE : DESKTOP_VIEW_MODE;
+    const changed = nextMode !== viewMode;
+    viewMode = nextMode;
+    updateViewModeToggle();
+    applyWorkspaceViewMode();
+    if (changed && typeof document.dispatchEvent === 'function') {
+      document.dispatchEvent(new CustomEvent('dle:view-mode-change', { detail: { mode: viewMode } }));
+    }
+    return viewMode;
   }
 
   function getSyncOperationsButton() {
@@ -91,6 +188,8 @@
     const panel = document.getElementById('dleDevControlsPanel');
     const badge = document.getElementById('dleEnvironmentBadge');
     startFactoryClock();
+    ensureViewModeToggle();
+    applyWorkspaceViewMode();
     if (!toggle || !panel || !badge || toggle.dataset.initialized === 'true') return;
     toggle.dataset.initialized = 'true';
 
@@ -117,7 +216,10 @@
         : 'DEV <span aria-hidden="true">▴</span>';
     });
     document.addEventListener('dle:capabilities-ready', event => applyCapabilities(event.detail));
-    document.addEventListener('dle:workspace-change', () => updateOperationsCenterDevActionVisibility());
+    document.addEventListener('dle:workspace-change', () => {
+      updateOperationsCenterDevActionVisibility();
+      applyWorkspaceViewMode();
+    });
     ensureOperationsCenterDevControls();
     applyCapabilities(window.DleOsCapabilities);
   }
@@ -126,6 +228,10 @@
   window.DleOperatorHeader = Object.freeze({
     initialize,
     formatFactoryTime,
-    factoryTimeZone: FACTORY_TIME_ZONE
+    factoryTimeZone: FACTORY_TIME_ZONE,
+    getViewMode,
+    setViewMode,
+    isDesktopView: () => viewMode === DESKTOP_VIEW_MODE,
+    isMobileView: () => viewMode === MOBILE_VIEW_MODE
   });
 })(window, document);

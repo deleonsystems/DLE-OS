@@ -172,19 +172,34 @@ public static class DevelopmentCompatibilityProxy
 
         using (downstream)
         {
+            byte[]? bufferedBody = null;
             if (downstream.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
-                logger.LogError(
-                    "CompatibilityServiceIdentityRejected Boundary={Boundary}; Status={Status}; " +
-                    "CorrelationId={CorrelationId}", boundary.Name, (int)downstream.StatusCode, correlationId);
-                context.Response.StatusCode = StatusCodes.Status502BadGateway;
-                await context.Response.WriteAsJsonAsync(new
+                bufferedBody = await downstream.Content.ReadAsByteArrayAsync(cancellationToken);
+                var downstreamCode = TryReadErrorCode(bufferedBody);
+                var serviceIdentityRejected = string.IsNullOrWhiteSpace(downstreamCode) ||
+                    string.Equals(downstreamCode, "DLE_OS_IDENTITY_CALLER_NOT_TRUSTED",
+                        StringComparison.Ordinal);
+                if (serviceIdentityRejected)
                 {
-                    code = "DLE_OS_DEVELOPMENT_SERVICE_IDENTITY_REJECTED",
-                    message = "The governed development service rejected the BFF service identity.",
-                    correlationId
-                }, cancellationToken);
-                return;
+                    logger.LogError(
+                        "CompatibilityServiceIdentityRejected Boundary={Boundary}; Status={Status}; " +
+                        "DownstreamCode={DownstreamCode}; CorrelationId={CorrelationId}",
+                        boundary.Name, (int)downstream.StatusCode, downstreamCode, correlationId);
+                    context.Response.StatusCode = StatusCodes.Status502BadGateway;
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        code = "DLE_OS_DEVELOPMENT_SERVICE_IDENTITY_REJECTED",
+                        message = "The governed development service rejected the BFF service identity.",
+                        correlationId
+                    }, cancellationToken);
+                    return;
+                }
+
+                logger.LogWarning(
+                    "CompatibilityDownstreamAuthorizationRejected Boundary={Boundary}; Status={Status}; " +
+                    "DownstreamCode={DownstreamCode}; CorrelationId={CorrelationId}",
+                    boundary.Name, (int)downstream.StatusCode, downstreamCode, correlationId);
             }
 
             context.Response.StatusCode = (int)downstream.StatusCode;
@@ -194,7 +209,26 @@ public static class DevelopmentCompatibilityProxy
                 context.Response.ContentType = downstream.Content.Headers.ContentType.ToString();
             if (downstream.Headers.TryGetValues("X-Request-ID", out var requestIds))
                 context.Response.Headers["X-Request-ID"] = requestIds.ToArray();
-            await downstream.Content.CopyToAsync(context.Response.Body, cancellationToken);
+            if (bufferedBody is not null)
+                await context.Response.Body.WriteAsync(bufferedBody, cancellationToken);
+            else
+                await downstream.Content.CopyToAsync(context.Response.Body, cancellationToken);
+        }
+    }
+
+    private static string? TryReadErrorCode(byte[] body)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(body);
+            return document.RootElement.TryGetProperty("code", out var code) &&
+                   code.ValueKind == System.Text.Json.JsonValueKind.String
+                ? code.GetString()
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
         }
     }
 

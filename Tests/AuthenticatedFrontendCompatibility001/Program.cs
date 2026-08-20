@@ -50,6 +50,11 @@ Check(proxySource.Contains("UseDefaultCredentials = true") &&
       proxySource.Contains("runtime.OperationalApiBaseUrl") &&
       proxySource.Contains("runtime.CustomerFilesApiBaseUrl"),
     "BFF uses its service identity for explicitly configured downstreams");
+Check(proxySource.Contains("DLE_OS_IDENTITY_CALLER_NOT_TRUSTED") &&
+      proxySource.Contains("CompatibilityDownstreamAuthorizationRejected") &&
+      proxySource.Contains("TryReadErrorCode") &&
+      proxySource.Contains("DLE_OS_DEVELOPMENT_SERVICE_IDENTITY_REJECTED"),
+    "BFF distinguishes service-caller rejection from governed user authorization failures");
 Check(runtimeSource.Contains("DLE_OS_ENVIRONMENT") &&
       runtimeSource.Contains("Development isolation requires 5052, 5054") &&
       runtimeConfiguration.GetProperty("environment").GetString() == "Development" &&

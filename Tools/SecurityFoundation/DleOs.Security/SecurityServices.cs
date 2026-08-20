@@ -202,7 +202,7 @@ public sealed class PermissionAuthorizationService(
 public sealed class AuthorizationEvaluator
 {
     private static readonly Regex PermissionCode = new(
-        "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+        "^[a-z][a-z0-9_-]*(?:\\.[a-z][a-z0-9_-]*)+$",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     public bool Can(ResolvedSecurityUser? user, string permissionCode)

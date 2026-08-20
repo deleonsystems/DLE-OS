@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using DleOs.Security;
 using DleOs.TrustedIdentity;
 
 var checks = new List<string>();
@@ -39,6 +40,25 @@ var second = validator.Validate(issuer.Issue(request, now), TrustedIdentityContr
 Check(second.User!.AssertionId != valid.User.AssertionId, "each downstream call receives a fresh JTI");
 Check(!token.Contains("DLE-OS-HOST", StringComparison.OrdinalIgnoreCase),
     "assertion excludes Windows identity and groups");
+
+const string verifiedStatusPermission = "operations-center.verified-status.write";
+var evaluator = new AuthorizationEvaluator();
+var superAdmin = new ResolvedSecurityUser(userId, "Miguel", "Miguel De Leon", "ACTIVE",
+    [new SecurityRole(Guid.NewGuid(), "SUPER_ADMIN", true)],
+    new HashSet<string>(StringComparer.Ordinal));
+var explicitlyGranted = new ResolvedSecurityUser(Guid.NewGuid(), "VerifiedOperator",
+    "Verified Operator", "ACTIVE", [],
+    new HashSet<string>([verifiedStatusPermission], StringComparer.Ordinal));
+var notGranted = new ResolvedSecurityUser(Guid.NewGuid(), "NoAccess", "No Access", "ACTIVE", [],
+    new HashSet<string>(StringComparer.Ordinal));
+Check(evaluator.Can(superAdmin, verifiedStatusPermission),
+    "SUPER_ADMIN recognizes the governed multi-segment Verified Status permission");
+Check(evaluator.Can(explicitlyGranted, verifiedStatusPermission),
+    "an explicit Verified Status grant is recognized");
+Check(!evaluator.Can(notGranted, verifiedStatusPermission),
+    "a normal user without the Verified Status permission remains denied");
+Check(!evaluator.Can(superAdmin, "operations-center..write"),
+    "malformed permission identifiers remain denied");
 
 Check(validator.Validate(null, TrustedIdentityContract.OperationalAudience,
     TrustedIdentityContract.DevelopmentEnvironment, now).Code ==
