@@ -44,7 +44,7 @@ body[data-view-mode="mobile"]:not([data-workspace-view="dle-home"]):not([data-wo
 @media(max-width:420px){.dle-operator-header{gap:7px 8px;padding-inline:10px}.dle-operator-nav .nav-btn,.dle-operator-nav .home-btn{padding-inline:10px;font-size:12px}.dle-view-mode-toggle{flex-basis:204px;max-width:210px}.dle-view-mode-toggle button{padding-inline:5px;font-size:11px}.dle-header-right{display:grid;grid-template-columns:1fr;width:100%}.dle-identity-clock-stack{grid-row:1;width:100%}.dle-dev-secondary-slot{grid-row:2;justify-self:start}}
 
 body[data-view-mode="mobile"] > header.dle-app-header { padding-top:env(safe-area-inset-top,0);background:rgba(3,9,16,.985) }
-body[data-view-mode="mobile"] .dle-operator-header { min-height:0;padding:7px 10px;display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"brand identity" "navigation mode";align-items:center;gap:6px 10px }
+body[data-view-mode="mobile"] .dle-operator-header { min-height:0;padding:6px 10px;display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"brand mode" "navigation identity";align-items:center;gap:5px 10px }
 body[data-view-mode="mobile"] .dle-operator-header .logo,
 body[data-view-mode="mobile"] .dle-operator-header .divider,
 body[data-view-mode="mobile"] .dle-factory-clock { display:none }
@@ -54,7 +54,8 @@ body[data-view-mode="mobile"] #activeWorkAreaLabel { font-size:11px;letter-spaci
 body[data-view-mode="mobile"] .dle-operator-nav { grid-area:navigation;min-width:0;gap:6px }
 body[data-view-mode="mobile"] .dle-operator-nav .nav-btn,
 body[data-view-mode="mobile"] .dle-operator-nav .home-btn { min-width:44px;min-height:44px;padding:8px 10px;font-size:12px }
-body[data-view-mode="mobile"] .dle-view-mode-toggle { grid-area:mode;width:100%;max-width:216px;min-height:44px;justify-self:end;order:initial;flex:none }
+body[data-view-mode="mobile"] .dle-view-mode-toggle { grid-area:mode;width:100%;max-width:216px;min-height:40px;box-sizing:border-box;padding:2px;justify-self:end;order:initial;flex:none }
+body[data-view-mode="mobile"] .dle-view-mode-toggle button { min-height:34px;padding:5px 6px }
 body[data-view-mode="mobile"] .dle-header-right { grid-area:identity;width:auto;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:6px;order:initial }
 body[data-view-mode="mobile"] .dle-dev-secondary-slot { grid-row:auto;justify-self:auto }
 body[data-view-mode="mobile"] .dle-dev-secondary-slot>.dle-environment-badge,

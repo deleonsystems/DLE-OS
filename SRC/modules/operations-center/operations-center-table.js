@@ -12,7 +12,6 @@
   const state = window.OperationsCenter.state;
   const stateActions = window.OperationsCenter.stateActions;
   const viewModel = window.OperationsCenter.viewModel;
-  const documentLinks = window.OperationsCenter.documentLinks;
   const projection = window.OperationsCenter.projection;
 
   function renderModule() {
@@ -28,24 +27,16 @@
     if (!status) return;
 
     const records = getDisplayedRecords();
-    const overlayCount = Object.keys(state.overlayByKey).length;
     if (state.canonicalLoading && !state.canonicalLoaded) {
       status.textContent = 'Loading canonical Sales Orders from the development API...';
     } else if (state.canonicalError && !state.canonicalLoaded) {
       status.textContent = 'Canonical Sales Orders could not be loaded. ' + state.canonicalError;
     } else if (state.canonicalLoaded) {
-      status.textContent = records.length + ' operational record' + (records.length === 1 ? '' : 's') +
-        ' requiring action shown from ' + state.canonicalRows.length + ' canonical Sales Order line' +
-        (state.canonicalRows.length === 1 ? '' : 's') + '. Overlay records: ' + overlayCount + '.';
+      status.textContent = records.length + ' records shown';
     } else {
       status.textContent = 'Canonical Sales Orders have not been loaded.';
     }
 
-    const documentStatus = document.getElementById('operationsCenterDocumentStatus');
-    if (documentStatus && documentLinks?.getStatus) {
-      const selector = document.getElementById('operationsCenterDocumentType');
-      documentStatus.textContent = documentLinks.getStatus(selector?.value || 'kitShort');
-    }
   }
 
   function renderTable() {
@@ -137,21 +128,25 @@
     if (column.key === 'operationalStatus') {
       return renderOperationalStatusCell(value, className);
     }
+    if (column.key === 'verifiedStatus') {
+      return renderVerifiedStatusCell(record, masterRecordKey, className);
+    }
     return '<td class="' + escapeHtml(className) + '">' + escapeHtml(value) + '</td>';
   }
 
   function renderVerifiedStatusCell(record, masterRecordKey, className = 'operations-center-official-cell') {
     const status = viewModel.getVerifiedStatusPresentation(record);
     const hasStatus = !!status.statusText;
-    const meta = [status.recordedBy, status.timeLabel].filter(Boolean).join(' · ');
+    const meta = [status.recordedBy, status.timeLabel]
+      .filter(Boolean).join(' \u00b7 ');
     return [
       '<td class="', escapeHtml(className), '">',
-      '<button type="button" class="operations-center-verified-status-action" data-master-record-key="',
+      '<button type="button" class="operations-center-verified-status-action" title="Log Verified Status" data-master-record-key="',
       escapeHtml(masterRecordKey),
       '" onclick="openOperationsCenterVerifiedStatusLogger(event)">',
       hasStatus
         ? '<span>' + escapeHtml(status.statusText) + '</span>'
-        : '<span class="operations-center-verified-status-empty">Log status</span>',
+        : '<span class="operations-center-verified-status-empty">&mdash;</span>',
       meta ? '<small>' + escapeHtml(meta) + '</small>' : '',
       '</button>',
       '</td>'
@@ -163,8 +158,6 @@
     if (isReturnReviewControlled(record) && isOrdinaryProductionOverlay(field.key)) {
       return '<td class="' + escapeHtml(className + ' operations-center-rma-suppressed') + '">RMA / Rework</td>';
     }
-    if (field.documentLink) return renderDocumentLinkCell(field, record, className);
-
     const overlay = stateActions.getOverlayRecord(masterRecordKey);
     return [
       '<td class="', escapeHtml(className), '">',
@@ -194,7 +187,7 @@
   }
 
   function isOrdinaryProductionOverlay(key) {
-    return ['productionShipping', 'kitShort', 'purchasingComplete', 'kitComplete'].includes(key);
+    return key === 'productionShipping';
   }
 
   function isReturnReviewControlled(record) {
@@ -436,32 +429,6 @@
     } catch (error) {
       return JSON.parse(JSON.stringify(record || {}));
     }
-  }
-
-  function renderDocumentLinkCell(field, record, className = 'operations-center-overlay-cell operations-center-document-cell') {
-    const type = field.documentLink.type;
-    const workOrder = viewModel.getOfficialField(record, 'workOrder');
-    const documentState = documentLinks?.getDocumentState(type, workOrder) || { exists: false };
-
-    if (!documentState.exists) {
-      return [
-        '<td class="' + escapeHtml(className + ' operations-center-document-cell') + '">',
-        '<span class="operations-center-document-missing" title="No document found">&mdash;</span>',
-        '</td>'
-      ].join('');
-    }
-
-    return [
-      '<td class="' + escapeHtml(className + ' operations-center-document-cell') + '">',
-      '<button type="button" class="operations-center-document-link" title="Open ',
-      escapeHtml(field.label),
-      ' PDF" data-document-link-type="',
-      escapeHtml(type),
-      '" data-work-order="',
-      escapeHtml(workOrder),
-      '" onclick="openOperationsCenterDocumentLink(event)">&#128279;</button>',
-      '</td>'
-    ].join('');
   }
 
   function updateOverlayField(event) {

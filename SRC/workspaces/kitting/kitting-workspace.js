@@ -227,14 +227,11 @@
           ? Promise.resolve(buildEmbeddedMaterialStatuses(lines, workOrderNumbers))
           : loadMaterialStatuses(workOrderNumbers, { force: forceMaterialStatus })
       ]);
-      const documentsByWorkOrder = buildDocumentEvidence(workOrderNumbers);
-
       workspaceState.canonicalRows = canonicalRows;
       workspaceState.model = window.KittingReadModel.buildReadModel({
         lines,
         approvalsByLineKey,
         workOrdersByNumber,
-        documentsByWorkOrder,
         materialStatusesByWorkOrder,
         rmaReworkByLineKey
       });
@@ -459,40 +456,6 @@
         caseType: caseRecord.caseType, caseStatus: caseRecord.caseStatus, member, caseRecord });
     }));
     return results;
-  }
-
-  function buildDocumentEvidence(workOrderNumbers) {
-    const documents = new Map();
-    const service = window.OperationsCenter?.documentLinks;
-    workOrderNumbers.forEach(workOrderNumber => {
-      if (typeof service?.getDocumentState !== "function") {
-        documents.set(workOrderNumber, unavailableDocumentEvidence());
-        return;
-      }
-      const kitShort = service.getDocumentState("kitShort", workOrderNumber);
-      const kitComplete = service.getDocumentState("kitComplete", workOrderNumber);
-      const connected = kitShort?.connected || kitComplete?.connected;
-      const present = kitShort?.exists || kitComplete?.exists;
-      documents.set(workOrderNumber, {
-        state: present ? "PRESENT" : connected ? "ABSENT" : "UNAVAILABLE",
-        label: present
-          ? [kitShort?.exists ? "Kit Short PDF" : "", kitComplete?.exists ? "Kit Complete PDF" : ""]
-              .filter(Boolean).join("; ") + " available"
-          : connected ? "No matching kitting document" : "Document folders not connected",
-        kitShortPresent: kitShort?.exists === true,
-        kitCompletePresent: kitComplete?.exists === true
-      });
-    });
-    return documents;
-  }
-
-  function unavailableDocumentEvidence() {
-    return {
-      state: "UNAVAILABLE",
-      label: "Document folders not connected",
-      kitShortPresent: false,
-      kitCompletePresent: false
-    };
   }
 
   function renderWorkspace() {

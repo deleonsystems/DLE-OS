@@ -7,19 +7,10 @@
     <div class="operations-center-header">
       <div class="operations-center-title">
         <span class="small-icon">OC</span>
-        <div>
-          <h2>Operations Center</h2>
-          <p>Daily operational workspace built from governed canonical Sales Orders and DLE-OS operational layers.</p>
-        </div>
+        <h2>Operations Center</h2>
       </div>
 
       <div class="operations-center-toolbar">
-        <input
-          type="text"
-          id="operationsCenterSearch"
-          class="operations-center-search"
-          placeholder="Search customer, PO, sales order, work order, item, notes..."
-          onkeyup="filterOperationsCenter()">
         <button id="operationsCenterProjectionToggle" type="button" onclick="toggleOperationsCenterProjectionMode()">Projection Mode</button>
         <button
           id="operationsCenterRmaVisibilityToggle"
@@ -27,23 +18,26 @@
           aria-label="Hide active RMA/Rework records"
           aria-pressed="false"
           onclick="toggleOperationsCenterRmaVisibility()">Hide RMA/Rework</button>
-        <button type="button" onclick="refreshOperationsCenterCanonicalData()">Reload View</button>
-        <span id="operationsCenterSourceStatus" class="operations-center-source-status" aria-live="polite">Not updated</span>
-        <select
-          id="operationsCenterDocumentType"
-          class="operations-center-document-type"
-          onchange="refreshOperationsCenterDocumentStatus()">
-        </select>
-        <button type="button" onclick="connectOperationsCenterDocumentFolder()">Connect Document Folder</button>
-        <button id="operationsCenterSaveButton" type="button" onclick="saveOperationsCenterOverlay()">Save</button>
+        <span class="operations-center-toolbar-group">
+          <button type="button" onclick="refreshOperationsCenterCanonicalData()">Reload View</button>
+          <span id="operationsCenterSourceStatus" class="operations-center-source-status" aria-live="polite">Not updated</span>
+        </span>
+        <span class="operations-center-toolbar-group">
+          <button id="operationsCenterSaveButton" type="button" onclick="saveOperationsCenterOverlay()">Save</button>
+          <span id="operationsCenterSaveStatus" class="operations-center-save-status" aria-live="polite">No unsaved changes.</span>
+        </span>
         <button id="operationsCenterMobileViewToggle" type="button" onclick="toggleOperationsCenterMobileView()">Mobile View</button>
       </div>
     </div>
 
-    <div class="operations-center-status-row">
-      <div id="operationsCenterStatus" class="operations-center-status">Operations Center initializing.</div>
-      <div id="operationsCenterDocumentStatus" class="operations-center-save-status">Kit Short folder not connected.</div>
-      <div id="operationsCenterSaveStatus" class="operations-center-save-status">No unsaved changes.</div>
+    <div class="operations-center-search-row">
+      <input
+        type="text"
+        id="operationsCenterSearch"
+        class="operations-center-search"
+        placeholder="Search customer, PO, sales order, work order, item, notes..."
+        onkeyup="filterOperationsCenter()">
+      <span id="operationsCenterStatus" class="operations-center-status" aria-live="polite">Operations Center initializing.</span>
     </div>
 
     <div id="operationsCenterProjectionSummary" class="operations-center-projection-summary" hidden>

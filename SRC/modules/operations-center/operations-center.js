@@ -45,7 +45,6 @@
     }
     await window.OperationsCenter.overlayService.initializeOverlay();
     window.OperationsCenter.projection.initialize();
-    populateOperationsCenterDocumentTypes();
     window.OperationsCenter.table.updateSaveStatus('No unsaved changes.', 'saved');
     await refreshOperationsCenterCanonicalData();
     await refreshSyncOperationsStatus();
@@ -230,11 +229,6 @@
     return '<dt>' + escapeOptionText(label) + '</dt><dd>' + escapeOptionText(value || '-') + '</dd>';
   }
 
-  function getSelectedOperationsCenterDocumentType() {
-    const selector = document.getElementById('operationsCenterDocumentType');
-    return selector?.value || 'kitShort';
-  }
-
   function escapeOptionText(value) {
     return String(value ?? '').replace(/[&<>"']/g, character => ({
       '&': '&amp;',
@@ -243,50 +237,6 @@
       '"': '&quot;',
       "'": '&#039;'
     }[character]));
-  }
-
-  function populateOperationsCenterDocumentTypes() {
-    const selector = document.getElementById('operationsCenterDocumentType');
-    const documentLinks = window.OperationsCenter.documentLinks;
-    if (!selector || !documentLinks?.getDocumentTypes) return;
-
-    const selected = selector.value || 'kitShort';
-    selector.innerHTML = documentLinks.getDocumentTypes()
-      .map(type => '<option value="' + escapeOptionText(type.key) + '">' + escapeOptionText(type.label) + '</option>')
-      .join('');
-
-    if (Array.from(selector.options).some(option => option.value === selected)) {
-      selector.value = selected;
-    }
-  }
-
-  function refreshOperationsCenterDocumentStatus() {
-    const typeKey = getSelectedOperationsCenterDocumentType();
-    const status = document.getElementById('operationsCenterDocumentStatus');
-    if (!status) return;
-    status.textContent = window.OperationsCenter.documentLinks.getStatus(typeKey);
-    status.classList.remove('dirty', 'saved', 'error');
-  }
-
-  async function connectOperationsCenterDocumentFolder(typeKey = getSelectedOperationsCenterDocumentType()) {
-    try {
-      await window.OperationsCenter.documentLinks.connectType(typeKey);
-      window.OperationsCenter.table.renderModule();
-    } catch (error) {
-      window.OperationsCenter.table.updateSaveStatus('Document folder connection failed: ' + (error?.message || error), 'error');
-    }
-  }
-
-  async function openOperationsCenterDocumentLink(event) {
-    const target = event?.currentTarget || event?.target;
-    const typeKey = target?.dataset?.documentLinkType || '';
-    const workOrder = target?.dataset?.workOrder || '';
-
-    try {
-      await window.OperationsCenter.documentLinks.openDocument(typeKey, workOrder);
-    } catch (error) {
-      window.OperationsCenter.table.updateSaveStatus('Unable to open document: ' + (error?.message || error), 'error');
-    }
   }
 
   function toggleOperationsCenterProjectionMode() {
@@ -415,10 +365,6 @@
   window.OperationsCenter.renderMobileView = renderOperationsCenterMobileView;
   window.OperationsCenter.openVerifiedStatusLogger = openVerifiedStatusLogger;
   window.OperationsCenter.filter = filterOperationsCenter;
-  window.OperationsCenter.connectDocumentFolder = connectOperationsCenterDocumentFolder;
-  window.OperationsCenter.openDocumentLink = openOperationsCenterDocumentLink;
-  window.OperationsCenter.populateDocumentTypes = populateOperationsCenterDocumentTypes;
-  window.OperationsCenter.refreshDocumentStatus = refreshOperationsCenterDocumentStatus;
   window.OperationsCenter.toggleProjectionMode = toggleOperationsCenterProjectionMode;
   window.OperationsCenter.toggleRmaVisibility = toggleOperationsCenterRmaVisibility;
   window.OperationsCenter.updateProjectionSelection = updateOperationsCenterProjectionSelection;
@@ -439,10 +385,6 @@
   window.closeOperationsCenterVerifiedStatusLogger = closeVerifiedStatusLogger;
   window.submitOperationsCenterVerifiedStatus = submitVerifiedStatus;
   window.filterOperationsCenter = filterOperationsCenter;
-  window.connectOperationsCenterDocumentFolder = connectOperationsCenterDocumentFolder;
-  window.openOperationsCenterDocumentLink = openOperationsCenterDocumentLink;
-  window.populateOperationsCenterDocumentTypes = populateOperationsCenterDocumentTypes;
-  window.refreshOperationsCenterDocumentStatus = refreshOperationsCenterDocumentStatus;
   window.toggleOperationsCenterProjectionMode = toggleOperationsCenterProjectionMode;
   window.toggleOperationsCenterRmaVisibility = toggleOperationsCenterRmaVisibility;
   window.updateOperationsCenterProjectionSelection = updateOperationsCenterProjectionSelection;

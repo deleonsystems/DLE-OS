@@ -140,10 +140,7 @@
   function getVerifiedStatusPresentation(record) {
     const latest = getVerifiedStatusRecord(record);
     if (!latest) return { statusText: '', recordedBy: '', recordedAtUtc: '', timeLabel: '', summary: '' };
-    const date = latest.recordedAtUtc ? new Date(latest.recordedAtUtc) : null;
-    const timeLabel = date && !Number.isNaN(date.valueOf())
-      ? date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-      : '';
+    const timeLabel = formatVerifiedStatusTimestamp(latest.recordedAtUtc);
     const statusText = normalizeOperationsValue(latest.statusText);
     const recordedBy = normalizeOperationsValue(latest.recordedBy);
     return {
@@ -153,6 +150,24 @@
       timeLabel,
       summary: [statusText, recordedBy, timeLabel].filter(Boolean).join(' ')
     };
+  }
+
+  function formatVerifiedStatusTimestamp(value) {
+    const timestamp = String(value || '').trim();
+    const utcTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(timestamp)
+      ? timestamp + 'Z'
+      : timestamp;
+    const date = utcTimestamp ? new Date(utcTimestamp) : null;
+    if (!date || Number.isNaN(date.valueOf())) return '';
+    const timeZone = window.DleOperatorHeader?.factoryTimeZone || 'America/Los_Angeles';
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(date);
   }
 
   function getOperationalProjectionField(record, field) {

@@ -7,8 +7,7 @@
 
   window.OperationsCenter = window.OperationsCenter || {};
 
-  const overlayFields = (window.OperationsCenter.overlayFields || [])
-    .filter(field => !field.documentLink);
+  const overlayFields = window.OperationsCenter.overlayFields || [];
   const persistedFieldKeys = Array.from(new Set([
     ...overlayFields.map(field => field.key),
     'operationalStatus'
