@@ -62,16 +62,18 @@ function Assert-ApprovedHostAndCaller {
 function Assert-AuthoritativeRepository {
     param([Parameter(Mandatory)] [string] $Repository)
 
-    $branch = (& git.exe -C $Repository branch --show-current 2>&1 | Out-String).Trim()
+    $safeRepository = $Repository.Replace('\', '/')
+    $gitBase = @('-c', "safe.directory=$safeRepository", '-C', $Repository)
+    $branch = (& git.exe @gitBase branch --show-current 2>&1 | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or $branch -cne 'main') {
         throw 'Governed DEV migrations require the canonical main branch.'
     }
 
-    $head = (& git.exe -C $Repository rev-parse HEAD 2>&1 | Out-String).Trim()
+    $head = (& git.exe @gitBase rev-parse HEAD 2>&1 | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) {
         throw 'Unable to resolve the canonical repository HEAD.'
     }
-    $originMain = (& git.exe -C $Repository rev-parse refs/remotes/origin/main 2>&1 |
+    $originMain = (& git.exe @gitBase rev-parse refs/remotes/origin/main 2>&1 |
         Out-String).Trim()
     if ($LASTEXITCODE -ne 0) {
         throw 'Unable to resolve the local origin/main approval ref.'
@@ -149,15 +151,17 @@ function Resolve-ApprovedMigration {
         throw 'The migration path is outside the canonical repository.'
     }
 
-    $tracked = & git.exe -C $Repository ls-files --error-unmatch -- $relativePath 2>&1
+    $safeRepository = $Repository.Replace('\', '/')
+    $gitBase = @('-c', "safe.directory=$safeRepository", '-C', $Repository)
+    $tracked = & git.exe @gitBase ls-files --error-unmatch -- $relativePath 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "The migration must be tracked by Git: $relativePath"
     }
-    & git.exe -C $Repository diff --quiet -- $relativePath
+    & git.exe @gitBase diff --quiet -- $relativePath
     if ($LASTEXITCODE -ne 0) {
         throw "The migration has uncommitted working-tree changes: $relativePath"
     }
-    & git.exe -C $Repository diff --cached --quiet -- $relativePath
+    & git.exe @gitBase diff --cached --quiet -- $relativePath
     if ($LASTEXITCODE -ne 0) {
         throw "The migration has staged changes not present in HEAD: $relativePath"
     }
