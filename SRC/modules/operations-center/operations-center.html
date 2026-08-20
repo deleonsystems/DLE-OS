@@ -28,7 +28,7 @@
           aria-pressed="false"
           onclick="toggleOperationsCenterRmaVisibility()">Hide RMA/Rework</button>
         <button type="button" onclick="refreshOperationsCenterCanonicalData()">Reload View</button>
-        <button id="syncOperationsButton" type="button" onclick="startSyncOperations()">Sync Operations</button>
+        <span id="operationsCenterSourceStatus" class="operations-center-source-status" aria-live="polite">Not updated</span>
         <select
           id="operationsCenterDocumentType"
           class="operations-center-document-type"
@@ -44,14 +44,6 @@
       <div id="operationsCenterDocumentStatus" class="operations-center-save-status">Kit Short folder not connected.</div>
       <div id="operationsCenterSaveStatus" class="operations-center-save-status">No unsaved changes.</div>
     </div>
-    <div id="operationsCenterSourceStatus" class="operations-center-source-status" aria-live="polite">
-      <strong>Source: DLE_OS_CANONICAL_LIVE</strong>
-      <span>Waiting for canonical Sales Orders.</span>
-    </div>
-    <section id="syncOperationsStatus" class="sync-operations-status" aria-live="polite">
-      <strong>Sync Operations</strong>
-      <span>Loading governed synchronization status…</span>
-    </section>
 
     <div id="operationsCenterProjectionSummary" class="operations-center-projection-summary" hidden>
       <div>

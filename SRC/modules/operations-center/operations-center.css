@@ -96,6 +96,15 @@
   border-color: rgba(252, 165, 165, .5);
 }
 
+.sync-operations-status[hidden] {
+  display: none;
+}
+
+.dle-dev-utilities .sync-operations-status {
+  margin-bottom: 0;
+  max-width: 720px;
+}
+
 .sync-operations-status {
   display: grid;
   gap: 4px;
@@ -220,31 +229,49 @@
 }
 
 .operations-center-source-status {
-  display: flex;
-  gap: 12px;
+  display: inline-flex;
   align-items: center;
-  margin: 0 0 10px;
-  padding: 8px 11px;
-  border: 1px solid rgba(96, 165, 250, .38);
-  border-radius: 8px;
-  background: rgba(30, 64, 175, .12);
-  color: #dbeafe;
+  min-height: 30px;
+  color: #9fb1c3;
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.operations-center-source-status.loading,
+.operations-center-source-status.loaded {
+  color: #a7f3d0;
+}
+
+.operations-center-source-status.empty {
+  color: #8fa3b6;
 }
 
 .operations-center-source-status.error {
-  border-color: rgba(252, 165, 165, .55);
-  background: rgba(127, 29, 29, .18);
-  color: #fecaca;
+  color: #fca5a5;
 }
 
 .operations-center-source-status.stale {
-  border-color: rgba(250, 204, 21, .5);
   color: #fef08a;
 }
 
 .operations-center-diagnostic-cell {
   background: rgba(96, 165, 250, .06);
+}
+
+
+.operations-center-numeric-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.operations-center-item-number-cell {
+  min-width: 150px;
+}
+
+.operations-center-issue-cell {
+  min-width: 220px;
+  max-width: 360px;
+  white-space: normal;
 }
 
 .dle-operational-status-badge.dle-operational-status-packing {

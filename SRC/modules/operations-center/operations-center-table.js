@@ -70,10 +70,8 @@
       ? '<th class="operations-center-include-header">Include</th>'
       : '';
 
-    const headers = projectionHeader + officialColumns
-      .map(column => '<th' + (column.diagnostic ? ' class="operations-center-diagnostic-cell"' : '') + '>' + escapeHtml(column.label) + '</th>')
-      .concat(overlayFields.map(field => '<th>' + escapeHtml(field.label) + '</th>'))
-      .join('');
+    const tableColumns = getTableColumns();
+    const headers = projectionHeader + tableColumns.map(renderHeader).join('');
 
     const rows = records.map((record, index) => renderRow(record, index)).join('');
     container.innerHTML = '<table class="operations-center-table"><thead><tr>' + headers + '</tr></thead><tbody>' + rows + '</tbody></table>';
@@ -84,53 +82,97 @@
     const projectionCell = projection?.isActive()
       ? renderProjectionCell(masterRecordKey)
       : '';
+    const cells = getTableColumns().map(column => renderTableCell(column, record, masterRecordKey)).join('');
 
-    const officialCells = officialColumns.map(column => {
-      const value = viewModel.getOfficialField(record, column.key);
-      const descriptionClass = column.key === 'description' ? ' operations-center-description-cell' : '';
-      const diagnosticClass = column.diagnostic ? ' operations-center-diagnostic-cell' : '';
-      if (column.key === 'salesOrder') {
-        return [
-          '<td class="operations-center-official-cell">',
-          '<button type="button" class="operations-center-sales-order-link" data-master-record-key="',
-          escapeHtml(masterRecordKey),
-          '" onclick="openOperationsCenterSalesOrderDashboard(event)">',
-          escapeHtml(value),
-          '</button>',
-          '</td>'
-        ].join('');
-      }
-      if (column.key === 'workOrder') {
-        const presentation = viewModel.getWorkOrderPresentation(record);
-        return renderWorkOrderCell(presentation);
-      }
-      if (column.key === 'operationalStatus') {
-        return renderOperationalStatusCell(value);
-      }
-      return '<td class="operations-center-official-cell' + descriptionClass + diagnosticClass + '">' + escapeHtml(value) + '</td>';
-    }).join('');
+    return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + projectionCell + cells + '</tr>';
+  }
 
-    const overlayCells = overlayFields.map(field => {
-      if (isReturnReviewControlled(record) && isOrdinaryProductionOverlay(field.key)) {
-        return '<td class="operations-center-overlay-cell operations-center-rma-suppressed">RMA / Rework</td>';
-      }
-      if (field.documentLink) return renderDocumentLinkCell(field, record);
+  function getTableColumns() {
+    const primaryOfficial = officialColumns
+      .filter(column => !column.diagnostic)
+      .map(field => ({ type: 'official', field }));
+    const primaryOverlay = overlayFields
+      .filter(field => field.tablePlacement === 'primary')
+      .map(field => ({ type: 'overlay', field }));
+    const secondaryOfficial = officialColumns
+      .filter(column => column.diagnostic)
+      .map(field => ({ type: 'official', field }));
+    const secondaryOverlay = overlayFields
+      .filter(field => field.tablePlacement !== 'primary')
+      .map(field => ({ type: 'overlay', field }));
+    return primaryOfficial.concat(primaryOverlay, secondaryOfficial, secondaryOverlay);
+  }
 
-      const overlay = stateActions.getOverlayRecord(masterRecordKey);
+  function renderHeader(column) {
+    const field = column.field;
+    const className = getColumnClassName(column, 'header');
+    return '<th' + (className ? ' class="' + escapeHtml(className) + '"' : '') + '>' +
+      escapeHtml(field.label) + '</th>';
+  }
+
+  function renderTableCell(column, record, masterRecordKey) {
+    return column.type === 'official'
+      ? renderOfficialCell(column.field, record, masterRecordKey)
+      : renderOverlayCell(column.field, record, masterRecordKey);
+  }
+
+  function renderOfficialCell(column, record, masterRecordKey) {
+    const value = viewModel.getOfficialField(record, column.key);
+    const className = getColumnClassName({ type: 'official', field: column }, 'cell');
+    if (column.key === 'salesOrder') {
       return [
-        '<td class="operations-center-overlay-cell">',
-        '<div class="operations-center-editable" contenteditable="true" data-master-record-key="',
+        '<td class="', escapeHtml(className), '">',
+        '<button type="button" class="operations-center-sales-order-link" data-master-record-key="',
         escapeHtml(masterRecordKey),
-        '" data-overlay-field="',
-        escapeHtml(field.key),
-        '" oninput="updateOperationsCenterOverlayField(event)">',
-        escapeHtml(overlay[field.key] || ''),
-        '</div>',
+        '" onclick="openOperationsCenterSalesOrderDashboard(event)">',
+        escapeHtml(value),
+        '</button>',
         '</td>'
       ].join('');
-    }).join('');
+    }
+    if (column.key === 'workOrder') {
+      const presentation = viewModel.getWorkOrderPresentation(record);
+      return renderWorkOrderCell(presentation, className);
+    }
+    if (column.key === 'operationalStatus') {
+      return renderOperationalStatusCell(value, className);
+    }
+    return '<td class="' + escapeHtml(className) + '">' + escapeHtml(value) + '</td>';
+  }
 
-    return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + projectionCell + officialCells + overlayCells + '</tr>';
+  function renderOverlayCell(field, record, masterRecordKey) {
+    const className = getColumnClassName({ type: 'overlay', field }, 'cell');
+    if (isReturnReviewControlled(record) && isOrdinaryProductionOverlay(field.key)) {
+      return '<td class="' + escapeHtml(className + ' operations-center-rma-suppressed') + '">RMA / Rework</td>';
+    }
+    if (field.documentLink) return renderDocumentLinkCell(field, record, className);
+
+    const overlay = stateActions.getOverlayRecord(masterRecordKey);
+    return [
+      '<td class="', escapeHtml(className), '">',
+      '<div class="operations-center-editable" contenteditable="true" data-master-record-key="',
+      escapeHtml(masterRecordKey),
+      '" data-overlay-field="',
+      escapeHtml(field.key),
+      '" oninput="updateOperationsCenterOverlayField(event)">',
+      escapeHtml(overlay[field.key] || ''),
+      '</div>',
+      '</td>'
+    ].join('');
+  }
+
+  function getColumnClassName(column, target) {
+    const field = column.field;
+    const classes = [];
+    if (column.type === 'overlay') classes.push('operations-center-overlay-cell');
+    else classes.push('operations-center-official-cell');
+    if (field.diagnostic) classes.push('operations-center-diagnostic-cell');
+    if (field.numeric) classes.push('operations-center-numeric-cell');
+    if (field.className) classes.push(field.className);
+    if (target === 'header' && field.tablePlacement === 'primary') {
+      classes.push('operations-center-primary-overlay-header');
+    }
+    return classes.join(' ');
   }
 
   function isOrdinaryProductionOverlay(key) {
@@ -143,14 +185,14 @@
       ['RMA_REWORK', 'RETURN_RMA_REVIEW_REQUIRED'].includes(route);
   }
 
-  function renderWorkOrderCell(presentation) {
+  function renderWorkOrderCell(presentation, className = 'operations-center-official-cell') {
     const statusClass = escapeHtml(String(presentation.status || 'unresolved').toLowerCase());
     if (!['RMA_CONTROLLED', 'RMA_DECISION_PENDING', 'RETURN_REVIEW_REQUIRED']
         .includes(presentation.status)) {
       const secondary = presentation.secondaryLabel
         ? '<span class="operations-center-work-order-secondary">' + escapeHtml(presentation.secondaryLabel) + '</span>'
         : '';
-      return '<td class="operations-center-official-cell operations-center-work-order-' + statusClass +
+      return '<td class="' + escapeHtml(className) + ' operations-center-work-order-' + statusClass +
         '" title="' + escapeHtml(presentation.reason) + '"><strong>' +
         escapeHtml(presentation.label) + '</strong>' + secondary + '</td>';
     }
@@ -162,7 +204,7 @@
       ? '<span class="operations-center-work-order-case">' + escapeHtml(presentation.caseReference) + '</span>'
       : '';
     return [
-      '<td class="operations-center-official-cell operations-center-work-order-', statusClass,
+      '<td class="', escapeHtml(className), ' operations-center-work-order-', statusClass,
       '" title="', escapeHtml(presentation.reason), '">',
       '<strong>', escapeHtml(presentation.label), '</strong>',
       '<span class="operations-center-work-order-secondary">', escapeHtml(presentation.secondaryLabel), '</span>',
@@ -173,30 +215,40 @@
     ].join('');
   }
 
+  function formatReloadStatusTime(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.valueOf())) return 'unknown time';
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
   function renderSourceStatus() {
     const sourceStatus = document.getElementById('operationsCenterSourceStatus');
     if (!sourceStatus) return;
 
     sourceStatus.classList.remove('loading', 'loaded', 'empty', 'stale', 'error');
+    sourceStatus.removeAttribute('title');
     if (state.canonicalLoading) {
       sourceStatus.classList.add('loading');
-      sourceStatus.textContent = 'Canonical source: loading ' + (state.canonicalEndpoint || '') + '...';
+      sourceStatus.textContent = 'Updating...';
+      sourceStatus.title = 'Reloading canonical Operations Center data.';
       return;
     }
     if (state.canonicalError) {
       sourceStatus.classList.add(state.canonicalLoaded ? 'stale' : 'error');
-      sourceStatus.textContent = (state.canonicalLoaded ? 'Canonical source is stale: ' : 'Canonical source error: ') + state.canonicalError;
+      sourceStatus.textContent = state.canonicalLoaded
+        ? 'Updated ' + formatReloadStatusTime(state.canonicalLoadedAt) + ' (stale)'
+        : 'Update failed';
+      sourceStatus.title = state.canonicalError;
       return;
     }
     if (state.canonicalLoaded) {
       sourceStatus.classList.add(state.canonicalRows.length ? 'loaded' : 'empty');
-      const loadedAt = state.canonicalLoadedAt ? new Date(state.canonicalLoadedAt).toLocaleString() : 'unknown time';
-      sourceStatus.textContent = 'Canonical source: ' + state.canonicalSource + ' | ' + state.canonicalRows.length +
-        ' rows | loaded ' + loadedAt + '.';
+      sourceStatus.textContent = 'Updated ' + formatReloadStatusTime(state.canonicalLoadedAt);
+      sourceStatus.title = 'Canonical source: ' + state.canonicalSource + ' | ' + state.canonicalRows.length + ' rows.';
       return;
     }
     sourceStatus.classList.add('empty');
-    sourceStatus.textContent = 'Canonical source: not loaded.';
+    sourceStatus.textContent = 'Not updated';
   }
 
   function getDisplayedRecords() {
@@ -231,15 +283,15 @@
     toggle.textContent = 'Hide RMA/Rework' + (active ? '  •  ' + hiddenCount + ' hidden' : '');
   }
 
-  function renderOperationalStatusCell(value) {
+  function renderOperationalStatusCell(value, className = 'operations-center-official-cell') {
     const presentation = viewModel.getOperationalStatusPresentation(value);
     const label = presentation.label || '';
     if (!presentation.isPacking) {
-      return '<td class="operations-center-official-cell">' + escapeHtml(label) + '</td>';
+      return '<td class="' + escapeHtml(className) + '">' + escapeHtml(label) + '</td>';
     }
 
     return [
-      '<td class="operations-center-official-cell">',
+      '<td class="', escapeHtml(className), '">',
       '<span class="', presentation.className, '">',
       escapeHtml(label),
       '</span>',
@@ -369,21 +421,21 @@
     }
   }
 
-  function renderDocumentLinkCell(field, record) {
+  function renderDocumentLinkCell(field, record, className = 'operations-center-overlay-cell operations-center-document-cell') {
     const type = field.documentLink.type;
     const workOrder = viewModel.getOfficialField(record, 'workOrder');
     const documentState = documentLinks?.getDocumentState(type, workOrder) || { exists: false };
 
     if (!documentState.exists) {
       return [
-        '<td class="operations-center-overlay-cell operations-center-document-cell">',
+        '<td class="' + escapeHtml(className + ' operations-center-document-cell') + '">',
         '<span class="operations-center-document-missing" title="No document found">&mdash;</span>',
         '</td>'
       ].join('');
     }
 
     return [
-      '<td class="operations-center-overlay-cell operations-center-document-cell">',
+      '<td class="' + escapeHtml(className + ' operations-center-document-cell') + '">',
       '<button type="button" class="operations-center-document-link" title="Open ',
       escapeHtml(field.label),
       ' PDF" data-document-link-type="',

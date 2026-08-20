@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const scripts = [
+  'SRC/modules/shipment-staging/shipment-operational-projection.js',
   'SRC/modules/operations-center/operations-center-fields.js',
   'SRC/modules/operations-center/operations-overlay-schema.js',
   'SRC/modules/operations-center/operations-center-state.js',
@@ -115,7 +116,12 @@ const context = vm.createContext({
         }
       }
     },
-    shipmentStagingState: { records: [] }
+    shipmentStagingState: { records: [] },
+    MaterialStatus: {
+      async getMany(workOrderNumbers) {
+        return new Map(workOrderNumbers.map(workOrderNumber => [workOrderNumber, { label: 'Kit Complete' }]));
+      }
+    }
   }
 });
 
@@ -176,6 +182,7 @@ context.window.shipmentStagingState.records = [{
 }];
 assert.equal(oc.viewModel.getOfficialField(result.rows[0], 'quantityOrdered'), '3.5');
 assert.equal(oc.viewModel.getOfficialField(result.rows[0], 'erpQtyOpen'), '3.5');
+assert.equal(oc.viewModel.getOfficialField(result.rows[0], 'materialStatus'), 'Kit Complete');
 assert.equal(oc.viewModel.getOfficialField(result.rows[0], 'pendingInvoiceQty'), '1.25');
 assert.equal(oc.viewModel.getOfficialField(result.rows[0], 'opQtyOpen'), '2.25', 'OP Qty Open subtracts Pending Invoice once');
 assert.equal(oc.viewModel.getOfficialField(result.rows[1], 'opQtyOpen'), '0', 'OP Qty Open floors negative results at zero');
@@ -189,7 +196,13 @@ assert.equal(pending[result.rows[0].masterRecordKey].operationalStatus, 'Packing
 const viewModelText = fs.readFileSync(path.join(root, 'SRC/modules/operations-center/operations-center-view-model.js'), 'utf8');
 const apiClientText = fs.readFileSync(path.join(root, 'SRC/api/dle-api-client.js'), 'utf8');
 assert.doesNotMatch(viewModelText, /dleMasterData|legacy Master Data/i, 'Operations Center view model no longer reads legacy Master Data');
-assert.doesNotMatch(viewModelText, /erpQuantityOpen\s*=|quantityOrdered\s*-/, 'ERP Qty Open is not derived in Operations Center');
-assert.match(apiClientText, /window\.location\.hostname \+ ':5052'/, 'development canonical API uses the active page hostname');
+assert.match(viewModelText, /erpQtyOpen: item => formatOperationsQuantity\(item\?\.erpQuantityOpen\)/,
+  'ERP Qty Open maps directly from canonical ERP open quantity');
+assert.doesNotMatch(viewModelText, /erpQtyOpen:[^\n]*quantityOrdered|quantityOrdered\s*-\s*pendingInvoiceQty/,
+  'ERP Qty Open is not derived in Operations Center');
+assert.match(apiClientText, /const DEVELOPMENT_BFF_BASE_URL = window\.location\.origin/,
+  'development canonical API uses the active page origin');
+assert.match(apiClientText, /const DEVELOPMENT_LIVE_CANONICAL_BASE_URL = DEVELOPMENT_BFF_BASE_URL/,
+  'development canonical API routes through the BFF origin');
 
 console.log('OPERATIONAL-MASTER-DATA-SQL-001 Phase 2 module contract: PASS');

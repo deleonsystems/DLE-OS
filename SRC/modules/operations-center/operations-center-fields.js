@@ -9,22 +9,22 @@
 
   window.OperationsCenter.officialColumns = [
     { key: 'orderDate', label: 'Order Date' },
-    { key: 'customer', label: 'Customer Name' },
-    { key: 'customerPo', label: 'Customer PO' },
+    { key: 'customer', label: 'Customer' },
+    { key: 'customerPo', label: 'Customer P.O.' },
     { key: 'salesOrder', label: 'Sales Order' },
-    { key: 'sequenceLine', label: 'SO Line' },
+    { key: 'sequenceLine', label: 'Line' },
     { key: 'workOrder', label: 'Work Order' },
+    { key: 'partNumber', label: 'Item Number', className: 'operations-center-item-number-cell' },
+    { key: 'description', label: 'Description', className: 'operations-center-description-cell' },
+    { key: 'opQtyOpen', label: 'Qty Open', numeric: true },
+    { key: 'dueDate', label: 'Due / Estimated Ship Date' },
+    { key: 'price', label: 'Unit Price', numeric: true },
+    { key: 'extendedPrice', label: 'Extended Price', numeric: true },
     { key: 'materialStatus', label: 'Material Status' },
-    { key: 'quantityOrdered', label: 'Qty Ordered', diagnostic: true },
-    { key: 'erpQtyOpen', label: 'ERP Qty Open', diagnostic: true },
-    { key: 'pendingInvoiceQty', label: 'Pending Invoice Qty', diagnostic: true },
-    { key: 'opQtyOpen', label: 'OP Qty Open' },
-    { key: 'partNumber', label: 'Assembly / Item Number' },
-    { key: 'description', label: 'Description' },
-    { key: 'dueDate', label: 'Estimated Ship Date' },
-    { key: 'price', label: 'Unit Price' },
-    { key: 'extendedPrice', label: 'Extended Price' },
-    { key: 'operationalStatus', label: 'Operational Status' }
+    { key: 'operationalStatus', label: 'Production Status' },
+    { key: 'quantityOrdered', label: 'Qty Ordered', diagnostic: true, numeric: true },
+    { key: 'erpQtyOpen', label: 'ERP Qty Open', diagnostic: true, numeric: true },
+    { key: 'pendingInvoiceQty', label: 'Pending Invoice Qty', diagnostic: true, numeric: true }
   ];
 
   window.OperationsCenter.overlayFields = [
@@ -50,6 +50,11 @@
         type: 'kitComplete'
       }
     },
-    { key: 'holdIssue', label: 'HOLD / ISSUE' }
+    {
+      key: 'holdIssue',
+      label: 'Special Request / Issue',
+      tablePlacement: 'primary',
+      className: 'operations-center-issue-cell'
+    }
   ];
 })();

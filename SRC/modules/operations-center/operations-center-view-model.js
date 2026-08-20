@@ -74,8 +74,8 @@
   function getOperationsCenterSearchText(record) {
     const official = [
       'orderDate', 'customerNumber', 'customer', 'customerPo', 'salesOrder',
-      'sequenceLine', 'workOrder', 'qtyOpen', 'partNumber', 'description',
-      'dueDate', 'price', 'extendedPrice', 'operationalStatus'
+      'sequenceLine', 'workOrder', 'partNumber', 'description',
+      'opQtyOpen', 'dueDate', 'price', 'extendedPrice', 'materialStatus', 'operationalStatus'
     ].map(field => getOfficialField(record, field));
     const overlay = window.OperationsCenter.stateActions.getOverlayRecord(getMasterRecordKey(record));
     const presentation = getWorkOrderPresentation(record);
@@ -130,8 +130,7 @@
       erpQtyOpen: item => formatOperationsQuantity(item?.erpQuantityOpen),
       pendingInvoiceQty: item => formatOperationsQuantity(getShipmentProjection(item).stagedQuantity),
       opQtyOpen: getOperationalQuantityOpen,
-      materialStatus: item => item?.materialStatus?.label || '',
-      operationalStatus: item => getShipmentProjection(item).statusLabel
+      materialStatus: item => item?.materialStatus?.label || ''
     };
     return projectionMap[field] ? projectionMap[field](record) : '';
   }
