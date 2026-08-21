@@ -15,8 +15,7 @@
     { key: 'opQtyOpen', label: 'OP Qty Open', width: '7%' },
     { key: 'partNumber', label: 'Item #', width: '10%' },
     { key: 'description', label: 'Description', width: '21%' },
-    { key: 'dueDate', label: 'Due Date', width: '8%' },
-    { key: 'productionShipping', label: 'Production / Shipping', width: '11%', manualEntry: true }
+    { key: 'dueDate', label: 'Due Date', width: '8%' }
   ];
 
   function printProductionProjectionReport() {

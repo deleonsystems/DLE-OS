@@ -7,8 +7,6 @@
 
   window.OperationsCenter = window.OperationsCenter || {};
 
-  const PACKING_OPERATIONAL_STATUS = 'Packing';
-
   function getMasterData() {
     const state = window.OperationsCenter.state;
     if (!state?.canonicalLoaded) return null;
@@ -82,14 +80,12 @@
     const official = [
       'orderDate', 'customerNumber', 'customer', 'customerPo', 'salesOrder',
       'sequenceLine', 'workOrder', 'partNumber', 'description',
-      'opQtyOpen', 'dueDate', 'price', 'extendedPrice', 'materialStatus', 'operationalStatus'
+      'opQtyOpen', 'dueDate', 'price', 'extendedPrice', 'materialStatus'
     ].map(field => getOfficialField(record, field));
     const latestStatus = getVerifiedStatusPresentation(record);
-    const overlay = window.OperationsCenter.stateActions.getOverlayRecord(getMasterRecordKey(record));
     const presentation = getWorkOrderPresentation(record);
     return collectSearchValues([
       official,
-      overlay,
       presentation,
       latestStatus,
       record?.workOrderApprovalReview?.operationalRelationship,
@@ -233,7 +229,6 @@
     if (projectedValue !== '') return projectedValue;
 
     const vpro5 = record?.vpro5 || {};
-    const overlay = window.OperationsCenter.stateActions.getOverlayRecord(getMasterRecordKey(record));
     const fieldMap = {
       orderDate: vpro5.orderDate,
       customerNumber: vpro5.customerNumber,
@@ -247,8 +242,7 @@
       description: vpro5.description,
       dueDate: vpro5.dueDate,
       price: vpro5.price,
-      extendedPrice: vpro5.extendedPrice,
-      operationalStatus: overlay.operationalStatus
+      extendedPrice: vpro5.extendedPrice
     };
     return String(fieldMap[field] ?? '');
   }
@@ -404,36 +398,6 @@
     };
   }
 
-  function getOperationalStatusPresentation(value) {
-    const status = String(value ?? '').trim();
-    const isPacking = status.toLowerCase() === PACKING_OPERATIONAL_STATUS.toLowerCase();
-
-    return {
-      status,
-      label: isPacking ? '\u{1F7E8} ' + PACKING_OPERATIONAL_STATUS : status,
-      isPacking,
-      className: isPacking
-        ? 'dle-operational-status-badge dle-operational-status-packing'
-        : ''
-    };
-  }
-
-  function setPackingOperationalStatus(masterRecordKey) {
-    const normalizedKey = String(masterRecordKey || '').trim();
-    if (!normalizedKey) return false;
-
-    const record = getMasterRecords().find(item => getMasterRecordKey(item) === normalizedKey);
-    if (!record) return false;
-
-    record.dle = record.dle || {};
-    record.dle.operationalStatus = PACKING_OPERATIONAL_STATUS;
-    return window.OperationsCenter.stateActions.updateOverlayField(
-      normalizedKey,
-      'operationalStatus',
-      PACKING_OPERATIONAL_STATUS
-    );
-  }
-
   window.OperationsCenter.viewModel = {
     getMasterData,
     getMasterRecords,
@@ -447,8 +411,6 @@
     getShipmentProjection,
     getOfficialField,
     getWorkOrderPresentation,
-    getOperationalStatusPresentation,
-    getVerifiedStatusPresentation,
-    setPackingOperationalStatus
+    getVerifiedStatusPresentation
   };
 })();

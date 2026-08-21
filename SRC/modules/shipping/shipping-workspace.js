@@ -480,68 +480,10 @@
     state.expandedShippingRequests.delete(selected);
     state.expandedPackingRequests.delete(selected);
     selected.status = "Packing";
-    applyPackingOperationalStatus(selected);
     state.packingRequests.push(selected);
     state.selectedShippingRequest = null;
     state.selectedPackingRequest = selected;
     renderShippingWorkspace();
-    refreshOperationalStatusDisplays();
-  }
-
-  function applyPackingOperationalStatus(request) {
-    const sourceWorkOrders = getRequestSourceWorkOrders(request);
-    const failedRecordKeys = [];
-
-    sourceWorkOrders.forEach(sourceWorkOrder => {
-      const masterRecordKey = String(sourceWorkOrder?.masterRecordKey || "").trim();
-      if (sourceWorkOrder?.official) {
-        sourceWorkOrder.official.operationalStatus = "Packing";
-      }
-      if (sourceWorkOrder?.masterRecord) {
-        sourceWorkOrder.masterRecord.dle = sourceWorkOrder.masterRecord.dle || {};
-        sourceWorkOrder.masterRecord.dle.operationalStatus = "Packing";
-      }
-
-      const updated = window.OperationsCenter?.viewModel?.setPackingOperationalStatus?.(masterRecordKey);
-      if (!updated) failedRecordKeys.push(masterRecordKey || "Unknown");
-    });
-
-    if (!sourceWorkOrders.length || failedRecordKeys.length) {
-      console.warn("Packing operational status could not be linked to an active Master Data record.");
-    }
-  }
-
-  function getRequestSourceWorkOrders(request) {
-    const detailSources = getRequestLines(request)
-      .map(line => line?.sourceWorkOrder)
-      .filter(Boolean);
-    const requestSources = Array.isArray(request?.sourceWorkOrders)
-      ? request.sourceWorkOrders.filter(Boolean)
-      : [];
-    const sources = detailSources.length
-      ? detailSources
-      : requestSources.length
-        ? requestSources
-        : request?.sourceWorkOrder
-          ? [request.sourceWorkOrder]
-          : [];
-    const seenKeys = new Set();
-
-    return sources.filter(source => {
-      const key = String(source?.masterRecordKey || "").trim();
-      if (!key || seenKeys.has(key)) return false;
-      seenKeys.add(key);
-      return true;
-    });
-  }
-
-  function refreshOperationalStatusDisplays() {
-    window.OperationsCenter?.table?.renderModule?.();
-    window.SalesOrderDashboard?.render?.();
-    window.WorkOrderDashboardModule?.render?.();
-    if (typeof renderDleMasterDataViewer === "function") {
-      renderDleMasterDataViewer();
-    }
   }
 
   function renderShippingActions() {

@@ -18,15 +18,13 @@ const context = vm.createContext({
 
 [
   'SRC/modules/operations-center/operations-center-fields.js',
-  'SRC/modules/operations-center/operations-overlay-schema.js',
   'SRC/modules/operations-center/operations-center-state.js',
   'SRC/modules/operations-center/operations-center-view-model.js'
 ].forEach(file => vm.runInContext(read(file), context, { filename: file }));
 
 const oc = context.window.OperationsCenter;
 const primaryOfficial = oc.officialColumns.filter(column => !column.diagnostic).map(column => column.key);
-const primaryOverlay = oc.overlayFields.filter(field => field.tablePlacement === 'primary').map(field => field.key);
-assert.equal(JSON.stringify(primaryOfficial.concat(primaryOverlay)), JSON.stringify([
+assert.equal(JSON.stringify(primaryOfficial), JSON.stringify([
   'orderDate',
   'customer',
   'customerPo',
@@ -40,9 +38,7 @@ assert.equal(JSON.stringify(primaryOfficial.concat(primaryOverlay)), JSON.string
   'price',
   'extendedPrice',
   'verifiedStatus',
-  'materialStatus',
-  'operationalStatus',
-  'holdIssue'
+  'materialStatus'
 ]),
   'manager-first table scan order is preserved');
 
@@ -53,26 +49,12 @@ assert.equal(JSON.stringify(oc.officialColumns.filter(column => column.diagnosti
 ]),
   'secondary ERP/detail columns remain available after the primary scan');
 
-const production = oc.officialColumns.find(column => column.key === 'operationalStatus');
-assert.equal(production.label, 'Production Status', 'existing overlay-backed status is manager-facing Production Status');
-const productionShipping = oc.overlayFields.find(field => field.key === 'productionShipping');
-assert.equal(productionShipping.label, 'Production / Shipping',
-  'Production / Shipping remains an editable Operations Overlay field');
-assert.ok(oc.overlaySchema.persistedFieldKeys.includes('productionShipping'),
-  'Production / Shipping preserves its existing overlay contract');
-assert.equal(JSON.stringify(oc.overlayFields.filter(field =>
-  ['kitShort', 'purchasingComplete', 'kitComplete'].includes(field.key))), '[]',
-  'legacy browser document-link columns are removed');
+assert.equal(oc.overlayFields, undefined, 'legacy manager overlay field contract is retired');
+assert.equal(oc.overlaySchema, undefined, 'legacy manager overlay persistence schema is retired');
 const verifiedStatus = oc.officialColumns.find(column => column.key === 'verifiedStatus');
 assert.equal(verifiedStatus.label, 'Last Verified Status', 'latest append-only status has a manager-facing column');
 assert.equal(verifiedStatus.className, 'operations-center-verified-status-cell',
   'Last Verified Status uses its compact desktop presentation');
-const special = oc.overlayFields.find(field => field.key === 'holdIssue');
-assert.equal(special.label, 'Special Request / Issue', 'Hold/Issue is manager-facing free text');
-assert.equal(special.tablePlacement, 'primary', 'Special Request / Issue remains in the primary scan');
-assert.ok(!special.documentLink, 'Special Request / Issue is not a governed dropdown or document link');
-assert.ok(oc.overlaySchema.persistedFieldKeys.includes('holdIssue'), 'Special Request / Issue persists through existing overlay key');
-assert.ok(oc.overlaySchema.persistedFieldKeys.includes('operationalStatus'), 'Production Status preserves existing overlay storage');
 
 const record = {
   masterRecordKey: '565650|12009|220',
@@ -91,12 +73,10 @@ const record = {
   },
   erpQuantityOpen: 9,
   materialStatus: { label: 'Kit Complete' },
-  workOrderRelationship: { status: 'EXACT_LINE_UNIQUE', actionableWorkOrderNumber: '0115621', candidates: [] },
-  dle: { operationalStatus: '' }
+  workOrderRelationship: { status: 'EXACT_LINE_UNIQUE', actionableWorkOrderNumber: '0115621', candidates: [] }
 };
 oc.state.canonicalLoaded = true;
 oc.state.canonicalRows = [record];
-oc.stateActions.updateOverlayField(record.masterRecordKey, 'holdIssue', 'Expedite customer request');
 
 assert.equal(oc.viewModel.getOfficialField(record, 'partNumber'), 'ASM-100', 'Item Number uses existing item field');
 assert.equal(oc.viewModel.getOfficialField(record, 'description'), 'Actuator Assembly', 'Description uses existing description field');
@@ -104,7 +84,6 @@ assert.equal(oc.viewModel.getOfficialField(record, 'opQtyOpen'), '9', 'Qty Open 
 assert.equal(oc.viewModel.getOfficialField(record, 'price'), '125.5', 'Unit Price uses existing value');
 assert.equal(oc.viewModel.getOfficialField(record, 'extendedPrice'), '1129.5', 'Extended Price uses existing value');
 assert.equal(oc.viewModel.getOfficialField(record, 'materialStatus'), 'Kit Complete', 'Material Status uses existing shared projection label');
-assert.equal(oc.viewModel.getOfficialField(record, 'operationalStatus'), '', 'Production Status defaults to existing blank overlay value');
 
 const masonRecord = { masterRecordKey: '549250|0012084|010' };
 const abbott115620Record = { masterRecordKey: '001082|0012097|050' };
@@ -151,8 +130,8 @@ const winterStatus = oc.viewModel.getVerifiedStatusPresentation({ masterRecordKe
 assert.equal(winterStatus.timeLabel, 'Jan 20, 1:25 PM',
   'winter Verified Status timestamps display in Pacific standard time without a fixed offset');
 
-const searched = oc.viewModel.getOperationsCenterView({ records: [record], searchTerms: ['Kit Complete', 'Expedite'] });
-assert.equal(searched.records.length, 1, 'search still includes material status and overlay issue text');
+const searched = oc.viewModel.getOperationsCenterView({ records: [record], searchTerms: ['Kit Complete', 'ASM-100'] });
+assert.equal(searched.records.length, 1, 'search still includes material status and canonical item text');
 assert.equal(oc.viewModel.getOperationsCenterView({ records: [record], searchTerms: ['ASM-100'] }).records.length, 1,
   'search still includes item identity');
 assert.equal(oc.viewModel.getOperationsCenterView({ records: [record], searchTerms: ['Actuator Assembly'] }).records.length, 1,
@@ -164,10 +143,14 @@ const operationsStyles = read('SRC/modules/operations-center/operations-center.c
 const operationsModule = read('SRC/modules/operations-center/operations-center.js');
 const applicationHost = read('DLE_Work_Center_v4.0.0.html');
 const kittingWorkspace = read('SRC/workspaces/kitting/kitting-workspace.js');
-assert.match(tableSource, /primaryOfficial\.concat\(primaryOverlay, secondaryOfficial, secondaryOverlay\)/,
-  'table renderer places primary manager fields before secondary details');
-assert.match(tableSource, /renderOverlayCell\(field, record, masterRecordKey\)/,
-  'overlay free text remains editable through the shared renderer');
+const stateSource = read('SRC/modules/operations-center/operations-center-state.js');
+const apiClient = read('SRC/api/dle-api-client.js');
+const shippingWorkspace = read('SRC/modules/shipping/shipping-workspace.js');
+const verifiedStatusService = read('SRC/modules/operations-center/operations-verified-status-service.js');
+assert.match(tableSource, /primaryOfficial\.concat\(secondaryOfficial\)/,
+  'table renderer contains only governed/canonical and dedicated projected fields');
+assert.doesNotMatch(tableSource, /renderOverlayCell|contenteditable|updateOverlayField|getOverlayRecord/,
+  'legacy manager overlay rendering and editing are retired');
 assert.match(tableSource, /column\.key === 'verifiedStatus'[\s\S]*renderVerifiedStatusCell\(record, masterRecordKey, className\)/,
   'desktop table renders the projected status through the intentional status cell');
 assert.match(tableSource, /\[status\.recordedBy, status\.timeLabel\]/,
@@ -176,22 +159,18 @@ assert.match(tableSource, /operations-center-verified-status-empty">&mdash;<\/sp
   'rows without a Verified Status remain visually quiet');
 assert.match(tableSource, /onclick="openOperationsCenterVerifiedStatusLogger\(event\)"/,
   'desktop status cell preserves the deliberate append-only logging interaction');
-assert.match(tableSource, /isReturnReviewControlled\(record\) && isOrdinaryProductionOverlay\(field\.key\)/,
-  'RMA/Rework suppression is preserved for ordinary production overlay fields');
 assert.doesNotMatch(tableSource, /renderDocumentLinkCell|documentLinks|getDocumentState/,
   'desktop renderer no longer contains the browser document-link branch');
 assert.doesNotMatch(operationsMarkup,
   /operationsCenterDocumentType|connectOperationsCenterDocumentFolder|operationsCenterDocumentStatus/,
   'legacy document selector, connection button, and folder status are removed');
-assert.match(operationsMarkup, /id="operationsCenterSaveButton"/,
-  'Operations Overlay Save remains available');
-assert.match(operationsMarkup, /id="operationsCenterSaveStatus"[^>]*>No unsaved changes\./,
-  'Operations Overlay save feedback remains available');
+assert.doesNotMatch(operationsMarkup, /operationsCenterSaveButton|operationsCenterSaveStatus|saveOperationsCenterOverlay/,
+  'legacy overlay Save and dirty-state feedback are removed');
 assert.doesNotMatch(operationsMarkup, /Daily operational workspace built from governed canonical Sales Orders/,
   'desktop workspace subtitle is removed');
 assert.match(operationsMarkup,
-  /class="operations-center-toolbar"[\s\S]*refreshOperationsCenterCanonicalData\(\)[\s\S]*id="operationsCenterSourceStatus"[\s\S]*id="operationsCenterSaveButton"[\s\S]*id="operationsCenterSaveStatus"[\s\S]*class="operations-center-search-row"[\s\S]*id="operationsCenterSearch"[\s\S]*id="operationsCenterStatus"/,
-  'search and count occupy the lower row while source/save feedback remains grouped with its action');
+  /class="operations-center-toolbar"[\s\S]*refreshOperationsCenterCanonicalData\(\)[\s\S]*id="operationsCenterSourceStatus"[\s\S]*class="operations-center-search-row"[\s\S]*id="operationsCenterSearch"[\s\S]*id="operationsCenterStatus"/,
+  'search and count occupy the lower row while reload feedback remains grouped with its action');
 assert.match(tableSource, /status\.textContent = records\.length \+ ' records shown';/,
   'operator-facing record count is derived from the displayed records');
 assert.doesNotMatch(tableSource, /requiring action shown from|Overlay records:/,
@@ -204,10 +183,22 @@ assert.match(operationsStyles,
   /\.operations-center-panel:has\(> \.operations-center-mobile-view:not\(\[hidden\]\)\) \.operations-center-search-row/,
   'desktop search row remains hidden when the dedicated Mobile View is active');
 assert.doesNotMatch(operationsModule,
-  /populateOperationsCenterDocumentTypes|connectOperationsCenterDocumentFolder|openOperationsCenterDocumentLink/,
-  'legacy document selector and open handlers are removed');
+  /populateOperationsCenterDocumentTypes|connectOperationsCenterDocumentFolder|openOperationsCenterDocumentLink|overlayService|saveOperationsCenterOverlay/,
+  'legacy document and manager overlay handlers are removed');
 assert.doesNotMatch(applicationHost, /operations-document-links\.js/,
   'the removed browser document-link script is no longer loaded');
+assert.doesNotMatch(applicationHost, /operations-overlay-(?:schema|service)\.js/,
+  'the retired overlay schema and service are no longer loaded');
+assert.doesNotMatch(stateSource, /overlayByKey|dirtyOverlayByKey|buildPendingOverlayByKey|commitSavedOverlay/,
+  'legacy overlay and dirty state are absent');
+assert.doesNotMatch(apiClient, /operationsOverlay/,
+  'the retired overlay API compatibility endpoint is absent');
+assert.doesNotMatch(shippingWorkspace, /setPackingOperationalStatus|applyPackingOperationalStatus|refreshOperationalStatusDisplays/,
+  'Shipping no longer writes temporary Packing state into Operations Center');
+assert.doesNotMatch(verifiedStatusService, /productionStatus/,
+  'Verified Status evidence no longer carries the retired overlay-backed status');
+assert.match(verifiedStatusService, /materialStatus/,
+  'Verified Status continues carrying governed Material Status evidence');
 assert.doesNotMatch(kittingWorkspace, /OperationsCenter\?\.documentLinks|getDocumentState\("kit(?:Short|Complete)"/,
   'Kitting no longer couples its read model to the removed browser folder index');
 

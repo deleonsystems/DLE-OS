@@ -86,6 +86,11 @@ assert.equal(createCalls, 0, 'loading the workspace never creates a duplicate sh
 window.ShippingWorkspace.enqueueRequest({ requestId: 'OPERATIONS-HANDOFF' });
 assert.match(elements.get('shippingShipmentStagingTable').innerHTML, /SHP-20260805-5AA4FE93/,
   'Operations handoff does not replace the staging population');
+window.acceptShippingRequest();
+assert.equal(window.ShippingWorkspace.getState().requests.length, 0,
+  'accepting a request still removes it from the Shipping queue');
+assert.equal(window.ShippingWorkspace.getState().packingRequests[0].status, 'Packing',
+  'accepting a request still advances Shipping-owned developmental state to Packing');
 
 shipmentStagingState.records = [];
 window.ShippingWorkspace.renderShipmentStaging();

@@ -43,9 +43,7 @@
         return refresh;
       });
     }
-    await window.OperationsCenter.overlayService.initializeOverlay();
     window.OperationsCenter.projection.initialize();
-    window.OperationsCenter.table.updateSaveStatus('No unsaved changes.', 'saved');
     await refreshOperationsCenterCanonicalData();
     await refreshSyncOperationsStatus();
   }
@@ -253,38 +251,6 @@
     window.OperationsCenter.table.updateProjectionSelection(event);
   }
 
-  function updateOperationsCenterOverlayField(event) {
-    window.OperationsCenter.table.updateOverlayField(event);
-  }
-
-  async function saveOperationsCenterOverlay() {
-    const state = window.OperationsCenter.state;
-    if (!state.dirty) {
-      window.OperationsCenter.table.updateSaveStatus('No unsaved changes.', 'saved');
-      return;
-    }
-
-    const saveButton = document.getElementById('operationsCenterSaveButton');
-    if (saveButton) saveButton.disabled = true;
-    window.OperationsCenter.table.updateSaveStatus('Saving Operations Overlay...', '');
-
-    try {
-      const dataset = await window.OperationsCenter.overlayService.saveOverlay();
-      window.OperationsCenter.table.updateSaveStatus(
-        'Operations Overlay saved. ' + dataset.recordCount + ' record' + (dataset.recordCount === 1 ? '' : 's') + '.',
-        'saved'
-      );
-      window.OperationsCenter.table.renderModule();
-    } catch (error) {
-      state.dirty = true;
-      window.OperationsCenter.table.updateSaveStatus('Operations Overlay save failed: ' + (error?.message || error), 'error');
-      throw error;
-    } finally {
-      if (saveButton) saveButton.disabled = false;
-    }
-  }
-
-
   function openVerifiedStatusLogger(record) {
     verifiedStatusDialogRecord = record;
     const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
@@ -368,8 +334,6 @@
   window.OperationsCenter.toggleProjectionMode = toggleOperationsCenterProjectionMode;
   window.OperationsCenter.toggleRmaVisibility = toggleOperationsCenterRmaVisibility;
   window.OperationsCenter.updateProjectionSelection = updateOperationsCenterProjectionSelection;
-  window.OperationsCenter.updateOverlayField = updateOperationsCenterOverlayField;
-  window.OperationsCenter.saveOverlay = saveOperationsCenterOverlay;
   window.OperationsCenter.refreshSyncOperationsStatus = refreshSyncOperationsStatus;
   window.OperationsCenter.startSyncOperations = startSyncOperations;
 
@@ -388,8 +352,6 @@
   window.toggleOperationsCenterProjectionMode = toggleOperationsCenterProjectionMode;
   window.toggleOperationsCenterRmaVisibility = toggleOperationsCenterRmaVisibility;
   window.updateOperationsCenterProjectionSelection = updateOperationsCenterProjectionSelection;
-  window.updateOperationsCenterOverlayField = updateOperationsCenterOverlayField;
-  window.saveOperationsCenterOverlay = saveOperationsCenterOverlay;
   window.refreshSyncOperationsStatus = refreshSyncOperationsStatus;
   window.startSyncOperations = startSyncOperations;
 })();

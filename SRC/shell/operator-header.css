@@ -70,3 +70,60 @@ body[data-view-mode="mobile"] #dle-auth-signout { min-width:58px;min-height:34px
 body[data-view-mode="mobile"] .dle-dev-controls { max-height:55vh;overflow-y:auto;padding:8px 10px }
 body[data-view-mode="mobile"] > main { margin-top:10px }
 @media(max-width:420px){body[data-view-mode="mobile"] .dle-operator-header{padding-inline:max(8px,env(safe-area-inset-left,0)) max(8px,env(safe-area-inset-right,0));grid-template-columns:minmax(108px,1fr) minmax(0,1.55fr)}body[data-view-mode="mobile"] .dle-operator-header .app-title{font-size:14px}body[data-view-mode="mobile"] .dle-header-right{gap:4px}body[data-view-mode="mobile"] .dle-identity-clock-stack{width:min(172px,100%)}body[data-view-mode="mobile"] .dle-view-mode-toggle{max-width:204px}body[data-view-mode="mobile"] .dle-view-mode-toggle button{font-size:10.5px}}
+
+@media screen {
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+
+  body > main,
+  body[data-view-mode="mobile"] > main,
+  body[data-workspace-view="kitting"] > main {
+    width: 100%;
+    min-height: 0;
+    margin: 0 auto;
+    padding: 14px 22px 10px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  body[data-view-mode="mobile"] > main,
+  body[data-workspace-view="kitting"] > main {
+    padding-top: 10px;
+  }
+
+  body[data-workspace-view="operations-center"] > main,
+  body:has(#operationsCenter.screen.active) > main {
+    max-width: none;
+    overflow: hidden;
+  }
+
+  body > footer {
+    position: relative;
+    z-index: 1000;
+    min-height: 24px;
+    margin: 0;
+    padding: 4px max(12px, env(safe-area-inset-right, 0px)) max(4px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+    border-top: 1px solid var(--border);
+    background: rgba(3, 9, 16, .96);
+    color: #747f8f;
+    font-size: 11px;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

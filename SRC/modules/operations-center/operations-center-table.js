@@ -8,9 +8,7 @@
   window.OperationsCenter = window.OperationsCenter || {};
 
   const officialColumns = window.OperationsCenter.officialColumns || [];
-  const overlayFields = window.OperationsCenter.overlayFields || [];
   const state = window.OperationsCenter.state;
-  const stateActions = window.OperationsCenter.stateActions;
   const viewModel = window.OperationsCenter.viewModel;
   const projection = window.OperationsCenter.projection;
 
@@ -82,16 +80,10 @@
     const primaryOfficial = officialColumns
       .filter(column => !column.diagnostic)
       .map(field => ({ type: 'official', field }));
-    const primaryOverlay = overlayFields
-      .filter(field => field.tablePlacement === 'primary')
-      .map(field => ({ type: 'overlay', field }));
     const secondaryOfficial = officialColumns
       .filter(column => column.diagnostic)
       .map(field => ({ type: 'official', field }));
-    const secondaryOverlay = overlayFields
-      .filter(field => field.tablePlacement !== 'primary')
-      .map(field => ({ type: 'overlay', field }));
-    return primaryOfficial.concat(primaryOverlay, secondaryOfficial, secondaryOverlay);
+    return primaryOfficial.concat(secondaryOfficial);
   }
 
   function renderHeader(column) {
@@ -102,9 +94,7 @@
   }
 
   function renderTableCell(column, record, masterRecordKey) {
-    return column.type === 'official'
-      ? renderOfficialCell(column.field, record, masterRecordKey)
-      : renderOverlayCell(column.field, record, masterRecordKey);
+    return renderOfficialCell(column.field, record, masterRecordKey);
   }
 
   function renderOfficialCell(column, record, masterRecordKey) {
@@ -124,9 +114,6 @@
     if (column.key === 'workOrder') {
       const presentation = viewModel.getWorkOrderPresentation(record);
       return renderWorkOrderCell(presentation, className);
-    }
-    if (column.key === 'operationalStatus') {
-      return renderOperationalStatusCell(value, className);
     }
     if (column.key === 'verifiedStatus') {
       return renderVerifiedStatusCell(record, masterRecordKey, className);
@@ -153,47 +140,13 @@
     ].join('');
   }
 
-  function renderOverlayCell(field, record, masterRecordKey) {
-    const className = getColumnClassName({ type: 'overlay', field }, 'cell');
-    if (isReturnReviewControlled(record) && isOrdinaryProductionOverlay(field.key)) {
-      return '<td class="' + escapeHtml(className + ' operations-center-rma-suppressed') + '">RMA / Rework</td>';
-    }
-    const overlay = stateActions.getOverlayRecord(masterRecordKey);
-    return [
-      '<td class="', escapeHtml(className), '">',
-      '<div class="operations-center-editable" contenteditable="true" data-master-record-key="',
-      escapeHtml(masterRecordKey),
-      '" data-overlay-field="',
-      escapeHtml(field.key),
-      '" oninput="updateOperationsCenterOverlayField(event)">',
-      escapeHtml(overlay[field.key] || ''),
-      '</div>',
-      '</td>'
-    ].join('');
-  }
-
   function getColumnClassName(column, target) {
     const field = column.field;
-    const classes = [];
-    if (column.type === 'overlay') classes.push('operations-center-overlay-cell');
-    else classes.push('operations-center-official-cell');
+    const classes = ['operations-center-official-cell'];
     if (field.diagnostic) classes.push('operations-center-diagnostic-cell');
     if (field.numeric) classes.push('operations-center-numeric-cell');
     if (field.className) classes.push(field.className);
-    if (target === 'header' && field.tablePlacement === 'primary') {
-      classes.push('operations-center-primary-overlay-header');
-    }
     return classes.join(' ');
-  }
-
-  function isOrdinaryProductionOverlay(key) {
-    return key === 'productionShipping';
-  }
-
-  function isReturnReviewControlled(record) {
-    const route = record?.workOrderApprovalReview?.operationalRelationship?.operationalRoute;
-    return !!record?.rmaReworkMembership ||
-      ['RMA_REWORK', 'RETURN_RMA_REVIEW_REQUIRED'].includes(route);
   }
 
   function renderWorkOrderCell(presentation, className = 'operations-center-official-cell') {
@@ -293,22 +246,6 @@
     toggle.textContent = 'Hide RMA/Rework' + (active ? '  •  ' + hiddenCount + ' hidden' : '');
   }
 
-  function renderOperationalStatusCell(value, className = 'operations-center-official-cell') {
-    const presentation = viewModel.getOperationalStatusPresentation(value);
-    const label = presentation.label || '';
-    if (!presentation.isPacking) {
-      return '<td class="' + escapeHtml(className) + '">' + escapeHtml(label) + '</td>';
-    }
-
-    return [
-      '<td class="', escapeHtml(className), '">',
-      '<span class="', presentation.className, '">',
-      escapeHtml(label),
-      '</span>',
-      '</td>'
-    ].join('');
-  }
-
   function renderProjectionCell(masterRecordKey) {
     const checked = projection?.isSelected(masterRecordKey) ? ' checked' : '';
     return [
@@ -367,13 +304,11 @@
 
   function buildSelectedOrderPayload(record, masterRecordKey) {
     const official = buildOfficialFields(record);
-    const overlay = stateActions.getOverlayRecord(masterRecordKey);
     const relatedRows = getRelatedSalesOrderRows(official);
 
     return {
       masterRecordKey,
       official,
-      overlay: { ...overlay },
       relatedRows,
       masterRecord: cloneRecord(record)
     };
@@ -390,7 +325,6 @@
         return {
           masterRecordKey: key,
           official,
-          overlay: { ...stateActions.getOverlayRecord(key) },
           masterRecord: cloneRecord(record)
         };
       })
@@ -431,27 +365,11 @@
     }
   }
 
-  function updateOverlayField(event) {
-    const target = event?.target;
-    const masterRecordKey = target?.dataset?.masterRecordKey || '';
-    const field = target?.dataset?.overlayField || '';
-    const updated = stateActions.updateOverlayField(masterRecordKey, field, target?.textContent || '');
-    if (updated) updateSaveStatus('Unsaved Operations Overlay changes.', 'dirty');
-  }
-
   function filter() {
     renderStatus();
     renderProjectionSummary();
     renderRmaVisibilityControl();
     renderTable();
-  }
-
-  function updateSaveStatus(message, stateClass) {
-    const status = document.getElementById('operationsCenterSaveStatus');
-    if (!status) return;
-    status.textContent = message;
-    status.classList.remove('dirty', 'saved', 'error');
-    if (stateClass) status.classList.add(stateClass);
   }
 
   window.OperationsCenter.table = {
@@ -464,9 +382,7 @@
     getCurrentView,
     openSalesOrderDashboard,
     updateProjectionSelection,
-    updateOverlayField,
-    filter,
-    updateSaveStatus
+    filter
   };
 
   window.openOperationsCenterSalesOrderDashboard = openSalesOrderDashboard;

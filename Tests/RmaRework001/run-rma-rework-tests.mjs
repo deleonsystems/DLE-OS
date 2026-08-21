@@ -84,8 +84,8 @@ assert.match(operationsDataService, /membership could not be verified completely
 assert.match(operationsViewModel, /RMA_CONTROLLED/);
 assert.match(operationsViewModel, /Superseded by active RMA\/Rework case/);
 assert.match(operationsTable, /Review evidence/);
-assert.match(operationsTable, /isOrdinaryProductionOverlay/);
-assert.match(operationsTable, /operations-center-rma-suppressed/);
+assert.doesNotMatch(operationsTable, /isOrdinaryProductionOverlay|operations-center-rma-suppressed/,
+  'retired overlay cells no longer carry a separate RMA suppression presentation');
 
 const normalizeReference = value => String(value).trim().replace(/\s+/g, ' ').toUpperCase();
 const referenceKey = (customer, type, value) => [customer, type, normalizeReference(value)].join('|');

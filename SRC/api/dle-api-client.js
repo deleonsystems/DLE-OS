@@ -8,7 +8,6 @@
   const DEFAULT_BASE_URL = 'http://DLE-OS-HOST:5041';
   const DEFAULT_ENDPOINTS = Object.freeze({
     masterData: '/api/masterdata',
-    operationsOverlay: '/api/operations/overlay',
     shipmentStaging: '/api/shipments/staging',
     shipmentHistory: '/api/shipments/history',
     platformReadiness: '/api/platform/v1/readiness',

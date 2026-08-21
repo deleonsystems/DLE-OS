@@ -62,8 +62,7 @@ const shipmentStagingState = { records: [staged(100)] };
 const operationsWindow = {
   ShipmentOperationalProjection: projection,
   OperationsCenter: {
-    state: { canonicalLoaded: true, canonicalRows: [line()] },
-    stateActions: { getOverlayRecord() { return {}; }, updateOverlayField() { return true; } }
+    state: { canonicalLoaded: true, canonicalRows: [line()] }
   }
 };
 const operationsContext = vm.createContext({ window: operationsWindow, shipmentStagingState });
@@ -76,8 +75,6 @@ shipmentStagingState.records = [staged(60)];
 assert.equal(operations.getOperationsCenterRecords().length, 1);
 assert.equal(operations.getOfficialField(line(), 'opQtyOpen'), '40');
 assert.equal(operations.getOfficialField(line(), 'pendingInvoiceQty'), '60');
-assert.equal(operations.getOfficialField(line(), 'operationalStatus'),
-  'Partially Shipped — Awaiting ERP Evidence');
 
 operationsWindow.OperationsCenter.state.canonicalRows = [{ ...line(), rmaReworkMembership: { caseId: 'RMA-1' } }];
 shipmentStagingState.records = [staged(100)];

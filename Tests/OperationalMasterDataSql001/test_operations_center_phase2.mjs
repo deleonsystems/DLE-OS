@@ -8,7 +8,6 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const scripts = [
   'SRC/modules/shipment-staging/shipment-operational-projection.js',
   'SRC/modules/operations-center/operations-center-fields.js',
-  'SRC/modules/operations-center/operations-overlay-schema.js',
   'SRC/modules/operations-center/operations-center-state.js',
   'SRC/modules/operations-center/operations-center-data-service.js',
   'SRC/modules/operations-center/operations-center-view-model.js'
@@ -140,7 +139,6 @@ assert.equal(result.rows[0].masterRecordKey, '123456|0001234|010', 'compatibilit
 assert.equal(result.rows[0].quantityOrdered, 3.5);
 assert.equal(result.rows[0].erpQuantityOpen, 3.5);
 assert.equal(result.rows[1].erpQuantityOpen, -1, 'negative ERP quantity is preserved');
-assert.equal(result.rows[0].dle.operationalStatus, '', 'canonical records default operational status to blank');
 assert.equal(result.rows[0].workOrderNumber, '0012345', 'exact governed relationship is actionable');
 assert.equal(result.rows[1].workOrderNumber, '', 'unresolved relationship never uses the raw scalar');
 assert.equal(result.rows[1].workOrderRelationship.status, 'UNRESOLVED');
@@ -167,7 +165,6 @@ assert.equal(emptyResult.rows.length, 0, 'an empty canonical source is a valid l
 const requestId = oc.stateActions.beginCanonicalLoad();
 assert.equal(oc.stateActions.commitCanonicalLoad(result, requestId), true);
 assert.equal(oc.viewModel.getMasterRecords().length, 2);
-assert.equal(oc.viewModel.getOfficialField(result.rows[0], 'operationalStatus'), '');
 const failedRefreshId = oc.stateActions.beginCanonicalLoad();
 assert.equal(oc.stateActions.failCanonicalLoad(new Error('refresh unavailable'), failedRefreshId), true);
 assert.equal(oc.state.canonicalRows.length, 2, 'a refresh failure preserves the last loaded canonical rows');
@@ -187,15 +184,11 @@ assert.equal(oc.viewModel.getOfficialField(result.rows[0], 'pendingInvoiceQty'),
 assert.equal(oc.viewModel.getOfficialField(result.rows[0], 'opQtyOpen'), '2.25', 'OP Qty Open subtracts Pending Invoice once');
 assert.equal(oc.viewModel.getOfficialField(result.rows[1], 'opQtyOpen'), '0', 'OP Qty Open floors negative results at zero');
 
-assert.equal(oc.viewModel.setPackingOperationalStatus(result.rows[0].masterRecordKey), true);
-assert.equal(oc.viewModel.getOfficialField(result.rows[0], 'operationalStatus'), 'Packing');
-assert.equal(oc.state.dirty, true, 'workflow-owned status is stored as an overlay change');
-const pending = oc.stateActions.buildPendingOverlayByKey();
-assert.equal(pending[result.rows[0].masterRecordKey].operationalStatus, 'Packing');
-
 const viewModelText = fs.readFileSync(path.join(root, 'SRC/modules/operations-center/operations-center-view-model.js'), 'utf8');
 const apiClientText = fs.readFileSync(path.join(root, 'SRC/api/dle-api-client.js'), 'utf8');
 assert.doesNotMatch(viewModelText, /dleMasterData|legacy Master Data/i, 'Operations Center view model no longer reads legacy Master Data');
+assert.doesNotMatch(viewModelText, /setPackingOperationalStatus|getOverlayRecord|updateOverlayField/,
+  'Operations Center view model no longer depends on legacy overlay state');
 assert.match(viewModelText, /erpQtyOpen: item => formatOperationsQuantity\(item\?\.erpQuantityOpen\)/,
   'ERP Qty Open maps directly from canonical ERP open quantity');
 assert.doesNotMatch(viewModelText, /erpQtyOpen:[^\n]*quantityOrdered|quantityOrdered\s*-\s*pendingInvoiceQty/,

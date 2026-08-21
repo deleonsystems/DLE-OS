@@ -13,16 +13,9 @@ const htmlSource = read('SRC/modules/operations-center/operations-center.html');
 const context = vm.createContext({
   console,
   structuredClone,
-  localStorage: { getItem(){ return null; }, setItem(){} },
   shipmentStagingState: { records: [] },
   window: {
-    OperationsCenter: {
-      overlaySchema: {
-        dataPath: '', persistedFieldKeys: [], blankOverlayFields(){ return {}; },
-        normalizeDataset(value){ return value; }, stripRecord(value){ return value; },
-        isRecordEmpty(){ return false; }
-      }
-    }
+    OperationsCenter: {}
   }
 });
 vm.runInContext(stateSource, context);

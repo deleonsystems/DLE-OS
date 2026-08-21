@@ -26,19 +26,9 @@
       className: 'operations-center-verified-status-cell'
     },
     { key: 'materialStatus', label: 'Material Status' },
-    { key: 'operationalStatus', label: 'Production Status' },
     { key: 'quantityOrdered', label: 'Qty Ordered', diagnostic: true, numeric: true },
     { key: 'erpQtyOpen', label: 'ERP Qty Open', diagnostic: true, numeric: true },
     { key: 'pendingInvoiceQty', label: 'Pending Invoice Qty', diagnostic: true, numeric: true }
   ];
 
-  window.OperationsCenter.overlayFields = [
-    { key: 'productionShipping', label: 'Production / Shipping' },
-    {
-      key: 'holdIssue',
-      label: 'Special Request / Issue',
-      tablePlacement: 'primary',
-      className: 'operations-center-issue-cell'
-    }
-  ];
 })();

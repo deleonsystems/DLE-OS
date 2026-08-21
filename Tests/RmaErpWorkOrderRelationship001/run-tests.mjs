@@ -66,7 +66,8 @@ assert.match(sales, /Original Build/);
 assert.match(salesHtml, /Active Operational Work Order/);
 assert.match(salesHtml, /Historical \/ Original Build Work Order/);
 assert.match(operationsSource, /Canonical evidence retained as historical only/);
-assert.match(operationsTable, /isReturnReviewControlled/);
+assert.doesNotMatch(operationsTable, /isReturnReviewControlled|operations-center-rma-suppressed/,
+  'retired overlay cells no longer require an RMA-specific suppression branch');
 assert.match(kittingWorkspace, /Historical Work Order evidence/);
 assert.match(workOrderDashboard, /blockedReturnNavigation/);
 assert.match(apiClient, /dle:sales-order-line-operational-state-change/);

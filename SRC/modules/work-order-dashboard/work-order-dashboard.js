@@ -2056,12 +2056,9 @@
       fields[column.key] = viewModel.getOfficialField(record, column.key);
       return fields;
     }, {});
-    const overlay = window.OperationsCenter?.stateActions?.getOverlayRecord?.(masterRecordKey) || {};
-
     return {
       masterRecordKey,
       official,
-      overlay: { ...overlay },
       masterRecord: cloneRecord(record)
     };
   }

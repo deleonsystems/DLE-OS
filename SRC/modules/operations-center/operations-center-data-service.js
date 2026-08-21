@@ -327,7 +327,6 @@
         drawingRevision: cleanText(source.drawingRevision),
         revisionCode: cleanText(source.drawingRevision || source.bomRevision)
       },
-      dle: { operationalStatus: '' },
       canonical: { ...source }
     };
   }

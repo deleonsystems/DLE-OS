@@ -24,8 +24,7 @@
       description: viewModel.getOfficialField(record, 'description'),
       quantityOpen: viewModel.getOfficialField(record, 'opQtyOpen'),
       dueDate: viewModel.getOfficialField(record, 'dueDate'),
-      materialStatus: viewModel.getOfficialField(record, 'materialStatus'),
-      productionStatus: viewModel.getOfficialField(record, 'operationalStatus')
+      materialStatus: viewModel.getOfficialField(record, 'materialStatus')
     };
   }
 
