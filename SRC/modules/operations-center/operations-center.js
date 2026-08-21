@@ -148,13 +148,14 @@
 
   function getMobileRecords() {
     return window.OperationsCenter.viewModel.getOperationsCenterView({
-      hideRmaRework: !!window.OperationsCenter.state.hideRmaRework,
-      searchTerms: getMobileSearchTerms()
+      hideRmaRework: !!window.OperationsCenter.state.hideRmaRework
     }).records;
   }
 
   function getMobileGroups() {
-    return window.OperationsCenter.viewModel.getWorkOrderGroups(getMobileRecords());
+    return window.OperationsCenter.viewModel.getWorkOrderGroups(getMobileRecords(), {
+      searchTerms: getMobileSearchTerms()
+    });
   }
 
   function toggleOperationsCenterMobileView(force) {
@@ -186,12 +187,26 @@
   function renderMobileResultCard(group) {
     const viewModel = window.OperationsCenter.viewModel;
     const primary = group.primaryRecord;
+    const unresolved = group.type === 'UNRESOLVED_LINE';
     const active = group.key === mobileSelectedRecordKey ? ' active' : '';
     const status = group.statusPresentation?.statusText || '';
     const statusBadge = status
-      ? '<small class="operations-center-mobile-status">' + escapeOptionText(status) +
+      ? '<small class="operations-center-mobile-status">' + escapeOptionText((unresolved ? 'Last Verified: ' : '') + status) +
         (group.overrideCount ? ' · ' + escapeOptionText(group.overrideCount + ' override' + (group.overrideCount === 1 ? '' : 's')) : '') + '</small>'
       : '';
+    if (unresolved) {
+      return '<button type="button" class="operations-center-mobile-card operations-center-mobile-card-unresolved' + active +
+        '" data-mobile-group-key="' + escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)">' +
+        '<strong>Awaiting WO Assignment</strong>' +
+        '<span>' + escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + ' · Qty ' +
+        escapeOptionText(viewModel.getOfficialField(primary, 'opQtyOpen')) + '</span>' +
+        '<small>SO ' + escapeOptionText(viewModel.getOfficialField(primary, 'salesOrder').replace(/^0+/, '') ||
+          viewModel.getOfficialField(primary, 'salesOrder')) + ' · Line ' +
+        escapeOptionText(viewModel.getOfficialField(primary, 'sequenceLine')) + ' · Due ' +
+        escapeOptionText(viewModel.getOfficialField(primary, 'dueDate')) + '</small>' +
+        '<small>' + escapeOptionText(viewModel.getOfficialField(primary, 'customer')) + '</small>' +
+        statusBadge + '</button>';
+    }
     return '<button type="button" class="operations-center-mobile-card' + active + '" data-mobile-group-key="' +
       escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)">' +
       '<strong>WO ' + escapeOptionText(group.workOrderNumber.replace(/^0+/, '') || group.workOrderNumber) +
@@ -219,6 +234,25 @@
     const viewModel = window.OperationsCenter.viewModel;
     const primary = group.primaryRecord;
     const status = group.statusPresentation || {};
+    const unresolved = group.type === 'UNRESOLVED_LINE';
+    if (unresolved) {
+      detail.innerHTML = '<div class="operations-center-mobile-detail-card operations-center-mobile-detail-unresolved">' +
+        '<h3>Awaiting WO Assignment · ' + escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + '</h3>' +
+        '<dl>' +
+        mobileFact('Customer', viewModel.getOfficialField(primary, 'customer')) +
+        mobileFact('Customer P.O.', viewModel.getOfficialField(primary, 'customerPo')) +
+        mobileFact('Qty Open', viewModel.getOfficialField(primary, 'opQtyOpen')) +
+        mobileFact('SO / Line', viewModel.getOfficialField(primary, 'salesOrder') + ' / ' + viewModel.getOfficialField(primary, 'sequenceLine')) +
+        mobileFact('Due', viewModel.getOfficialField(primary, 'dueDate')) +
+        mobileFact('Material', viewModel.getOfficialField(primary, 'materialStatus')) +
+        '</dl>' +
+        '<div class="operations-center-mobile-latest"><strong>Last Verified Status</strong><span>' +
+        escapeOptionText(status.statusText || 'No status logged yet.') + '</span><small>' +
+        escapeOptionText([status.recordedBy, status.timeLabel, status.statusText ? 'Individual line' : ''].filter(Boolean).join(' · ')) +
+        '</small></div>' +
+        '<button type="button" class="operations-center-mobile-log-button" onclick="openOperationsCenterVerifiedStatusLoggerForKey()">Log Line Status</button></div>';
+      return;
+    }
     detail.innerHTML = '<div class="operations-center-mobile-detail-card">' +
       '<h3>WO ' + escapeOptionText(group.workOrderNumber.replace(/^0+/, '') || group.workOrderNumber) + ' · ' +
       escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + '</h3>' +
@@ -298,11 +332,13 @@
         ' Line ' + escapeOptionText(viewModel.getOfficialField(primary, 'sequenceLine')) + '</span>' +
         '<small>Saving as Work Order default. Individual lines may override later.</small>';
     } else {
+      const workOrder = viewModel.resolveGovernedWorkOrderNumber(record);
       context.innerHTML = '<strong>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + '</strong>' +
         '<span>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) +
         ' / Line ' + escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) +
-        ' / WO ' + escapeOptionText(viewModel.getOfficialField(record, 'workOrder')) + '</span>' +
-        '<small>Individual Line override · ' + escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' · ' +
+        (workOrder ? ' / WO ' + escapeOptionText(workOrder) : ' / Awaiting WO Assignment') + '</span>' +
+        '<small>Individual Line ' + (workOrder ? 'override' : 'status') + ' · ' +
+        escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' · ' +
         escapeOptionText(viewModel.getOfficialField(record, 'description')) + '</small>';
     }
     text.value = '';
@@ -325,7 +361,7 @@
 
   function openVerifiedStatusLoggerForKey() {
     const group = getCurrentMobileSelectedGroup();
-    if (group) openVerifiedStatusLogger(group.primaryRecord, group);
+    if (group) openVerifiedStatusLogger(group.primaryRecord, group.type === 'UNRESOLVED_LINE' ? null : group);
   }
 
   function openLineVerifiedStatusLogger(event) {

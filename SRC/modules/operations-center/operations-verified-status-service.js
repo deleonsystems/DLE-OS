@@ -19,7 +19,7 @@
       customerPo: viewModel.getOfficialField(record, 'customerPo'),
       salesOrder: viewModel.getOfficialField(record, 'salesOrder'),
       line: viewModel.getOfficialField(record, 'sequenceLine'),
-      workOrder: viewModel.getOfficialField(record, 'workOrder'),
+      workOrder: viewModel.resolveGovernedWorkOrderNumber(record),
       itemNumber: viewModel.getOfficialField(record, 'partNumber'),
       description: viewModel.getOfficialField(record, 'description'),
       quantityOpen: viewModel.getOfficialField(record, 'opQtyOpen'),
@@ -32,7 +32,7 @@
     const rowList = Array.isArray(records) ? records : [];
     const keys = Array.from(new Set(rowList.map(getMasterRecordKey).filter(Boolean)));
     const workOrders = Array.from(new Set(rowList.map(record =>
-      window.OperationsCenter.viewModel.getOfficialField(record, 'workOrder')).filter(Boolean)));
+      window.OperationsCenter.viewModel.resolveGovernedWorkOrderNumber(record)).filter(Boolean)));
     if (!keys.length && !workOrders.length) {
       window.OperationsCenter.stateActions.setVerifiedStatusRecords([], []);
       return [];
@@ -65,6 +65,9 @@
   async function appendForWorkOrderGroup(group, statusText) {
     const text = String(statusText || '').trim();
     if (!text) throw new Error('Last Verified Status is required.');
+    if (group?.type !== 'WORK_ORDER_GROUP' || !String(group?.workOrderNumber || '').trim()) {
+      throw new Error('A governed Work Order is required for a Work Order status.');
+    }
     const request = {
       statusText: text,
       evidenceSnapshot: buildGroupEvidenceSnapshot(group),
@@ -83,7 +86,7 @@
     const masterRecordKey = getMasterRecordKey(record);
     const request = {
       statusText: text,
-      workOrderNumber: viewModel.getOfficialField(record, 'workOrder'),
+      workOrderNumber: viewModel.resolveGovernedWorkOrderNumber(record),
       itemNumber: viewModel.getOfficialField(record, 'partNumber'),
       description: viewModel.getOfficialField(record, 'description'),
       evidenceSnapshot: buildEvidenceSnapshot(record),

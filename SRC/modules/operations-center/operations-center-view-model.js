@@ -140,7 +140,7 @@
   function getEffectiveVerifiedStatusRecord(record) {
     const line = getVerifiedStatusRecord(record);
     if (line) return { ...line, scope: 'LINE_OVERRIDE', inherited: false };
-    const workOrder = getWorkOrderVerifiedStatusRecord(getOfficialField(record, 'workOrder'));
+    const workOrder = getWorkOrderVerifiedStatusRecord(resolveGovernedWorkOrderNumber(record));
     return workOrder ? { ...workOrder, masterRecordKey: getMasterRecordKey(record), scope: 'WORK_ORDER_DEFAULT', inherited: true } : null;
   }
 
@@ -168,6 +168,21 @@
     return /^\d+$/.test(text) ? text.padStart(7, '0') : '';
   }
 
+  function resolveGovernedWorkOrderNumber(record) {
+    const operational = record?.workOrderApprovalReview?.operationalRelationship;
+    const approved = record?.workOrderApprovalReview?.currentApproval;
+    const relationship = record?.workOrderRelationship;
+    const activeWorkOrder = normalizeWorkOrderNumber(operational?.activeWorkOrderNumber);
+    if (activeWorkOrder) return activeWorkOrder;
+    const approvedWorkOrder = normalizeWorkOrderNumber(approved?.approvedWorkOrderNumber);
+    if (approvedWorkOrder) return approvedWorkOrder;
+    if (normalizeOperationsValue(relationship?.status) === 'EXACT_LINE_UNIQUE') {
+      const exactWorkOrder = normalizeWorkOrderNumber(relationship?.actionableWorkOrderNumber);
+      if (exactWorkOrder) return exactWorkOrder;
+    }
+    return normalizeWorkOrderNumber(record?.vpro5?.workOrder || record?.workOrderNumber);
+  }
+
   function parseDueDateTime(value) {
     const text = normalizeOperationsValue(value);
     const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
@@ -192,19 +207,56 @@
     return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
   }
 
-  function getWorkOrderGroups(records = getOperationsCenterRecords()) {
+  function getWorkOrderGroups(records = getOperationsCenterRecords(), options = {}) {
     const groupsByWorkOrder = new Map();
+    const unresolvedByMasterRecordKey = new Map();
     (Array.isArray(records) ? records : []).forEach(record => {
-      const workOrder = normalizeWorkOrderNumber(getOfficialField(record, 'workOrder'));
-      if (!workOrder) return;
+      const workOrder = resolveGovernedWorkOrderNumber(record);
+      if (!workOrder) {
+        const masterRecordKey = getMasterRecordKey(record);
+        if (masterRecordKey) unresolvedByMasterRecordKey.set(masterRecordKey, record);
+        return;
+      }
       if (!groupsByWorkOrder.has(workOrder)) {
         groupsByWorkOrder.set(workOrder, { workOrderNumber: workOrder, recordsByKey: new Map() });
       }
       groupsByWorkOrder.get(workOrder).recordsByKey.set(getMasterRecordKey(record), record);
     });
-    return Array.from(groupsByWorkOrder.values())
-      .map(group => buildWorkOrderGroup(group.workOrderNumber, Array.from(group.recordsByKey.values())))
+    const groups = [
+      ...Array.from(groupsByWorkOrder.values())
+        .map(group => buildWorkOrderGroup(group.workOrderNumber, Array.from(group.recordsByKey.values()))),
+      ...Array.from(unresolvedByMasterRecordKey.values()).map(buildUnresolvedLineGroup)
+    ]
       .sort((left, right) => compareOperationsLines(left.primaryRecord, right.primaryRecord));
+    const searchTerms = Array.isArray(options.searchTerms)
+      ? options.searchTerms.map(normalizeOperationsValue).filter(Boolean)
+      : [];
+    return searchTerms.length
+      ? groups.filter(group => group.records.some(record => {
+        const searchText = getOperationsCenterSearchText(record).toUpperCase();
+        return searchTerms.every(term => searchText.includes(term.toUpperCase()));
+      }))
+      : groups;
+  }
+
+  function buildUnresolvedLineGroup(record) {
+    const quantityOpen = getOfficialField(record, 'opQtyOpen');
+    const parsedQuantity = parseOperationsOpenQuantity(quantityOpen);
+    return {
+      type: 'UNRESOLVED_LINE',
+      key: 'UNRESOLVED|' + getMasterRecordKey(record),
+      workOrderNumber: '',
+      records: [record],
+      primaryRecord: record,
+      lineCount: 1,
+      groupedOpenQuantity: quantityOpen,
+      positiveLineCount: parsedQuantity > 0 ? 1 : 0,
+      nonPositiveLineCount: parsedQuantity <= 0 ? 1 : 0,
+      hasQuantityException: parsedQuantity <= 0,
+      overrideCount: 0,
+      mixed: false,
+      statusPresentation: getVerifiedStatusPresentation(record)
+    };
   }
 
   function buildWorkOrderGroup(workOrderNumber, records) {
@@ -498,8 +550,10 @@
     getOperationsCenterSearchText,
     getWorkOrderGroups,
     buildWorkOrderGroup,
+    buildUnresolvedLineGroup,
     compareOperationsLines,
     normalizeWorkOrderNumber,
+    resolveGovernedWorkOrderNumber,
     getMasterRecordKey,
     getOperationalProjectionField,
     getShipmentProjection,
