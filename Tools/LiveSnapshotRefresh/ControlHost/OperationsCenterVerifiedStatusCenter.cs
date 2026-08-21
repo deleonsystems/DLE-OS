@@ -6,9 +6,27 @@ internal static class OperationsCenterVerifiedStatusCenter
     public static void MapOperationsCenterVerifiedStatuses(this WebApplication app, string policy)
     {
         var repository = new OperationsCenterVerifiedStatusRepository();
+        var workOrderRepository = new OperationsCenterWorkOrderVerifiedStatusRepository();
         app.MapPost("/api/operations-center/v1/verified-statuses/latest",
                 async (OperationsCenterVerifiedStatusLatestRequest request, CancellationToken token) =>
                     await Execute(() => repository.GetLatestAsync(request.MasterRecordKeys, token)))
+            .RequireAuthorization(policy);
+
+        app.MapPost("/api/operations-center/v1/work-orders/verified-statuses/latest",
+                async (OperationsCenterWorkOrderVerifiedStatusLatestRequest request, CancellationToken token) =>
+                    await Execute(() => workOrderRepository.GetLatestAsync(request.WorkOrderNumbers, token)))
+            .RequireAuthorization(policy);
+
+        app.MapGet("/api/operations-center/v1/work-orders/{workOrderNumber}/verified-status-history",
+                async (string workOrderNumber, CancellationToken token) =>
+                    await Execute(() => workOrderRepository.GetHistoryAsync(workOrderNumber, token)))
+            .RequireAuthorization(policy);
+
+        app.MapPost("/api/operations-center/v1/work-orders/{workOrderNumber}/verified-status-events",
+                async (string workOrderNumber, OperationsCenterWorkOrderVerifiedStatusAppendRequest request,
+                    HttpContext context, CancellationToken token) =>
+                    await Execute(() => workOrderRepository.AppendAsync(workOrderNumber, request,
+                        TrustedDevelopmentIdentity.RequireActorName(context), token), StatusCodes.Status201Created))
             .RequireAuthorization(policy);
 
         app.MapGet("/api/operations-center/v1/lines/{masterRecordKey}/verified-status-history",
@@ -223,6 +241,157 @@ internal sealed record OperationsCenterLineKey(string CustomerNumber, string Sal
 {
     public string MasterRecordKey => CustomerNumber + "|" + SalesOrderNumber + "|" + LineNumber;
 }
+
+internal sealed class OperationsCenterWorkOrderVerifiedStatusRepository
+{
+    public async Task<object> GetLatestAsync(IEnumerable<string>? workOrderNumbers, CancellationToken token)
+    {
+        var workOrders = NormalizeWorkOrderNumbers(workOrderNumbers);
+        if (workOrders.Count == 0) return new { records = Array.Empty<OperationsCenterWorkOrderVerifiedStatusEvent>() };
+
+        await using var connection = new SqlConnection(ControlHostRuntimeConfiguration.OperationalConnectionString);
+        await connection.OpenAsync(token);
+        await using var command = connection.CreateCommand();
+        command.CommandText = @"
+DECLARE @Keys TABLE(WorkOrderNumber nvarchar(7) NOT NULL PRIMARY KEY);
+INSERT @Keys(WorkOrderNumber)
+SELECT DISTINCT LTRIM(RTRIM([value])) FROM OPENJSON(@KeysJson)
+WHERE LEN(LTRIM(RTRIM([value]))) > 0;
+
+WITH Ranked AS
+(
+    SELECT event.*,
+           ROW_NUMBER() OVER (PARTITION BY event.WorkOrderNumber ORDER BY event.EventSequence DESC) AS CurrentRank
+    FROM operational.OperationsCenterWorkOrderVerifiedStatusEvent event
+    JOIN @Keys keys ON keys.WorkOrderNumber = event.WorkOrderNumber
+)
+SELECT EventId,EventSequence,WorkOrderNumber,StatusText,EvidenceSnapshotJson,RecordedBy,
+       RecordedAtUtc,CreatedAtUtc,RequestCorrelationId
+FROM Ranked
+WHERE CurrentRank = 1
+ORDER BY EventSequence DESC;";
+        command.Parameters.AddWithValue("@KeysJson", JsonSerializer.Serialize(workOrders));
+        return new { records = await ReadEventsAsync(command, token) };
+    }
+
+    public async Task<object> GetHistoryAsync(string workOrderNumber, CancellationToken token)
+    {
+        var workOrder = NormalizeWorkOrderNumber(workOrderNumber);
+        await using var connection = new SqlConnection(ControlHostRuntimeConfiguration.OperationalConnectionString);
+        await connection.OpenAsync(token);
+        await using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT TOP(100) EventId,EventSequence,WorkOrderNumber,StatusText,EvidenceSnapshotJson,RecordedBy,
+       RecordedAtUtc,CreatedAtUtc,RequestCorrelationId
+FROM operational.OperationsCenterWorkOrderVerifiedStatusEvent
+WHERE WorkOrderNumber=@WorkOrderNumber
+ORDER BY EventSequence DESC;";
+        command.Parameters.AddWithValue("@WorkOrderNumber", workOrder);
+        return new { workOrderNumber = workOrder, records = await ReadEventsAsync(command, token) };
+    }
+
+    public async Task<object> AppendAsync(string workOrderNumber,
+        OperationsCenterWorkOrderVerifiedStatusAppendRequest request, string actor, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(actor))
+            throw OperationsCenterVerifiedStatusProblem.Forbidden("authenticated_identity_required",
+                "An authenticated DLE-OS user is required.");
+        var workOrder = NormalizeWorkOrderNumber(workOrderNumber);
+        var status = (request.StatusText ?? "").Trim();
+        if (status.Length is < 1 or > 1000)
+            throw OperationsCenterVerifiedStatusProblem.BadRequest("verified_status_text_required",
+                "Last Verified Status text is required and must be 1,000 characters or less.");
+        var correlation = request.RequestCorrelationId is { } supplied && supplied != Guid.Empty
+            ? supplied
+            : Guid.NewGuid();
+        var evidenceJson = JsonSerializer.Serialize(request.EvidenceSnapshot ?? new Dictionary<string, object?>());
+
+        await using var connection = new SqlConnection(ControlHostRuntimeConfiguration.OperationalConnectionString);
+        await connection.OpenAsync(token);
+        var existing = await GetByCorrelationAsync(connection, correlation, token);
+        if (existing is not null) return new { duplicate = true, record = existing };
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT operational.OperationsCenterWorkOrderVerifiedStatusEvent
+    (EventId,WorkOrderNumber,StatusText,EvidenceSnapshotJson,RecordedBy,RequestCorrelationId)
+OUTPUT inserted.EventId,inserted.EventSequence,inserted.WorkOrderNumber,
+       inserted.StatusText,inserted.EvidenceSnapshotJson,inserted.RecordedBy,
+       inserted.RecordedAtUtc,inserted.CreatedAtUtc,inserted.RequestCorrelationId
+VALUES
+    (@EventId,@WorkOrderNumber,@StatusText,@EvidenceSnapshotJson,@RecordedBy,@RequestCorrelationId);";
+        command.Parameters.AddWithValue("@EventId", Guid.NewGuid());
+        command.Parameters.AddWithValue("@WorkOrderNumber", workOrder);
+        command.Parameters.AddWithValue("@StatusText", status);
+        command.Parameters.AddWithValue("@EvidenceSnapshotJson", evidenceJson);
+        command.Parameters.AddWithValue("@RecordedBy", actor);
+        command.Parameters.AddWithValue("@RequestCorrelationId", correlation);
+
+        try
+        {
+            var records = await ReadEventsAsync(command, token);
+            return new { duplicate = false, record = records.Single() };
+        }
+        catch (SqlException error) when (error.Number is 2601 or 2627)
+        {
+            var duplicate = await GetByCorrelationAsync(connection, correlation, token);
+            if (duplicate is not null) return new { duplicate = true, record = duplicate };
+            throw;
+        }
+    }
+
+    private static async Task<OperationsCenterWorkOrderVerifiedStatusEvent?> GetByCorrelationAsync(
+        SqlConnection connection, Guid correlation, CancellationToken token)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT TOP(1) EventId,EventSequence,WorkOrderNumber,StatusText,EvidenceSnapshotJson,RecordedBy,
+       RecordedAtUtc,CreatedAtUtc,RequestCorrelationId
+FROM operational.OperationsCenterWorkOrderVerifiedStatusEvent
+WHERE RequestCorrelationId=@RequestCorrelationId;";
+        command.Parameters.AddWithValue("@RequestCorrelationId", correlation);
+        return (await ReadEventsAsync(command, token)).FirstOrDefault();
+    }
+
+    private static async Task<List<OperationsCenterWorkOrderVerifiedStatusEvent>> ReadEventsAsync(
+        SqlCommand command, CancellationToken token)
+    {
+        var records = new List<OperationsCenterWorkOrderVerifiedStatusEvent>();
+        await using var reader = await command.ExecuteReaderAsync(token);
+        while (await reader.ReadAsync(token))
+        {
+            records.Add(new OperationsCenterWorkOrderVerifiedStatusEvent(
+                reader.GetGuid(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetString(5),
+                reader.GetDateTime(6), reader.GetDateTime(7), reader.GetGuid(8)));
+        }
+        return records;
+    }
+
+    private static List<string> NormalizeWorkOrderNumbers(IEnumerable<string>? values) =>
+        (values ?? []).Select(NormalizeWorkOrderNumber).Distinct(StringComparer.Ordinal).Take(500).ToList();
+
+    private static string NormalizeWorkOrderNumber(string value)
+    {
+        var text = Convert.ToString(value ?? "")!.Trim();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(text, "^[0-9]{1,7}$"))
+            throw OperationsCenterVerifiedStatusProblem.BadRequest("work_order_number_malformed",
+                "Work Order number is malformed.");
+        return text.PadLeft(7, '0');
+    }
+}
+
+internal sealed record OperationsCenterWorkOrderVerifiedStatusLatestRequest(string[]? WorkOrderNumbers);
+
+internal sealed record OperationsCenterWorkOrderVerifiedStatusAppendRequest(
+    string? StatusText,
+    Dictionary<string, object?>? EvidenceSnapshot,
+    Guid? RequestCorrelationId);
+
+internal sealed record OperationsCenterWorkOrderVerifiedStatusEvent(
+    Guid EventId, long EventSequence, string WorkOrderNumber, string StatusText,
+    string? EvidenceSnapshotJson, string RecordedBy, DateTime RecordedAtUtc,
+    DateTime CreatedAtUtc, Guid RequestCorrelationId);
 
 internal sealed record OperationsCenterVerifiedStatusLatestRequest(string[]? MasterRecordKeys);
 

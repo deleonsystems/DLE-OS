@@ -280,14 +280,22 @@
       body = null;
     }
     if (!response.ok) {
+      const authenticationRequired =
+        response.headers?.get('X-DLE-OS-Authentication-Required') === 'true';
       const requestError = new Error(
-        typeof body?.message === 'string'
+        authenticationRequired
+          ? options.authenticationRequiredMessage ||
+            'Your DLE-OS session has expired. Refresh the page or sign in again, then retry this action.'
+          : typeof body?.message === 'string'
           ? body.message
           : 'The governed ERP snapshot refresh control returned HTTP ' + response.status + '.'
       );
       requestError.name = 'DleApiError';
       requestError.status = response.status;
-      requestError.code = typeof body?.code === 'string' ? body.code : 'http_error';
+      requestError.code = authenticationRequired
+        ? 'DLE_OS_AUTHENTICATION_REQUIRED'
+        : typeof body?.code === 'string' ? body.code : 'http_error';
+      requestError.authenticationRequired = authenticationRequired;
       requestError.requestId = body?.requestId || response.headers.get('X-Request-ID') || null;
       throw requestError;
     }
@@ -1259,10 +1267,36 @@
       return requestOperationsCenter('lines/' + encodeURIComponent(String(masterRecordKey || '')) +
         '/verified-status-history', options);
     },
+    getOperationsCenterWorkOrderVerifiedStatusLatest(workOrderNumbers, options = {}) {
+      return requestOperationsCenter('work-orders/verified-statuses/latest', {
+        ...options, method: 'POST', body: { workOrderNumbers: Array.isArray(workOrderNumbers) ? workOrderNumbers : [] }
+      });
+    },
+    getOperationsCenterWorkOrderVerifiedStatusHistory(workOrderNumber, options = {}) {
+      return requestOperationsCenter('work-orders/' + encodeURIComponent(String(workOrderNumber || '')) +
+        '/verified-status-history', options);
+    },
+    appendOperationsCenterWorkOrderVerifiedStatus(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('operations-center.verified-status.write');
+      return requestOperationsCenter('work-orders/' + encodeURIComponent(String(workOrderNumber || '')) +
+        '/verified-status-events', {
+          ...options,
+          method: 'POST',
+          body: request,
+          authenticationRequiredMessage: 'Your DLE-OS session has expired. Refresh the page or sign in again, ' +
+            'then retry your save.'
+        });
+    },
     appendOperationsCenterVerifiedStatus(masterRecordKey, request, options = {}) {
       requireDevelopmentCapability('operations-center.verified-status.write');
       return requestOperationsCenter('lines/' + encodeURIComponent(String(masterRecordKey || '')) +
-        '/verified-status-events', { ...options, method: 'POST', body: request });
+        '/verified-status-events', {
+          ...options,
+          method: 'POST',
+          body: request,
+          authenticationRequiredMessage: 'Your DLE-OS session has expired. Refresh the page or sign in again, ' +
+            'then retry your save.'
+        });
     },
     appendOperationalWorkOrderInterpretation(customerNumber, salesOrderNumber, lineNumber,
         request, options = {}) {

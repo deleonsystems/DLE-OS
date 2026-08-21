@@ -10,6 +10,7 @@
   let materialStatusSubscription = null;
   let syncOperationsPollTimer = null;
   let verifiedStatusDialogRecord = null;
+  let verifiedStatusDialogGroup = null;
   let verifiedStatusSaving = false;
   let mobileSelectedRecordKey = '';
 
@@ -152,6 +153,10 @@
     }).records;
   }
 
+  function getMobileGroups() {
+    return window.OperationsCenter.viewModel.getWorkOrderGroups(getMobileRecords());
+  }
+
   function toggleOperationsCenterMobileView(force) {
     const mobile = document.getElementById('operationsCenterMobileView');
     const table = document.getElementById('operationsCenterTable');
@@ -167,60 +172,84 @@
   function renderOperationsCenterMobileView() {
     const results = document.getElementById('operationsCenterMobileResults');
     if (!results || document.getElementById('operationsCenterMobileView')?.hidden) return;
-    const records = getMobileRecords().slice(0, 50);
-    if (!records.length) {
-      results.innerHTML = '<div class="operations-center-empty">No matching Operations Center lines.</div>';
+    const groups = getMobileGroups().slice(0, 50);
+    if (!groups.length) {
+      results.innerHTML = '<div class="operations-center-empty">No matching Operations Center work orders.</div>';
       renderOperationsCenterMobileDetail(null);
       return;
     }
-    results.innerHTML = records.map(renderMobileResultCard).join('');
-    const selected = records.find(record => window.OperationsCenter.viewModel.getMasterRecordKey(record) === mobileSelectedRecordKey) || records[0];
+    results.innerHTML = groups.map(renderMobileResultCard).join('');
+    const selected = groups.find(group => group.key === mobileSelectedRecordKey) || groups[0];
     renderOperationsCenterMobileDetail(selected);
   }
 
-  function renderMobileResultCard(record) {
+  function renderMobileResultCard(group) {
     const viewModel = window.OperationsCenter.viewModel;
-    const key = viewModel.getMasterRecordKey(record);
-    const active = key === mobileSelectedRecordKey ? ' active' : '';
-    return '<button type="button" class="operations-center-mobile-card' + active + '" data-master-record-key="' +
-      escapeOptionText(key) + '" onclick="selectOperationsCenterMobileRecord(event)">' +
-      '<strong>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + '</strong>' +
-      '<span>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) +
-      ' � Line ' + escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) +
-      ' � WO ' + escapeOptionText(viewModel.getOfficialField(record, 'workOrder')) + '</span>' +
-      '<small>' + escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' � ' +
-      escapeOptionText(viewModel.getOfficialField(record, 'description')) + '</small></button>';
+    const primary = group.primaryRecord;
+    const active = group.key === mobileSelectedRecordKey ? ' active' : '';
+    const status = group.statusPresentation?.statusText || '';
+    const statusBadge = status
+      ? '<small class="operations-center-mobile-status">' + escapeOptionText(status) +
+        (group.overrideCount ? ' · ' + escapeOptionText(group.overrideCount + ' override' + (group.overrideCount === 1 ? '' : 's')) : '') + '</small>'
+      : '';
+    return '<button type="button" class="operations-center-mobile-card' + active + '" data-mobile-group-key="' +
+      escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)">' +
+      '<strong>WO ' + escapeOptionText(group.workOrderNumber.replace(/^0+/, '') || group.workOrderNumber) +
+      ' · ' + escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + '</strong>' +
+      '<span>Qty ' + escapeOptionText(group.groupedOpenQuantity) +
+      ' · ' + escapeOptionText(group.lineCount + ' line' + (group.lineCount === 1 ? '' : 's')) +
+      ' · Next ' + escapeOptionText(viewModel.getOfficialField(primary, 'dueDate')) +
+      (group.hasQuantityException ? ' · RMA/MIXED qty' : '') + '</span>' +
+      '<small>' + escapeOptionText(viewModel.getOfficialField(primary, 'customer')) +
+      ' · PO ' + escapeOptionText(viewModel.getOfficialField(primary, 'customerPo')) + '</small>' +
+      statusBadge + '</button>';
   }
 
   function selectOperationsCenterMobileRecord(event) {
-    mobileSelectedRecordKey = event?.currentTarget?.dataset?.masterRecordKey || '';
+    mobileSelectedRecordKey = event?.currentTarget?.dataset?.mobileGroupKey || '';
     renderOperationsCenterMobileView();
   }
 
-  function renderOperationsCenterMobileDetail(record) {
+  function renderOperationsCenterMobileDetail(group) {
     const detail = document.getElementById('operationsCenterMobileDetail');
     if (!detail) return;
-    if (!record) { detail.hidden = true; detail.innerHTML = ''; return; }
+    if (!group) { detail.hidden = true; detail.innerHTML = ''; return; }
     detail.hidden = false;
-    mobileSelectedRecordKey = window.OperationsCenter.viewModel.getMasterRecordKey(record);
+    mobileSelectedRecordKey = group.key;
     const viewModel = window.OperationsCenter.viewModel;
-    const status = viewModel.getVerifiedStatusPresentation(record);
+    const primary = group.primaryRecord;
+    const status = group.statusPresentation || {};
     detail.innerHTML = '<div class="operations-center-mobile-detail-card">' +
-      '<h3>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + '</h3>' +
+      '<h3>WO ' + escapeOptionText(group.workOrderNumber.replace(/^0+/, '') || group.workOrderNumber) + ' · ' +
+      escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + '</h3>' +
       '<dl>' +
-      mobileFact('Customer P.O.', viewModel.getOfficialField(record, 'customerPo')) +
-      mobileFact('Sales Order', viewModel.getOfficialField(record, 'salesOrder') + ' / ' + viewModel.getOfficialField(record, 'sequenceLine')) +
-      mobileFact('Work Order', viewModel.getOfficialField(record, 'workOrder')) +
-      mobileFact('Item', viewModel.getOfficialField(record, 'partNumber')) +
-      mobileFact('Description', viewModel.getOfficialField(record, 'description')) +
-      mobileFact('Qty Open', viewModel.getOfficialField(record, 'opQtyOpen')) +
-      mobileFact('Due', viewModel.getOfficialField(record, 'dueDate')) +
-      mobileFact('Material', viewModel.getOfficialField(record, 'materialStatus')) +
+      mobileFact('Customer', viewModel.getOfficialField(primary, 'customer')) +
+      mobileFact('Customer P.O.', viewModel.getOfficialField(primary, 'customerPo')) +
+      mobileFact('Grouped Qty', group.groupedOpenQuantity + (group.hasQuantityException ? ' + exception lines' : '')) +
+      mobileFact('Lines', group.lineCount) +
+      mobileFact('Next Due', viewModel.getOfficialField(primary, 'dueDate')) +
+      mobileFact('Default Line', viewModel.getOfficialField(primary, 'salesOrder') + ' / ' + viewModel.getOfficialField(primary, 'sequenceLine')) +
+      mobileFact('Material', viewModel.getOfficialField(primary, 'materialStatus')) +
       '</dl>' +
       '<div class="operations-center-mobile-latest"><strong>Last Verified Status</strong><span>' +
       escapeOptionText(status.statusText || 'No status logged yet.') + '</span><small>' +
-      escapeOptionText([status.recordedBy, status.timeLabel].filter(Boolean).join(' � ')) + '</small></div>' +
-      '<button type="button" class="operations-center-mobile-log-button" onclick="openOperationsCenterVerifiedStatusLoggerForKey()">Log Verified Status</button></div>';
+      escapeOptionText([status.recordedBy, status.timeLabel, group.overrideCount ? group.overrideCount + ' line override' + (group.overrideCount === 1 ? '' : 's') : 'WO default'].filter(Boolean).join(' · ')) + '</small></div>' +
+      '<div class="operations-center-mobile-lines">' + group.records.map(renderMobileLineSummary).join('') + '</div>' +
+      '<button type="button" class="operations-center-mobile-log-button" onclick="openOperationsCenterVerifiedStatusLoggerForKey()">Log WO Status</button></div>';
+  }
+
+  function renderMobileLineSummary(record) {
+    const viewModel = window.OperationsCenter.viewModel;
+    const status = viewModel.getVerifiedStatusPresentation(record);
+    const inherited = status.inherited ? 'Inherited' : status.statusText ? 'Override' : 'No status';
+    return '<button type="button" class="operations-center-mobile-line" data-master-record-key="' +
+      escapeOptionText(viewModel.getMasterRecordKey(record)) + '" onclick="openOperationsCenterLineVerifiedStatusLogger(event)">' +
+      '<strong>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) +
+      ' / Line ' + escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) + '</strong>' +
+      '<span>Due ' + escapeOptionText(viewModel.getOfficialField(record, 'dueDate')) +
+      ' · Qty ' + escapeOptionText(viewModel.getOfficialField(record, 'opQtyOpen')) +
+      ' · ' + escapeOptionText(inherited) + '</span>' +
+      '<small>' + escapeOptionText(status.statusText || 'No status logged yet.') + '</small></button>';
   }
 
   function mobileFact(label, value) {
@@ -251,20 +280,31 @@
     window.OperationsCenter.table.updateProjectionSelection(event);
   }
 
-  function openVerifiedStatusLogger(record) {
+  function openVerifiedStatusLogger(record, group = null) {
     verifiedStatusDialogRecord = record;
+    verifiedStatusDialogGroup = group;
     const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
     const context = document.getElementById('operationsCenterVerifiedStatusContext');
     const text = document.getElementById('operationsCenterVerifiedStatusText');
     const message = document.getElementById('operationsCenterVerifiedStatusMessage');
     if (!dialog || !context || !text) return;
     const viewModel = window.OperationsCenter.viewModel;
-    context.innerHTML = '<strong>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + '</strong>' +
-      '<span>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) +
-      ' / Line ' + escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) +
-      ' / WO ' + escapeOptionText(viewModel.getOfficialField(record, 'workOrder')) + '</span>' +
-      '<small>' + escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' � ' +
-      escapeOptionText(viewModel.getOfficialField(record, 'description')) + '</small>';
+    if (group) {
+      const primary = group.primaryRecord;
+      context.innerHTML = '<strong>WO ' + escapeOptionText(group.workOrderNumber.replace(/^0+/, '') || group.workOrderNumber) +
+        ' · ' + escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + '</strong>' +
+        '<span>Qty ' + escapeOptionText(group.groupedOpenQuantity) + ' / ' + escapeOptionText(group.lineCount + ' lines') +
+        ' / Default SO ' + escapeOptionText(viewModel.getOfficialField(primary, 'salesOrder')) +
+        ' Line ' + escapeOptionText(viewModel.getOfficialField(primary, 'sequenceLine')) + '</span>' +
+        '<small>Saving as Work Order default. Individual lines may override later.</small>';
+    } else {
+      context.innerHTML = '<strong>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + '</strong>' +
+        '<span>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) +
+        ' / Line ' + escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) +
+        ' / WO ' + escapeOptionText(viewModel.getOfficialField(record, 'workOrder')) + '</span>' +
+        '<small>Individual Line override · ' + escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' · ' +
+        escapeOptionText(viewModel.getOfficialField(record, 'description')) + '</small>';
+    }
     text.value = '';
     if (message) message.textContent = '';
     dialog.hidden = false;
@@ -274,23 +314,30 @@
   function closeVerifiedStatusLogger() {
     if (verifiedStatusSaving) return;
     verifiedStatusDialogRecord = null;
+    verifiedStatusDialogGroup = null;
     const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
     if (dialog) dialog.hidden = true;
   }
 
-  function getCurrentMobileSelectedRecord() {
-    return window.OperationsCenter.viewModel.getOperationsCenterRecords()
-      .find(record => window.OperationsCenter.viewModel.getMasterRecordKey(record) === mobileSelectedRecordKey) || null;
+  function getCurrentMobileSelectedGroup() {
+    return getMobileGroups().find(group => group.key === mobileSelectedRecordKey) || null;
   }
 
   function openVerifiedStatusLoggerForKey() {
-    const record = getCurrentMobileSelectedRecord();
-    if (record) openVerifiedStatusLogger(record);
+    const group = getCurrentMobileSelectedGroup();
+    if (group) openVerifiedStatusLogger(group.primaryRecord, group);
+  }
+
+  function openLineVerifiedStatusLogger(event) {
+    const key = event?.currentTarget?.dataset?.masterRecordKey || '';
+    const group = getCurrentMobileSelectedGroup();
+    const record = group?.records.find(item => window.OperationsCenter.viewModel.getMasterRecordKey(item) === key) || null;
+    if (record) openVerifiedStatusLogger(record, null);
   }
 
   async function submitVerifiedStatus(event) {
     event?.preventDefault?.();
-    if (verifiedStatusSaving || !verifiedStatusDialogRecord) return;
+    if (verifiedStatusSaving || (!verifiedStatusDialogRecord && !verifiedStatusDialogGroup)) return;
     const text = document.getElementById('operationsCenterVerifiedStatusText');
     const button = document.getElementById('operationsCenterVerifiedStatusSave');
     const message = document.getElementById('operationsCenterVerifiedStatusMessage');
@@ -303,7 +350,11 @@
     if (button) button.disabled = true;
     if (message) message.textContent = 'Saving...';
     try {
-      await window.OperationsCenter.verifiedStatusService.appendForRecord(verifiedStatusDialogRecord, statusText);
+      if (verifiedStatusDialogGroup) {
+        await window.OperationsCenter.verifiedStatusService.appendForWorkOrderGroup(verifiedStatusDialogGroup, statusText);
+      } else {
+        await window.OperationsCenter.verifiedStatusService.appendForRecord(verifiedStatusDialogRecord, statusText);
+      }
       if (message) message.textContent = 'Saved.';
       closeVerifiedStatusLoggerAfterSave();
       window.OperationsCenter.table.renderModule();
@@ -319,6 +370,7 @@
   function closeVerifiedStatusLoggerAfterSave() {
     verifiedStatusSaving = false;
     verifiedStatusDialogRecord = null;
+    verifiedStatusDialogGroup = null;
     const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
     if (dialog) dialog.hidden = true;
   }
@@ -346,6 +398,7 @@
   window.filterOperationsCenterMobileView = renderOperationsCenterMobileView;
   window.selectOperationsCenterMobileRecord = selectOperationsCenterMobileRecord;
   window.openOperationsCenterVerifiedStatusLoggerForKey = openVerifiedStatusLoggerForKey;
+  window.openOperationsCenterLineVerifiedStatusLogger = openLineVerifiedStatusLogger;
   window.closeOperationsCenterVerifiedStatusLogger = closeVerifiedStatusLogger;
   window.submitOperationsCenterVerifiedStatus = submitVerifiedStatus;
   window.filterOperationsCenter = filterOperationsCenter;

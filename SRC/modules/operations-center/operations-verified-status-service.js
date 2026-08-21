@@ -29,15 +29,51 @@
   }
 
   async function loadLatestForRows(records) {
-    const keys = Array.from(new Set((records || []).map(getMasterRecordKey).filter(Boolean)));
-    if (!keys.length) {
-      window.OperationsCenter.stateActions.setVerifiedStatusRecords([]);
+    const rowList = Array.isArray(records) ? records : [];
+    const keys = Array.from(new Set(rowList.map(getMasterRecordKey).filter(Boolean)));
+    const workOrders = Array.from(new Set(rowList.map(record =>
+      window.OperationsCenter.viewModel.getOfficialField(record, 'workOrder')).filter(Boolean)));
+    if (!keys.length && !workOrders.length) {
+      window.OperationsCenter.stateActions.setVerifiedStatusRecords([], []);
       return [];
     }
-    const result = await window.DleApiClient.getOperationsCenterVerifiedStatusLatest(keys);
-    const latestRecords = Array.isArray(result?.records) ? result.records : [];
-    window.OperationsCenter.stateActions.setVerifiedStatusRecords(latestRecords);
+    const [lineResult, workOrderResult] = await Promise.all([
+      keys.length ? window.DleApiClient.getOperationsCenterVerifiedStatusLatest(keys) : { records: [] },
+      workOrders.length ? window.DleApiClient.getOperationsCenterWorkOrderVerifiedStatusLatest(workOrders) : { records: [] }
+    ]);
+    const latestRecords = Array.isArray(lineResult?.records) ? lineResult.records : [];
+    const latestWorkOrderRecords = Array.isArray(workOrderResult?.records) ? workOrderResult.records : [];
+    window.OperationsCenter.stateActions.setVerifiedStatusRecords(latestRecords, latestWorkOrderRecords);
     return latestRecords;
+  }
+
+  function buildGroupEvidenceSnapshot(group) {
+    const viewModel = window.OperationsCenter.viewModel;
+    return {
+      workOrder: group.workOrderNumber,
+      representativeMasterRecordKey: viewModel.getMasterRecordKey(group.primaryRecord),
+      representativeSalesOrder: viewModel.getOfficialField(group.primaryRecord, 'salesOrder'),
+      representativeLine: viewModel.getOfficialField(group.primaryRecord, 'sequenceLine'),
+      lineCount: group.lineCount,
+      groupedOpenQuantity: group.groupedOpenQuantity,
+      positiveLineCount: group.positiveLineCount,
+      nonPositiveLineCount: group.nonPositiveLineCount,
+      lines: group.records.map(record => buildEvidenceSnapshot(record))
+    };
+  }
+
+  async function appendForWorkOrderGroup(group, statusText) {
+    const text = String(statusText || '').trim();
+    if (!text) throw new Error('Last Verified Status is required.');
+    const request = {
+      statusText: text,
+      evidenceSnapshot: buildGroupEvidenceSnapshot(group),
+      requestCorrelationId: window.DleApiClient.createRequestCorrelationId()
+    };
+    const result = await window.DleApiClient.appendOperationsCenterWorkOrderVerifiedStatus(group.workOrderNumber, request);
+    const latest = result?.record;
+    if (latest) window.OperationsCenter.stateActions.upsertWorkOrderVerifiedStatusRecord(latest);
+    return result;
   }
 
   async function appendForRecord(record, statusText) {
@@ -62,6 +98,8 @@
   window.OperationsCenter.verifiedStatusService = {
     loadLatestForRows,
     appendForRecord,
-    buildEvidenceSnapshot
+    buildEvidenceSnapshot,
+    buildGroupEvidenceSnapshot,
+    appendForWorkOrderGroup
   };
 })();

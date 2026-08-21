@@ -133,9 +133,24 @@
     return window.OperationsCenter.stateActions.getVerifiedStatusRecord(getMasterRecordKey(record));
   }
 
+  function getWorkOrderVerifiedStatusRecord(workOrderNumber) {
+    return window.OperationsCenter.stateActions.getWorkOrderVerifiedStatusRecord(normalizeWorkOrderNumber(workOrderNumber));
+  }
+
+  function getEffectiveVerifiedStatusRecord(record) {
+    const line = getVerifiedStatusRecord(record);
+    if (line) return { ...line, scope: 'LINE_OVERRIDE', inherited: false };
+    const workOrder = getWorkOrderVerifiedStatusRecord(getOfficialField(record, 'workOrder'));
+    return workOrder ? { ...workOrder, masterRecordKey: getMasterRecordKey(record), scope: 'WORK_ORDER_DEFAULT', inherited: true } : null;
+  }
+
   function getVerifiedStatusPresentation(record) {
-    const latest = getVerifiedStatusRecord(record);
-    if (!latest) return { statusText: '', recordedBy: '', recordedAtUtc: '', timeLabel: '', summary: '' };
+    const latest = getEffectiveVerifiedStatusRecord(record);
+    if (!latest) return { statusText: '', recordedBy: '', recordedAtUtc: '', timeLabel: '', summary: '', scope: '', inherited: false };
+    return presentVerifiedStatus(latest);
+  }
+
+  function presentVerifiedStatus(latest) {
     const timeLabel = formatVerifiedStatusTimestamp(latest.recordedAtUtc);
     const statusText = normalizeOperationsValue(latest.statusText);
     const recordedBy = normalizeOperationsValue(latest.recordedBy);
@@ -145,6 +160,81 @@
       recordedBy,
       timeLabel,
       summary: [statusText, recordedBy, timeLabel].filter(Boolean).join(' ')
+    };
+  }
+
+  function normalizeWorkOrderNumber(value) {
+    const text = normalizeOperationsValue(value);
+    return /^\d+$/.test(text) ? text.padStart(7, '0') : '';
+  }
+
+  function parseDueDateTime(value) {
+    const text = normalizeOperationsValue(value);
+    const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+    if (!match) return Number.POSITIVE_INFINITY;
+    const year = Number(match[3].length === 2 ? '20' + match[3] : match[3]);
+    const time = Date.UTC(year, Number(match[1]) - 1, Number(match[2]));
+    return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+  }
+
+  function compareOperationsLines(left, right) {
+    return parseDueDateTime(getOfficialField(left, 'dueDate')) - parseDueDateTime(getOfficialField(right, 'dueDate')) ||
+      normalizeOperationsValue(getOfficialField(left, 'salesOrder')).localeCompare(normalizeOperationsValue(getOfficialField(right, 'salesOrder')), undefined, { numeric: true }) ||
+      normalizeOperationsValue(getOfficialField(left, 'sequenceLine')).localeCompare(normalizeOperationsValue(getOfficialField(right, 'sequenceLine')), undefined, { numeric: true });
+  }
+
+  function parseOperationsOpenQuantity(value) {
+    const parsed = Number(String(value ?? '').replace(/,/g, '').trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function formatGroupedQuantity(value) {
+    return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+  }
+
+  function getWorkOrderGroups(records = getOperationsCenterRecords()) {
+    const groupsByWorkOrder = new Map();
+    (Array.isArray(records) ? records : []).forEach(record => {
+      const workOrder = normalizeWorkOrderNumber(getOfficialField(record, 'workOrder'));
+      if (!workOrder) return;
+      if (!groupsByWorkOrder.has(workOrder)) {
+        groupsByWorkOrder.set(workOrder, { workOrderNumber: workOrder, recordsByKey: new Map() });
+      }
+      groupsByWorkOrder.get(workOrder).recordsByKey.set(getMasterRecordKey(record), record);
+    });
+    return Array.from(groupsByWorkOrder.values())
+      .map(group => buildWorkOrderGroup(group.workOrderNumber, Array.from(group.recordsByKey.values())))
+      .sort((left, right) => compareOperationsLines(left.primaryRecord, right.primaryRecord));
+  }
+
+  function buildWorkOrderGroup(workOrderNumber, records) {
+    const ordered = records.slice().sort(compareOperationsLines);
+    const primary = ordered[0] || null;
+    const positiveLines = ordered.filter(record => parseOperationsOpenQuantity(getOfficialField(record, 'opQtyOpen')) > 0);
+    const nonPositiveLines = ordered.filter(record => parseOperationsOpenQuantity(getOfficialField(record, 'opQtyOpen')) <= 0);
+    const groupedOpenQuantity = positiveLines.reduce((sum, record) => sum + parseOperationsOpenQuantity(getOfficialField(record, 'opQtyOpen')), 0);
+    const lineStatuses = ordered.map(record => getVerifiedStatusPresentation(record));
+    const distinctEffectiveStatuses = Array.from(new Set(lineStatuses.map(status => status.statusText).filter(Boolean)));
+    const overrideCount = ordered.filter(record => !!getVerifiedStatusRecord(record)).length;
+    const workOrderStatus = getWorkOrderVerifiedStatusRecord(workOrderNumber);
+    const mixed = distinctEffectiveStatuses.length > 1;
+    return {
+      type: 'WORK_ORDER_GROUP',
+      key: 'WO|' + workOrderNumber,
+      workOrderNumber,
+      records: ordered,
+      primaryRecord: primary,
+      lineCount: ordered.length,
+      groupedOpenQuantity: formatGroupedQuantity(groupedOpenQuantity),
+      positiveLineCount: positiveLines.length,
+      nonPositiveLineCount: nonPositiveLines.length,
+      hasQuantityException: nonPositiveLines.length > 0,
+      overrideCount,
+      mixed,
+      statusPresentation: mixed
+        ? { statusText: 'MIXED', recordedBy: '', timeLabel: '', summary: 'MIXED', mixed: true }
+        : workOrderStatus ? presentVerifiedStatus({ ...workOrderStatus, scope: 'WORK_ORDER_DEFAULT', inherited: false })
+          : lineStatuses.find(status => status.statusText) || { statusText: '', recordedBy: '', timeLabel: '', summary: '' }
     };
   }
 
@@ -406,6 +496,10 @@
     parseSearchTerms,
     getOperationsCenterView,
     getOperationsCenterSearchText,
+    getWorkOrderGroups,
+    buildWorkOrderGroup,
+    compareOperationsLines,
+    normalizeWorkOrderNumber,
     getMasterRecordKey,
     getOperationalProjectionField,
     getShipmentProjection,

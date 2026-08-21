@@ -20,6 +20,7 @@
     canonicalEndpoint: '/api/platform/live/v1/sales-orders',
     canonicalRequestId: 0,
     verifiedStatusByKey: {},
+    workOrderVerifiedStatusByNumber: {},
     verifiedStatusLoading: false,
     verifiedStatusError: '',
     hideRmaRework: false
@@ -66,9 +67,14 @@
     state.verifiedStatusError = String(error?.message || error || 'Last Verified Status is unavailable.');
   }
 
-  function setVerifiedStatusRecords(records) {
+  function setVerifiedStatusRecords(records, workOrderRecords = []) {
     state.verifiedStatusByKey = (Array.isArray(records) ? records : []).reduce((map, record) => {
       if (record?.masterRecordKey) map[record.masterRecordKey] = record;
+      return map;
+    }, {});
+    state.workOrderVerifiedStatusByNumber = (Array.isArray(workOrderRecords) ? workOrderRecords : []).reduce((map, record) => {
+      const workOrder = normalizeWorkOrderNumber(record?.workOrderNumber);
+      if (workOrder) map[workOrder] = record;
       return map;
     }, {});
     state.verifiedStatusLoading = false;
@@ -85,8 +91,28 @@
     return true;
   }
 
+  function upsertWorkOrderVerifiedStatusRecord(record) {
+    const workOrder = normalizeWorkOrderNumber(record?.workOrderNumber);
+    if (!workOrder) return false;
+    state.workOrderVerifiedStatusByNumber = {
+      ...state.workOrderVerifiedStatusByNumber,
+      [workOrder]: record
+    };
+    state.verifiedStatusError = '';
+    return true;
+  }
+
   function getVerifiedStatusRecord(masterRecordKey) {
     return state.verifiedStatusByKey[String(masterRecordKey || '')] || null;
+  }
+
+  function getWorkOrderVerifiedStatusRecord(workOrderNumber) {
+    return state.workOrderVerifiedStatusByNumber[normalizeWorkOrderNumber(workOrderNumber)] || null;
+  }
+
+  function normalizeWorkOrderNumber(value) {
+    const text = String(value ?? '').trim();
+    return /^\d+$/.test(text) ? text.padStart(7, '0') : '';
   }
 
   function setHideRmaRework(value) {
@@ -107,7 +133,9 @@
     setVerifiedStatusError,
     setVerifiedStatusRecords,
     upsertVerifiedStatusRecord,
+    upsertWorkOrderVerifiedStatusRecord,
     getVerifiedStatusRecord,
+    getWorkOrderVerifiedStatusRecord,
     setHideRmaRework,
     toggleHideRmaRework
   };
