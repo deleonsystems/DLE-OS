@@ -123,10 +123,11 @@ const masonUnresolved = {
   workOrderApprovalReview: { currentApproval: null, operationalRelationship: null },
   materialStatus: null
 };
-oc.stateActions.setVerifiedStatusRecords([{
+const masonPreviousEvent = {
   masterRecordKey: masonUnresolved.masterRecordKey,
   statusText: 'Ready to ship - qty 2 - in shipping', recordedBy: 'Miguel', recordedAtUtc: '2026-08-21T15:53:02.380'
-}], []);
+};
+oc.stateActions.setVerifiedStatusRecords([masonPreviousEvent], []);
 let unresolvedGroups = oc.viewModel.getWorkOrderGroups([masonUnresolved]);
 assert.equal(unresolvedGroups.length, 1, 'an active line without a governed WO remains in the mobile model');
 let unresolvedGroup = unresolvedGroups[0];
@@ -136,6 +137,8 @@ assert.equal(unresolvedGroup.workOrderNumber, '', 'unresolved card does not manu
 assert.equal(unresolvedGroup.groupedOpenQuantity, '2', 'unresolved card preserves the line operational Qty Open');
 assert.equal(unresolvedGroup.statusPresentation.statusText, 'Ready to ship - qty 2 - in shipping',
   'unresolved card retains its line-level Last Verified Status');
+assert.equal(oc.viewModel.getVerifiedStatusLoggerPrefill(masonUnresolved).statusText,
+  'Ready to ship - qty 2 - in shipping', 'unresolved line logger prefills its latest explicit line event');
 unresolvedGroups = oc.viewModel.getWorkOrderGroups([masonUnresolved], { searchTerms: ['799-057-2'] });
 assert.equal(unresolvedGroups.length, 1, 'searching 799-057-2 returns the unresolved Mason line');
 assert.equal(oc.viewModel.getWorkOrderGroups([masonUnresolved, { ...masonUnresolved }]).length, 1,
@@ -143,11 +146,13 @@ assert.equal(oc.viewModel.getWorkOrderGroups([masonUnresolved, { ...masonUnresol
 
 let workOrderAppendCalls = 0;
 let lineAppendCalls = 0;
+let lineRequestCorrelationId = '';
 context.window.DleApiClient = {
   createRequestCorrelationId: () => '00000000-0000-4000-8000-000000000001',
   appendOperationsCenterWorkOrderVerifiedStatus: async () => { workOrderAppendCalls += 1; },
   appendOperationsCenterVerifiedStatus: async (masterRecordKey, request) => {
     lineAppendCalls += 1;
+    lineRequestCorrelationId = request.requestCorrelationId;
     assert.equal(masterRecordKey, masonUnresolved.masterRecordKey);
     assert.equal(request.workOrderNumber, '', 'unresolved line append carries no guessed Work Order');
     return { record: { masterRecordKey, statusText: request.statusText, recordedBy: 'Miguel' } };
@@ -156,8 +161,16 @@ context.window.DleApiClient = {
 await assert.rejects(oc.verifiedStatusService.appendForWorkOrderGroup(unresolvedGroup, 'Not allowed'),
   /governed Work Order is required/, 'unresolved card cannot invoke the WO-level append path');
 assert.equal(workOrderAppendCalls, 0, 'rejected unresolved WO save makes no WO-level API call');
-await oc.verifiedStatusService.appendForRecord(masonUnresolved, 'Line status remains available');
+await oc.verifiedStatusService.appendForRecord(masonUnresolved, 'Line status remains available', {
+  requestCorrelationId: '00000000-0000-4000-8000-000000000099'
+});
 assert.equal(lineAppendCalls, 1, 'unresolved card retains the existing line-level append path');
+assert.equal(lineRequestCorrelationId, '00000000-0000-4000-8000-000000000099',
+  'an explicit retry correlation ID is carried unchanged through the append service');
+assert.equal(masonPreviousEvent.statusText, 'Ready to ship - qty 2 - in shipping',
+  'appending a replacement status does not mutate the previous event');
+assert.equal(oc.viewModel.getVerifiedStatusPresentation(masonUnresolved).statusText, 'Line status remains available',
+  'the newly appended event becomes the latest presentation while history remains append-only');
 
 const resolvedMason = {
   ...masonUnresolved,
@@ -204,6 +217,12 @@ group = oc.viewModel.getWorkOrderGroups(rows)[0];
 assert.equal(group.statusPresentation.statusText, 'In assembly, batch moving together');
 assert.equal(group.mixed, false);
 assert.equal(group.overrideCount, 0);
+assert.equal(oc.viewModel.getVerifiedStatusLoggerPrefill(group.primaryRecord, group).statusText,
+  'In assembly, batch moving together', 'WO logger prefills the latest explicit WO-level event');
+const inheritedLinePrefill = oc.viewModel.getVerifiedStatusLoggerPrefill(rows[0]);
+assert.equal(inheritedLinePrefill.statusText, '', 'inherited WO text does not prefill a new line override');
+assert.equal(inheritedLinePrefill.inheritedStatusText, 'In assembly, batch moving together',
+  'line logger identifies the inherited WO status separately');
 
 oc.stateActions.setVerifiedStatusRecords([{ masterRecordKey: '001148|0012006|150',
   statusText: 'Line 150 held for customer review', recordedBy: 'Miguel', recordedAtUtc: '2026-08-21T16:05:00' }], [{
@@ -211,6 +230,8 @@ oc.stateActions.setVerifiedStatusRecords([{ masterRecordKey: '001148|0012006|150
 }]);
 assert.equal(oc.viewModel.getVerifiedStatusPresentation(rows.find(record => record.masterRecordKey.endsWith('|150'))).inherited, false,
   'line override is explicit for the selected SO line');
+assert.equal(oc.viewModel.getVerifiedStatusLoggerPrefill(rows.find(record => record.masterRecordKey.endsWith('|150'))).statusText,
+  'Line 150 held for customer review', 'line logger prefills the latest explicit line override');
 assert.equal(oc.viewModel.getVerifiedStatusPresentation(rows.find(record => record.masterRecordKey.endsWith('|130'))).inherited, true,
   'sibling line still inherits WO default');
 group = oc.viewModel.getWorkOrderGroups(rows)[0];
@@ -242,15 +263,35 @@ const apiClient = read('SRC/api/dle-api-client.js');
 const server = read('Tools/LiveSnapshotRefresh/ControlHost/OperationsCenterVerifiedStatusCenter.cs');
 const migration = read('Tools/OperationsCenter/Database/002_AddWorkOrderVerifiedStatusEvent.sql');
 const styles = read('SRC/modules/operations-center/operations-center.css');
+const operationsMarkup = read('SRC/modules/operations-center/operations-center.html');
 assert.ok(operationsModule.includes("WO ' + escapeOptionText(group.workOrderNumber.replace"), 'mobile card presents compact WO identity first');
 assert.ok(operationsModule.includes("'<span>Qty ' + escapeOptionText(group.groupedOpenQuantity)"), 'mobile card shows grouped quantity');
 assert.match(operationsModule, /resolveGovernedWorkOrderNumber\(record\)/,
   'mobile line identity uses the shared governed WO resolver');
 assert.match(operationsModule, /openOperationsCenterLineVerifiedStatusLogger/, 'mobile detail exposes individual line override mode');
 assert.match(operationsModule, /Awaiting WO Assignment/, 'mobile unresolved cards are clearly labeled');
-assert.match(operationsModule, /Log Line Status/, 'mobile unresolved detail keeps deliberate line-level status logging');
+assert.equal((operationsModule.match(/>Log Status<\/button>/g) || []).length, 2,
+  'resolved and unresolved primary actions retain the compact Log Status label');
 assert.match(operationsModule, /group\.type === 'UNRESOLVED_LINE' \? null : group/,
   'unresolved primary action cannot open the WO-level status logger');
+assert.match(operationsModule, /text\.value = prefill\.statusText;/,
+  'status dialog receives the scope-aware latest explicit status text');
+assert.match(operationsModule, /typeof text\.select === 'function'\) text\.select\(\)/,
+  'populated status text is selected for immediate replacement on supported mobile browsers');
+assert.match(operationsModule, /String\(text\?\.value \|\| ''\)\.trim\(\)/,
+  'the user may clear or replace the prefill before the existing required-value validation');
+assert.match(operationsMarkup, /<span>Status to log<\/span>/, 'dialog labels the textarea as pending status text');
+assert.match(operationsMarkup, /Prefilled from the latest logged status\. Changes are not logged until you tap Log Status\./,
+  'dialog explains that a prefill or edit is not persisted by typing alone');
+assert.match(operationsMarkup, /id="operationsCenterVerifiedStatusSave" type="submit">Log Status<\/button>/,
+  'dialog uses the same compact Log Status action as the mobile surface');
+assert.match(operationsMarkup, />Not logged<\/div>/, 'dialog provides an explicit dirty-state indicator');
+assert.match(operationsMarkup, /Discard unlogged status changes\?/,
+  'dialog includes an explicit discard guard for changed text');
+assert.match(operationsModule, /requestCorrelationId: verifiedStatusRequestCorrelationId/,
+  'the dialog retains one request correlation ID for an explicit retry of the same intended append');
+assert.doesNotMatch(operationsModule, /catch \(error\)[\s\S]{0,220}submitVerifiedStatus\(/,
+  'the mutation failure path does not automatically replay the POST');
 assert.match(styles, /operations-center-mobile-line/, 'line override controls have compact mobile styling');
 assert.match(styles, /body\[data-view-mode="mobile"\]\[data-workspace-view="operations-center"\] > main\s*\{[^}]*padding-inline:\s*max\(10px,/s,
   'mobile Operations Center uses a single safe viewport edge instead of stacked shell padding');
@@ -269,5 +310,87 @@ assert.ok(server.includes('TrustedDevelopmentIdentity.RequireActorName'), 'WO ap
 assert.ok(server.includes('OperationsCenterWorkOrderVerifiedStatusEvent'), 'server uses a distinct append-only WO event model');
 assert.ok(migration.includes('UQ_OperationsCenterWorkOrderVerifiedStatusEvent_Correlation'), 'WO event migration keeps idempotent correlation constraint');
 assert.ok(migration.includes('WorkOrderNumber nvarchar(7) NOT NULL'), 'WO event migration keys defaults by normalized work order');
+
+const mockElements = new Map();
+const element = (id, values = {}) => {
+  const value = { hidden: false, textContent: '', innerHTML: '', value: '', disabled: false,
+    focus() { this.focused = true; }, select() { this.selected = true; }, ...values };
+  mockElements.set(id, value);
+  return value;
+};
+const dialogElement = element('operationsCenterVerifiedStatusDialog', { hidden: true });
+element('operationsCenterVerifiedStatusContext');
+const textElement = element('operationsCenterVerifiedStatusText');
+const messageElement = element('operationsCenterVerifiedStatusMessage');
+const dirtyElement = element('operationsCenterVerifiedStatusDirty', { hidden: true });
+const keepEditingButton = element('keepEditingButton');
+const discardPromptElement = element('operationsCenterVerifiedStatusDiscardPrompt', {
+  hidden: true,
+  querySelector: () => keepEditingButton
+});
+const saveElement = element('operationsCenterVerifiedStatusSave');
+const feedbackElement = element('operationsCenterMobileStatusFeedback', { hidden: true });
+element('operationsCenterMobileView', { hidden: true });
+context.document = { getElementById: id => mockElements.get(id) || null };
+let nextCorrelation = 0;
+context.window.DleApiClient.createRequestCorrelationId = () => 'test-correlation-' + (++nextCorrelation);
+context.window.setTimeout = callback => { context.pendingFeedbackCallback = callback; return 1; };
+context.window.clearTimeout = () => {};
+oc.table = { renderModule() {} };
+vm.runInContext(operationsModule, context, { filename: 'SRC/modules/operations-center/operations-center.js' });
+
+group = oc.viewModel.getWorkOrderGroups(rows)[0];
+oc.openVerifiedStatusLogger(group.primaryRecord, group);
+assert.equal(textElement.value, 'In assembly, batch moving together', 'latest explicit WO status is prefilled');
+assert.equal(dirtyElement.hidden, true, 'untouched prefill starts clean');
+context.window.closeOperationsCenterVerifiedStatusLogger();
+assert.equal(dialogElement.hidden, true, 'untouched prefill closes without confirmation');
+assert.equal(discardPromptElement.hidden, true);
+
+oc.openVerifiedStatusLogger(group.primaryRecord, group);
+textElement.value = 'In assembly, moving to final inspection';
+context.window.updateOperationsCenterVerifiedStatusDirtyState();
+assert.equal(dirtyElement.hidden, false, 'edited text shows Not logged');
+context.window.closeOperationsCenterVerifiedStatusLogger();
+assert.equal(dialogElement.hidden, false, 'changed text cannot close immediately');
+assert.equal(discardPromptElement.hidden, false, 'changed text opens the discard confirmation');
+context.window.keepEditingOperationsCenterVerifiedStatus();
+assert.equal(discardPromptElement.hidden, true, 'Keep Editing returns to the pending text');
+assert.equal(textElement.value, 'In assembly, moving to final inspection');
+context.window.closeOperationsCenterVerifiedStatusLogger();
+context.window.discardOperationsCenterVerifiedStatusChanges();
+assert.equal(dialogElement.hidden, true, 'explicit Discard closes the changed dialog');
+
+const appendAttempts = [];
+oc.verifiedStatusService.appendForWorkOrderGroup = async (selectedGroup, statusText, options) => {
+  appendAttempts.push({ selectedGroup, statusText, requestCorrelationId: options.requestCorrelationId });
+  throw new Error('ambiguous response');
+};
+oc.openVerifiedStatusLogger(group.primaryRecord, group);
+textElement.value = 'Ready for inspection';
+context.window.updateOperationsCenterVerifiedStatusDirtyState();
+await context.window.submitOperationsCenterVerifiedStatus({ preventDefault() {} });
+assert.equal(appendAttempts.length, 1, 'a failed append is not automatically replayed');
+assert.equal(dialogElement.hidden, false, 'failed request keeps the dialog open');
+assert.equal(textElement.value, 'Ready for inspection', 'failed request preserves typed text');
+assert.equal(dirtyElement.hidden, false, 'failed request preserves the unlogged indicator');
+assert.match(messageElement.textContent, /^Save failed:/);
+assert.equal(saveElement.disabled, false, 'failed request restores the explicit submit action');
+await context.window.submitOperationsCenterVerifiedStatus({ preventDefault() {} });
+assert.equal(appendAttempts.length, 2, 'only an explicit user retry creates a second request');
+assert.equal(appendAttempts[1].requestCorrelationId, appendAttempts[0].requestCorrelationId,
+  'explicit retry of unchanged text reuses the intended append correlation ID');
+textElement.value = 'Ready for inspection after QA review';
+context.window.updateOperationsCenterVerifiedStatusDirtyState();
+await context.window.submitOperationsCenterVerifiedStatus({ preventDefault() {} });
+assert.notEqual(appendAttempts[2].requestCorrelationId, appendAttempts[1].requestCorrelationId,
+  'editing after failure creates a new append intent and correlation ID');
+
+oc.verifiedStatusService.appendForWorkOrderGroup = async () => ({ record: { statusText: textElement.value } });
+await context.window.submitOperationsCenterVerifiedStatus({ preventDefault() {} });
+assert.equal(dialogElement.hidden, true, 'successful append closes the dialog');
+assert.equal(dirtyElement.hidden, true, 'successful append resets pending state');
+assert.equal(feedbackElement.textContent, 'Status logged');
+assert.equal(feedbackElement.hidden, false, 'success confirmation remains on the mobile surface after close');
 
 console.log('Operations Center work-order verified status grouping contracts: PASS');

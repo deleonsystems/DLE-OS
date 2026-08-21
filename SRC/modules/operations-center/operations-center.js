@@ -12,6 +12,11 @@
   let verifiedStatusDialogRecord = null;
   let verifiedStatusDialogGroup = null;
   let verifiedStatusSaving = false;
+  let verifiedStatusInitialText = '';
+  let verifiedStatusDirty = false;
+  let verifiedStatusAttemptText = '';
+  let verifiedStatusRequestCorrelationId = '';
+  let verifiedStatusFeedbackTimer = null;
   let mobileSelectedRecordKey = '';
 
   async function loadOperationsCenterModule() {
@@ -250,7 +255,7 @@
         escapeOptionText(status.statusText || 'No status logged yet.') + '</span><small>' +
         escapeOptionText([status.recordedBy, status.timeLabel, status.statusText ? 'Individual line' : ''].filter(Boolean).join(' · ')) +
         '</small></div>' +
-        '<button type="button" class="operations-center-mobile-log-button" onclick="openOperationsCenterVerifiedStatusLoggerForKey()">Log Line Status</button></div>';
+        '<button type="button" class="operations-center-mobile-log-button" onclick="openOperationsCenterVerifiedStatusLoggerForKey()">Log Status</button></div>';
       return;
     }
     detail.innerHTML = '<div class="operations-center-mobile-detail-card">' +
@@ -269,7 +274,7 @@
       escapeOptionText(status.statusText || 'No status logged yet.') + '</span><small>' +
       escapeOptionText([status.recordedBy, status.timeLabel, group.overrideCount ? group.overrideCount + ' line override' + (group.overrideCount === 1 ? '' : 's') : 'WO default'].filter(Boolean).join(' · ')) + '</small></div>' +
       '<div class="operations-center-mobile-lines">' + group.records.map(renderMobileLineSummary).join('') + '</div>' +
-      '<button type="button" class="operations-center-mobile-log-button" onclick="openOperationsCenterVerifiedStatusLoggerForKey()">Log WO Status</button></div>';
+      '<button type="button" class="operations-center-mobile-log-button" onclick="openOperationsCenterVerifiedStatusLoggerForKey()">Log Status</button></div>';
   }
 
   function renderMobileLineSummary(record) {
@@ -323,6 +328,7 @@
     const message = document.getElementById('operationsCenterVerifiedStatusMessage');
     if (!dialog || !context || !text) return;
     const viewModel = window.OperationsCenter.viewModel;
+    const prefill = viewModel.getVerifiedStatusLoggerPrefill(record, group);
     if (group) {
       const primary = group.primaryRecord;
       context.innerHTML = '<strong>WO ' + escapeOptionText(group.workOrderNumber.replace(/^0+/, '') || group.workOrderNumber) +
@@ -333,26 +339,97 @@
         '<small>Saving as Work Order default. Individual lines may override later.</small>';
     } else {
       const workOrder = viewModel.resolveGovernedWorkOrderNumber(record);
+      const lineContext = prefill.inheritedStatusText
+        ? 'Inherits WO status: ' + prefill.inheritedStatusText + ' · Entering text creates an Individual Line override.'
+        : 'Individual Line ' + (workOrder ? 'override' : 'status') + ' · ' +
+          viewModel.getOfficialField(record, 'partNumber') + ' · ' + viewModel.getOfficialField(record, 'description');
       context.innerHTML = '<strong>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + '</strong>' +
         '<span>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) +
         ' / Line ' + escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) +
         (workOrder ? ' / WO ' + escapeOptionText(workOrder) : ' / Awaiting WO Assignment') + '</span>' +
-        '<small>Individual Line ' + (workOrder ? 'override' : 'status') + ' · ' +
-        escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' · ' +
-        escapeOptionText(viewModel.getOfficialField(record, 'description')) + '</small>';
+        '<small>' + escapeOptionText(lineContext) + '</small>';
     }
-    text.value = '';
+    text.value = prefill.statusText;
+    verifiedStatusInitialText = prefill.statusText;
+    verifiedStatusDirty = false;
+    verifiedStatusAttemptText = '';
+    verifiedStatusRequestCorrelationId = '';
+    const dirty = document.getElementById('operationsCenterVerifiedStatusDirty');
+    const discardPrompt = document.getElementById('operationsCenterVerifiedStatusDiscardPrompt');
+    if (dirty) dirty.hidden = true;
+    if (discardPrompt) discardPrompt.hidden = true;
     if (message) message.textContent = '';
     dialog.hidden = false;
     text.focus();
+    if (prefill.statusText && typeof text.select === 'function') text.select();
   }
 
-  function closeVerifiedStatusLogger() {
-    if (verifiedStatusSaving) return;
+  function updateVerifiedStatusDirtyState() {
+    const text = document.getElementById('operationsCenterVerifiedStatusText');
+    const dirty = document.getElementById('operationsCenterVerifiedStatusDirty');
+    const discardPrompt = document.getElementById('operationsCenterVerifiedStatusDiscardPrompt');
+    const currentText = String(text?.value || '');
+    verifiedStatusDirty = currentText !== verifiedStatusInitialText;
+    if (dirty) dirty.hidden = !verifiedStatusDirty;
+    if (!verifiedStatusDirty && discardPrompt) discardPrompt.hidden = true;
+    const normalizedText = currentText.trim();
+    if (verifiedStatusAttemptText && normalizedText !== verifiedStatusAttemptText) {
+      verifiedStatusAttemptText = '';
+      verifiedStatusRequestCorrelationId = '';
+    }
+    return verifiedStatusDirty;
+  }
+
+  function resetVerifiedStatusDialogState() {
     verifiedStatusDialogRecord = null;
     verifiedStatusDialogGroup = null;
+    verifiedStatusInitialText = '';
+    verifiedStatusDirty = false;
+    verifiedStatusAttemptText = '';
+    verifiedStatusRequestCorrelationId = '';
+    const dirty = document.getElementById('operationsCenterVerifiedStatusDirty');
+    const discardPrompt = document.getElementById('operationsCenterVerifiedStatusDiscardPrompt');
+    if (dirty) dirty.hidden = true;
+    if (discardPrompt) discardPrompt.hidden = true;
+  }
+
+  function closeVerifiedStatusLogger(force = false) {
+    if (verifiedStatusSaving) return;
+    updateVerifiedStatusDirtyState();
+    if (verifiedStatusDirty && !force) {
+      const discardPrompt = document.getElementById('operationsCenterVerifiedStatusDiscardPrompt');
+      if (discardPrompt) {
+        discardPrompt.hidden = false;
+        discardPrompt.querySelector('button:last-child')?.focus?.();
+      }
+      return;
+    }
+    resetVerifiedStatusDialogState();
     const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
     if (dialog) dialog.hidden = true;
+  }
+
+  function discardVerifiedStatusChanges() {
+    closeVerifiedStatusLogger(true);
+  }
+
+  function keepEditingVerifiedStatus() {
+    const discardPrompt = document.getElementById('operationsCenterVerifiedStatusDiscardPrompt');
+    const text = document.getElementById('operationsCenterVerifiedStatusText');
+    if (discardPrompt) discardPrompt.hidden = true;
+    text?.focus?.();
+  }
+
+  function showVerifiedStatusLoggedFeedback() {
+    const feedback = document.getElementById('operationsCenterMobileStatusFeedback');
+    if (!feedback) return;
+    feedback.textContent = 'Status logged';
+    feedback.hidden = false;
+    if (verifiedStatusFeedbackTimer) window.clearTimeout(verifiedStatusFeedbackTimer);
+    verifiedStatusFeedbackTimer = window.setTimeout(() => {
+      feedback.hidden = true;
+      verifiedStatusFeedbackTimer = null;
+    }, 2600);
   }
 
   function getCurrentMobileSelectedGroup() {
@@ -379,22 +456,27 @@
     const message = document.getElementById('operationsCenterVerifiedStatusMessage');
     const statusText = String(text?.value || '').trim();
     if (!statusText) {
-      if (message) message.textContent = 'Last Verified Status is required.';
+      if (message) message.textContent = 'Status to log is required.';
       return;
     }
+    if (!verifiedStatusRequestCorrelationId || verifiedStatusAttemptText !== statusText) {
+      verifiedStatusAttemptText = statusText;
+      verifiedStatusRequestCorrelationId = window.DleApiClient.createRequestCorrelationId();
+    }
+    const requestOptions = { requestCorrelationId: verifiedStatusRequestCorrelationId };
     verifiedStatusSaving = true;
     if (button) button.disabled = true;
     if (message) message.textContent = 'Saving...';
     try {
       if (verifiedStatusDialogGroup) {
-        await window.OperationsCenter.verifiedStatusService.appendForWorkOrderGroup(verifiedStatusDialogGroup, statusText);
+        await window.OperationsCenter.verifiedStatusService.appendForWorkOrderGroup(verifiedStatusDialogGroup, statusText, requestOptions);
       } else {
-        await window.OperationsCenter.verifiedStatusService.appendForRecord(verifiedStatusDialogRecord, statusText);
+        await window.OperationsCenter.verifiedStatusService.appendForRecord(verifiedStatusDialogRecord, statusText, requestOptions);
       }
-      if (message) message.textContent = 'Saved.';
       closeVerifiedStatusLoggerAfterSave();
       window.OperationsCenter.table.renderModule();
       renderOperationsCenterMobileView();
+      showVerifiedStatusLoggedFeedback();
     } catch (error) {
       if (message) message.textContent = 'Save failed: ' + (error?.message || error);
     } finally {
@@ -405,8 +487,7 @@
 
   function closeVerifiedStatusLoggerAfterSave() {
     verifiedStatusSaving = false;
-    verifiedStatusDialogRecord = null;
-    verifiedStatusDialogGroup = null;
+    resetVerifiedStatusDialogState();
     const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
     if (dialog) dialog.hidden = true;
   }
@@ -436,6 +517,9 @@
   window.openOperationsCenterVerifiedStatusLoggerForKey = openVerifiedStatusLoggerForKey;
   window.openOperationsCenterLineVerifiedStatusLogger = openLineVerifiedStatusLogger;
   window.closeOperationsCenterVerifiedStatusLogger = closeVerifiedStatusLogger;
+  window.updateOperationsCenterVerifiedStatusDirtyState = updateVerifiedStatusDirtyState;
+  window.discardOperationsCenterVerifiedStatusChanges = discardVerifiedStatusChanges;
+  window.keepEditingOperationsCenterVerifiedStatus = keepEditingVerifiedStatus;
   window.submitOperationsCenterVerifiedStatus = submitVerifiedStatus;
   window.filterOperationsCenter = filterOperationsCenter;
   window.toggleOperationsCenterProjectionMode = toggleOperationsCenterProjectionMode;

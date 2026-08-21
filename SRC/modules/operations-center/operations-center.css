@@ -442,6 +442,14 @@
   margin-top: 4px;
 }
 
+@media screen {
+  body:not([data-view-mode="mobile"])[data-workspace-view="operations-center"] > main,
+  body:not([data-view-mode="mobile"]):has(#operationsCenter.screen.active) > main {
+    padding-inline: 8px;
+    scrollbar-gutter: auto;
+  }
+}
+
 body[data-view-mode="mobile"][data-workspace-view="operations-center"] > main {
   padding-inline: max(10px, env(safe-area-inset-left, 0px)) max(10px, env(safe-area-inset-right, 0px));
 }
@@ -628,7 +636,10 @@ body[data-view-mode="mobile"][data-workspace-view="operations-center"] .operatio
 }
 
 .operations-center-status-dialog[hidden],
-.operations-center-mobile-view[hidden] {
+.operations-center-mobile-view[hidden],
+.operations-center-mobile-feedback[hidden],
+.operations-center-status-dialog-dirty[hidden],
+.operations-center-status-discard-prompt[hidden] {
   display: none;
 }
 
@@ -673,8 +684,52 @@ body[data-view-mode="mobile"][data-workspace-view="operations-center"] .operatio
 
 .operations-center-status-dialog-context span,
 .operations-center-status-dialog-context small,
+.operations-center-status-dialog-field small,
 .operations-center-status-dialog-message {
   color: #4b5563;
+}
+
+.operations-center-status-dialog-field small {
+  line-height: 1.35;
+}
+
+.operations-center-status-dialog-dirty {
+  justify-self: start;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #92400e;
+  padding: 3px 8px;
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.operations-center-status-discard-prompt {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  background: #fffbeb;
+  color: #78350f;
+  padding: 10px;
+}
+
+.operations-center-status-discard-prompt > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.operations-center-mobile-feedback {
+  grid-column: 1 / -1;
+  justify-self: start;
+  border: 1px solid rgba(134, 239, 172, .6);
+  border-radius: 999px;
+  background: rgba(22, 101, 52, .28);
+  color: #bbf7d0;
+  padding: 4px 9px;
+  font-size: .8rem;
+  font-weight: 700;
 }
 
 .operations-center-status-dialog-field textarea {
@@ -744,8 +799,16 @@ body[data-view-mode="mobile"][data-workspace-view="operations-center"] .operatio
 
   .operations-center-status-dialog-context span,
   .operations-center-status-dialog-context small,
+  .operations-center-status-dialog-field small,
   .operations-center-status-dialog-message {
     color: var(--muted);
+  }
+
+  .operations-center-status-dialog-dirty,
+  .operations-center-status-discard-prompt {
+    border-color: rgba(251, 191, 36, .65);
+    background: rgba(146, 64, 14, .24);
+    color: #fde68a;
   }
 
   .operations-center-status-dialog-field textarea {

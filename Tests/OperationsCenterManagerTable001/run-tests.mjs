@@ -182,6 +182,12 @@ assert.match(operationsStyles, /\.operations-center-search-row \{[\s\S]*margin-b
 assert.match(operationsStyles,
   /\.operations-center-panel:has\(> \.operations-center-mobile-view:not\(\[hidden\]\)\) \.operations-center-search-row/,
   'desktop search row remains hidden when the dedicated Mobile View is active');
+assert.match(operationsStyles,
+  /body:not\(\[data-view-mode="mobile"\]\)\[data-workspace-view="operations-center"\] > main,[\s\S]*padding-inline: 8px;[\s\S]*scrollbar-gutter: auto;/,
+  'desktop Operations Center uses a narrow shell gutter without reserving a redundant main scrollbar gutter');
+assert.match(operationsStyles,
+  /body\[data-view-mode="mobile"\]\[data-workspace-view="operations-center"\] > main \{\s*padding-inline: max\(10px,/,
+  'mobile Operations Center retains its safe-area-aware edge spacing');
 assert.doesNotMatch(operationsModule,
   /populateOperationsCenterDocumentTypes|connectOperationsCenterDocumentFolder|openOperationsCenterDocumentLink|overlayService|saveOperationsCenterOverlay/,
   'legacy document and manager overlay handlers are removed');

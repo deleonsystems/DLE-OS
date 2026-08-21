@@ -62,7 +62,11 @@
     };
   }
 
-  async function appendForWorkOrderGroup(group, statusText) {
+  function resolveRequestCorrelationId(options) {
+    return String(options?.requestCorrelationId || '').trim() || window.DleApiClient.createRequestCorrelationId();
+  }
+
+  async function appendForWorkOrderGroup(group, statusText, options = {}) {
     const text = String(statusText || '').trim();
     if (!text) throw new Error('Last Verified Status is required.');
     if (group?.type !== 'WORK_ORDER_GROUP' || !String(group?.workOrderNumber || '').trim()) {
@@ -71,7 +75,7 @@
     const request = {
       statusText: text,
       evidenceSnapshot: buildGroupEvidenceSnapshot(group),
-      requestCorrelationId: window.DleApiClient.createRequestCorrelationId()
+      requestCorrelationId: resolveRequestCorrelationId(options)
     };
     const result = await window.DleApiClient.appendOperationsCenterWorkOrderVerifiedStatus(group.workOrderNumber, request);
     const latest = result?.record;
@@ -79,7 +83,7 @@
     return result;
   }
 
-  async function appendForRecord(record, statusText) {
+  async function appendForRecord(record, statusText, options = {}) {
     const text = String(statusText || '').trim();
     if (!text) throw new Error('Last Verified Status is required.');
     const viewModel = window.OperationsCenter.viewModel;
@@ -90,7 +94,7 @@
       itemNumber: viewModel.getOfficialField(record, 'partNumber'),
       description: viewModel.getOfficialField(record, 'description'),
       evidenceSnapshot: buildEvidenceSnapshot(record),
-      requestCorrelationId: window.DleApiClient.createRequestCorrelationId()
+      requestCorrelationId: resolveRequestCorrelationId(options)
     };
     const result = await window.DleApiClient.appendOperationsCenterVerifiedStatus(masterRecordKey, request);
     const latest = result?.record;

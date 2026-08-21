@@ -53,6 +53,7 @@
         <input type="text" id="operationsCenterMobileSearch" class="operations-center-mobile-search" placeholder="Search job..." oninput="filterOperationsCenterMobileView()">
         <button type="button" onclick="toggleOperationsCenterMobileView(false)">Table</button>
       </div>
+      <div id="operationsCenterMobileStatusFeedback" class="operations-center-mobile-feedback" role="status" hidden></div>
       <div id="operationsCenterMobileResults" class="operations-center-mobile-results"></div>
       <div id="operationsCenterMobileDetail" class="operations-center-mobile-detail" hidden></div>
     </div>
@@ -65,17 +66,26 @@
       <form class="operations-center-status-dialog-box" onsubmit="submitOperationsCenterVerifiedStatus(event)">
         <div class="operations-center-status-dialog-header">
           <strong>Log Verified Status</strong>
-          <button type="button" aria-label="Close" onclick="closeOperationsCenterVerifiedStatusLogger()">×</button>
+          <button type="button" aria-label="Close" onclick="closeOperationsCenterVerifiedStatusLogger()">Ã—</button>
         </div>
         <div id="operationsCenterVerifiedStatusContext" class="operations-center-status-dialog-context"></div>
         <label class="operations-center-status-dialog-field">
-          <span>Last Verified Status</span>
-          <textarea id="operationsCenterVerifiedStatusText" maxlength="1000" required></textarea>
+          <span>Status to log</span>
+          <small>Prefilled from the latest logged status. Changes are not logged until you tap Log Status.</small>
+          <textarea id="operationsCenterVerifiedStatusText" maxlength="1000" required oninput="updateOperationsCenterVerifiedStatusDirtyState()"></textarea>
         </label>
+        <div id="operationsCenterVerifiedStatusDirty" class="operations-center-status-dialog-dirty" role="status" hidden>Not logged</div>
         <div id="operationsCenterVerifiedStatusMessage" class="operations-center-status-dialog-message" aria-live="polite"></div>
+        <div id="operationsCenterVerifiedStatusDiscardPrompt" class="operations-center-status-discard-prompt" role="alertdialog" aria-label="Discard unlogged status changes" hidden>
+          <span>Discard unlogged status changes?</span>
+          <div>
+            <button type="button" onclick="discardOperationsCenterVerifiedStatusChanges()">Discard</button>
+            <button type="button" onclick="keepEditingOperationsCenterVerifiedStatus()">Keep Editing</button>
+          </div>
+        </div>
         <div class="operations-center-status-dialog-actions">
           <button type="button" onclick="closeOperationsCenterVerifiedStatusLogger()">Cancel</button>
-          <button id="operationsCenterVerifiedStatusSave" type="submit">Save</button>
+          <button id="operationsCenterVerifiedStatusSave" type="submit">Log Status</button>
         </div>
       </form>
     </div>

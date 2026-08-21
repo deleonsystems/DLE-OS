@@ -146,8 +146,29 @@
 
   function getVerifiedStatusPresentation(record) {
     const latest = getEffectiveVerifiedStatusRecord(record);
-    if (!latest) return { statusText: '', recordedBy: '', recordedAtUtc: '', timeLabel: '', summary: '', scope: '', inherited: false };
+    if (!latest) return emptyVerifiedStatusPresentation();
     return presentVerifiedStatus(latest);
+  }
+
+  function emptyVerifiedStatusPresentation() {
+    return { statusText: '', recordedBy: '', recordedAtUtc: '', timeLabel: '', summary: '', scope: '', inherited: false };
+  }
+
+  function getVerifiedStatusLoggerPrefill(record, group = null) {
+    if (group?.type === 'WORK_ORDER_GROUP') {
+      const workOrder = getWorkOrderVerifiedStatusRecord(group.workOrderNumber);
+      const presentation = workOrder ? presentVerifiedStatus({ ...workOrder, scope: 'WORK_ORDER_DEFAULT', inherited: false })
+        : emptyVerifiedStatusPresentation();
+      return { ...presentation, mode: 'WORK_ORDER', inheritedStatusText: '' };
+    }
+    const line = getVerifiedStatusRecord(record);
+    if (line) {
+      return { ...presentVerifiedStatus({ ...line, scope: 'LINE_OVERRIDE', inherited: false }),
+        mode: 'LINE', inheritedStatusText: '' };
+    }
+    const effective = getVerifiedStatusPresentation(record);
+    return { ...emptyVerifiedStatusPresentation(), mode: 'LINE',
+      inheritedStatusText: effective.inherited ? effective.statusText : '' };
   }
 
   function presentVerifiedStatus(latest) {
@@ -559,6 +580,7 @@
     getShipmentProjection,
     getOfficialField,
     getWorkOrderPresentation,
-    getVerifiedStatusPresentation
+    getVerifiedStatusPresentation,
+    getVerifiedStatusLoggerPrefill
   };
 })();
