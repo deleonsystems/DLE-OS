@@ -120,11 +120,12 @@ assert.equal(reviewOpened, 1, 'workspace review uses the governed Shipment Stagi
 const serviceSource = read('SRC/modules/shipment-staging/shipment-staging-service.js');
 assert.match(read('SRC/shell/workspace-registry.js'), /id: "shipping",\s+label: "Shipping Workspace"/,
   'Workspace View presents the requested Shipping Workspace label');
-assert.match(serviceSource, /window\.location\.port === '5051'/);
+assert.match(serviceSource, /DleOsRuntimeConfig\?\.environment === 'ISOLATED_DEVELOPMENT'/,
+  'Shipment Staging uses the shared development-runtime identity instead of a port heuristic');
 assert.match(serviceSource, /DleApiClient\.getShipmentStaging/);
 assert.match(serviceSource, /if \(usesOperationalShipmentStaging\(\)\) return null;/,
   'isolated development bypasses browser-held file handles');
-assert.match(read('SRC/api/dle-api-client.js'), /window\.location\.port === '5051'[\s\S]*?DEVELOPMENT_BFF_BASE_URL/,
+assert.match(read('SRC/api/dle-api-client.js'), /IS_DEVELOPMENT_RUNTIME[\s\S]*?DEVELOPMENT_BFF_BASE_URL/,
   'the authenticated development frontend uses its same-origin BFF');
 assert.doesNotMatch(read('Tools/DevelopmentRuntime/DleOs.DevelopmentFrontend/appsettings.json'), /5054/,
   'the browser is not configured to call the operational service directly');
