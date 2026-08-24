@@ -18,6 +18,7 @@ $bff=Read 'Tools\DevelopmentRuntime\DleOs.DevelopmentFrontend\DevelopmentCompati
 $permission=Read 'Tools\LiveSnapshotRefresh\ControlHost\DevelopmentPermissionAuthorization.cs'
 $ui=Read 'SRC\modules\operations-center\operations-center.html'
 $uiJs=Read 'SRC\modules\operations-center\operations-center.js'
+$operatorHeader=Read 'SRC\shell\operator-header.js'
 $devApi=Read 'Tools\DevelopmentRuntime\DleOs.DevelopmentApi\Program.cs'
 $readiness=Read 'Tools\PlatformFreshnessCache\ServerOverlay\Data\Platform\LivePlatformStatusRepository.cs'
 $readinessOptions=Read 'Tools\PlatformFreshnessCache\ServerOverlay\Options\LiveApiOptions.cs'
@@ -132,8 +133,11 @@ Check 'worker lease cleanup remains ownership-aware' {
         'worker no longer limits lease cleanup to its own run'
 }
 Check 'operator UI uses sync versus reload terminology' {
-    Require ($ui.Contains('Sync Operations')-and$ui.Contains('Reload View')) 'operator terminology absent'
+    Require ($operatorHeader.Contains('Sync Operations')-and$ui.Contains('Reload View')) 'operator terminology absent'
     Require ($uiJs.Contains('startSyncOperations')-and$uiJs.Contains('elapsedSeconds')) 'operator lifecycle view absent'
+    Require ($uiJs.Contains('refreshOperationsCenterAfterSuccessfulSync')-and
+        $uiJs.Contains('refreshOperationsCenterCanonicalData();')) `
+        'successful Sync Operations no longer reuses Reload View behavior'
     Require (-not$uiJs.Contains('45-day Invoice History window')-and
         -not$uiJs.Contains('invoice changes:')) 'operator UI still implies normal Sync includes Invoice History'
     Require ($uiJs.Contains('verifies the promoted generation through API 5052')) `

@@ -18,6 +18,8 @@
   let verifiedStatusRequestCorrelationId = '';
   let verifiedStatusFeedbackTimer = null;
   let mobileSelectedRecordKey = '';
+  const syncOperationsRefreshEligibleRunIds = new Set();
+  const syncOperationsRefreshedRunIds = new Set();
 
   async function loadOperationsCenterModule() {
     const placeholder = document.getElementById('operationsCenter');
@@ -91,6 +93,27 @@
     return state?.[name] ?? state?.[name.charAt(0).toUpperCase() + name.slice(1)];
   }
 
+  function syncRunId(state) {
+    return String(syncValue(state, 'runId') || '');
+  }
+
+  function trackSyncOperationsRefreshEligibility(state, status) {
+    const runId = syncRunId(state);
+    if (!runId) return;
+    if (['QUEUED', 'RUNNING'].includes(status)) {
+      syncOperationsRefreshEligibleRunIds.add(runId);
+    }
+  }
+
+  function refreshOperationsCenterAfterSuccessfulSync(state, status) {
+    if (status !== 'SUCCEEDED') return;
+    const runId = syncRunId(state);
+    if (!runId || syncOperationsRefreshedRunIds.has(runId) ||
+      !syncOperationsRefreshEligibleRunIds.has(runId)) return;
+    syncOperationsRefreshedRunIds.add(runId);
+    refreshOperationsCenterCanonicalData();
+  }
+
   function formatSyncDate(value) {
     if (!value) return 'Never';
     const date = new Date(value);
@@ -103,6 +126,7 @@
     if (!root) return;
     const status = String(syncValue(state, 'status') || 'NEVER_RUN');
     const running = ['QUEUED', 'RUNNING'].includes(status);
+    trackSyncOperationsRefreshEligibility(state, status);
     const daily = syncValue(state, 'dailyOperations');
     const dailyCounts = syncValue(daily, 'components') || [];
     const countSummary = dailyCounts.filter(item => syncValue(item, 'recordCount') !== null && syncValue(item, 'recordCount') !== undefined)
@@ -117,6 +141,7 @@
     if (button) button.disabled = running;
     if (syncOperationsPollTimer) window.clearTimeout(syncOperationsPollTimer);
     syncOperationsPollTimer = running ? window.setTimeout(refreshSyncOperationsStatus, 2000) : null;
+    refreshOperationsCenterAfterSuccessfulSync(state, status);
   }
 
   async function refreshSyncOperationsStatus() {
@@ -134,7 +159,10 @@
     const button = document.getElementById('syncOperationsButton');
     if (button) button.disabled = true;
     try {
-      renderSyncOperationsStatus(await window.DleApiClient.liveCanonical.startSyncOperations());
+      const state = await window.DleApiClient.liveCanonical.startSyncOperations();
+      const runId = syncRunId(state);
+      if (runId) syncOperationsRefreshEligibleRunIds.add(runId);
+      renderSyncOperationsStatus(state);
     } catch (error) {
       window.alert('Sync Operations was not started.\n\n' + (error?.message || error));
       await refreshSyncOperationsStatus();
