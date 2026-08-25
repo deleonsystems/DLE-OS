@@ -67,6 +67,37 @@
   flex-wrap: wrap;
 }
 
+.operations-center-service-availability {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(251, 191, 36, .55);
+  border-radius: 7px;
+  background: rgba(146, 64, 14, .2);
+  color: #fde68a;
+  font-size: 12px;
+}
+
+.operations-center-service-availability[hidden] {
+  display: none;
+}
+
+.operations-center-service-availability span {
+  color: #fef3c7;
+}
+
+.operations-center-unavailable-value {
+  color: #fde68a;
+  font-weight: 700;
+}
+
+.operations-center-toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: .62;
+}
+
 .operations-center-status {
   color: #aab7c8;
   font-size: 12px;
@@ -368,6 +399,12 @@
 
 }
 
+.operations-center-work-order-operational_unavailable {
+  min-width: 180px;
+  color: #fde68a;
+  white-space: normal;
+}
+
 .operations-center-verified-status-cell {
   min-width: 220px;
   max-width: 280px;
@@ -541,6 +578,11 @@ body[data-view-mode="mobile"][data-workspace-view="operations-center"] .operatio
 
 .operations-center-mobile-status {
   color: #bbf7d0;
+  font-weight: 700;
+}
+
+.operations-center-mobile-unavailable {
+  color: #fde68a;
   font-weight: 700;
 }
 
@@ -742,6 +784,11 @@ body[data-view-mode="mobile"][data-workspace-view="operations-center"] .operatio
 }
 
 @media (max-width: 720px) {
+  .operations-center-service-availability {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
   .operations-center-mobile-view {
     grid-template-columns: 1fr;
     gap: 10px;

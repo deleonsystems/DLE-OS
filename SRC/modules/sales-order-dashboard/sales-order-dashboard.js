@@ -282,6 +282,19 @@
   }
 
   function getWorkOrderPresentation(row) {
+    if (!operationalServicesAvailable()) {
+      const relationship = getWorkOrderRelationship(row);
+      const candidates = Array.isArray(relationship.candidates) ? relationship.candidates : [];
+      const canonicalWorkOrder = String(relationship.actionableWorkOrderNumber ||
+        (candidates.length === 1 ? candidates[0]?.workOrderNumber : '') || '').trim();
+      return createWorkOrderPresentation(
+        'OPERATIONAL_UNAVAILABLE',
+        canonicalWorkOrder || '\u2014',
+        canonicalWorkOrder ? 'Canonical evidence only' : 'Operational routing unavailable',
+        false, 'unavailable',
+        'Operational routing and approval information is unavailable. Canonical Work Order evidence is not an approved operational route.'
+      );
+    }
     const operational = getApprovalReview(row)?.operationalRelationship;
     if (operational) {
       const active = String(operational.activeWorkOrderNumber || '').trim();
@@ -438,6 +451,8 @@
         ].join('')
       : '<span class="sales-order-dashboard-work-order-primary">' +
         escapeDashboardHtml(presentation.primary) + '</span>';
+    const reviewAvailable = operationalServicesAvailable();
+    const reviewReason = 'Operational routing, approval, and RMA/Rework services are unavailable.';
     return [
       '<div class="sales-order-dashboard-work-order-presentation sales-order-dashboard-work-order-',
       escapeDashboardHtml(presentation.kind),
@@ -448,9 +463,19 @@
       '</span>',
       '<button type="button" class="sales-order-dashboard-work-order-review" data-related-row-index="',
       String(index),
-      '" onclick="openSalesOrderLineReview(event)" aria-label="Review this Sales Order line">Review</button>',
+      '" onclick="openSalesOrderLineReview(event)" aria-label="',
+      reviewAvailable ? 'Review this Sales Order line' : escapeDashboardHtml(reviewReason),
+      '" title="', reviewAvailable ? '' : escapeDashboardHtml(reviewReason), '"',
+      reviewAvailable ? '' : ' disabled',
+      '>', reviewAvailable ? 'Review' : 'Review unavailable', '</button>',
       '</div>'
     ].join('');
+  }
+
+  function operationalServicesAvailable() {
+    const state = window.OperationsCenter?.state;
+    return !state || !Object.prototype.hasOwnProperty.call(state, 'operationalEnrichmentAvailable') ||
+      state.operationalEnrichmentAvailable === true;
   }
 
   function updateRequestToShipAction() {
@@ -1283,6 +1308,11 @@
 
   function openSalesOrderLineReview(event) {
     event?.stopPropagation?.();
+    if (!operationalServicesAvailable()) {
+      const status = document.getElementById('salesOrderDashboardStatus');
+      if (status) status.textContent = 'Operational routing, approval, and RMA/Rework services are unavailable.';
+      return false;
+    }
     const index = Number(event?.currentTarget?.dataset?.relatedRowIndex);
     const row = getRelatedRows()[index];
     if (!row) return;
@@ -1299,8 +1329,24 @@
       button.textContent = membership ? 'RMA / Rework Classified' :
         available.length > 1 ? 'RMA / Rework Review (' + available.length + ' selected)' : 'RMA / Rework Review';
     }
+    updateSalesOrderLineReviewAvailability();
     const dialog = document.getElementById('salesOrderLineReviewDialog');
     if (dialog) dialog.hidden = false;
+    return true;
+  }
+
+  function updateSalesOrderLineReviewAvailability() {
+    const available = operationalServicesAvailable();
+    const message = document.getElementById('salesOrderLineReviewAvailability');
+    const workOrderButton = document.getElementById('salesOrderLineWorkOrderReviewButton');
+    const rmaButton = document.getElementById('salesOrderLineRmaReviewButton');
+    if (message) {
+      message.hidden = available;
+      message.textContent = available ? '' :
+        'Operational routing, approval, and RMA/Rework services are unavailable.';
+    }
+    if (workOrderButton) workOrderButton.disabled = !available;
+    if (rmaButton && !available) rmaButton.disabled = true;
   }
 
   function closeSalesOrderLineReview() {
@@ -1310,12 +1356,21 @@
   }
 
   function continueWorkOrderRelationshipReview() {
+    if (!operationalServicesAvailable()) {
+      updateSalesOrderLineReviewAvailability();
+      return false;
+    }
     const trigger = dashboardState.lineReviewTrigger;
     closeSalesOrderLineReview();
     if (trigger) openWorkOrderApprovalReview({ currentTarget: trigger, stopPropagation() {} });
+    return true;
   }
 
   function continueRmaReworkLineReview() {
+    if (!operationalServicesAvailable()) {
+      updateSalesOrderLineReviewAvailability();
+      return false;
+    }
     const row = dashboardState.lineReviewRow;
     const trigger = dashboardState.lineReviewTrigger;
     closeSalesOrderLineReview();
@@ -1325,6 +1380,7 @@
       dashboardState.rmaSelection = new Map(selected.map(item => [getApprovalKey(item), item]));
       openRmaReworkClassification({ currentTarget: trigger, stopPropagation() {} });
     } else if (row) openRmaReworkClassification({ currentTarget: trigger, stopPropagation() {} }, row);
+    return true;
   }
 
   async function openRmaReworkClassification(event, singleRow = null) {

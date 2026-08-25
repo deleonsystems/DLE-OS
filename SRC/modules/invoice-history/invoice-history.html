@@ -4,20 +4,36 @@
       <h1>Invoice History</h1>
       <p>Qualified historical invoice lines from the canonical DLE-OS platform.</p>
     </div></div>
+    <button id="invoiceHistoryProjectionLink" class="invoice-history-projection-link" type="button" data-invoice-history-action="view-projection">View Projection</button>
     <div class="invoice-history-sync">
-      <button id="invoiceHistorySyncButton" type="button" data-invoice-history-action="sync">Sync Invoice History</button>
+      <strong>Invoice History Sync</strong>
+      <div class="invoice-history-sync-actions">
+        <button id="invoiceHistorySyncButton" type="button" data-invoice-history-action="sync">Sync Invoice History</button>
+        <button id="invoiceHistoryReloadButton" type="button" data-invoice-history-action="reload">Reload Invoice History</button>
+      </div>
       <span id="invoiceHistorySyncStatus" class="invoice-history-sync-status" aria-live="polite">Checking sync status…</span>
-      <small id="invoiceHistoryLastSync">Last successful sync: unavailable</small>
+      <div id="invoiceHistoryRefreshEvidence" class="invoice-history-refresh-evidence">
+        <small id="invoiceHistoryLastAttempt">Last attempted refresh: unavailable</small>
+        <small id="invoiceHistoryLastSync">Last successful committed refresh: unavailable</small>
+        <small id="invoiceHistoryRefreshWindow" hidden></small>
+        <small id="invoiceHistoryRefreshChanges" hidden></small>
+        <small id="invoiceHistoryRefreshIdentity" hidden></small>
+      </div>
+      <details id="invoiceHistoryManualSync" class="invoice-history-manual-sync" hidden>
+        <summary>How to Sync</summary>
+        <p>Until the DEV ControlHost issue is resolved, refresh Invoice History from the non-elevated <b>DLE-OS-HOST\DLE-OS</b> Windows session using the qualified Invoice History refresh launcher. After it completes, reload this workspace.</p>
+        <code>C:\DLE-OS\Repositories\DLE-OS\Tools\InvoiceHistory\Start-InvoiceHistoryRefresh.cmd</code>
+      </details>
     </div>
   </header>
   <section class="invoice-history-summary" aria-label="2026 invoice summary">
-    <article><span>Current Month Invoiced</span><strong id="invoiceHistoryMonthTotal">—</strong></article>
-    <article><span>2026 YTD Invoiced</span><strong id="invoiceHistoryYearTotal">—</strong></article>
+    <article><span id="invoiceHistorySelectedPeriodLabel">Selected Month Invoiced</span><strong id="invoiceHistoryMonthTotal">—</strong></article>
+    <article class="invoice-history-summary-filter-card"><button id="invoiceHistoryAllYearFilter" class="invoice-history-summary-filter" type="button" data-invoice-history-month="all" aria-pressed="false"><span>All 2026 / YTD Invoiced</span><strong id="invoiceHistoryYearTotal">—</strong></button></article>
     <article class="invoice-history-monthly-card"><span>2026 Monthly Totals</span><div id="invoiceHistoryMonthlyTotals" class="invoice-history-monthly-totals"></div></article>
   </section>
   <section class="invoice-history-table-panel" aria-labelledby="invoiceHistoryTableTitle">
     <div class="invoice-history-toolbar">
-      <div><h2 id="invoiceHistoryTableTitle">2026 Invoice Lines</h2><span id="invoiceHistoryStatus" class="invoice-history-status" aria-live="polite">Loading Invoice History…</span></div>
+      <div><h2 id="invoiceHistoryTableTitle">Current Month Invoice History</h2><span id="invoiceHistoryStatus" class="invoice-history-status" aria-live="polite">Loading Invoice History…</span></div>
       <label class="invoice-history-search"><span class="sr-only">Search Invoice History</span><input id="invoiceHistorySearch" type="search" placeholder="Search customer, SO, WO, item, invoice, description…" autocomplete="off"></label>
     </div>
     <div id="invoiceHistoryTable" class="invoice-history-table-wrap" aria-busy="true"><div class="invoice-history-state">Loading authoritative canonical invoice rows…</div></div>

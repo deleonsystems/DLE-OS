@@ -2,6 +2,7 @@
   "use strict";
 
   let selectedWorkspaceId = null;
+  const contextualNavigationHistory = [];
 
   function registry() {
     return window.DleWorkspaceRegistry;
@@ -118,6 +119,42 @@
     return workspace;
   }
 
+  function activeScreenId() {
+    return document.querySelector(".screen.active")?.id || "home";
+  }
+
+  function updateContextualBackButton() {
+    window.updateBackButton?.();
+    const backButton = document.querySelector(".back-btn");
+    if (backButton && contextualNavigationHistory.length) backButton.disabled = false;
+  }
+
+  function navigate(request, addToHistory = true) {
+    const destination = registry().resolve(request?.workspaceId);
+    if (!destination) return null;
+    const destinationScreenId = request?.screenId || destination.home?.screenId || "home";
+    const previous = { workspaceId:selectedWorkspaceId || registry().defaultWorkspaceId, screenId:activeScreenId() };
+    if (addToHistory && (previous.workspaceId !== destination.id || previous.screenId !== destinationScreenId)) {
+      contextualNavigationHistory.push(previous);
+    }
+    if (request?.viewMode) window.DleOperatorHeader?.setViewMode?.(request.viewMode);
+    const workspace = activateWorkspace(destination.id);
+    if (typeof window.go === "function") window.go(destinationScreenId, false);
+    const requestedState = request?.requestedState && typeof request.requestedState === "object"
+      ? Object.freeze({ ...request.requestedState }) : null;
+    document.dispatchEvent(new CustomEvent("dle:workspace-navigation", {
+      detail: Object.freeze({ workspace, screenId:destinationScreenId, viewMode:request?.viewMode || null, requestedState })
+    }));
+    updateContextualBackButton();
+    return workspace;
+  }
+
+  function navigateBack() {
+    const previous = contextualNavigationHistory.pop();
+    if (!previous) return null;
+    return navigate(previous, false);
+  }
+
   function initWorkspaceShell() {
     selectedWorkspaceId = registry().defaultWorkspaceId;
     renderWorkspaceSelector();
@@ -135,8 +172,18 @@
     updateWorkspaceHomeView() {
       activateWorkspace(selectedWorkspaceId || registry().defaultWorkspaceId);
     },
+    navigate,
+    navigateBack,
+    canNavigateBack: () => contextualNavigationHistory.length > 0,
     getCurrentWorkspace
   });
+
+  document.addEventListener("click", event => {
+    if (!contextualNavigationHistory.length || !event.target?.closest?.(".back-btn")) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    navigateBack();
+  }, true);
 
   document.addEventListener("dle:capabilities-ready", () => {
     updateWorkAreaChrome(getCurrentWorkspace());

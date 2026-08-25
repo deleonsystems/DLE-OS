@@ -22,6 +22,7 @@
     }
 
     const requestScope = String(options.requestScope || 'operations-center');
+    activeControllers.get(requestScope + '-enrichment')?.abort();
     activeControllers.get(requestScope)?.abort();
     const controller = new AbortController();
     activeControllers.set(requestScope, controller);
@@ -60,11 +61,7 @@
       throw new Error('Canonical Sales Orders returned ' + items.length + ' of ' + expectedTotal + ' records.');
     }
 
-    const [relationships, rmaReworkByLineKey, approvalsByLineKey] = await Promise.all([
-      loadAllRelationships(client, controller.signal),
-      loadAllActiveRmaReworkMemberships(controller.signal),
-      loadAllApprovalReviews(items, controller.signal)
-    ]);
+    const relationships = await loadAllRelationships(client, controller.signal);
     const relationshipByKey = new Map(relationships.map(relationship => [
       relationshipKey(relationship.customerNumber, relationship.salesOrderNumber, relationship.salesOrderLineNumber),
       relationship
@@ -75,14 +72,8 @@
       if (!relationship) {
         throw new Error('The governed Work Order relationship API omitted Sales Order line ' + key + '.');
       }
-      return normalizeRow(
-        source,
-        relationship,
-        rmaReworkByLineKey.get(key) || null,
-        approvalsByLineKey.get(key) || null
-      );
+      return normalizeRow(source, relationship);
     });
-    await applyMaterialStatusProjection(rows, controller.signal);
     validateUniqueIdentities(rows);
     return {
       rows,
@@ -95,15 +86,47 @@
     };
   }
 
+  async function loadOperationalEnrichment(canonicalResult, options = {}) {
+    const sourceRows = Array.isArray(canonicalResult?.rows) ? canonicalResult.rows : [];
+    const requestScope = String(options.requestScope || 'operations-center') + '-enrichment';
+    activeControllers.get(requestScope)?.abort();
+    const controller = new AbortController();
+    activeControllers.set(requestScope, controller);
+    // Probe the single paged operational source first. When 5054 is offline this
+    // fails before launching one approval request per canonical line.
+    const rmaReworkByLineKey = await loadAllActiveRmaReworkMemberships(controller.signal);
+    const approvalsByLineKey = await loadAllApprovalReviews(sourceRows, controller.signal);
+    if (controller.signal.aborted) throw new DOMException('Stale Operations Center enrichment request.', 'AbortError');
+    const operationalRows = sourceRows.map(source => {
+      const key = relationshipKey(source.customerNumber, source.salesOrderNumber, source.salesOrderLineNumber);
+      return {
+        ...source,
+        rmaReworkMembership: rmaReworkByLineKey.get(key) || null,
+        workOrderApprovalReview: approvalsByLineKey.get(key) || null
+      };
+    });
+    const rows = await applyMaterialStatusProjection(operationalRows, controller.signal);
+    validateUniqueIdentities(rows);
+    return {
+      ...canonicalResult,
+      rows,
+      recordCount: rows.length,
+      loadedAt: new Date().toISOString()
+    };
+  }
+
   async function applyMaterialStatusProjection(rows, signal) {
     const projection = window.MaterialStatus;
     if (!projection?.getMany) throw new Error('The shared Material Status projection is unavailable.');
     const workOrderNumbers = rows.map(resolveMaterialStatusWorkOrder).filter(Boolean);
     const statuses = await projection.getMany(workOrderNumbers, { signal, concurrency: 4 });
-    rows.forEach(row => {
+    return rows.map(row => {
       const workOrderNumber = resolveMaterialStatusWorkOrder(row);
-      row.materialStatus = workOrderNumber ? statuses.get(workOrderNumber) || null : null;
-      row.materialStatusWorkOrderNumber = workOrderNumber;
+      return {
+        ...row,
+        materialStatus: workOrderNumber ? statuses.get(workOrderNumber) || null : null,
+        materialStatusWorkOrderNumber: workOrderNumber
+      };
     });
   }
 
@@ -213,11 +236,12 @@
     }
     const reviews = new Map();
     await mapWithConcurrency(rows, LOOKUP_CONCURRENCY, async source => {
-      const key = relationshipKey(source.customerNumber, source.salesOrderNumber, source.lineNumber);
+      const lineNumber = source.salesOrderLineNumber || source.lineNumber;
+      const key = relationshipKey(source.customerNumber, source.salesOrderNumber, lineNumber);
       const review = await getter(
         source.customerNumber,
         source.salesOrderNumber,
-        source.lineNumber,
+        lineNumber,
         { signal }
       );
       reviews.set(key, review || {});
@@ -437,6 +461,7 @@
 
   window.OperationsCenter.dataService = {
     loadCanonicalRows,
+    loadOperationalEnrichment,
     normalizeRow,
     normalizeRelationship,
     cancel,

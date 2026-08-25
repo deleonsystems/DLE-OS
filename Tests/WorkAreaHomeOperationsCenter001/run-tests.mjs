@@ -55,8 +55,8 @@ const homeWorkAreas = capabilities => workspaces.filter(workspace => {
   return assignment && capabilities.can(assignment.requiredPermission);
 }).map(workspace => workspace.id);
 
-assert.equal(homeWorkAreas(superAdminCapabilities).join(','), 'operations-center',
-  'Miguel/SUPER_ADMIN-level capability sees Operations Center on Home');
+assert.equal(homeWorkAreas(superAdminCapabilities).join(','), 'operations-center,invoice-history',
+  'Miguel/SUPER_ADMIN-level capability sees Operations Center and Invoice History on Home');
 assert.equal(homeWorkAreas(kittingOperatorCapabilities).join(','), 'kitting',
   'normal Kitting operator does not gain Operations Center access');
 assert.equal(homeWorkAreas(noAccessCapabilities).join(','), '',
@@ -69,8 +69,9 @@ assert.match(homeSource, /window\.setWorkspaceView\(workspaceId\);[\s\S]*window\
   'Home tile navigation activates the selected work area and then opens its target screen');
 assert.match(homeSource, /window\.DleOperatorHeader\?\.isMobileView\?\.\(\)/,
   'Mobile Home consumes the global shell-owned view mode');
-assert.match(homeSource, /workspace\.id === "operations-center"/,
-  'Operations Center is the explicitly mobile-ready workspace');
+assert.match(homeSource,
+  /MOBILE_READY_WORKSPACE_IDS = new Set\(\["operations-center", "invoice-history"\]\)/,
+  'Operations Center and Invoice History are the explicitly mobile-ready workspaces');
 assert.match(homeSource, /Open Mobile View/,
   'Operations Center is presented as an actionable mobile launcher');
 assert.match(homeSource, /Mobile View Coming Soon/,

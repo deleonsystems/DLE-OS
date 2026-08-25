@@ -7,7 +7,7 @@
         <p>Operational workspace for preparing customer shipments.</p>
       </div>
     </div>
-    <div id="shippingWorkspaceStatus" class="shipping-workspace-status">Ready</div>
+    <div id="shippingWorkspaceStatus" class="shipping-workspace-status" data-state="checking">Checking operational services…</div>
   </header>
 
   <div class="shipping-workspace-layout">
@@ -19,7 +19,7 @@
             <p>Authoritative operational shipments awaiting or completing ERP invoice reconciliation.</p>
           </div>
           <div class="shipping-queue-heading-actions">
-            <span id="shippingShipmentStagingCount" class="shipping-queue-count">0 shipments</span>
+            <span id="shippingShipmentStagingCount" class="shipping-queue-count">Checking…</span>
             <button id="shippingShipmentStagingRefreshButton" type="button" onclick="refreshShippingShipmentStaging()">Refresh</button>
           </div>
         </div>
@@ -46,7 +46,7 @@
             <p>Requests to Ship submitted by Operations and awaiting Shipping's decision.</p>
           </div>
           <div class="shipping-queue-heading-actions">
-            <span id="shippingQueueCount" class="shipping-queue-count">0 requests</span>
+            <span id="shippingQueueCount" class="shipping-queue-count">Checking…</span>
             <button id="shippingPrintQueueButton" type="button" onclick="printShippingQueue()" disabled>Print Shipping Queue</button>
           </div>
         </div>
@@ -59,7 +59,7 @@
             <h2 id="packingQueueTitle">Packing Queue</h2>
             <p>Accepted shipment requests currently being prepared for shipment.</p>
           </div>
-          <span id="packingQueueCount" class="shipping-queue-count">0 requests</span>
+          <span id="packingQueueCount" class="shipping-queue-count">Checking…</span>
         </div>
         <div id="packingQueue" class="shipping-queue"></div>
       </section>

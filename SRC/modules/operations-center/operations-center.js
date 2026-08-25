@@ -9,6 +9,7 @@
   let operationalStateSubscription = null;
   let materialStatusSubscription = null;
   let syncOperationsPollTimer = null;
+  let operationalEnrichmentRetryTimer = null;
   let verifiedStatusDialogRecord = null;
   let verifiedStatusDialogGroup = null;
   let verifiedStatusSaving = false;
@@ -20,6 +21,13 @@
   let mobileSelectedRecordKey = '';
   const syncOperationsRefreshEligibleRunIds = new Set();
   const syncOperationsRefreshedRunIds = new Set();
+  const OPERATIONAL_ENRICHMENT_RETRY_MS = 30000;
+
+  function operationalServicesAvailable() {
+    const state = window.OperationsCenter.state;
+    return !state || !Object.prototype.hasOwnProperty.call(state, 'operationalEnrichmentAvailable') ||
+      state.operationalEnrichmentAvailable === true;
+  }
 
   async function loadOperationsCenterModule() {
     const placeholder = document.getElementById('operationsCenter');
@@ -67,7 +75,9 @@
     try {
       const result = await window.OperationsCenter.dataService.loadCanonicalRows();
       if (stateActions.commitCanonicalLoad(result, requestId)) {
-        await refreshOperationsCenterVerifiedStatuses();
+        window.OperationsCenter.table.renderModule();
+        renderOperationsCenterMobileView();
+        await refreshOperationsCenterOperationalEnrichment(result, requestId);
       }
     } catch (error) {
       if (error?.name === 'AbortError') return false;
@@ -77,10 +87,58 @@
     return !window.OperationsCenter.state.canonicalError;
   }
 
+  async function refreshOperationsCenterOperationalEnrichment(canonicalResult, requestId) {
+    const state = window.OperationsCenter.state;
+    const stateActions = window.OperationsCenter.stateActions;
+    if (typeof window.OperationsCenter.dataService?.loadOperationalEnrichment !== 'function') {
+      await refreshOperationsCenterVerifiedStatuses();
+      return true;
+    }
+    const result = canonicalResult || {
+      rows: state.canonicalRows,
+      totalItems: state.canonicalTotalItems,
+      source: state.canonicalSource,
+      endpoint: state.canonicalEndpoint
+    };
+    const activeRequestId = requestId ?? state.canonicalRequestId;
+    stateActions.beginOperationalEnrichment();
+    window.OperationsCenter.table.renderModule();
+    try {
+      const enriched = await window.OperationsCenter.dataService.loadOperationalEnrichment(result);
+      if (!stateActions.commitOperationalEnrichment(enriched, activeRequestId)) return false;
+      if (operationalEnrichmentRetryTimer) window.clearTimeout(operationalEnrichmentRetryTimer);
+      operationalEnrichmentRetryTimer = null;
+      await refreshOperationsCenterVerifiedStatuses();
+      window.OperationsCenter.table.renderModule();
+      renderOperationsCenterMobileView();
+      return true;
+    } catch (error) {
+      if (error?.name === 'AbortError') return false;
+      if (!stateActions.failOperationalEnrichment(error, activeRequestId)) return false;
+      window.OperationsCenter.projection.setActive(false);
+      scheduleOperationalEnrichmentRetry();
+      window.OperationsCenter.table.renderModule();
+      renderOperationsCenterMobileView();
+      return false;
+    }
+  }
+
+  function scheduleOperationalEnrichmentRetry() {
+    if (operationalEnrichmentRetryTimer) window.clearTimeout(operationalEnrichmentRetryTimer);
+    operationalEnrichmentRetryTimer = window.setTimeout(() => {
+      operationalEnrichmentRetryTimer = null;
+      if (window.OperationsCenter.state.canonicalLoaded &&
+          !operationalServicesAvailable()) {
+        void refreshOperationsCenterOperationalEnrichment();
+      }
+    }, OPERATIONAL_ENRICHMENT_RETRY_MS);
+  }
+
   async function refreshOperationsCenterVerifiedStatuses() {
     const stateActions = window.OperationsCenter.stateActions;
     const service = window.OperationsCenter.verifiedStatusService;
-    if (!service?.loadLatestForRows) return;
+    if (!operationalServicesAvailable() ||
+        !service?.loadLatestForRows) return;
     stateActions.setVerifiedStatusLoading(true);
     try {
       await service.loadLatestForRows(window.OperationsCenter.state.canonicalRows);
@@ -138,7 +196,8 @@
       ' · started ' + escapeOptionText(formatSyncDate(syncValue(state, 'startedAtUtc'))) +
       ' · elapsed ' + escapeOptionText(syncValue(state, 'elapsedSeconds') ?? 0) + 's' +
       (countSummary ? ' · ' + escapeOptionText(countSummary) : '') + '</small>';
-    if (button) button.disabled = running;
+    if (button) button.disabled = running ||
+      !operationalServicesAvailable();
     if (syncOperationsPollTimer) window.clearTimeout(syncOperationsPollTimer);
     syncOperationsPollTimer = running ? window.setTimeout(refreshSyncOperationsStatus, 2000) : null;
     refreshOperationsCenterAfterSuccessfulSync(state, status);
@@ -151,10 +210,13 @@
       const root = document.getElementById('syncOperationsStatus');
       if (root) root.innerHTML = '<strong>Sync Operations unavailable</strong><span>' +
         escapeOptionText(error?.message || error) + '</span>';
+      const button = document.getElementById('syncOperationsButton');
+      if (button) button.disabled = true;
     }
   }
 
   async function startSyncOperations() {
+    if (!operationalServicesAvailable()) return false;
     if (!window.confirm('Start the governed operational synchronization now? This updates Customer Master, Work Orders, Open Sales Orders, and relationships, then verifies the promoted generation through API 5052.')) return;
     const button = document.getElementById('syncOperationsButton');
     if (button) button.disabled = true;
@@ -220,6 +282,9 @@
   function renderMobileResultCard(group) {
     const viewModel = window.OperationsCenter.viewModel;
     const primary = group.primaryRecord;
+    if (!operationalServicesAvailable()) {
+      return renderDegradedMobileResultCard(group, primary, viewModel);
+    }
     const unresolved = group.type === 'UNRESOLVED_LINE';
     const active = group.key === mobileSelectedRecordKey ? ' active' : '';
     const status = group.statusPresentation?.statusText || '';
@@ -253,6 +318,19 @@
       statusBadge + '</button>';
   }
 
+  function renderDegradedMobileResultCard(group, record, viewModel) {
+    const active = group.key === mobileSelectedRecordKey ? ' active' : '';
+    return '<button type="button" class="operations-center-mobile-card operations-center-mobile-card-unresolved' + active +
+      '" data-mobile-group-key="' + escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)">' +
+      '<strong>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) + ' / Line ' +
+      escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) + '</strong>' +
+      '<span>' + escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' · ERP Qty Open ' +
+      escapeOptionText(viewModel.getOfficialField(record, 'erpQtyOpen')) + '</span>' +
+      '<small>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + ' · Due ' +
+      escapeOptionText(viewModel.getOfficialField(record, 'dueDate')) + '</small>' +
+      '<small class="operations-center-mobile-unavailable">Operational routing unavailable</small></button>';
+  }
+
   function selectOperationsCenterMobileRecord(event) {
     mobileSelectedRecordKey = event?.currentTarget?.dataset?.mobileGroupKey || '';
     renderOperationsCenterMobileView();
@@ -268,6 +346,21 @@
     const primary = group.primaryRecord;
     const status = group.statusPresentation || {};
     const unresolved = group.type === 'UNRESOLVED_LINE';
+    if (!operationalServicesAvailable()) {
+      detail.innerHTML = '<div class="operations-center-mobile-detail-card operations-center-mobile-detail-unresolved">' +
+        '<h3>Canonical Sales Order · ' + escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + '</h3>' +
+        '<dl>' +
+        mobileFact('Customer', viewModel.getOfficialField(primary, 'customer')) +
+        mobileFact('Customer P.O.', viewModel.getOfficialField(primary, 'customerPo')) +
+        mobileFact('ERP Qty Open', viewModel.getOfficialField(primary, 'erpQtyOpen')) +
+        mobileFact('SO / Line', viewModel.getOfficialField(primary, 'salesOrder') + ' / ' + viewModel.getOfficialField(primary, 'sequenceLine')) +
+        mobileFact('Due', viewModel.getOfficialField(primary, 'dueDate')) +
+        mobileFact('Operational Work Order', 'Unavailable') +
+        mobileFact('Material Status', 'Unavailable') +
+        mobileFact('Verified Status', 'Unavailable') +
+        '</dl><p class="operations-center-mobile-unavailable">Limited operational services. Canonical values remain available read-only.</p></div>';
+      return;
+    }
     if (unresolved) {
       detail.innerHTML = '<div class="operations-center-mobile-detail-card operations-center-mobile-detail-unresolved">' +
         '<h3>Awaiting WO Assignment · ' + escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + '</h3>' +
@@ -334,13 +427,26 @@
   }
 
   function toggleOperationsCenterProjectionMode() {
+    if (!operationalServicesAvailable()) return false;
     window.OperationsCenter.projection.toggleActive();
     window.OperationsCenter.table.renderModule();
+    return true;
+  }
+
+  function applyOperationsCenterWorkspaceNavigation(event) {
+    if (event?.detail?.workspace?.id !== 'operations-center' || event.detail.requestedState?.mode !== 'projection') return false;
+    if (operationalServicesAvailable()) window.OperationsCenter.projection.setActive(true);
+    else window.OperationsCenter.projection.setActive(false);
+    window.OperationsCenter.table.renderModule();
+    if (event.detail.viewMode === 'mobile') toggleOperationsCenterMobileView(true);
+    return true;
   }
 
   function toggleOperationsCenterRmaVisibility() {
+    if (!operationalServicesAvailable()) return false;
     window.OperationsCenter.stateActions.toggleHideRmaRework();
     window.OperationsCenter.table.renderModule();
+    return true;
   }
 
   function updateOperationsCenterProjectionSelection(event) {
@@ -348,13 +454,14 @@
   }
 
   function openVerifiedStatusLogger(record, group = null) {
+    if (!operationalServicesAvailable()) return false;
     verifiedStatusDialogRecord = record;
     verifiedStatusDialogGroup = group;
     const dialog = document.getElementById('operationsCenterVerifiedStatusDialog');
     const context = document.getElementById('operationsCenterVerifiedStatusContext');
     const text = document.getElementById('operationsCenterVerifiedStatusText');
     const message = document.getElementById('operationsCenterVerifiedStatusMessage');
-    if (!dialog || !context || !text) return;
+    if (!dialog || !context || !text) return false;
     const viewModel = window.OperationsCenter.viewModel;
     const prefill = viewModel.getVerifiedStatusLoggerPrefill(record, group);
     if (group) {
@@ -478,6 +585,7 @@
 
   async function submitVerifiedStatus(event) {
     event?.preventDefault?.();
+    if (!operationalServicesAvailable()) return false;
     if (verifiedStatusSaving || (!verifiedStatusDialogRecord && !verifiedStatusDialogGroup)) return;
     const text = document.getElementById('operationsCenterVerifiedStatusText');
     const button = document.getElementById('operationsCenterVerifiedStatusSave');
@@ -523,12 +631,14 @@
   window.OperationsCenter.initialize = initializeOperationsCenter;
   window.OperationsCenter.render = renderOperationsCenterModule;
   window.OperationsCenter.refreshCanonicalData = refreshOperationsCenterCanonicalData;
+  window.OperationsCenter.refreshOperationalEnrichment = refreshOperationsCenterOperationalEnrichment;
   window.OperationsCenter.refreshVerifiedStatuses = refreshOperationsCenterVerifiedStatuses;
   window.OperationsCenter.toggleMobileView = toggleOperationsCenterMobileView;
   window.OperationsCenter.renderMobileView = renderOperationsCenterMobileView;
   window.OperationsCenter.openVerifiedStatusLogger = openVerifiedStatusLogger;
   window.OperationsCenter.filter = filterOperationsCenter;
   window.OperationsCenter.toggleProjectionMode = toggleOperationsCenterProjectionMode;
+  window.OperationsCenter.applyWorkspaceNavigation = applyOperationsCenterWorkspaceNavigation;
   window.OperationsCenter.toggleRmaVisibility = toggleOperationsCenterRmaVisibility;
   window.OperationsCenter.updateProjectionSelection = updateOperationsCenterProjectionSelection;
   window.OperationsCenter.refreshSyncOperationsStatus = refreshSyncOperationsStatus;
@@ -538,6 +648,7 @@
   window.initializeOperationsCenter = initializeOperationsCenter;
   window.renderOperationsCenterModule = renderOperationsCenterModule;
   window.refreshOperationsCenterCanonicalData = refreshOperationsCenterCanonicalData;
+  window.refreshOperationsCenterOperationalEnrichment = refreshOperationsCenterOperationalEnrichment;
   window.refreshOperationsCenterVerifiedStatuses = refreshOperationsCenterVerifiedStatuses;
   window.toggleOperationsCenterMobileView = toggleOperationsCenterMobileView;
   window.filterOperationsCenterMobileView = renderOperationsCenterMobileView;
@@ -555,4 +666,5 @@
   window.updateOperationsCenterProjectionSelection = updateOperationsCenterProjectionSelection;
   window.refreshSyncOperationsStatus = refreshSyncOperationsStatus;
   window.startSyncOperations = startSyncOperations;
+  document.addEventListener?.('dle:workspace-navigation', applyOperationsCenterWorkspaceNavigation);
 })();

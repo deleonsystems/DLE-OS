@@ -11,6 +11,7 @@
     selectedPackingRequest: null,
     returnDialogRequest: null,
     processingPackingRequest: null,
+    shipmentStagingInitialized: false,
     shipmentStagingLoading: false,
     shipmentStagingError: null,
     expandedShippingRequests: new Set(),
@@ -43,7 +44,9 @@
     operationalStateSubscription = window.DleApiClient.subscribeOperationalLineStateChange(detail => {
       if (!isShippingWorkspaceActive()) return;
       if (detail.source === "shipment-staging-read-model-change") {
-        renderShippingShipmentStaging();
+        state.shipmentStagingInitialized = true;
+        state.shipmentStagingError = null;
+        renderShippingWorkspace();
         return;
       }
       const refresh = initializeShippingShipmentStaging();
@@ -60,7 +63,7 @@
   async function initializeShippingShipmentStaging() {
     state.shipmentStagingLoading = true;
     state.shipmentStagingError = null;
-    renderShippingShipmentStaging();
+    renderShippingWorkspace();
     try {
       if (window.usesOperationalShipmentStaging?.()) {
         if (typeof window.refreshOperationalShipmentStaging !== "function") {
@@ -72,8 +75,31 @@
       state.shipmentStagingError = error;
     } finally {
       state.shipmentStagingLoading = false;
-      renderShippingShipmentStaging();
+      state.shipmentStagingInitialized = true;
+      renderShippingWorkspace();
     }
+  }
+
+  function isShippingOperationalAvailable() {
+    return state.shipmentStagingInitialized &&
+      !state.shipmentStagingLoading && !state.shipmentStagingError;
+  }
+
+  function renderShippingOperationalAvailability() {
+    const status = document.getElementById("shippingWorkspaceStatus");
+    if (!status) return;
+    if (!state.shipmentStagingInitialized || state.shipmentStagingLoading) {
+      status.dataset.state = "checking";
+      status.textContent = "Checking operational services…";
+      return;
+    }
+    if (state.shipmentStagingError) {
+      status.dataset.state = "unavailable";
+      status.textContent = "Operational data unavailable";
+      return;
+    }
+    status.dataset.state = "ready";
+    status.textContent = "Ready";
   }
 
   function openRequest(requestToShip) {
@@ -98,6 +124,7 @@
   }
 
   function renderShippingWorkspace() {
+    renderShippingOperationalAvailability();
     renderShippingShipmentStaging();
     renderShippingQueue();
     renderPackingQueue();
@@ -131,6 +158,14 @@
     const lines = typeof window.getShipmentStagingDisplayLines === "function"
       ? window.getShipmentStagingDisplayLines(records)
       : [];
+    if (state.shipmentStagingError) {
+      configureShippingShipmentStagingStatuses([]);
+      table.innerHTML = '<div class="shipping-shipment-staging-empty">' +
+        'Shipping operational data is unavailable and current staging counts cannot be trusted. Use Refresh after the service is restored.' +
+        '</div>';
+      updateShippingShipmentStagingCount(0, 0);
+      return;
+    }
     configureShippingShipmentStagingStatuses(lines);
 
     if (!lines.length) {
@@ -226,6 +261,14 @@
   function updateShippingShipmentStagingCount(visible, total) {
     const count = document.getElementById("shippingShipmentStagingCount");
     if (!count) return;
+    if (!state.shipmentStagingInitialized || state.shipmentStagingLoading) {
+      count.textContent = "Checking…";
+      return;
+    }
+    if (state.shipmentStagingError) {
+      count.textContent = "Unavailable";
+      return;
+    }
     count.textContent = visible === total
       ? total + (total === 1 ? " shipment" : " shipments")
       : visible + " of " + total + " shown";
@@ -267,7 +310,7 @@
       defaultStatus: "Pending Shipping"
     });
     const printButton = document.getElementById("shippingPrintQueueButton");
-    if (printButton) printButton.disabled = !state.requests.length;
+    if (printButton) printButton.disabled = !isShippingOperationalAvailable() || !state.requests.length;
   }
 
   function renderPackingQueue() {
@@ -287,6 +330,14 @@
     const target = document.getElementById(options.targetId);
     const count = document.getElementById(options.countId);
     const requestCount = options.requests.length;
+    if (!isShippingOperationalAvailable()) {
+      if (count) count.textContent = state.shipmentStagingLoading || !state.shipmentStagingInitialized
+        ? "Checking…" : "Unavailable";
+      if (target) {
+        target.innerHTML = '<div class="shipping-queue-empty">Shipping operational queue data is unavailable.</div>';
+      }
+      return;
+    }
     if (count) {
       count.textContent = requestCount + (requestCount === 1 ? " request" : " requests");
     }
@@ -497,14 +548,15 @@
     const requestId = String(activeSelection?.requestId || "").trim();
     const processing = !!state.processingPackingRequest;
     const canStage = window.DleOsCapabilities?.can('shipments.stage') !== false;
+    const operationalAvailable = isShippingOperationalAvailable();
 
     if (selectedLabel) selectedLabel.textContent = requestId || "None selected";
     if (createButton) createButton.disabled = true;
-    if (acceptButton) acceptButton.disabled = !state.selectedShippingRequest;
-    if (returnButton) returnButton.disabled = !state.selectedShippingRequest;
-    if (printButton) printButton.disabled = !state.selectedPackingRequest || processing;
+    if (acceptButton) acceptButton.disabled = !operationalAvailable || !state.selectedShippingRequest;
+    if (returnButton) returnButton.disabled = !operationalAvailable || !state.selectedShippingRequest;
+    if (printButton) printButton.disabled = !operationalAvailable || !state.selectedPackingRequest || processing;
     if (processedButton) {
-      processedButton.disabled = !state.selectedPackingRequest || processing || !canStage;
+      processedButton.disabled = !operationalAvailable || !state.selectedPackingRequest || processing || !canStage;
       processedButton.hidden = !canStage;
       processedButton.textContent = processing ? "Persisting Shipment..." : "Shipment Processed";
     }

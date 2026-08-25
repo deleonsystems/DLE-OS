@@ -12,9 +12,14 @@
   const viewModel = window.OperationsCenter.viewModel;
   const projection = window.OperationsCenter.projection;
 
+  function operationalServicesAvailable() {
+    return state.operationalEnrichmentAvailable === true;
+  }
+
   function renderModule() {
     renderStatus();
     renderSourceStatus();
+    renderServiceAvailability();
     renderProjectionSummary();
     renderRmaVisibilityControl();
     renderTable();
@@ -31,6 +36,7 @@
       status.textContent = 'Canonical Sales Orders could not be loaded. ' + state.canonicalError;
     } else if (state.canonicalLoaded) {
       status.textContent = records.length + ' records shown';
+      if (!operationalServicesAvailable()) status.textContent += ' · canonical read-only';
     } else {
       status.textContent = 'Canonical Sales Orders have not been loaded.';
     }
@@ -122,6 +128,10 @@
   }
 
   function renderVerifiedStatusCell(record, masterRecordKey, className = 'operations-center-official-cell') {
+    if (!operationalServicesAvailable()) {
+      return '<td class="' + escapeHtml(className) +
+        '"><span class="operations-center-unavailable-value">Unavailable</span></td>';
+    }
     const status = viewModel.getVerifiedStatusPresentation(record);
     const hasStatus = !!status.statusText;
     const meta = [status.recordedBy, status.timeLabel]
@@ -215,6 +225,20 @@
     sourceStatus.textContent = 'Not updated';
   }
 
+  function renderServiceAvailability() {
+    const availability = document.getElementById('operationsCenterServiceAvailability');
+    if (!availability) return;
+    if (!state.canonicalLoaded || operationalServicesAvailable()) {
+      availability.hidden = true;
+      availability.textContent = '';
+      return;
+    }
+    availability.hidden = false;
+    availability.innerHTML = state.operationalEnrichmentLoading
+      ? '<strong>Loading operational services</strong><span>Canonical Sales Orders are available read-only while operational status is being verified.</span>'
+      : '<strong>Limited operational services</strong><span>Canonical Sales Orders are current. Operational routing, RMA/Rework, approvals, Material Status, Shipment Staging adjustments, Verified Status, Projection Mode, and Sync Operations are unavailable.</span>';
+  }
+
   function getDisplayedRecords() {
     return getCurrentView().records;
   }
@@ -239,11 +263,16 @@
   function renderRmaVisibilityControl() {
     const toggle = document.getElementById('operationsCenterRmaVisibilityToggle');
     if (!toggle) return;
-    const active = !!state.hideRmaRework;
+    const available = operationalServicesAvailable();
+    const active = available && !!state.hideRmaRework;
     const hiddenCount = getCurrentView().hiddenRmaReworkCount;
     toggle.classList.toggle('active', active);
     toggle.setAttribute('aria-pressed', String(active));
-    toggle.textContent = 'Hide RMA/Rework' + (active ? '  •  ' + hiddenCount + ' hidden' : '');
+    toggle.disabled = !available;
+    toggle.title = available ? '' : 'RMA/Rework membership is unavailable while operational services are offline.';
+    toggle.textContent = available
+      ? 'Hide RMA/Rework' + (active ? '  •  ' + hiddenCount + ' hidden' : '')
+      : 'RMA/Rework unavailable';
   }
 
   function renderProjectionCell(masterRecordKey) {
@@ -264,11 +293,17 @@
     const jobs = document.getElementById('operationsCenterProjectionJobs');
     const revenue = document.getElementById('operationsCenterProjectionRevenue');
     const toggle = document.getElementById('operationsCenterProjectionToggle');
-    const active = !!projection?.isActive();
+    const available = operationalServicesAvailable();
+    if (!available && projection?.isActive()) projection.setActive(false);
+    const active = available && !!projection?.isActive();
 
     if (toggle) {
       toggle.classList.toggle('active', active);
-      toggle.textContent = active ? 'Projection Mode: On' : 'Projection Mode';
+      toggle.disabled = !available;
+      toggle.title = available ? '' : 'Projection Mode is unavailable because operational eligibility and Shipment Staging context cannot be verified.';
+      toggle.textContent = available
+        ? (active ? 'Projection Mode: On' : 'Projection Mode')
+        : 'Projection unavailable';
     }
 
     if (!summary) return;
@@ -281,10 +316,12 @@
   }
 
   function updateProjectionSelection(event) {
+    if (!operationalServicesAvailable()) return false;
     const target = event?.target;
     const masterRecordKey = target?.dataset?.masterRecordKey || '';
     projection?.setSelected(masterRecordKey, !!target?.checked);
     renderProjectionSummary();
+    return true;
   }
 
   function openSalesOrderDashboard(event) {
@@ -376,6 +413,7 @@
     renderModule,
     renderStatus,
     renderSourceStatus,
+    renderServiceAvailability,
     renderProjectionSummary,
     renderRmaVisibilityControl,
     renderTable,

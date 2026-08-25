@@ -107,9 +107,10 @@
     const workspaceId = document.body?.dataset?.workspaceView || 'dle-home';
     const homeActive = workspaceId === 'dle-home';
     const operationsCenterActive = workspaceId === 'operations-center';
+    const invoiceHistoryActive = workspaceId === 'invoice-history';
     const fallback = ensureMobileViewFallback();
     if (fallback) {
-      const showFallback = viewMode === MOBILE_VIEW_MODE && !homeActive && !operationsCenterActive;
+      const showFallback = viewMode === MOBILE_VIEW_MODE && !homeActive && !operationsCenterActive && !invoiceHistoryActive;
       fallback.hidden = !showFallback;
       const label = document.getElementById('dleMobileViewFallbackWorkspace');
       if (label) label.textContent = showFallback ? (document.body?.dataset?.workspaceLabel || '') : '';

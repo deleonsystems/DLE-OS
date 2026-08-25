@@ -1,6 +1,8 @@
 (function registerWorkAreaHome(window, document) {
   "use strict";
 
+  const MOBILE_READY_WORKSPACE_IDS = new Set(["operations-center", "invoice-history"]);
+
   function greeting() {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -72,7 +74,7 @@
   }
 
   function renderMobileLauncher(workspace) {
-    const mobileReady = workspace.id === "operations-center";
+    const mobileReady = MOBILE_READY_WORKSPACE_IDS.has(workspace.id);
     const element = mobileReady ? "button" : "div";
     const action = mobileReady
       ? ' type="button" data-mobile-work-area="' + escapeHtml(workspace.id) + '"'

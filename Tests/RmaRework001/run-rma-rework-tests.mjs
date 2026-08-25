@@ -73,8 +73,13 @@ assert.match(dashboardHtml, /Use only when a customer RMA number has not yet bee
 assert.match(sql, /EventType IN \('CASE_CREATED','LINE_ADDED'\)/);
 assert.match(sql, /EventType='LINE_ADDED' AND ExpectedPriorEventId IS NOT NULL/);
 assert.doesNotMatch(kittingHtml + kitting, /Classify as RMA \/ Rework|createRmaReworkCase/);
-assert.match(kitting, /RMA\/Rework Lines Excluded/);
-assert.match(kittingHtml, /data-kitting-queue-button="RMA_REWORK"/);
+assert.match(kitting,
+  /Active RMA\/Rework cases control these Sales Order lines\.[\s\S]*normal Kitting demand is suppressed\./,
+  'Kitting presents active RMA/Rework lines in their dedicated governed queue and suppresses normal demand');
+assert.doesNotMatch(kittingHtml, /data-kitting-(?:queue-button|lifecycle-tab)="RMA_REWORK"/,
+  'RMA/Rework-controlled lines are not exposed as a normal Kitting operator lifecycle tab');
+assert.match(kittingWorkspace, /RMA_REWORK: queues\.rmaRework/,
+  'Kitting retains governed RMA/Rework queue segregation in its read model');
 assert.match(kittingWorkspace, /while \(expectedTotal === null \|\| cases\.length < expectedTotal\)/);
 assert.match(kittingWorkspace, /membership could not be verified completely/);
 assert.match(kittingWorkspace, /No BOM, shortage, purchasing, or production demand is generated here/);

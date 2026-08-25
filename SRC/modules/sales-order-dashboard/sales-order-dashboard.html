@@ -294,8 +294,9 @@
         <div class="sales-order-dashboard-dialog-field"><strong>RMA / Rework Status</strong><span id="salesOrderLineRmaStatus">Not classified</span></div>
         <div class="sales-order-dashboard-dialog-field"><strong>Current Classification</strong><span id="salesOrderLineRmaClassification">—</span></div>
       </div>
+      <p id="salesOrderLineReviewAvailability" class="sales-order-dashboard-dialog-validation" role="status" hidden></p>
       <div class="sales-order-dashboard-dialog-actions">
-        <button type="button" class="secondary-btn" onclick="continueWorkOrderRelationshipReview()">Work Order Relationship Review</button>
+        <button type="button" id="salesOrderLineWorkOrderReviewButton" class="secondary-btn" onclick="continueWorkOrderRelationshipReview()">Work Order Relationship Review</button>
         <button type="button" id="salesOrderLineRmaReviewButton" onclick="continueRmaReworkLineReview()">RMA / Rework Review</button>
       </div>
     </section>

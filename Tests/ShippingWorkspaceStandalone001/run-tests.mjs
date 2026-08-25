@@ -27,7 +27,12 @@ class Element {
 const elements = new Map([
   'shippingShipmentStaging', 'shippingShipmentStagingTable', 'shippingShipmentStagingStatus',
   'shippingShipmentStagingRefreshButton', 'shippingShipmentStagingCount',
-  'shippingShipmentStagingSearch', 'shippingShipmentStagingStatusFilter'
+  'shippingShipmentStagingSearch', 'shippingShipmentStagingStatusFilter',
+  'shippingWorkspaceStatus', 'shippingQueue', 'shippingQueueCount', 'shippingPrintQueueButton',
+  'packingQueue', 'packingQueueCount', 'shippingSelectedRequest',
+  'shippingCreateRequestToShipButton', 'shippingAcceptRequestButton',
+  'shippingReturnToOperationsButton', 'shippingPrintRequestToShipButton',
+  'shippingShipmentProcessedButton'
 ].map(id => [id, new Element(id)]));
 const mount = new Element('shippingMount');
 mount.dataset.workspaceLoaded = 'true';
@@ -50,7 +55,16 @@ const document = {
   body: { dataset: { workspaceView: 'shipping' } },
   getElementById(id) { return elements.get(id) || null; },
   querySelector(selector) { return selector === '[data-workspace-mount="shipping"]' ? mount : null; },
-  querySelectorAll() { return []; },
+  querySelectorAll(selector) {
+    if (selector === '#shippingShipmentStagingTable tbody tr' &&
+        elements.get('shippingShipmentStagingTable').innerHTML.includes(meggitt.shipmentId)) {
+      const row = new Element('staging-row');
+      row.dataset.status = meggitt.operationalStatus;
+      row.textContent = Object.values(meggitt).join(' ');
+      return [row];
+    }
+    return [];
+  },
   addEventListener() {}
 };
 const window = {
@@ -104,12 +118,25 @@ await window.ShippingWorkspace.refreshShipmentStaging();
 assert.match(elements.get('shippingShipmentStagingStatus').textContent, /5054 unavailable/);
 assert.match(elements.get('shippingShipmentStagingStatus').textContent, /request-5054/,
   'API failures expose their request id');
+assert.equal(elements.get('shippingWorkspaceStatus').textContent, 'Operational data unavailable',
+  'an offline operational service never leaves Shipping looking Ready');
+assert.equal(elements.get('shippingShipmentStagingCount').textContent, 'Unavailable');
+assert.equal(elements.get('shippingQueueCount').textContent, 'Unavailable');
+assert.equal(elements.get('packingQueueCount').textContent, 'Unavailable');
+assert.match(elements.get('shippingShipmentStagingTable').innerHTML, /counts cannot be trusted/);
+assert.match(elements.get('shippingQueue').innerHTML, /operational queue data is unavailable/);
+assert.equal(elements.get('shippingAcceptRequestButton').disabled, true);
+assert.equal(elements.get('shippingShipmentProcessedButton').disabled, true,
+  '5054-backed Shipping actions fail closed');
 
 window.refreshOperationalShipmentStaging = async () => { operationalReads += 1; return shipmentStagingState.records; };
 shipmentStagingState.records = [meggitt];
 subscribers[0]({ source: 'shipment-staging-read-model-change' });
 assert.match(elements.get('shippingShipmentStagingTable').innerHTML, /SHP-20260805-5AA4FE93/,
   'shared state events update an already-open workspace');
+assert.equal(elements.get('shippingWorkspaceStatus').textContent, 'Ready',
+  'a healthy operational state event restores normal Shipping presentation');
+assert.equal(elements.get('shippingShipmentStagingCount').textContent, '1 shipment');
 
 window.openShippingShipmentStagingReview({
   currentTarget: { dataset: { shipmentId: meggitt.shipmentId } }, stopPropagation() {}

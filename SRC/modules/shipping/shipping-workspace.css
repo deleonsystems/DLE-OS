@@ -77,6 +77,12 @@ body[data-view-mode="desktop"][data-workspace-view="shipping"]
   white-space: nowrap;
 }
 
+.shipping-workspace-status[data-state="unavailable"] {
+  border-color: rgba(248, 113, 113, .48);
+  background: rgba(127, 29, 29, .28);
+  color: #fecaca;
+}
+
 .shipping-workspace-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;

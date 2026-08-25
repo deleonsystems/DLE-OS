@@ -215,6 +215,16 @@ for (const [classification, label] of [
 state.approvalReviews.clear();
 assert.equal(api.getWorkOrderPresentation(row).secondary, 'Candidate');
 assert.equal(api.getWorkOrderPresentation(row).actionable, false);
+context.window.OperationsCenter = { state: { operationalEnrichmentAvailable: false } };
+const offlinePresentation = api.getWorkOrderPresentation(row);
+assert.equal(offlinePresentation.status, 'OPERATIONAL_UNAVAILABLE');
+assert.equal(offlinePresentation.primary, '0115505', 'canonical Work Order evidence remains identifiable');
+assert.equal(offlinePresentation.secondary, 'Canonical evidence only');
+assert.equal(offlinePresentation.actionable, false,
+  'canonical Work Order evidence is not treated as an approved operational route');
+context.window.OperationsCenter.state.operationalEnrichmentAvailable = true;
+assert.equal(api.getWorkOrderPresentation(row).secondary, 'Candidate',
+  'healthy 5054 state restores the normal governed review presentation');
 state.rmaMemberships.set('001082|0011998|040', {
   caseId: 'case-1', caseReference: 'RMA-123', caseRecord: { caseType: 'CUSTOMER_REWORK' }
 });
@@ -288,6 +298,12 @@ assert.equal(afterApproval12015.secondary, 'Approved · Candidate Supported');
 assert.equal(afterApproval12015.actionable, true);
 
 assert.match(html, /Work Order Relationship Review/);
+assert.match(html, /salesOrderLineReviewAvailability/);
+assert.match(html, /salesOrderLineWorkOrderReviewButton/);
+assert.match(dashboard, /Review unavailable/);
+assert.match(dashboard, /Operational routing, approval, and RMA\/Rework services are unavailable/);
+assert.match(dashboard, /if \(!operationalServicesAvailable\(\)\)[\s\S]*?return false;/,
+  'offline review entry points fail closed before opening governed review workflows');
 assert.match(dashboard, /workOrderApprovalChoice/);
 assert.match(html, /<select id="workOrderApprovalReasonCode" aria-required="true"/);
 assert.match(html, /<select id="noWorkOrderReasonCode" aria-required="true"/);

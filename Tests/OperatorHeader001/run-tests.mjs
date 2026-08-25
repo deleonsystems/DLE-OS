@@ -50,13 +50,16 @@ assert.match(script, /window\.OperationsCenter\?\.toggleMobileView/);
 assert.match(script, /getElementById\('operationsCenterMobileViewToggle'\)\?\.remove\(\)/);
 assert.match(script, /querySelector\('\.operations-center-mobile-search-row > button'\)\?\.remove\(\)/);
 assert.match(script, /Mobile View Coming Soon/);
-assert.match(script, /viewMode === MOBILE_VIEW_MODE && !homeActive && !operationsCenterActive/);
+assert.match(script, /viewMode === MOBILE_VIEW_MODE && !homeActive && !operationsCenterActive && !invoiceHistoryActive/);
 assert.match(script, /window\.DleWorkAreaHome\?\.render\?\.\(\)/);
 assert.match(script, /getViewMode/);
 assert.match(script, /setViewMode/);
 assert.match(workspace, /mode\.textContent = isHome \? "HOME" : workspace\.label\.toUpperCase\(\)/);
 assert.doesNotMatch(workspace, /changeWorkAreaButton/);
 assert.match(workAreaHome, /window\.changeWorkArea = function changeWorkArea\(\)/);
+assert.match(workAreaHome, /MOBILE_READY_WORKSPACE_IDS = new Set\(\["operations-center", "invoice-history"\]\)/);
+assert.match(workAreaHome, /MOBILE_READY_WORKSPACE_IDS\.has\(workspace\.id\)/);
+assert.match(workAreaHome, /data-mobile-work-area=/);
 
 assert.match(styles, /\.dle-operator-header \.logo \{ height:86px/);
 assert.match(styles, /min-height:44px/);
@@ -73,6 +76,7 @@ assert.match(styles, /\.dle-identity-clock-stack #dle-auth-identity \{ width:100
 assert.match(styles, /\.dle-view-mode-toggle \{[^}]*grid-template-columns:1fr 1fr/);
 assert.match(styles, /\.dle-view-mode-toggle button\[aria-pressed="true"\]/);
 assert.match(styles, /body\[data-view-mode="mobile"\][^\n]*data-workspace-view="operations-center"/);
+assert.match(styles, /:not\(\[data-workspace-view="invoice-history"\]\)/);
 assert.match(styles, /@media\(max-width:420px\)[^\n]*\.dle-view-mode-toggle\{flex-basis:204px;max-width:210px\}/);
 assert.match(styles, /body\[data-view-mode="mobile"\] > header\.dle-app-header/);
 assert.match(styles, /grid-template-areas:"brand mode" "navigation identity"/);

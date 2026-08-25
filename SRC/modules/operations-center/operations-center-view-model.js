@@ -23,6 +23,7 @@
   }
 
   function getOperationsCenterRecords() {
+    if (!isOperationalEnrichmentAvailable()) return getMasterRecords();
     return getMasterRecords().filter(record => {
       if (isActiveRmaReworkRecord(record)) return true;
       return !getShipmentProjection(record).isFullyStaged;
@@ -30,6 +31,7 @@
   }
 
   function isActiveRmaReworkRecord(record) {
+    if (!isOperationalEnrichmentAvailable()) return false;
     if (record?.rmaReworkMembership) return true;
 
     const operational = record?.workOrderApprovalReview?.operationalRelationship;
@@ -145,6 +147,9 @@
   }
 
   function getVerifiedStatusPresentation(record) {
+    if (!isOperationalEnrichmentAvailable()) {
+      return { ...emptyVerifiedStatusPresentation(), unavailable: true };
+    }
     const latest = getEffectiveVerifiedStatusRecord(record);
     if (!latest) return emptyVerifiedStatusPresentation();
     return presentVerifiedStatus(latest);
@@ -190,6 +195,7 @@
   }
 
   function resolveGovernedWorkOrderNumber(record) {
+    if (!isOperationalEnrichmentAvailable()) return '';
     const operational = record?.workOrderApprovalReview?.operationalRelationship;
     const approved = record?.workOrderApprovalReview?.currentApproval;
     const relationship = record?.workOrderRelationship;
@@ -330,6 +336,10 @@
   }
 
   function getOperationalProjectionField(record, field) {
+    if (!isOperationalEnrichmentAvailable() &&
+        ['pendingInvoiceQty', 'opQtyOpen', 'materialStatus'].includes(field)) {
+      return 'Unavailable';
+    }
     const projectionMap = {
       quantityOrdered: item => formatOperationsQuantity(item?.quantityOrdered),
       erpQtyOpen: item => formatOperationsQuantity(item?.erpQuantityOpen),
@@ -349,6 +359,17 @@
   }
 
   function getShipmentProjection(record) {
+    if (!isOperationalEnrichmentAvailable()) {
+      return {
+        available: false,
+        canonicalOpenQuantity: parseOperationsQuantity(record?.erpQuantityOpen),
+        stagedQuantity: null,
+        operationalRemainingQuantity: null,
+        isFullyStaged: null,
+        isPartiallyStaged: null,
+        statusLabel: 'Unavailable'
+      };
+    }
     const projector = window.ShipmentOperationalProjection;
     if (!projector?.projectLine) {
       const erpQuantityOpen = parseOperationsQuantity(record?.erpQuantityOpen);
@@ -414,6 +435,17 @@
     const relationship = record?.workOrderRelationship || {};
     const candidates = Array.isArray(relationship.candidates) ? relationship.candidates : [];
     const status = String(relationship.status || 'UNRESOLVED');
+    if (!isOperationalEnrichmentAvailable()) {
+      const canonicalWorkOrder = status === 'EXACT_LINE_UNIQUE'
+        ? normalizeOperationsValue(relationship.actionableWorkOrderNumber) : '';
+      return {
+        status: 'OPERATIONAL_UNAVAILABLE',
+        label: 'Operational routing unavailable',
+        secondaryLabel: canonicalWorkOrder ? 'Canonical WO evidence: ' + canonicalWorkOrder : '',
+        actionable: false,
+        reason: '5054 operational approvals and RMA/Rework routing are unavailable. Canonical evidence is not an operational decision.'
+      };
+    }
     const operational = record?.workOrderApprovalReview?.operationalRelationship;
     if (operational) {
       const active = normalizeOperationsValue(operational.activeWorkOrderNumber);
@@ -583,4 +615,10 @@
     getVerifiedStatusPresentation,
     getVerifiedStatusLoggerPrefill
   };
+
+  function isOperationalEnrichmentAvailable() {
+    const state = window.OperationsCenter.state;
+    return !state || !Object.prototype.hasOwnProperty.call(state, 'operationalEnrichmentAvailable') ||
+      state.operationalEnrichmentAvailable === true;
+  }
 })();

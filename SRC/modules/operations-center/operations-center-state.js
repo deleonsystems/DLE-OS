@@ -19,6 +19,10 @@
     canonicalSource: 'DLE_OS_CANONICAL_LIVE',
     canonicalEndpoint: '/api/platform/live/v1/sales-orders',
     canonicalRequestId: 0,
+    operationalEnrichmentLoading: false,
+    operationalEnrichmentAvailable: true,
+    operationalEnrichmentError: '',
+    operationalEnrichmentLoadedAt: '',
     verifiedStatusByKey: {},
     workOrderVerifiedStatusByNumber: {},
     verifiedStatusLoading: false,
@@ -30,6 +34,7 @@
     state.canonicalLoading = true;
     state.canonicalError = '';
     state.canonicalStale = state.canonicalLoaded && state.canonicalRows.length > 0;
+    if (!state.canonicalLoaded) state.operationalEnrichmentAvailable = null;
     state.canonicalRequestId += 1;
     return state.canonicalRequestId;
   }
@@ -46,6 +51,38 @@
     state.canonicalTotalItems = Number(result.totalItems ?? state.canonicalRows.length);
     state.canonicalSource = result.source || state.canonicalSource;
     state.canonicalEndpoint = result.endpoint || state.canonicalEndpoint;
+    state.operationalEnrichmentAvailable = null;
+    state.operationalEnrichmentError = '';
+    state.verifiedStatusByKey = {};
+    state.workOrderVerifiedStatusByNumber = {};
+    return true;
+  }
+
+  function beginOperationalEnrichment() {
+    state.operationalEnrichmentLoading = true;
+    state.operationalEnrichmentError = '';
+  }
+
+  function commitOperationalEnrichment(result, requestId) {
+    if (requestId !== state.canonicalRequestId) return false;
+    state.canonicalRows = Array.isArray(result?.rows) ? result.rows : state.canonicalRows;
+    state.operationalEnrichmentLoading = false;
+    state.operationalEnrichmentAvailable = true;
+    state.operationalEnrichmentError = '';
+    state.operationalEnrichmentLoadedAt = result?.loadedAt || new Date().toISOString();
+    return true;
+  }
+
+  function failOperationalEnrichment(error, requestId) {
+    if (requestId !== state.canonicalRequestId) return false;
+    state.operationalEnrichmentLoading = false;
+    state.operationalEnrichmentAvailable = false;
+    state.operationalEnrichmentError = String(
+      error?.message || error || 'Operational enrichment is unavailable.'
+    );
+    state.hideRmaRework = false;
+    state.verifiedStatusLoading = false;
+    state.verifiedStatusError = 'Verified Status is unavailable while operational services are offline.';
     return true;
   }
 
@@ -129,6 +166,9 @@
     beginCanonicalLoad,
     commitCanonicalLoad,
     failCanonicalLoad,
+    beginOperationalEnrichment,
+    commitOperationalEnrichment,
+    failOperationalEnrichment,
     setVerifiedStatusLoading,
     setVerifiedStatusError,
     setVerifiedStatusRecords,
