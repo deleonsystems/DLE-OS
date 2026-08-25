@@ -49,6 +49,7 @@ assert.doesNotMatch(refresh, /InvoiceHistory|CustomerInvoice/i);
 
 let requestedUrl = "";
 const browserContext = {
+  URL,
   URLSearchParams,
   encodeURIComponent,
   localStorage: { getItem() { return null; } },

@@ -87,6 +87,10 @@ $startedAt = [DateTimeOffset]::UtcNow
 $sourceProcess = $null
 $sourceProcessStartedAt = $null
 $sourceWaitResult = $null
+$sourceStdoutStream = $null
+$sourceStderrStream = $null
+$sourceStdoutTask = $null
+$sourceStderrTask = $null
 $noProgressTimeoutSeconds = 180
 $absoluteTimeoutSeconds = 600
 
@@ -130,6 +134,21 @@ function Stop-StartedSourceProcess {
             "$Reason cleanup.")
     }
     $script:sourceProcessActive = $false
+}
+
+function Complete-StartedSourceOutputCapture {
+    foreach ($task in @($sourceStdoutTask, $sourceStderrTask)) {
+        if ($null -ne $task -and -not $task.Wait(10000)) {
+            throw 'VPro output capture did not complete after process exit.'
+        }
+    }
+    foreach ($stream in @($sourceStdoutStream, $sourceStderrStream)) {
+        if ($null -ne $stream) { $stream.Dispose() }
+    }
+    $script:sourceStdoutTask = $null
+    $script:sourceStderrTask = $null
+    $script:sourceStdoutStream = $null
+    $script:sourceStderrStream = $null
 }
 
 function Write-Status {
@@ -219,15 +238,26 @@ try {
     }
 
     $sourceStopwatch = [Diagnostics.Stopwatch]::StartNew()
-    $sourceProcess = Start-Process `
-        -FilePath $vpro `
-        -ArgumentList @(
-            '-tT0', '-nT0', '-m1024', "-c$config", $compiledPath) `
-        -WorkingDirectory $programRoot `
-        -RedirectStandardOutput (Join-Path $runRoot 'vpro.stdout.log') `
-        -RedirectStandardError (Join-Path $runRoot 'vpro.stderr.log') `
-        -WindowStyle Hidden `
-        -PassThru
+    $sourceInfo = [Diagnostics.ProcessStartInfo]::new()
+    $sourceInfo.FileName = $vpro
+    $sourceInfo.Arguments = @(
+        '-tT0', '-nT0', '-m1024', "-c$config", $compiledPath) -join ' '
+    $sourceInfo.WorkingDirectory = $programRoot
+    $sourceInfo.UseShellExecute = $false
+    $sourceInfo.CreateNoWindow = $true
+    $sourceInfo.RedirectStandardOutput = $true
+    $sourceInfo.RedirectStandardError = $true
+    $sourceProcess = [Diagnostics.Process]::new()
+    $sourceProcess.StartInfo = $sourceInfo
+    [void]$sourceProcess.Start()
+    $sourceStdoutStream = [IO.File]::Create(
+        (Join-Path $runRoot 'vpro.stdout.log'))
+    $sourceStderrStream = [IO.File]::Create(
+        (Join-Path $runRoot 'vpro.stderr.log'))
+    $sourceStdoutTask = $sourceProcess.StandardOutput.BaseStream.CopyToAsync(
+        $sourceStdoutStream)
+    $sourceStderrTask = $sourceProcess.StandardError.BaseStream.CopyToAsync(
+        $sourceStderrStream)
     $sourceProcessActive = $true
     $sourceProcessStartedAt = [DateTimeOffset](
         $sourceProcess.StartTime.ToUniversalTime())
@@ -268,9 +298,13 @@ try {
             'The bounded source process exited without a valid final ' +
             'O_RDONLY summary.')
     }
-    $sourceProcess.WaitForExit()
-    if ($sourceProcess.ExitCode -ne 0) {
-        throw "The bounded source process exited with code $($sourceProcess.ExitCode)."
+    Complete-StartedSourceOutputCapture
+    $sourceExitCode = $sourceWaitResult.ExitCode
+    if ($null -eq $sourceExitCode) {
+        throw 'The bounded source process completed without a captured exit code.'
+    }
+    if ($sourceExitCode -ne 0) {
+        throw "The bounded source process exited with code $sourceExitCode."
     }
     $summaryText = Get-Content -LiteralPath $summaryPath -Raw
     if ($summaryText -match '(?im)^failure,') {
@@ -307,6 +341,7 @@ try {
     $result = [string]$importResult.Result
     Write-Status $result 'Invoice History refresh completed.' ([ordered]@{
         SourceElapsedMilliseconds = $sourceStopwatch.ElapsedMilliseconds
+        SourceExitCode = $sourceExitCode
         Package = $packageProgress
         Import = $importResult
         SourceOpenMode = 'O_RDONLY'
@@ -357,5 +392,8 @@ finally {
     $sourceProcessActive = Test-StartedSourceProcessAlive
     if (-not $sourceProcessActive -and (Test-Path -LiteralPath $lockPath)) {
         Remove-Item -LiteralPath $lockPath -Force
+    }
+    if (-not $sourceProcessActive) {
+        Complete-StartedSourceOutputCapture
     }
 }

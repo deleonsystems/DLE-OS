@@ -98,6 +98,7 @@ app.Use(async (context, next) =>
         "/api/operational-work-order-relationships/",
         "/api/operations-center/",
         "/api/shipment-staging/",
+        "/api/platform/refresh/invoice-history/v1/",
         "/api/sync/operations",
         "/api/development/identity/"
     ];

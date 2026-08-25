@@ -15,7 +15,41 @@
     return Array.from(document.querySelectorAll("[data-workspace-home]"));
   }
 
-  function renderActiveWorkspace(workspace) {
+  function ensureWorkspacePanel(workspace) {
+    let panel = document.querySelector('[data-workspace-home="' + workspace.id + '"]');
+    if (panel || !workspace.modulePath) return panel;
+    const home = document.getElementById("home");
+    if (!home) return null;
+    panel = document.createElement("div");
+    panel.className = "workspace-home";
+    panel.dataset.workspaceHome = workspace.id;
+    panel.innerHTML = '<div data-workspace-mount="' + workspace.id + '"></div>';
+    home.appendChild(panel);
+    return panel;
+  }
+
+  async function ensureWorkspaceAssets(workspace) {
+    ensureWorkspacePanel(workspace);
+    if (workspace.stylePath && !document.querySelector('link[data-workspace-style="' + workspace.id + '"]')) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = workspace.stylePath;
+      link.dataset.workspaceStyle = workspace.id;
+      document.head.appendChild(link);
+    }
+    if (!workspace.modulePath || window.DleWorkspaces?.[workspace.id]) return;
+    await new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = workspace.modulePath;
+      script.dataset.workspaceModule = workspace.id;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("Unable to load " + workspace.label + " workspace module."));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function renderActiveWorkspace(workspace) {
+    await ensureWorkspaceAssets(workspace);
     const workspaceController = window.DleWorkspaces?.[workspace.id];
     if (!workspaceController?.render) return;
 
@@ -58,6 +92,7 @@
     }
 
     selectedWorkspaceId = workspace.id;
+    ensureWorkspacePanel(workspace);
 
     document.body.dataset.workspaceView = workspace.id;
     document.body.dataset.workspaceLabel = workspace.label;
@@ -76,7 +111,9 @@
       detail: { workspace }
     }));
 
-    renderActiveWorkspace(workspace);
+    renderActiveWorkspace(workspace).catch(error => {
+      console.error("Unable to activate DLE-OS workspace.", error);
+    });
 
     return workspace;
   }

@@ -1,0 +1,25 @@
+<div class="invoice-history-workspace" data-invoice-history-root>
+  <header class="invoice-history-header">
+    <div class="invoice-history-title"><span class="small-icon" aria-hidden="true">IH</span><div>
+      <h1>Invoice History</h1>
+      <p>Qualified historical invoice lines from the canonical DLE-OS platform.</p>
+    </div></div>
+    <div class="invoice-history-sync">
+      <button id="invoiceHistorySyncButton" type="button" data-invoice-history-action="sync">Sync Invoice History</button>
+      <span id="invoiceHistorySyncStatus" class="invoice-history-sync-status" aria-live="polite">Checking sync status…</span>
+      <small id="invoiceHistoryLastSync">Last successful sync: unavailable</small>
+    </div>
+  </header>
+  <section class="invoice-history-summary" aria-label="2026 invoice summary">
+    <article><span>Current Month Invoiced</span><strong id="invoiceHistoryMonthTotal">—</strong></article>
+    <article><span>2026 YTD Invoiced</span><strong id="invoiceHistoryYearTotal">—</strong></article>
+    <article class="invoice-history-monthly-card"><span>2026 Monthly Totals</span><div id="invoiceHistoryMonthlyTotals" class="invoice-history-monthly-totals"></div></article>
+  </section>
+  <section class="invoice-history-table-panel" aria-labelledby="invoiceHistoryTableTitle">
+    <div class="invoice-history-toolbar">
+      <div><h2 id="invoiceHistoryTableTitle">2026 Invoice Lines</h2><span id="invoiceHistoryStatus" class="invoice-history-status" aria-live="polite">Loading Invoice History…</span></div>
+      <label class="invoice-history-search"><span class="sr-only">Search Invoice History</span><input id="invoiceHistorySearch" type="search" placeholder="Search customer, SO, WO, item, invoice, description…" autocomplete="off"></label>
+    </div>
+    <div id="invoiceHistoryTable" class="invoice-history-table-wrap" aria-busy="true"><div class="invoice-history-state">Loading authoritative canonical invoice rows…</div></div>
+  </section>
+</div>

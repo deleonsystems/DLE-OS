@@ -11,6 +11,20 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+function Get-InvoiceHistoryFileSha256 {
+    param([Parameter(Mandatory)][string] $LiteralPath)
+    $stream = [IO.File]::OpenRead($LiteralPath)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString(
+            $algorithm.ComputeHash($stream))).Replace('-', '')
+    }
+    finally {
+        $algorithm.Dispose()
+        $stream.Dispose()
+    }
+}
+
 $approvedRoot = [IO.Path]::GetFullPath(
     'C:\DLE-OS\Canonical\InvoiceHistory\Refresh\Runs')
 $packageRoot = [IO.Path]::GetFullPath($PackagePath)
@@ -70,7 +84,7 @@ foreach ($entry in Import-Csv -LiteralPath $hashesPath) {
         throw "Invalid package hash entry: $($entry.RelativePath)"
     }
     if (
-        (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -cne
+        (Get-InvoiceHistoryFileSha256 -LiteralPath $file) -cne
         $entry.Sha256
     ) {
         throw "Package hash mismatch: $($entry.RelativePath)"
@@ -83,7 +97,7 @@ $contentMaterial = foreach ($relative in @(
     'Evidence/comparison.csv'
 )) {
     $path = Join-Path $packageRoot ($relative -replace '/', '\')
-    "$relative|$((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash)"
+    "$relative|$(Get-InvoiceHistoryFileSha256 -LiteralPath $path)"
 }
 $algorithm = [Security.Cryptography.SHA256]::Create()
 try {
@@ -682,7 +696,7 @@ SELECT @FinalStatus AS RefreshStatus,@ChangeCount AS ChangeCount,
         '@PackageHash', [string]$manifest.packageContentSha256)
     [void]$apply.Parameters.AddWithValue(
         '@ManifestHash',
-        (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash)
+        (Get-InvoiceHistoryFileSha256 -LiteralPath $manifestPath))
     [void]$apply.Parameters.AddWithValue(
         '@WindowStart', [DateTime]$manifest.windowStart)
     [void]$apply.Parameters.AddWithValue(

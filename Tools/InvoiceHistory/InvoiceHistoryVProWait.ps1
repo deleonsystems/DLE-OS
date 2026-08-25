@@ -36,8 +36,11 @@ function Get-InvoiceHistoryOutputProgressState {
                 }
         ) -join "`n")
         FileCount = $files.Count
-        TotalBytes = [long](
-            $files | Measure-Object -Property Length -Sum).Sum
+        TotalBytes = if ($files.Count -gt 0) {
+            [long](
+                $files | Measure-Object -Property Length -Sum).Sum
+        }
+        else { 0L }
         LatestWriteTimeUtc = if ($latestTicks -gt 0) {
             [DateTime]::new($latestTicks, [DateTimeKind]::Utc).ToString('O')
         }
@@ -115,6 +118,7 @@ function Wait-InvoiceHistoryVProExtraction {
     $lastEvidenceAt = [DateTimeOffset]::MinValue
     $decision = 'WAIT'
     $summaryValid = $false
+    $exitCode = $null
 
     while ($decision -eq 'WAIT') {
         $now = [DateTimeOffset]::UtcNow
@@ -144,6 +148,13 @@ function Wait-InvoiceHistoryVProExtraction {
             -SummaryValid $summaryValid `
             -NoProgressTimeoutSeconds $NoProgressTimeoutSeconds `
             -AbsoluteTimeoutSeconds $AbsoluteTimeoutSeconds
+        if (-not $processAlive) {
+            # HasExited establishes completion, but WaitForExit completes the
+            # Process API handshake before ExitCode is read. Capture it here,
+            # while the original process handle is still owned by the waiter.
+            $Process.WaitForExit()
+            $exitCode = [int]$Process.ExitCode
+        }
         if (
             $decision -ne 'WAIT' -or
             ($now - $lastEvidenceAt).TotalSeconds -ge 5
@@ -159,6 +170,7 @@ function Wait-InvoiceHistoryVProExtraction {
                     ProcessId = $Process.Id
                     ProcessStartedAtUtc = $ProcessStartedAtUtc.ToString('O')
                     ProcessAlive = $processAlive
+                    ExitCode = $exitCode
                     LastObservedProgressAtUtc = $lastProgressAt.ToString('O')
                     ObservedAtUtc = $now.ToString('O')
                     ElapsedMilliseconds = [long](
@@ -187,6 +199,7 @@ function Wait-InvoiceHistoryVProExtraction {
         ProcessId = $Process.Id
         ProcessStartedAtUtc = $ProcessStartedAtUtc
         ProcessAlive = $processAlive
+        ExitCode = $exitCode
         LastObservedProgressAtUtc = $lastProgressAt
         ObservedAtUtc = $now
         ElapsedMilliseconds = [long](

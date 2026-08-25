@@ -48,12 +48,16 @@ assert.match(runner, /AddDays\(-44\)/);
 assert.match(runner, /FileMode\]::CreateNew/);
 assert.match(runner, /ALREADY_RUNNING/);
 assert.match(runner, /non-elevated \$approvedIdentity/);
-assert.doesNotMatch(runner, /\\\\[A-Za-z0-9._-]+\\/);
+assert.match(runner, /\\\\deleon-server\\Add-ON\\AON\\ADATA/);
+assert.doesNotMatch(runner, /\\\\(?!deleon-server\\Add-ON\\AON\\ADATA)[A-Za-z0-9._-]+\\/i);
 assert.doesNotMatch(runner, /Register-ScheduledTask|New-ScheduledTask/);
 
 assert.match(schema, /platform\.InvoiceHistoryRefreshRun/);
 assert.match(schema, /LastInvoiceHistoryRefreshRunId/);
 assert.match(importer, /IsolationLevel\]::Serializable/);
+assert.match(importer, /function Get-InvoiceHistoryFileSha256/);
+assert.match(importer, /Security\.Cryptography\.SHA256\]::Create\(\)/);
+assert.doesNotMatch(importer, /Get-FileHash/);
 assert.match(importer, /MissingFromSource/);
 assert.doesNotMatch(importer, /DELETE FROM canonical\.CustomerInvoice/);
 assert.match(importer, /Controlled Invoice History refresh rollback/);
@@ -69,7 +73,7 @@ assert.match(
   /\/api\/platform\/refresh\/invoice-history\/v1\/run/
 );
 assert.match(control, /DLE-OS-HOST\\DLE-OS/);
-assert.match(control, /WithOrigins\(allowedOrigin\)/);
+assert.match(control, /WithOrigins\(allowedOrigins\)/);
 assert.match(control, /RequireAuthorization\("SnapshotRefreshOperator"\)/);
 assert.match(control, /erpRefreshLauncherPath/);
 assert.match(control, /ErpRefreshIsRunning/);
@@ -87,7 +91,7 @@ assert.match(html, /data-invoice-history-refresh-control/);
 assert.match(viewer, /runInvoiceHistoryRefresh/);
 assert.match(
   viewer,
-  /state\.activeEntity === "invoiceHistory"/
+  /state\.activeEntity !== "invoiceHistory"/
 );
 assert.doesNotMatch(
   viewer,
@@ -97,6 +101,7 @@ assert.doesNotMatch(existingRefresh, /InvoiceHistory|CustomerInvoice/i);
 
 const calls = [];
 const context = {
+  URL,
   window: {
     location: {
       hostname: "DLE-OS-HOST",

@@ -45,6 +45,20 @@
       })
     },
     {
+      id: "invoice-history",
+      label: "Invoice History",
+      purpose: "Read-only historical customer invoice lines, invoiced totals, and dedicated synchronization.",
+      modulePath: "SRC/modules/invoice-history/invoice-history.js",
+      stylePath: "SRC/modules/invoice-history/invoice-history.css",
+      home: Object.freeze({
+        label: "Invoice History",
+        description: "History \u2022 Invoiced Totals \u2022 Dedicated Sync",
+        mark: "IH",
+        screenId: "home",
+        requiredPermission: "sync.operations"
+      })
+    },
+    {
       id: "purchasing",
       label: "Purchasing",
       purpose: "Material procurement, vendor management, and material shortages."

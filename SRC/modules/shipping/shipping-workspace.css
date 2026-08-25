@@ -6,6 +6,17 @@
   transform: translateX(-50%);
 }
 
+body[data-view-mode="desktop"][data-workspace-view="shipping"] > main {
+  max-width: none;
+}
+
+body[data-view-mode="desktop"][data-workspace-view="shipping"]
+  .workspace-home[data-workspace-home="shipping"] {
+  width: 100%;
+  margin-left: 0;
+  transform: none;
+}
+
 .shipping-workspace {
   display: grid;
   gap: 18px;
