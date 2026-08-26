@@ -1,0 +1,53 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$true)][ValidatePattern('^dev5054-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$')][string]$ReleaseId,
+    [string]$EvidenceRoot='C:\DLE-OS\Qualification\DevResilience\Phase2'
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference='Stop'
+$identity=[Security.Principal.WindowsIdentity]::GetCurrent();$principal=New-Object Security.Principal.WindowsPrincipal($identity)
+if(-not$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)-or-not[string]::Equals($identity.Name,'DLE-OS-HOST\Miguel',[StringComparison]::OrdinalIgnoreCase)){throw 'Credential re-registration requires elevated DLE-OS-HOST\Miguel.'}
+
+$candidatePath='\';$candidateName='DLE-OS DEV Operational ControlHost 5054 Candidate';$legacyPath='\DLE-OS\Development\';$legacyName='Operational ControlHost 5054';$runtimeIdentity='DLE-OS-HOST\DLE-OS-DEV-CONTROL'
+$oldRelease='C:\DLE-OS\Development\OperationalControlHost5054\Releases\dev5054-20260825T170328Z-4e01176a73ea';$newRelease="C:\DLE-OS\Development\OperationalControlHost5054\Releases\$ReleaseId";$newManifest="C:\DLE-OS\Development\OperationalControlHost5054\Manifests\$ReleaseId.json";$logRoot='C:\ProgramData\DLE-OS\DevelopmentOperationalControl\DevOnly\Logs'
+$stamp=[DateTimeOffset]::UtcNow.ToString('yyyyMMddTHHmmssZ');$runRoot=Join-Path $EvidenceRoot ('phase2-credential-reregistration-'+$stamp);$null=New-Item -ItemType Directory -Path $runRoot -Force
+$result=[ordered]@{Schema='dle-os.phase2-credential-reregistration.v1';StartedUtc=[DateTimeOffset]::UtcNow;Identity=$identity.Name;RuntimeIdentity=$runtimeIdentity;ReleaseId=$ReleaseId;PasswordCapturedInEvidence=$false;Passed=$false;RollbackInvoked=$false;RollbackPassed=$false}
+$credential=$null;$plainPassword=$null;$bstr=[IntPtr]::Zero;$registrationAttempted=$false
+
+function Probe([string]$Uri){try{$r=Invoke-WebRequest -UseBasicParsing -UseDefaultCredentials -Uri $Uri -TimeoutSec 20;[ordered]@{Passed=([int]$r.StatusCode-eq200);Status=[int]$r.StatusCode;Body=$r.Content}}catch{[ordered]@{Passed=$false;Error=$_.Exception.Message}}}
+function ExactProcess([string]$Release){$exe=Join-Path $Release 'DleOs.DevOperationalControlHost.exe';@(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue|Where-Object{$_.ExecutablePath-and[string]::Equals($_.ExecutablePath,$exe,[StringComparison]::OrdinalIgnoreCase)}|ForEach-Object{$o=Invoke-CimMethod -InputObject $_ -MethodName GetOwner -ErrorAction SilentlyContinue;[pscustomobject]@{Pid=[int]$_.ProcessId;Path=$_.ExecutablePath;Owner=if($o.ReturnValue-eq0){$o.Domain+'\'+$o.User}else{$null}}})}
+function WaitHealthy([string]$Release,[int]$Seconds=150){$deadline=(Get-Date).AddSeconds($Seconds);do{Start-Sleep -Seconds 2;$p=@(ExactProcess $Release);$h=Probe 'http://dle-os-host:5051/api/operations-center/v1/work-orders/0115622/verified-status-history';if($p.Count-eq1-and$p[0].Owner-ieq$runtimeIdentity-and$h.Passed){return[ordered]@{Passed=$true;Process=$p[0];FrontendTo5054=$h}}}until((Get-Date)-ge$deadline);[ordered]@{Passed=$false;Processes=$p;FrontendTo5054=$h}}
+function AssertManifest([string]$Release,[string]$ManifestPath){$m=Get-Content -LiteralPath $ManifestPath -Raw|ConvertFrom-Json;$actual=@(Get-ChildItem -LiteralPath $Release -File -Recurse -Force);if($actual.Count-ne@($m.files).Count){throw 'New release file count does not match its manifest.'};foreach($entry in $m.files){$p=Join-Path $Release $entry.relativePath;if(-not(Test-Path -LiteralPath $p)-or(Get-Item -LiteralPath $p).Length-ne[int64]$entry.length-or(Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash-ne$entry.sha256){throw "New release manifest mismatch: $($entry.relativePath)"}};$m}
+function NormalizeTaskXml([string]$Text){[xml]$x=$Text;$n=New-Object Xml.XmlNamespaceManager($x.NameTable);$n.AddNamespace('t','http://schemas.microsoft.com/windows/2004/02/mit/task');foreach($xp in '/t:Task/t:Actions/t:Exec/t:Arguments','/t:Task/t:Actions/t:Exec/t:WorkingDirectory'){foreach($node in @($x.SelectNodes($xp,$n))){$node.InnerText='<PHASE2_RELEASE_ACTION>'}};$restart=$x.SelectSingleNode('/t:Task/t:Settings/t:RestartOnFailure',$n);if($restart){$null=$restart.ParentNode.RemoveChild($restart)};$x.OuterXml}
+
+try{
+    $manifest=AssertManifest $newRelease $newManifest
+    if($manifest.releaseId-ne$ReleaseId-or$manifest.expectedServiceIdentity-ne$runtimeIdentity-or$manifest.operationalDatabase-ne'DLE_OS_OPERATIONAL_DEV'-or$manifest.securityDatabase-ne'DLE_OS_SECURITY_DEV'-or$manifest.canonicalReadEndpoint-ne'http://DLE-OS-HOST:5052'){throw 'New release manifest violates the approved Phase 2 boundary.'}
+    $candidate=Get-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName;$beforeXml=Export-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName;$legacyXml=Export-ScheduledTask -TaskPath $legacyPath -TaskName $legacyName;$oldAction=@($candidate.Actions)[0];$oldSettings=$candidate.Settings
+    if(-not$candidate.Settings.Enabled-or$candidate.State-ne'Running'-or$candidate.Principal.UserId-ine$runtimeIdentity-or[string]$candidate.Principal.LogonType-ne'Password'-or[string]$candidate.Settings.ExecutionTimeLimit-ne'PT0S'-or[string]$candidate.Settings.MultipleInstances-ne'IgnoreNew'-or[string]$oldAction.WorkingDirectory-ne$oldRelease){throw 'Candidate task is not at the recovered qualified baseline.'}
+    $legacy=Get-ScheduledTask -TaskPath $legacyPath -TaskName $legacyName;if($legacy.Settings.Enabled-or$legacy.State-ne'Disabled'){throw 'Legacy task is not disabled.'}
+    $pre=WaitHealthy $oldRelease 30;if(-not$pre.Passed){throw 'Old qualified 5054 release is not healthy before re-registration.'};$result.Preflight=$pre
+
+    $credential=Get-Credential -UserName $runtimeIdentity -Message 'Enter the existing DLE-OS-DEV-CONTROL password. It will not be saved in Phase 2 evidence.'
+    if($null-eq$credential-or$credential.UserName-ine$runtimeIdentity){throw 'Credential prompt was cancelled or returned an unexpected identity.'}
+    $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($credential.Password);$plainPassword=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+
+    Stop-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName -ErrorAction Stop;Start-Sleep -Seconds 2
+    $updated=Get-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName;$updated.Settings.RestartCount=4;$updated.Settings.RestartInterval='PT2M';$launcher=Join-Path $newRelease 'Start-DevOperationalControlHost5054.ps1';$arguments='-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$launcher+'"';$action=New-ScheduledTaskAction -Execute ([string]$oldAction.Execute) -Argument $arguments -WorkingDirectory $newRelease
+    $registrationAttempted=$true
+    Set-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName -Action $action -Settings $updated.Settings -User $runtimeIdentity -Password $plainPassword|Out-Null
+    $afterXml=Export-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName;if((NormalizeTaskXml $beforeXml)-cne(NormalizeTaskXml $afterXml)){throw 'Candidate changed outside the approved action and restart policy.'};if((Export-ScheduledTask -TaskPath $legacyPath -TaskName $legacyName)-cne$legacyXml){throw 'Legacy task changed.'}
+    $after=Get-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName;if($after.Principal.UserId-ine$runtimeIdentity-or[string]$after.Principal.LogonType-ne'Password'-or[int]$after.Settings.RestartCount-ne4-or[string]$after.Settings.RestartInterval-ne'PT2M'-or[string]$after.Settings.ExecutionTimeLimit-ne'PT0S'-or[string]$after.Settings.MultipleInstances-ne'IgnoreNew'){throw 'Re-registered task does not match the approved principal/settings.'}
+    Start-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName;$health=WaitHealthy $newRelease;if(-not$health.Passed){throw 'New Phase 2 release did not become healthy.'}
+    $deadline=(Get-Date).AddSeconds(30);do{Start-Sleep -Seconds 1;$tail=@(Get-ChildItem -LiteralPath $logRoot -File -Filter'dev5054-*.jsonl' -ErrorAction SilentlyContinue|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 4|ForEach-Object{Get-Content -LiteralPath $_.FullName -Tail 100 -ErrorAction SilentlyContinue})-join"`n"}until(($tail-match[regex]::Escape($ReleaseId)-and$tail-match'ApplicationStarted')-or(Get-Date)-ge$deadline);if($tail-notmatch[regex]::Escape($ReleaseId)-or$tail-notmatch'ApplicationStarted'){throw 'Durable Phase 2 startup logging was not observed.'}
+    $result.Task=[ordered]@{Principal=$after.Principal.UserId;LogonType=[string]$after.Principal.LogonType;WorkingDirectory=$newRelease;RestartCount=[int]$after.Settings.RestartCount;RestartInterval=[string]$after.Settings.RestartInterval;ExecutionTimeLimit=[string]$after.Settings.ExecutionTimeLimit;MultipleInstances=[string]$after.Settings.MultipleInstances};$result.Health=$health;$result.ManifestFileCount=@($manifest.files).Count;$result.LegacyUnchanged=$true;$result.Passed=$true
+}catch{
+    $result.Error=$_.Exception.Message;$result.RollbackInvoked=$registrationAttempted
+    if($registrationAttempted-and$plainPassword){try{$rollback=Get-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName;$currentAction=@($rollback.Actions)[0];if([string]$currentAction.WorkingDirectory-ine$oldRelease){$rollback.Settings.RestartCount=[int]$oldSettings.RestartCount;$rollback.Settings.RestartInterval=[string]$oldSettings.RestartInterval;$old=New-ScheduledTaskAction -Execute ([string]$oldAction.Execute) -Argument ([string]$oldAction.Arguments) -WorkingDirectory ([string]$oldAction.WorkingDirectory);Set-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName -Action $old -Settings $rollback.Settings -User $runtimeIdentity -Password $plainPassword|Out-Null};Start-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName;$rh=WaitHealthy $oldRelease;$result.RollbackHealth=$rh;$result.RollbackPassed=$rh.Passed}catch{$result.RollbackError=$_.Exception.Message}}
+    throw
+}finally{
+    if($bstr-ne[IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)};$plainPassword=$null;$credential=$null
+    $result.CompletedUtc=[DateTimeOffset]::UtcNow;$result|ConvertTo-Json -Depth 25|Set-Content -LiteralPath (Join-Path $runRoot 'phase2-credential-reregistration.json') -Encoding UTF8
+}
+$result|ConvertTo-Json -Depth 12
