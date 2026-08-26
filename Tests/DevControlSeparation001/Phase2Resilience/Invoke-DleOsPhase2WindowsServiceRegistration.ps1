@@ -186,7 +186,10 @@ try{
         throw 'SCM failure actions are not exactly four delayed restarts followed by NONE.'
     }
     $service=Get-CimInstance Win32_Service -Filter "Name='$serviceName'"
-    if($service.State-ne'Stopped'-or$service.StartMode-ne'Manual'-or$service.StartName-ine$runtimeIdentity){
+    $expectedServiceSid=[Security.Principal.NTAccount]::new($runtimeIdentity).Translate([Security.Principal.SecurityIdentifier]).Value
+    $actualServiceSid=[Security.Principal.NTAccount]::new([string]$service.StartName).Translate([Security.Principal.SecurityIdentifier]).Value
+    $result.StagedServiceObserved=[ordered]@{State=$service.State;StartMode=$service.StartMode;StartName=$service.StartName;StartSid=$actualServiceSid;ExpectedSid=$expectedServiceSid}
+    if($service.State-ne'Stopped'-or$service.StartMode-ne'Manual'-or$actualServiceSid-cne$expectedServiceSid){
         throw 'The staged service identity/start state differs from the approved boundary.'
     }
     if(-not[DleOsServiceAccountRights]::HasRight($runtimeIdentity,'SeServiceLogonRight')){throw 'The required service logon right is absent.'}
