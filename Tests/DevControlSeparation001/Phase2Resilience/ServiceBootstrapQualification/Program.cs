@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 var valid = new Dev5054WindowsServiceConfiguration
 {
@@ -48,12 +49,38 @@ foreach (var forbidden in new[] { "password", "passwd", "token", "secret", "cred
     if (json.Contains(forbidden, StringComparison.OrdinalIgnoreCase))
         throw new InvalidOperationException($"Service configuration contains prohibited secret field {forbidden}.");
 
+var evidenceRoot = Path.Combine(Path.GetTempPath(), "dle-os-dev5054-service-evidence-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(evidenceRoot);
+var captured = new List<string>();
+try
+{
+    var logger = new CapturingLogger(captured);
+    Dev5054ServiceRecoveryEvidence.RecordStartup(logger, evidenceRoot,
+        Dev5054WindowsServiceBootstrap.ServiceName, valid.ReleaseId, valid.SourceIdentity);
+    Dev5054ServiceRecoveryEvidence.RecordStartup(logger, evidenceRoot,
+        Dev5054WindowsServiceBootstrap.ServiceName, valid.ReleaseId, valid.SourceIdentity);
+    if (!captured.Any(value => value.Contains("PreviousServiceProcessExitedUnexpectedly", StringComparison.Ordinal)))
+        throw new InvalidOperationException("An ungraceful predecessor was not recorded.");
+    Dev5054ServiceRecoveryEvidence.RecordGracefulStop(logger, evidenceRoot,
+        Dev5054WindowsServiceBootstrap.ServiceName, valid.ReleaseId, valid.SourceIdentity);
+    captured.Clear();
+    Dev5054ServiceRecoveryEvidence.RecordStartup(logger, evidenceRoot,
+        Dev5054WindowsServiceBootstrap.ServiceName, valid.ReleaseId, valid.SourceIdentity);
+    if (captured.Any(value => value.Contains("PreviousServiceProcessExitedUnexpectedly", StringComparison.Ordinal)))
+        throw new InvalidOperationException("A graceful predecessor was incorrectly classified as failed.");
+}
+finally
+{
+    Directory.Delete(evidenceRoot, true);
+}
+
 Console.WriteLine(JsonSerializer.Serialize(new
 {
     Verdict = "PASS",
     ValidBoundaryAccepted = true,
     RejectedBoundaryCases = cases.Count,
     ConfigurationContainsSecrets = false,
+    RecoveryEvidenceQualification = "PASS",
     ServiceName = Dev5054WindowsServiceBootstrap.ServiceName,
     ServiceIdentity = Dev5054WindowsServiceBootstrap.ServiceIdentity
 }));
@@ -82,3 +109,11 @@ static Dev5054WindowsServiceConfiguration Copy(
     IdentitySigningPublicKeyPath = source.IdentitySigningPublicKeyPath,
     DevLogRoot = source.DevLogRoot
 };
+
+sealed class CapturingLogger(List<string> messages) : ILogger
+{
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    public bool IsEnabled(LogLevel logLevel) => true;
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+        Func<TState, Exception?, string> formatter) => messages.Add(eventId.Name + ":" + formatter(state, exception));
+}

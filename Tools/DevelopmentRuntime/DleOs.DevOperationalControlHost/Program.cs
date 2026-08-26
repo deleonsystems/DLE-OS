@@ -50,9 +50,13 @@ builder.Services.AddDevelopmentPermissionAuthorization();
 var app = builder.Build();
 var lifecycleLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DleOs.Dev5054.Lifecycle");
 if (serviceBootstrap.IsWindowsService)
+{
     lifecycleLogger.LogInformation(new EventId(1004, "WindowsServiceModeEnabled"),
         "WindowsServiceModeEnabled ServiceName={ServiceName} ReleaseId={ReleaseId} ProcessId={ProcessId}",
         serviceBootstrap.ServiceName, releaseId, Environment.ProcessId);
+    Dev5054ServiceRecoveryEvidence.RecordStartup(
+        lifecycleLogger, logRoot, serviceBootstrap.ServiceName, releaseId, sourceIdentity);
+}
 AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) => lifecycleLogger.LogCritical(
     new EventId(9001, "UnhandledException"), eventArgs.ExceptionObject as Exception,
     "UnhandledException IsTerminating={IsTerminating}", eventArgs.IsTerminating);
@@ -66,9 +70,15 @@ app.Lifetime.ApplicationStarted.Register(() => lifecycleLogger.LogInformation(
     new EventId(1001, "ApplicationStarted"),
     "ApplicationStarted ReleaseId={ReleaseId} SourceIdentity={SourceIdentity} ExecutionIdentity={ExecutionIdentity} ProcessId={ProcessId}",
     releaseId, sourceIdentity, WindowsIdentity.GetCurrent().Name, Environment.ProcessId));
-app.Lifetime.ApplicationStopping.Register(() => lifecycleLogger.LogInformation(
-    new EventId(1002, "ApplicationStopping"), "ApplicationStopping ReleaseId={ReleaseId} ProcessId={ProcessId}",
-    releaseId, Environment.ProcessId));
+app.Lifetime.ApplicationStopping.Register(() =>
+{
+    lifecycleLogger.LogInformation(
+        new EventId(1002, "ApplicationStopping"), "ApplicationStopping ReleaseId={ReleaseId} ProcessId={ProcessId}",
+        releaseId, Environment.ProcessId);
+    if (serviceBootstrap.IsWindowsService)
+        Dev5054ServiceRecoveryEvidence.RecordGracefulStop(
+            lifecycleLogger, logRoot, serviceBootstrap.ServiceName, releaseId, sourceIdentity);
+});
 app.Lifetime.ApplicationStopped.Register(() => lifecycleLogger.LogInformation(
     new EventId(1003, "ApplicationStopped"), "ApplicationStopped ReleaseId={ReleaseId} ProcessId={ProcessId}",
     releaseId, Environment.ProcessId));

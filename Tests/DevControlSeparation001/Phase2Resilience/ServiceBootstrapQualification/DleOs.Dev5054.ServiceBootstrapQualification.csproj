@@ -7,8 +7,11 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Compile Include="Program.cs" />
     <Compile Include="..\..\..\..\Tools\DevelopmentRuntime\DleOs.DevOperationalControlHost\Dev5054WindowsServiceBootstrap.cs"
              Link="Dev5054WindowsServiceBootstrap.cs" />
+    <Compile Include="..\..\..\..\Tools\DevelopmentRuntime\DleOs.DevOperationalControlHost\Dev5054ServiceRecoveryEvidence.cs"
+             Link="Dev5054ServiceRecoveryEvidence.cs" />
   </ItemGroup>
 </Project>
