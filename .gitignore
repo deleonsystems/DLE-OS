@@ -8,3 +8,8 @@
 # .NET build outputs
 **/bin/
 **/obj/
+
+# Generated Phase 2 qualification release staging trees
+/.phase2-diagnostic-release-stage/
+/.phase2-release-stage/
+/.phase2-service-stage/
