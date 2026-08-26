@@ -211,6 +211,8 @@ try{
     $result.Passed=$true
 }catch{
     $result.Error=$_.Exception.Message
+    $result.ErrorDetail=[string]$_
+    if($_.Exception.InnerException){$result.InnerError=$_.Exception.InnerException.Message}
     if($serviceCreated){
         try{Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue}catch{}
         try{$null=Invoke-Sc @('delete',$serviceName)}catch{$result.ServiceCleanupError=$_.Exception.Message}

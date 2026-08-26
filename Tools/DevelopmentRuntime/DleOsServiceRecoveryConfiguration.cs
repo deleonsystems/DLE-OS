@@ -171,6 +171,7 @@ public static class DleOsServiceRecoveryConfiguration
 
     private static void ThrowLastError(string operation)
     {
-        throw new Win32Exception(Marshal.GetLastWin32Error(), operation + " failed.");
+        var error = Marshal.GetLastWin32Error();
+        throw new Win32Exception(error, operation + " failed with Win32 error " + error + ".");
     }
 }
