@@ -45,7 +45,8 @@ foreach ($token in 'DevOperationalSchema.cs','Start-DevOperationalControlHost505
 
 $bytes = [IO.File]::ReadAllBytes($output)
 $assemblyText = [Text.Encoding]::UTF8.GetString($bytes) +
-    [Text.Encoding]::Unicode.GetString($bytes)
+    [Text.Encoding]::Unicode.GetString($bytes) +
+    $(if($bytes.Length -gt 1){[Text.Encoding]::Unicode.GetString($bytes,1,$bytes.Length-1)}else{''})
 $forbiddenTokens = @(
     'DLE_OS_CANONICAL_LIVE',
     'deleon-server\Production',

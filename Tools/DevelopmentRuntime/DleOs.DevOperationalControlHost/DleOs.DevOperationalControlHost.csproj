@@ -15,6 +15,7 @@
   -->
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="DevResilienceLogging.cs" />
     <Compile Include="DevControlHostRuntimeConfiguration.cs" />
     <Compile Include="DevOperationalSchema.cs" />
     <Compile Include="..\..\LiveSnapshotRefresh\ControlHost\CanonicalWorkOrderIdentity.cs" Link="Operational\CanonicalWorkOrderIdentity.cs" />

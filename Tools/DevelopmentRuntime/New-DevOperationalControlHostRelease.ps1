@@ -26,9 +26,11 @@ if (Test-Path -LiteralPath $stage) {
 }
 $null = New-Item -ItemType Directory -Path $publish,$evidence
 
-$commit = (& git -C $repository rev-parse HEAD).Trim()
-$commitRecord = (& git -C $repository log -1 --format='%H|%an <%ae>|%aI|%s').Trim()
-$sourceStatus = @(& git -C $repository status --short)
+$commit = (& git -c "safe.directory=$repository" -C $repository rev-parse HEAD).Trim()
+$commitRecord = (& git -c "safe.directory=$repository" -C $repository log -1 --format='%H|%an <%ae>|%aI|%s').Trim()
+$sourceStatus = @(& git -c "safe.directory=$repository" -C $repository status --short -- `
+    'Tools/DevelopmentRuntime/DleOs.DevOperationalControlHost' `
+    'Tests/DevControlSeparation001/Test-DevOnlyControlHostBoundary.ps1')
 $sourceBoundaryFiles = @(
     Get-ChildItem -LiteralPath (Split-Path $project) -File -Recurse |
         Where-Object Extension -in '.cs','.csproj','.ps1' |
