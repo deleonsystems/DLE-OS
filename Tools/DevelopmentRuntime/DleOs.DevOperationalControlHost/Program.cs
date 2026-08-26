@@ -9,9 +9,12 @@ string[] authorizedServiceCallers =
     @"DLE-OS-HOST\DLE-OS-DEV-FRONTEND"
 ];
 
+var serviceBootstrap = Dev5054WindowsServiceBootstrap.Apply(args);
 ControlHostRuntimeConfiguration.ValidateBoundary();
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(serviceBootstrap.ApplicationArguments);
+if (serviceBootstrap.IsWindowsService)
+    builder.Host.UseWindowsService(options => options.ServiceName = serviceBootstrap.ServiceName);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 var releaseId = Environment.GetEnvironmentVariable("DLE_OS_RELEASE_ID") ?? "UNKNOWN_RELEASE";
@@ -46,6 +49,10 @@ builder.Services.AddDevelopmentPermissionAuthorization();
 
 var app = builder.Build();
 var lifecycleLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DleOs.Dev5054.Lifecycle");
+if (serviceBootstrap.IsWindowsService)
+    lifecycleLogger.LogInformation(new EventId(1004, "WindowsServiceModeEnabled"),
+        "WindowsServiceModeEnabled ServiceName={ServiceName} ReleaseId={ReleaseId} ProcessId={ProcessId}",
+        serviceBootstrap.ServiceName, releaseId, Environment.ProcessId);
 AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) => lifecycleLogger.LogCritical(
     new EventId(9001, "UnhandledException"), eventArgs.ExceptionObject as Exception,
     "UnhandledException IsTerminating={IsTerminating}", eventArgs.IsTerminating);

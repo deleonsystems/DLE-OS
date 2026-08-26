@@ -16,6 +16,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="DevResilienceLogging.cs" />
+    <Compile Include="Dev5054WindowsServiceBootstrap.cs" />
     <Compile Include="DevControlHostRuntimeConfiguration.cs" />
     <Compile Include="DevOperationalSchema.cs" />
     <Compile Include="..\..\LiveSnapshotRefresh\ControlHost\CanonicalWorkOrderIdentity.cs" Link="Operational\CanonicalWorkOrderIdentity.cs" />
@@ -35,6 +36,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
     <ProjectReference Include="..\..\SecurityFoundation\DleOs.Security\DleOs.Security.csproj" />
     <ProjectReference Include="..\..\TrustedIdentity\DleOs.TrustedIdentity\DleOs.TrustedIdentity.csproj" />
     <Content Include="Start-DevOperationalControlHost5054.ps1"
