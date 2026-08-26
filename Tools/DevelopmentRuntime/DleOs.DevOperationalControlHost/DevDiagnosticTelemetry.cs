@@ -46,12 +46,12 @@ internal sealed class DevDiagnosticTelemetry :
         Correlation.Value ?? Activity.Current?.TraceId.ToString() ?? "NO_CORRELATION";
 
     internal static DiagnosticTimingScope? BeginPermissionResolution(string permissionCode)
-        => stageLogger is null ? null : new(stageLogger, "PermissionResolution", permissionCode);
+        => stageLogger is null ? null : new(stageLogger, "PermissionResolution", permissionCode, 2000);
 
     internal static DiagnosticTimingScope? BeginEnrichmentStage(PathString path)
     {
         var operation = ClassifyRoute(path.Value);
-        return operation is null || stageLogger is null ? null : new(stageLogger, operation, path.Value ?? "");
+        return operation is null || stageLogger is null ? null : new(stageLogger, operation, path.Value ?? "", 5000);
     }
 
     public void OnNext(DiagnosticListener listener)
@@ -109,9 +109,6 @@ internal sealed class DevDiagnosticTelemetry :
             var state = new OperationState(CorrelationId(), DateTimeOffset.UtcNow, Stopwatch.GetTimestamp(),
                 ClassifyCanonicalRequest(uri), uri.AbsoluteUri);
             httpOperations[request] = state;
-            diagnosticLogger.LogInformation(new EventId(3100, "Canonical5052RequestStart"),
-                "Canonical5052RequestStart CorrelationId={CorrelationId} Operation={Operation} TargetUri={TargetUri} StartUtc={StartUtc} DefaultCredentialsEnabled={DefaultCredentialsEnabled}",
-                state.CorrelationId, state.Operation, state.Target, state.StartUtc, true);
             return;
         }
 
@@ -121,11 +118,14 @@ internal sealed class DevDiagnosticTelemetry :
         var canceled = exception is OperationCanceledException ||
             string.Equals(Property<object>(payload, "RequestTaskStatus")?.ToString(), "Canceled",
                 StringComparison.OrdinalIgnoreCase);
-        diagnosticLogger.Log(canceled || exception is not null ? LogLevel.Warning : LogLevel.Information,
+        int? status = response is null ? null : (int)response.StatusCode;
+        var failed = canceled || exception is not null || status is null or < 200 or >= 300;
+        if (!failed && completed.ElapsedMilliseconds <= 2000) return;
+        diagnosticLogger.LogWarning(
             new EventId(3101, "Canonical5052RequestComplete"),
             "Canonical5052RequestComplete CorrelationId={CorrelationId} Operation={Operation} TargetUri={TargetUri} StartUtc={StartUtc} ElapsedMs={ElapsedMs} HttpStatus={HttpStatus} TimeoutOrCancellation={TimeoutOrCancellation} ExceptionType={ExceptionType} ExceptionCategory={ExceptionCategory} DefaultCredentialsEnabled={DefaultCredentialsEnabled}",
             completed.CorrelationId, completed.Operation, completed.Target, completed.StartUtc,
-            completed.ElapsedMilliseconds, response is null ? null : (int)response.StatusCode,
+            completed.ElapsedMilliseconds, status,
             canceled, exception?.GetType().FullName, ClassifyException(exception), true);
     }
 
@@ -145,16 +145,14 @@ internal sealed class DevDiagnosticTelemetry :
             var state = new OperationState(CorrelationId(), DateTimeOffset.UtcNow, Stopwatch.GetTimestamp(),
                 operation, database);
             sqlOperations[operationId] = state;
-            diagnosticLogger.LogInformation(new EventId(3110, "DevSqlOperationStart"),
-                "DevSqlOperationStart CorrelationId={CorrelationId} Operation={Operation} Database={Database} StartUtc={StartUtc}",
-                state.CorrelationId, state.Operation, state.Target, state.StartUtc);
             return;
         }
 
         if (!sqlOperations.TryRemove(operationId, out var completed)) return;
         var exception = Property<Exception>(payload, "Exception");
         var canceled = exception is OperationCanceledException;
-        diagnosticLogger.Log(exception is null ? LogLevel.Information : LogLevel.Warning,
+        if (exception is null && completed.ElapsedMilliseconds <= 2000) return;
+        diagnosticLogger.LogWarning(
             new EventId(3111, "DevSqlOperationComplete"),
             "DevSqlOperationComplete CorrelationId={CorrelationId} Operation={Operation} Database={Database} StartUtc={StartUtc} ElapsedMs={ElapsedMs} TimeoutOrCancellation={TimeoutOrCancellation} ExceptionType={ExceptionType} ExceptionCategory={ExceptionCategory}",
             completed.CorrelationId, completed.Operation, completed.Target, completed.StartUtc,
@@ -363,25 +361,28 @@ internal sealed class DiagnosticTimingScope : IDisposable
     private readonly string detail;
     private readonly DateTimeOffset startUtc = DateTimeOffset.UtcNow;
     private readonly long started = Stopwatch.GetTimestamp();
+    private readonly long slowThresholdMilliseconds;
     private int completed;
 
-    internal DiagnosticTimingScope(ILogger logger, string operation, string detail)
+    internal DiagnosticTimingScope(ILogger logger, string operation, string detail, long slowThresholdMilliseconds)
     {
         this.logger = logger;
         this.operation = operation;
         this.detail = detail;
-        logger.LogInformation(new EventId(3120, "DiagnosticStageStart"),
-            "DiagnosticStageStart CorrelationId={CorrelationId} Operation={Operation} Detail={Detail} StartUtc={StartUtc}",
-            DevDiagnosticTelemetry.CurrentCorrelationId, operation, detail, startUtc);
+        this.slowThresholdMilliseconds = slowThresholdMilliseconds;
     }
 
     internal void Complete(string outcome)
     {
         if (Interlocked.Exchange(ref completed, 1) != 0) return;
-        logger.LogInformation(new EventId(3121, "DiagnosticStageComplete"),
+        var elapsed = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        var successful = outcome.StartsWith("ALLOW", StringComparison.Ordinal) ||
+            outcome.StartsWith("HTTP_2", StringComparison.Ordinal);
+        if (successful && elapsed <= slowThresholdMilliseconds) return;
+        logger.LogWarning(new EventId(3121, "DiagnosticStageComplete"),
             "DiagnosticStageComplete CorrelationId={CorrelationId} Operation={Operation} Detail={Detail} StartUtc={StartUtc} ElapsedMs={ElapsedMs} Outcome={Outcome}",
             DevDiagnosticTelemetry.CurrentCorrelationId, operation, detail, startUtc,
-            (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds, outcome);
+            elapsed, outcome);
     }
 
     public void Dispose() => Complete("SCOPE_DISPOSED");

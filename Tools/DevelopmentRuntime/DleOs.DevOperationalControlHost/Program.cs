@@ -21,7 +21,8 @@ var releaseId = Environment.GetEnvironmentVariable("DLE_OS_RELEASE_ID") ?? "UNKN
 var sourceIdentity = Environment.GetEnvironmentVariable("DLE_OS_SOURCE_IDENTITY") ?? "UNKNOWN_SOURCE";
 var logRoot = Environment.GetEnvironmentVariable("DLE_OS_DEV_LOG_ROOT") ??
     @"C:\ProgramData\DLE-OS\DevelopmentOperationalControl\DevOnly\Logs";
-builder.Logging.AddProvider(new DevJsonFileLoggerProvider(logRoot, releaseId, sourceIdentity));
+var jsonLoggerProvider = new DevJsonFileLoggerProvider(logRoot, releaseId, sourceIdentity);
+builder.Logging.AddProvider(jsonLoggerProvider);
 builder.WebHost.UseHttpSys(options =>
 {
     options.UrlPrefixes.Add(ControlHostRuntimeConfiguration.ControlPrefix);
@@ -129,7 +130,8 @@ app.MapGet("/health", (HttpContext context) => Results.Json(new
     logRetentionDays = DevJsonFileLoggerProvider.RetentionDays,
     logMaximumFileBytes = DevJsonFileLoggerProvider.MaximumFileBytes,
     logMaximumTotalBytes = DevJsonFileLoggerProvider.MaximumTotalBytes,
-    logMaximumArchiveFiles = DevJsonFileLoggerProvider.MaximumArchiveFiles
+    logMaximumArchiveFiles = DevJsonFileLoggerProvider.MaximumArchiveFiles,
+    logger = jsonLoggerProvider.Snapshot
 })).RequireAuthorization("DevOperationalCaller");
 
 app.MapWorkOrderApprovals("DevOperationalCaller");

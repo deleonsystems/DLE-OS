@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\..\..\Tools\DevelopmentRuntime\DleOs.DevOperationalControlHost\DevResilienceLogging.cs"
+             Link="DevResilienceLogging.cs" />
+  </ItemGroup>
+</Project>
