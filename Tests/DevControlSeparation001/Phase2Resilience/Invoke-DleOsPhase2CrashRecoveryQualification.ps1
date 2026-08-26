@@ -56,6 +56,7 @@ try{
     $taskXml=Export-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName
     $legacyXml=Export-ScheduledTask -TaskPath '\DLE-OS\Development\' -TaskName 'Operational ControlHost 5054'
     $before=@(ExactProcess)
+    $result.Baseline=[ordered]@{TaskState=[string]$task.State;TaskEnabled=[bool]$task.Settings.Enabled;RestartCount=[int]$task.Settings.RestartCount;RestartInterval=[string]$task.Settings.RestartInterval;ExecutionTimeLimit=[string]$task.Settings.ExecutionTimeLimit;MultipleInstances=[string]$task.Settings.MultipleInstances;Processes=$before;ExpectedOwner=$runtimeIdentity}
     if($before.Count-ne1-or$before[0].Owner-ine$runtimeIdentity-or[string]$task.Settings.RestartCount-ne'4'-or[string]$task.Settings.RestartInterval-ne'PT2M'-or[string]$task.Settings.ExecutionTimeLimit-ne'PT0S'-or[string]$task.Settings.MultipleInstances-ne'IgnoreNew'){throw 'The activated candidate is not at the approved Phase 2 baseline.'}
     if((Probe 'http://dle-os-host:5051/api/operations-center/v1/work-orders/0115622/verified-status-history').Passed-ne$true){throw '5051 to 5054 pre-crash qualification failed.'}
 
