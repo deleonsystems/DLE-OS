@@ -104,10 +104,17 @@ internal static class DevelopmentPermissionAuthorization
             return;
         }
 
+#if DLE_OS_DEV_ONLY
+        using var permissionTiming = DevDiagnosticTelemetry.BeginPermissionResolution(requirement.Code);
+#endif
+
         var trusted = context.RequestServices
             .GetRequiredService<TrustedDleOsUserContextAccessor>().Current;
         if (trusted is null)
         {
+#if DLE_OS_DEV_ONLY
+            permissionTiming?.Complete("IDENTITY_MISSING");
+#endif
             await Deny(context, StatusCodes.Status403Forbidden,
                 "DLE_OS_IDENTITY_ASSERTION_MISSING", requirement.Code,
                 "A validated DLE-OS identity is required.");
@@ -123,6 +130,9 @@ internal static class DevelopmentPermissionAuthorization
         }
         catch (SqlException error)
         {
+#if DLE_OS_DEV_ONLY
+            permissionTiming?.Complete("SECURITY_SQL_ERROR");
+#endif
             context.RequestServices.GetRequiredService<ILoggerFactory>()
                 .CreateLogger("DleOs.DevelopmentAuthorization")
                 .LogError(error,
@@ -149,6 +159,9 @@ internal static class DevelopmentPermissionAuthorization
                 trusted.AssertionId);
         if (!decision.Allowed)
         {
+#if DLE_OS_DEV_ONLY
+            permissionTiming?.Complete("DENY_" + decision.Code);
+#endif
             await Deny(context, StatusCodes.Status403Forbidden, decision.Code,
                 requirement.Code, decision.Code == "DLE_OS_USER_DISABLED"
                     ? "The mapped DLE-OS account is not active."
@@ -161,6 +174,9 @@ internal static class DevelopmentPermissionAuthorization
         context.RequestServices.GetRequiredService<TrustedDleOsUserContextAccessor>()
             .AuthorizedUser = decision.User;
         context.Response.Headers["X-DLE-OS-Required-Permission"] = requirement.Code;
+#if DLE_OS_DEV_ONLY
+        permissionTiming?.Complete("ALLOW");
+#endif
         await next();
     });
 

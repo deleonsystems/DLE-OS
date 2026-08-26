@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 
 internal sealed class DevJsonFileLoggerProvider : ILoggerProvider, ISupportExternalScope
@@ -11,14 +12,20 @@ internal sealed class DevJsonFileLoggerProvider : ILoggerProvider, ISupportExter
     internal const long MaximumTotalBytes = 128L * 1024 * 1024;
     internal const int MaximumArchiveFiles = 14;
     internal const int RetentionDays = 14;
+    internal const int QueueCapacity = 16384;
+    internal const int MaximumBatchEntries = 256;
+    internal const int MaximumBatchDelayMilliseconds = 100;
 
     private readonly ConcurrentDictionary<string, DevJsonFileLogger> _loggers = new(StringComparer.Ordinal);
     private readonly string _logRoot;
     private readonly string _releaseId;
     private readonly string _sourceIdentity;
-    private readonly object _writeLock = new();
+    private readonly Channel<QueuedLogEntry> _queue;
+    private readonly Task _writer;
     private IExternalScopeProvider _scopes = new LoggerExternalScopeProvider();
     private int _writesSinceRetention;
+    private long _droppedEntries;
+    private int _disposed;
 
     internal DevJsonFileLoggerProvider(string logRoot, string releaseId, string sourceIdentity)
     {
@@ -27,13 +34,27 @@ internal sealed class DevJsonFileLoggerProvider : ILoggerProvider, ISupportExter
         _sourceIdentity = SafeValue(sourceIdentity, 160);
         Directory.CreateDirectory(_logRoot);
         ApplyRetention();
+        _queue = Channel.CreateBounded<QueuedLogEntry>(new BoundedChannelOptions(QueueCapacity)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.Wait,
+            AllowSynchronousContinuations = false
+        });
+        _writer = Task.Run(WriterLoopAsync);
     }
 
     public ILogger CreateLogger(string categoryName) =>
         _loggers.GetOrAdd(categoryName, category => new DevJsonFileLogger(category, this));
 
     public void SetScopeProvider(IExternalScopeProvider scopeProvider) => _scopes = scopeProvider;
-    public void Dispose() => _loggers.Clear();
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _queue.Writer.TryComplete();
+        _writer.GetAwaiter().GetResult();
+        _loggers.Clear();
+    }
 
     internal IDisposable? PushScope<TState>(TState state) where TState : notnull => _scopes.Push(state);
 
@@ -72,26 +93,80 @@ internal sealed class DevJsonFileLoggerProvider : ILoggerProvider, ISupportExter
         var payload = JsonSerializer.Serialize(entry) + Environment.NewLine;
         var bytes = Encoding.UTF8.GetBytes(payload);
 
-        lock (_writeLock)
+        if (Volatile.Read(ref _disposed) != 0 || !_queue.Writer.TryWrite(new(bytes, null)))
+            Interlocked.Increment(ref _droppedEntries);
+    }
+
+    internal void FlushForQualification()
+    {
+        if (Volatile.Read(ref _disposed) != 0) return;
+        using var completed = new ManualResetEventSlim(false);
+        if (!_queue.Writer.TryWrite(new(null, completed)))
         {
-            Directory.CreateDirectory(_logRoot);
-            var activePath = Path.Combine(_logRoot, "dev5054-current.jsonl");
-            if (File.Exists(activePath) && new FileInfo(activePath).Length + bytes.Length > MaximumFileBytes)
+            _queue.Writer.WriteAsync(new(null, completed)).AsTask().GetAwaiter().GetResult();
+        }
+        if (!completed.Wait(TimeSpan.FromSeconds(10)))
+            throw new TimeoutException("The bounded DEV JSON logger did not drain within ten seconds.");
+    }
+
+    internal long DroppedEntryCount => Interlocked.Read(ref _droppedEntries);
+
+    private async Task WriterLoopAsync()
+    {
+        var batch = new List<byte[]>(MaximumBatchEntries);
+        await foreach (var first in _queue.Reader.ReadAllAsync())
+        {
+            if (first.Barrier is not null)
             {
-                var archive = Path.Combine(_logRoot,
-                    $"dev5054-{DateTimeOffset.UtcNow:yyyyMMddTHHmmssfffZ}-{Guid.NewGuid():N}.jsonl");
-                File.Move(activePath, archive);
+                first.Barrier.Set();
+                continue;
             }
-            using var stream = new FileStream(activePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
-            stream.Write(bytes, 0, bytes.Length);
-            stream.Flush(true);
-            if (++_writesSinceRetention >= 100)
+            if (first.Bytes is not null) batch.Add(first.Bytes);
+
+            await Task.Delay(MaximumBatchDelayMilliseconds).ConfigureAwait(false);
+            while (batch.Count < MaximumBatchEntries && _queue.Reader.TryRead(out var next))
             {
-                _writesSinceRetention = 0;
-                ApplyRetention();
+                if (next.Barrier is not null)
+                {
+                    WriteBatch(batch);
+                    batch.Clear();
+                    next.Barrier.Set();
+                }
+                else if (next.Bytes is not null)
+                {
+                    batch.Add(next.Bytes);
+                }
             }
+            WriteBatch(batch);
+            batch.Clear();
+        }
+        WriteBatch(batch);
+    }
+
+    private void WriteBatch(List<byte[]> batch)
+    {
+        if (batch.Count == 0) return;
+        Directory.CreateDirectory(_logRoot);
+        var activePath = Path.Combine(_logRoot, "dev5054-current.jsonl");
+        var batchBytes = batch.Sum(value => (long)value.Length);
+        if (File.Exists(activePath) && new FileInfo(activePath).Length + batchBytes > MaximumFileBytes)
+        {
+            var archive = Path.Combine(_logRoot,
+                $"dev5054-{DateTimeOffset.UtcNow:yyyyMMddTHHmmssfffZ}-{Guid.NewGuid():N}.jsonl");
+            File.Move(activePath, archive);
+        }
+        using var stream = new FileStream(activePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        foreach (var bytes in batch) stream.Write(bytes, 0, bytes.Length);
+        stream.Flush(true);
+        _writesSinceRetention += batch.Count;
+        if (_writesSinceRetention >= 100)
+        {
+            _writesSinceRetention = 0;
+            ApplyRetention();
         }
     }
+
+    private sealed record QueuedLogEntry(byte[]? Bytes, ManualResetEventSlim? Barrier);
 
     private void ApplyRetention()
     {
@@ -170,10 +245,17 @@ internal static class DevRequestLogging
             : Guid.NewGuid().ToString("D");
         context.TraceIdentifier = correlationId;
         context.Response.Headers["X-DLE-OS-Correlation-ID"] = correlationId;
+#if DLE_OS_DEV_ONLY
+        using var correlationScope = DevDiagnosticTelemetry.PushCorrelation(correlationId);
+        using var diagnosticStage = DevDiagnosticTelemetry.BeginEnrichmentStage(context.Request.Path);
+#endif
         var stopwatch = Stopwatch.StartNew();
         try
         {
             await next(context);
+#if DLE_OS_DEV_ONLY
+            diagnosticStage?.Complete("HTTP_" + context.Response.StatusCode);
+#endif
             var actor = context.User.Identity?.IsAuthenticated == true ? context.User.Identity.Name : null;
             var level = context.Response.StatusCode is 401 or 403 ? LogLevel.Warning : LogLevel.Information;
             logger.Log(level, new EventId(2001, "RequestCompleted"),
@@ -183,6 +265,9 @@ internal static class DevRequestLogging
         }
         catch (Exception exception)
         {
+#if DLE_OS_DEV_ONLY
+            diagnosticStage?.Complete("EXCEPTION_" + exception.GetType().Name);
+#endif
             logger.LogError(new EventId(2500, "RequestFailed"), exception,
                 "RequestFailed Classification={Classification} CorrelationId={CorrelationId} Actor={Actor} Method={Method} Route={Route} DurationMs={DurationMs}",
                 Classify(exception), correlationId, context.User.Identity?.Name ?? "ANONYMOUS",

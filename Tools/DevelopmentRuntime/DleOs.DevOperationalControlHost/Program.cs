@@ -49,6 +49,12 @@ builder.Services.AddDevelopmentPermissionAuthorization();
 
 var app = builder.Build();
 var lifecycleLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DleOs.Dev5054.Lifecycle");
+var diagnosticTelemetry = DevDiagnosticTelemetry.Start(
+    app.Services.GetRequiredService<ILoggerFactory>(),
+    app.Services.GetRequiredService<IHostEnvironment>(),
+    releaseId,
+    ControlHostRuntimeConfiguration.CanonicalApiBaseUrl);
+app.Lifetime.ApplicationStopped.Register(diagnosticTelemetry.Dispose);
 if (serviceBootstrap.IsWindowsService)
 {
     lifecycleLogger.LogInformation(new EventId(1004, "WindowsServiceModeEnabled"),

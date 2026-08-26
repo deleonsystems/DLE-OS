@@ -16,6 +16,7 @@ try
     logger.LogInformation(new EventId(1, "RedactionTest"),
         "RedactionTest CorrelationId={CorrelationId} Password={Password} Token={Token}",
         "safe-correlation", "supersecret-password", "supersecret-token");
+    provider.FlushForQualification();
 
     var archivesAfterRetention = Directory.GetFiles(root, "dev5054-*.jsonl")
         .Where(path => !path.EndsWith("dev5054-current.jsonl", StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -28,6 +29,14 @@ try
     using (var stream = new FileStream(current, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
         stream.SetLength(DevJsonFileLoggerProvider.MaximumFileBytes);
     logger.LogInformation(new EventId(2, "RotationTest"), "RotationTest Result={Result}", "PASS");
+    var enqueueTimer = System.Diagnostics.Stopwatch.StartNew();
+    for (var index = 0; index < 2000; index++)
+        logger.LogInformation(new EventId(3, "BoundedQueueTest"),
+            "BoundedQueueTest CorrelationId={CorrelationId} Sequence={Sequence}", "queue-test", index);
+    enqueueTimer.Stop();
+    if (enqueueTimer.Elapsed > TimeSpan.FromSeconds(5))
+        throw new InvalidOperationException("Logging producers were materially blocked by durable writes.");
+    provider.FlushForQualification();
 
     var allText = string.Join("\n", Directory.GetFiles(root, "dev5054-*.jsonl").Select(File.ReadAllText));
     if (allText.Contains("supersecret-password", StringComparison.Ordinal) ||
@@ -39,6 +48,8 @@ try
     var total = Directory.GetFiles(root, "dev5054-*.jsonl").Sum(path => new FileInfo(path).Length);
     if (total > DevJsonFileLoggerProvider.MaximumTotalBytes)
         throw new InvalidOperationException("Total-size retention failed.");
+    if (provider.DroppedEntryCount != 0)
+        throw new InvalidOperationException("The bounded logger dropped qualification entries.");
 
     Console.WriteLine("PHASE2_LOGGING_QUALIFICATION_PASS");
 }
