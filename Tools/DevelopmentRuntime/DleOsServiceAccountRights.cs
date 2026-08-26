@@ -82,6 +82,19 @@ public static class DleOsServiceAccountRights
 
     public static void ValidateCredential(string accountName, SecureString password)
     {
+        ValidateCredentialForLogonType(accountName, password, 3);
+    }
+
+    public static void ValidateBatchCredential(string accountName, SecureString password)
+    {
+        ValidateCredentialForLogonType(accountName, password, 4);
+    }
+
+    private static void ValidateCredentialForLogonType(
+        string accountName,
+        SecureString password,
+        int logonType)
+    {
         var separator = accountName.IndexOf('\\');
         if (separator <= 0 || separator == accountName.Length - 1)
             throw new ArgumentException("A machine-qualified account is required.", "accountName");
@@ -91,7 +104,7 @@ public static class DleOsServiceAccountRights
         IntPtr token;
         try
         {
-            if (!LogonUser(user, domain, passwordPointer, 3, 0, out token))
+            if (!LogonUser(user, domain, passwordPointer, logonType, 0, out token))
                 throw new Win32Exception(Marshal.GetLastWin32Error(),
                     "The supplied DLE-OS service credential is invalid.");
             CloseHandle(token);

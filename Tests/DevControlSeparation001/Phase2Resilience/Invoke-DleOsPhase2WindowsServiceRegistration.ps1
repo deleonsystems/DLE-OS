@@ -128,7 +128,7 @@ try{
     $hadServiceLogonRight=[DleOsServiceAccountRights]::HasRight($runtimeIdentity,'SeServiceLogonRight')
     $credential=Get-Credential -UserName $runtimeIdentity -Message 'Enter the existing DLE-OS-DEV-CONTROL password to register the staged DEV 5054 Windows Service. It will not be logged or stored in evidence.'
     if($null-eq$credential-or$credential.UserName-ine$runtimeIdentity){throw 'The service credential prompt was cancelled or returned a different identity.'}
-    [DleOsServiceAccountRights]::ValidateCredential($runtimeIdentity,$credential.Password)
+    [DleOsServiceAccountRights]::ValidateBatchCredential($runtimeIdentity,$credential.Password)
     if(-not$hadServiceLogonRight){
         [DleOsServiceAccountRights]::AddRight($runtimeIdentity,'SeServiceLogonRight')
         $rightAdded=$true
