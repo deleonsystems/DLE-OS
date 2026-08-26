@@ -55,10 +55,9 @@ internal sealed class KittingDispositionService
             BaseAddress = new Uri(ControlHostRuntimeConfiguration.CanonicalApiBaseUrl),
             Timeout = TimeSpan.FromSeconds(15)
         };
-        shortageRoot = Environment.GetEnvironmentVariable("DLE_OS_KIT_SHORTAGE_ROOT") ?? @"\\deleon-server\Production\KITTING\KIT-SHORTAGES";
-        completeRoot = Environment.GetEnvironmentVariable("DLE_OS_KIT_COMPLETE_ROOT") ?? @"\\deleon-server\Production\KITTING\KIT-COMPLETE";
-        shipmentStagingPath = Environment.GetEnvironmentVariable("DLE_OS_SHIPMENT_STAGING_PATH") ??
-            @"C:\DLE-OS\Repositories\DLE-OS\DATA\shipment-staging\shipment-staging.json";
+        shortageRoot = ControlHostRuntimeConfiguration.KitShortageRoot;
+        completeRoot = ControlHostRuntimeConfiguration.KitCompleteRoot;
+        shipmentStagingPath = ControlHostRuntimeConfiguration.ShipmentStagingPath;
         evidenceResolver = new CanonicalKittingEvidenceResolver(canonical);
         operationalRelationships = new OperationalWorkOrderRelationshipService(canonical);
     }

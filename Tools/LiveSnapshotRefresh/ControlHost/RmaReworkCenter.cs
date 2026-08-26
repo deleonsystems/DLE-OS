@@ -76,8 +76,7 @@ internal sealed class RmaReworkService
             Timeout = TimeSpan.FromSeconds(15)
         };
         operationalRelationships = new OperationalWorkOrderRelationshipService(canonical);
-        shipmentStagingPath = Environment.GetEnvironmentVariable("DLE_OS_SHIPMENT_STAGING_PATH") ??
-            @"C:\DLE-OS\Repositories\DLE-OS\DATA\shipment-staging\shipment-staging.json";
+        shipmentStagingPath = ControlHostRuntimeConfiguration.ShipmentStagingPath;
     }
 
     public async Task<object> ReviewAsync(RmaReworkReviewRequest request, CancellationToken token)

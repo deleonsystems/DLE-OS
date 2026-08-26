@@ -71,8 +71,10 @@ internal static class DevelopmentPermissionCatalog
         }
         if (path.StartsWith("/api/development/identity/", StringComparison.OrdinalIgnoreCase))
             return new("system.manage", "development.identity_fixture");
+#if !DLE_OS_DEV_ONLY
         if (path.StartsWith("/api/sync/operations", StringComparison.OrdinalIgnoreCase))
             return new("sync.operations", write ? "sync.operations.start" : "sync.operations.view");
+#endif
         return null;
     }
 }

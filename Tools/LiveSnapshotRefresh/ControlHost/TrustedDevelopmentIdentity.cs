@@ -134,9 +134,11 @@ internal static class TrustedDevelopmentIdentity
 
     internal static string RequireActorName(HttpContext context)
     {
+#if !DLE_OS_DEV_ONLY
         if (!ControlHostRuntimeConfiguration.IsIsolatedDevelopment)
             return context.User.Identity?.Name ?? throw new InvalidOperationException(
                 "The authenticated service actor is unavailable.");
+#endif
         return context.RequestServices.GetRequiredService<TrustedDleOsUserContextAccessor>()
                    .AuthorizedUser?.UserName ??
                throw new InvalidOperationException("Trusted downstream user context is unavailable.");
@@ -150,7 +152,9 @@ internal static class TrustedDevelopmentIdentity
         path.StartsWith("/api/operational-work-order-relationships/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/operations-center/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/api/shipment-staging/", StringComparison.OrdinalIgnoreCase) ||
+#if !DLE_OS_DEV_ONLY
         path.StartsWith("/api/sync/operations", StringComparison.OrdinalIgnoreCase) ||
+#endif
         path.StartsWith("/api/development/identity/", StringComparison.OrdinalIgnoreCase);
 
     private static async Task Deny(HttpContext context, int status, string code, string message)

@@ -503,6 +503,7 @@ ORDER BY DecisionSequence DESC;
                 await RmaReworkRepository.GetActiveMembershipAsync(
                     key.Customer, key.SalesOrder, key.Line, connection, transaction, token), action);
             var quantityOrdered = authoritativeQuantityOrdered;
+#if !DLE_OS_DEV_ONLY
             if (!ControlHostRuntimeConfiguration.IsIsolatedDevelopment)
             {
                 var quantityCommand = new SqlCommand("""
@@ -513,6 +514,7 @@ WHERE CustomerNumber=@Customer AND SalesOrderNumber=@SalesOrder AND LineNumber=@
                 var quantityValue = await quantityCommand.ExecuteScalarAsync(token);
                 if (quantityValue is decimal canonicalQuantity) quantityOrdered = canonicalQuantity;
             }
+#endif
             if (quantityOrdered < 0)
                 throw ApprovalProblem.Conflict("return_review_controls_work_order_decision",
                     "Negative return quantity blocks normal-production Work Order approval.");

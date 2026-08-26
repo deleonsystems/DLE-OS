@@ -37,4 +37,21 @@ internal static class ControlHostRuntimeConfiguration
 
     internal static string OperationalDatabaseName =>
         new SqlConnectionStringBuilder(OperationalConnectionString).InitialCatalog;
+
+    internal static string KitShortageRoot =>
+        Environment.GetEnvironmentVariable("DLE_OS_KIT_SHORTAGE_ROOT") ??
+        @"\\deleon-server\Production\KITTING\KIT-SHORTAGES";
+
+    internal static string KitCompleteRoot =>
+        Environment.GetEnvironmentVariable("DLE_OS_KIT_COMPLETE_ROOT") ??
+        @"\\deleon-server\Production\KITTING\KIT-COMPLETE";
+
+    internal static string ShipmentStagingPath =>
+        Environment.GetEnvironmentVariable("DLE_OS_SHIPMENT_STAGING_PATH") ??
+        @"C:\DLE-OS\Repositories\DLE-OS\DATA\shipment-staging\shipment-staging.json";
+
+    internal static string DevDataRoot =>
+        Environment.GetEnvironmentVariable("DLE_OS_DEV_OPERATIONAL_DATA_ROOT") ??
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "DLE-OS", "DevelopmentOperationalControl", "Data");
 }

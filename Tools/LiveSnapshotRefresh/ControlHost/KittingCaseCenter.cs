@@ -147,10 +147,8 @@ internal sealed class KittingCaseService
 {
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(15);
     private readonly string connectionString = ControlHostRuntimeConfiguration.OperationalConnectionString;
-    private readonly string shortageRoot = Environment.GetEnvironmentVariable("DLE_OS_KIT_SHORTAGE_ROOT") ??
-        @"\\deleon-server\Production\KITTING\KIT-SHORTAGES";
-    private readonly string completeRoot = Environment.GetEnvironmentVariable("DLE_OS_KIT_COMPLETE_ROOT") ??
-        @"\\deleon-server\Production\KITTING\KIT-COMPLETE";
+    private readonly string shortageRoot = ControlHostRuntimeConfiguration.KitShortageRoot;
+    private readonly string completeRoot = ControlHostRuntimeConfiguration.KitCompleteRoot;
     private readonly HttpClient canonical;
     private readonly CanonicalKittingEvidenceResolver evidenceResolver;
     private readonly OperationalWorkOrderRelationshipService operationalRelationships;
@@ -333,7 +331,7 @@ SELECT (SELECT COUNT(*) FROM operational.KittingCase WHERE WorkOrderNumber='0115
         await using var result=await verify.ExecuteReaderAsync(token);await result.ReadAsync(token);
         if(result.GetInt32(0)!=0||result.GetInt32(1)!=3||result.GetInt32(2)!=1)
             throw new InvalidOperationException("The Run 001 post-archive boundary is invalid.");
-        var evidenceRoot=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"DLE-OS","KittingCase");
+        var evidenceRoot=Path.Combine(ControlHostRuntimeConfiguration.DevDataRoot,"KittingCase");
         Directory.CreateDirectory(evidenceRoot);var evidencePath=Path.Combine(evidenceRoot,"Run001ArchiveEvidence.json");
         await File.WriteAllTextAsync(evidencePath,JsonSerializer.Serialize(new { verdict="PASS",workOrder="0115621",
             archivedCaseId=expectedCaseId,archivedRunNumber=1,actor,activeCaseCount=0,nextRunNumber=2,
