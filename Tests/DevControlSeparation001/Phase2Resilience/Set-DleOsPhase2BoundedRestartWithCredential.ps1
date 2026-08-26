@@ -1,0 +1,19 @@
+[CmdletBinding()]
+param([string]$EvidenceRoot='C:\DLE-OS\Qualification\DevResilience\Phase2')
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference='Stop'
+$identity=[Security.Principal.WindowsIdentity]::GetCurrent();$principal=New-Object Security.Principal.WindowsPrincipal($identity)
+if(-not$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)-or-not[string]::Equals($identity.Name,'DLE-OS-HOST\Miguel',[StringComparison]::OrdinalIgnoreCase)){throw 'Bounded restart registration requires elevated DLE-OS-HOST\Miguel.'}
+$taskPath='\';$taskName='DLE-OS DEV Operational ControlHost 5054 Candidate';$runtimeIdentity='DLE-OS-HOST\DLE-OS-DEV-CONTROL';$release='C:\DLE-OS\Development\OperationalControlHost5054\Releases\dev5054-20260826T052510Z-7e4c5e3db3d7';$legacyPath='\DLE-OS\Development\';$legacyName='Operational ControlHost 5054'
+$stamp=[DateTimeOffset]::UtcNow.ToString('yyyyMMddTHHmmssZ');$runRoot=Join-Path $EvidenceRoot ('phase2-bounded-restart-registration-'+$stamp);$null=New-Item -ItemType Directory -Path $runRoot -Force;$result=[ordered]@{Schema='dle-os.phase2-bounded-restart-registration.v1';StartedUtc=[DateTimeOffset]::UtcNow;PasswordCapturedInEvidence=$false;Passed=$false}
+$credential=$null;$plain=$null;$bstr=[IntPtr]::Zero
+try{
+    $task=Get-ScheduledTask -TaskPath $taskPath -TaskName $taskName;$action=@($task.Actions)[0];$legacyXml=Export-ScheduledTask -TaskPath $legacyPath -TaskName $legacyName
+    if(-not$task.Settings.Enabled-or$task.State-ne'Running'-or($task.Principal.UserId-ine'DLE-OS-DEV-CONTROL'-and$task.Principal.UserId-ine$runtimeIdentity)-or[string]$task.Principal.LogonType-ne'Password'-or[string]$task.Settings.ExecutionTimeLimit-ne'PT0S'-or[string]$task.Settings.MultipleInstances-ne'IgnoreNew'-or[string]$action.WorkingDirectory-ne$release){throw 'Current candidate does not match the healthy Phase 2 action/principal baseline.'}
+    $credential=Get-Credential -UserName $runtimeIdentity -Message 'Enter the existing DLE-OS-DEV-CONTROL password to register only the bounded restart settings.';if($null-eq$credential-or$credential.UserName-ine$runtimeIdentity){throw 'Credential prompt was cancelled or returned an unexpected identity.'};$bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($credential.Password);$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    $task.Settings.RestartCount=4;$task.Settings.RestartInterval='PT2M';Set-ScheduledTask -TaskPath $taskPath -TaskName $taskName -Action $action -Settings $task.Settings -User $runtimeIdentity -Password $plain|Out-Null
+    $after=Get-ScheduledTask -TaskPath $taskPath -TaskName $taskName;$afterAction=@($after.Actions)[0];if([int]$after.Settings.RestartCount-ne4-or[string]$after.Settings.RestartInterval-ne'PT2M'-or[string]$after.Settings.ExecutionTimeLimit-ne'PT0S'-or[string]$after.Settings.MultipleInstances-ne'IgnoreNew'-or[string]$afterAction.WorkingDirectory-ne$release-or(Export-ScheduledTask -TaskPath $legacyPath -TaskName $legacyName)-cne$legacyXml){throw 'Post-registration task verification failed.'}
+    $result.Task=[ordered]@{State=[string]$after.State;Enabled=[bool]$after.Settings.Enabled;Principal=$after.Principal.UserId;LogonType=[string]$after.Principal.LogonType;WorkingDirectory=$afterAction.WorkingDirectory;RestartCount=[int]$after.Settings.RestartCount;RestartInterval=[string]$after.Settings.RestartInterval;ExecutionTimeLimit=[string]$after.Settings.ExecutionTimeLimit;MultipleInstances=[string]$after.Settings.MultipleInstances};$result.LegacyUnchanged=$true;$result.Passed=$true
+}catch{$result.Error=$_.Exception.Message;throw}finally{if($bstr-ne[IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)};$plain=$null;$credential=$null;$result.CompletedUtc=[DateTimeOffset]::UtcNow;$result|ConvertTo-Json -Depth 15|Set-Content -LiteralPath (Join-Path $runRoot 'phase2-bounded-restart-registration.json') -Encoding UTF8}
+$result|ConvertTo-Json -Depth 10
