@@ -102,6 +102,9 @@ try{
     $result.Logging=[ordered]@{PreCrashActiveBytes=$preCrashLogSize;Files=@($logFiles|Select-Object Name,Length,CreationTimeUtc,LastWriteTimeUtc);ArchiveCount=$archives.Count;RetentionPassed=$retentionPassed;CrashMarkerSurvived=@($archives|Where-Object Length -ge10MB).Count-gt0;PostRecoveryStartupObserved=$logTail-match'ApplicationStarted';Passed=$logPassed}
     $result.FailureEvidence=[ordered]@{NewFolders=@($newFailureFolders|Select-Object FullName,CreationTimeUtc);WatcherProducedEvidence=$newFailureFolders.Count-gt0}
     $result.FrontendTo5054=$frontendTo5054;$result.ManifestFileCount=@($integrity.files).Count;$result.Passed=$true
+}catch{
+    $result.Error=$_.Exception.Message
+    throw
 }finally{
     $result.CompletedUtc=[DateTimeOffset]::UtcNow
     $result|ConvertTo-Json -Depth 30|Set-Content -LiteralPath (Join-Path $runRoot 'phase2-crash-recovery.json') -Encoding UTF8
