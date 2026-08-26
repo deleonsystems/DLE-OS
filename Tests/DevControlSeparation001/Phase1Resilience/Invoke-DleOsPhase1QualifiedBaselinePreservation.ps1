@@ -2,7 +2,8 @@
 param(
     [string]$RepositoryRoot = 'C:\DLE-OS\Repositories\DLE-OS',
     [string]$QualificationRoot = 'C:\DLE-OS\Qualification\DevResilience\Phase1',
-    [string]$GovernedBackupRoot = 'C:\DLE-OS\Backups\DevResilience'
+    [string]$GovernedBackupRoot = 'C:\DLE-OS\Backups\DevResilience',
+    [switch]$PreservationOnly
 )
 
 Set-StrictMode -Version Latest
@@ -303,7 +304,7 @@ function Get-FileInventory([string[]]$Roots) {
             $items.Add([pscustomobject]@{Path=$file.FullName;Length=$file.Length;LastWriteTimeUtc=$file.LastWriteTimeUtc;Sha256=Get-Sha256 $file.FullName})
         }
     }
-    @($items)
+    foreach ($item in $items) { $item }
 }
 
 try {
@@ -364,13 +365,17 @@ try {
     $databaseInventory = @($allowedDatabases | ForEach-Object { Get-DatabaseSnapshot $_ })
     $databaseInventory | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $databaseEvidenceRoot 'active-dev-database-inventory.json') -Encoding UTF8
 
-    $operationalResult = Backup-And-RestoreDatabase 'DLE_OS_OPERATIONAL_DEV' $serverPaths.DefaultBackupPath $serverPaths.DefaultDataPath
-    $securityResult = Backup-And-RestoreDatabase 'DLE_OS_SECURITY_DEV' $serverPaths.DefaultBackupPath $serverPaths.DefaultDataPath
-    $restoreEvidenceComplete = $operationalResult.Passed -and $securityResult.Passed
-    if (-not $restoreEvidenceComplete) { throw 'One or more isolated restore qualifications failed.' }
+    $operationalResult = $null
+    $securityResult = $null
+    if (-not $PreservationOnly) {
+        $operationalResult = Backup-And-RestoreDatabase 'DLE_OS_OPERATIONAL_DEV' $serverPaths.DefaultBackupPath $serverPaths.DefaultDataPath
+        $securityResult = Backup-And-RestoreDatabase 'DLE_OS_SECURITY_DEV' $serverPaths.DefaultBackupPath $serverPaths.DefaultDataPath
+        $restoreEvidenceComplete = $operationalResult.Passed -and $securityResult.Passed
+        if (-not $restoreEvidenceComplete) { throw 'One or more isolated restore qualifications failed.' }
 
-    foreach ($restoreName in @($createdRestoreDatabases)) {
-        Invoke-SqlNonQuery 'master' "ALTER DATABASE $(Quote-SqlIdentifier $restoreName) SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE $(Quote-SqlIdentifier $restoreName);" 300
+        foreach ($restoreName in @($createdRestoreDatabases)) {
+            Invoke-SqlNonQuery 'master' "ALTER DATABASE $(Quote-SqlIdentifier $restoreName) SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE $(Quote-SqlIdentifier $restoreName);" 300
+        }
     }
     $cleanup = [ordered]@{CapturedUtc=[DateTimeOffset]::UtcNow;DroppedRestoreDatabases=@($createdRestoreDatabases);RemainingRestoreDatabases=Convert-DataTableRows (Invoke-SqlTable 'master' "SET NOCOUNT ON; SELECT name FROM sys.databases WHERE name LIKE 'DLE[_]OS[_]%[_]DEV[_]RESTORE[_]TEST[_]%';");ActiveDevDatabases=Convert-DataTableRows (Invoke-SqlTable 'master' "SET NOCOUNT ON; SELECT name,state_desc FROM sys.databases WHERE name IN ('DLE_OS_OPERATIONAL_DEV','DLE_OS_SECURITY_DEV');")}
     $cleanup | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $databaseEvidenceRoot 'restore-test-cleanup.json') -Encoding UTF8
@@ -385,10 +390,11 @@ try {
     )
     $filesystemInventory = Get-FileInventory $filesystemRoots
     $filesystemInventory | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $filesystemEvidenceRoot 'governed-dev-filesystem-inventory.json') -Encoding UTF8
-    $releaseArchive = Join-Path $preservationRoot ($releaseId + '.zip')
-    Compress-Archive -Path (Join-Path $releasePath '*') -DestinationPath $releaseArchive -CompressionLevel Optimal
-    $devDataArchive = Join-Path $preservationRoot ('DevelopmentOperationalControl-Data-' + $stamp + '.zip')
-    Compress-Archive -Path 'C:\ProgramData\DLE-OS\DevelopmentOperationalControl\Data\*' -DestinationPath $devDataArchive -CompressionLevel Optimal
+    $releasePreservationPath = Join-Path (Join-Path $preservationRoot 'Release') $releaseId
+    $devDataPreservationPath = Join-Path $preservationRoot 'DevelopmentOperationalControl-Data'
+    $null = New-Item -ItemType Directory -Path $releasePreservationPath,$devDataPreservationPath -Force
+    Copy-Item -Path (Join-Path $releasePath '*') -Destination $releasePreservationPath -Recurse
+    Copy-Item -Path 'C:\ProgramData\DLE-OS\DevelopmentOperationalControl\Data\*' -Destination $devDataPreservationPath -Recurse
     Copy-Item -LiteralPath $manifestPath,$launcherPath,(Join-Path $taskEvidenceRoot 'candidate-5054-task.xml'),(Join-Path $taskEvidenceRoot 'legacy-5054-task.xml') -Destination $preservationRoot
     Copy-Item -LiteralPath 'C:\ProgramData\DLE-OS\DevelopmentIdentity\Keys\validator-public.pem' -Destination $preservationRoot
     $pointerStatePath = 'C:\DLE-OS\Development\OperationalControlHost5054\Pointers\pointer-state.json'
@@ -425,22 +431,27 @@ try {
         Schema='dle-os.phase1-preservation-summary.v1';RunId=$runId;CompletedUtc=[DateTimeOffset]::UtcNow
         EvidenceRoot=$evidenceRoot;GovernedBackupRoot=$backupRoot
         QualifiedRuntimeBaselineCaptured=$true;ReleaseFileCount=$releaseFiles.Count;ReleaseMismatchCount=$releaseMismatches.Count
-        OperationalBackupVerified=$operationalResult.Passed;SecurityBackupVerified=$securityResult.Passed
-        OperationalRestorePassed=$operationalResult.RestoreComparison.Passed;SecurityRestorePassed=$securityResult.RestoreComparison.Passed
-        KnownRecentDevRecordsVerified=$operationalResult.KnownOperationalRecordsPassed
-        RestoreTestsDroppedAfterEvidence=$true
+        PreservationOnly=[bool]$PreservationOnly
+        OperationalBackupVerified=if($operationalResult){$operationalResult.Passed}else{$false}
+        SecurityBackupVerified=if($securityResult){$securityResult.Passed}else{$false}
+        OperationalRestorePassed=if($operationalResult){$operationalResult.RestoreComparison.Passed}else{$false}
+        SecurityRestorePassed=if($securityResult){$securityResult.RestoreComparison.Passed}else{$false}
+        KnownRecentDevRecordsVerified=if($operationalResult){$operationalResult.KnownOperationalRecordsPassed}else{$false}
+        RestoreTestsDroppedAfterEvidence=(-not $PreservationOnly)
         GovernedPreservationComplete=($preservationInventory.Count -gt 0)
         IndependentOffHostCopy='NOT YET'
         IndependentCopyReason='All identified governed backup and qualification destinations are on the C: volume of DLE-OS-HOST; no pre-approved off-host destination was found.'
         RuntimeRegressionPassed=$regressionPassed
         CandidateTaskUnchanged=$candidateTaskUnchanged
         LegacyTaskUnchanged=$legacyTaskUnchanged
-        Phase1DataTransactionPassed=($operationalResult.Passed -and $securityResult.Passed -and $regressionPassed)
+        PreservationPackagePassed=($regressionPassed -and $preservationInventory.Count -gt 0)
+        Phase1DataTransactionPassed=(-not $PreservationOnly -and $operationalResult.Passed -and $securityResult.Passed -and $regressionPassed)
     }
     $finalPath = Join-Path $evidenceRoot 'phase1-preservation-summary.json'
     $final | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $finalPath -Encoding UTF8
     $final | ConvertTo-Json -Depth 10
-    if (-not $final.Phase1DataTransactionPassed) { throw 'Phase 1 preservation completed but the final regression gate did not pass.' }
+    if (-not $final.PreservationPackagePassed) { throw 'Phase 1 preservation package completed but the final regression gate did not pass.' }
+    if (-not $PreservationOnly -and -not $final.Phase1DataTransactionPassed) { throw 'Phase 1 database preservation completed but its final gate did not pass.' }
 }
 catch {
     $failure = [ordered]@{
