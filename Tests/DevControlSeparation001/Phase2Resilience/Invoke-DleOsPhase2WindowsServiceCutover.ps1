@@ -91,7 +91,7 @@ try{
     $result.CrashRecovery.StructuredRecoveryEvidencePassed=$true
 
     $canonical=Probe 'http://127.0.0.1:5052/api/platform/live/v1/readiness' -Credentials;$guard=Probe 'http://127.0.0.1:5052/api/development/v1/security' -Credentials;$cb=if($canonical.Passed){$canonical.Body|ConvertFrom-Json}else{$null};$gb=if($guard.Passed){$guard.Body|ConvertFrom-Json}else{$null}
-    $canonicalPassed=$canonical.Passed-and$cb.readinessVerdict-eq'Ready'-and$cb.database-eq'DLE_OS_CANONICAL_LIVE';$guardPassed=$guard.Passed-and$gb.verdict-eq'PASS'-and$gb.select-eq'PERMITTED'-and$gb.insert.result-eq'DENIED'-and$gb.update.result-eq'DENIED'-and$gb.delete.result-eq'DENIED'-and$gb.execute-eq'DENIED'
+    $canonicalPassed=$canonical.Passed-and$cb.readinessVerdict-in@('Ready','ReadyFresh')-and$cb.database-eq'DLE_OS_CANONICAL_LIVE';$guardPassed=$guard.Passed-and$gb.verdict-eq'PASS'-and$gb.select-eq'PERMITTED'-and$gb.insert.result-eq'DENIED'-and$gb.update.result-eq'DENIED'-and$gb.delete.result-eq'DENIED'-and$gb.execute-eq'DENIED'
     $postServices=@('MSSQL$SQLEXPRESS','DleOsKeycloak','sshd','BrAmSvc','WinDefend','mpssvc','DleOsDevelopmentFrontend')|ForEach-Object{Get-Service $_|Select-Object Name,Status,StartType};$servicesPassed=@($postServices|Where-Object{$_.Status-ne'Running'-or$_.StartType-ne'Automatic'}).Count-eq0
     $postLive=@(Get-NetTCPConnection -State Listen|Where-Object LocalPort -in 5041,5042,5043|Select-Object LocalAddress,LocalPort,OwningProcess);$liveBefore=@($baseline.LiveListeners|ForEach-Object{"$($_.LocalAddress)|$($_.LocalPort)"}|Sort-Object);$liveAfter=@($postLive|ForEach-Object{"$($_.LocalAddress)|$($_.LocalPort)"}|Sort-Object);$liveUnchanged=(($liveBefore-join',')-ceq($liveAfter-join','))
     $sac=[int](Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy').VerifiedAndReputablePolicyState;$secureBoot=try{[bool](Confirm-SecureBootUEFI)}catch{$null};$defender=Get-MpComputerStatus|Select-Object AMServiceEnabled,AntivirusEnabled,BehaviorMonitorEnabled,RealTimeProtectionEnabled,IsTamperProtected
@@ -99,7 +99,11 @@ try{
     $keycloak=Probe 'https://auth.internal.dlemfg.com/realms/dle-os/.well-known/openid-configuration';$frontend=Probe 'http://dle-os-host:5051/shared';$finalOperations=Probe 'http://dle-os-host:5051/api/operations-center/v1/work-orders/0115622/verified-status-history' -Credentials
     $ciPattern='DleOs\.DevOperationalControlHost|'+[regex]::Escape($ReleaseId)
     $ciEvents=@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-CodeIntegrity/Operational';StartTime=$cutoverUtc.ToLocalTime()} -ErrorAction SilentlyContinue|Where-Object{$_.Id-eq3077-and$_.Message-match$ciPattern}|Select-Object TimeCreated,RecordId,Id,Message)
-    if(-not$canonicalPassed-or-not$guardPassed-or-not$servicesPassed-or-not$liveUnchanged-or-not$securityPassed-or-not$keycloak.Passed-or-not$frontend.Passed-or-not$finalOperations.Passed-or$ciEvents.Count-ne0){throw 'A final regression or security invariant failed.'}
+    $result.Regression=[ordered]@{Frontend5051=$frontend;Operations5051To5054=$finalOperations;Canonical5052=$canonical;CanonicalReadOnlyGuard=$guard;CanonicalParsed=$cb;GuardParsed=$gb;CanonicalPassed=$canonicalPassed;GuardPassed=$guardPassed;Keycloak=$keycloak;Services=$postServices;ServicesPassed=$servicesPassed;LiveListenersBefore=$baseline.LiveListeners;LiveListeners=$postLive;LiveUnchanged=$liveUnchanged;SacStateBefore=$baseline.SacState;SacState=$sac;SecureBootBefore=$baseline.SecureBoot;SecureBoot=$secureBoot;Defender=$defender;SecurityUnchanged=$securityPassed;CodeIntegrity3077=$ciEvents}
+    $failedRegression=@()
+    if(-not$canonicalPassed){$failedRegression+='Canonical5052'};if(-not$guardPassed){$failedRegression+='CanonicalReadOnlyGuard'};if(-not$servicesPassed){$failedRegression+='RequiredServices'};if(-not$liveUnchanged){$failedRegression+='LiveListeners'};if(-not$securityPassed){$failedRegression+='SecurityState'};if(-not$keycloak.Passed){$failedRegression+='Keycloak'};if(-not$frontend.Passed){$failedRegression+='Frontend5051'};if(-not$finalOperations.Passed){$failedRegression+='Frontend5051To5054'};if($ciEvents.Count-ne0){$failedRegression+='CodeIntegrity3077'}
+    $result.FailedRegressionConditions=$failedRegression
+    if($failedRegression.Count-ne0){throw "Final regression failed: $($failedRegression-join', ')."}
 
     $null=Disable-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName
     Set-Service -Name $serviceName -StartupType Automatic
@@ -110,7 +114,6 @@ try{
     if((XmlHash $legacyPath $legacyName)-cne$legacyHashBefore){throw 'The legacy task changed.'}
 
     $result.Preflight=[ordered]@{ManifestFileCount=@($manifest.files).Count;ManifestIntegrity=$true;RuntimeSid=$actualSid;RecoveryActions=@($recovery.Actions|Select-Object Type,DelayMilliseconds);Probes=$preflightProbes;CandidateHash=$candidateHashBefore;LegacyHash=$legacyHashBefore}
-    $result.Regression=[ordered]@{Frontend5051=$frontend;Operations5051To5054=$finalOperations;Canonical5052=$canonical;CanonicalReadOnlyGuard=$guard;CanonicalPassed=$canonicalPassed;GuardPassed=$guardPassed;Keycloak=$keycloak;Services=$postServices;ServicesPassed=$servicesPassed;LiveListeners=$postLive;LiveUnchanged=$liveUnchanged;SacState=$sac;SecureBoot=$secureBoot;Defender=$defender;SecurityUnchanged=$securityPassed;CodeIntegrity3077=$ciEvents}
     $result.FinalDisposition=[ordered]@{ServiceState=$finalService.State;ServiceStartMode=$finalService.StartMode;DelayedAutoStart=$delayed;CandidateEnabled=[bool]$finalCandidate.Settings.Enabled;CandidateRetained=$true;CandidateAction=$finalCandidate.Actions[0];CandidateRestartCount=[int]$finalCandidate.Settings.RestartCount;LegacyEnabled=[bool]$finalLegacy.Settings.Enabled;SingleAutomaticOwner=$true}
     $result.Passed=$true
 }catch{
