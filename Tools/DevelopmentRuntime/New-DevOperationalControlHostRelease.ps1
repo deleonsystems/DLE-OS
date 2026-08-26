@@ -18,6 +18,15 @@ $stage = [IO.Path]::GetFullPath((Join-Path $StageRoot $ReleaseId))
 $publish = Join-Path $stage 'publish'
 $evidence = Join-Path $stage 'evidence'
 
+function Get-ChildRelativePath([string]$Parent,[string]$Child) {
+    $parentFull = [IO.Path]::GetFullPath($Parent).TrimEnd('\') + '\'
+    $childFull = [IO.Path]::GetFullPath($Child)
+    if (-not $childFull.StartsWith($parentFull,[StringComparison]::OrdinalIgnoreCase)) {
+        throw "Path is not within its governed parent: $childFull"
+    }
+    $childFull.Substring($parentFull.Length).Replace('\','/')
+}
+
 if (-not $stage.StartsWith([IO.Path]::GetFullPath($StageRoot).TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
     throw 'The release stage escaped its caller-provided root.'
 }
@@ -38,7 +47,7 @@ $sourceBoundaryFiles = @(
 )
 $sourceBoundary = @($sourceBoundaryFiles | ForEach-Object {
     [ordered]@{
-        relativePath = [IO.Path]::GetRelativePath($repository,$_.FullName).Replace('\','/')
+        relativePath = Get-ChildRelativePath $repository $_.FullName
         sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
     }
 })
@@ -73,7 +82,7 @@ foreach($pattern in $forbiddenPatterns) {
 
 $files = @(Get-ChildItem -LiteralPath $publish -File -Recurse | Sort-Object FullName | ForEach-Object {
     [ordered]@{
-        relativePath = [IO.Path]::GetRelativePath($publish,$_.FullName).Replace('\','/')
+        relativePath = Get-ChildRelativePath $publish $_.FullName
         length = $_.Length
         sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
         authenticodeStatus = [string](Get-AuthenticodeSignature -LiteralPath $_.FullName).Status
