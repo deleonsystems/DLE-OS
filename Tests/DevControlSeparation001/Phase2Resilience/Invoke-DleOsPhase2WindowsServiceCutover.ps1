@@ -46,7 +46,7 @@ function Start-Fallback{
     $deadline=(Get-Date).AddSeconds(150);do{Start-Sleep -Seconds 2;$task=Get-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName;$old=@(ExactOldProcesses);$health=Probe 'http://dle-os-host:5051/api/operations-center/v1/work-orders/0115622/verified-status-history' -Credentials}until(($task.State-eq'Running'-and$old.Count-eq1-and$health.Passed)-or(Get-Date)-ge$deadline)
     $result.RollbackPassed=($task.State-eq'Running'-and$old.Count-eq1-and$health.Passed)
 }
-function ServiceEvents([datetime]$Since){@(Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Service Control Manager';StartTime=$Since} -ErrorAction SilentlyContinue|Where-Object{$_.Message-match$serviceName-or$_.Message-match'DLE-OS DEV Operational ControlHost 5054'}|Select-Object TimeCreated,RecordId,Id,LevelDisplayName,Message)}
+function ServiceEvents([datetime]$Since){@(Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Service Control Manager';StartTime=$Since.ToLocalTime()} -ErrorAction SilentlyContinue|Where-Object{$_.Message -match $serviceName -or $_.Message -match 'DLE-OS DEV Operational ControlHost 5054'}|Select-Object TimeCreated,RecordId,Id,LevelDisplayName,Message)}
 
 try{
     Assert-AdministratorMiguel;$null=New-Item -ItemType Directory -Path $runRoot -Force
@@ -73,6 +73,7 @@ try{
     $firstProcess=$startup.Process
     if($firstProcess.Owner-ine$runtimeIdentity-or$firstProcess.Path-ine(Join-Path $releasePath 'DleOs.DevOperationalControlHost.exe')){throw 'The service process identity or immutable release path is wrong.'}
     $runtimeProbes=[ordered]@{Operations=$startup.Probe;Kitting=Probe 'http://dle-os-host:5051/api/kitting-dispositions/v1/work-orders/0115622/history' -Credentials;Rma=Probe 'http://dle-os-host:5051/api/rma-rework/v1/cases?page=1&pageSize=10' -Credentials;Shipment=Probe 'http://dle-os-host:5051/api/shipment-staging/v1/shipments?page=1&pageSize=10' -Credentials}
+    $result.FirstServiceProcess=$firstProcess;$result.RuntimeProbes=$runtimeProbes
     if(@($runtimeProbes.Values|Where-Object{-not$_.Passed}).Count-ne0){throw 'A DEV operational read path failed under the Windows Service.'}
     $logText=(Get-ChildItem -LiteralPath $logRoot -File -Filter 'dev5054-*.jsonl'|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 4|ForEach-Object{Get-Content -LiteralPath $_.FullName -Tail 300})-join"`n"
     if($logText-notmatch[regex]::Escape($ReleaseId)-or$logText-notmatch'WindowsServiceModeEnabled'-or$logText-notmatch'ServiceProcessStateRecorded'){throw 'Structured Windows Service startup evidence is absent.'}
@@ -83,9 +84,11 @@ try{
     if(-not$recoveryResult.Passed-or$recoveryResult.Process.Pid-eq$oldPid){throw 'SCM did not recover DEV 5054 with a new PID.'}
     if($recoveryResult.Process.Owner-ine$runtimeIdentity-or$recoveryResult.Process.Path-ine(Join-Path $releasePath 'DleOs.DevOperationalControlHost.exe')){throw 'SCM recovery returned the wrong identity or release.'}
     $events=ServiceEvents $crashUtc
+    $result.CrashRecovery=[ordered]@{CrashUtc=$crashUtc;OldPid=$oldPid;NewProcess=$recoveryResult.Process;ScmEvents=$events;AutomaticRestartPassed=$true;StructuredRecoveryEvidencePassed=$false}
     if(@($events|Where-Object Id -in 7031,7034).Count-eq0){throw 'SCM did not record the controlled service-process failure.'}
     $logTextAfter=(Get-ChildItem -LiteralPath $logRoot -File -Filter 'dev5054-*.jsonl'|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 4|ForEach-Object{Get-Content -LiteralPath $_.FullName -Tail 500})-join"`n"
     if($logTextAfter-notmatch'PreviousServiceProcessExitedUnexpectedly'-or$logTextAfter-notmatch[regex]::Escape([string]$oldPid)){throw 'Durable structured recovery evidence does not identify the failed predecessor PID.'}
+    $result.CrashRecovery.StructuredRecoveryEvidencePassed=$true
 
     $canonical=Probe 'http://127.0.0.1:5052/api/platform/live/v1/readiness' -Credentials;$guard=Probe 'http://127.0.0.1:5052/api/development/v1/security' -Credentials;$cb=if($canonical.Passed){$canonical.Body|ConvertFrom-Json}else{$null};$gb=if($guard.Passed){$guard.Body|ConvertFrom-Json}else{$null}
     $canonicalPassed=$canonical.Passed-and$cb.readinessVerdict-eq'Ready'-and$cb.database-eq'DLE_OS_CANONICAL_LIVE';$guardPassed=$guard.Passed-and$gb.verdict-eq'PASS'-and$gb.select-eq'PERMITTED'-and$gb.insert.result-eq'DENIED'-and$gb.update.result-eq'DENIED'-and$gb.delete.result-eq'DENIED'-and$gb.execute-eq'DENIED'
@@ -95,7 +98,7 @@ try{
     $securityPassed=$sac-eq$baseline.SacState-and$secureBoot-eq$baseline.SecureBoot-and$defender.AMServiceEnabled-and$defender.AntivirusEnabled-and$defender.BehaviorMonitorEnabled-and$defender.RealTimeProtectionEnabled
     $keycloak=Probe 'https://auth.internal.dlemfg.com/realms/dle-os/.well-known/openid-configuration';$frontend=Probe 'http://dle-os-host:5051/shared';$finalOperations=Probe 'http://dle-os-host:5051/api/operations-center/v1/work-orders/0115622/verified-status-history' -Credentials
     $ciPattern='DleOs\.DevOperationalControlHost|'+[regex]::Escape($ReleaseId)
-    $ciEvents=@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-CodeIntegrity/Operational';StartTime=$cutoverUtc} -ErrorAction SilentlyContinue|Where-Object{$_.Id-eq3077-and$_.Message-match$ciPattern}|Select-Object TimeCreated,RecordId,Id,Message)
+    $ciEvents=@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-CodeIntegrity/Operational';StartTime=$cutoverUtc.ToLocalTime()} -ErrorAction SilentlyContinue|Where-Object{$_.Id-eq3077-and$_.Message-match$ciPattern}|Select-Object TimeCreated,RecordId,Id,Message)
     if(-not$canonicalPassed-or-not$guardPassed-or-not$servicesPassed-or-not$liveUnchanged-or-not$securityPassed-or-not$keycloak.Passed-or-not$frontend.Passed-or-not$finalOperations.Passed-or$ciEvents.Count-ne0){throw 'A final regression or security invariant failed.'}
 
     $null=Disable-ScheduledTask -TaskPath $candidatePath -TaskName $candidateName
@@ -107,8 +110,6 @@ try{
     if((XmlHash $legacyPath $legacyName)-cne$legacyHashBefore){throw 'The legacy task changed.'}
 
     $result.Preflight=[ordered]@{ManifestFileCount=@($manifest.files).Count;ManifestIntegrity=$true;RuntimeSid=$actualSid;RecoveryActions=@($recovery.Actions|Select-Object Type,DelayMilliseconds);Probes=$preflightProbes;CandidateHash=$candidateHashBefore;LegacyHash=$legacyHashBefore}
-    $result.FirstServiceProcess=$firstProcess;$result.RuntimeProbes=$runtimeProbes
-    $result.CrashRecovery=[ordered]@{CrashUtc=$crashUtc;OldPid=$oldPid;NewProcess=$recoveryResult.Process;ScmEvents=$events;AutomaticRestartPassed=$true;StructuredRecoveryEvidencePassed=$true}
     $result.Regression=[ordered]@{Frontend5051=$frontend;Operations5051To5054=$finalOperations;Canonical5052=$canonical;CanonicalReadOnlyGuard=$guard;CanonicalPassed=$canonicalPassed;GuardPassed=$guardPassed;Keycloak=$keycloak;Services=$postServices;ServicesPassed=$servicesPassed;LiveListeners=$postLive;LiveUnchanged=$liveUnchanged;SacState=$sac;SecureBoot=$secureBoot;Defender=$defender;SecurityUnchanged=$securityPassed;CodeIntegrity3077=$ciEvents}
     $result.FinalDisposition=[ordered]@{ServiceState=$finalService.State;ServiceStartMode=$finalService.StartMode;DelayedAutoStart=$delayed;CandidateEnabled=[bool]$finalCandidate.Settings.Enabled;CandidateRetained=$true;CandidateAction=$finalCandidate.Actions[0];CandidateRestartCount=[int]$finalCandidate.Settings.RestartCount;LegacyEnabled=[bool]$finalLegacy.Settings.Enabled;SingleAutomaticOwner=$true}
     $result.Passed=$true
