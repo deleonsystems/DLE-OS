@@ -125,6 +125,8 @@ try{
 
     $rightsSource='C:\DLE-OS\Repositories\DLE-OS\Tools\DevelopmentRuntime\DleOsServiceAccountRights.cs'
     Add-Type -TypeDefinition (Get-Content -Raw -LiteralPath $rightsSource) -Language CSharp
+    $recoverySource='C:\DLE-OS\Repositories\DLE-OS\Tools\DevelopmentRuntime\DleOsServiceRecoveryConfiguration.cs'
+    Add-Type -TypeDefinition (Get-Content -Raw -LiteralPath $recoverySource) -Language CSharp
     $hadServiceLogonRight=[DleOsServiceAccountRights]::HasRight($runtimeIdentity,'SeServiceLogonRight')
     $credential=Get-Credential -UserName $runtimeIdentity -Message 'Enter the existing DLE-OS-DEV-CONTROL password to register the staged DEV 5054 Windows Service. It will not be logged or stored in evidence.'
     if($null-eq$credential-or$credential.UserName-ine$runtimeIdentity){throw 'The service credential prompt was cancelled or returned a different identity.'}
@@ -174,11 +176,13 @@ try{
     $null=New-Service -Name $serviceName -BinaryPathName $binaryPath -DisplayName 'DLE-OS DEV Operational ControlHost 5054' `
         -Description 'DEV-only DLE-OS operational ControlHost on TCP 5054.' -StartupType Manual -Credential $credential
     $serviceCreated=$true
-    $failureOutput=Invoke-Sc @('failure',$serviceName,'reset=','86400','actions=','restart/120000/restart/120000/restart/120000/restart/120000/""/0')
-    $failureFlagOutput=Invoke-Sc @('failureflag',$serviceName,'1')
+    [DleOsServiceRecoveryConfiguration]::ConfigureBoundedRecovery($serviceName,86400,120000)
+    $recoveryState=[DleOsServiceRecoveryConfiguration]::Query($serviceName)
     $queryOutput=Invoke-Sc @('qfailure',$serviceName)
-    $queryText=$queryOutput-join"`n"
-    if(([regex]::Matches($queryText,'RESTART -- Delay = 120000 milliseconds')).Count-ne4-or$queryText-notmatch'NONE -- Delay = 0 milliseconds'){
+    $firstFourActions=@($recoveryState.Actions|Select-Object -First 4)
+    if($recoveryState.ResetPeriodSeconds-ne86400-or@($recoveryState.Actions).Count-ne5-or
+       @($firstFourActions|Where-Object{$_.Type-ne1-or$_.DelayMilliseconds-ne120000}).Count-ne0-or
+       $recoveryState.Actions[4].Type-ne0-or$recoveryState.Actions[4].DelayMilliseconds-ne0){
         throw 'SCM failure actions are not exactly four delayed restarts followed by NONE.'
     }
     $service=Get-CimInstance Win32_Service -Filter "Name='$serviceName'"
@@ -197,7 +201,7 @@ try{
     $result.Service=[ordered]@{Name=$service.Name;State=$service.State;StartMode=$service.StartMode;StartName=$service.StartName;PathName=$service.PathName}
     $result.Release=[ordered]@{Path=$releasePath;ManifestPath=$manifestPath;FileCount=@($manifest.files).Count;IntegrityPassed=$true;InstalledThisRun=$releaseInstalled}
     $result.Configuration=[ordered]@{Path=$configurationPath;Sha256=(Get-FileHash -LiteralPath $configurationPath -Algorithm SHA256).Hash;ContainsSecrets=$false}
-    $result.Recovery=[ordered]@{ResetPeriodSeconds=86400;RestartDelaysMilliseconds=@(120000,120000,120000,120000);TerminalAction='NONE';FailureActionsOutput=$failureOutput;FailureFlagOutput=$failureFlagOutput;QueryOutput=$queryOutput;Bounded=$true}
+    $result.Recovery=[ordered]@{ResetPeriodSeconds=[uint32]$recoveryState.ResetPeriodSeconds;Actions=@($recoveryState.Actions|ForEach-Object{[ordered]@{Type=[int]$_.Type;Action=if($_.Type-eq1){'RESTART'}else{'NONE'};DelayMilliseconds=[uint32]$_.DelayMilliseconds}});TerminalAction='NONE';QueryOutput=$queryOutput;Bounded=$true}
     $result.ServiceLogonRight=[ordered]@{PresentBefore=$hadServiceLogonRight;AddedThisRun=$rightAdded;PresentAfter=$true}
     $result.RuntimeIdentityGroups=$groups
     $result.CandidateTaskHashBefore=$candidateHashBefore;$result.CandidateTaskHashAfter=$candidateHashAfter
