@@ -19,6 +19,7 @@ public static class DleOsServiceRecoveryConfiguration
     private const uint ScManagerConnect = 0x0001;
     private const uint ServiceQueryConfig = 0x0001;
     private const uint ServiceChangeConfig = 0x0002;
+    private const uint ServiceStart = 0x0010;
     private const int ServiceConfigFailureActions = 2;
     private const int ServiceConfigFailureActionsFlag = 4;
     private const int ScActionNone = 0;
@@ -78,7 +79,7 @@ public static class DleOsServiceRecoveryConfiguration
         {
             scm = OpenSCManager(null, null, ScManagerConnect);
             if (scm == IntPtr.Zero) ThrowLastError("OpenSCManager");
-            service = OpenService(scm, serviceName, ServiceChangeConfig | ServiceQueryConfig);
+            service = OpenService(scm, serviceName, ServiceChangeConfig | ServiceQueryConfig | ServiceStart);
             if (service == IntPtr.Zero) ThrowLastError("OpenService");
 
             var actions = new[]
