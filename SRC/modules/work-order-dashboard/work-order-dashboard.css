@@ -36,6 +36,10 @@
   justify-content: flex-end;
 }
 
+.work-order-dashboard-module-header-actions[hidden] {
+  display: none;
+}
+
 .work-order-dashboard-module-title {
   display: flex;
   align-items: center;
@@ -73,6 +77,10 @@
   font-size: 13px;
 }
 
+.work-order-dashboard-module-status[hidden] {
+  display: none;
+}
+
 .work-order-dashboard-module-summary-card,
 .work-order-dashboard-module-table-card,
 .work-order-dashboard-module-documents-card,
@@ -108,6 +116,99 @@
 .work-order-dashboard-module-view-selector select {
   min-width: 190px;
 }
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-header {
+  display: contents;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-title {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-title p,
+#workOrderDashboardModule[data-dashboard-view="production"] [data-production-summary-hidden="true"] {
+  display: none;
+}
+
+.work-order-dashboard-module-summary-item .work-order-dashboard-production-only {
+  display: none;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-standard-only {
+  display: none;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-production-only {
+  display: block;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-view-selector {
+  grid-column: 2;
+  grid-row: 1;
+  width: 190px;
+  height: 44px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 3px 4px 3px 9px;
+  gap: 5px;
+  border-radius: 8px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-view-selector label {
+  flex: 0 0 auto;
+  font-size: 0;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-view-selector label::after {
+  content: "View:";
+  color: #8bbcff;
+  font: 700 11px/1 system-ui, sans-serif;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-view-selector select {
+  min-width: 0;
+  min-height: 36px;
+  width: 100%;
+  padding: 6px 4px;
+  border-radius: 5px;
+  font: 700 12px/1 system-ui, sans-serif;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-panel > :not(.work-order-dashboard-module-header):not(.work-order-dashboard-module-view-selector):not(.work-order-dashboard-module-status) {
+  grid-column: 1 / -1;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-summary-grid {
+  grid-template-columns:
+    minmax(100px, .85fr)
+    minmax(110px, .9fr)
+    minmax(150px, 1.35fr)
+    minmax(72px, .6fr)
+    minmax(90px, .75fr)
+    minmax(115px, .95fr)
+    minmax(145px, 1.2fr);
+  gap: 8px;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] [data-production-summary-field="work-order"] { order: 1; }
+#workOrderDashboardModule[data-dashboard-view="production"] [data-production-summary-field="sales-order"] { order: 2; }
+#workOrderDashboardModule[data-dashboard-view="production"] [data-production-summary-field="assembly"] { order: 3; }
+#workOrderDashboardModule[data-dashboard-view="production"] [data-production-summary-field="revision"] { order: 4; }
+#workOrderDashboardModule[data-dashboard-view="production"] [data-production-summary-field="quantity"] { order: 5; }
+#workOrderDashboardModule[data-dashboard-view="production"] [data-production-summary-field="due-date"] { order: 6; }
+#workOrderDashboardModule[data-dashboard-view="production"] [data-production-summary-field="material-status"] { order: 7; }
 
 [data-work-order-dashboard-section][hidden] {
   display: none;
@@ -249,18 +350,142 @@
   gap: 9px;
 }
 
-.work-order-dashboard-module-document-grid button {
+.work-order-dashboard-module-document-grid button,
+.work-order-dashboard-module-document-grid > a {
   width: 100%;
   min-height: 74px;
   text-align: left;
 }
 
-.work-order-dashboard-module-document-grid button span {
+.work-order-dashboard-module-document-grid button span,
+.work-order-dashboard-module-document-grid > a span {
   display: block;
   margin-top: 5px;
   color: #9ba8b8;
   font-size: 11px;
   line-height: 1.3;
+}
+
+.work-order-dashboard-module-document-grid button strong,
+.work-order-dashboard-module-document-grid > a strong {
+  display: block;
+}
+
+body[data-view-mode="desktop"] #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-document-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] #workOrderDashboardReleasedBom,
+#workOrderDashboardModule[data-dashboard-view="production"] #workOrderDashboardKitReleasedBom,
+#workOrderDashboardModule[data-dashboard-view="production"] #workOrderDashboardKittingCaseSummary,
+#workOrderDashboardModule[data-dashboard-view="production"] #workOrderDashboardKittedBomEvidence {
+  display: none;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] #workOrderDashboardKittedBomPlaceholder {
+  order: -1;
+}
+
+body[data-view-mode="desktop"] #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-document-grid > button,
+body[data-view-mode="desktop"] #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-document-grid > a {
+  min-width: 0;
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 12px;
+}
+
+#workOrderDashboardAssemblyDrawing {
+  box-sizing: border-box;
+  border: 2px outset rgba(118, 118, 118, .3);
+  background: rgba(239, 239, 239, .3);
+  color: rgba(16, 16, 16, .3);
+  font: 13.3333px Arial, sans-serif;
+  text-decoration: none;
+}
+
+#workOrderDashboardKittedBomPlaceholder strong {
+  display: block;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] #workOrderDashboardKittedBomPlaceholder:not(:disabled) {
+  border-color: rgba(139, 188, 255, .72);
+  background: linear-gradient(145deg, rgba(35, 99, 171, .42), rgba(14, 45, 83, .58));
+  color: #f4f8ff;
+  cursor: pointer;
+}
+
+#workOrderDashboardModule[data-dashboard-view="production"] #workOrderDashboardAssemblyDrawing[aria-disabled="false"] {
+  border-color: rgba(139, 188, 255, .72);
+  background: linear-gradient(145deg, rgba(35, 99, 171, .42), rgba(14, 45, 83, .58));
+  color: #f4f8ff;
+  cursor: pointer;
+}
+
+#workOrderDashboardAssemblyDrawing[aria-disabled="true"] {
+  pointer-events: none;
+}
+
+.work-order-dashboard-assembly-drawing-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 32px));
+  overflow: auto;
+  border: 1px solid rgba(47, 140, 255, .55);
+  border-radius: 12px;
+  background: #0b1624;
+  color: #f4f7fb;
+  padding: 16px;
+}
+
+.work-order-dashboard-assembly-drawing-dialog::backdrop {
+  background: rgba(0, 0, 0, .72);
+}
+
+.work-order-dashboard-assembly-drawing-dialog header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.work-order-dashboard-assembly-drawing-dialog h3,
+.work-order-dashboard-assembly-drawing-dialog p {
+  margin: 0;
+}
+
+.work-order-dashboard-assembly-drawing-dialog header p,
+#workOrderDashboardAssemblyDrawingStatus {
+  margin-top: 5px;
+  color: #aebed0;
+}
+
+.work-order-dashboard-assembly-drawing-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.work-order-dashboard-assembly-drawing-choices a,
+#workOrderDashboardAssemblyDrawingDeepest {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border: 1px solid rgba(139, 188, 255, .62);
+  border-radius: 7px;
+  background: rgba(35, 99, 171, .28);
+  color: #f4f8ff;
+  padding: 8px 12px;
+  text-align: center;
+  text-decoration: none;
+}
+
+#workOrderDashboardAssemblyDrawingDeepest:not([hidden]) {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
 }
 
 #workOrderDashboardReleasedBom:not([hidden]):not(:disabled) {
@@ -338,6 +563,7 @@
   color: #9ba8b8;
   font-size: 11px;
 }
+
 
 .work-order-dashboard-module-workspace-grid {
   display: grid;
@@ -1511,6 +1737,24 @@
   margin-top: 14px;
 }
 
+@media (min-width: 901px) and (max-width: 1280px) {
+  #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-summary-grid {
+    grid-template-columns:
+      minmax(76px, .85fr)
+      minmax(82px, .85fr)
+      minmax(108px, 1.25fr)
+      minmax(54px, .55fr)
+      minmax(68px, .7fr)
+      minmax(92px, .95fr)
+      minmax(108px, 1.2fr);
+    gap: 6px;
+  }
+
+  #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-summary-item {
+    padding: 8px 7px;
+  }
+}
+
 @media (max-width: 900px) {
   #workOrderDashboardModule {
     width: calc(100vw - 20px);
@@ -1529,6 +1773,22 @@
 
   .work-order-dashboard-module-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-summary-grid {
+    grid-template-columns:
+      minmax(76px, .85fr)
+      minmax(82px, .85fr)
+      minmax(108px, 1.25fr)
+      minmax(54px, .55fr)
+      minmax(68px, .7fr)
+      minmax(92px, .95fr)
+      minmax(108px, 1.2fr);
+    gap: 6px;
+  }
+
+  #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-summary-item {
+    padding: 8px 6px;
   }
 
   .work-order-dashboard-module-document-grid {

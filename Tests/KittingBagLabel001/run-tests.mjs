@@ -368,6 +368,17 @@ assert.deepEqual(JSON.parse(JSON.stringify(adjacencyBatch.surfaces.map(surface =
 
 assert.ok(shell.indexOf('kitting-bag-label.js') < shell.indexOf('active-kitting-trial.js'));
 assert.match(dashboard, /renderKittingBagLabelArea/);
+const printAllStart = dashboard.indexOf('async function printAllKittingBagLabels()');
+const printAllEnd = dashboard.indexOf('\n  function acceptedMaterialKey', printAllStart);
+const printAllSource = dashboard.slice(printAllStart, printAllEnd);
+assert.ok(printAllStart >= 0 && printAllEnd > printAllStart,
+  'the governed batch bag-label action remains present');
+assert.match(printAllSource,
+  /let draft = activeKittingTrialDraft[\s\S]*kittingCaseReview\?\.draft[\s\S]*if \(!draft\) \{[\s\S]*await loadReleasedBomDraft\(\)/,
+  'persisted or active Kitting drafts generate labels without depending on the retired Released BOM prototype fixture');
+assert.doesNotMatch(printAllSource,
+  /const released = await loadReleasedBomDraft\(\);\s*if \(!draft\)/,
+  'the batch action does not unconditionally fetch the obsolete Released BOM prototype before using a persisted draft');
 assert.match(dashboard, /group\.rowState === 'SUBMITTED' \? 'Print \/ Reprint Bag Label' : 'Print Bag Label'/,
   'the compact action uses explicit print or reprint terminology for the current result state');
 assert.match(dashboard, /acceptedMaterialTrialEnabledInKitting = false/,

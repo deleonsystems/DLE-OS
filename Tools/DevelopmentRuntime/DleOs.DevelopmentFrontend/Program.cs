@@ -21,6 +21,8 @@ const string employeeDirectoryApiPolicy = "DLE-OS-EMPLOYEE-DIRECTORY-API";
 const string kittingDocumentRoute = "/api/development/kitting-documents/v1/work-orders";
 const string kittingShortageRoot = @"\\deleon-server\Production\KITTING\KIT-SHORTAGES";
 const string kittingCompleteRoot = @"\\deleon-server\Production\KITTING\KIT-COMPLETE";
+const string drawingPrintsRoute = "/api/development/drawing-prints/v1/resolve";
+const string desktopCapabilityRedeemRoute = "/api/development/desktop-capabilities/v1/redeem";
 var serviceBootstrap = DleOsWindowsServiceBootstrap.Apply(args);
 var applicationArgs = serviceBootstrap.ApplicationArguments;
 var repository = Environment.GetEnvironmentVariable("DLE_OS_REPOSITORY_ROOT") ??
@@ -224,6 +226,17 @@ var provider = new PhysicalFileProvider(repository);
 var contentTypes = new FileExtensionContentTypeProvider();
 var brandingAssetRoot = Path.Combine(repository, "ASSETS", "ICONS");
 var kittingDocuments = new KittingDocumentService(kittingShortageRoot, kittingCompleteRoot);
+var drawingPrints = new DrawingPrintsResolver(
+    DrawingPrintsResolver.GovernedRoot,
+    new SystemDrawingPrintsFileSystem(),
+    diagnostic => app.Logger.LogWarning(
+        new EventId(50511, "DrawingPrintsResolutionFailure"),
+        "Drawing-Prints resolver failure. CorrelationId={CorrelationId}; Stage={Stage}; Category={Category}; HResult={HResult}",
+        diagnostic.CorrelationId,
+        diagnostic.Stage,
+        diagnostic.Category,
+        diagnostic.HResult));
+var desktopCapabilities = new GovernedDesktopCapabilityBroker();
 var authenticatedShellSource = File.ReadAllText(Path.Combine(repository, "DLE_Work_Center_v4.0.0.html"));
 var shellIdentityJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var sharedDeviceWelcomeDocument = SharedDeviceWelcomeUi.Render(
@@ -245,7 +258,8 @@ app.UseAntiforgery();
 app.Use(async (context, next) =>
 {
     if (IsSharedEntryPath(context.Request.Path) || IsAuthenticationPath(context.Request.Path) ||
-        IsRuntimeInfoPath(context.Request.Path) || IsBrandingAssetPath(context.Request.Path))
+        IsRuntimeInfoPath(context.Request.Path) || IsBrandingAssetPath(context.Request.Path) ||
+        IsDesktopCapabilityRedemptionPath(context.Request.Path))
     {
         await next();
         return;
@@ -573,6 +587,47 @@ app.MapGet(kittingDocumentRoute + "/{workOrderNumber}/documents/{documentType}",
     }
 }).RequireAuthorization();
 
+app.MapGet(drawingPrintsRoute, (
+    HttpContext context,
+    string customerName,
+    string assemblyNumber,
+    string? revision) =>
+{
+    NoStore(context.Response);
+    var allowedKeys = new HashSet<string>(
+        ["customerName", "assemblyNumber", "revision"],
+        StringComparer.OrdinalIgnoreCase);
+    if (context.Request.Query.Keys.Any(key => !allowedKeys.Contains(key)))
+        return Results.BadRequest(new { error = "Only governed manufacturing identity parameters are supported." });
+    var resolution = drawingPrints.Resolve(
+        customerName,
+        assemblyNumber,
+        revision,
+        context.TraceIdentifier);
+    return Results.Json(desktopCapabilities.Attach(resolution, context.TraceIdentifier));
+}).RequireAuthorization();
+
+app.MapPost(desktopCapabilityRedeemRoute, async (HttpContext context) =>
+{
+    NoStore(context.Response);
+    if (!GovernedDesktopCapabilityBroker.IsSameHostRequest(context)) return Results.NotFound();
+    if (context.Request.Query.Count != 0 || context.Request.ContentLength is > 4096)
+        return Results.BadRequest(new { error = "Invalid desktop capability request." });
+
+    DesktopCapabilityRedeemRequest? request;
+    try
+    {
+        request = await context.Request.ReadFromJsonAsync<DesktopCapabilityRedeemRequest>();
+    }
+    catch (JsonException)
+    {
+        return Results.BadRequest(new { error = "Invalid desktop capability request." });
+    }
+    if (!desktopCapabilities.TryRedeem(request, out var redemption, out var failureCategory))
+        return Results.BadRequest(new { error = failureCategory });
+    return Results.Json(redemption);
+}).AllowAnonymous();
+
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = provider,
@@ -588,6 +643,10 @@ static bool IsSharedEntryPath(PathString path) =>
 static bool IsRuntimeInfoPath(PathString path) =>
     path.Equals("/api/runtime/info", StringComparison.OrdinalIgnoreCase) ||
     path.Equals("/api/runtime/info/", StringComparison.OrdinalIgnoreCase);
+
+static bool IsDesktopCapabilityRedemptionPath(PathString path) =>
+    path.Equals("/api/development/desktop-capabilities/v1/redeem", StringComparison.OrdinalIgnoreCase) ||
+    path.Equals("/api/development/desktop-capabilities/v1/redeem/", StringComparison.OrdinalIgnoreCase);
 
 static bool IsBrandingAssetPath(PathString path) =>
     path.Equals("/apple-touch-icon.png", StringComparison.OrdinalIgnoreCase) ||

@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const dashboardSource = fs.readFileSync(
   path.join(root, 'SRC', 'modules', 'work-order-dashboard', 'work-order-dashboard.js'), 'utf8');
+const dashboardMarkup = fs.readFileSync(
+  path.join(root, 'SRC', 'modules', 'work-order-dashboard', 'work-order-dashboard.html'), 'utf8');
 const kittingSource = fs.readFileSync(
   path.join(root, 'SRC', 'workspaces', 'kitting', 'kitting-workspace.js'), 'utf8');
 const salesOrderSource = fs.readFileSync(
@@ -14,6 +16,9 @@ const salesOrderSource = fs.readFileSync(
 
 const navigations = [];
 const workspaceSelections = [];
+const headerActions = { hidden: false };
+const moduleRoot = { dataset: {} };
+const moduleStatus = { hidden: false, textContent: '' };
 const context = {
   window: {
     OperationsCenter: {},
@@ -22,7 +27,12 @@ const context = {
     }
   },
   document: {
-    getElementById() { return null; },
+    getElementById(id) {
+      if (id === 'workOrderDashboardModule') return moduleRoot;
+      if (id === 'workOrderDashboardModuleStatus') return moduleStatus;
+      if (id === 'workOrderDashboardHeaderActions') return headerActions;
+      return null;
+    },
     querySelectorAll() { return []; }
   },
   fetch: async () => ({ ok: false }),
@@ -61,7 +71,7 @@ const governedHandoff = preferredDashboardView => ({
 
 const kittingHandoff = { ...governedHandoff('kitting'), preferredPresentation: 'kitting-job' };
 dashboard.setSelectedWorkOrder(kittingHandoff);
-assert.equal(dashboard.getCurrentView(), 'kitting');
+assert.equal(dashboard.getCurrentView(), 'standard', 'legacy Kitting view preferences must degrade to Standard');
 assert.equal(dashboard.getPresentationMode(), 'kitting-job');
 assert.equal(dashboard.getSelectedHandoff().workOrderNumber, '0115619');
 assert.equal(dashboard.getSelectedHandoff().canonicalSalesOrderNumber, '0012097');
@@ -71,10 +81,18 @@ assert.equal(dashboard.getSelectedHandoff().governingSource, 'EXACT');
 
 dashboard.setView('production');
 assert.equal(dashboard.getCurrentView(), 'production', 'manual view switching must remain available');
+assert.equal(moduleRoot.dataset.dashboardView, 'production');
+assert.equal(moduleStatus.hidden, true, 'governed Production success text must not render as a redundant banner');
+assert.equal(headerActions.hidden, true, 'Production View must hide redundant local dashboard navigation');
 assert.equal(dashboard.getSelectedHandoff().workOrderNumber, '0115619');
+dashboard.setView('kitting');
+assert.equal(dashboard.getCurrentView(), 'standard', 'removed Kitting view selections must degrade safely');
+assert.equal(moduleRoot.dataset.dashboardView, 'standard');
+assert.equal(moduleStatus.hidden, false, 'Standard View must retain its existing dashboard status');
+assert.equal(headerActions.hidden, false, 'Standard View must retain its existing local dashboard navigation');
 
 dashboard.setSelectedWorkOrder(governedHandoff('kitting'));
-assert.equal(dashboard.getCurrentView(), 'kitting', 'a new Kitting handoff must reset the selected view');
+assert.equal(dashboard.getCurrentView(), 'standard', 'a stale Kitting handoff must reset to Standard');
 
 const salesHandoff = governedHandoff('standard');
 salesHandoff.sourceWorkspaceId = 'sales-order-dashboard';
@@ -92,15 +110,22 @@ assert.equal(dashboard.getCurrentView(), 'standard');
 dashboard.setSelectedWorkOrder(governedHandoff('unsupported-view'));
 assert.equal(dashboard.getCurrentView(), 'standard');
 
+dashboard.setSelectedWorkOrder({ official: {}, preferredDashboardView: 'production' });
+assert.equal(dashboard.getCurrentView(), 'production');
+assert.equal(moduleStatus.hidden, false, 'non-governed Production states must retain the status region');
+
 dashboard.setSelectedWorkOrder(kittingHandoff);
 assert.equal(dashboard.returnToKitting(), true);
 assert.deepEqual(navigations, ['home']);
 assert.deepEqual(workspaceSelections, ['kitting']);
 
-assert.deepEqual(Array.from(dashboard.supportedViews), ['standard', 'kitting', 'production']);
-assert.match(kittingSource, /preferredDashboardView:\s*"kitting"/);
+assert.deepEqual(Array.from(dashboard.supportedViews), ['standard', 'production']);
+assert.doesNotMatch(dashboardMarkup, /value="kitting"|Kitting View/);
+assert.match(dashboardMarkup, /id="workOrderDashboardHeaderActions"/);
+assert.match(kittingSource, /preferredDashboardView:\s*"standard"/);
 assert.match(kittingSource, /preferredPresentation:\s*"kitting-job"/);
+assert.match(kittingSource, /KittingJobWorkspace\.open\(handoff\)/);
 assert.match(salesOrderSource, /preferredDashboardView:\s*'standard'/);
 assert.match(kittingSource, /if \(!row\?\.actionable \|\| !row\.workOrderNumber \|\| !row\.canonicalWorkOrder\) return false/);
 
-console.log('KITTING-001B preferred Dashboard view contract: PASS');
+console.log('KITTING-001B Standard Dashboard fallback and return-context contract: PASS');

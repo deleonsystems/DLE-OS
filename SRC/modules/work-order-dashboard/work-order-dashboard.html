@@ -12,7 +12,8 @@
           <p>Future digital replacement for the physical Work Order packet.</p>
         </div>
       </div>
-      <div class="work-order-dashboard-module-header-actions">
+      <div id="workOrderDashboardHeaderActions" class="work-order-dashboard-module-header-actions">
+        <button id="workOrderDashboardReturnToProduction" type="button" onclick="returnToProductionWorkspace()" hidden>Return to Production Workspace</button>
         <button id="workOrderDashboardReturnToKitting" type="button" onclick="returnToKittingWorkspace()" hidden>Return to Kitting Workspace</button>
         <button type="button" onclick="go('salesOrderDashboard')">Back to Sales Order Dashboard</button>
       </div>
@@ -26,7 +27,6 @@
       <label for="workOrderDashboardView">Dashboard View</label>
       <select id="workOrderDashboardView" onchange="setWorkOrderDashboardModuleView(event.target.value)">
         <option value="standard">Standard View</option>
-        <option value="kitting">Kitting View</option>
         <option value="production">Production View</option>
       </select>
     </div>
@@ -34,43 +34,48 @@
     <section class="work-order-dashboard-module-summary-card" data-work-order-dashboard-section="overview" aria-label="Selected Work Order">
       <h3>Selected Work Order</h3>
       <div class="work-order-dashboard-module-summary-grid">
-        <div class="work-order-dashboard-module-summary-item">
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="work-order">
           <strong>Work Order</strong>
           <span id="workOrderDashboardSummaryWorkOrder">None selected</span>
         </div>
-        <div class="work-order-dashboard-module-summary-item">
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="assembly">
           <strong>Assembly</strong>
           <span id="workOrderDashboardSummaryAssembly">N/A</span>
         </div>
-        <div class="work-order-dashboard-module-summary-item">
-          <strong>Revision</strong>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="revision">
+          <strong class="work-order-dashboard-standard-only">Revision</strong>
+          <strong class="work-order-dashboard-production-only">Rev</strong>
           <span id="workOrderDashboardSummaryRevision">Unknown</span>
         </div>
-        <div class="work-order-dashboard-module-summary-item">
-          <strong>Work Order Quantity</strong>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="quantity">
+          <strong class="work-order-dashboard-standard-only">Work Order Quantity</strong>
+          <strong class="work-order-dashboard-production-only">WO Qty</strong>
           <span id="workOrderDashboardSummaryQuantity">0</span>
         </div>
-        <div class="work-order-dashboard-module-summary-item">
-          <strong>Next Due Date</strong>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="due-date">
+          <strong class="work-order-dashboard-standard-only">Next Due Date</strong>
+          <strong class="work-order-dashboard-production-only">Due Date</strong>
           <span id="workOrderDashboardSummaryDueDate">N/A</span>
         </div>
-        <div class="work-order-dashboard-module-summary-item">
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-hidden="true">
           <strong>Status</strong>
           <span id="workOrderDashboardSummaryStatus">N/A</span>
         </div>
-        <div class="work-order-dashboard-module-summary-item">
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="material-status">
           <strong>Material Status</strong>
           <span id="workOrderDashboardMaterialStatus" class="work-order-dashboard-material-status">N/A</span>
         </div>
-        <div class="work-order-dashboard-module-summary-item">
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-hidden="true">
           <strong>Canonical Anchor</strong>
           <span id="workOrderDashboardCanonicalAnchor">N/A</span>
         </div>
-        <div class="work-order-dashboard-module-summary-item">
-          <strong>Opened From</strong>
-          <span id="workOrderDashboardOpenedFrom">N/A</span>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="sales-order">
+          <strong class="work-order-dashboard-standard-only">Opened From</strong>
+          <strong class="work-order-dashboard-production-only">Sales Order</strong>
+          <span id="workOrderDashboardOpenedFrom" class="work-order-dashboard-standard-only">N/A</span>
+          <span id="workOrderDashboardProductionSalesOrder" class="work-order-dashboard-production-only">N/A</span>
         </div>
-        <div class="work-order-dashboard-module-summary-item">
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-hidden="true">
           <strong>Governing Source</strong>
           <span id="workOrderDashboardGoverningSource">N/A</span>
         </div>
@@ -106,6 +111,10 @@
     <section class="work-order-dashboard-module-documents-card" data-work-order-dashboard-section="manufacturing-documents" aria-label="Manufacturing Documents">
       <h3>Manufacturing Documents</h3>
       <div class="work-order-dashboard-module-document-grid">
+        <button id="workOrderDashboardKittedBomPlaceholder" type="button" onclick="openWorkOrderDashboardProductionKittedBom()" disabled>
+          <strong id="workOrderDashboardKittedBomPlaceholderLabel">Kitted BOM</strong>
+          <span id="workOrderDashboardKittedBomPlaceholderMessage">Open from Kitting Workspace to inspect filesystem evidence</span>
+        </button>
         <button id="workOrderDashboardReleasedBom" type="button" onclick="openWorkOrderDashboardReleasedBom()" hidden disabled>
           <strong id="workOrderDashboardReleasedBomLabel">View Released BOM</strong>
           <span id="workOrderDashboardReleasedBomMessage">Released BOM prototype not yet available.</span>
@@ -115,10 +124,6 @@
           <span id="workOrderDashboardKitReleasedBomMessage">Governed Kitting Case status is loading.</span>
         </button>
         <div id="workOrderDashboardKittingCaseSummary" class="work-order-dashboard-kitting-case-summary" hidden></div>
-        <button id="workOrderDashboardKittedBomPlaceholder" type="button" disabled>
-          Kitted BOM
-          <span>Open from Kitting View to inspect filesystem evidence</span>
-        </button>
         <div id="workOrderDashboardKittedBomEvidence" class="work-order-dashboard-module-kitted-bom" hidden>
           <strong id="workOrderDashboardKittedBomStatus">Checking Kitted BOM evidence...</strong>
           <dl>
@@ -136,12 +141,25 @@
           Traveler
           <span>Coming Soon</span>
         </button>
-        <button type="button" disabled>
-          Assembly Drawing
-          <span>Coming Soon</span>
-        </button>
+        <a id="workOrderDashboardAssemblyDrawing" aria-disabled="true" tabindex="-1">
+          <strong>Assembly Drawing</strong>
+          <span id="workOrderDashboardAssemblyDrawingMessage">Coming Soon</span>
+        </a>
       </div>
     </section>
+
+    <dialog id="workOrderDashboardAssemblyDrawingDialog" class="work-order-dashboard-assembly-drawing-dialog" aria-labelledby="workOrderDashboardAssemblyDrawingDialogTitle">
+      <header>
+        <div>
+          <h3 id="workOrderDashboardAssemblyDrawingDialogTitle">Assembly Drawing</h3>
+          <p id="workOrderDashboardAssemblyDrawingIdentity"></p>
+        </div>
+        <button type="button" onclick="closeWorkOrderDashboardAssemblyDrawing()" aria-label="Close Assembly Drawing selection">Close</button>
+      </header>
+      <p id="workOrderDashboardAssemblyDrawingStatus" role="status"></p>
+      <div id="workOrderDashboardAssemblyDrawingChoices" class="work-order-dashboard-assembly-drawing-choices"></div>
+      <a id="workOrderDashboardAssemblyDrawingDeepest" hidden>Open Confirmed Folder</a>
+    </dialog>
 
     <section id="workOrderDashboardActiveKitting" class="active-kitting-trial" aria-label="Kit Released BOM" hidden>
       <div class="active-kitting-sticky-context">

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Compile Include="..\..\Tools\DevelopmentRuntime\DleOs.DevelopmentFrontend\DrawingPrintsResolver.cs" Link="DrawingPrintsResolver.cs" />
+    <Compile Include="..\..\Tools\DevelopmentRuntime\DleOs.DevelopmentFrontend\GovernedDesktopCapabilities.cs" Link="GovernedDesktopCapabilities.cs" />
+    <Compile Include="..\..\Tools\DevelopmentRuntime\DleOs.GovernedDesktopCapabilities.NativeHost\NativeHostContract.cs" Link="NativeHostContract.cs" />
+    <Compile Include="..\..\Tools\DevelopmentRuntime\DleOs.GovernedDesktopCapabilities.NativeHost\GovernedDrawingFolder.cs" Link="GovernedDrawingFolder.cs" />
+  </ItemGroup>
+</Project>

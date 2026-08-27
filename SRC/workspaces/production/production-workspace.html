@@ -1,0 +1,33 @@
+<div class="production-workspace" data-production-workspace>
+  <header class="production-workspace-header">
+    <div>
+      <h1>Production</h1>
+      <p>Select a ready or short job to open its existing Work Order Dashboard.</p>
+    </div>
+    <div id="productionWorkspaceStatus" class="production-workspace-status" role="status" aria-live="polite">Loading jobs</div>
+  </header>
+
+  <section class="production-workspace-controls" aria-label="Production queue controls">
+    <label class="production-search-control">
+      <span class="sr-only">Search Production jobs</span>
+      <input id="productionWorkspaceSearch" type="search" autocomplete="off"
+        placeholder="Search Work Order, Part, Customer, PO...">
+    </label>
+    <button id="productionWorkspaceRefresh" type="button" class="secondary-btn production-refresh">↻ Refresh Queue</button>
+  </section>
+
+  <nav class="production-lifecycle-tabs" aria-label="Production queues">
+    <button type="button" data-production-queue="KIT_COMPLETE" aria-pressed="true">
+      <span>Kit Complete</span><strong id="productionKitCompleteCount">0</strong>
+    </button>
+    <button type="button" data-production-queue="KIT_SHORT" aria-pressed="false">
+      <span>Kit Short / Awaiting Parts</span><strong id="productionKitShortCount">0</strong>
+    </button>
+  </nav>
+
+  <section class="production-operator-queue" aria-labelledby="productionSelectedQueueTitle">
+    <h2 id="productionSelectedQueueTitle">Kit Complete</h2>
+    <p id="productionSelectedQueueDescription">Primary Production queue for work orders with complete kits.</p>
+    <div id="productionSelectedJobs" class="production-job-list"></div>
+  </section>
+</div>

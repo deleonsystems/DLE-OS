@@ -385,6 +385,77 @@
     };
   }
 
+  function releasedBomDocument(draft, navigation = {}) {
+    const header = draft?.header || {};
+    const groups = Array.isArray(draft?.groups) ? draft.groups : [];
+    if (!clean(draft?.workOrder || header.workOrder) || !groups.length) return '';
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+    const quantity = value => {
+      const number = Number(value);
+      return Number.isFinite(number)
+        ? number.toFixed(4).replace(/\.0+$|(?<=\.[0-9]*?)0+$/g, '').replace(/\.$/, '')
+        : clean(value) || '\u2014';
+    };
+    const workOrder = clean(draft.workOrder || header.workOrder);
+    const returnValue = clean(navigation.returnUrl);
+    const returnUrl = returnValue.startsWith('/') && !returnValue.startsWith('//') ? returnValue : '/';
+    const field = (label, value) => '<div><span>' + escapeHtml(label) + '</span><strong>' +
+      escapeHtml(clean(value) || '\u2014') + '</strong></div>';
+    const instructions = (draft.assemblyInstructions || []).map(instruction => '<li><strong>SEQ ' +
+      escapeHtml(instruction.sequence) + '</strong><span>' + escapeHtml(instruction.materialMessage) + '</span></li>').join('');
+    const rows = [...groups].sort((left, right) => clean(left.sequence).localeCompare(
+      clean(right.sequence), undefined, { numeric: true })).map(group => {
+      const related = (group.relatedParts || []).map(part => clean(part?.row?.itemNumber)).filter(Boolean);
+      const references = (group.references || []).map(clean).filter(Boolean);
+      const notes = (group.notes || []).map(clean).filter(Boolean);
+      return '<tr data-sequence="' + escapeHtml(group.sequence) + '"><td><strong>' +
+        escapeHtml(group.sequence) + '</strong></td><td>' + escapeHtml(group.findNumber ?? '\u2014') +
+        '</td><td><strong>' + escapeHtml(group.partNumber || group?.primaryPart?.itemNumber) + '</strong>' +
+        (related.length ? '<small>Related: ' + escapeHtml(related.join(', ')) + '</small>' : '') +
+        '</td><td>' + escapeHtml(group.description || group?.primaryPart?.description || 'NOT ON FILE') +
+        (references.length ? '<small>Refs: ' + escapeHtml(references.join(', ')) + '</small>' : '') +
+        (notes.length ? '<small>Note: ' + escapeHtml(notes.join(' \u00b7 ')) + '</small>' : '') +
+        '</td><td class="number"><span>' + escapeHtml(quantity(group.requiredEach)) + ' / assy</span><strong>' +
+        escapeHtml(quantity(group.requiredQuantity)) + ' ' + escapeHtml(group.unitOfMeasure) + '</strong></td></tr>';
+    }).join('');
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<title>WO ' + escapeHtml(workOrder) + ' \u2014 Released BOM</title><style>' +
+      ':root{color-scheme:light;--ink:#15202a;--muted:#52616b;--rule:#81909a;--paper:#fff;--desk:#d4d9dd}' +
+      '*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--desk);color:var(--ink)}' +
+      'body{font:13px Arial,Helvetica,sans-serif}.toolbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:12px;' +
+      'min-height:56px;padding:8px max(14px,calc((100% - 1180px)/2));background:#17232c;color:#eef5f8;border-bottom:2px solid #0b1116}' +
+      '.toolbar strong{font-size:14px}.toolbar span{color:#b9c8d1}.toolbar a,.toolbar button{min-height:40px;padding:8px 12px;border:1px solid #cbd7dd;' +
+      'border-radius:6px;background:#f7fafb;color:#14202a;font-weight:700;text-decoration:none;cursor:pointer}.toolbar-actions{display:flex;gap:8px;margin-left:auto}' +
+      'main{width:min(1180px,calc(100% - 24px));margin:16px auto 30px;padding:24px 28px 32px;background:var(--paper);box-shadow:0 2px 14px #0003}' +
+      'h1{margin:0 0 5px;font-size:22px}.subtitle{margin:0 0 18px;color:var(--muted)}.identity{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 18px;' +
+      'padding:12px 0;border-block:2px solid var(--ink)}.identity div{min-width:0}.identity span,.material-table small{display:block;color:var(--muted);font-size:11px}' +
+      '.identity strong{display:block;margin-top:2px;overflow-wrap:anywhere}.instructions{margin:14px 0;padding:10px 12px;border:1px solid var(--rule);background:#f4f7f8}' +
+      '.instructions h2{margin:0 0 6px;font-size:13px}.instructions ul{display:grid;gap:4px;margin:0;padding:0;list-style:none}.instructions li{display:flex;gap:10px}' +
+      '.material-table{width:100%;border-collapse:collapse;table-layout:fixed}.material-table col.seq{width:58px}.material-table col.find{width:54px}' +
+      '.material-table col.part{width:220px}.material-table col.required{width:128px}.material-table th,.material-table td{padding:7px 6px;border-bottom:1px solid #aeb8be;' +
+      'vertical-align:top;text-align:left}.material-table th{position:sticky;top:56px;background:#eef3f5;border-bottom:2px solid var(--ink);font-size:11px;text-transform:uppercase}' +
+      '.material-table td.number,.material-table th.number{text-align:right}.material-table td.number strong{display:block;margin-top:2px}' +
+      '@media(max-width:820px){main{width:calc(100% - 12px);margin:6px auto;padding:16px 12px}.identity{grid-template-columns:repeat(2,minmax(0,1fr))}.material-table col.part{width:160px}}' +
+      '@media print{.toolbar{display:none!important}body{background:#fff}main{width:100%;margin:0;padding:0;box-shadow:none}.material-table th{position:static}}' +
+      '</style></head><body><header class="toolbar"><strong>Released BOM \u00b7 Kitting Pick View</strong><span id="reportIdentity">WO ' +
+      escapeHtml(workOrder) + ' \u00b7 ' + escapeHtml(header.billNumber) + ' Rev ' + escapeHtml(header.revision) +
+      '</span><div class="toolbar-actions"><a id="backToKittingJob" href="' + escapeHtml(returnUrl) +
+      '" onclick="if(window.opener&&!window.opener.closed){window.opener.focus();window.close();if(window.closed)return false}">\u2190 Back to Kitting Job</a>' +
+      '<button id="printReleasedBom" type="button" onclick="window.print()">Print Released BOM</button></div></header><main>' +
+      '<h1>WORK ORDER RELEASED BOM</h1><p class="subtitle">Governed persisted Kitting material source \u00b7 read only</p><section class="identity">' +
+      field('Work Order', workOrder) + field('Assembly', header.billNumber) + field('Revision', header.revision) +
+      field('Build Quantity', quantity(header.scheduledProduction) + ' ' + clean(header.unitOfMeasure)) +
+      field('Customer', header.customer) + field('Sales Order', header.salesOrder) + field('SO Line', header.salesOrderLine) +
+      field('Customer P.O.', header.customerPurchaseOrder) + '</section>' +
+      (instructions ? '<section class="instructions"><h2>Assembly Instructions</h2><ul>' + instructions + '</ul></section>' : '') +
+      '<table class="material-table" aria-label="Work Order ' + escapeHtml(workOrder) + ' Released BOM material requirements"><colgroup>' +
+      '<col class="seq"><col class="find"><col class="part"><col><col class="required"></colgroup><thead><tr><th>WO Seq</th><th>Find</th>' +
+      '<th>Part / Related Part</th><th>Description / References</th><th class="number">Required</th></tr></thead><tbody>' + rows +
+      '</tbody></table></main></body></html>';
+  }
+
   window.ActiveKittingTrial = Object.freeze({
     METHODS,
     normalizeCountInput,
@@ -408,6 +479,7 @@
     getRequiredPoTraceabilityBlockers,
     editGroup,
     getSubmittedVisualState,
-    getSummary
+    getSummary,
+    releasedBomDocument
   });
 })();

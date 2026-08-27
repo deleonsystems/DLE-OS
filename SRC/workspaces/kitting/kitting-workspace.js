@@ -37,6 +37,12 @@
 
     if (workspaceState.model) {
       renderWorkspace();
+      setStatus(
+        workspaceState.approvalWarnings
+          ? "Loaded with " + workspaceState.approvalWarnings + " approval evidence warning(s)"
+          : "Governed read model current",
+        workspaceState.approvalWarnings ? "warning" : "ready"
+      );
       return;
     }
     await refreshKittingWorkspace();
@@ -209,32 +215,7 @@
     renderQueueMessage("Loading canonical Sales Orders, relationship decisions, and Work Orders...");
 
     try {
-      const canonicalRows = await loadCanonicalSalesOrderRows();
-      const lines = canonicalRows.map(buildReadModelLine);
-      const hasEmbeddedProjections = lines.every(hasEmbeddedGovernedProjections);
-      const rmaReworkByLineKey = hasEmbeddedProjections
-        ? buildEmbeddedRmaReworkMemberships(lines)
-        : await loadActiveRmaReworkMemberships();
-      const approvalsByLineKey = hasEmbeddedProjections
-        ? buildEmbeddedApprovalReviews(lines)
-        : await loadApprovalReviews(lines);
-      const workOrderNumbers = window.KittingReadModel.collectActionableWorkOrderNumbers(
-        lines, approvalsByLineKey, rmaReworkByLineKey
-      );
-      const [workOrdersByNumber, materialStatusesByWorkOrder] = await Promise.all([
-        loadCanonicalWorkOrders(workOrderNumbers),
-        hasEmbeddedProjections && !forceMaterialStatus
-          ? Promise.resolve(buildEmbeddedMaterialStatuses(lines, workOrderNumbers))
-          : loadMaterialStatuses(workOrderNumbers, { force: forceMaterialStatus })
-      ]);
-      workspaceState.canonicalRows = canonicalRows;
-      workspaceState.model = window.KittingReadModel.buildReadModel({
-        lines,
-        approvalsByLineKey,
-        workOrdersByNumber,
-        materialStatusesByWorkOrder,
-        rmaReworkByLineKey
-      });
+      await loadGovernedReadModel({ forceMaterialStatus });
       renderWorkspace();
       setStatus(
         workspaceState.approvalWarnings
@@ -251,6 +232,37 @@
       workspaceState.loading = false;
       setRefreshButtonState(false);
     }
+  }
+
+  async function loadGovernedReadModel(options = {}) {
+    const forceMaterialStatus = options.forceMaterialStatus === true;
+    const canonicalRows = await loadCanonicalSalesOrderRows();
+    const lines = canonicalRows.map(buildReadModelLine);
+    const hasEmbeddedProjections = lines.every(hasEmbeddedGovernedProjections);
+    const rmaReworkByLineKey = hasEmbeddedProjections
+      ? buildEmbeddedRmaReworkMemberships(lines)
+      : await loadActiveRmaReworkMemberships();
+    const approvalsByLineKey = hasEmbeddedProjections
+      ? buildEmbeddedApprovalReviews(lines)
+      : await loadApprovalReviews(lines);
+    const workOrderNumbers = window.KittingReadModel.collectActionableWorkOrderNumbers(
+      lines, approvalsByLineKey, rmaReworkByLineKey
+    );
+    const [workOrdersByNumber, materialStatusesByWorkOrder] = await Promise.all([
+      loadCanonicalWorkOrders(workOrderNumbers),
+      hasEmbeddedProjections && !forceMaterialStatus
+        ? Promise.resolve(buildEmbeddedMaterialStatuses(lines, workOrderNumbers))
+        : loadMaterialStatuses(workOrderNumbers, { force: forceMaterialStatus })
+    ]);
+    workspaceState.canonicalRows = canonicalRows;
+    workspaceState.model = window.KittingReadModel.buildReadModel({
+      lines,
+      approvalsByLineKey,
+      workOrdersByNumber,
+      materialStatusesByWorkOrder,
+      rmaReworkByLineKey
+    });
+    return workspaceState.model;
   }
 
   function refreshKittingQueue() {
@@ -781,7 +793,7 @@
       governingSource: row.governingSource,
       materialStatus: row.materialStatusProjection,
       operationalRelationship: originLine.operationalRelationship || null,
-      preferredDashboardView: "kitting",
+      preferredDashboardView: "standard",
       preferredPresentation: "kitting-job",
       sourceWorkspaceId: WORKSPACE_ID,
       returnWorkspaceId: WORKSPACE_ID
@@ -919,6 +931,7 @@
     id: WORKSPACE_ID,
     render: loadKittingWorkspace,
     refresh: refreshKittingWorkspace,
+    loadReadModel: loadGovernedReadModel,
     getModel: () => workspaceState.model,
     buildGovernedHandoff,
     loadActiveRmaReworkMemberships

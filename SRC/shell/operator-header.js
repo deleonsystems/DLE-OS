@@ -41,12 +41,8 @@
   }
 
   function updateViewModeToggle() {
-    if (typeof document.querySelectorAll !== 'function') return;
-    document.querySelectorAll('[data-dle-view-mode-option]').forEach(button => {
-      const active = button.dataset.dleViewModeOption === viewMode;
-      button.setAttribute('aria-pressed', String(active));
-      button.classList.toggle('active', active);
-    });
+    const select = document.getElementById('dleViewModeSelect');
+    if (select) select.value = viewMode;
   }
 
   function ensureViewModeToggle() {
@@ -56,22 +52,29 @@
     const navigation = header?.querySelector('.dle-operator-nav');
     if (!header || !navigation) return;
 
-    const toggle = document.createElement('div');
+    const toggle = document.createElement('label');
     toggle.id = 'dleViewModeToggle';
     toggle.className = 'dle-view-mode-toggle';
-    toggle.setAttribute('role', 'group');
-    toggle.setAttribute('aria-label', 'DLE-OS view mode');
+    toggle.setAttribute('for', 'dleViewModeSelect');
+
+    const label = document.createElement('span');
+    label.className = 'dle-view-mode-label';
+    label.textContent = 'View:';
+
+    const select = document.createElement('select');
+    select.id = 'dleViewModeSelect';
+    select.setAttribute('aria-label', 'DLE-OS view mode');
     [
       [DESKTOP_VIEW_MODE, 'Desktop View'],
       [MOBILE_VIEW_MODE, 'Mobile View']
     ].forEach(([mode, label]) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.textContent = label;
-      button.dataset.dleViewModeOption = mode;
-      button.addEventListener('click', () => setViewMode(mode));
-      toggle.append(button);
+      const option = document.createElement('option');
+      option.value = mode;
+      option.textContent = label;
+      select.append(option);
     });
+    select.addEventListener('change', () => setViewMode(select.value));
+    toggle.append(label, select);
     navigation.insertAdjacentElement('afterend', toggle);
     updateViewModeToggle();
   }

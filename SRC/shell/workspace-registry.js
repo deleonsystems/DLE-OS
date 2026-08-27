@@ -77,7 +77,15 @@
     {
       id: "production",
       label: "Production",
-      purpose: "Active work orders, operator workflow, labor reporting, and build status."
+      purpose: "Select Kit Complete and Kit Short work orders for production execution.",
+      modulePath: "SRC/workspaces/production/production-workspace.js",
+      stylePath: "SRC/workspaces/production/production-workspace.css",
+      home: Object.freeze({
+        label: "Production",
+        description: "Kit Complete \u2022 Kit Short \u2022 Work Order Launch",
+        mark: "PR",
+        requiredPermission: "kitting.view"
+      })
     },
     {
       id: "quality",

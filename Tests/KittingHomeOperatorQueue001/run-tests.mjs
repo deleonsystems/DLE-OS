@@ -79,9 +79,13 @@ assert.match(styles, /\.kitting-search-control\{margin-top:0\}/);
 assert.match(styles, /\.kitting-search-control input\{[^}]*margin-top:0/);
 assert.match(styles, /\.kitting-refresh\{[^}]*margin-top:0/);
 assert.doesNotMatch(styles, /margin-top:-|transform:translateY\(-/);
-assert.match(script, /preferredDashboardView: "kitting"/);
+assert.match(styles, /@media\(min-width:1281px\)/);
+assert.match(styles, /body\[data-view-mode="desktop"\]\[data-workspace-view="kitting"\]>main\{padding-inline:clamp\(22px,2vw,32px\)\}/);
+assert.match(styles, /body\[data-view-mode="desktop"\]\[data-workspace-view="kitting"\] \.kitting-workspace\{width:100%;max-width:none;margin-inline:0;padding-inline:0\}/);
+assert.match(script, /preferredDashboardView: "standard"/);
 assert.match(script, /preferredPresentation: "kitting-job"/);
 assert.match(script, /KittingJobWorkspace\.open\(handoff\)/);
+assert.doesNotMatch(script, /window\.go\("workOrderDashboardModule"\)/);
 assert.match(script, /returnWorkspaceId: WORKSPACE_ID/);
 
 console.log('Kitting Home operator queue structure and canonical handoff contracts: PASS');

@@ -20,8 +20,10 @@ assert.match(dashboard, /window\.open\(documentEvidence\.openUrl, '_blank', 'noo
 assert.match(markup, /Open Prior Shortage/);
 assert.match(dashboard, /No matching PDF exists in either approved Kitting folder/);
 
-assert.match(kitting, /preferredDashboardView:\s*['"]kitting['"]/);
+assert.match(kitting, /preferredDashboardView:\s*['"]standard['"]/);
+assert.match(kitting, /preferredPresentation:\s*['"]kitting-job['"]/);
 assert.match(sales, /preferredDashboardView:\s*['"]standard['"]/);
 assert.match(dashboard, /supportedDashboardViews\.has\(preferredView\) \? preferredView : 'standard'/);
+assert.doesNotMatch(markup, /value="kitting"|Kitting View/);
 
 console.log('PASS: 15 endpoint, security, actionable-handoff, UI, and preferred-view contract assertions.');

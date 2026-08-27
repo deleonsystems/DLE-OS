@@ -99,11 +99,29 @@ assert.match(dashboard, /setText\('kittingJobMaterialStatus', compactStatusLabel
 assert.match(dashboard, /setText\('kittingJobPoTraceability', compactTraceability\)/);
 assert.match(dashboard, /summary\.hidden = dedicatedWorkspace \|\| !available/);
 assert.match(dashboard, /summary\.innerHTML = dedicatedWorkspace \? '' : currentStatus \+ printAllAction/);
-assert.match(dashboard, /if \(activeKittingTrialOpen\) \{[\s\S]*setPrimaryTool\?\.\('kitting', true\)[\s\S]*return true/);
+assert.match(dashboard, /hydratePersistedKittingCaseForReadOnly\(kittingCaseReview\)/);
+assert.match(dashboard, /function hydratePersistedKittingCaseForReadOnly\(review\) \{[\s\S]*structuredClone\(review\.draft\)[\s\S]*activeKittingEditable = false[\s\S]*activeKittingTrialState = 'loaded'[\s\S]*activeKittingTrialOpen = true/,
+  'an existing governed case hydrates directly from its persisted draft without acquiring a lease');
+assert.match(dashboard, /activeKittingTrialOpen && \(activeKittingEditable \|\| kittingCaseReview\?\.isEditing/,
+  'the explicit action remains available to resume a read-only case after its lease is absent');
+const resumePreflight = dashboard.indexOf('const releasedBom = await loadReleasedBomDraft()');
+const resumeWrite = dashboard.indexOf('window.DleApiClient.resumeKittingCase', resumePreflight);
+assert.ok(resumePreflight >= 0 && resumeWrite > resumePreflight,
+  'the released-BOM edit prerequisite is validated before the write-capable resume request');
+assert.match(dashboard, /const kittingEditingTemporarilyAvailable = false/,
+  'Kitting editing is explicitly deferred in the stable DEV baseline');
+assert.match(dashboard, /kitButton\.disabled = !kittingEditingTemporarilyAvailable/,
+  'the write-capable Kitting tile is visibly disabled in the stable DEV baseline');
+const stableStart = extractFunction(dashboard, 'startOrResumeActiveKitting');
+assert.ok(stableStart.indexOf('if (!kittingEditingTemporarilyAvailable)') <
+  stableStart.indexOf('if (activeKittingRecovery)'),
+  'the stable-mode guard prevents the top-level Kitting action from reaching reconnect logic');
 assert.match(dashboard, />Bag Labels<\/button>/);
 assert.doesNotMatch(dashboard, />Print All Bag Labels<\/button>/);
+assert.match(home, /preferredDashboardView: "standard"/);
 assert.match(home, /preferredPresentation: "kitting-job"/);
 assert.match(home, /KittingJobWorkspace\.open\(handoff\)/);
+assert.match(script, /preferredPresentation: 'kitting-job'/);
 
 const styles = fs.readFileSync('SRC/workspaces/kitting/kitting-job-workspace.css', 'utf8');
 assert.match(styles, /\.kitting-job-workspace \{[^}]*background:var\(--bg\)[^}]*color:var\(--text\)/);
@@ -142,8 +160,8 @@ const startOrResumeActiveKitting = extractFunction(dashboard, 'startOrResumeActi
 assert.doesNotMatch(startOrResumeActiveKitting, /collapse/i,
   'the Start/Resume/Continue control cannot become a second focused-mode exit');
 assert.match(startOrResumeActiveKitting,
-  /if \(activeKittingTrialOpen\) \{[\s\S]*setPrimaryTool\?\.\('kitting', true\)[\s\S]*scrollActiveKittingTrialIntoView\(\)[\s\S]*return true/,
-  'reinvoking an already-open Kitting surface keeps it focused');
+  /if \(activeKittingTrialOpen && \(activeKittingEditable \|\| kittingCaseReview\?\.isEditing[\s\S]*setPrimaryTool\?\.\('kitting', true\)[\s\S]*scrollActiveKittingTrialIntoView\(\)[\s\S]*return true/,
+  'reinvoking an already-editable, leased, or terminal Kitting surface keeps it focused');
 const formatActiveKittingFocusedIdentity = vm.runInNewContext(
   `const formatQuantity = value => String(value);\n${extractFunction(dashboard, 'formatActiveKittingFocusedIdentity')}\nformatActiveKittingFocusedIdentity`
 );
@@ -185,6 +203,16 @@ assert.equal(isCurrentKittingEditor({ editingOwner: 'miguel', editingSessionId: 
   'the current owner retains editable behavior');
 assert.equal(isCurrentKittingEditor({ editingOwner: 'Miguel De Leon', editingSessionId: 'active-session' }), true,
   'existing display-name actors remain compatible');
+const isSameKittingOperator = vm.runInNewContext(
+  `const cleanText = value => String(value ?? '').trim();\n${extractFunction(dashboard, 'isSameKittingOperator')}\nisSameKittingOperator`,
+  { window: { DleOsSession: { user: { userName: 'Miguel', displayName: 'Miguel De Leon' } } } }
+);
+assert.equal(isSameKittingOperator('miguel'), true,
+  'same-user reconnect recognizes the canonical username when the display name differs');
+assert.equal(isSameKittingOperator('Miguel De Leon'), true,
+  'same-user reconnect remains compatible with display-name lease owners');
+assert.equal(isSameKittingOperator('dev.kitting'), false,
+  'same-user reconnect does not treat another operator as the current user');
 const formatKittingJobDueDate = vm.runInNewContext(
   `const clean = value => String(value ?? '').trim();\n${extractFunction(script, 'formatKittingJobDueDate')}\nformatKittingJobDueDate`,
   { Date }

@@ -44,6 +44,12 @@ assert.match(script, /window\.setInterval\(render, 1000\)/);
 assert.doesNotMatch(script, /localStorage|sessionStorage/);
 assert.match(script, /const DESKTOP_VIEW_MODE = 'desktop'/);
 assert.match(script, /const MOBILE_VIEW_MODE = 'mobile'/);
+assert.match(script, /select\.id = 'dleViewModeSelect'/);
+assert.match(script, /\[DESKTOP_VIEW_MODE, 'Desktop View'\]/);
+assert.match(script, /\[MOBILE_VIEW_MODE, 'Mobile View'\]/);
+assert.match(script, /select\.addEventListener\('change', \(\) => setViewMode\(select\.value\)\)/);
+assert.match(script, /if \(select\) select\.value = viewMode/);
+assert.doesNotMatch(script, /data-dle-view-mode-option|aria-pressed/);
 assert.match(script, /document\.body\.dataset\.viewMode = viewMode/);
 assert.match(script, /dle:view-mode-change/);
 assert.match(script, /window\.OperationsCenter\?\.toggleMobileView/);
@@ -62,10 +68,23 @@ assert.match(workAreaHome, /MOBILE_READY_WORKSPACE_IDS\.has\(workspace\.id\)/);
 assert.match(workAreaHome, /data-mobile-work-area=/);
 
 assert.match(styles, /\.dle-operator-header \.logo \{ height:86px/);
+assert.match(styles, /\.dle-operator-header \.app-title \{[^}]*display:grid[^}]*grid-template-rows:auto auto[^}]*justify-items:start/);
+assert.match(styles, /\.dle-work-area-separator \{ display:none \}/);
+assert.match(styles, /#activeWorkAreaLabel \{[^}]*display:block[^}]*justify-self:start/);
 assert.match(styles, /min-height:44px/);
-assert.match(styles, /@media\(max-width:1100px\)/);
+assert.match(styles, /@media\(max-width:1280px\)/);
 assert.match(styles, /@media\(max-width:760px\)/);
+assert.match(styles, /@media \(min-width:700px\) and \(max-width:1280px\)/);
+assert.match(styles, /body\[data-view-mode="desktop"\] \.dle-operator-header \{[\s\S]*display: grid;[\s\S]*grid-template-areas:[\s\S]*"logo title right"[\s\S]*"navigation mode mode";[\s\S]*padding: 5px 12px;/);
+assert.match(styles, /body\[data-view-mode="desktop"\] \.dle-header-right \{[\s\S]*grid-area: right;[\s\S]*display: grid;[\s\S]*grid-template-areas:[\s\S]*"\. clock"[\s\S]*"environment identity";[\s\S]*align-items: center;[\s\S]*justify-self: end;/);
+assert.match(styles, /body\[data-view-mode="desktop"\] \.dle-dev-secondary-slot \{[\s\S]*grid-area: environment;[\s\S]*align-self: center;/);
+assert.match(styles, /body\[data-view-mode="desktop"\] \.dle-identity-clock-stack \{ display: contents; \}/);
+assert.match(styles, /body\[data-view-mode="desktop"\] \.dle-identity-clock-stack>\.top-pills \{ grid-area: identity; \}/);
+assert.match(styles, /@media \(min-width:1100px\) and \(max-width:1280px\)/);
+assert.match(styles, /grid-template-areas: "navigation mode logo divider title right";/);
 assert.match(styles, /body > main \{ margin-top:28px/);
+assert.match(styles, /body > main,[\s\S]*max-width: none;[\s\S]*margin: 0;[\s\S]*calc\(\(100vw - 1120px\) \/ 2 \+ 22px\)/);
+assert.match(styles, /body > main,[\s\S]*overflow-x: hidden;[\s\S]*overflow-y: auto;/);
 assert.match(styles, /\.dle-factory-clock \{[^}]*white-space:nowrap/);
 assert.match(styles, /\.dle-header-right \{[^}]*display:flex/);
 assert.match(styles, /\.dle-header-right \{[^}]*align-items:flex-end[^}]*gap:8px/);
@@ -73,15 +92,15 @@ assert.match(styles, /\.dle-dev-secondary-slot \{[^}]*flex:0 0 auto/);
 assert.match(styles, /\.dle-identity-clock-stack \{[^}]*width:292px;max-width:100%/);
 assert.match(styles, /\.dle-identity-clock-stack>.top-pills \{ width:100%/);
 assert.match(styles, /\.dle-identity-clock-stack #dle-auth-identity \{ width:100%;max-width:100%[^}]*justify-content:space-between/);
-assert.match(styles, /\.dle-view-mode-toggle \{[^}]*grid-template-columns:1fr 1fr/);
-assert.match(styles, /\.dle-view-mode-toggle button\[aria-pressed="true"\]/);
+assert.match(styles, /\.dle-view-mode-toggle \{[^}]*width:166px[^}]*height:44px[^}]*min-height:44px[^}]*display:flex[^}]*margin:0/);
+assert.match(styles, /\.dle-view-mode-toggle select \{[^}]*min-height:36px[^}]*background:var\(--blue\)/);
 assert.match(styles, /body\[data-view-mode="mobile"\][^\n]*data-workspace-view="operations-center"/);
 assert.match(styles, /:not\(\[data-workspace-view="invoice-history"\]\)/);
-assert.match(styles, /@media\(max-width:420px\)[^\n]*\.dle-view-mode-toggle\{flex-basis:204px;max-width:210px\}/);
+assert.match(styles, /@media\(max-width:420px\)[^\n]*\.dle-view-mode-toggle\{flex-basis:158px;max-width:158px/);
 assert.match(styles, /body\[data-view-mode="mobile"\] > header\.dle-app-header/);
 assert.match(styles, /grid-template-areas:"brand mode" "navigation identity"/);
-assert.match(styles, /body\[data-view-mode="mobile"\] \.dle-view-mode-toggle \{[^}]*min-height:40px[^}]*box-sizing:border-box[^}]*padding:2px/);
-assert.match(styles, /body\[data-view-mode="mobile"\] \.dle-view-mode-toggle button \{ min-height:34px;padding:5px 6px \}/);
+assert.match(styles, /body\[data-view-mode="mobile"\] \.dle-view-mode-toggle \{[^}]*width:166px[^}]*height:40px[^}]*min-height:40px/);
+assert.match(styles, /body\[data-view-mode="mobile"\] \.dle-view-mode-toggle select \{ min-height:34px;padding:5px 3px \}/);
 assert.match(styles, /body\[data-view-mode="mobile"\] \.dle-factory-clock \{ display:none \}/);
 assert.match(styles, /body\[data-view-mode="mobile"\] #dle-auth-name \{ overflow:hidden;text-overflow:ellipsis;white-space:nowrap/);
 assert.match(styles, /@media\(max-width:420px\)[^\n]*grid-template-columns:minmax\(108px,1fr\) minmax\(0,1\.55fr\)/);
@@ -95,7 +114,7 @@ assert.match(runtimeUi, /getElementById\('dleDevBuildDetails'\)/);
 assert.match(employeeUi, /getElementById\('dleDevControlsUtilities'\)/);
 assert.match(employeeUi, /(?:e|event)\.detail\?\.isSuperAdmin/);
 
-const elements = new Map(['dleDevControlsToggle', 'dleDevControlsPanel', 'dleEnvironmentBadge', 'dleFactoryClock']
+const elements = new Map(['dleDevControlsToggle', 'dleDevControlsPanel', 'dleEnvironmentBadge', 'dleFactoryClock', 'dleViewModeSelect']
   .map(id => [id, {
     dataset: {}, hidden: id === 'dleDevControlsPanel', textContent: '', dateTime: '', title: '',
     attributes: new Map(),
@@ -123,8 +142,10 @@ assert.equal(renderedFromUtcDevice, 'Friday, 08/14/2026 · 9:52:34 AM');
 assert.equal(renderedFromTokyoDevice, renderedFromUtcDevice);
 assert.equal(clockContext.window.DleOperatorHeader.getViewMode(), 'desktop');
 assert.equal(clockContext.window.DleOperatorHeader.setViewMode('mobile'), 'mobile');
+assert.equal(elements.get('dleViewModeSelect').value, 'mobile');
 assert.equal(clockContext.window.DleOperatorHeader.isMobileView(), true);
 assert.equal(clockContext.window.DleOperatorHeader.setViewMode('unsupported'), 'desktop');
+assert.equal(elements.get('dleViewModeSelect').value, 'desktop');
 assert.equal(clockContext.window.DleOperatorHeader.isDesktopView(), true);
 
 console.log('Operator-first header layout, permissions, injection, and responsive contracts: PASS');

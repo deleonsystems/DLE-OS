@@ -1,6 +1,11 @@
 # Ephemeral task and tool working directories
 /.tmp/
 /outputs/
+/.phase2-diagnostic-release-stage/
+/.phase2-release-stage/
+/.phase2-service-stage/
+/Tests/GovernedDesktopCapabilities001/cold-start-traces/
+/Tests/GovernedDesktopCapabilities001/programdata-native-host-acl-inspection.txt
 
 # Python bytecode caches
 **/**pycache**/

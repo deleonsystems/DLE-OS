@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "DLE-OS Governed Desktop Capabilities (DEV)",
+  "version": "0.1.0",
+  "description": "DEV-only broker for explicit governed DLE-OS desktop capabilities.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqSCfky5sEQ7HqCCU07aTh2RWYZnLZQwWiAAB0w0q+6Un4YYKKvTiG39Xrfmzg3A1mwe8zf3Ap/KnFE2gzMgyn31vt7qDEQPUutOfCkk+3ttrWNTwyeKS2UfUjyibebePUVTQPANh8UwLZatMzGJyf7plVHNnOsZoOGf6h1tfyovjaGQUocg2j4nrJhkXkvD+lxRDZUqi59+JmlklpcOmdLDh+6PdLEtwEYMXQURivAR6roxF6EY9Lz9rVqBDkJf5MLlnkFgyiFESIdJIA/tSCKozQjQ4PeDNbYqdaPwAFlsYT9jTB2t6SwgZNontG0sR3agNZ742VcbZYQpyjz+yUQIDAQAB",
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://dev.dle-os.internal.dlemfg.com/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://dev.dle-os.internal.dlemfg.com/*"
+      ],
+      "js": [
+        "contract.js",
+        "content-script.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ]
+}

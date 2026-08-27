@@ -31,11 +31,23 @@ assert.match(stopBody, /activeKittingEditable = false/,
 assert.match(stopBody, /draft: activeKittingTrialDraft \? structuredClone\(activeKittingTrialDraft\) : null/,
   'recovery preserves the local draft');
 
+const hydrateBody = dashboard.match(/function hydratePersistedKittingCaseForReadOnly[\s\S]*?\n  }/)?.[0] ?? '';
+assert.match(hydrateBody, /kind: review\.isEditing \? 'LEASE_RECONNECT_REQUIRED' : 'LEASE_EXPIRED'/,
+  'hydrated nonterminal cases expose an explicit active-or-stale reconnect state');
+assert.match(hydrateBody, /message: kittingEditingDeferredMessage/,
+  'hydrated nonterminal cases expose the truthful read-only stabilization message');
+
 const reconnectBody = dashboard.match(/async function reconnectActiveKitting[\s\S]*?\n  }/)?.[0] ?? '';
 assert.match(reconnectBody, /ensureKittingCase\(true\)/,
   'reconnect forces a fresh backend Kitting Case read');
+assert.ok(reconnectBody.indexOf('if (!kittingEditingTemporarilyAvailable)') <
+  reconnectBody.indexOf('ensureKittingCase(true)'),
+  'the deferred editing guard prevents backend reconnect work before any fresh read or resume');
 assert.match(reconnectBody, /resumeKittingCase\(releasedBomPrototypeWorkOrder/,
   'free lease reacquisition uses the governed resume endpoint');
+assert.ok(reconnectBody.indexOf('loadReleasedBomDraft()') <
+  reconnectBody.indexOf('resumeKittingCase(releasedBomPrototypeWorkOrder'),
+  'reconnect validates the Released BOM prerequisite before acquiring a new editing lease');
 assert.match(reconnectBody, /kittingCaseReview\.isEditing[\s\S]*isSameKittingOperator\(kittingCaseReview\.editingOwner\)/,
   'same authenticated operator can safely resume an active owned lease');
 assert.match(reconnectBody, /kind: 'LEASE_OWNED'/,
@@ -59,8 +71,12 @@ assert.match(dashboard, /verifyActiveKittingAfterBrowserResume/,
 assert.match(dashboard, /current\.editingSessionId !== expectedSessionId/,
   'resume verification detects lost or changed editing leases');
 
-assert.match(dashboard, /Resume \/ Reconnect Kitting/,
-  'recoverable lease state exposes a reconnect action');
+assert.match(dashboard, /Kitting editing temporarily unavailable\. Saved Kitting information remains available read-only\./,
+  'the stabilized operator presentation states that editing is unavailable while saved data remains readable');
+assert.match(dashboard, /if \(!signIn && !kittingEditingTemporarilyAvailable\)[\s\S]*Kitting read-only[\s\S]*<\/section>/,
+  'the stabilized recovery presentation suppresses the reconnect button without suppressing sign-in recovery');
+assert.match(dashboard, /Read-only until this '[\s\S]*' session reconnects to the active editing lease\.'/,
+  'same-user recovery text distinguishes reconnection from another operator owning the lease');
 assert.match(dashboard, /Sign In Again/,
   'authentication recovery exposes the governed sign-in action');
 assert.match(styles, /active-kitting-recovery/,
