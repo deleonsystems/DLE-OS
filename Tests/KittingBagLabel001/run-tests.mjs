@@ -406,14 +406,14 @@ assert.match(dashboard, /<details class="kitting-label-menu" ontoggle="handleKit
   'the case area exposes one compact label menu coordinated with the other primary tools');
 const labelMenu = dashboard.slice(dashboard.indexOf('<details class="kitting-label-menu"'),
   dashboard.indexOf('</div></details>', dashboard.indexOf('<details class="kitting-label-menu"')));
-assert.ok(labelMenu.indexOf('>Bag Labels</button>') < labelMenu.indexOf('<span>Kit ID</span>'));
-assert.ok(labelMenu.indexOf('<span>Kit ID</span>') < labelMenu.indexOf('<span>Master Kit ID</span>'));
+assert.ok(labelMenu.indexOf('>Bag Labels</button>') < labelMenu.indexOf('>Kit ID</button>'));
+assert.ok(labelMenu.indexOf('>Kit ID</button>') < labelMenu.indexOf('<span>Master Kit ID</span>'));
 assert.match(labelMenu, /printAllWorkOrderDashboardKittingBagLabels\(\)/,
   'Bag Labels reuses the governed batch-print entry point');
-assert.match(labelMenu, /<button type="button" role="menuitem" disabled><span>Kit ID<\/span><small>Coming Soon<\/small><\/button>/);
+assert.match(labelMenu, /<button type="button" role="menuitem" onclick="[^\"]*printWorkOrderDashboardKittingKitIdLabel\(\)">Kit ID<\/button>/);
 assert.match(labelMenu, /<button type="button" role="menuitem" disabled><span>Master Kit ID<\/span><small>Coming Soon<\/small><\/button>/);
-assert.equal((labelMenu.match(/disabled/g) || []).length, 2,
-  'only the two future label types are disabled');
+assert.equal((labelMenu.match(/disabled/g) || []).length, 1,
+  'only the future Master Kit ID label type is disabled');
 assert.match(styles, /\.kitting-label-menu summary \{[^}]*min-height: 44px/s,
   'the Print Labels trigger retains an iPad-friendly touch target');
 assert.match(styles, /\.kitting-label-menu-options \{[^}]*min-width: 220px/s,

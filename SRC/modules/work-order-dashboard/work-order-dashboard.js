@@ -367,7 +367,8 @@
         '<span aria-hidden="true">&#9662;</span></summary><div class="kitting-label-menu-options" role="menu">' +
         '<button type="button" role="menuitem" onclick="this.closest(\'details\').removeAttribute(\'open\');' +
         'printAllWorkOrderDashboardKittingBagLabels()">Bag Labels</button>' +
-        '<button type="button" role="menuitem" disabled><span>Kit ID</span><small>Coming Soon</small></button>' +
+        '<button type="button" role="menuitem" onclick="this.closest(\'details\').removeAttribute(\'open\');' +
+        'printWorkOrderDashboardKittingKitIdLabel()">Kit ID</button>' +
         '<button type="button" role="menuitem" disabled><span>Master Kit ID</span><small>Coming Soon</small></button>' +
         '</div></details>';
       summary.hidden = dedicatedWorkspace || !available;
@@ -1965,6 +1966,51 @@
     kittedBomEvidenceState = 'idle';
   }
 
+  let kittingKitIdLabelModulePromise = null;
+
+  function ensureKittingKitIdLabelModule() {
+    if (window.KittingKitIdLabel?.createModel && window.KittingKitIdLabel?.printDocument) {
+      return Promise.resolve(window.KittingKitIdLabel);
+    }
+    if (!kittingKitIdLabelModulePromise) {
+      kittingKitIdLabelModulePromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'SRC/modules/work-order-dashboard/kitting-kit-id-label.js';
+        script.dataset.kittingKitIdLabelModule = 'true';
+        script.onload = () => resolve(window.KittingKitIdLabel);
+        script.onerror = () => reject(new Error('The Kit ID label module could not be loaded.'));
+        document.head.appendChild(script);
+      }).catch(error => {
+        kittingKitIdLabelModulePromise = null;
+        throw error;
+      });
+    }
+    return kittingKitIdLabelModulePromise;
+  }
+
+  async function printKittingKitIdLabel() {
+    if (!isActionableKittingDocumentHandoff(selectedWorkOrder)) return false;
+    const preview = window.open('', '_blank');
+    if (!preview) return false;
+    preview.document.open();
+    preview.document.write('<!doctype html><html><head><title>Preparing Kit ID</title></head>' +
+      '<body><p>Preparing Kit ID print preview&hellip;</p></body></html>');
+    preview.document.close();
+    try {
+      const labels = await ensureKittingKitIdLabelModule();
+      if (!labels?.createModel || !labels?.printDocument) throw new Error('The Kit ID label module is unavailable.');
+      const model = labels.createModel(selectedWorkOrder);
+      preview.document.open();
+      preview.document.write(labels.printDocument(model));
+      preview.document.close();
+      preview.opener = null;
+      return true;
+    } catch (error) {
+      preview.document.body.textContent = error?.message || 'The Kit ID label could not be prepared.';
+      return false;
+    }
+  }
+
   async function ensureKittedBomEvidence() {
     if (!canViewKittedBomEvidence() || !isActionableKittingDocumentHandoff(selectedWorkOrder) ||
         kittedBomEvidenceState === 'loading' || kittedBomEvidenceState === 'loaded') return;
@@ -2696,6 +2742,7 @@
   window.printWorkOrderDashboardAcceptedMaterialLabel = printAcceptedMaterialLabel;
   window.viewWorkOrderDashboardKittingBagLabel = viewKittingBagLabel;
   window.printAllWorkOrderDashboardKittingBagLabels = printAllKittingBagLabels;
+  window.printWorkOrderDashboardKittingKitIdLabel = printKittingKitIdLabel;
   window.setWorkOrderDashboardKittingPoTraceability = setActiveKittingPoTraceability;
   window.handleWorkOrderDashboardKittingCountKeydown = handleActiveKittingCountKeydown;
   window.submitWorkOrderDashboardKittingRow = submitActiveKittingRow;
