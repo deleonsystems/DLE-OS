@@ -133,6 +133,14 @@ assert.match(styles, /@media \(max-width: 800px\)[\s\S]*\.kitting-job-state-cont
 assert.doesNotMatch(styles, /kitting-job-current-status/);
 assert.match(styles, /\.kitting-job-action-grid \{[^}]*repeat\(3,minmax\(0,1fr\)\)/);
 assert.match(styles, /\.kitting-job-main \{[^}]*padding:0/);
+assert.match(styles, /@media \(min-width: 1281px\) \{[\s\S]*body\[data-view-mode="desktop"\]\[data-workspace-view="kitting"\]:has\(#kittingJobWorkspace\.screen\.active\) > main \{[\s\S]*padding-inline:clamp\(22px,2vw,32px\)/,
+  'desktop Kitting Job Workspace replaces the centered global gutter with a modest viewport gutter');
+assert.match(styles, /@media \(min-width: 1281px\) \{[\s\S]*#kittingJobWorkspace\.screen\.active \.kitting-job-shell \{[\s\S]*width:100%;[\s\S]*max-width:none/,
+  'desktop Kitting Job Workspace can use the full content width without a fixed maximum');
+assert.match(styles, /@media \(min-width: 1281px\) \{[\s\S]*#kittingJobWorkspace\.screen\.active \.kitting-job-main \{[\s\S]*width:100%;[\s\S]*max-width:none;[\s\S]*margin-inline:0/,
+  'the nested main no longer inherits the global centered 1120px content constraint on desktop');
+assert.match(styles, /@media \(max-width: 800px\) \{\s*\.kitting-job-shell \{ width: min\(100% - 16px, 1500px\); \}/,
+  'the existing tablet/mobile shell width remains unchanged');
 assert.match(styles, /\.kitting-job-report-menu \{[^}]*display:grid/);
 assert.match(styles, /\.kitting-job-report-disclosure>summary \{[^}]*min-height:50px/);
 assert.match(styles, /\.kitting-job-action-grid>button\.is-active/);
