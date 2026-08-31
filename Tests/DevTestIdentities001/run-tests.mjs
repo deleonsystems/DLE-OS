@@ -25,7 +25,7 @@ assert.match(ui, /navigator\.clipboard\.writeText\(persona\.username\)/);
 assert.doesNotMatch(ui, /password|credential|secret/i,
   'the Test Identities UI contains no credential surface');
 assert.match(identityUi, /kittingWorkspaceAvailable:body\.isSuperAdmin===true\|\|granted\.has\('kitting\.view'\)/);
-assert.match(identityUi, /workspaceRules=Object\.freeze\(\{'dle-home':null,kitting:'kitting\.view','operations-center':'sync\.operations'\}\)/);
+assert.match(identityUi, /workspaceRules=Object\.freeze\(\{'dle-home':null,kitting:'kitting\.view',production:'kitting\.view',purchasing:'kitting\.view','operations-center':'sync\.operations'\}\)/);
 
 assert.match(migration, /DB_NAME\(\) <> N'DLE_OS_SECURITY_DEV'/);
 assert.match(migration, /RoleCode='DEV_KITTING_OPERATOR'/);

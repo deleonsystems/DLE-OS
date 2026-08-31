@@ -1,0 +1,38 @@
+<div class="production-workspace purchasing-workspace" data-purchasing-workspace>
+  <header class="production-workspace-header">
+    <div>
+      <h1>Purchasing</h1>
+      <p>Select a material shortage, purchase order, or item requiring buyer action.</p>
+    </div>
+    <div id="purchasingWorkspaceStatus" class="production-workspace-status" role="status" aria-live="polite" data-state="ready">Purchasing queues current</div>
+  </header>
+
+  <section class="production-workspace-controls" aria-label="Purchasing queue controls">
+    <label class="production-search-control">
+      <span class="sr-only">Search Purchasing queues</span>
+      <input id="purchasingWorkspaceSearch" type="search" autocomplete="off"
+        placeholder="Search Part, Vendor, PO, Work Order, Customer...">
+    </label>
+    <button id="purchasingWorkspaceRefresh" type="button" class="secondary-btn production-refresh">↻ Refresh Queue</button>
+  </section>
+
+  <nav class="production-lifecycle-tabs purchasing-lifecycle-tabs" aria-label="Purchasing queues">
+    <button type="button" class="active" data-purchasing-tab="material-shortages" aria-pressed="true">
+      <span>Material Shortages</span>
+    </button>
+    <button type="button" data-purchasing-tab="vendor-management" aria-pressed="false" disabled
+      aria-label="Vendor Management — future Purchasing workspace">
+      <span>Vendor Management</span>
+    </button>
+    <button type="button" data-purchasing-tab="open-needs" aria-pressed="false" disabled
+      aria-label="Open Needs — future Purchasing workspace">
+      <span>Open Needs</span>
+    </button>
+  </nav>
+
+  <section class="production-operator-queue purchasing-operator-queue" aria-labelledby="purchasingSelectedQueueTitle">
+    <h2 id="purchasingSelectedQueueTitle">Material Shortages</h2>
+    <p>Governed material-shortage visibility will use the same operational truth established by Kitting.</p>
+    <div id="purchasingSelectedJobs" class="production-job-list"></div>
+  </section>
+</div>

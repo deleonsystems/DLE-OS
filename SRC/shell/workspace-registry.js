@@ -61,7 +61,15 @@
     {
       id: "purchasing",
       label: "Purchasing",
-      purpose: "Material procurement, vendor management, and material shortages."
+      purpose: "Material procurement, vendor management, and material shortages.",
+      modulePath: "SRC/workspaces/purchasing/purchasing-workspace.js",
+      stylePath: "SRC/workspaces/purchasing/purchasing-workspace.css",
+      home: Object.freeze({
+        label: "Purchasing",
+        description: "Shortages \u2022 POs \u2022 Due Dates \u2022 Receiving",
+        mark: "PU",
+        requiredPermission: "kitting.view"
+      })
     },
     {
       id: "kitting",
