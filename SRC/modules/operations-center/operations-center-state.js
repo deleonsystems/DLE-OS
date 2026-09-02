@@ -101,6 +101,8 @@
 
   function setVerifiedStatusError(error) {
     state.verifiedStatusLoading = false;
+    state.verifiedStatusByKey = {};
+    state.workOrderVerifiedStatusByNumber = {};
     state.verifiedStatusError = String(error?.message || error || 'Last Verified Status is unavailable.');
   }
 

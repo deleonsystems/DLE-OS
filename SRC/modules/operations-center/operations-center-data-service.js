@@ -92,6 +92,16 @@
     activeControllers.get(requestScope)?.abort();
     const controller = new AbortController();
     activeControllers.set(requestScope, controller);
+    if (hasEmbeddedGovernedProjections(sourceRows)) {
+      const rows = sourceRows.map(source => ({ ...source }));
+      validateUniqueIdentities(rows);
+      return {
+        ...canonicalResult,
+        rows,
+        recordCount: rows.length,
+        loadedAt: new Date().toISOString()
+      };
+    }
     // Probe the single paged operational source first. When 5054 is offline this
     // fails before launching one approval request per canonical line.
     const rmaReworkByLineKey = await loadAllActiveRmaReworkMemberships(controller.signal);
@@ -113,6 +123,14 @@
       recordCount: rows.length,
       loadedAt: new Date().toISOString()
     };
+  }
+
+  function hasEmbeddedGovernedProjections(rows) {
+    return rows.length > 0 && rows.every(row =>
+      Object.prototype.hasOwnProperty.call(row, 'rmaReworkMembership') &&
+      Object.prototype.hasOwnProperty.call(row, 'workOrderApprovalReview') &&
+      Object.prototype.hasOwnProperty.call(row, 'materialStatus') &&
+      Object.prototype.hasOwnProperty.call(row, 'materialStatusWorkOrderNumber'));
   }
 
   async function applyMaterialStatusProjection(rows, signal) {
@@ -316,8 +334,13 @@
       salesOrderLineNumber: lineNumber,
       workOrderNumber: workOrder,
       workOrderRelationship: relationship,
-      rmaReworkMembership: rmaReworkMembership ? { ...rmaReworkMembership } : null,
-      workOrderApprovalReview: approvalReview ? { ...approvalReview } : null,
+      rmaReworkMembership: rmaReworkMembership ? { ...rmaReworkMembership }
+        : source.rmaReworkMembership ? { ...source.rmaReworkMembership } : null,
+      workOrderApprovalReview: approvalReview ? { ...approvalReview }
+        : source.workOrderApprovalReview ? { ...source.workOrderApprovalReview } : null,
+      materialStatus: Object.prototype.hasOwnProperty.call(source, 'materialStatus')
+        ? source.materialStatus : null,
+      materialStatusWorkOrderNumber: cleanText(source.materialStatusWorkOrderNumber),
       itemNumber,
       description,
       estimatedShipDate: dueDate,

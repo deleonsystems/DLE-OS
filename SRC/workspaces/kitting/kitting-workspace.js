@@ -298,9 +298,7 @@
       customerPurchaseOrderNumber: cleanText(record?.customerPurchaseOrderNumber || record?.official?.customerPo),
       itemNumber: cleanText(record?.itemNumber || record?.vpro5?.partNumber),
       quantityOrdered: record?.quantityOrdered,
-      operationalQuantityOpen: viewModel?.getOfficialField
-        ? viewModel.getOfficialField(record, "opQtyOpen")
-        : record?.erpQuantityOpen,
+      operationalQuantityOpen: resolveOpenQuantity(record, viewModel),
       stagedQuantity: shipmentProjection?.stagedQuantity || 0,
       shipmentOperationalRoute: shipmentProjection?.operationalRoute || "",
       shipmentOperationalStatus: shipmentProjection?.operationalStatus || "",
@@ -321,6 +319,14 @@
       Object.prototype.hasOwnProperty.call(record, "workOrderApprovalReview") &&
       Object.prototype.hasOwnProperty.call(record, "materialStatus") &&
       Object.prototype.hasOwnProperty.call(record, "materialStatusWorkOrderNumber");
+  }
+
+  function resolveOpenQuantity(record, viewModel) {
+    const projected = viewModel?.getOfficialField
+      ? viewModel.getOfficialField(record, "opQtyOpen")
+      : record?.erpQuantityOpen;
+    const numeric = Number(String(projected ?? "").replace(/,/g, "").trim());
+    return Number.isFinite(numeric) ? projected : record?.erpQuantityOpen;
   }
 
   function buildEmbeddedRmaReworkMemberships(lines) {

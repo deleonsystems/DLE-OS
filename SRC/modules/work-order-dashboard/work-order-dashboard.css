@@ -1809,6 +1809,11 @@ body[data-view-mode="desktop"] #workOrderDashboardModule[data-dashboard-view="pr
     flex-direction: column;
   }
 
+  #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-view-selector {
+    align-items: center;
+    flex-direction: row;
+  }
+
   .work-order-dashboard-module-view-selector select {
     min-width: 0;
     width: 100%;

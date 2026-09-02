@@ -1,5 +1,6 @@
 # Ephemeral task and tool working directories
 /.tmp/
+/.sim-state/
 /outputs/
 /.phase2-diagnostic-release-stage/
 /.phase2-release-stage/

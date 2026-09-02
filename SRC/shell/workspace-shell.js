@@ -82,7 +82,12 @@
       mode.textContent = isHome ? "HOME" : workspace.label.toUpperCase();
       mode.hidden = false;
     }
-    if (selector) selector.hidden = !window.DleOsCapabilities?.isSuperAdmin;
+    if (selector) {
+      const workspaceSelect = getSelector();
+      const hasAuthorizedWorkspace = Array.from(workspaceSelect?.options || []).some(option =>
+        option.value !== registry().defaultWorkspaceId && !option.disabled);
+      selector.hidden = !hasAuthorizedWorkspace;
+    }
   }
 
   function activateWorkspace(value) {

@@ -147,7 +147,7 @@
   }
 
   function getVerifiedStatusPresentation(record) {
-    if (!isOperationalEnrichmentAvailable()) {
+    if (!isOperationalEnrichmentAvailable() || window.OperationsCenter.state?.verifiedStatusError) {
       return { ...emptyVerifiedStatusPresentation(), unavailable: true };
     }
     const latest = getEffectiveVerifiedStatusRecord(record);

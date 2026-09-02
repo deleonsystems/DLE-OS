@@ -37,6 +37,7 @@
     } else if (state.canonicalLoaded) {
       status.textContent = records.length + ' records shown';
       if (!operationalServicesAvailable()) status.textContent += ' · canonical read-only';
+      else if (state.verifiedStatusError) status.textContent += ' · verified status unavailable';
     } else {
       status.textContent = 'Canonical Sales Orders have not been loaded.';
     }
@@ -133,6 +134,10 @@
         '"><span class="operations-center-unavailable-value">Unavailable</span></td>';
     }
     const status = viewModel.getVerifiedStatusPresentation(record);
+    if (status.unavailable) {
+      return '<td class="' + escapeHtml(className) +
+        '"><span class="operations-center-unavailable-value">Verified Status unavailable</span></td>';
+    }
     const hasStatus = !!status.statusText;
     const meta = [status.recordedBy, status.timeLabel]
       .filter(Boolean).join(' \u00b7 ');

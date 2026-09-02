@@ -19,13 +19,16 @@
   });
   const IS_DEVELOPMENT_RUNTIME =
     window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT';
+  const IS_SIM_RUNTIME =
+    window.DleOsRuntimeConfig?.environment === 'SIMULATION';
+  const USE_SAME_ORIGIN_RUNTIME = IS_DEVELOPMENT_RUNTIME || IS_SIM_RUNTIME;
   const DEVELOPMENT_BFF_BASE_URL = window.location.origin;
   const DEVELOPMENT_LIVE_CANONICAL_BASE_URL = DEVELOPMENT_BFF_BASE_URL;
-  const LIVE_CANONICAL_BASE_URL = IS_DEVELOPMENT_RUNTIME
+  const LIVE_CANONICAL_BASE_URL = USE_SAME_ORIGIN_RUNTIME
     ? DEVELOPMENT_LIVE_CANONICAL_BASE_URL
     : 'http://DLE-OS-HOST:5042';
   const LIVE_SNAPSHOT_REFRESH_BASE_URL = normalizeRuntimeBaseUrl(
-    IS_DEVELOPMENT_RUNTIME
+    USE_SAME_ORIGIN_RUNTIME
       ? DEVELOPMENT_BFF_BASE_URL
       : window.DleOsRuntimeConfig?.operationalControlBaseUrl || 'http://DLE-OS-HOST:5043'
   );
@@ -38,7 +41,7 @@
     }
     return url.origin;
   }
-  const CUSTOMER_FILES_CONTROL_BASE_URL = IS_DEVELOPMENT_RUNTIME
+  const CUSTOMER_FILES_CONTROL_BASE_URL = USE_SAME_ORIGIN_RUNTIME
     ? DEVELOPMENT_BFF_BASE_URL
     : 'http://DLE-OS-HOST:5053';
   const SHIPMENT_HISTORY_PATH = 'DATA/shipment-history/shipment-history.json';
@@ -145,7 +148,7 @@
   }
 
   function requireDevelopmentCapability(permissionCode) {
-    if (!IS_DEVELOPMENT_RUNTIME) return;
+    if (!USE_SAME_ORIGIN_RUNTIME) return;
     const capabilities = window.DleOsCapabilities;
     if (capabilities && !capabilities.can(permissionCode)) {
       const error = new Error('This action requires DLE-OS permission ' + permissionCode + '.');
@@ -194,6 +197,13 @@
   }
 
   function getConfig() {
+    if (IS_SIM_RUNTIME) {
+      return {
+        enabled: true,
+        baseUrl: DEVELOPMENT_BFF_BASE_URL,
+        endpoints: { ...DEFAULT_ENDPOINTS }
+      };
+    }
     const runtimeConfig = window.DLE_API_CONFIG || {};
     const storedConfig = readStoredConfig();
     return {
@@ -248,7 +258,9 @@
     if (!endpoint) {
       throw new Error('LIVE canonical endpoint is not configured for ' + endpointKey + '.');
     }
-    const configuredBaseUrl = window.DLE_API_CONFIG?.liveCanonicalBaseUrl;
+    const configuredBaseUrl = IS_SIM_RUNTIME
+      ? ''
+      : window.DLE_API_CONFIG?.liveCanonicalBaseUrl;
     const baseUrl = normalizeBaseUrl(configuredBaseUrl || LIVE_CANONICAL_BASE_URL);
     const url = baseUrl + '/' + String(endpoint).replace(/^\/+/, '');
     return requestJson(url, 'liveCanonical.' + endpointKey, options);
@@ -862,6 +874,10 @@
         persistenceMode: options.apiPersistenceMode || 'DLE-OS-HOST API'
       };
     } catch (apiError) {
+      // Project JSON fallbacks can contain real or stale operational exports. SIM
+      // must preserve its explicit unsupported-contract state instead of probing
+      // those paths or making an API failure look like a local-data success.
+      if (IS_SIM_RUNTIME) throw apiError;
       console.warn('DLE API load failed; using temporary local fallback for ' + endpointKey + '.', apiError);
       const response = await fetch(fallbackPath, { cache: 'no-store' });
       if (!response.ok) {

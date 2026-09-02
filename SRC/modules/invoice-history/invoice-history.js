@@ -22,7 +22,10 @@
       mount.dataset.workspaceLoaded = "true";
       bindEvents();
     }
-    await Promise.all([loadRows(), loadSyncStatus()]);
+    // Refresh evidence is derived from the loaded rows. Keep this ordering
+    // deterministic so the first render cannot race committedRefresh.
+    await loadRows();
+    await loadSyncStatus();
   }
 
   function bindEvents() {

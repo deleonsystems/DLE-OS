@@ -107,7 +107,8 @@ public static class DevelopmentIdentityUi
     '#shipmentStagingReviewDialog button[onclick*="cancel"]':'shipments.cancel',
     '#syncOperationsButton':'sync.operations'
   });
-  const workspaceRules=Object.freeze({'dle-home':null,kitting:'kitting.view',production:'kitting.view',purchasing:'kitting.view','operations-center':'sync.operations'});
+  const workspaceRules=Object.freeze({'dle-home':null,kitting:'kitting.view',production:'kitting.view',purchasing:'kitting.view',
+    shipping:'shipments.view','operations-center':'sync.operations','invoice-history':'sync.operations'});
   function announceCapabilities(capabilities){
     capabilities.apply();
     document.dispatchEvent(new CustomEvent('dle:capabilities-ready',{detail:capabilities}));

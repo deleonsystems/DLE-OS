@@ -103,6 +103,14 @@
     const activeRequestId = requestId ?? state.canonicalRequestId;
     stateActions.beginOperationalEnrichment();
     window.OperationsCenter.table.renderModule();
+    if (window.DleOsRuntimeConfig?.operationsCenterMode === 'CANONICAL_READ_ONLY') {
+      stateActions.failOperationalEnrichment(
+        new Error('SIM provides the canonical Operations Center read model only.'), activeRequestId);
+      window.OperationsCenter.projection.setActive(false);
+      window.OperationsCenter.table.renderModule();
+      renderOperationsCenterMobileView();
+      return false;
+    }
     try {
       const enriched = await window.OperationsCenter.dataService.loadOperationalEnrichment(result);
       if (!stateActions.commitOperationalEnrichment(enriched, activeRequestId)) return false;

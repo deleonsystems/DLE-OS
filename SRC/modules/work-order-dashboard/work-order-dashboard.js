@@ -54,6 +54,7 @@
   const releasedBomPrototypeDataPath = '/Artifacts/WorkOrderReleasedBom004/WORKORDER-RELEASED-BOM-004/work-order-0115621.json';
   const isDevelopmentRuntime =
     window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT';
+  const isSimRuntime = window.DleOsRuntimeConfig?.environment === 'SIMULATION';
   const kittingEditingTemporarilyAvailable = false;
   const kittingEditingDeferredMessage =
     'Kitting editing temporarily unavailable. Saved Kitting information remains available read-only.';
@@ -313,12 +314,27 @@
       getSelectedReleasedBomWorkOrder() === releasedBomPrototypeWorkOrder;
   }
 
+  function isSimKitIdLabelAvailable() {
+    return isSimRuntime && isKittingWorkflowPresentation() &&
+      isActionableKittingDocumentHandoff(selectedWorkOrder);
+  }
+
   function renderReleasedBomControl() {
     const button = document.getElementById('workOrderDashboardReleasedBom');
     const kitButton = document.getElementById('workOrderDashboardKitReleasedBom');
-    if (!button && !kitButton) return;
+    const printTarget = document.getElementById('kittingJobPrintLabelsAction');
+    if (!button && !kitButton && !printTarget) return;
     const inDevelopmentKittingWorkspace = isDevelopmentRuntime && isKittingWorkflowPresentation();
     const available = isReleasedBomPrototypeAvailable();
+    const labelAvailable = available || isSimKitIdLabelAvailable();
+    const printAllAction = '<details class="kitting-label-menu" ontoggle="handleKittingJobPrintLabelsToggle(this)"><summary>Print Labels' +
+      '<span aria-hidden="true">&#9662;</span></summary><div class="kitting-label-menu-options" role="menu">' +
+      (available ? '<button type="button" role="menuitem" onclick="this.closest(\'details\').removeAttribute(\'open\');' +
+      'printAllWorkOrderDashboardKittingBagLabels()">Bag Labels</button>' : '') +
+      '<button type="button" role="menuitem" onclick="this.closest(\'details\').removeAttribute(\'open\');' +
+      'printWorkOrderDashboardKittingKitIdLabel()">Kit ID</button>' +
+      '<button type="button" role="menuitem" disabled><span>Master Kit ID</span><small>Coming Soon</small></button>' +
+      '</div></details>';
     if (button) {
       button.hidden = !inDevelopmentKittingWorkspace;
       button.disabled = !available;
@@ -360,17 +376,8 @@
     if (summary) {
       const hasSubmissionHistory = kittingCaseSubmissions.length > 0;
       const dedicatedWorkspace = presentationMode === 'kitting-job';
-      const printTarget = document.getElementById('kittingJobPrintLabelsAction');
       const historyTarget = document.getElementById('kittingJobSubmissionHistory');
       const developmentHistoryTarget = document.getElementById('kittingJobDevelopmentHistory');
-      const printAllAction = '<details class="kitting-label-menu" ontoggle="handleKittingJobPrintLabelsToggle(this)"><summary>Print Labels' +
-        '<span aria-hidden="true">&#9662;</span></summary><div class="kitting-label-menu-options" role="menu">' +
-        '<button type="button" role="menuitem" onclick="this.closest(\'details\').removeAttribute(\'open\');' +
-        'printAllWorkOrderDashboardKittingBagLabels()">Bag Labels</button>' +
-        '<button type="button" role="menuitem" onclick="this.closest(\'details\').removeAttribute(\'open\');' +
-        'printWorkOrderDashboardKittingKitIdLabel()">Kit ID</button>' +
-        '<button type="button" role="menuitem" disabled><span>Master Kit ID</span><small>Coming Soon</small></button>' +
-        '</div></details>';
       summary.hidden = dedicatedWorkspace || !available;
       const currentStatus = kittingCaseReview ? '<strong>' + escapeDashboardHtml(
         kittingCaseReview.state.replaceAll('_', ' ') + ' · Run ' +
@@ -385,10 +392,6 @@
         'Read-only printing does not start or modify a Kitting Case.</span>';
       summary.innerHTML = dedicatedWorkspace ? '' : currentStatus + printAllAction +
         (hasSubmissionHistory ? renderKittingSubmissionHistory() : '');
-      if (printTarget) {
-        printTarget.hidden = !dedicatedWorkspace || !available;
-        printTarget.innerHTML = dedicatedWorkspace && available ? printAllAction : '';
-      }
       if (historyTarget) {
         historyTarget.innerHTML = hasSubmissionHistory
           ? renderKittingSubmissionHistory(false, 'operator')
@@ -401,6 +404,11 @@
       }
       window.KittingJobWorkspace?.refreshPrimaryToolPresentation?.();
     }
+    if (printTarget) {
+      printTarget.hidden = !isKittingWorkflowPresentation() || !labelAvailable;
+      printTarget.innerHTML = isKittingWorkflowPresentation() && labelAvailable ? printAllAction : '';
+    }
+    window.KittingJobWorkspace?.refreshPrimaryToolPresentation?.();
   }
 
   function renderKitReleasedBomMessage() {

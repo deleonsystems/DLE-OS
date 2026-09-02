@@ -3,6 +3,7 @@
 
   const SHIPMENT_HISTORY_VIEWER_PATH = 'DATA/shipment-history/shipment-history.json';
   const OPERATIONS_REFRESH_POLL_INTERVAL_MS = 3000;
+  const IS_SIM_RUNTIME = window.DleOsRuntimeConfig?.environment === 'SIMULATION';
   let platformRefreshCenterBusy = false;
   let operationsRefreshScheduleEnabled = false;
   let operationsRefreshPollTimer = null;
@@ -89,6 +90,7 @@
       summary.textContent = `Refresh Center unavailable: ${error.message || error}`;
       grid.innerHTML = '<div class="refresh-center-empty">Governed status could not be loaded. Existing Platform data remains read-only and unchanged.</div>';
       warnings.hidden = true;
+      if (IS_SIM_RUNTIME) renderOperationsRefreshUnavailable(error);
     }
   }
 
@@ -167,6 +169,19 @@
     } finally {
       await refreshDailyOperationsSyncStatus();
     }
+  }
+
+  function renderOperationsRefreshUnavailable(error) {
+    const state = document.getElementById('operationsRefreshState');
+    const facts = document.getElementById('operationsRefreshFacts');
+    const steps = document.getElementById('operationsRefreshSteps');
+    const toggle = document.getElementById('operationsRefreshScheduleToggle');
+    if (state) state.textContent = 'Unavailable';
+    if (steps) steps.textContent = `Operations Refresh status unavailable: ${error.message || error}`;
+    if (IS_SIM_RUNTIME && facts) {
+      facts.innerHTML = '<div><span>Availability</span><strong>Not implemented in SIM</strong></div>';
+    }
+    if (IS_SIM_RUNTIME && toggle) toggle.disabled = true;
   }
 
   async function refreshOperationsRefreshStatus() {
@@ -260,9 +275,8 @@
       }).join('');
       scheduleOperationsRefreshPoll(running);
     } catch (error) {
-      state.textContent = 'Unavailable';
-      steps.textContent = `Operations Refresh status unavailable: ${error.message || error}`;
-      scheduleOperationsRefreshPoll(true);
+      renderOperationsRefreshUnavailable(error);
+      scheduleOperationsRefreshPoll(!IS_SIM_RUNTIME);
     }
   }
 
