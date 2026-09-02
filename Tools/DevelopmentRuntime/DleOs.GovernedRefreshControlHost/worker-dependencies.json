@@ -1,0 +1,29 @@
+{
+  "schema": "dle-os.invoice-history-worker-dependencies.v1",
+  "qualifiedFromRun": "INVOICEHISTORYREFRESH-20260824T235058Z-D79053DB",
+  "dependencies": [
+    { "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\Start-InvoiceHistoryRefresh.cmd", "sha256": "8003C01C700599ADCE455436C71982CD61F11A5FC1CEBA6FA66661C1A5EB7EF6" },
+    { "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\Invoke-InvoiceHistoryRefresh.ps1", "sha256": "FA1E1577851C98657ED3BD6A430781786DA250DCA78A8E9E66AD3C45DCD7E418" },
+    { "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\SyncOperations\\Assert-SyncOperationsLease.ps1", "sha256": "AE97F6DCCA4DDD9337E81D8256E688DB3505EACFDD5D4C720FD1B7BD1EF0ACB7" },
+    { "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\VPro\\INVOICE_HISTORY_BOUNDED_WINDOW_PROBE.src", "sha256": "B15DC82F8230BA77A3DD220F2F51EF84FFAD9D1F34E0C3998A0480A32AED3FC6" },
+    { "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\InvoiceHistoryVProWait.ps1", "sha256": "8FF80BA8915E6C4669480E500F3A52EE72844835D81FFCAAC899E4AA2BD5627A" },
+    { "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\Export-ActiveInvoiceHistory.ps1", "sha256": "44A3CAD209C2822F4F2BAB3F4C1F8DE479E864517793B9C5C8A9A01171E84078" },
+    { "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\build_invoice_history_refresh_package.py", "sha256": "D7D5E6F6CF70EF8A60B362F3845B643F5C0480CDA31FA4F01C3FBE7AB75A45F7" },
+    { "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\build_invoice_history_package.py", "sha256": "6AC63B65629A288FC657B5F712F603FA35E00FA1E04A82494494C275BDF31BE6" },
+    { "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\Import-InvoiceHistoryRefresh.ps1", "sha256": "86EBA735B54DA76C77BB1307D71E33EC8633EE49A203616018C6CAD5423C347E" },
+    { "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "sha256": "7600FFE12DA441FE89D035B13801E8E91D064BC544A27B19A5CF49F6AB8B18F5" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe", "sha256": "D8E3F0ADF246DB00358C0C4ED349CF714898178F9558FB0E944F79F5C07F8EAA" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python3.dll", "sha256": "2D2330CE33D1443C67B1804BBF1A561653499DD4DCF8918048747CC17D1A63C4" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python312.dll", "sha256": "64A1DAD031E97F13B1A0BAC26C689D8E14A18D7DD1EAB06E17F70E22373F4EEC" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\vcruntime140.dll", "sha256": "D5E4D9A3E835FA679450145D6A7D94E36573A509317111904D9B3712C30D9066" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\vcruntime140_1.dll", "sha256": "1F2D41C4AA5DB0BC33EBF7B66D72943A817D7CE6CBE880502A9403823633093F" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\DLLs\\_bz2.pyd", "sha256": "2046A236F6EC1858E514CBF1CEAE05AD8B62797E3B9080ED833F71CB19D6131B" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\DLLs\\_decimal.pyd", "sha256": "837EF191BAAC4BFACB5238EE29235AB226871BFB2868608F97CA69E40CBE44FD" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\DLLs\\_hashlib.pyd", "sha256": "D1FC3632A1E3619F11CDE5B7A4F3529FA8A9D2857DAF95842281E69FE0E6739F" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\DLLs\\_lzma.pyd", "sha256": "CB930CD57D32C28E456B78D77A6F4D7CCBC3255D89A8928BC5169D1EABD7655F" },
+    { "path": "C:\\Users\\DLE-OS\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\DLLs\\libcrypto-3-x64.dll", "sha256": "C78D203BDD2D229E905B272B85F3D06DB6C18075644602CA621905A568546C5D" },
+    { "path": "C:\\BASIS\\VPRO5\\pro5cpl.exe", "sha256": "A8452E99C746B1A1EA4E50F342CE78891CBC33C113586D339459210E6AE84A5E" },
+    { "path": "C:\\BASIS\\VPRO5\\vpro5.exe", "sha256": "D490A866BCF7A34079CD9A38D81E04208A192AA94A16712BE67F65E686E0DEBE" },
+    { "path": "C:\\Add-On\\Lab\\InvoiceHistoryRefresh001\\INVOICEHISTORYREFRESH001-20260729T135205Z\\configINVOICEHISTORYREFRESH001.aon", "sha256": "C00732A9F89200F7FC3ACA1BF7582968917A8EF9D7DA6BD75550261D54C98858" }
+  ]
+}

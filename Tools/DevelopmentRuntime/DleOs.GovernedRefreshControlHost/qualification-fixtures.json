@@ -1,0 +1,10 @@
+{
+  "schema": "dle-os.governed-refresh-qualification-fixtures.v1",
+  "mode": "APPROVED_FAILURE_PRESERVATION_QUALIFICATION",
+  "packagePath": "C:\\DLE-OS\\Canonical\\InvoiceHistory\\Refresh\\Runs\\INVOICEHISTORYREFRESH-20260729T144540Z-0E301F3A\\Package",
+  "packageContentSha256": "3322BC6B0167A6DC3A3BE2281D68F8F36FC99FAB6372CE865986CD3E03E35AA3",
+  "importerPath": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\InvoiceHistory\\Import-InvoiceHistoryRefresh.ps1",
+  "importerSha256": "86EBA735B54DA76C77BB1307D71E33EC8633EE49A203616018C6CAD5423C347E",
+  "sourceAccess": "NONE",
+  "canonicalCommitAllowed": false
+}

@@ -41,7 +41,9 @@ function Assert-DleOsDevelopmentFrontendConfiguration {
         $config.applicationOrigin -ne 'https://dev.dle-os.internal.dlemfg.com' -or
         $config.securityDatabase -ne 'DLE_OS_SECURITY_DEV' -or
         $config.canonicalApiBaseUrl -notmatch ':5052$' -or
-        $config.operationalApiBaseUrl -notmatch ':5054$') {
+        $config.operationalApiBaseUrl -notmatch ':5054$' -or
+        $config.syncOperationsApiBaseUrl -notmatch ':5056$' -or
+        $config.governedRefreshApiBaseUrl -notmatch ':5057$') {
         throw 'The frontend configuration is not the approved isolated DEV target.'
     }
     $config

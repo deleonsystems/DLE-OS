@@ -1,0 +1,66 @@
+{
+  "schema": "dle-os.sync-operations-worker-dependencies.v1",
+  "qualifiedFromRun": "SYNCOPS-20260824T170520Z-F17ED5EC",
+  "dependencies": [
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\SyncOperations\\Invoke-SyncOperations.ps1",
+      "sha256": "3DBD4C3E0467951EE1C5B9B02803949FF164CABD9D86B98EAEB707E5119A5F14"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\SyncOperations\\Assert-SyncOperationsLease.ps1",
+      "sha256": "AE97F6DCCA4DDD9337E81D8256E688DB3505EACFDD5D4C720FD1B7BD1EF0ACB7"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\DailyOperationsSync\\Invoke-DailyOperationsSync.ps1",
+      "sha256": "EC0EC3D1F5FE670B0388FB2BEE2FF8765EEE4AC29FB6CD21BBBB8FB9474FFF2D"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\DailyOperationsSync\\Import-DailyOperationsSnapshot.ps1",
+      "sha256": "C4026CC22F7C4592EB0051DA5FCA13EFE9850B548C6727AB290AC1CA7C306157"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\DailyOperationsSync\\Finalize-DailyOperationsPromotion.ps1",
+      "sha256": "BBF5D4E2BCF4678FCA4FD2F953F3BA9072AA876316EEF9055BD70C064148CD25"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\DailyOperationsSync\\focused_work_order_refresh.py",
+      "sha256": "EB67E48132A9DFEC50129024F39D7C206C6AC57EB24B83AF34F7F251CE90E07B"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\DailyOperationsSync\\VPro\\FOCUSED_WORK_ORDER_READER.src",
+      "sha256": "ECD0C2828BCA42CF64CB99F53165C13258EE1B23A1DF5BCD2E156687671BD7F7"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\OperationsRefresh\\Invoke-CustomerMasterRoutineRefresh.ps1",
+      "sha256": "EDF95D31209D956D2F70DC89990838BDCB6D1B958A09D975CC240D4EB08E2904"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\CustomerMaster\\Invoke-CustomerMasterSourceQualification.ps1",
+      "sha256": "46F729F740245D3B26CA56A28CF8E5F82E34E3DC40A849C8D5EFCEB4D328DA95"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\CustomerMaster\\build_customer_master_package.py",
+      "sha256": "0831882E1E2B60D57DA829345988921467178393A1652B6638A4C55D34AB4005"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\CustomerMaster\\Import-CustomerMasterBaseline.ps1",
+      "sha256": "B40FE10FC603066936485EE9BBF7406FAD7252DD3A200D6041EABB16965272F5"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\OperationsRefresh\\Invoke-OpenSalesOrderRoutineRefresh.ps1",
+      "sha256": "F671B398BD8601C5E8E779B460C9823DCE4E22349D321939408E55DF72F1E60C"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\OperationsRefresh\\focused_sales_order_refresh.py",
+      "sha256": "EE741440BB8B0A4AF78029252D118BFA950A4FA1D9A947C02846297168F8257B"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS\\Tools\\OperationsRefresh\\compare_packages.py",
+      "sha256": "F79B9051D9AFDC45989D90E21166368FA580778CA663EAA7B385D8E0C368E034"
+    },
+    {
+      "path": "C:\\DLE-OS\\Repositories\\DLE-OS-Server\\Tools\\Import-Platform002SalesOrders.ps1",
+      "sha256": "9947D85D86E8FC03FAC7DA9B1142CA3B89259DB254DBCC6E53F6935B4EFFB0BC"
+    }
+  ]
+}

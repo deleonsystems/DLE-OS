@@ -29,7 +29,7 @@ try {
     $runtime='C:\ProgramData\DLE-OS\DevelopmentCanonicalApi'
     $startupScript=Join-Path $runtime 'Start-DevelopmentCanonicalApiAtStartup.ps1'
     $action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$startupScript+'"') -WorkingDirectory $runtime
-    $trigger=New-ScheduledTaskTrigger -AtStartup; $trigger.Delay='PT30S'
+    $trigger=New-ScheduledTaskTrigger -AtStartup; $trigger.Delay='PT1M'
     $settings=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 10 -RestartInterval (New-TimeSpan -Minutes 1) -MultipleInstances IgnoreNew
     $principal=New-ScheduledTaskPrincipal -UserId $apiIdentity -LogonType Password -RunLevel Highest
     $task=New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Starts the read-only DLE-OS DEV canonical API after Windows boot.'

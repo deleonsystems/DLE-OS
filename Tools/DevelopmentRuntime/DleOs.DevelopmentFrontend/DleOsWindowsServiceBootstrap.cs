@@ -17,6 +17,8 @@ internal sealed class DleOsWindowsServiceConfiguration
     public string AuthenticationStateRoot { get; init; } = "";
     public string CanonicalApiBaseUrl { get; init; } = "";
     public string OperationalApiBaseUrl { get; init; } = "";
+    public string SyncOperationsApiBaseUrl { get; init; } = "";
+    public string GovernedRefreshApiBaseUrl { get; init; } = "";
     public string CustomerFilesApiBaseUrl { get; init; } = "";
     public string SecurityDatabase { get; init; } = "";
     public bool EnableUserProvisioning { get; init; }
@@ -69,6 +71,14 @@ internal static class DleOsWindowsServiceBootstrap
         if (!configuration.Environment.Equals("Development", StringComparison.Ordinal) ||
             !configuration.RequiredRuntimeIdentity.Equals(ServiceIdentity, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The Windows Service configuration is not the isolated DEV identity boundary.");
+        if (!configuration.SyncOperationsApiBaseUrl.Equals(
+                "http://DLE-OS-HOST:5056", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "The Windows Service Sync Operations boundary must be dedicated DEV port 5056.");
+        if (!configuration.GovernedRefreshApiBaseUrl.Equals(
+                "http://DLE-OS-HOST:5057", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "The Windows Service governed refresh boundary must be dedicated DEV port 5057.");
         if (!Path.GetFullPath(configuration.AuthenticationStateRoot)
                 .Equals(AuthenticationStateRoot, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The Windows Service authentication state root is not the isolated DEV boundary.");
@@ -92,6 +102,8 @@ internal static class DleOsWindowsServiceBootstrap
         Set("DLE_OS_AUTHENTICATION_STATE_ROOT", Path.GetFullPath(configuration.AuthenticationStateRoot));
         Set("DLE_OS_CANONICAL_API_BASE_URL", configuration.CanonicalApiBaseUrl);
         Set("DLE_OS_OPERATIONAL_API_BASE_URL", configuration.OperationalApiBaseUrl);
+        Set("DLE_OS_SYNC_OPERATIONS_API_BASE_URL", configuration.SyncOperationsApiBaseUrl);
+        Set("DLE_OS_GOVERNED_REFRESH_API_BASE_URL", configuration.GovernedRefreshApiBaseUrl);
         Set("DLE_OS_CUSTOMER_FILES_API_BASE_URL", configuration.CustomerFilesApiBaseUrl);
         Set("DLE_OS_SECURITY_DATABASE", configuration.SecurityDatabase);
         Set("DLE_OS_ENABLE_USER_PROVISIONING", configuration.EnableUserProvisioning.ToString());

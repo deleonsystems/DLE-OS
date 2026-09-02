@@ -186,7 +186,7 @@
     if (button) button.disabled = true;
     syncStartedHere = true; syncCompletionHandled = false;
     try { renderSyncStatus(await api().runInvoiceHistoryRefresh()); scheduleSyncPoll(); }
-    catch (error) { syncStartedHere = false; isSyncServiceUnavailable(error) ? renderManualSyncMode() : renderSyncError(error); if (button) button.disabled = false; }
+    catch (error) { syncStartedHere = false; isExecutionDisabled(error) ? renderExecutionDisabled(error) : isSyncServiceUnavailable(error) ? renderManualSyncMode() : renderSyncError(error); if (button && !isExecutionDisabled(error)) button.disabled = false; }
   }
   function scheduleSyncPoll() { clearTimeout(syncPollTimer); syncPollTimer = window.setTimeout(pollSync, SYNC_POLL_MS); }
   async function pollSync() {
@@ -209,7 +209,7 @@
     const running = ["RUNNING","QUEUED","STARTING"].includes(status);
     const success = ["SUCCEEDED","SUCCESS","SUCCESS_WITH_CLARIFICATIONS","NO_SOURCE_CHANGES"].includes(status);
     const node = document.getElementById("invoiceHistorySyncStatus");
-    if (node) { node.className = "invoice-history-sync-status " + (running ? "running" : success ? "success" : status === "FAILED" ? "error" : ""); node.textContent = rawSyncValue(payload,"message") || status.replaceAll("_"," "); }
+    if (node) { node.className = "invoice-history-sync-status " + (running ? "running" : success ? "success" : status === "FAILED" ? "error" : ""); node.textContent = rawSyncValue(payload,"message") || (status === "FAILED" ? "Refresh failed. Previous committed Invoice History remains available." : status.replaceAll("_"," ")); }
     const button = document.getElementById("invoiceHistorySyncButton"); if (button) { button.hidden = false; button.disabled = running; }
     renderAttemptEvidence(payload, status);
     renderCommittedEvidence(payload, success);
@@ -219,10 +219,19 @@
     state.syncAvailable = false;
     setManualSyncVisibility(true);
     const node = document.getElementById("invoiceHistorySyncStatus");
-    if (node) { node.className = "invoice-history-sync-status"; node.textContent = "Automatic sync temporarily unavailable"; }
-    setText("invoiceHistoryLastAttempt", "Last attempted refresh: unavailable while the sync service is offline");
+    if (node) { node.className = "invoice-history-sync-status"; node.textContent = "Refresh service temporarily unavailable; committed Invoice History remains available"; }
+    setText("invoiceHistoryLastAttempt", "Last attempted refresh: unavailable while the governed refresh service is offline");
     setOptionalText("invoiceHistoryRefreshWindow", "");
     setOptionalText("invoiceHistoryRefreshChanges", "");
+    renderCommittedEvidence(null, false);
+  }
+
+  function renderExecutionDisabled(error) {
+    state.syncAvailable = true;
+    setManualSyncVisibility(false);
+    const node = document.getElementById("invoiceHistorySyncStatus");
+    if (node) { node.className = "invoice-history-sync-status"; node.textContent = String(error?.message || "Invoice History refresh is available but execution is currently disabled."); }
+    const button = document.getElementById("invoiceHistorySyncButton"); if (button) { button.hidden = false; button.disabled = true; }
     renderCommittedEvidence(null, false);
   }
 
@@ -277,6 +286,8 @@
     const status = Number(error?.status || error?.statusCode || 0);
     return !status || [404,502,503,504].includes(status);
   }
+
+  function isExecutionDisabled(error) { return error?.code === "INVOICE_HISTORY_EXECUTION_DISABLED"; }
 
   function displayStatus(status) {
     if (["SUCCEEDED","SUCCESS","SUCCESS_WITH_CLARIFICATIONS","NO_SOURCE_CHANGES"].includes(status)) return "Successful";

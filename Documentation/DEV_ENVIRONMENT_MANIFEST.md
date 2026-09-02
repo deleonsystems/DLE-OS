@@ -13,7 +13,9 @@ bootstrap states. Read it before changing or qualifying DEV runtime behavior.
 | DEV runtime identity | `https://dev.dle-os.internal.dlemfg.com/api/runtime/info` | Safe read-only metadata for the exact deployed release. It is intentionally anonymous in DEV so deployment qualification does not require a user session. |
 | Canonical API | `http://dle-os-host:5052/` | Read-only API over the qualified canonical LIVE mirror. `GET /api/platform/live/v1/readiness` is the readiness endpoint; use Windows credentials where required. |
 | Operational ControlHost | `http://dle-os-host:5054/` | Isolated DEV operational API. It may write only to governed DEV operational data. `GET /health` uses Windows authentication and returns the runtime/database boundary to an authorized caller. |
-| Sync Operations | 5051 BFF → 5054 | Permission-gated focused VPro5 synchronization. Durable state and lease are under `C:\ProgramData\DLE-OS\SyncOperations`; see `Documentation/SYNC_OPERATIONS.md`. |
+| Sync Operations | 5051 BFF → `http://dle-os-host:5056/` | Dedicated permission-gated Sync Operations control. Only the four allowlisted Sync Operations routes use 5056. Durable state and lease are under `C:\ProgramData\DLE-OS\SyncOperations`; see `Documentation/SYNC_OPERATIONS.md`. |
+| Governed Invoice History refresh | 5051 BFF → `http://dle-os-host:5057/` | Dedicated governed refresh control for Invoice History status/run. Canonical Invoice History reads remain on 5052. |
+| Customer Files | `http://dle-os-host:5053/` | Intentionally offline and excluded from the current stable DEV baseline pending a documents architecture review. |
 | Keycloak | `https://auth.internal.dlemfg.com/` | DEV identity provider. `GET /realms/dle-os/.well-known/openid-configuration` is the external discovery check. Host-local readiness is `http://127.0.0.1:9190/health/ready`. |
 
 `https://dev.dle-os.internal.dlemfg.com/shared` is the preferred exact-hostname
@@ -62,7 +64,7 @@ evidence.
 ### Canonical read-only API — 5052
 
 - Formal Windows service: none. At boot it is owned by scheduled task
-  `\DLE-OS\Development\Canonical API 5052` (startup trigger, 30-second delay,
+  `\DLE-OS\Development\Canonical API 5052` (startup trigger, one-minute delay,
   password logon).
 - Identity: `DLE-OS-HOST\DLE-OS-LIVE-API`.
 - Runtime root: `C:\ProgramData\DLE-OS\DevelopmentCanonicalApi`.
@@ -80,31 +82,42 @@ evidence.
   state to remain unchanged after readiness. It never changes either LIVE
   boundary.
 
-### Isolated operational ControlHost — 5054
+### Protected operational ControlHost — 5054
 
-- Formal Windows service: none. At boot it is owned by scheduled task
-  `\DLE-OS\Development\Operational ControlHost 5054` (startup trigger,
-  45-second delay, password logon).
-- Identity: `DLE-OS-HOST\DLE-OS`.
-- Runtime root:
-  `C:\DLE-OS\Development\OperationalControlHost5054\<UTC-build-id>`.
-- Governed runtime pointer:
-  `C:\ProgramData\DLE-OS\DevelopmentOperationalControl\CurrentRuntime.txt`.
-  The launcher accepts only a resolved path under the DEV runtime root, so a
-  versioned 5054 release does not require changing the password-backed task.
+- Formal Windows service: none. At boot it is owned by protected scheduled
+  task `\DLE-OS DEV Operational ControlHost 5054 Candidate` (startup trigger,
+  two-minute delay, password logon, Limited run level).
+- Identity: `DLE-OS-HOST\DLE-OS-DEV-CONTROL`.
+- Exact qualified release:
+  `C:\DLE-OS\Development\OperationalControlHost5054\Releases\dev5054-20260825T170328Z-4e01176a73ea`.
 - Owned prefix: `http://dle-os-host:5054/`.
-- Boot wrapper:
-  `Tools\DevelopmentRuntime\Start-DevOperationalControlHost5054WithEnvironment.ps1`.
-- Startup evidence:
-  `C:\ProgramData\DLE-OS\DevelopmentOperationalControl\Logs\startup.evidence.json`.
+- Boot wrapper is release-pinned `Start-DevOperationalControlHost5054.ps1`.
 - Purpose: authorized isolated DEV operational actions. It reads canonical
   data through 5052 and may write `DLE_OS_OPERATIONAL_DEV`; its security access
   is limited to `DLE_OS_SECURITY_DEV` as configured.
 - Safe restart expectation: preserve it during frontend-only deployment. A
   component-specific, explicitly authorized workflow is required to replace it.
-- The wrapper requires 5052 readiness before launching 5054, verifies that the
-  child remains alive and registers the 5054 listener, then records the
-  isolated runtime/database boundaries.
+- The wrapper requires the 5052 security guard before launching. The legacy
+  `\DLE-OS\Development\Operational ControlHost 5054` task remains disabled;
+  the diagnostic service remains stopped/manual.
+
+### Dedicated Sync Operations ControlHost — 5056
+
+- Task: `\DLE-OS\Development\Sync Operations ControlHost 5056 Candidate`.
+- Identity/logon: `DLE-OS-HOST\DLE-OS`, Password, Highest.
+- Startup: `PT1M`, `StartWhenAvailable`, `IgnoreNew`, `PT0S`, zero retries.
+- Exact release: `syncops5056-20260831T225016Z-91ea937d248d`.
+- Starts execution-disabled; live synchronization requires a bounded one-run
+  approval. Protected 5054 does not own these routes.
+
+### Governed Refresh ControlHost — 5057
+
+- Task: `\DLE-OS\Development\Governed Refresh ControlHost Candidate`.
+- Identity/logon: `DLE-OS-HOST\DLE-OS`, Password, Highest.
+- Startup: `PT1M`, `StartWhenAvailable`, `IgnoreNew`, `PT0S`, zero retries.
+- Exact release: `refreshcontrol-20260901T205619Z-8a579f9767fe`.
+- Starts execution-disabled; one-run approval is release- and host-instance
+  bound. It owns only Invoice History status/run control routes.
 
 ## Authentication flow
 
@@ -160,32 +173,18 @@ Evidence is written to:
 
 ## Unattended backend startup
 
-Install or repair the two DEV backend startup tasks from an elevated operator
-session with:
-
-```powershell
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File `
-  .\Tools\DevelopmentRuntime\Install-DevelopmentBackendStartupTasks.ps1
-```
-
-The installer requests the existing `DLE-OS-HOST\DLE-OS` credential through a
-secure Windows prompt. A one-time provisioner reads the existing
-`DLE-OS/LIVE-CANONICAL-API/RUNTIME` Credential Manager entry in memory and
-registers the permanent 5052 task directly as `DLE-OS-LIVE-API`. The
-provisioner task is removed after successful registration. No credential value
-is written to the repository, task action, environment, log, or evidence.
-
-Windows Task Scheduler stores the two task credentials in its protected store.
-If either runtime account password changes or expires, re-run the installer so
-the affected task receives the current credential. Password rotation does not
-update an existing task automatically.
+The current task definitions are protected runtime state; do not recreate them
+with historical bootstrap installers. Windows Task Scheduler stores Password
+logon credentials in its protected store. Any task registration requires an
+explicit component-specific procedure and must preserve its qualified fields.
 
 The qualified reboot sequence is:
 
-`SQL -> 5051/Keycloak -> 5052 readiness -> 5054 listener`
+`5051/Keycloak -> 5052, 5056, and 5057 at PT1M -> 5054 at PT2M`
 
-This sequence was proven across an actual host reboot on 2026-08-12 without a
-manual backend launch or an interactive user-logon dependency.
+This topology recovered unattended in the final controlled reboot on
+2026-09-01. See `DEV_STABLE_BASELINE_20260901.md` for exact releases and
+attestation hashes.
 
 ## Protected boundaries
 
@@ -193,6 +192,8 @@ A normal frontend task must preserve:
 
 - 5052 and its read-only canonical API process;
 - 5054 and its isolated operational ControlHost process;
+- 5056 and 5057, including their execution-disabled default state;
+- intentional absence of 5053 from the stable topology;
 - Keycloak service, realm, clients, metadata, secrets, and database;
 - every LIVE service, LIVE listener, production SQL database, credential, and
   data set; and

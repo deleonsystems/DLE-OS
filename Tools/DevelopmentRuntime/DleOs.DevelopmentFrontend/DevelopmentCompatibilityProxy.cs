@@ -26,6 +26,12 @@ public static class DevelopmentCompatibilityProxy
         var operational = new ProxyBoundary(
             "operational-write", new Uri(runtime.OperationalApiBaseUrl),
             [HttpMethods.Get, HttpMethods.Post, HttpMethods.Put], TrustedIdentityContract.OperationalAudience);
+        var syncOperations = new ProxyBoundary(
+            "sync-operations-control", new Uri(runtime.SyncOperationsApiBaseUrl),
+            [HttpMethods.Get, HttpMethods.Post], TrustedIdentityContract.OperationalAudience);
+        var governedRefresh = new ProxyBoundary(
+            "governed-refresh-control", new Uri(runtime.GovernedRefreshApiBaseUrl),
+            [HttpMethods.Get, HttpMethods.Post], TrustedIdentityContract.OperationalAudience);
         var customerFiles = new ProxyBoundary(
             "customer-files-control", new Uri(runtime.CustomerFilesApiBaseUrl),
             [HttpMethods.Get, HttpMethods.Post], null);
@@ -42,9 +48,15 @@ public static class DevelopmentCompatibilityProxy
         MapOperational(app, runtime, operational, "/api/kitting-cases/{**path}");
         MapOperational(app, runtime, operational, "/api/rma-rework/{**path}");
         MapOperational(app, runtime, operational, "/api/shipment-staging/{**path}");
-        MapOperational(app, runtime, operational, "/api/platform/refresh/invoice-history/v1/{**path}");
-        MapOperational(app, runtime, operational, "/api/sync/operations");
-        MapOperational(app, runtime, operational, "/api/sync/operations/{**path}");
+        MapOperational(app, runtime, governedRefresh,
+            "/api/platform/refresh/invoice-history/v1/status", [HttpMethods.Get]);
+        MapOperational(app, runtime, governedRefresh,
+            "/api/platform/refresh/invoice-history/v1/run", [HttpMethods.Post]);
+        MapOperational(app, runtime, syncOperations, "/api/sync/operations", [HttpMethods.Post]);
+        MapOperational(app, runtime, syncOperations, "/api/sync/operations/current", [HttpMethods.Get]);
+        MapOperational(app, runtime, syncOperations, "/api/sync/operations/runs", [HttpMethods.Get]);
+        MapOperational(app, runtime, syncOperations,
+            "/api/sync/operations/runs/{runId}", [HttpMethods.Get]);
         MapOperational(app, runtime, operational, "/api/development/identity/{**path}");
 
         app.MapMethods("/api/customer-files/{**path}", [HttpMethods.Get, HttpMethods.Post],
@@ -55,8 +67,8 @@ public static class DevelopmentCompatibilityProxy
     }
 
     private static void MapOperational(WebApplication app, DleOsRuntimeConfiguration runtime,
-        ProxyBoundary operational, string pattern) =>
-        app.MapMethods(pattern, [HttpMethods.Get, HttpMethods.Post, HttpMethods.Put],
+        ProxyBoundary operational, string pattern, string[]? methods = null) =>
+        app.MapMethods(pattern, methods ?? [HttpMethods.Get, HttpMethods.Post, HttpMethods.Put],
             (HttpContext context, ICurrentUserContext users, IIdentityAssertionIssuer assertions,
                 IHttpClientFactory clients,
                 ILoggerFactory logs, CancellationToken token) =>
@@ -139,7 +151,7 @@ public static class DevelopmentCompatibilityProxy
         }
         if (context.Request.ContentLength is > 0)
         {
-            // The downstream client authenticates to 5054 with Windows authentication.
+            // The selected downstream client authenticates with Windows authentication.
             // Buffer the already size-limited body so HttpClient can replay it after the
             // Negotiate challenge; a StreamContent over the inbound request cannot be
             // replayed and causes body-bearing POSTs to arrive anonymously.

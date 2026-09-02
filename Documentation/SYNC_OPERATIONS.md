@@ -7,9 +7,11 @@ DEV security migration; it can later be granted through the normal role and
 permission model.
 
 The authenticated browser posts to the 5051 BFF at `/api/sync/operations`.
-5051 forwards the signed user assertion to the isolated 5054 operational host.
-5054 records the requesting DLE-OS user, acquires the machine-wide durable
-synchronization lease, and starts the worker directly as
+5051 forwards only the four allowlisted Sync Operations routes and its signed
+user assertion to the dedicated 5056 Sync Operations ControlHost. Protected
+5054 does not expose this retired route. 5056 independently validates the
+trusted frontend caller, assertion, and `sync.operations` permission, acquires
+the machine-wide durable synchronization lease, and starts the worker as
 `DLE-OS-HOST\DLE-OS`. Closing the browser does not stop the worker.
 
 The v1 operation is intentionally focused:
@@ -58,3 +60,9 @@ Semantic endpoints:
 - `GET /api/sync/operations/current`
 - `GET /api/sync/operations/runs/{runId}`
 - `GET /api/sync/operations/runs`
+
+The 5056 host is owned at boot by the password-logon startup task
+`\DLE-OS\Development\Sync Operations ControlHost 5056 Candidate`, pinned to
+the qualified release and delayed `PT1M`. It starts execution-disabled. A
+live synchronization requires a bounded, explicitly approved one-run gate;
+the host returns to disabled state afterward.

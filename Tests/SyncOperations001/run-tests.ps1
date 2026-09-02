@@ -23,11 +23,14 @@ $devApi=Read 'Tools\DevelopmentRuntime\DleOs.DevelopmentApi\Program.cs'
 $readiness=Read 'Tools\PlatformFreshnessCache\ServerOverlay\Data\Platform\LivePlatformStatusRepository.cs'
 $readinessOptions=Read 'Tools\PlatformFreshnessCache\ServerOverlay\Options\LiveApiOptions.cs'
 
-Check 'semantic BFF and 5054 routes' {
+Check 'semantic BFF and dedicated 5056 routes' {
     foreach($value in @('/api/sync/operations','/api/sync/operations/current','/api/sync/operations/runs/{runId}')){
         Require ($center.Contains($value)-or$bff.Contains($value)) "missing $value"
     }
-    Require ($bff.Contains('operational, "/api/sync/operations");')) 'exact POST root mapping absent'
+    Require ($bff.Contains('syncOperations, "/api/sync/operations", [HttpMethods.Post]')) 'exact 5056 POST root mapping absent'
+    Require ($bff.Contains('syncOperations, "/api/sync/operations/current", [HttpMethods.Get]')) 'exact 5056 current mapping absent'
+    Require ($bff.Contains('syncOperations, "/api/sync/operations/runs", [HttpMethods.Get]')) 'exact 5056 runs mapping absent'
+    Require (-not $bff.Contains('/api/sync/operations/{**path}')) 'stale Sync Operations wildcard mapping remains'
     Require ($bff.Contains('new ByteArrayContent(body.ToArray())')) 'POST body is not replayable across Windows authentication challenge'
 }
 Check 'permission is enforced end to end' {

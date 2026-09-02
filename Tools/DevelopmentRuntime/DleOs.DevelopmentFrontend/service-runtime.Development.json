@@ -7,6 +7,8 @@
   "authenticationStateRoot": "C:\\ProgramData\\DLE-OS\\DevelopmentFrontend\\AuthState",
   "canonicalApiBaseUrl": "http://DLE-OS-HOST:5052",
   "operationalApiBaseUrl": "http://DLE-OS-HOST:5054",
+  "syncOperationsApiBaseUrl": "http://DLE-OS-HOST:5056",
+  "governedRefreshApiBaseUrl": "http://DLE-OS-HOST:5057",
   "customerFilesApiBaseUrl": "http://DLE-OS-HOST:5053",
   "securityDatabase": "DLE_OS_SECURITY_DEV",
   "enableUserProvisioning": true,

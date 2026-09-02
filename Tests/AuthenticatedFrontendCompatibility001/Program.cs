@@ -28,6 +28,7 @@ var runtimeConfiguration = runtimeConfigurationDocument.RootElement;
 var applicationOrigin = new Uri(runtimeConfiguration.GetProperty("applicationOrigin").GetString()!);
 var canonicalApi = new Uri(runtimeConfiguration.GetProperty("canonicalApiBaseUrl").GetString()!);
 var operationalApi = new Uri(runtimeConfiguration.GetProperty("operationalApiBaseUrl").GetString()!);
+var syncOperationsApi = new Uri(runtimeConfiguration.GetProperty("syncOperationsApiBaseUrl").GetString()!);
 var frontendPrefixes = runtimeConfiguration.GetProperty("frontendPrefixes").EnumerateArray()
     .Select(value => new Uri(value.GetString()!)).ToArray();
 
@@ -48,6 +49,7 @@ Check(new[] { shellSource, workOrderSource, shipmentStagingSource }.All(source =
 Check(proxySource.Contains("UseDefaultCredentials = true") &&
       proxySource.Contains("runtime.CanonicalApiBaseUrl") &&
       proxySource.Contains("runtime.OperationalApiBaseUrl") &&
+      proxySource.Contains("runtime.SyncOperationsApiBaseUrl") &&
       proxySource.Contains("runtime.CustomerFilesApiBaseUrl"),
     "BFF uses its service identity for explicitly configured downstreams");
 Check(proxySource.Contains("DLE_OS_IDENTITY_CALLER_NOT_TRUSTED") &&
@@ -56,12 +58,19 @@ Check(proxySource.Contains("DLE_OS_IDENTITY_CALLER_NOT_TRUSTED") &&
       proxySource.Contains("DLE_OS_DEVELOPMENT_SERVICE_IDENTITY_REJECTED"),
     "BFF distinguishes service-caller rejection from governed user authorization failures");
 Check(runtimeSource.Contains("DLE_OS_ENVIRONMENT") &&
-      runtimeSource.Contains("Development isolation requires 5052, 5054") &&
+      runtimeSource.Contains("dedicated Sync Operations 5056") &&
       runtimeConfiguration.GetProperty("environment").GetString() == "Development" &&
-      canonicalApi.Port == 5052 && operationalApi.Port == 5054 &&
+      canonicalApi.Port == 5052 && operationalApi.Port == 5054 && syncOperationsApi.Port == 5056 &&
       !runtimeConfiguration.GetProperty("securityDatabase").GetString()!
           .Contains("LIVE", StringComparison.OrdinalIgnoreCase),
     "Development routing is explicit and fail-closed against production boundaries");
+Check(proxySource.Contains("new Uri(runtime.SyncOperationsApiBaseUrl)") &&
+      proxySource.Contains("\"/api/sync/operations/current\", [HttpMethods.Get]") &&
+      proxySource.Contains("\"/api/sync/operations/runs\", [HttpMethods.Get]") &&
+      proxySource.Contains("\"/api/sync/operations/runs/{runId}\", [HttpMethods.Get]") &&
+      proxySource.Contains("\"/api/sync/operations\", [HttpMethods.Post]") &&
+      !proxySource.Contains("/api/sync/operations/{**path}"),
+    "only the four public Sync Operations routes use dedicated 5056");
 Check(!proxySource.Contains("/api/platform/refresh/v1") &&
       !proxySource.Contains("/api/platform/refresh/v1") &&
       !proxySource.Contains("/api/platform/operations-refresh/v1"),
