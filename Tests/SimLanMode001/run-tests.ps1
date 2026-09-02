@@ -112,7 +112,22 @@ $lanAddress = ([Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterface
     Where-Object { $_ -like '10.*' -or $_ -like '192.168.*' -or $_ -match '^172\.(1[6-9]|2[0-9]|3[01])\.' } |
     Select-Object -First 1)
 Require (-not [string]::IsNullOrWhiteSpace($lanAddress)) 'qualification workstation has an assigned private IPv4 address'
-$qualificationHost = 'dev.dle-os.internal.dlemfg.com'
+$candidateHosts = @(
+    'sim-miguel.dle-os.internal.dlemfg.com',
+    'sim-adan.dle-os.internal.dlemfg.com',
+    'dev.dle-os.internal.dlemfg.com'
+)
+$qualificationHost = $null
+foreach ($candidateHost in $candidateHosts) {
+    $addresses = @(Resolve-DnsName $candidateHost -Type A -DnsOnly -ErrorAction SilentlyContinue |
+        Where-Object Type -eq A |
+        Select-Object -ExpandProperty IPAddress -Unique)
+    if ($lanAddress -in $addresses) {
+        $qualificationHost = $candidateHost
+        break
+    }
+}
+Require (-not [string]::IsNullOrWhiteSpace($qualificationHost)) 'qualification hostname resolves to the local private LAN address'
 $rsa = [Security.Cryptography.RSA]::Create(2048)
 $request = [Security.Cryptography.X509Certificates.CertificateRequest]::new(
     "CN=$qualificationHost", $rsa, [Security.Cryptography.HashAlgorithmName]::SHA256,
@@ -131,7 +146,7 @@ $temporary = $request.CreateSelfSigned((Get-Date).AddMinutes(-5), (Get-Date).Add
 $certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new(
     $temporary.Export([Security.Cryptography.X509Certificates.X509ContentType]::Pfx), '',
     [Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet -bor
-    [Security.Cryptography.X509Certificates.X509KeyStorageFlags]::UserKeySet -bor
+    [Security.Cryptography.X509Certificates.X509KeyStorageFlags]::MachineKeySet -bor
     [Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
 $certificateStore = [Security.Cryptography.X509Certificates.X509Store]::new('My', 'CurrentUser')
 $certificateStore.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)

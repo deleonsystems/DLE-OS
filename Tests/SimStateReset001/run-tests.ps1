@@ -97,7 +97,7 @@ $optionsText = [IO.File]::ReadAllText($optionsSource)
 $stateText = [IO.File]::ReadAllText($stateSource)
 $rendererText = [IO.File]::ReadAllText($rendererSource)
 $gitignore = [IO.File]::ReadAllText((Join-Path $repository '.gitignore'))
-Require ($gitignore -match '(?m)^/\.sim-state/$') 'per-clone SIM state root is ignored by Git'
+Require ($gitignore -match '(?m)^/\.sim-state/\s*$') 'per-clone SIM state root is ignored by Git'
 Require ($optionsText -match 'ResolveStatePath' -and $optionsText -match 'EnsureDescendant') 'state paths are resolved beneath the validated SIM root'
 Require ($optionsText -match 'IsNetworkPath' -and $optionsText -match 'UNC or network') 'UNC and network state roots are rejected'
 Require ($stateText -match 'SemaphoreSlim resetGate' -and $stateText -match 'WaitAsync\(0\)') 'concurrent resets fail closed'
