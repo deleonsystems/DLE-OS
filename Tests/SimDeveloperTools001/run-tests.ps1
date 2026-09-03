@@ -37,6 +37,9 @@ Import-Module $module -Force
 New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
 Require (Test-Path -LiteralPath $profileSource -PathType Leaf) 'developer tools test can read the local SIM profile template'
 
+$adanConcurrencyProofMarker = 'ADAN_SIM_CONCURRENCY_PROOF_LOCAL_ONLY'
+Require ($adanConcurrencyProofMarker -eq 'ADAN_SIM_CONCURRENCY_PROOF_LOCAL_ONLY') 'Adan feature workflow proof remains an independent local test assertion'
+
 $modernTrue = Get-DleOsSimStartStatusAccessCodeMetadata ([pscustomobject]@{ usesUserConfiguredCode = $true })
 Require ($modernTrue.recorded -and $modernTrue.usedUserConfiguredCode -eq $true -and $modernTrue.state -eq 'used-user-configured-code') 'modern start-status true is reported as true'
 
