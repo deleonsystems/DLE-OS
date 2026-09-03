@@ -107,6 +107,16 @@ Require ($programText -match 'options\.Listen\(IPAddress\.Loopback') 'default Ke
 Require ($programText -notmatch 'ListenAnyIP|IPAddress\.Any') 'SIM never binds a wildcard address'
 Require ($optionsText -match 'IsPrivateIpv4' -and $optionsText -match 'IsAssignedLocalAddress') 'LAN address must be private and locally assigned'
 Require ($launcherText -match "NetworkCategory -ne 'Private'") 'launcher rejects non-Private Windows network profiles'
+Require ($launcherText -match "(?s)\[Environment\]::GetEnvironmentVariable\(\s*'DLE_OS_SIM_PERMANENT_ACCESS_CODE',\s*\[EnvironmentVariableTarget\]::User\)") 'launcher reads the permanent LAN access code explicitly from User scope'
+Require ($launcherText -match '\[string\]::IsNullOrWhiteSpace\(\$permanentAccessCode\)' -and
+    $launcherText -match 'RandomNumberGenerator\]::Fill\(\$randomBytes\)') 'missing permanent code retains cryptographic one-run fallback generation'
+Require ($launcherText -match "Write-Host 'SIM access code: configured'" -and
+    $launcherText -match 'Write-Host "One-run device access code: \$accessCode"') 'launcher reports configured permanent mode without changing generated-code display'
+$consoleLines = @($launcherText -split "`r?`n" | Where-Object { $_ -match 'Write-Host' })
+Require (@($consoleLines | Where-Object { $_ -match '\$permanentAccessCode' }).Count -eq 0) 'permanent LAN access code is absent from launcher console output'
+$childLaunchLines = @($launcherText -split "`r?`n" | Where-Object { $_ -match '& dotnet run' })
+Require ($childLaunchLines.Count -eq 1 -and $childLaunchLines[0] -notmatch 'AccessCode|ACCESS_CODE') 'LAN access code is absent from child process arguments'
+Require ($launcherText -match 'Starting DLE-OS SIM at http://127\.0\.0\.1:\$Port') 'loopback launcher behavior remains unchanged'
 Require ($programText -match 'DLE_OS_SIM_HOST_REJECTED') 'runtime has an exact Host allowlist rejection'
 Require ($guardText -match '__Host-DLEOS-SIM-LAN' -and $guardText -match 'FixedTimeEquals') 'LAN guard uses a secure host cookie and constant-time code comparison'
 Require ($programText -notmatch 'HttpClient|IHttpClientFactory|WebProxy|UseDefaultCredentials') 'LAN mode adds no downstream HTTP client or credential bridge'

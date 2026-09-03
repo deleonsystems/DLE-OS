@@ -62,10 +62,19 @@ try {
             throw "LAN mode refuses the $($profile.NetworkCategory) network profile on $($profile.InterfaceAlias)."
         }
 
-        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-        $randomBytes = [byte[]]::new(12)
-        [Security.Cryptography.RandomNumberGenerator]::Fill($randomBytes)
-        $accessCode = -join ($randomBytes | ForEach-Object { $alphabet[$_ % $alphabet.Length] })
+        $permanentAccessCode = [Environment]::GetEnvironmentVariable(
+            'DLE_OS_SIM_PERMANENT_ACCESS_CODE',
+            [EnvironmentVariableTarget]::User)
+        $usesPermanentAccessCode = -not [string]::IsNullOrWhiteSpace($permanentAccessCode)
+        if ($usesPermanentAccessCode) {
+            $accessCode = $permanentAccessCode
+        }
+        else {
+            $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+            $randomBytes = [byte[]]::new(12)
+            [Security.Cryptography.RandomNumberGenerator]::Fill($randomBytes)
+            $accessCode = -join ($randomBytes | ForEach-Object { $alphabet[$_ % $alphabet.Length] })
+        }
         $safeHostName = $LanHostName.Trim().TrimEnd('.').ToLowerInvariant()
         $safeUrl = "https://$safeHostName`:$Port"
 
@@ -77,7 +86,12 @@ try {
 
         Write-Host "Starting DLE-OS SIM in LAN MODE at $safeUrl"
         Write-Host "Bound private address: $LanAddress (Private profile only)"
-        Write-Host "One-run device access code: $accessCode"
+        if ($usesPermanentAccessCode) {
+            Write-Host 'SIM access code: configured'
+        }
+        else {
+            Write-Host "One-run device access code: $accessCode"
+        }
     }
     else {
         if ($LanAddress -or $LanHostName -or $CertificateThumbprint) {
