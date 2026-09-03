@@ -93,10 +93,10 @@ internal sealed record SimRuntimeOptions(
             if (IPAddress.TryParse(lanHostName, out _) || lanHostName is "localhost")
                 throw new InvalidOperationException("LAN mode requires a non-IP, non-localhost DNS hostname.");
             certificateThumbprint = NormalizeThumbprint(certificateThumbprint);
-            if (string.IsNullOrWhiteSpace(accessCode) || accessCode.Length is < 8 or > 64 ||
+            if (string.IsNullOrWhiteSpace(accessCode) || accessCode.Length is < 5 or > 64 ||
                 accessCode.Any(char.IsWhiteSpace))
                 throw new InvalidOperationException(
-                    "LAN mode requires an 8-64 character, whitespace-free access code.");
+                    "LAN mode requires a 5-64 character, whitespace-free access code.");
         }
         else if (!string.IsNullOrWhiteSpace(lanAddressText) ||
                  !string.IsNullOrWhiteSpace(lanHostName) ||

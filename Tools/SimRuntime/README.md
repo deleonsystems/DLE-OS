@@ -34,9 +34,10 @@ warning bypass:
   -CertificateThumbprint <SIM_CERTIFICATE_THUMBPRINT>
 ```
 
-The launcher prints the HTTPS URL and a new one-run access code. A device must
-enter that code before the shared shell or any SIM API is available. The
-secure, HttpOnly, same-site session stops working when the SIM process exits.
+The launcher prints the HTTPS URL and either a generated one-run access code
+or a configured permanent-code status. A device must enter the SIM access code
+before the shared shell or any SIM API is available. The secure, HttpOnly,
+same-site session remains scoped to the running SIM process.
 LAN mode accepts only the exact configured Host header, serves all data
 same-origin, and binds only the stated private address. See
 `Documentation/SIM_LAN_MODE.md` for the DNS, certificate, firewall, and VPN

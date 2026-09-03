@@ -67,7 +67,7 @@ try {
             [EnvironmentVariableTarget]::User)
         $usesPermanentAccessCode = -not [string]::IsNullOrWhiteSpace($permanentAccessCode)
         if ($usesPermanentAccessCode) {
-            $accessCode = $permanentAccessCode
+            $accessCode = $permanentAccessCode.Trim()
         }
         else {
             $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'

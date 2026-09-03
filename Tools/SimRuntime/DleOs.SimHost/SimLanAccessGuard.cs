@@ -84,8 +84,8 @@ internal sealed class SimLanAccessGuard
 <title>DLE-OS SIM LAN access</title>
 <style>body{margin:0;background:#08111f;color:#e5eef8;font:16px/1.5 system-ui,sans-serif;display:grid;min-height:100vh;place-items:center}main{width:min(90vw,28rem);padding:1.5rem;border:1px solid #31506f;border-radius:12px;background:#101d2d}label,input,button{display:block;width:100%;box-sizing:border-box}input,button{margin-top:.5rem;padding:.75rem;border-radius:8px}button{background:#0f766e;color:white;border:0;font-weight:700}</style>
 </head><body><main><h1>DLE-OS SIM</h1><p>LAN MODE · SYNTHETIC DATA</p>
-<form method="post" action="{{path}}"><label for="sim_access">Access code</label>
-<input id="sim_access" name="sim_access" type="password" inputmode="text" autocomplete="one-time-code" required minlength="8" maxlength="64">
+<form method="post" action="{{path}}"><label for="sim_access">SIM Access Code</label>
+<input id="sim_access" name="sim_access" type="password" inputmode="text" autocomplete="off" required minlength="5" maxlength="64">
 <button type="submit">Open local SIM</button></form></main></body></html>
 """;
     }

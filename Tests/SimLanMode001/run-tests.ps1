@@ -199,6 +199,43 @@ $certificateStore.Add($certificate)
 $certificateStore.Close()
 Require ($certificate.HasPrivateKey) 'ephemeral exact-name qualification certificate has a private key'
 
+foreach ($case in @(
+        @{ Name = 'four-character-code-rejection'; Port = 5191; Code = '1234'; Message = '4-character SIM access code is rejected' },
+        @{ Name = 'sixty-five-character-code-rejection'; Port = 5192; Code = 'A' * 65; Message = '65-character SIM access code is rejected' },
+        @{ Name = 'whitespace-code-rejection'; Port = 5193; Code = 'ABCDE F'; Message = 'whitespace-containing SIM access code is rejected' },
+        @{ Name = 'missing-code-rejection'; Port = 5194; Code = ''; Message = 'missing LAN SIM access code is rejected' }
+    )) {
+    $rejection = Start-TestHost $case.Name $case.Port @{
+        DLE_OS_SIM_LAN_MODE = 'true'
+        DLE_OS_SIM_LAN_ADDRESS = $lanAddress
+        DLE_OS_SIM_LAN_HOSTNAME = $qualificationHost
+        DLE_OS_SIM_CERTIFICATE_THUMBPRINT = $certificate.Thumbprint
+        DLE_OS_SIM_ACCESS_CODE = $case.Code
+    }
+    $rejection.WaitForExit(10000) | Out-Null
+    Require ($rejection.HasExited -and $rejection.ExitCode -ne 0) $case.Message
+    $rejectionOutput = [IO.File]::ReadAllText((Join-Path $testRoot "$($case.Name).stderr.log"))
+    Require ($rejectionOutput -match '5-64 character, whitespace-free access code') "$($case.Message) with canonical error text"
+}
+
+$maxCodePort = 5195
+$maxCodeProcess = $null
+try {
+    $maxCodeProcess = Start-TestHost 'sixty-four-character-code' $maxCodePort @{
+        DLE_OS_SIM_LAN_MODE = 'true'
+        DLE_OS_SIM_LAN_ADDRESS = $lanAddress
+        DLE_OS_SIM_LAN_HOSTNAME = $qualificationHost
+        DLE_OS_SIM_CERTIFICATE_THUMBPRINT = $certificate.Thumbprint
+        DLE_OS_SIM_ACCESS_CODE = 'A' * 64
+    }
+    Require (Wait-Listener $maxCodePort $maxCodeProcess) '64-character SIM access code starts LAN listener'
+}
+finally {
+    Stop-TestHost $maxCodeProcess
+}
+Require (-not ([Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
+    Where-Object Port -eq $maxCodePort)) '64-character-code LAN listener disappears when SIM stops'
+
 $lanPort = 5198
 $accessCode = 'PHASE13X'
 $lanProcess = $null
@@ -271,6 +308,62 @@ try {
 
     $runtimeMetadata = [IO.File]::ReadAllText((Join-Path $repository '.sim-state\runtime\runtime.json'))
     Require ($runtimeMetadata -notmatch [regex]::Escape($accessCode)) 'LAN access code is absent from durable runtime metadata'
+
+    $configuredCodePort = 5199
+    $configuredCodeProcess = $null
+    $configuredCodeClient = $null
+    try {
+        $configuredCodeProcess = Start-TestHost 'configured-access-code' $configuredCodePort @{
+            DLE_OS_SIM_LAN_MODE = 'true'
+            DLE_OS_SIM_LAN_ADDRESS = $lanAddress
+            DLE_OS_SIM_LAN_HOSTNAME = $qualificationHost
+            DLE_OS_SIM_CERTIFICATE_THUMBPRINT = $certificate.Thumbprint
+            DLE_OS_SIM_ACCESS_CODE = '24680'
+        }
+        Require (Wait-Listener $configuredCodePort $configuredCodeProcess) 'configured reusable SIM access code starts LAN listener'
+        $handler = [Net.Http.SocketsHttpHandler]::new()
+        $handler.UseProxy = $false
+        $handler.AllowAutoRedirect = $true
+        $handler.CookieContainer = [Net.CookieContainer]::new()
+        $chainPolicy = [Security.Cryptography.X509Certificates.X509ChainPolicy]::new()
+        $chainPolicy.TrustMode = [Security.Cryptography.X509Certificates.X509ChainTrustMode]::CustomRootTrust
+        $chainPolicy.RevocationMode = [Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck
+        $null = $chainPolicy.CustomTrustStore.Add($certificate)
+        $handler.SslOptions.CertificateChainPolicy = $chainPolicy
+        $configuredCodeClient = [Net.Http.HttpClient]::new($handler)
+        $configuredCodeClient.Timeout = [TimeSpan]::FromSeconds(10)
+        $configuredCodeOrigin = "https://$qualificationHost`:$configuredCodePort"
+        $wrongValues = [Collections.Generic.List[Collections.Generic.KeyValuePair[string,string]]]::new()
+        $wrongValues.Add([Collections.Generic.KeyValuePair[string,string]]::new('sim_access', '00000'))
+        $wrong = $configuredCodeClient.PostAsync($configuredCodeOrigin + '/sim-access',
+            [Net.Http.FormUrlEncodedContent]::new($wrongValues)).GetAwaiter().GetResult()
+        Require ([int]$wrong.StatusCode -eq 401) 'incorrect configured SIM access code is rejected'
+        foreach ($attempt in 1..2) {
+            $reuseHandler = [Net.Http.SocketsHttpHandler]::new()
+            $reuseHandler.UseProxy = $false
+            $reuseHandler.AllowAutoRedirect = $true
+            $reuseHandler.CookieContainer = [Net.CookieContainer]::new()
+            $reuseHandler.SslOptions.CertificateChainPolicy = $chainPolicy
+            $reuseClient = [Net.Http.HttpClient]::new($reuseHandler)
+            $reuseClient.Timeout = [TimeSpan]::FromSeconds(10)
+            try {
+                $values = [Collections.Generic.List[Collections.Generic.KeyValuePair[string,string]]]::new()
+                $values.Add([Collections.Generic.KeyValuePair[string,string]]::new('sim_access', '24680'))
+                $accepted = $reuseClient.PostAsync($configuredCodeOrigin + '/sim-access',
+                    [Net.Http.FormUrlEncodedContent]::new($values)).GetAwaiter().GetResult()
+                Require ([int]$accepted.StatusCode -eq 200) "configured SIM access code is reusable for a fresh session, attempt $attempt"
+            }
+            finally {
+                $reuseClient.Dispose()
+            }
+        }
+    }
+    finally {
+        if ($null -ne $configuredCodeClient) { $configuredCodeClient.Dispose() }
+        Stop-TestHost $configuredCodeProcess
+    }
+    Require (-not ([Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
+        Where-Object Port -eq $configuredCodePort)) 'configured-code LAN listener disappears when SIM stops'
 }
 finally {
     if ($null -ne $client) { $client.Dispose() }
