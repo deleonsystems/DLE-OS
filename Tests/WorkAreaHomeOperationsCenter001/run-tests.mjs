@@ -19,7 +19,7 @@ assert.match(operationsSource, /window\.OperationsCenter\.initialize = initializ
 assert.match(shellSource, /const workspaceController = window\.DleWorkspaces\?\.\[workspace\.id\]/,
   'workspace shell routes workspace ids through existing registered destinations');
 assert.match(identityUiSource,
-  /workspaceRules=Object\.freeze\(\{'dle-home':null,kitting:'kitting\.view',production:'kitting\.view',purchasing:'kitting\.view','operations-center':'sync\.operations'\}\)/,
+  /workspaceRules=Object\.freeze\(\{'dle-home':null,kitting:'kitting\.view',production:'kitting\.view',purchasing:'kitting\.view',\s+shipping:'shipments\.view','operations-center':'sync\.operations','invoice-history':'sync\.operations'\}\)/,
   'development capability simulation already gates Operations Center by sync.operations');
 assert.match(syncPermissionSource, /PermissionCode = N'sync\.operations'/,
   'sync.operations is an existing governed permission');
@@ -57,6 +57,9 @@ const homeWorkAreas = capabilities => workspaces.filter(workspace => {
 
 assert.equal(homeWorkAreas(superAdminCapabilities).join(','), 'operations-center,invoice-history',
   'Miguel/SUPER_ADMIN-level capability sees Operations Center and Invoice History on Home');
+assert.equal(context.window.DleWorkspaceRegistry.getById('invoice-history').home.description,
+  'History • Price Reference • Dedicated Sync',
+  'Invoice History Home tile presents quote-reference-friendly helper text');
 assert.equal(homeWorkAreas(kittingOperatorCapabilities).join(','), 'purchasing,kitting,production',
   'material operators see Purchasing, Kitting, and Production without gaining Operations Center access');
 assert.equal(homeWorkAreas(noAccessCapabilities).join(','), '',
