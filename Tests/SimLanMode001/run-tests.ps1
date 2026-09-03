@@ -18,6 +18,41 @@ function Require($Condition, [string]$Message) {
     $checks.Add($Message)
 }
 
+Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
+
+public static class SimLanTestConnector
+{
+    public static Func<SocketsHttpConnectionContext, CancellationToken, ValueTask<Stream>> Create(
+        IPAddress address, int port)
+    {
+        return (_, cancellationToken) => ConnectAsync(address, port, cancellationToken);
+    }
+
+    private static async ValueTask<Stream> ConnectAsync(
+        IPAddress address, int port, CancellationToken cancellationToken)
+    {
+        var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        try
+        {
+            await socket.ConnectAsync(new IPEndPoint(address, port), cancellationToken).ConfigureAwait(false);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    }
+}
+'@
+
 function Wait-Listener([int]$Port, [Diagnostics.Process]$Process) {
     for ($attempt = 0; $attempt -lt 80; $attempt++) {
         if ($Process.HasExited) { return $false }
@@ -160,6 +195,8 @@ try {
     $handler.UseProxy = $false
     $handler.AllowAutoRedirect = $true
     $handler.CookieContainer = [Net.CookieContainer]::new()
+    $handler.ConnectCallback = [SimLanTestConnector]::Create(
+        [Net.IPAddress]::Parse($lanAddress), $lanPort)
     $chainPolicy = [Security.Cryptography.X509Certificates.X509ChainPolicy]::new()
     $chainPolicy.TrustMode = [Security.Cryptography.X509Certificates.X509ChainTrustMode]::CustomRootTrust
     $chainPolicy.RevocationMode = [Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck
