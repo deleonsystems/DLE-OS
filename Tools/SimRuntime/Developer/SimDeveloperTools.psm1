@@ -104,6 +104,32 @@ function Get-DleOsSimTcpListener {
         })
 }
 
+function Get-DleOsSimStartStatusAccessCodeMetadata {
+    param($StartStatus)
+    if ($null -eq $StartStatus) {
+        return [pscustomobject]@{
+            recorded = $false
+            usedUserConfiguredCode = $null
+            state = 'not-recorded'
+        }
+    }
+
+    $property = $StartStatus.PSObject.Properties['usesUserConfiguredCode']
+    if ($null -eq $property) {
+        return [pscustomobject]@{
+            recorded = $false
+            usedUserConfiguredCode = $null
+            state = 'legacy-metadata'
+        }
+    }
+
+    return [pscustomobject]@{
+        recorded = $true
+        usedUserConfiguredCode = [bool]$property.Value
+        state = if ([bool]$property.Value) { 'used-user-configured-code' } else { 'did-not-use-user-configured-code' }
+    }
+}
+
 function Test-DleOsSimCertificate {
     param(
         [Parameter(Mandatory)][string] $Thumbprint,
@@ -259,7 +285,14 @@ function Get-DleOsSimStatus {
         Get-Content -LiteralPath $startStatusPath -Raw | ConvertFrom-Json
     } else { $null }
     $currentUserHasAccessCode = -not [string]::IsNullOrWhiteSpace($permanentCode)
-    $latestStartUsedAccessCode = $latestStartStatus -and $latestStartStatus.usesUserConfiguredCode
+    $latestStartAccessCode = Get-DleOsSimStartStatusAccessCodeMetadata $latestStartStatus
+    $accessCodeConfigured = if ($currentUserHasAccessCode) {
+        $true
+    } elseif ($latestStartAccessCode.recorded) {
+        [bool]$latestStartAccessCode.usedUserConfiguredCode
+    } else {
+        $null
+    }
     [pscustomobject]@{
         profile = [pscustomobject]@{
             path = $profile.profilePath
@@ -271,8 +304,9 @@ function Get-DleOsSimStatus {
         }
         runtime = Get-DleOsSimRuntimeStatus $profile
         git = Get-DleOsSimGitStatus $profile.repoPath
-        accessCodeConfigured = [bool]($currentUserHasAccessCode -or $latestStartUsedAccessCode)
-        accessCodeConfiguredSource = if ($currentUserHasAccessCode) { 'current-user-env' } elseif ($latestStartUsedAccessCode) { 'latest-start-status' } else { $null }
+        accessCodeConfigured = $accessCodeConfigured
+        accessCodeConfiguredSource = if ($currentUserHasAccessCode) { 'current-user-env' } elseif ($latestStartAccessCode.recorded) { 'latest-start-status' } else { $latestStartAccessCode.state }
+        latestStartAccessCodeMetadata = $latestStartAccessCode
         certificate = Test-DleOsSimCertificate $profile.certificateThumbprint $profile.hostname
         firewall = Get-DleOsSimFirewallStatus $profile
         state = [pscustomobject]@{

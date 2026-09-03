@@ -8,12 +8,14 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $suites = if ($Mode -eq 'Quick') {
     @(
+        'Tests\SimDeveloperTools001\run-tests.ps1',
         'Tests\SimShellIsolation001\run-tests.ps1',
         'Tests\SimStateReset001\run-tests.ps1',
         'Tests\SimLanMode001\run-tests.ps1'
     )
 } else {
     @(
+        'Tests\SimDeveloperTools001\run-tests.ps1',
         'Tests\SimShellIsolation001\run-tests.ps1',
         'Tests\SimUiParity001\run-tests.ps1',
         'Tests\SimSyntheticIdentity001\run-tests.ps1',
