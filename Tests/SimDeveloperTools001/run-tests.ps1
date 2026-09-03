@@ -46,6 +46,9 @@ Require ($modernFalse.recorded -and $modernFalse.usedUserConfiguredCode -eq $fal
 $legacy = Get-DleOsSimStartStatusAccessCodeMetadata ([pscustomobject]@{ result = 'started' })
 Require (-not $legacy.recorded -and $null -eq $legacy.usedUserConfiguredCode -and $legacy.state -eq 'legacy-metadata') 'legacy start-status without usesUserConfiguredCode is reported as legacy metadata'
 
+$miguelBranchProofMarker = 'MIGUEL_SIM_CONCURRENCY_PROOF_LOCAL_ONLY'
+Require ($miguelBranchProofMarker -eq 'MIGUEL_SIM_CONCURRENCY_PROOF_LOCAL_ONLY') 'Miguel feature branch proof marker is present in SIM developer tooling tests'
+
 $trueProfile = New-TestProfile 'modern-true' '{"result":"started","usesUserConfiguredCode":true}'
 $trueStatus = & $statusCommand -ProfilePath $trueProfile -Json | ConvertFrom-Json
 Require ($trueStatus.latestStartAccessCodeMetadata.recorded -and $trueStatus.latestStartAccessCodeMetadata.usedUserConfiguredCode -eq $true) 'Status command preserves modern true start-status metadata'
