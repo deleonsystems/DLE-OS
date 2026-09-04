@@ -57,6 +57,10 @@ const homeWorkAreas = capabilities => workspaces.filter(workspace => {
 
 assert.equal(homeWorkAreas(superAdminCapabilities).join(','), 'operations-center,invoice-history',
   'Miguel/SUPER_ADMIN-level capability sees Operations Center and Invoice History on Home');
+assert.equal(
+  workspaces.find(workspace => workspace.id === 'invoice-history')?.home?.description,
+  'History \u2022 Price Reference \u2022 Dedicated Sync',
+  'Invoice History Home tile presents quote-reference-friendly helper text');
 assert.equal(homeWorkAreas(kittingOperatorCapabilities).join(','), 'purchasing,kitting,production',
   'material operators see Purchasing, Kitting, and Production without gaining Operations Center access');
 assert.equal(homeWorkAreas(noAccessCapabilities).join(','), '',

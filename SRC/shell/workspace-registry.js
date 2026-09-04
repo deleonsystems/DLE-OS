@@ -52,7 +52,7 @@
       stylePath: "SRC/modules/invoice-history/invoice-history.css",
       home: Object.freeze({
         label: "Invoice History",
-        description: "History \u2022 Invoiced Totals \u2022 Dedicated Sync",
+        description: "History \u2022 Price Reference \u2022 Dedicated Sync",
         mark: "IH",
         screenId: "home",
         requiredPermission: "sync.operations"
