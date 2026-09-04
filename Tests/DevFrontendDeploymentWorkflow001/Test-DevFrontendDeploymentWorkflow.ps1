@@ -32,6 +32,9 @@ Check ($forms-contains'HTTP://192.168.0.105:5051/'-and$forms-contains'HTTP://192
 Check (@(Get-DleOsHttpPrefixDisplayForms 'https://dev.dle-os.internal.dlemfg.com:443/').Count-eq1) 'hostname prefix remains exact'
 $config=Assert-DleOsDevelopmentFrontendConfiguration $configurationPath
 Check ($config.environment-eq'Development') 'approved DEV target passes guard'
+Check ($config.frontendContentRoot-eq'__RELEASE_FRONTEND_CONTENT_ROOT__'-and
+       $config.PSObject.Properties.Name-notcontains'repositoryRoot') `
+    'configuration template requires release-local frontend content'
 $rejected=$false
 $temporary=$null
 try{
@@ -41,9 +44,19 @@ try{
 }catch{$rejected=$true}finally{if($temporary){Remove-Item -LiteralPath $temporary -ErrorAction SilentlyContinue}}
 Check $rejected 'non-DEV configuration fails closed'
 Check ($engineSource.Contains('$evidence.ReleasePath=$release')-and$engineSource.Contains('$evidence.Verdict=''PASS''')) 'engine records release and PASS evidence'
-Check ($engineSource.Contains('$evidence.RollbackAttempted=$true')-and$engineSource.Contains('$evidence.PreviousReleaseRestored=$true')-and$engineSource.Contains('$evidence.ProtectedRollbackVerified=$true')) 'candidate failure retains rollback evidence contract'
+Check ($engineSource.Contains('$evidence.RollbackAttempted=$true')-and$engineSource.Contains('$evidence.PreviousReleaseRestored=$true')-and$engineSource.Contains('$evidence.ProtectedRollbackVerified=$true')-and$engineSource.Contains('Assert-RollbackTarget')) 'candidate failure retains validated immutable rollback evidence contract'
 Check ($engineSource.Contains('$actualServiceSid-ne$expectedServiceSid')) 'engine compares service identity by SID'
 Check ($engineSource.Contains('$service.ProcessId-notin$registration.ProcessIds')) 'exact HTTP.sys PID ownership validation remains'
+Check ($engineSource.Contains('Immutable DEV releases must be built from a clean governed source tree.')-and
+       $engineSource.Contains('New-DleOsFrontendSnapshot')-and
+       $engineSource.Contains('Assert-ImmutableCandidateOnDisk')) `
+    'deployment rejects dirty source and validates release-local frontend bytes before transition'
+Check ($engineSource.Contains('(?<Executable>\S+)')-and
+       $engineSource.Contains('(?<Configuration>\S+)')) `
+    'rollback discovery accepts the existing governed unquoted SCM path format'
+Check ($engineSource.Contains("candidateRelativePath-eq'ASSETS/ICONS/apple-touch-icon.png'")-and
+       $engineSource.Contains("https://dev.dle-os.internal.dlemfg.com/apple-touch-icon.png")) `
+    'served-byte proof uses the public branding route mapped to its manifested release asset'
 
 Write-Output "PASS: $($checks.Count) DEV frontend deployment workflow checks."
 $checks|ForEach-Object{Write-Output "  $_"}

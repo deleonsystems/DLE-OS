@@ -21,6 +21,7 @@ $publish = Join-Path $workRoot 'publish'
 $artifacts = Join-Path $workRoot 'artifacts'
 $evidencePath = Join-Path $workRoot 'deployment.json'
 $release = "C:\ProgramData\DLE-OS\DevelopmentFrontend\Service\releases\$stamp"
+$rollbackRelease = "C:\ProgramData\DLE-OS\DevelopmentFrontend\Service\releases\$stamp-rollback"
 $serviceConfiguration = Join-Path $release 'service-runtime.json'
 $authenticationStateRoot = 'C:\ProgramData\DLE-OS\DevelopmentFrontend\AuthState'
 $authenticationKeyRoot = Join-Path $authenticationStateRoot 'DataProtectionKeys'
@@ -40,6 +41,8 @@ $evidence = [ordered]@{
     KeycloakMetadataChanged=$false
 }
 $previousBinaryPath = $null
+$rollbackBinaryPath = $null
+$rollbackValidation = $null
 $serviceStopped = $false
 
 function Invoke-Native([string]$File,[string[]]$Arguments) {
@@ -67,6 +70,47 @@ function Get-ProtectedSnapshot{
 function Get-FrontendWorkers{
     @(Get-CimInstance Win32_Process -Filter "Name='dotnet.exe' OR Name='DleOs.DevelopmentFrontend.exe'"|
         Where-Object{$_.CommandLine-like'*DleOs.DevelopmentFrontend*'})
+}
+function Test-AuthenticationBoundary{
+    Add-Type -AssemblyName System.Net.Http
+    $handler=[Net.Http.HttpClientHandler]::new()
+    $handler.UseDefaultCredentials=$true
+    $handler.AllowAutoRedirect=$false
+    $client=[Net.Http.HttpClient]::new($handler)
+    $response=$null
+    try{
+        $response=$client.GetAsync('https://dev.dle-os.internal.dlemfg.com/api/auth/me').GetAwaiter().GetResult()
+        $status=[int]$response.StatusCode
+        if($status-notin 200,401,403){throw "The authentication boundary returned unexpected HTTP status $status."}
+        [ordered]@{StatusCode=$status;Qualified=$true}
+    }finally{
+        if($response){$response.Dispose()};$client.Dispose();$handler.Dispose()
+    }
+}
+function Assert-ServedFrontendManifestFile([string]$ManifestPath){
+    $manifest=Get-Content -LiteralPath $ManifestPath -Raw|ConvertFrom-Json
+    $probe=$null;$relativePath=$null
+    foreach($entry in @($manifest.files)){
+        $candidateRelativePath=if($entry.PSObject.Properties.Name-contains'RelativePath'){
+            [string]$entry.RelativePath
+        }else{[string]$entry.Path}
+        if($candidateRelativePath-eq'ASSETS/ICONS/apple-touch-icon.png'){
+            $probe=$entry;$relativePath=$candidateRelativePath;break
+        }
+    }
+    if(-not$probe){throw 'The frontend manifest lacks the governed public branding probe asset.'}
+    $uri='https://dev.dle-os.internal.dlemfg.com/apple-touch-icon.png'
+    Add-Type -AssemblyName System.Net.Http
+    $handler=[Net.Http.HttpClientHandler]::new();$handler.UseDefaultCredentials=$true
+    $client=[Net.Http.HttpClient]::new($handler)
+    try{
+        $bytes=$client.GetByteArrayAsync($uri).GetAwaiter().GetResult()
+        $sha=[Security.Cryptography.SHA256]::Create()
+        try{$hash=([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-','')}
+        finally{$sha.Dispose();[Array]::Clear($bytes,0,$bytes.Length)}
+        if($hash-ine[string]$probe.Sha256){throw 'Served frontend bytes do not match the immutable release manifest.'}
+        [ordered]@{RelativePath=$relativePath;Sha256=$hash;Qualified=$true}
+    }finally{$client.Dispose();$handler.Dispose()}
 }
 function Get-HttpPrefixRegistration([string]$Prefix){
     $state=Invoke-Native netsh.exe @('http','show','servicestate','view=requestq')
@@ -105,21 +149,181 @@ function Assert-ServiceCandidate([object]$ExpectedRuntimeInfo=$null){
         $response=Invoke-WebRequest -UseBasicParsing -Uri $uri -TimeoutSec 20
         if([int]$response.StatusCode-ne 200){throw "$uri did not return 200."}
     }
+    $evidence.AuthenticationBoundary=Test-AuthenticationBoundary
     if($ExpectedRuntimeInfo){
         $runtimeInfo=Invoke-RestMethod -UseBasicParsing -Uri 'https://dev.dle-os.internal.dlemfg.com/api/runtime/info' -TimeoutSec 20
         if($runtimeInfo.environment-ne'Development'-or
            $runtimeInfo.releaseId-ne$ExpectedRuntimeInfo.releaseId-or
            $runtimeInfo.gitHead-ne$ExpectedRuntimeInfo.gitHead-or
            $runtimeInfo.sourceDirty-ne$ExpectedRuntimeInfo.sourceDirty-or
-           $runtimeInfo.sourceDigestSha256-ne$ExpectedRuntimeInfo.sourceDigestSha256){
+           $runtimeInfo.sourceDigestSha256-ne$ExpectedRuntimeInfo.sourceDigestSha256-or
+           $runtimeInfo.frontendManifestSha256-ne$ExpectedRuntimeInfo.frontendManifestSha256-or
+           $runtimeInfo.frontendFileCount-ne$ExpectedRuntimeInfo.frontendFileCount-or
+           $runtimeInfo.frontendContentRootIdentity-ne'release/frontend'){
             throw 'The served runtime identity does not match the deployment candidate.'
         }
+        $evidence.ServedFrontendFile=Assert-ServedFrontendManifestFile `
+            (Join-Path $release 'frontend-manifest.json')
         $evidence.RuntimeInfoQualified=$true
     }
     $evidence.ServiceProcessId=[int]$service.ProcessId
 }
 function Set-ServiceBinaryPath([string]$BinaryPath){
     $null=Invoke-Native sc.exe @('config',$serviceName,'binPath=',$BinaryPath)
+}
+function Get-ServiceLaunchParts([string]$BinaryPath){
+    $match=[regex]::Match($BinaryPath,
+        '^\s*(?:"(?<Executable>[^"]+)"|(?<Executable>\S+))\s+--dle-os-windows-service\s+--service-config\s+(?:"(?<Configuration>[^"]+)"|(?<Configuration>\S+))\s*$')
+    if(-not$match.Success){throw 'The existing DEV service command line is outside the governed release format.'}
+    [pscustomobject]@{
+        Executable=[IO.Path]::GetFullPath($match.Groups['Executable'].Value)
+        Configuration=[IO.Path]::GetFullPath($match.Groups['Configuration'].Value)
+    }
+}
+function Assert-RollbackTarget{
+    if(-not$rollbackValidation){throw 'No validated rollback target is available.'}
+    foreach($path in $rollbackValidation.Executable,$rollbackValidation.Configuration){
+        if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw "Rollback artifact is absent: $path"}
+    }
+    $config=Get-Content -LiteralPath $rollbackValidation.Configuration -Raw|ConvertFrom-Json
+    $configuredRoot=[IO.Path]::GetFullPath([string]$config.($rollbackValidation.ConfigurationProperty))
+    if($configuredRoot-ine$rollbackValidation.ContentRoot){
+        throw 'The rollback configuration no longer references its immutable frontend snapshot.'
+    }
+    $null=Assert-DleOsFrontendSnapshot -ContentRoot $rollbackValidation.ContentRoot `
+        -ManifestPath $rollbackValidation.ManifestPath `
+        -ExpectedManifestSha256 $rollbackValidation.ManifestSha256 `
+        -ExpectedFileCount $rollbackValidation.FileCount `
+        -ExpectedReleaseId $rollbackValidation.ReleaseId `
+        -ExpectedSourceGitHead $rollbackValidation.GitHead
+}
+function Assert-RollbackRuntime{
+    Assert-RollbackTarget
+    $runtimeInfo=Invoke-RestMethod -UseBasicParsing `
+        -Uri 'https://dev.dle-os.internal.dlemfg.com/api/runtime/info' -TimeoutSec 20
+    if($runtimeInfo.releaseId-ne$rollbackValidation.RuntimeReleaseId){
+        throw 'The restored runtime release identity does not match the validated rollback target.'
+    }
+    $evidence.RollbackAuthenticationBoundary=Test-AuthenticationBoundary
+    $evidence.RollbackServedFrontendFile=Assert-ServedFrontendManifestFile `
+        $rollbackValidation.ManifestPath
+    $evidence.RollbackRuntimeQualified=$true
+}
+function Initialize-RollbackTarget([string]$CurrentBinaryPath){
+    $parts=Get-ServiceLaunchParts $CurrentBinaryPath
+    if(-not(Test-Path -LiteralPath $parts.Executable -PathType Leaf)-or
+       -not(Test-Path -LiteralPath $parts.Configuration -PathType Leaf)){
+        throw 'The existing DEV service release is incomplete and cannot be preserved for rollback.'
+    }
+    $currentRelease=Split-Path -Parent $parts.Executable
+    $currentBuildPath=Join-Path $currentRelease 'runtime-build-info.json'
+    $currentRollbackInfoPath=Join-Path $currentRelease 'rollback-release-info.json'
+    $currentConfig=Get-Content -LiteralPath $parts.Configuration -Raw|ConvertFrom-Json
+    $currentBuild=if(Test-Path -LiteralPath $currentBuildPath -PathType Leaf){
+        Get-Content -LiteralPath $currentBuildPath -Raw|ConvertFrom-Json
+    }else{$null}
+    if($currentBuild-and[int]$currentBuild.schemaVersion-eq 2-and
+       $currentConfig.PSObject.Properties.Name-contains'frontendContentRoot'){
+        $contentRoot=[IO.Path]::GetFullPath([string]$currentConfig.frontendContentRoot)
+        $expectedRoot=[IO.Path]::GetFullPath((Join-Path $currentRelease 'frontend'))
+        if($contentRoot-ine$expectedRoot-or$currentConfig.PSObject.Properties.Name-contains'repositoryRoot'){
+            throw 'The existing immutable DEV release has an invalid content-root boundary.'
+        }
+        $script:rollbackValidation=[pscustomobject]@{
+            Executable=$parts.Executable;Configuration=$parts.Configuration
+            ConfigurationProperty='frontendContentRoot';ContentRoot=$contentRoot
+            ManifestPath=(Join-Path $currentRelease 'frontend-manifest.json')
+            ManifestSha256=[string]$currentBuild.frontendManifestSha256
+            FileCount=[int]$currentBuild.frontendFileCount
+            ReleaseId=[string]$currentBuild.releaseId;GitHead=[string]$currentBuild.gitHead
+            RuntimeReleaseId=[string]$currentBuild.releaseId
+        }
+        $script:rollbackBinaryPath=$CurrentBinaryPath
+    }elseif(Test-Path -LiteralPath $currentRollbackInfoPath -PathType Leaf){
+        $currentRollbackInfo=Get-Content -LiteralPath $currentRollbackInfoPath -Raw|ConvertFrom-Json
+        $contentRoot=[IO.Path]::GetFullPath([string]$currentConfig.repositoryRoot)
+        $expectedRoot=[IO.Path]::GetFullPath((Join-Path $currentRelease 'frontend'))
+        if([int]$currentRollbackInfo.schemaVersion-ne 1-or
+           $currentRollbackInfo.sourceDirty-or$contentRoot-ine$expectedRoot-or
+           $currentRollbackInfo.frontendContentRootIdentity-ne'release/frontend'){
+            throw 'The preserved legacy rollback release is outside the immutable boundary.'
+        }
+        $currentRollbackManifestPath=Join-Path $currentRelease 'frontend-manifest.json'
+        $currentRollbackManifest=Get-Content -LiteralPath $currentRollbackManifestPath -Raw|ConvertFrom-Json
+        $script:rollbackValidation=[pscustomobject]@{
+            Executable=$parts.Executable;Configuration=$parts.Configuration
+            ConfigurationProperty='repositoryRoot';ContentRoot=$contentRoot
+            ManifestPath=$currentRollbackManifestPath
+            ManifestSha256=[string]$currentRollbackInfo.frontendManifestSha256
+            FileCount=[int]$currentRollbackInfo.frontendFileCount
+            ReleaseId=[string]$currentRollbackManifest.releaseId
+            GitHead=[string]$currentRollbackInfo.sourceGitHead
+            RuntimeReleaseId=[string]$currentBuild.releaseId
+        }
+        $script:rollbackBinaryPath=$CurrentBinaryPath
+    }else{
+        if(-not$currentBuild-or[string]::IsNullOrWhiteSpace([string]$currentBuild.releaseId)){
+            throw 'The legacy DEV release has no runtime identity to verify after rollback.'
+        }
+        if(-not($currentConfig.PSObject.Properties.Name-contains'repositoryRoot')){
+            throw 'The legacy DEV release does not identify the frontend source required for rollback preservation.'
+        }
+        $legacyContentRoot=[IO.Path]::GetFullPath([string]$currentConfig.repositoryRoot)
+        $legacySourceIdentity=Get-DleOsDevelopmentFrontendSourceIdentity $legacyContentRoot
+        if($legacySourceIdentity.SourceDirty){
+            throw 'The legacy DEV frontend source is dirty; an immutable rollback cannot be created safely.'
+        }
+        New-Item -ItemType Directory -Path $rollbackRelease -Force|Out-Null
+        Copy-Item -Path (Join-Path $currentRelease '*') -Destination $rollbackRelease -Recurse -Force
+        $rollbackFrontend=Join-Path $rollbackRelease 'frontend'
+        $rollbackManifest=Join-Path $rollbackRelease 'frontend-manifest.json'
+        $snapshot=New-DleOsFrontendSnapshot -SourceRoot $legacyContentRoot `
+            -DestinationRoot $rollbackFrontend -ManifestPath $rollbackManifest `
+            -ReleaseId $stamp -SourceGitHead $legacySourceIdentity.GitHead
+        $rollbackConfiguration=Join-Path $rollbackRelease 'service-runtime.json'
+        $currentConfig.repositoryRoot=$rollbackFrontend
+        $currentConfig|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $rollbackConfiguration -Encoding utf8
+        $rollbackExecutable=Join-Path $rollbackRelease ([IO.Path]::GetFileName($parts.Executable))
+        $script:rollbackValidation=[pscustomobject]@{
+            Executable=$rollbackExecutable;Configuration=$rollbackConfiguration
+            ConfigurationProperty='repositoryRoot';ContentRoot=$rollbackFrontend
+            ManifestPath=$rollbackManifest;ManifestSha256=$snapshot.ManifestSha256
+            FileCount=$snapshot.FileCount;ReleaseId=$stamp;GitHead=$legacySourceIdentity.GitHead
+            RuntimeReleaseId=[string]$currentBuild.releaseId
+        }
+        $script:rollbackBinaryPath=('"{0}" --dle-os-windows-service --service-config "{1}"'-f
+            $rollbackExecutable,$rollbackConfiguration)
+        $rollbackRecord=[ordered]@{
+            schemaVersion=1;createdAtUtc=[DateTimeOffset]::UtcNow.ToString('o')
+            originalServicePath=$CurrentBinaryPath;sourceGitHead=$legacySourceIdentity.GitHead
+            snapshotReleaseId=$stamp
+            frontendManifestSha256=$snapshot.ManifestSha256;frontendFileCount=$snapshot.FileCount
+            frontendContentRootIdentity='release/frontend';sourceDirty=$false
+        }
+        $rollbackRecord|ConvertTo-Json -Depth 8|Set-Content `
+            -LiteralPath (Join-Path $rollbackRelease 'rollback-release-info.json') -Encoding utf8
+    }
+    Assert-RollbackTarget
+    $evidence.RollbackRelease=[ordered]@{
+        ServicePath=$rollbackBinaryPath
+        ContentRootIdentity='release/frontend'
+        ManifestSha256=$rollbackValidation.ManifestSha256
+        FileCount=$rollbackValidation.FileCount
+        Validated=$true
+    }
+}
+function Assert-ImmutableCandidateOnDisk([object]$RuntimeInfo){
+    $config=Get-Content -LiteralPath $serviceConfiguration -Raw|ConvertFrom-Json
+    $expectedRoot=[IO.Path]::GetFullPath((Join-Path $release 'frontend'))
+    if($config.PSObject.Properties.Name-contains'repositoryRoot'-or
+       [IO.Path]::GetFullPath([string]$config.frontendContentRoot)-ine$expectedRoot){
+        throw 'The candidate service configuration can fall back to mutable repository content.'
+    }
+    $null=Assert-DleOsFrontendSnapshot -ContentRoot $expectedRoot `
+        -ManifestPath (Join-Path $release 'frontend-manifest.json') `
+        -ExpectedManifestSha256 $RuntimeInfo.frontendManifestSha256 `
+        -ExpectedFileCount $RuntimeInfo.frontendFileCount `
+        -ExpectedReleaseId $RuntimeInfo.releaseId -ExpectedSourceGitHead $RuntimeInfo.gitHead
 }
 function Initialize-AuthenticationStateStorage([string]$ExpectedServiceSid){
     New-Item -ItemType Directory -Path $authenticationStateRoot -Force|Out-Null
@@ -158,19 +362,9 @@ try{
     if(-not$PSCmdlet.ShouldProcess($serviceName,'deploy a new versioned DEV frontend release')){throw 'Deployment approval was declined.'}
     $null=Assert-DleOsDevelopmentFrontendConfiguration $configurationSource
     $sourceIdentity=Get-DleOsDevelopmentFrontendSourceIdentity $repository
-    $runtimeBuildInfo=[ordered]@{
-        schemaVersion=1
-        environment='Development'
-        releaseId=$stamp
-        builtAtUtc=[DateTimeOffset]::UtcNow.ToString('o')
-        gitHead=$sourceIdentity.GitHead
-        sourceDirty=[bool]$sourceIdentity.SourceDirty
-        sourceDigestSha256=$sourceIdentity.SourceDigestSha256
-        sourceFileCount=[int]$sourceIdentity.SourceFileCount
-        serviceName=$serviceName
-        serviceIdentity=$serviceIdentity
+    if($sourceIdentity.SourceDirty){
+        throw 'Immutable DEV releases must be built from a clean governed source tree.'
     }
-    $evidence.RuntimeIdentity=$runtimeBuildInfo
     $evidence.SourceHead=$sourceIdentity.GitHead
     $evidence.SourceDirty=[bool]$sourceIdentity.SourceDirty
     $evidence.SourceDigestSha256=$sourceIdentity.SourceDigestSha256
@@ -187,15 +381,55 @@ try{
     $evidence.LegacyScheduledTask=if($retainedTask){[pscustomobject]@{Retained=$true;Enabled=$false;State=[string]$retainedTask.State}}else{[pscustomobject]@{Retained=$false}}
     $previousBinaryPath=[string]$service.PathName
     $evidence.PreviousBinaryPath=$previousBinaryPath
+    Initialize-RollbackTarget $previousBinaryPath
     $evidence.ReleasePath=$release
     $evidence.ProtectedBefore=Get-ProtectedSnapshot
 
     & dotnet.exe publish $project -c Release -o $publish --artifacts-path $artifacts
     if($LASTEXITCODE-ne 0){throw 'DEV Windows Service publish failed.'}
-    $runtimeBuildInfo|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $publish 'runtime-build-info.json') -Encoding utf8
     New-Item -ItemType Directory -Path $release -Force|Out-Null
     Copy-Item -Path (Join-Path $publish '*') -Destination $release -Recurse -Force
-    Copy-Item -LiteralPath $configurationSource -Destination $serviceConfiguration -Force
+    $frontendSnapshot=New-DleOsFrontendSnapshot -SourceRoot $repository `
+        -DestinationRoot (Join-Path $release 'frontend') `
+        -ManifestPath (Join-Path $release 'frontend-manifest.json') `
+        -ReleaseId $stamp -SourceGitHead $sourceIdentity.GitHead
+    $sourceIdentityAfterSnapshot=Get-DleOsDevelopmentFrontendSourceIdentity $repository
+    if($sourceIdentityAfterSnapshot.SourceDirty-or
+       $sourceIdentityAfterSnapshot.GitHead-ne$sourceIdentity.GitHead-or
+       $sourceIdentityAfterSnapshot.SourceDigestSha256-ne$sourceIdentity.SourceDigestSha256-or
+       $sourceIdentityAfterSnapshot.SourceFileCount-ne$sourceIdentity.SourceFileCount){
+        throw 'Governed source identity changed during immutable release construction.'
+    }
+    $runtimeBuildInfo=[ordered]@{
+        schemaVersion=2
+        environment='Development'
+        releaseId=$stamp
+        builtAtUtc=[DateTimeOffset]::UtcNow.ToString('o')
+        gitHead=$sourceIdentity.GitHead
+        sourceDirty=$false
+        sourceDigestSha256=$sourceIdentity.SourceDigestSha256
+        sourceFileCount=[int]$sourceIdentity.SourceFileCount
+        frontendManifestSha256=$frontendSnapshot.ManifestSha256
+        frontendFileCount=[int]$frontendSnapshot.FileCount
+        frontendContentRootIdentity='release/frontend'
+        serviceName=$serviceName
+        serviceIdentity=$serviceIdentity
+    }
+    $runtimeBuildInfo|ConvertTo-Json -Depth 5|Set-Content `
+        -LiteralPath (Join-Path $release 'runtime-build-info.json') -Encoding utf8
+    $releaseConfiguration=Get-Content -LiteralPath $configurationSource -Raw|ConvertFrom-Json
+    $releaseConfiguration.frontendContentRoot=Join-Path $release 'frontend'
+    $releaseConfiguration|ConvertTo-Json -Depth 12|Set-Content `
+        -LiteralPath $serviceConfiguration -Encoding utf8
+    Assert-ImmutableCandidateOnDisk $runtimeBuildInfo
+    $evidence.RuntimeIdentity=$runtimeBuildInfo
+    $evidence.FrontendRelease=[ordered]@{
+        ContentRootIdentity='release/frontend'
+        ManifestSha256=$frontendSnapshot.ManifestSha256
+        FileCount=$frontendSnapshot.FileCount
+        SourceDigestSha256=$frontendSnapshot.SourceDigestSha256
+        Validated=$true
+    }
     $null=Invoke-Native icacls.exe @($release,'/grant:r',"${serviceIdentity}:(OI)(CI)(RX)")
     $evidence.ReleaseManifest=@(Get-ChildItem -LiteralPath $release -File -Recurse|ForEach-Object{
         [ordered]@{Path=$_.FullName.Substring($release.Length+1);Sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash}})
@@ -216,8 +450,8 @@ try{
     $evidence.Error=$_.Exception.Message
     $evidence.RollbackAttempted=$true
     try{
-        if($serviceStopped-and$previousBinaryPath){Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-            $null=Wait-ServiceState Stopped 45;Set-ServiceBinaryPath $previousBinaryPath;Start-Service -Name $serviceName;Assert-ServiceCandidate
+        if($serviceStopped-and$rollbackBinaryPath){Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+            $null=Wait-ServiceState Stopped 45;Assert-RollbackTarget;Set-ServiceBinaryPath $rollbackBinaryPath;Start-Service -Name $serviceName;Assert-ServiceCandidate;Assert-RollbackRuntime
             $evidence.PreviousReleaseRestored=$true}
         if($evidence.Contains('ProtectedBefore')){
             $evidence.ProtectedAfterRollback=Get-ProtectedSnapshot

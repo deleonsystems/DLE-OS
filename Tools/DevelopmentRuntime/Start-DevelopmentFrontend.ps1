@@ -33,7 +33,7 @@ $process = $null
 # Explicit runtime identity and governed destinations. No classification is
 # inferred from a port or hostname.
 $env:DLE_OS_ENVIRONMENT = 'Development'
-$env:DLE_OS_REPOSITORY_ROOT = $repository
+$env:DLE_OS_FRONTEND_CONTENT_ROOT = $repository
 $env:DLE_OS_REQUIRED_RUNTIME_IDENTITY = $requiredIdentity
 $env:DLE_OS_RUNTIME_MARKER = 'ISOLATED_DEVELOPMENT'
 $env:DLE_OS_ENVIRONMENT_LABEL = 'DEVELOPMENT - ISOLATED OPERATIONAL DATA'
@@ -201,7 +201,7 @@ finally {
     if ($startupMutex) { $startupMutex.Dispose() }
     if ($oidcPlainBytes) { [Array]::Clear($oidcPlainBytes, 0, $oidcPlainBytes.Length) }
     if ($oidcEntropyBytes) { [Array]::Clear($oidcEntropyBytes, 0, $oidcEntropyBytes.Length) }
-    @('DLE_OS_ENVIRONMENT','DLE_OS_REPOSITORY_ROOT','DLE_OS_REQUIRED_RUNTIME_IDENTITY',
+    @('DLE_OS_ENVIRONMENT','DLE_OS_FRONTEND_CONTENT_ROOT','DLE_OS_REQUIRED_RUNTIME_IDENTITY',
       'DLE_OS_RUNTIME_MARKER','DLE_OS_ENVIRONMENT_LABEL',
       'DLE_OS_APPLICATION_ORIGIN','DLE_OS_OIDC_CLIENT_ID','DLE_OS_CANONICAL_API_BASE_URL',
       'DLE_OS_OPERATIONAL_API_BASE_URL','DLE_OS_CUSTOMER_FILES_API_BASE_URL',

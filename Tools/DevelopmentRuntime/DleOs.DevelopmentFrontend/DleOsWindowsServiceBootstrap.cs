@@ -23,7 +23,7 @@ internal sealed class DleOsWindowsServiceConfiguration
     public string SecurityDatabase { get; init; } = "";
     public bool EnableUserProvisioning { get; init; }
     public string[] FrontendPrefixes { get; init; } = [];
-    public string RepositoryRoot { get; init; } = "";
+    public string FrontendContentRoot { get; init; } = "";
     public string RequiredRuntimeIdentity { get; init; } = "";
     public string IdentitySigningPrivateKeyPath { get; init; } = "";
     public string OidcClientSecretPath { get; init; } = "";
@@ -91,6 +91,14 @@ internal static class DleOsWindowsServiceBootstrap
         if (!WindowsIdentity.GetCurrent().Name.Equals(ServiceIdentity, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"The Windows Service must run as {ServiceIdentity}.");
 
+        var frontendContentRoot = Path.GetFullPath(configuration.FrontendContentRoot);
+        var expectedFrontendContentRoot = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "frontend"));
+        if (!frontendContentRoot.Equals(expectedFrontendContentRoot,
+                StringComparison.OrdinalIgnoreCase) || !Directory.Exists(frontendContentRoot))
+            throw new InvalidOperationException(
+                "The Windows Service frontend content root must be the current immutable release snapshot.");
+
         EnsureDirectoryReadable(KittingShortageRoot);
         EnsureDirectoryReadable(KittingCompleteRoot);
 
@@ -108,7 +116,7 @@ internal static class DleOsWindowsServiceBootstrap
         Set("DLE_OS_SECURITY_DATABASE", configuration.SecurityDatabase);
         Set("DLE_OS_ENABLE_USER_PROVISIONING", configuration.EnableUserProvisioning.ToString());
         Set("DLE_OS_FRONTEND_PREFIXES", string.Join(';', configuration.FrontendPrefixes));
-        Set("DLE_OS_REPOSITORY_ROOT", Path.GetFullPath(configuration.RepositoryRoot));
+        Set("DLE_OS_FRONTEND_CONTENT_ROOT", frontendContentRoot);
         Set("DLE_OS_REQUIRED_RUNTIME_IDENTITY", configuration.RequiredRuntimeIdentity);
         Set("DLE_OS_IDENTITY_SIGNING_PRIVATE_KEY_PATH",
             Path.GetFullPath(configuration.IdentitySigningPrivateKeyPath));

@@ -67,14 +67,19 @@ $engine = Get-Content -LiteralPath $enginePath -Raw
 $program = Get-Content -LiteralPath $programPath -Raw
 Check ($engine.Contains("runtime-build-info.json") -and
        $engine.Contains('$evidence.RuntimeIdentity=$runtimeBuildInfo') -and
+       $engine.Contains("frontendContentRootIdentity='release/frontend'") -and
        $engine.Contains('The served runtime identity does not match the deployment candidate.')) `
-    'deployment embeds, records, and qualifies one runtime identity'
+    'deployment embeds, records, and qualifies runtime and immutable frontend identities'
 Check ($program.Contains('MapGet("/api/runtime/info"') -and
        $program.Contains('runtimeBuildInfo.ToSafeResponse()') -and
        $program.Contains('IsRuntimeInfoPath(context.Request.Path)')) `
     'safe runtime endpoint has an explicit anonymous middleware boundary'
 Check (-not $program.Contains('Results.Ok(runtime)')) `
     'runtime endpoint does not serialize the broader runtime configuration'
+Check ($program.Contains('DLE_OS_FRONTEND_CONTENT_ROOT') -and
+       $program.Contains('FrontendReleaseManifestValidator.Validate') -and
+       -not $program.Contains('DLE_OS_REPOSITORY_ROOT')) `
+    'governed runtime serves only a validated explicit frontend content root'
 
 & dotnet.exe run --project $projectPath -c Release --no-restore
 if ($LASTEXITCODE -ne 0) { throw 'Runtime build identity application checks failed.' }

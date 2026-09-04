@@ -25,8 +25,10 @@ const string drawingPrintsRoute = "/api/development/drawing-prints/v1/resolve";
 const string desktopCapabilityRedeemRoute = "/api/development/desktop-capabilities/v1/redeem";
 var serviceBootstrap = DleOsWindowsServiceBootstrap.Apply(args);
 var applicationArgs = serviceBootstrap.ApplicationArguments;
-var repository = Environment.GetEnvironmentVariable("DLE_OS_REPOSITORY_ROOT") ??
-    throw new InvalidOperationException("Required explicit runtime setting DLE_OS_REPOSITORY_ROOT is absent.");
+var frontendContentRoot = Path.GetFullPath(
+    Environment.GetEnvironmentVariable("DLE_OS_FRONTEND_CONTENT_ROOT") ??
+    throw new InvalidOperationException(
+        "Required explicit runtime setting DLE_OS_FRONTEND_CONTENT_ROOT is absent."));
 var requiredRuntimeIdentity = Environment.GetEnvironmentVariable("DLE_OS_REQUIRED_RUNTIME_IDENTITY") ??
     throw new InvalidOperationException("Required explicit runtime setting DLE_OS_REQUIRED_RUNTIME_IDENTITY is absent.");
 var identitySigningKeyPath = Environment.GetEnvironmentVariable(
@@ -36,6 +38,19 @@ var keycloakProvisioningClientSecret = Environment.GetEnvironmentVariable("DLE_O
 var runtime = DleOsRuntimeConfiguration.Load();
 var runtimeBuildInfo = DevRuntimeBuildInfo.Load(
     Path.Combine(AppContext.BaseDirectory, "runtime-build-info.json"));
+if (serviceBootstrap.IsWindowsService)
+{
+    var expectedFrontendContentRoot = Path.GetFullPath(
+        Path.Combine(AppContext.BaseDirectory, "frontend"));
+    if (!frontendContentRoot.Equals(expectedFrontendContentRoot,
+            StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException(
+            "The governed DEV service cannot serve frontend files outside its immutable release.");
+    _ = FrontendReleaseManifestValidator.Validate(
+        frontendContentRoot,
+        Path.Combine(AppContext.BaseDirectory, "frontend-manifest.json"),
+        runtimeBuildInfo);
+}
 var canonicalApplicationOrigin = runtime.ApplicationOrigin;
 var canonicalApplicationHost = new Uri(canonicalApplicationOrigin).Host;
 var authenticationKeyRoot = Path.Combine(runtime.AuthenticationStateRoot, "DataProtectionKeys");
@@ -222,9 +237,9 @@ builder.Services.AddResponseCompression(options =>
 });
 
 var app = builder.Build();
-var provider = new PhysicalFileProvider(repository);
+var provider = new PhysicalFileProvider(frontendContentRoot);
 var contentTypes = new FileExtensionContentTypeProvider();
-var brandingAssetRoot = Path.Combine(repository, "ASSETS", "ICONS");
+var brandingAssetRoot = Path.Combine(frontendContentRoot, "ASSETS", "ICONS");
 var kittingDocuments = new KittingDocumentService(kittingShortageRoot, kittingCompleteRoot);
 var drawingPrints = new DrawingPrintsResolver(
     DrawingPrintsResolver.GovernedRoot,
@@ -237,7 +252,8 @@ var drawingPrints = new DrawingPrintsResolver(
         diagnostic.Category,
         diagnostic.HResult));
 var desktopCapabilities = new GovernedDesktopCapabilityBroker();
-var authenticatedShellSource = File.ReadAllText(Path.Combine(repository, "DLE_Work_Center_v4.0.0.html"));
+var authenticatedShellSource = File.ReadAllText(
+    Path.Combine(frontendContentRoot, "DLE_Work_Center_v4.0.0.html"));
 var shellIdentityJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var sharedDeviceWelcomeDocument = SharedDeviceWelcomeUi.Render(
     SharedDeviceWelcomeUi.ExtractAuthenticatedHeaderLogo(authenticatedShellSource));
@@ -497,7 +513,8 @@ app.MapGet("/", async (
         return Results.Json(denied.Body, statusCode: denied.StatusCode);
     }
 
-    var html = File.ReadAllText(Path.Combine(repository, "DLE_Work_Center_v4.0.0.html"));
+    var html = File.ReadAllText(
+        Path.Combine(frontendContentRoot, "DLE_Work_Center_v4.0.0.html"));
     var runtimeConfiguration = JsonSerializer.Serialize(new
     {
         authenticatedBffBaseUrl = runtime.ApplicationOrigin,

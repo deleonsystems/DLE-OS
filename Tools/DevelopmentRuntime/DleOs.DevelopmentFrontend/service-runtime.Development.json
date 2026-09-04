@@ -18,7 +18,7 @@
     "https://dev.dle-os.internal.dlemfg.com:443",
     "https://auth.internal.dlemfg.com:443"
   ],
-  "repositoryRoot": "C:\\DLE-OS\\Repositories\\DLE-OS",
+  "frontendContentRoot": "__RELEASE_FRONTEND_CONTENT_ROOT__",
   "requiredRuntimeIdentity": "DLE-OS-HOST\\DLE-OS-DEV-FRONTEND",
   "identitySigningPrivateKeyPath": "C:\\ProgramData\\DLE-OS\\DevelopmentIdentity\\Keys\\issuer-private.pem",
   "oidcClientSecretPath": "C:\\ProgramData\\DLE-OS\\Keycloak\\Secrets\\oidc-client-secret.dpapi",

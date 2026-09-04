@@ -10,6 +10,9 @@ public sealed record DevRuntimeBuildInfo(
     bool SourceDirty,
     string SourceDigestSha256,
     int SourceFileCount,
+    string FrontendManifestSha256,
+    int FrontendFileCount,
+    string FrontendContentRootIdentity,
     string ServiceName,
     string ServiceIdentity)
 {
@@ -35,9 +38,11 @@ public sealed record DevRuntimeBuildInfo(
 
     public void Validate()
     {
-        if (SchemaVersion != 1 || Environment != "Development" ||
+        if (SchemaVersion != 2 || Environment != "Development" ||
             !ReleasePattern.IsMatch(ReleaseId) || !GitHeadPattern.IsMatch(GitHead) ||
-            !Sha256Pattern.IsMatch(SourceDigestSha256) || SourceFileCount <= 0 ||
+            SourceDirty || !Sha256Pattern.IsMatch(SourceDigestSha256) || SourceFileCount <= 0 ||
+            !Sha256Pattern.IsMatch(FrontendManifestSha256) || FrontendFileCount <= 0 ||
+            FrontendContentRootIdentity != "release/frontend" ||
             ServiceName != "DleOsDevelopmentFrontend" ||
             !ServiceIdentity.Equals(@"DLE-OS-HOST\DLE-OS-DEV-FRONTEND",
                 StringComparison.OrdinalIgnoreCase))
@@ -51,6 +56,8 @@ public sealed record DevRuntimeBuildInfo(
         return new(
             Environment, ReleaseId, BuiltAtUtc, GitHead, SourceDirty,
             SourceDigestSha256.ToUpperInvariant(), SourceFileCount,
+            FrontendManifestSha256.ToUpperInvariant(), FrontendFileCount,
+            FrontendContentRootIdentity,
             ServiceName, ServiceIdentity);
     }
 }
@@ -63,5 +70,8 @@ public sealed record DevRuntimeInfoResponse(
     bool SourceDirty,
     string SourceDigestSha256,
     int SourceFileCount,
+    string FrontendManifestSha256,
+    int FrontendFileCount,
+    string FrontendContentRootIdentity,
     string ServiceName,
     string ServiceIdentity);
