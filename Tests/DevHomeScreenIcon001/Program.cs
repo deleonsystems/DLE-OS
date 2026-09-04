@@ -57,8 +57,8 @@ Check(program.Contains("IsBrandingAssetPath(context.Request.Path)") &&
       !program.Contains("Path.StartsWithSegments(\"/ASSETS\"") &&
       !program.Contains("Path.StartsWithSegments(\"/assets\""),
     "authentication exemption is an exact allowlist rather than a static-directory bypass");
-Check(deployment.Contains("'ASSETS/ICONS'"),
-    "runtime source identity includes install metadata and icon assets");
+Check(deployment.Contains("'ASSETS'") && !deployment.Contains("'ASSETS/ICONS'"),
+    "runtime source identity includes the complete governed browser asset tree");
 
 Console.WriteLine($"PASS: {checks.Count} DEV home-screen icon checks.");
 foreach (var check in checks) Console.WriteLine("  " + check);
