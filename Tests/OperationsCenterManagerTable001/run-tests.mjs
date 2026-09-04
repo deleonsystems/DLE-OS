@@ -77,6 +77,10 @@ const record = {
 };
 oc.state.canonicalLoaded = true;
 oc.state.canonicalRows = [record];
+assert.equal(oc.stateActions.setSelectedMasterRecordKey(record.masterRecordKey), record.masterRecordKey,
+  'desktop row selection stores one selected canonical row identity');
+assert.equal(oc.stateActions.setSelectedMasterRecordKey(''), '',
+  'desktop row selection can be cleared when the filtered row leaves the visible set');
 
 assert.equal(oc.viewModel.getOfficialField(record, 'partNumber'), 'ASM-100', 'Item Number uses existing item field');
 assert.equal(oc.viewModel.getOfficialField(record, 'description'), 'Actuator Assembly', 'Description uses existing description field');
@@ -169,16 +173,37 @@ assert.doesNotMatch(operationsMarkup, /operationsCenterSaveButton|operationsCent
 assert.doesNotMatch(operationsMarkup, /Daily operational workspace built from governed canonical Sales Orders/,
   'desktop workspace subtitle is removed');
 assert.match(operationsMarkup,
+  /id="operationsCenterDatasetFacts"[\s\S]*Source: pending[\s\S]*Records: 0[\s\S]*Last loaded: not loaded/,
+  'desktop workspace shows explicit source, record count, and last-loaded facts');
+assert.match(operationsMarkup,
   /class="operations-center-toolbar"[\s\S]*refreshOperationsCenterCanonicalData\(\)[\s\S]*id="operationsCenterSourceStatus"[\s\S]*class="operations-center-search-row"[\s\S]*id="operationsCenterSearch"[\s\S]*id="operationsCenterStatus"/,
   'search and count occupy the lower row while reload feedback remains grouped with its action');
-assert.match(tableSource, /status\.textContent = records\.length \+ ' records shown';/,
-  'operator-facing record count is derived from the displayed records');
+assert.match(tableSource,
+  /status\.textContent = records\.length \+ ' shown';[\s\S]*status\.textContent \+= ' - ' \+ total \+ ' total';/,
+  'operator-facing record count includes visible and total record counts');
+assert.match(tableSource,
+  /function renderDatasetFacts\(\)[\s\S]*canonicalTotalItems[\s\S]*canonicalSource[\s\S]*canonicalEndpoint[\s\S]*canonicalLoadedAt/,
+  'dataset facts use the current provider source, endpoint, total count, and loaded timestamp when available');
 assert.doesNotMatch(tableSource, /requiring action shown from|Overlay records:/,
   'diagnostic canonical and overlay counts are absent from the normal toolbar');
-assert.match(tableSource, /function filter\(\) \{\s*renderStatus\(\);/,
+assert.match(tableSource, /function filter\(\) \{[\s\S]*renderStatus\(\);/,
   'search and filter changes continue to refresh the displayed record count');
+assert.match(tableSource,
+  /operations-center-row-selected[\s\S]*aria-selected[\s\S]*onclick="selectOperationsCenterRow\(event\)"[\s\S]*onkeydown="selectOperationsCenterRowFromKeyboard\(event\)"/,
+  'desktop table rows expose a single selected state with click and keyboard selection');
+assert.match(tableSource,
+  /openOperationsCenterSalesOrderDashboard = openSalesOrderDashboard;[\s\S]*openOperationsCenterVerifiedStatusLogger = function \(event\) \{[\s\S]*event\?\.stopPropagation\?\.\(\);/,
+  'row-level selection does not hijack sales-order navigation or verified-status logging actions');
+assert.match(tableSource,
+  /if \(state\.selectedMasterRecordKey && !displayedKeys\.has\(state\.selectedMasterRecordKey\)\)/,
+  'filtering clears a selected row when it is no longer visible');
 assert.match(operationsStyles, /\.operations-center-search-row \{[\s\S]*margin-bottom: 8px;/,
   'search row uses compact desktop spacing');
+assert.match(operationsStyles, /\.operations-center-dataset-facts \{[\s\S]*flex-wrap: wrap;/,
+  'dataset facts follow the existing compact responsive row pattern');
+assert.match(operationsStyles,
+  /\.operations-center-table tbody tr\.operations-center-row-selected \{[\s\S]*box-shadow: inset 3px 0 0 var\(--blue\);/,
+  'selected row state is visually clear without adding a new destination route');
 assert.match(operationsStyles,
   /\.operations-center-panel:has\(> \.operations-center-mobile-view:not\(\[hidden\]\)\) \.operations-center-search-row/,
   'desktop search row remains hidden when the dedicated Mobile View is active');

@@ -27,7 +27,8 @@
     workOrderVerifiedStatusByNumber: {},
     verifiedStatusLoading: false,
     verifiedStatusError: '',
-    hideRmaRework: false
+    hideRmaRework: false,
+    selectedMasterRecordKey: ''
   };
 
   function beginCanonicalLoad() {
@@ -163,6 +164,11 @@
     return setHideRmaRework(!state.hideRmaRework);
   }
 
+  function setSelectedMasterRecordKey(value) {
+    state.selectedMasterRecordKey = String(value || '');
+    return state.selectedMasterRecordKey;
+  }
+
   window.OperationsCenter.state = state;
   window.OperationsCenter.stateActions = {
     beginCanonicalLoad,
@@ -179,7 +185,8 @@
     getVerifiedStatusRecord,
     getWorkOrderVerifiedStatusRecord,
     setHideRmaRework,
-    toggleHideRmaRework
+    toggleHideRmaRework,
+    setSelectedMasterRecordKey
   };
 
   window.operationsCenterState = state;

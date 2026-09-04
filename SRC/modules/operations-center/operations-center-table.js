@@ -18,6 +18,7 @@
 
   function renderModule() {
     renderStatus();
+    renderDatasetFacts();
     renderSourceStatus();
     renderServiceAvailability();
     renderProjectionSummary();
@@ -30,18 +31,45 @@
     if (!status) return;
 
     const records = getDisplayedRecords();
+    const currentView = getCurrentView();
     if (state.canonicalLoading && !state.canonicalLoaded) {
       status.textContent = 'Loading canonical Sales Orders from the development API...';
     } else if (state.canonicalError && !state.canonicalLoaded) {
       status.textContent = 'Canonical Sales Orders could not be loaded. ' + state.canonicalError;
     } else if (state.canonicalLoaded) {
-      status.textContent = records.length + ' records shown';
-      if (!operationalServicesAvailable()) status.textContent += ' · canonical read-only';
-      else if (state.verifiedStatusError) status.textContent += ' · verified status unavailable';
+      const total = Number.isFinite(Number(state.canonicalTotalItems)) ? Number(state.canonicalTotalItems) : state.canonicalRows.length;
+      const filtered = Number.isFinite(Number(currentView.filteredRecordCount))
+        ? Number(currentView.filteredRecordCount)
+        : records.length;
+      status.textContent = records.length + ' shown';
+      if (filtered !== total || records.length !== filtered) {
+        status.textContent += ' - ' + filtered + ' filtered';
+      }
+      status.textContent += ' - ' + total + ' total';
+      if (!operationalServicesAvailable()) status.textContent += ' - canonical read-only';
+      else if (state.verifiedStatusError) status.textContent += ' - verified status unavailable';
     } else {
       status.textContent = 'Canonical Sales Orders have not been loaded.';
     }
 
+  }
+
+  function renderDatasetFacts() {
+    const facts = document.getElementById('operationsCenterDatasetFacts');
+    if (!facts) return;
+
+    const total = Number.isFinite(Number(state.canonicalTotalItems)) ? Number(state.canonicalTotalItems) : state.canonicalRows.length;
+    const source = state.canonicalSource || 'Unknown source';
+    const endpoint = state.canonicalEndpoint || '';
+    const loaded = state.canonicalLoadedAt ? formatLoadedDateTime(state.canonicalLoadedAt) : '';
+    const loadedText = state.canonicalLoaded
+      ? loaded || 'not provided by source'
+      : state.canonicalLoading ? 'loading' : 'not loaded';
+    facts.innerHTML = [
+      '<span><strong>Source</strong> ', escapeHtml(source), endpoint ? ' <small>' + escapeHtml(endpoint) + '</small>' : '', '</span>',
+      '<span><strong>Records</strong> ', escapeHtml(String(total)), '</span>',
+      '<span><strong>Last loaded</strong> ', escapeHtml(loadedText), '</span>'
+    ].join('');
   }
 
   function renderTable() {
@@ -75,12 +103,20 @@
 
   function renderRow(record, index) {
     const masterRecordKey = viewModel.getMasterRecordKey(record);
+    const selected = masterRecordKey && state.selectedMasterRecordKey === masterRecordKey;
     const projectionCell = projection?.isActive()
       ? renderProjectionCell(masterRecordKey)
       : '';
     const cells = getTableColumns().map(column => renderTableCell(column, record, masterRecordKey)).join('');
+    const classes = [
+      index % 2 === 0 ? 'rowEven' : 'rowOdd',
+      selected ? 'operations-center-row-selected' : ''
+    ].filter(Boolean).join(' ');
 
-    return '<tr class="' + (index % 2 === 0 ? 'rowEven' : 'rowOdd') + '" data-master-record-key="' + escapeHtml(masterRecordKey) + '">' + projectionCell + cells + '</tr>';
+    return '<tr class="' + classes + '" data-master-record-key="' + escapeHtml(masterRecordKey) +
+      '" tabindex="0" aria-selected="' + (selected ? 'true' : 'false') +
+      '" onclick="selectOperationsCenterRow(event)" onkeydown="selectOperationsCenterRowFromKeyboard(event)">' +
+      projectionCell + cells + '</tr>';
   }
 
   function getTableColumns() {
@@ -198,6 +234,17 @@
     const date = value ? new Date(value) : null;
     if (!date || Number.isNaN(date.valueOf())) return 'unknown time';
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function formatLoadedDateTime(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.valueOf())) return '';
+    return date.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
   }
 
   function renderSourceStatus() {
@@ -321,6 +368,7 @@
   }
 
   function updateProjectionSelection(event) {
+    event?.stopPropagation?.();
     if (!operationalServicesAvailable()) return false;
     const target = event?.target;
     const masterRecordKey = target?.dataset?.masterRecordKey || '';
@@ -330,6 +378,7 @@
   }
 
   function openSalesOrderDashboard(event) {
+    event?.stopPropagation?.();
     const target = event?.currentTarget || event?.target;
     const masterRecordKey = target?.dataset?.masterRecordKey || '';
     const record = getDisplayedRecords().find(item => viewModel.getMasterRecordKey(item) === masterRecordKey);
@@ -408,15 +457,37 @@
   }
 
   function filter() {
+    const displayedKeys = new Set(getDisplayedRecords().map(record => viewModel.getMasterRecordKey(record)));
+    if (state.selectedMasterRecordKey && !displayedKeys.has(state.selectedMasterRecordKey)) {
+      window.OperationsCenter.stateActions.setSelectedMasterRecordKey('');
+    }
     renderStatus();
+    renderDatasetFacts();
     renderProjectionSummary();
     renderRmaVisibilityControl();
     renderTable();
   }
 
+  function selectRow(event) {
+    const row = event?.currentTarget?.closest?.('tr') || event?.target?.closest?.('tr');
+    const masterRecordKey = row?.dataset?.masterRecordKey || '';
+    if (!masterRecordKey) return false;
+    window.OperationsCenter.stateActions.setSelectedMasterRecordKey(masterRecordKey);
+    renderStatus();
+    renderTable();
+    return true;
+  }
+
+  function selectRowFromKeyboard(event) {
+    if (!['Enter', ' '].includes(event?.key)) return false;
+    event.preventDefault?.();
+    return selectRow(event);
+  }
+
   window.OperationsCenter.table = {
     renderModule,
     renderStatus,
+    renderDatasetFacts,
     renderSourceStatus,
     renderServiceAvailability,
     renderProjectionSummary,
@@ -425,11 +496,16 @@
     getCurrentView,
     openSalesOrderDashboard,
     updateProjectionSelection,
+    selectRow,
+    selectRowFromKeyboard,
     filter
   };
 
   window.openOperationsCenterSalesOrderDashboard = openSalesOrderDashboard;
+  window.selectOperationsCenterRow = selectRow;
+  window.selectOperationsCenterRowFromKeyboard = selectRowFromKeyboard;
   window.openOperationsCenterVerifiedStatusLogger = function (event) {
+    event?.stopPropagation?.();
     const target = event?.currentTarget || event?.target;
     const masterRecordKey = target?.dataset?.masterRecordKey || '';
     const record = getDisplayedRecords().find(item => viewModel.getMasterRecordKey(item) === masterRecordKey);
