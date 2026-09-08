@@ -154,10 +154,22 @@ body[data-view-mode="mobile"]:not([data-workspace-view="dle-home"]):not([data-wo
     align-self: auto;
   }
 
+  body[data-view-mode="ipad"][data-sim-runtime="true"] #dleEnvironmentBadge {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
   body[data-view-mode="ipad"] .dle-identity-clock-stack {
     width: clamp(238px, 24vw, 292px);
     display: grid;
   }
+}
+
+body[data-view-mode="desktop"][data-sim-runtime="true"] #dleEnvironmentBadge {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 body[data-view-mode="mobile"] > header.dle-app-header { padding-top:env(safe-area-inset-top,0);background:rgba(3,9,16,.985) }
@@ -196,6 +208,54 @@ body[data-view-mode="mobile"] #dle-auth-signout { min-width:58px;min-height:34px
 body[data-view-mode="mobile"] .dle-dev-controls { max-height:55vh;overflow-y:auto;padding:8px 10px }
 body[data-view-mode="mobile"] > main { margin-top:10px }
 @media(max-width:420px){body[data-view-mode="mobile"] .dle-operator-header{padding-inline:max(8px,env(safe-area-inset-left,0)) max(8px,env(safe-area-inset-right,0));grid-template-columns:minmax(108px,1fr) minmax(0,1.55fr)}body[data-view-mode="mobile"] .dle-operator-header .app-title{font-size:14px}body[data-view-mode="mobile"] .dle-header-right{gap:4px}body[data-view-mode="mobile"] .dle-identity-clock-stack{width:min(172px,100%)}body[data-view-mode="mobile"] .dle-view-mode-toggle{width:158px;max-width:100%}body[data-view-mode="mobile"] .dle-view-mode-toggle select{font-size:10.5px}}
+
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-operator-header { padding:3px max(8px,env(safe-area-inset-right,0)) 3px max(8px,env(safe-area-inset-left,0));grid-template-columns:auto minmax(95px,1fr) auto;grid-template-areas:"brand identity mode" "navigation navigation navigation";gap:2px 4px }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-operator-header .app-title { font-size:14px;line-height:1.05 }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] #activeWorkAreaLabel { font-size:10px;line-height:1.05 }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-operator-nav { gap:5px }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-operator-nav .nav-btn,
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-operator-nav .home-btn { min-height:40px;padding:6px 9px }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-view-mode-toggle { width:150px;height:36px;min-height:36px;padding:1px 3px 1px 7px }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-view-mode-toggle select { min-height:32px;padding:4px 3px;font-size:10.5px }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-header-right { width:max-content;justify-self:center;gap:4px }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-dev-secondary-slot { gap:3px }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-dev-secondary-slot>.dle-environment-badge,
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-dev-secondary-slot>.dle-dev-toggle { width:46px;min-width:46px;height:34px;min-height:34px;padding:4px 5px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] #dleEnvironmentBadge { line-height:1 }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-identity-clock-stack:not(:has(#dle-auth-signout)) { display:none }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] > main { margin-top:6px }
+
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-operator-header { padding:3px max(8px,env(safe-area-inset-right,0)) 3px max(8px,env(safe-area-inset-left,0));grid-template-columns:auto minmax(95px,1fr) auto;grid-template-areas:"brand identity mode" "navigation navigation navigation";gap:2px 4px }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-operator-header .app-title { font-size:14px;line-height:1.05 }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] #activeWorkAreaLabel { font-size:9px;line-height:1.05 }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-operator-nav { gap:5px }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-operator-nav .nav-btn,
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-operator-nav .home-btn { min-height:40px;padding:6px 9px }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-view-mode-toggle { width:150px;height:36px;min-height:36px;padding:1px 3px 1px 7px }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-view-mode-toggle select { min-height:32px;padding:4px 3px;font-size:10.5px }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-header-right { width:max-content;justify-self:center;gap:4px }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-dev-secondary-slot { gap:3px }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-dev-secondary-slot>.dle-environment-badge,
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-dev-secondary-slot>.dle-dev-toggle { width:46px;min-width:46px;height:34px;min-height:34px;padding:4px 5px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] #dleEnvironmentBadge { line-height:1 }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-identity-clock-stack:not(:has(#dle-auth-signout)) { display:none }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] > main { margin-top:6px }
+
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-operator-header { padding:3px max(8px,env(safe-area-inset-right,0)) 3px max(8px,env(safe-area-inset-left,0));grid-template-columns:auto minmax(95px,1fr) auto;grid-template-areas:"brand identity mode" "navigation navigation navigation";gap:2px 4px }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-operator-header .app-title { font-size:14px;line-height:1.05 }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] #activeWorkAreaLabel { font-size:10px;line-height:1.05 }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-operator-nav { gap:5px }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-operator-nav .nav-btn,
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-operator-nav .home-btn { min-height:40px;padding:6px 9px }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-view-mode-toggle { width:150px;height:36px;min-height:36px;padding:1px 3px 1px 7px }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-view-mode-toggle select { min-height:32px;padding:4px 3px;font-size:10.5px }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-header-right { width:max-content;justify-self:center;gap:4px }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-dev-secondary-slot { gap:3px }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-dev-secondary-slot>.dle-environment-badge,
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-dev-secondary-slot>.dle-dev-toggle { width:46px;min-width:46px;height:34px;min-height:34px;padding:4px 5px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] #dleEnvironmentBadge { line-height:1 }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-identity-clock-stack:not(:has(#dle-auth-signout)) { display:none }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] > main { margin-top:6px }
 
 @media screen {
   html {
