@@ -97,14 +97,14 @@
 .kitting-navigation-guard-actions button:focus-visible { outline:3px solid #a8ddff;outline-offset:2px; }
 .kitting-navigation-guard-actions button:disabled { opacity:.58;cursor:wait; }
 @media (min-width: 1281px) {
-  body[data-view-mode="desktop"][data-workspace-view="kitting"]:has(#kittingJobWorkspace.screen.active) > main {
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"])[data-workspace-view="kitting"]:has(#kittingJobWorkspace.screen.active) > main {
     padding-inline:clamp(22px,2vw,32px);
   }
-  body[data-view-mode="desktop"][data-workspace-view="kitting"] #kittingJobWorkspace.screen.active .kitting-job-shell {
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"])[data-workspace-view="kitting"] #kittingJobWorkspace.screen.active .kitting-job-shell {
     width:100%;
     max-width:none;
   }
-  body[data-view-mode="desktop"][data-workspace-view="kitting"] #kittingJobWorkspace.screen.active .kitting-job-main {
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"])[data-workspace-view="kitting"] #kittingJobWorkspace.screen.active .kitting-job-main {
     width:100%;
     max-width:none;
     margin-inline:0;

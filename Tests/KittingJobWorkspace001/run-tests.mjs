@@ -133,7 +133,7 @@ assert.match(styles, /@media \(max-width: 800px\)[\s\S]*\.kitting-job-state-cont
 assert.doesNotMatch(styles, /kitting-job-current-status/);
 assert.match(styles, /\.kitting-job-action-grid \{[^}]*repeat\(3,minmax\(0,1fr\)\)/);
 assert.match(styles, /\.kitting-job-main \{[^}]*padding:0/);
-assert.match(styles, /@media \(min-width: 1281px\) \{[\s\S]*body\[data-view-mode="desktop"\]\[data-workspace-view="kitting"\]:has\(#kittingJobWorkspace\.screen\.active\) > main \{[\s\S]*padding-inline:clamp\(22px,2vw,32px\)/,
+assert.match(styles, /@media \(min-width: 1281px\) \{[\s\S]*body:is\(\[data-view-mode="desktop"\],\[data-view-mode="ipad"\]\)\[data-workspace-view="kitting"\]:has\(#kittingJobWorkspace\.screen\.active\) > main \{[\s\S]*padding-inline:clamp\(22px,2vw,32px\)/,
   'desktop Kitting Job Workspace replaces the centered global gutter with a modest viewport gutter');
 assert.match(styles, /@media \(min-width: 1281px\) \{[\s\S]*#kittingJobWorkspace\.screen\.active \.kitting-job-shell \{[\s\S]*width:100%;[\s\S]*max-width:none/,
   'desktop Kitting Job Workspace can use the full content width without a fixed maximum');

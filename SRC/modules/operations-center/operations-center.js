@@ -261,6 +261,14 @@
     });
   }
 
+  function isOperationsCenterMobileMode() {
+    return document.body?.dataset?.viewMode === 'mobile';
+  }
+
+  function getMobileInlineDetailId(group) {
+    return 'operationsCenterMobileInlineDetail-' + String(group?.key || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '-');
+  }
+
   function toggleOperationsCenterMobileView(force) {
     const mobile = document.getElementById('operationsCenterMobileView');
     const table = document.getElementById('operationsCenterTable');
@@ -278,31 +286,45 @@
     if (!results || document.getElementById('operationsCenterMobileView')?.hidden) return;
     const groups = getMobileGroups().slice(0, 50);
     if (!groups.length) {
+      mobileSelectedRecordKey = '';
       results.innerHTML = '<div class="operations-center-empty">No matching Operations Center work orders.</div>';
       renderOperationsCenterMobileDetail(null);
       return;
     }
-    results.innerHTML = groups.map(renderMobileResultCard).join('');
+    const inline = isOperationsCenterMobileMode();
+    if (inline && !groups.some(group => group.key === mobileSelectedRecordKey)) mobileSelectedRecordKey = '';
+    results.innerHTML = groups.map(group => renderMobileResultCard(group, inline)).join('');
+    if (inline) {
+      renderOperationsCenterMobileDetail(null);
+      const selected = groups.find(group => group.key === mobileSelectedRecordKey) || null;
+      if (selected) {
+        renderOperationsCenterMobileDetail(selected, document.getElementById(getMobileInlineDetailId(selected)));
+      }
+      return;
+    }
     const selected = groups.find(group => group.key === mobileSelectedRecordKey) || groups[0];
     renderOperationsCenterMobileDetail(selected);
   }
 
-  function renderMobileResultCard(group) {
+  function renderMobileResultCard(group, inline = false) {
     const viewModel = window.OperationsCenter.viewModel;
     const primary = group.primaryRecord;
     if (!operationalServicesAvailable()) {
-      return renderDegradedMobileResultCard(group, primary, viewModel);
+      return renderDegradedMobileResultCard(group, primary, viewModel, inline);
     }
     const unresolved = group.type === 'UNRESOLVED_LINE';
-    const active = group.key === mobileSelectedRecordKey ? ' active' : '';
+    const expanded = group.key === mobileSelectedRecordKey;
+    const active = expanded ? ' active' : '';
+    const accessibility = ' aria-expanded="' + (expanded ? 'true' : 'false') + '"' +
+      (expanded && inline ? ' aria-controls="' + escapeOptionText(getMobileInlineDetailId(group)) + '"' : '');
     const status = group.statusPresentation?.statusText || '';
     const statusBadge = status
       ? '<small class="operations-center-mobile-status">' + escapeOptionText((unresolved ? 'Last Verified: ' : '') + status) +
         (group.overrideCount ? ' · ' + escapeOptionText(group.overrideCount + ' override' + (group.overrideCount === 1 ? '' : 's')) : '') + '</small>'
       : '';
     if (unresolved) {
-      return '<button type="button" class="operations-center-mobile-card operations-center-mobile-card-unresolved' + active +
-        '" data-mobile-group-key="' + escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)">' +
+      const card = '<button type="button" class="operations-center-mobile-card operations-center-mobile-card-unresolved' + active +
+        '" data-mobile-group-key="' + escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)"' + accessibility + '>' +
         '<strong>Awaiting WO Assignment</strong>' +
         '<span>' + escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + ' · Qty ' +
         escapeOptionText(viewModel.getOfficialField(primary, 'opQtyOpen')) + '</span>' +
@@ -312,9 +334,10 @@
         escapeOptionText(viewModel.getOfficialField(primary, 'dueDate')) + '</small>' +
         '<small>' + escapeOptionText(viewModel.getOfficialField(primary, 'customer')) + '</small>' +
         statusBadge + '</button>';
+      return renderMobileResultItem(group, card, inline, expanded);
     }
-    return '<button type="button" class="operations-center-mobile-card' + active + '" data-mobile-group-key="' +
-      escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)">' +
+    const card = '<button type="button" class="operations-center-mobile-card' + active + '" data-mobile-group-key="' +
+      escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)"' + accessibility + '>' +
       '<strong>WO ' + escapeOptionText(group.workOrderNumber.replace(/^0+/, '') || group.workOrderNumber) +
       ' · ' + escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + '</strong>' +
       '<span>Qty ' + escapeOptionText(group.groupedOpenQuantity) +
@@ -324,12 +347,16 @@
       '<small>' + escapeOptionText(viewModel.getOfficialField(primary, 'customer')) +
       ' · PO ' + escapeOptionText(viewModel.getOfficialField(primary, 'customerPo')) + '</small>' +
       statusBadge + '</button>';
+    return renderMobileResultItem(group, card, inline, expanded);
   }
 
-  function renderDegradedMobileResultCard(group, record, viewModel) {
-    const active = group.key === mobileSelectedRecordKey ? ' active' : '';
-    return '<button type="button" class="operations-center-mobile-card operations-center-mobile-card-unresolved' + active +
-      '" data-mobile-group-key="' + escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)">' +
+  function renderDegradedMobileResultCard(group, record, viewModel, inline = false) {
+    const expanded = group.key === mobileSelectedRecordKey;
+    const active = expanded ? ' active' : '';
+    const accessibility = ' aria-expanded="' + (expanded ? 'true' : 'false') + '"' +
+      (expanded && inline ? ' aria-controls="' + escapeOptionText(getMobileInlineDetailId(group)) + '"' : '');
+    const card = '<button type="button" class="operations-center-mobile-card operations-center-mobile-card-unresolved' + active +
+      '" data-mobile-group-key="' + escapeOptionText(group.key) + '" onclick="selectOperationsCenterMobileRecord(event)"' + accessibility + '>' +
       '<strong>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) + ' / Line ' +
       escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) + '</strong>' +
       '<span>' + escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' · ERP Qty Open ' +
@@ -337,15 +364,25 @@
       '<small>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + ' · Due ' +
       escapeOptionText(viewModel.getOfficialField(record, 'dueDate')) + '</small>' +
       '<small class="operations-center-mobile-unavailable">Operational routing unavailable</small></button>';
+    return renderMobileResultItem(group, card, inline, expanded);
+  }
+
+  function renderMobileResultItem(group, card, inline, expanded) {
+    if (!inline) return card;
+    return '<div class="operations-center-mobile-item' + (expanded ? ' expanded' : '') +
+      '" data-mobile-item-key="' + escapeOptionText(group.key) + '">' + card +
+      (expanded ? '<div id="' + escapeOptionText(getMobileInlineDetailId(group)) +
+        '" class="operations-center-mobile-inline-detail"></div>' : '') + '</div>';
   }
 
   function selectOperationsCenterMobileRecord(event) {
-    mobileSelectedRecordKey = event?.currentTarget?.dataset?.mobileGroupKey || '';
+    const key = event?.currentTarget?.dataset?.mobileGroupKey || '';
+    mobileSelectedRecordKey = isOperationsCenterMobileMode() && key === mobileSelectedRecordKey ? '' : key;
     renderOperationsCenterMobileView();
   }
 
-  function renderOperationsCenterMobileDetail(group) {
-    const detail = document.getElementById('operationsCenterMobileDetail');
+  function renderOperationsCenterMobileDetail(group, detailOverride) {
+    const detail = arguments.length > 1 ? detailOverride : document.getElementById('operationsCenterMobileDetail');
     if (!detail) return;
     if (!group) { detail.hidden = true; detail.innerHTML = ''; return; }
     detail.hidden = false;

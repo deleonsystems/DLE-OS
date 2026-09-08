@@ -3,8 +3,11 @@
 
   const FACTORY_TIME_ZONE = 'America/Los_Angeles';
   const DESKTOP_VIEW_MODE = 'desktop';
+  const IPAD_VIEW_MODE = 'ipad';
   const MOBILE_VIEW_MODE = 'mobile';
-  let viewMode = DESKTOP_VIEW_MODE;
+  const VIEW_MODE_STORAGE_KEY = 'DLE_OS_VIEW_MODE';
+  const VIEW_MODES = new Set([DESKTOP_VIEW_MODE, IPAD_VIEW_MODE, MOBILE_VIEW_MODE]);
+  let viewMode = readStoredViewMode();
   const factoryTimeFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: FACTORY_TIME_ZONE,
     weekday: 'long',
@@ -40,6 +43,26 @@
     return viewMode;
   }
 
+  function normalizeViewMode(value) {
+    return VIEW_MODES.has(value) ? value : DESKTOP_VIEW_MODE;
+  }
+
+  function readStoredViewMode() {
+    try {
+      return normalizeViewMode(window.localStorage?.getItem(VIEW_MODE_STORAGE_KEY));
+    } catch (_error) {
+      return DESKTOP_VIEW_MODE;
+    }
+  }
+
+  function persistViewMode() {
+    try {
+      window.localStorage?.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+    } catch (_error) {
+      // View selection still works for the current page when storage is unavailable.
+    }
+  }
+
   function updateViewModeToggle() {
     const select = document.getElementById('dleViewModeSelect');
     if (select) select.value = viewMode;
@@ -66,6 +89,7 @@
     select.setAttribute('aria-label', 'DLE-OS view mode');
     [
       [DESKTOP_VIEW_MODE, 'Desktop View'],
+      [IPAD_VIEW_MODE, 'iPad View'],
       [MOBILE_VIEW_MODE, 'Mobile View']
     ].forEach(([mode, label]) => {
       const option = document.createElement('option');
@@ -123,9 +147,10 @@
   }
 
   function setViewMode(value) {
-    const nextMode = value === MOBILE_VIEW_MODE ? MOBILE_VIEW_MODE : DESKTOP_VIEW_MODE;
+    const nextMode = normalizeViewMode(value);
     const changed = nextMode !== viewMode;
     viewMode = nextMode;
+    persistViewMode();
     updateViewModeToggle();
     applyWorkspaceViewMode();
     if (changed && typeof document.dispatchEvent === 'function') {
@@ -236,6 +261,7 @@
     getViewMode,
     setViewMode,
     isDesktopView: () => viewMode === DESKTOP_VIEW_MODE,
+    isIpadView: () => viewMode === IPAD_VIEW_MODE,
     isMobileView: () => viewMode === MOBILE_VIEW_MODE
   });
 })(window, document);

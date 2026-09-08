@@ -44,7 +44,7 @@ body[data-view-mode="mobile"]:not([data-workspace-view="dle-home"]):not([data-wo
 @media(max-width:420px){.dle-operator-header{gap:7px 8px;padding-inline:10px}.dle-operator-nav .nav-btn,.dle-operator-nav .home-btn{padding-inline:10px;font-size:12px}.dle-view-mode-toggle{flex-basis:158px;max-width:158px;padding-left:7px}.dle-view-mode-toggle select{font-size:11px}.dle-header-right{display:grid;grid-template-columns:1fr;width:100%}.dle-identity-clock-stack{grid-row:1;width:100%}.dle-dev-secondary-slot{grid-row:2;justify-self:start}}
 
 @media (min-width:700px) and (max-width:1280px) {
-  body[data-view-mode="desktop"] .dle-operator-header {
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-operator-header {
     min-height: 0;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -57,12 +57,12 @@ body[data-view-mode="mobile"]:not([data-workspace-view="dle-home"]):not([data-wo
     row-gap: 3px;
   }
 
-  body[data-view-mode="desktop"] .dle-operator-nav { grid-area: navigation; }
-  body[data-view-mode="desktop"] .dle-view-mode-toggle { grid-area: mode; justify-self: start; }
-  body[data-view-mode="desktop"] .dle-operator-header .logo { grid-area: logo; height: 60px; }
-  body[data-view-mode="desktop"] .dle-operator-header .divider { display: none; }
-  body[data-view-mode="desktop"] .dle-operator-header .title-wrap { grid-area: title; min-width: 0; }
-  body[data-view-mode="desktop"] .dle-header-right {
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-operator-nav { grid-area: navigation; }
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-view-mode-toggle { grid-area: mode; justify-self: start; }
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-operator-header .logo { grid-area: logo; height: 60px; }
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-operator-header .divider { display: none; }
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-operator-header .title-wrap { grid-area: title; min-width: 0; }
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-header-right {
     grid-area: right;
     width: auto;
     display: grid;
@@ -77,30 +77,86 @@ body[data-view-mode="mobile"]:not([data-workspace-view="dle-home"]):not([data-wo
     align-items: center;
     justify-self: end;
   }
-  body[data-view-mode="desktop"] .dle-dev-secondary-slot {
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-dev-secondary-slot {
     grid-area: environment;
     align-self: center;
   }
-  body[data-view-mode="desktop"] .dle-identity-clock-stack { display: contents; }
-  body[data-view-mode="desktop"] .dle-factory-clock {
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-identity-clock-stack { display: contents; }
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-factory-clock {
     grid-area: clock;
     min-height: 28px;
     padding: 2px 8px;
     font-size: 11px;
   }
-  body[data-view-mode="desktop"] .dle-identity-clock-stack>.top-pills { grid-area: identity; }
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-identity-clock-stack>.top-pills { grid-area: identity; }
 }
 
 @media (min-width:1100px) and (max-width:1280px) {
-  body[data-view-mode="desktop"] .dle-operator-header {
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-operator-header {
     grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
     grid-template-areas: "navigation mode logo divider title right";
   }
 
-  body[data-view-mode="desktop"] .dle-operator-header .divider {
+  body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) .dle-operator-header .divider {
     grid-area: divider;
     display: block;
     height: 36px;
+  }
+}
+
+@media (min-width:700px) and (max-width:1280px) {
+  body[data-view-mode="ipad"] .dle-operator-header {
+    min-height: 102px;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 8px 12px;
+    gap: clamp(8px, 1vw, 16px);
+  }
+
+  body[data-view-mode="ipad"] .dle-operator-nav,
+  body[data-view-mode="ipad"] .dle-view-mode-toggle,
+  body[data-view-mode="ipad"] .dle-operator-header .logo,
+  body[data-view-mode="ipad"] .dle-operator-header .divider,
+  body[data-view-mode="ipad"] .dle-operator-header .title-wrap,
+  body[data-view-mode="ipad"] .dle-header-right,
+  body[data-view-mode="ipad"] .dle-dev-secondary-slot,
+  body[data-view-mode="ipad"] .dle-factory-clock,
+  body[data-view-mode="ipad"] .dle-identity-clock-stack>.top-pills {
+    grid-area: auto;
+  }
+
+  body[data-view-mode="ipad"] .dle-operator-header .logo {
+    height: clamp(72px, 7vw, 86px);
+  }
+
+  body[data-view-mode="ipad"] .dle-operator-header .divider {
+    display: block;
+    height: 54px;
+  }
+
+  body[data-view-mode="ipad"] .dle-operator-header .title-wrap {
+    min-width: 140px;
+    flex: 1 1 auto;
+  }
+
+  body[data-view-mode="ipad"] .dle-header-right {
+    width: auto;
+    flex: 0 1 auto;
+    display: flex;
+    align-self: center;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  body[data-view-mode="ipad"] .dle-dev-secondary-slot {
+    align-self: auto;
+  }
+
+  body[data-view-mode="ipad"] .dle-identity-clock-stack {
+    width: clamp(238px, 24vw, 292px);
+    display: grid;
   }
 }
 
@@ -125,6 +181,15 @@ body[data-view-mode="mobile"] .dle-identity-clock-stack { grid-row:auto;width:mi
 body[data-view-mode="mobile"] .dle-identity-clock-stack>.top-pills { display:block }
 body[data-view-mode="mobile"] .dle-identity-clock-stack #dle-auth-identity { min-height:36px;padding:3px 4px 3px 8px!important;gap:5px!important;border-radius:7px }
 body[data-view-mode="mobile"] #dle-auth-details { min-width:0;overflow:hidden }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] #dle-auth-details,
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] #dle-auth-name { display:none }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] #dle-auth-identity:not(:has(#dle-auth-signout)) { display:none!important }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] #dle-auth-details,
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] #dle-auth-name { display:none }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] #dle-auth-identity:not(:has(#dle-auth-signout)) { display:none!important }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] #dle-auth-details,
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] #dle-auth-name { display:none }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] #dle-auth-identity:not(:has(#dle-auth-signout)) { display:none!important }
 body[data-view-mode="mobile"] #dle-auth-name { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px }
 body[data-view-mode="mobile"] #dle-auth-role { display:none }
 body[data-view-mode="mobile"] #dle-auth-signout { min-width:58px;min-height:34px;padding:7px 8px }

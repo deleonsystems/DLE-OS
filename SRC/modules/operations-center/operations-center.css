@@ -502,6 +502,7 @@ body[data-view-mode="mobile"][data-workspace-view="operations-center"] .operatio
 body[data-view-mode="mobile"][data-workspace-view="operations-center"] .operations-center-mobile-view {
   width: 100%;
   max-width: none;
+  grid-template-columns: 1fr;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -540,6 +541,36 @@ body[data-view-mode="mobile"][data-workspace-view="operations-center"] .operatio
   display: grid;
   gap: 8px;
   min-width: 0;
+}
+
+.operations-center-mobile-item {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+}
+
+.operations-center-mobile-inline-detail {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--blue);
+  border-top: 0;
+  border-radius: 0 0 7px 7px;
+  background: var(--panel-2);
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+
+.operations-center-mobile-item.expanded > .operations-center-mobile-card {
+  border-color: var(--blue);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.operations-center-mobile-inline-detail > .operations-center-mobile-detail-card {
+  border: 0;
+  border-radius: 0;
+  padding: 10px;
 }
 
 .operations-center-mobile-card {

@@ -174,7 +174,7 @@ assert.ok(
 assert.match(dashboardMarkup, /<dt>Located file<\/dt>/);
 assert.doesNotMatch(dashboardMarkup, /workOrderDashboardKittedBomProductionMessage/);
 assert.match(dashboardSource, /return openKittedBomDocument\('primary'\)/);
-assert.match(dashboardStyles, /data-view-mode="desktop"[^}]*data-dashboard-view="production"[^}]*module-document-grid[^}]*repeat\(3,/);
+assert.match(dashboardStyles, /data-view-mode="desktop"[^}]*data-view-mode="ipad"[^}]*data-dashboard-view="production"[^}]*module-document-grid[^}]*repeat\(3,/);
 assert.match(dashboardStyles, /data-dashboard-view="production"[^}]*KittedBomPlaceholder:not\(:disabled\)/);
 assert.match(dashboardStyles, /data-dashboard-view="production"[^}]*workOrderDashboardReleasedBom,[\s\S]*?workOrderDashboardKitReleasedBom,[\s\S]*?display:\s*none/);
 assert.match(dashboardStyles, /data-dashboard-view="production"[^}]*workOrderDashboardKittedBomPlaceholder[^}]*order:\s*-1/);

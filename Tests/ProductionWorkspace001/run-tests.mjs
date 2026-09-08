@@ -81,8 +81,8 @@ assert.match(styles, /\.production-lifecycle-tabs\{display:grid;grid-template-co
 assert.match(styles, /\.production-compact-row\{display:grid;grid-template-columns:minmax\(118px,.7fr\).*minmax\(170px,1fr\) 98px 24px/);
 assert.match(styles, /\.production-search-control \.sr-only\{position:absolute;width:1px;height:1px/);
 assert.match(styles, /@media\(min-width:1281px\)/);
-assert.match(styles, /body\[data-view-mode="desktop"\]\[data-workspace-view="production"\]>main\{padding-inline:clamp\(22px,2vw,32px\)\}/);
-assert.match(styles, /body\[data-view-mode="desktop"\]\[data-workspace-view="production"\] \.production-workspace\{width:100%;max-width:none;margin-inline:0;padding-inline:0\}/);
+assert.match(styles, /body:is\(\[data-view-mode="desktop"\],\[data-view-mode="ipad"\]\)\[data-workspace-view="production"\]>main\{padding-inline:clamp\(22px,2vw,32px\)\}/);
+assert.match(styles, /body:is\(\[data-view-mode="desktop"\],\[data-view-mode="ipad"\]\)\[data-workspace-view="production"\] \.production-workspace\{width:100%;max-width:none;margin-inline:0;padding-inline:0\}/);
 assert.doesNotMatch(shell.slice(shell.indexOf('data-workspace-home="production"'),
   shell.indexOf('data-workspace-home="quality"')), /detail|modal|accordion/i);
 

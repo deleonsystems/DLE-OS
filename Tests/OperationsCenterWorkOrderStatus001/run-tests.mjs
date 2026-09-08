@@ -303,6 +303,16 @@ assert.match(styles, /\.operations-center-mobile-search-row\s*\{[^}]*position:\s
   'mobile search remains a full-width sticky workflow control');
 assert.match(styles, /\.operations-center-mobile-card\s*\{[^}]*width:\s*100%;[^}]*box-sizing:\s*border-box;/s,
   'mobile selector cards fit their available width without horizontal overflow');
+assert.match(operationsModule, /isOperationsCenterMobileMode\(\) && key === mobileSelectedRecordKey \? '' : key/,
+  'only Mobile View toggles the currently expanded Work Order closed');
+assert.match(operationsModule, /renderOperationsCenterMobileDetail\(selected, document\.getElementById\(getMobileInlineDetailId\(selected\)\)\)/,
+  'Mobile View reuses the existing detail renderer inside the selected Work Order item');
+assert.match(operationsModule, /aria-expanded="' \+ \(expanded \? 'true' : 'false'\)/,
+  'mobile Work Order summary buttons expose their expanded state');
+assert.match(styles, /body\[data-view-mode="mobile"\]\[data-workspace-view="operations-center"\] \.operations-center-mobile-view\s*\{[^}]*grid-template-columns:\s*1fr;/s,
+  'forced Mobile View remains a single-column inline workflow at wider development viewports');
+assert.match(styles, /\.operations-center-mobile-inline-detail\s*\{[^}]*width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/s,
+  'inline detail content fits the card and wraps long values');
 assert.ok(apiClient.includes("work-orders/verified-statuses/latest"), 'API client can load WO-level default statuses');
 assert.match(apiClient, /appendOperationsCenterWorkOrderVerifiedStatus/, 'API client can append WO-level status events');
 assert.ok(server.includes('.RequireAuthorization(policy)'), 'WO endpoints remain under governed authorization');
@@ -330,8 +340,26 @@ const discardPromptElement = element('operationsCenterVerifiedStatusDiscardPromp
 });
 const saveElement = element('operationsCenterVerifiedStatusSave');
 const feedbackElement = element('operationsCenterMobileStatusFeedback', { hidden: true });
-element('operationsCenterMobileView', { hidden: true });
-context.document = { getElementById: id => mockElements.get(id) || null };
+const mobileViewElement = element('operationsCenterMobileView', { hidden: true });
+const mobileResultsElement = element('operationsCenterMobileResults');
+const mobileDetailElement = element('operationsCenterMobileDetail', { hidden: true });
+const operationsTableElement = element('operationsCenterTable');
+const inlineDetailElements = new Map();
+Object.defineProperty(mobileResultsElement, 'innerHTML', {
+  configurable: true,
+  get() { return this.renderedHtml || ''; },
+  set(value) {
+    this.renderedHtml = String(value || '');
+    inlineDetailElements.clear();
+    for (const match of this.renderedHtml.matchAll(/id="(operationsCenterMobileInlineDetail-[^"]+)"/g)) {
+      inlineDetailElements.set(match[1], { hidden: false, innerHTML: '' });
+    }
+  }
+});
+context.document = {
+  body: { dataset: { viewMode: 'mobile' } },
+  getElementById: id => mockElements.get(id) || inlineDetailElements.get(id) || null
+};
 let nextCorrelation = 0;
 context.window.DleApiClient.createRequestCorrelationId = () => 'test-correlation-' + (++nextCorrelation);
 context.window.setTimeout = callback => { context.pendingFeedbackCallback = callback; return 1; };
@@ -392,5 +420,61 @@ assert.equal(dialogElement.hidden, true, 'successful append closes the dialog');
 assert.equal(dirtyElement.hidden, true, 'successful append resets pending state');
 assert.equal(feedbackElement.textContent, 'Status logged');
 assert.equal(feedbackElement.hidden, false, 'success confirmation remains on the mobile surface after close');
+
+const secondWorkOrder = row('220', '12/04/26', '3', {
+  masterRecordKey: '001148|0012007|220',
+  vpro5: { salesOrder: '0012007', workOrder: '0115777', partNumber: 'SECOND-WO' },
+  workOrderApprovalReview: {
+    currentApproval: { approvedWorkOrderNumber: '0115777' }, operationalRelationship: null
+  }
+});
+oc.state.canonicalRows = rows.concat(secondWorkOrder);
+const interactionGroups = oc.viewModel.getWorkOrderGroups(oc.state.canonicalRows);
+const firstGroupKey = interactionGroups[0].key;
+const secondGroupKey = interactionGroups[1].key;
+oc.toggleMobileView(true);
+assert.equal(mobileViewElement.hidden, false);
+assert.equal(operationsTableElement.hidden, true);
+assert.equal((mobileResultsElement.innerHTML.match(/operations-center-mobile-item/g) || []).length, 2,
+  'Mobile View renders one inline-capable container per Work Order');
+assert.equal((mobileResultsElement.innerHTML.match(/aria-expanded="true"/g) || []).length, 0,
+  'Mobile View starts with every Work Order collapsed');
+assert.equal(inlineDetailElements.size, 0);
+assert.equal(mobileDetailElement.hidden, true, 'the former bottom detail panel stays hidden in Mobile View');
+assert.equal(mobileDetailElement.innerHTML, '');
+
+context.window.selectOperationsCenterMobileRecord({ currentTarget: { dataset: { mobileGroupKey: firstGroupKey } } });
+assert.equal((mobileResultsElement.innerHTML.match(/aria-expanded="true"/g) || []).length, 1);
+assert.equal(inlineDetailElements.size, 1, 'tapping WO A creates one inline detail region');
+assert.match([...inlineDetailElements.values()][0].innerHTML, /operations-center-mobile-detail-card/,
+  'WO A detail content is rendered immediately inside its inline region');
+assert.equal(mobileDetailElement.hidden, true);
+assert.equal(mobileDetailElement.innerHTML, '', 'Mobile View does not duplicate selected detail at the bottom');
+
+context.window.selectOperationsCenterMobileRecord({ currentTarget: { dataset: { mobileGroupKey: firstGroupKey } } });
+assert.equal((mobileResultsElement.innerHTML.match(/aria-expanded="true"/g) || []).length, 0,
+  'tapping WO A again collapses it');
+assert.equal(inlineDetailElements.size, 0);
+
+context.window.selectOperationsCenterMobileRecord({ currentTarget: { dataset: { mobileGroupKey: firstGroupKey } } });
+context.window.selectOperationsCenterMobileRecord({ currentTarget: { dataset: { mobileGroupKey: secondGroupKey } } });
+assert.equal((mobileResultsElement.innerHTML.match(/aria-expanded="true"/g) || []).length, 1,
+  'selecting WO B leaves exactly one expanded summary');
+assert.equal(inlineDetailElements.size, 1, 'selecting WO B replaces rather than duplicates WO A detail');
+assert.ok([...inlineDetailElements.keys()][0].endsWith(secondGroupKey.replace(/[^a-zA-Z0-9_-]/g, '-')));
+
+context.document.body.dataset.viewMode = 'desktop';
+context.window.selectOperationsCenterMobileRecord({ currentTarget: { dataset: { mobileGroupKey: firstGroupKey } } });
+context.window.selectOperationsCenterMobileRecord({ currentTarget: { dataset: { mobileGroupKey: firstGroupKey } } });
+assert.doesNotMatch(mobileResultsElement.innerHTML, /operations-center-mobile-item/,
+  'Desktop retains its original standalone result buttons');
+assert.equal(mobileDetailElement.hidden, false, 'Desktop retains the original shared detail panel behavior');
+assert.match(mobileDetailElement.innerHTML, /operations-center-mobile-detail-card/);
+
+context.document.body.dataset.viewMode = 'ipad';
+context.window.selectOperationsCenterMobileRecord({ currentTarget: { dataset: { mobileGroupKey: secondGroupKey } } });
+assert.doesNotMatch(mobileResultsElement.innerHTML, /operations-center-mobile-item/,
+  'iPad retains the original standalone result buttons');
+assert.equal(mobileDetailElement.hidden, false, 'iPad retains the original shared detail panel behavior');
 
 console.log('Operations Center work-order verified status grouping contracts: PASS');

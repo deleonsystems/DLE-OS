@@ -6,11 +6,11 @@
   transform: translateX(-50%);
 }
 
-body[data-view-mode="desktop"][data-workspace-view="shipping"] > main {
+body:is([data-view-mode="desktop"],[data-view-mode="ipad"])[data-workspace-view="shipping"] > main {
   max-width: none;
 }
 
-body[data-view-mode="desktop"][data-workspace-view="shipping"]
+body:is([data-view-mode="desktop"],[data-view-mode="ipad"])[data-workspace-view="shipping"]
   .workspace-home[data-workspace-home="shipping"] {
   width: 100%;
   margin-left: 0;

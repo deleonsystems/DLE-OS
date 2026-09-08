@@ -371,7 +371,7 @@
   display: block;
 }
 
-body[data-view-mode="desktop"] #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-document-grid {
+body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-document-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -386,8 +386,8 @@ body[data-view-mode="desktop"] #workOrderDashboardModule[data-dashboard-view="pr
   order: -1;
 }
 
-body[data-view-mode="desktop"] #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-document-grid > button,
-body[data-view-mode="desktop"] #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-document-grid > a {
+body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-document-grid > button,
+body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) #workOrderDashboardModule[data-dashboard-view="production"] .work-order-dashboard-module-document-grid > a {
   min-width: 0;
   min-height: 74px;
   display: flex;
@@ -1832,6 +1832,7 @@ body[data-view-mode="desktop"] #workOrderDashboardModule[data-dashboard-view="pr
     align-items: stretch;
   }
 }
+
 .work-order-dashboard-material-status {
   display: inline-flex;
   width: fit-content;
