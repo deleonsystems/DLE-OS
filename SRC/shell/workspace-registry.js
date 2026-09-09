@@ -29,7 +29,7 @@
       modulePath: "SRC/workspaces/technical-review/technical-review-workspace.js",
       stylePath: "SRC/workspaces/technical-review/technical-review-workspace.css",
       home: Object.freeze({
-        label: "Technical Review",
+        label: "TECHNICAL REVIEW",
         description: "Review Queue \u2022 Technical Package \u2022 Disposition",
         mark: "TR",
         requiredPermission: "technical_review.view",

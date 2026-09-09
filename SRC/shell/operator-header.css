@@ -10,6 +10,7 @@ body > header [hidden] { display:none!important }
 body[data-view-mode="desktop"] .dle-view-mode-toggle { padding-left:7px;padding-right:2px }
 body[data-view-mode="desktop"] .dle-view-mode-label { min-width:32px;height:36px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1 }
 body[data-view-mode="desktop"] .dle-view-mode-toggle select { height:36px;padding-top:0;padding-bottom:0;line-height:1;text-align:center;text-align-last:center;transform:translateY(-4px) }
+body[data-view-mode="ipad"] .dle-view-mode-toggle select { padding-top:0;padding-bottom:0;line-height:1;text-align:center;text-align-last:center;transform:translateY(-4px) }
 .dle-operator-header .logo { height:86px;flex:0 0 auto }
 body[data-view-mode="desktop"] .dle-operator-header .logo { cursor:pointer }
 .dle-operator-header .divider { height:54px;margin:0 2px }
@@ -42,7 +43,7 @@ body > main { margin-top:28px }
 .dle-mobile-view-fallback>div { display:grid;gap:8px }
 .dle-mobile-view-fallback strong { color:var(--blue);font-size:clamp(22px,5vw,32px) }
 .dle-mobile-view-fallback span { color:var(--muted);font-size:14px }
-body[data-view-mode="mobile"]:not([data-workspace-view="dle-home"]):not([data-workspace-view="operations-center"]):not([data-workspace-view="invoice-history"]) > main > :not(#dleMobileViewFallback) { display:none!important }
+body[data-view-mode="mobile"]:not([data-workspace-view="dle-home"]):not([data-workspace-view="operations-center"]):not([data-workspace-view="invoice-history"]):not([data-workspace-view="rfq-quoting"]) > main > :not(#dleMobileViewFallback) { display:none!important }
 @media(max-width:1280px){.dle-operator-header{flex-wrap:wrap;gap:7px 12px;padding:8px 14px}.dle-operator-header .logo{height:72px}.dle-operator-header .divider{height:44px}.dle-operator-header .title-wrap{flex:1 1 220px}.dle-header-right{flex:1 1 100%;justify-content:flex-end}}
 @media(max-width:760px){.dle-operator-header{align-items:center}.dle-operator-nav{order:1}.dle-view-mode-toggle{order:1;flex:0 0 166px;max-width:166px}.dle-operator-header .logo{order:2;height:64px}.dle-operator-header .divider{display:none}.dle-operator-header .title-wrap{order:3;min-width:150px}.dle-header-right{order:4;width:100%}.dle-factory-clock{font-size:11px;overflow:hidden;text-overflow:ellipsis}.dle-operator-header .app-title{white-space:normal}.dle-dev-controls{padding-inline:12px;max-height:55vh;overflow-y:auto}}
 @media(max-width:420px){.dle-operator-header{gap:7px 8px;padding-inline:10px}.dle-operator-nav .nav-btn,.dle-operator-nav .home-btn{padding-inline:10px;font-size:12px}.dle-view-mode-toggle{flex-basis:158px;max-width:158px;padding-left:7px}.dle-view-mode-toggle select{font-size:11px}.dle-header-right{display:grid;grid-template-columns:1fr;width:100%}.dle-identity-clock-stack{grid-row:1;width:100%}.dle-dev-secondary-slot{grid-row:2;justify-self:start}}
@@ -224,7 +225,7 @@ body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-view-mode-tog
 body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-header-right { width:max-content;justify-self:center;gap:4px }
 body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-dev-secondary-slot { gap:3px }
 body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-dev-secondary-slot>.dle-environment-badge,
-body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-dev-secondary-slot>.dle-dev-toggle { width:46px;min-width:46px;height:34px;min-height:34px;padding:4px 5px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
+body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-dev-secondary-slot>.dle-dev-toggle { width:40px;min-width:40px;height:30px;min-height:30px;padding:3px 4px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
 body[data-view-mode="mobile"][data-workspace-view="dle-home"] #dleEnvironmentBadge { line-height:1 }
 body[data-view-mode="mobile"][data-workspace-view="dle-home"] .dle-identity-clock-stack:not(:has(#dle-auth-signout)) { display:none }
 body[data-view-mode="mobile"][data-workspace-view="dle-home"] > main { margin-top:6px }
@@ -240,7 +241,7 @@ body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-view
 body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-header-right { width:max-content;justify-self:center;gap:4px }
 body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-dev-secondary-slot { gap:3px }
 body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-dev-secondary-slot>.dle-environment-badge,
-body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-dev-secondary-slot>.dle-dev-toggle { width:46px;min-width:46px;height:34px;min-height:34px;padding:4px 5px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
+body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-dev-secondary-slot>.dle-dev-toggle { width:40px;min-width:40px;height:30px;min-height:30px;padding:3px 4px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
 body[data-view-mode="mobile"][data-workspace-view="operations-center"] #dleEnvironmentBadge { line-height:1 }
 body[data-view-mode="mobile"][data-workspace-view="operations-center"] .dle-identity-clock-stack:not(:has(#dle-auth-signout)) { display:none }
 body[data-view-mode="mobile"][data-workspace-view="operations-center"] > main { margin-top:6px }
@@ -256,10 +257,30 @@ body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-view-m
 body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-header-right { width:max-content;justify-self:center;gap:4px }
 body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-dev-secondary-slot { gap:3px }
 body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-dev-secondary-slot>.dle-environment-badge,
-body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-dev-secondary-slot>.dle-dev-toggle { width:46px;min-width:46px;height:34px;min-height:34px;padding:4px 5px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
+body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-dev-secondary-slot>.dle-dev-toggle { width:40px;min-width:40px;height:30px;min-height:30px;padding:3px 4px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
 body[data-view-mode="mobile"][data-workspace-view="invoice-history"] #dleEnvironmentBadge { line-height:1 }
 body[data-view-mode="mobile"][data-workspace-view="invoice-history"] .dle-identity-clock-stack:not(:has(#dle-auth-signout)) { display:none }
 body[data-view-mode="mobile"][data-workspace-view="invoice-history"] > main { margin-top:6px }
+
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-operator-header { padding:3px max(8px,env(safe-area-inset-right,0)) 3px max(8px,env(safe-area-inset-left,0));grid-template-columns:auto minmax(95px,1fr) auto;grid-template-areas:"brand identity mode" "navigation navigation navigation";gap:2px 4px }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-operator-header .app-title { font-size:14px;line-height:1.05 }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] #activeWorkAreaLabel { font-size:10px;line-height:1.05 }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-operator-nav { gap:5px }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-operator-nav .nav-btn,
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-operator-nav .home-btn { min-height:40px;padding:6px 9px }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-view-mode-toggle { width:150px;height:36px;min-height:36px;padding:1px 3px 1px 7px }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-view-mode-toggle select { min-height:32px;padding:4px 3px;font-size:10.5px }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-header-right { width:max-content;justify-self:center;gap:4px }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-dev-secondary-slot { gap:3px }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-dev-secondary-slot>.dle-environment-badge,
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-dev-secondary-slot>.dle-dev-toggle { width:40px;min-width:40px;height:30px;min-height:30px;padding:3px 4px;display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] #dleEnvironmentBadge { line-height:1 }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] #dle-auth-details,
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] #dle-auth-name { display:none }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] #dle-auth-identity:not(:has(#dle-auth-signout)) { display:none!important }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-identity-clock-stack:not(:has(#dle-auth-signout)) { display:none }
+body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] > main { margin-top:0;padding-top:0 }
+body[data-view-mode="mobile"] .dle-view-mode-toggle select { text-align:center;text-align-last:center;transform:translateY(-4px) }
 
 @media screen {
   html {

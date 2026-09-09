@@ -5,7 +5,7 @@
   const INTAKE_WIZARD_HOME_ENTRY = Object.freeze({
     id: "rfq-quoting",
     home: Object.freeze({
-      label: "Intake Wizard",
+      label: "INTAKE WIZARD",
       description: "Guided Intake \u2022 Customer \u2022 Quote Request",
       mark: "IW",
       preserveLabelCase: true

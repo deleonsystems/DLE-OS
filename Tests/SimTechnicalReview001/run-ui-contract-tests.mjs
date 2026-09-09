@@ -15,6 +15,7 @@ const store = read("Tools/SimRuntime/DleOs.SimHost/SimRfqIntakeStore.cs");
 const personas = read("Tools/SimRuntime/DleOs.SimHost/SimPersonaCatalog.cs");
 
 assert.match(registry, /id: "technical-review"[\s\S]*?label: "Technical Review"/);
+assert.match(registry, /id: "technical-review"[\s\S]*?home: Object\.freeze\(\{[\s\S]*?label: "TECHNICAL REVIEW"/);
 assert.match(registry, /modulePath: "SRC\/workspaces\/technical-review\/technical-review-workspace\.js"/);
 assert.match(registry, /stylePath: "SRC\/workspaces\/technical-review\/technical-review-workspace\.css"/);
 assert.match(registry, /description: "Review Queue \\u2022 Technical Package \\u2022 Disposition"/);
@@ -23,6 +24,7 @@ assert.match(home, /workAreas = window\.DleWorkspaceRegistry\.all\(\)\.filter/);
 assert.match(home, /window\.setWorkspaceView\(workspaceId\)/);
 
 for (const text of ["Technical Review", "Review Queue", "PRIMARY WORKLIST"]) assert.ok(markup.includes(text));
+assert.match(markup, /<h1 id="technicalReviewTitle">Technical Review<\/h1>/);
 for (const text of ["RFQ Review", "Have we built this assembly before?", "Existing Assembly — History Found", "New Assembly", "No previous DLE build history found"]) assert.ok(workspace.includes(text), text);
 assert.doesNotMatch(workspace, /<form|assemblyDrawingFile|gerbersRequired|materialResponsibility|B11283-17/);
 assert.match(workspace, /assembly-classification/);
