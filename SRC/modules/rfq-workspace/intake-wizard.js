@@ -44,10 +44,34 @@
 
   function render() {
     if (!root) return;
-    root.querySelector("#intakeProgressBar").style.width = Math.round((Math.min(state.currentStep, 10) / 10) * 100) + "%";
+    restoreProgressBeforeLayout();
     root.querySelector("#intakeAnswers").innerHTML = renderAnswers();
     root.querySelector("#intakeConversation").innerHTML = renderStep();
+    syncProgressPlacement();
+    root.querySelector("#intakeProgressBar").style.width = Math.round((Math.min(state.currentStep, 10) / 10) * 100) + "%";
     window.setTimeout(() => root.querySelector("[data-intake-autofocus]")?.focus?.(), 0);
+  }
+
+  function restoreProgressBeforeLayout() {
+    const progress = root?.querySelector(".intake-progress");
+    const layout = root?.querySelector(".intake-layout");
+    if (progress && layout && (progress.parentElement !== layout.parentElement || progress.nextElementSibling !== layout)) {
+      layout.insertAdjacentElement("beforebegin", progress);
+    }
+  }
+
+  function syncProgressPlacement() {
+    const progress = root?.querySelector(".intake-progress");
+    const layout = root?.querySelector(".intake-layout");
+    const conversation = root?.querySelector("#intakeConversation");
+    if (!progress || !layout || !conversation) return;
+    if (document.body?.dataset?.viewMode === "mobile") {
+      const stepLabel = conversation.querySelector(".intake-step-label");
+      if (stepLabel) stepLabel.insertAdjacentElement("afterend", progress);
+      else conversation.prepend(progress);
+      return;
+    }
+    restoreProgressBeforeLayout();
   }
 
   function firstName() {
@@ -172,6 +196,27 @@
       '<button type="button" data-intake-action="restart" class="intake-primary">Start another intake</button>';
   }
 
+  function clearAnswerForStep(stepIndex) {
+    const step = STEPS[stepIndex];
+    if (step === "intake-type") state.intakeType = "";
+    if (step === "customer") state.customer = null;
+    if (step === "assembly-count") state.assemblyCount = null;
+    if (step === "assembly-number") state.assemblies[0].assemblyNumber = "";
+    if (step === "revision") state.assemblies[0].revision = "";
+    if (step === "quantity") state.assemblies[0].quantity = null;
+    if (step === "scope") state.deLeonScope = "";
+    if (step === "technical-files") state.technicalFilesProvided = null;
+    if (step === "file-association") state.technicalFiles = [];
+    if (step === "requirements") state.customerRequirements = ["PRICE"];
+  }
+
+  function goBack() {
+    const previousStep = Math.max(0, state.currentStep - 1);
+    clearAnswerForStep(previousStep);
+    state.currentStep = previousStep;
+    render();
+  }
+
   function handleClick(event) {
     const selected = event.target.closest("[data-intake-choice]");
     if (selected) return selectChoice(selected.dataset.intakeChoice, selected.dataset.intakeValue);
@@ -182,7 +227,7 @@
     const remove = event.target.closest("[data-intake-remove-file]");
     if (remove) { state.technicalFiles.splice(Number(remove.dataset.intakeRemoveFile), 1); return render(); }
     const action = event.target.closest("[data-intake-action]")?.dataset.intakeAction;
-    if (action === "back") { state.currentStep = Math.max(0, state.currentStep - 1); render(); }
+    if (action === "back") goBack();
     if (action === "continue") continueFromFiles();
     if (action === "submit") submitIntake();
     if (action === "restart") { state = createState(); committed = null; render(); }
@@ -365,5 +410,6 @@
   }
   function snapshot() { return committed ? JSON.parse(JSON.stringify(committed)) : null; }
 
+  document.addEventListener?.("dle:view-mode-change", syncProgressPlacement);
   window.DleIntakeWizard = Object.freeze({ mount, getCommittedIntake: snapshot });
 })(window, document);
