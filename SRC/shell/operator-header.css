@@ -7,7 +7,11 @@ body > header [hidden] { display:none!important }
 .dle-view-mode-label { flex:0 0 auto;color:var(--muted);font:700 11px/1 system-ui,sans-serif;white-space:nowrap }
 .dle-view-mode-toggle select { min-width:0;min-height:36px;flex:1 1 auto;padding:6px 4px;border:0;border-radius:5px;background:var(--blue);color:var(--text);font:700 12px/1 system-ui,sans-serif;cursor:pointer;touch-action:manipulation }
 .dle-view-mode-toggle select:focus-visible { outline:3px solid var(--blue-soft);outline-offset:-1px }
+body[data-view-mode="desktop"] .dle-view-mode-toggle { padding-left:7px;padding-right:2px }
+body[data-view-mode="desktop"] .dle-view-mode-label { min-width:32px;height:36px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1 }
+body[data-view-mode="desktop"] .dle-view-mode-toggle select { height:36px;padding-top:0;padding-bottom:0;line-height:1;text-align:center;text-align-last:center;transform:translateY(-4px) }
 .dle-operator-header .logo { height:86px;flex:0 0 auto }
+body[data-view-mode="desktop"] .dle-operator-header .logo { cursor:pointer }
 .dle-operator-header .divider { height:54px;margin:0 2px }
 .dle-operator-header .title-wrap { min-width:175px;flex:1 1 auto }
 .dle-operator-header .app-title { display:grid;grid-template-rows:auto auto;justify-items:start;gap:4px;font-size:clamp(19px,2vw,25px);line-height:1;white-space:normal }

@@ -129,8 +129,35 @@
     if (typeof toggle === 'function') toggle(viewMode === MOBILE_VIEW_MODE);
   }
 
+  function syncDesktopLogoNavigation() {
+    if (typeof document.querySelector !== 'function') return;
+    const logo = document.querySelector('.dle-operator-header .logo');
+    if (!logo) return;
+    if (logo.dataset.homeNavigationInitialized !== 'true') {
+      logo.dataset.homeNavigationInitialized = 'true';
+      logo.addEventListener('click', () => {
+        if (viewMode === DESKTOP_VIEW_MODE) window.goHome?.();
+      });
+      logo.addEventListener('keydown', event => {
+        if (viewMode !== DESKTOP_VIEW_MODE || (event.key !== 'Enter' && event.key !== ' ')) return;
+        event.preventDefault();
+        window.goHome?.();
+      });
+    }
+    if (viewMode === DESKTOP_VIEW_MODE) {
+      logo.setAttribute('role', 'button');
+      logo.setAttribute('tabindex', '0');
+      logo.setAttribute('aria-label', 'Go to Home');
+    } else {
+      logo.removeAttribute('role');
+      logo.removeAttribute('tabindex');
+      logo.removeAttribute('aria-label');
+    }
+  }
+
   function applyWorkspaceViewMode() {
     if (document.body?.dataset) document.body.dataset.viewMode = viewMode;
+    syncDesktopLogoNavigation();
     const workspaceId = document.body?.dataset?.workspaceView || 'dle-home';
     const homeActive = workspaceId === 'dle-home';
     const operationsCenterActive = workspaceId === 'operations-center';
