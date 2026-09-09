@@ -105,6 +105,18 @@
     mount = document.querySelector('[data-workspace-mount="' + WORKSPACE_ID + '"]');
     if (!mount) return;
 
+    const simRuntime = document.body?.dataset?.simRuntime === "true" &&
+      window.DleOsRuntimeConfig?.rfqIntakeMode === "SIM_PHASE1";
+    if (simRuntime && !window.DleIntakeWizard) {
+      await loadIntakeWizardScript();
+    }
+
+    if (simRuntime && window.DleIntakeWizard) {
+      window.DleIntakeWizard.mount(mount);
+      mount.dataset.workspaceLoaded = "true";
+      return;
+    }
+
     if (mount.dataset.workspaceLoaded !== "true") {
       mount.innerHTML = '<div class="workspace-dashboard-card"><h3>Loading RFQ Workspace</h3><p>Preparing RFQ Initialization...</p></div>';
       const response = await fetch(TEMPLATE_PATH);
@@ -116,6 +128,24 @@
     bindEvents();
     render();
     await loadReferenceCatalog();
+  }
+
+  function loadIntakeWizardScript() {
+    const existing = document.querySelector('script[data-dle-intake-wizard]');
+    if (existing) {
+      return new Promise((resolve, reject) => {
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", () => reject(new Error("Unable to load Intake Wizard.")), { once: true });
+      });
+    }
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "SRC/modules/rfq-workspace/intake-wizard.js";
+      script.dataset.dleIntakeWizard = "true";
+      script.addEventListener("load", resolve, { once: true });
+      script.addEventListener("error", () => reject(new Error("Unable to load Intake Wizard.")), { once: true });
+      document.head.appendChild(script);
+    });
   }
 
   async function loadReferenceCatalog() {
@@ -1815,6 +1845,7 @@
   }
 
   function getSnapshot() {
+    if (window.DleIntakeWizard) return window.DleIntakeWizard.getCommittedIntake();
     return committedInitialization ? JSON.parse(JSON.stringify(committedInitialization)) : null;
   }
 

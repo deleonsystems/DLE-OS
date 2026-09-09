@@ -20,7 +20,8 @@ internal static partial class SimShellRenderer
             syntheticData = true,
             lanMode,
             safeUrl,
-            operationsCenterMode = "SIM_STATEFUL_VERIFIED_STATUS"
+            operationsCenterMode = "SIM_STATEFUL_VERIFIED_STATUS",
+            rfqIntakeMode = "SIM_PHASE1"
         });
 
         html = TitlePattern().Replace(html, "<title>DLE-OS SIM — SYNTHETIC DATA</title>", 1);

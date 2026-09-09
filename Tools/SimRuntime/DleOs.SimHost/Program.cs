@@ -29,6 +29,7 @@ var simDocuments = new SimDocumentStore(runtime.RepositoryRoot, runtime.StateRoo
 if (simState.Current.IsHealthy)
     await simDocuments.InitializeAsync();
 var operationsData = new SimOperationsDataStore(runtime.RepositoryRoot, runtime.StateRoot);
+var rfqIntakes = new SimRfqIntakeStore(runtime.StateRoot);
 if (simState.Current.IsHealthy)
     await operationsData.InitializeAsync(simState.Current.Metadata!);
 var runtimeMetadataPath = SimRuntimeOptions.ResolveStatePath(runtime.StateRoot, "runtime", "runtime.json");
@@ -132,7 +133,7 @@ app.MapGet("/api/runtime/info", () => Results.Json(new
     networkBoundary = runtime.LanMode ? "PRIVATE_LAN_HTTPS" : "LOOPBACK_ONLY",
     lanMode = runtime.LanMode,
     safeUrl = runtime.LanMode ? applicationOrigin : null,
-    businessApis = "STATEFUL_VERIFIED_STATUS"
+    businessApis = "STATEFUL_VERIFIED_STATUS_AND_RFQ_INTAKE"
 }));
 
 app.MapGet("/api/auth/me", (HttpContext context) =>
@@ -248,7 +249,7 @@ app.MapGet("/api/sim/status", (HttpContext context) => Results.Json(new
     safeUrl = runtime.LanMode ? applicationOrigin : null,
     stateRoot = runtime.StateRoot,
     outboundProviders = Array.Empty<string>(),
-    businessApis = "STATEFUL_VERIFIED_STATUS",
+    businessApis = "STATEFUL_VERIFIED_STATUS_AND_RFQ_INTAKE",
     currentPersonaId = personaSessions.Resolve(context).Id,
     fault = simFaults.StateContract(),
     state = simState.StatusContract(),
@@ -268,6 +269,7 @@ app.MapGet("/site.webmanifest", () => Results.File(
     "application/manifest+json"));
 
 SimOperationsEndpoints.Map(app, simState, operationsData, personaSessions, simFaults);
+SimRfqIntakeEndpoints.Map(app, simState, rfqIntakes, personaSessions);
 SimDocumentEndpoints.Map(app, simState, personaSessions, simDocuments);
 
 app.MapMethods("/api/{**path}",

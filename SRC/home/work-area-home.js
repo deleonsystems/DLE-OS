@@ -1,7 +1,16 @@
 (function registerWorkAreaHome(window, document) {
   "use strict";
 
-  const MOBILE_READY_WORKSPACE_IDS = new Set(["operations-center", "invoice-history"]);
+  const MOBILE_READY_WORKSPACE_IDS = new Set(["operations-center", "invoice-history", "rfq-quoting"]);
+  const INTAKE_WIZARD_HOME_ENTRY = Object.freeze({
+    id: "rfq-quoting",
+    home: Object.freeze({
+      label: "Intake Wizard",
+      description: "Guided Intake \u2022 Customer \u2022 Quote Request",
+      mark: "IW",
+      preserveLabelCase: true
+    })
+  });
 
   function greeting() {
     const hour = new Date().getHours();
@@ -25,9 +34,12 @@
       const assignment = workspace.home;
       return assignment && capabilities.can(assignment.requiredPermission);
     });
+    const homeEntries = isSimIntakeEnabled()
+      ? [INTAKE_WIZARD_HOME_ENTRY, ...workAreas]
+      : workAreas;
 
     if (window.DleOperatorHeader?.isMobileView?.() || document.body?.dataset?.viewMode === "mobile") {
-      renderMobile(root, firstName, workAreas);
+      renderMobile(root, firstName, homeEntries);
       return;
     }
 
@@ -38,10 +50,10 @@
       '<p>What are you working on?</p>',
       '</section>',
       '<section class="work-area-home-grid" aria-label="Assigned work areas">',
-      workAreas.length ? workAreas.map(workspace => [
+      homeEntries.length ? homeEntries.map(workspace => [
         '<button type="button" class="work-area-card" data-work-area="', escapeHtml(workspace.id), '">',
         '<span class="work-area-card-mark" aria-hidden="true">', escapeHtml(workspace.home.mark || workspace.home.label.slice(0, 2)), '</span>',
-        '<span><strong>', escapeHtml(workspace.home.label.toUpperCase()), '</strong>',
+        '<span><strong>', escapeHtml(homeLabel(workspace)), '</strong>',
         '<small>', escapeHtml(workspace.home.description), '</small></span>',
         '<span class="work-area-card-arrow" aria-hidden="true">\u2192</span>',
         '</button>'
@@ -88,6 +100,17 @@
       mobileReady ? '<span class="mobile-home-card-arrow" aria-hidden="true">\u2192</span>' : '',
       '</', element, '>'
     ].join("");
+  }
+
+  function isSimIntakeEnabled() {
+    return document.body?.dataset?.simRuntime === "true" &&
+      window.DleOsRuntimeConfig?.rfqIntakeMode === "SIM_PHASE1";
+  }
+
+  function homeLabel(workspace) {
+    return workspace.home.preserveLabelCase
+      ? workspace.home.label
+      : workspace.home.label.toUpperCase();
   }
 
   function enter(workspaceId) {

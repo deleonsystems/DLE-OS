@@ -52,7 +52,7 @@ internal static class SimPersonaCatalog
         new SimPersona("operations-manager", "sim.operations", "Operations Manager", "ACTIVE",
             ["SIM_OPERATIONS_MANAGER"],
             ["work_orders.view", "kitting.view", "rma_rework.view", "shipments.view",
-             "sync.operations", "operations-center.verified-status.write"], false,
+             "sync.operations", "operations-center.verified-status.write", "rfq.intake.create"], false,
             "Operational visibility, Operations Center access, and verified-status authority."),
         new SimPersona("kitting-operator", "sim.kitting", "Kitting Operator", "ACTIVE",
             ["SIM_KITTING_OPERATOR"], ["kitting.view", "kitting.disposition"], false,

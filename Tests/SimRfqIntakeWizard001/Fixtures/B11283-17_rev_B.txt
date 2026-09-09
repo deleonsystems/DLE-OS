@@ -1,0 +1,3 @@
+DLE-OS SIM synthetic technical document fixture
+Assembly: B11283-17
+Revision: B

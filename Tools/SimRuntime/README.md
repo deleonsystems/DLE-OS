@@ -3,12 +3,12 @@
 The SIM runtime provides the shared DLE-OS shell, its frozen isolation
 boundary, deterministic synthetic personas, a disposable state/reset
 foundation, read-only synthetic Operations Center, Invoice History,
-Purchasing, Kitting, and Production slices, and one stateful Operations Center
-Verified Status workflow. A small deterministic fault overlay can exercise
+Purchasing, Kitting, and Production slices, a stateful Operations Center
+Verified Status workflow, and the Phase 1 RFQ Intake Wizard. A small deterministic fault overlay can exercise
 that workflow's failure boundaries without changing the normal business
 contracts. The Home-backed Kitting path also provides one shared Kit ID label
 preview and one local synthetic Kitted BOM PDF. It does not provide refresh
-execution, other business writes, external integration, native Explorer, or
+execution, other business writes beyond RFQ Intake, external integration, native Explorer, or
 physical printing. Phase 13 adds an explicit, HTTPS-only private-LAN mode for
 trusted mobile-device qualification; loopback remains the default.
 
@@ -77,6 +77,17 @@ contract: trimmed, required, and at most 1,000 characters. Reusing a request
 correlation ID returns the original event without appending a duplicate.
 `operations-center.verified-status.write` is enforced server-side. Individual
 line status writes remain unavailable in this phase.
+
+The SIM RFQ Intake Wizard is the scoped conversational front door for New
+Quote Requests. It uses the signed-in synthetic persona, resolves the tracked
+Abbott qualification fixture through the same-origin customer-directory
+contract, and persists a schema-versioned structured handoff in
+`.sim-state/data/rfq-intakes.json`. The write validates customer identity,
+assembly count, explicit revision, quantity, De Leon scope, technical-file
+metadata, and Price + Lead Time requirements. Correlation IDs make retries
+idempotent. Technical document binaries are not copied in this slice; the
+record preserves their metadata and flags governed source-file placement as
+required before RFQ Qualification.
 
 The SIM panel also exposes these local, deterministic fault profiles:
 
@@ -185,4 +196,5 @@ Run the focused qualification suite with:
 & .\Tests\SimDocumentsPrint001\run-tests.ps1
 & .\Tests\SimDesktopVisual001\run-tests.ps1
 & .\Tests\SimLanMode001\run-tests.ps1
+& .\Tests\SimRfqIntakeWizard001\run-tests.ps1
 ```
