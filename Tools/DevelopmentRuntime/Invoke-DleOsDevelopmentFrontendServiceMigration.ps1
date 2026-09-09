@@ -299,7 +299,7 @@ try{
 
     New-Item -ItemType Directory -Path $release -Force|Out-Null;$releaseCreated=$true
     Copy-Item -Path (Join-Path $publish '*') -Destination $release -Recurse -Force;Copy-Item $configurationSource $serviceConfiguration -Force
-    $localAccountCreated=$true;New-LocalUser -Name $serviceAccountName -Password $handoff.SecurePassword -AccountNeverExpires -UserMayNotChangePassword -Description 'DLE-OS isolated DEV frontend Windows Service'|Out-Null
+    $localAccountCreated=$true;New-LocalUser -Name $serviceAccountName -Password $handoff.SecurePassword -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -Description 'DLE-OS isolated DEV frontend Windows Service'|Out-Null
     Get-LocalGroup|ForEach-Object{Remove-LocalGroupMember -Group $_.Name -Member $serviceIdentity -ErrorAction SilentlyContinue}
     [DleOsServiceAccountRights]::ValidateCredential($serviceIdentity,$handoff.SecurePassword)
     if(-not[DleOsServiceAccountRights]::HasRight($serviceIdentity,$serviceLogonRight)){$serviceLogonRightAdded=$true;[DleOsServiceAccountRights]::AddRight($serviceIdentity,$serviceLogonRight)}
