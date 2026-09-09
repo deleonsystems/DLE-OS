@@ -8,6 +8,7 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), "utf
 
 const registry = read("SRC/shell/workspace-registry.js");
 const home = read("SRC/home/work-area-home.js");
+const homeStyles = read("SRC/home/work-area-home.css");
 const source = read("SRC/workspaces/purchasing/purchasing-workspace.js");
 const markup = read("SRC/workspaces/purchasing/purchasing-workspace.html");
 const styles = read("SRC/workspaces/purchasing/purchasing-workspace.css");
@@ -21,6 +22,10 @@ assert.match(registry, /id: "purchasing"[\s\S]*?modulePath: "SRC\/workspaces\/pu
 assert.match(registry, /id: "purchasing"[\s\S]*?stylePath: "SRC\/workspaces\/purchasing\/purchasing-workspace\.css"/);
 assert.match(home, /workAreas\.map\(workspace =>[\s\S]*?class="work-area-card"[\s\S]*?workspace\.home\.mark[\s\S]*?workspace\.home\.label\.toUpperCase\(\)[\s\S]*?workspace\.home\.description[\s\S]*?work-area-card-arrow/);
 assert.match(home, /function enter\(workspaceId\)[\s\S]*?setWorkspaceView\(workspaceId\)[\s\S]*?window\.go\(screenId, false\)/);
+assert.match(homeStyles, /body\[data-view-mode="desktop"\] \.work-area-card\{grid-template-columns:auto minmax\(0,1fr\) 30px\}/);
+assert.match(homeStyles, /body\[data-view-mode="desktop"\] \.work-area-card-arrow\{width:30px;display:grid;place-items:center;justify-self:end;align-self:center;line-height:1\}/);
+assert.doesNotMatch(homeStyles, /body\[data-view-mode="ipad"\] \.work-area-card-arrow/);
+assert.doesNotMatch(homeStyles, /body\[data-view-mode="mobile"\] \.work-area-card-arrow/);
 assert.match(identityUi, /purchasing:'kitting\.view'/);
 
 assert.match(markup, /class="production-workspace purchasing-workspace"/);

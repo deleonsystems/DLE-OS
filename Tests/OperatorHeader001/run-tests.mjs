@@ -19,6 +19,7 @@ const runtimeUi = fs.readFileSync('Tools/DevelopmentRuntime/DleOs.DevelopmentFro
 const employeeUi = fs.readFileSync('Tools/DevelopmentRuntime/DleOs.DevelopmentFrontend/EmployeeDirectoryUi.cs', 'utf8');
 
 assert.match(shell, /class="dle-operator-header"/);
+assert.match(shell, /<img class="logo"/);
 assert.match(shell, /&larr; Back/);
 assert.match(shell, /onclick="goHome\(\)"/);
 assert.match(shell, /id="dleFactoryClock"/);
@@ -72,18 +73,28 @@ assert.match(script, /window\.DleWorkAreaHome\?\.render\?\.\(\)/);
 assert.match(script, /getViewMode/);
 assert.match(script, /setViewMode/);
 assert.match(script, /isIpadView/);
+assert.match(script, /document\.querySelector\('\.dle-operator-header \.logo'\)/);
+assert.match(script, /viewMode === DESKTOP_VIEW_MODE\) window\.goHome\?\.\(\)/);
+assert.match(script, /event\.key !== 'Enter' && event\.key !== ' '/);
+assert.match(script, /logo\.setAttribute\('role', 'button'\)/);
+assert.match(script, /logo\.setAttribute\('tabindex', '0'\)/);
+assert.match(script, /logo\.setAttribute\('aria-label', 'Go to Home'\)/);
+assert.match(script, /logo\.removeAttribute\('role'\)/);
 assert.match(workspace, /mode\.textContent = isHome \? "HOME" : workspace\.label\.toUpperCase\(\)/);
 assert.doesNotMatch(workspace, /changeWorkAreaButton/);
 assert.match(workAreaHome, /window\.changeWorkArea = function changeWorkArea\(\)/);
 assert.match(workAreaHome, /MOBILE_READY_WORKSPACE_IDS = new Set\(\["operations-center", "invoice-history"\]\)/);
 assert.match(workAreaHome, /MOBILE_READY_WORKSPACE_IDS\.has\(workspace\.id\)/);
 assert.match(workAreaHome, /data-mobile-work-area=/);
-assert.match(workAreaHome, /if \(hour < 12\) return "Good morning";/);
+assert.match(workAreaHome, /if \(hour < 12\) return "Good Morning";/);
 assert.match(workAreaHome, /if \(hour < 18\) return "Good Afternoon";/);
 assert.match(workAreaHome, /return "Good evening";/);
 assert.equal((workAreaHome.match(/escapeHtml\(greeting\(\)\)/g) || []).length, 2);
 
 assert.match(styles, /\.dle-operator-header \.logo \{ height:86px/);
+assert.match(styles, /body\[data-view-mode="desktop"\] \.dle-operator-header \.logo \{ cursor:pointer \}/);
+assert.doesNotMatch(styles, /body\[data-view-mode="ipad"\][^{]*\.logo[^}]*cursor:pointer/);
+assert.doesNotMatch(styles, /body\[data-view-mode="mobile"\][^{]*\.logo[^}]*cursor:pointer/);
 assert.match(styles, /\.dle-operator-header \.app-title \{[^}]*display:grid[^}]*grid-template-rows:auto auto[^}]*justify-items:start/);
 assert.match(styles, /\.dle-work-area-separator \{ display:none \}/);
 assert.match(styles, /#activeWorkAreaLabel \{[^}]*display:block[^}]*justify-self:start/);
@@ -110,6 +121,13 @@ assert.match(styles, /\.dle-identity-clock-stack>.top-pills \{ width:100%/);
 assert.match(styles, /\.dle-identity-clock-stack #dle-auth-identity \{ width:100%;max-width:100%[^}]*justify-content:space-between/);
 assert.match(styles, /\.dle-view-mode-toggle \{[^}]*width:166px[^}]*height:44px[^}]*min-height:44px[^}]*display:flex[^}]*margin:0/);
 assert.match(styles, /\.dle-view-mode-toggle select \{[^}]*min-height:36px[^}]*background:var\(--blue\)/);
+assert.match(styles, /body\[data-view-mode="desktop"\] \.dle-view-mode-toggle \{ padding-left:7px;padding-right:2px \}/);
+assert.match(styles, /body\[data-view-mode="desktop"\] \.dle-view-mode-label \{ min-width:32px;height:36px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1 \}/);
+assert.match(styles, /body\[data-view-mode="desktop"\] \.dle-view-mode-toggle select \{ height:36px;padding-top:0;padding-bottom:0;line-height:1;text-align:center;text-align-last:center;transform:translateY\(-4px\) \}/);
+assert.doesNotMatch(styles, /body\[data-view-mode="desktop"\] \.dle-view-mode-toggle select \{[^}]*(?:min-|max-)?width:/);
+assert.doesNotMatch(styles, /body\[data-view-mode="ipad"\][^{]*\.dle-view-mode-(?:label|toggle select)[^}]*height:36px/);
+assert.doesNotMatch(styles, /body\[data-view-mode="mobile"\][^{]*\.dle-view-mode-label[^}]*height:36px/);
+assert.doesNotMatch(styles, /body\[data-view-mode="(?:ipad|mobile)"\][^{]*\.dle-view-mode-toggle[^}]*padding-left:7px/);
 assert.match(styles, /body\[data-view-mode="mobile"\][^\n]*data-workspace-view="operations-center"/);
 assert.match(styles, /:not\(\[data-workspace-view="invoice-history"\]\)/);
 assert.match(styles, /@media\(max-width:420px\)[^\n]*\.dle-view-mode-toggle\{flex-basis:158px;max-width:158px/);
@@ -242,5 +260,52 @@ reloadContext.window.window = reloadContext.window;
 vm.createContext(reloadContext);
 vm.runInContext(script, reloadContext);
 assert.equal(reloadContext.window.DleOperatorHeader.getViewMode(), 'ipad');
+
+const logoListeners = new Map();
+const logoAttributes = new Map();
+const logo = {
+  dataset: {},
+  addEventListener(type, listener) { logoListeners.set(type, listener); },
+  setAttribute(name, value) { logoAttributes.set(name, value); },
+  removeAttribute(name) { logoAttributes.delete(name); }
+};
+let logoHomeCalls = 0;
+const logoStorage = new Map([['DLE_OS_VIEW_MODE', 'desktop']]);
+const logoContext = {
+  window: {
+    setInterval() { return 1; },
+    goHome() { logoHomeCalls += 1; },
+    localStorage: {
+      getItem(key) { return logoStorage.get(key) ?? null; },
+      setItem(key, value) { logoStorage.set(key, String(value)); }
+    }
+  },
+  document: {
+    body: { dataset: { workspaceView: 'dle-home' } },
+    getElementById() { return null; },
+    querySelector(selector) { return selector === '.dle-operator-header .logo' ? logo : null; },
+    addEventListener() {}
+  },
+  Intl, Date, console
+};
+logoContext.window.window = logoContext.window;
+vm.createContext(logoContext);
+vm.runInContext(script, logoContext);
+assert.equal(logoAttributes.get('role'), 'button');
+assert.equal(logoAttributes.get('tabindex'), '0');
+assert.equal(logoAttributes.get('aria-label'), 'Go to Home');
+logoListeners.get('click')();
+assert.equal(logoHomeCalls, 1);
+logoContext.window.DleOperatorHeader.setViewMode('ipad');
+assert.equal(logoAttributes.has('role'), false);
+logoListeners.get('click')();
+assert.equal(logoHomeCalls, 1);
+logoContext.window.DleOperatorHeader.setViewMode('mobile');
+assert.equal(logoAttributes.has('tabindex'), false);
+logoContext.window.DleOperatorHeader.setViewMode('desktop');
+let prevented = false;
+logoListeners.get('keydown')({ key: 'Enter', preventDefault() { prevented = true; } });
+assert.equal(prevented, true);
+assert.equal(logoHomeCalls, 2);
 
 console.log('Operator-first header layout, persisted Desktop/iPad/Mobile selection, and responsive contracts: PASS');
