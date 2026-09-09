@@ -20,7 +20,7 @@ const identityUi = read("Tools/DevelopmentRuntime/DleOs.DevelopmentFrontend/Deve
 assert.match(registry, /id: "purchasing"[\s\S]*?label: "Purchasing"[\s\S]*?description: "Shortages \\u2022 POs \\u2022 Due Dates \\u2022 Receiving"[\s\S]*?mark: "PU"[\s\S]*?requiredPermission: "kitting\.view"/);
 assert.match(registry, /id: "purchasing"[\s\S]*?modulePath: "SRC\/workspaces\/purchasing\/purchasing-workspace\.js"/);
 assert.match(registry, /id: "purchasing"[\s\S]*?stylePath: "SRC\/workspaces\/purchasing\/purchasing-workspace\.css"/);
-assert.match(home, /workAreas\.map\(workspace =>[\s\S]*?class="work-area-card"[\s\S]*?workspace\.home\.mark[\s\S]*?workspace\.home\.label\.toUpperCase\(\)[\s\S]*?workspace\.home\.description[\s\S]*?work-area-card-arrow/);
+assert.match(home, /homeEntries\.map\(workspace =>[\s\S]*?class="work-area-card"[\s\S]*?workspace\.home\.mark[\s\S]*?homeLabel\(workspace\)[\s\S]*?workspace\.home\.description[\s\S]*?work-area-card-arrow/);
 assert.match(home, /function enter\(workspaceId\)[\s\S]*?setWorkspaceView\(workspaceId\)[\s\S]*?window\.go\(screenId, false\)/);
 assert.match(homeStyles, /body\[data-view-mode="desktop"\] \.work-area-card\{grid-template-columns:auto minmax\(0,1fr\) 30px\}/);
 assert.match(homeStyles, /body\[data-view-mode="desktop"\] \.work-area-card-arrow\{width:30px;display:grid;place-items:center;justify-self:end;align-self:center;line-height:1\}/);

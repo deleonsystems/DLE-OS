@@ -83,7 +83,7 @@ assert.match(script, /logo\.removeAttribute\('role'\)/);
 assert.match(workspace, /mode\.textContent = isHome \? "HOME" : workspace\.label\.toUpperCase\(\)/);
 assert.doesNotMatch(workspace, /changeWorkAreaButton/);
 assert.match(workAreaHome, /window\.changeWorkArea = function changeWorkArea\(\)/);
-assert.match(workAreaHome, /MOBILE_READY_WORKSPACE_IDS = new Set\(\["operations-center", "invoice-history"\]\)/);
+assert.match(workAreaHome, /MOBILE_READY_WORKSPACE_IDS = new Set\(\["operations-center", "invoice-history", "rfq-quoting"\]\)/);
 assert.match(workAreaHome, /MOBILE_READY_WORKSPACE_IDS\.has\(workspace\.id\)/);
 assert.match(workAreaHome, /data-mobile-work-area=/);
 assert.match(workAreaHome, /if \(hour < 12\) return "Good Morning";/);
