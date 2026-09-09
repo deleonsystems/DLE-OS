@@ -19,7 +19,7 @@ assert.match(operationsSource, /window\.OperationsCenter\.initialize = initializ
 assert.match(shellSource, /const workspaceController = window\.DleWorkspaces\?\.\[workspace\.id\]/,
   'workspace shell routes workspace ids through existing registered destinations');
 assert.match(identityUiSource,
-  /workspaceRules=Object\.freeze\(\{'dle-home':null,kitting:'kitting\.view',production:'kitting\.view',purchasing:'kitting\.view','operations-center':'sync\.operations'\}\)/,
+  /workspaceRules=Object\.freeze\(\{'dle-home':null,kitting:'kitting\.view',production:'kitting\.view',purchasing:'kitting\.view',[\s\S]*?'operations-center':'sync\.operations','invoice-history':'sync\.operations'\}\)/,
   'development capability simulation already gates Operations Center by sync.operations');
 assert.match(syncPermissionSource, /PermissionCode = N'sync\.operations'/,
   'sync.operations is an existing governed permission');
@@ -70,8 +70,8 @@ assert.match(homeSource, /window\.setWorkspaceView\(workspaceId\);[\s\S]*window\
 assert.match(homeSource, /window\.DleOperatorHeader\?\.isMobileView\?\.\(\)/,
   'Mobile Home consumes the global shell-owned view mode');
 assert.match(homeSource,
-  /MOBILE_READY_WORKSPACE_IDS = new Set\(\["operations-center", "invoice-history"\]\)/,
-  'Operations Center and Invoice History are the explicitly mobile-ready workspaces');
+  /MOBILE_READY_WORKSPACE_IDS = new Set\(\["operations-center", "invoice-history", "rfq-quoting"\]\)/,
+  'Operations Center, Invoice History, and Intake Wizard are the explicitly mobile-ready workspaces');
 assert.match(homeSource, /Open Mobile View/,
   'Operations Center is presented as an actionable mobile launcher');
 assert.match(homeSource, /Mobile View Coming Soon/,
