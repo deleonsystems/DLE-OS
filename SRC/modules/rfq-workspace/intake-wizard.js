@@ -34,6 +34,10 @@
     root.addEventListener("click", handleClick);
     root.addEventListener("input", handleInput);
     root.addEventListener("change", handleChange);
+    root.addEventListener("dragenter", handleFileDragOver);
+    root.addEventListener("dragover", handleFileDragOver);
+    root.addEventListener("dragleave", handleFileDragLeave);
+    root.addEventListener("drop", handleFileDrop);
     root.addEventListener("submit", handleSubmit);
     render();
   }
@@ -59,8 +63,8 @@
       '<label class="intake-search"><span class="sr-only">Search customers</span><input data-intake-customer-search data-intake-autofocus autocomplete="off" value="' +
       escapeHtml(state.customerSearch.query) + '" placeholder="Search customer name or number"></label>' + renderCustomerResults(),
       "Select a governed customer identity from the SIM directory.");
-    if (step === "assembly-count") return question("How many assemblies are they asking us to quote?",
-      numberInput("assembly-count", state.assemblyCount), "Phase 1 captures one assembly while keeping the record shape ready for more.");
+    if (step === "assembly-count") return question("How many different assemblies are they asking us to quote?",
+      numberInput("assembly-count", state.assemblyCount), "Count distinct assemblies or part numbers here. Piece quantity is captured separately for each assembly.");
     if (step === "assembly-number") return question("What is the assembly number?",
       textInput("assembly-number", state.assemblies[0].assemblyNumber, "B11283-17"), "Capture the requested identity exactly as received.");
     if (step === "revision") return question("What revision are they asking for?",
@@ -74,7 +78,8 @@
       choice("Yes", "yes", "technical-files") + choice("No", "no", "technical-files"),
       "Technical files include drawings, specifications, and related source documents.");
     if (step === "file-association") return question("Which technical files came with the request?",
-      '<label class="intake-file-control"><input type="file" data-intake-files multiple><span>Choose customer files</span></label>' +
+      '<label class="intake-file-control" data-intake-drop-zone><input type="file" data-intake-files multiple>' +
+      '<span class="intake-file-drop-title">Drop customer technical files here</span><small>or click to browse</small></label>' +
       renderFiles() + '<p class="intake-file-note">SIM preserves file metadata with this intake. Place the original files in the governed customer folder before qualification.</p>' +
       navButtons(true, "Continue"), "Associate the source package with the intake.");
     if (step === "requirements") return question("What does the customer need back?",
@@ -144,7 +149,7 @@
   function renderReview() {
     const assembly = state.assemblies[0];
     return '<div class="intake-step-label">Final review</div><h2>RFQ Intake</h2>' +
-      '<p class="intake-question-hint">Check the request before sending it to RFQ Qualification.</p><dl class="intake-review">' +
+      '<p class="intake-question-hint">Check the request before sending it to Technical Review.</p><dl class="intake-review">' +
       reviewRow("Customer", state.customer?.customerName, 1) + reviewRow("Assembly", assembly.assemblyNumber, 3) +
       reviewRow("Revision", assembly.revision, 4) + reviewRow("Quantity", assembly.quantity, 5) +
       reviewRow("De Leon Scope", scopeLabel(state.deLeonScope), 6) +
@@ -153,7 +158,7 @@
       (state.submit.message ? '<p class="intake-submit-error" role="alert">' + escapeHtml(state.submit.message) + '</p>' : "") +
       '<div class="intake-review-actions"><button type="button" data-intake-action="back" class="intake-back">← Back</button>' +
       '<button type="button" data-intake-action="submit" class="intake-primary" ' + (state.submit.status === "saving" ? "disabled" : "") + '>' +
-      (state.submit.status === "saving" ? "Sending…" : "Send to RFQ Qualification") + '</button></div>';
+      (state.submit.status === "saving" ? "Sending…" : "Submit for Technical Review") + '</button></div>';
   }
 
   function reviewRow(label, value, step) {
@@ -161,9 +166,9 @@
   }
 
   function renderComplete() {
-    return '<div class="intake-complete-mark">✓</div><p class="intake-kicker">INTAKE PRESERVED</p><h2>Ready for RFQ Qualification</h2>' +
+    return '<div class="intake-complete-mark">✓</div><p class="intake-kicker">INTAKE PRESERVED</p><h2>Submitted for Technical Review</h2>' +
       '<p class="intake-question-hint">' + escapeHtml(committed?.intakeId || "RFQ Intake") +
-      ' is preserved in SIM structured state. Qualification has not started.</p><div class="intake-handoff"><strong>Handoff point</strong><span>RFQ Qualification</span></div>' +
+      ' is preserved in SIM structured state and is waiting for a trained reviewer. Review has not started.</p><div class="intake-handoff"><strong>Handoff point</strong><span>Technical Review · RFQ Review</span></div>' +
       '<button type="button" data-intake-action="restart" class="intake-primary">Start another intake</button>';
   }
 
@@ -194,10 +199,53 @@
 
   function handleChange(event) {
     if (!event.target.matches("[data-intake-files]")) return;
-    state.technicalFiles = Array.from(event.target.files || []).map(file => ({
+    setTechnicalFiles(event.target.files);
+    event.target.value = "";
+  }
+
+  function handleFileDragOver(event) {
+    const dropZone = event.target.closest?.("[data-intake-drop-zone]");
+    if (!dropZone) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    dropZone.classList.add("is-dragging");
+  }
+
+  function handleFileDragLeave(event) {
+    const dropZone = event.target.closest?.("[data-intake-drop-zone]");
+    if (!dropZone || dropZone.contains(event.relatedTarget)) return;
+    dropZone.classList.remove("is-dragging");
+  }
+
+  function handleFileDrop(event) {
+    const dropZone = event.target.closest?.("[data-intake-drop-zone]");
+    if (!dropZone) return;
+    event.preventDefault();
+    dropZone.classList.remove("is-dragging");
+    const files = Array.from(event.dataTransfer?.files || []);
+    if (!files.length) {
+      return showInlineError("No browser files were available from that drop. Save email attachments to this device, then drop them here or click to browse.");
+    }
+    setTechnicalFiles(files);
+  }
+
+  function setTechnicalFiles(files) {
+    const additions = Array.from(files || []).map(file => ({
       name: file.name, size: file.size, type: file.type || "application/octet-stream", lastModified: file.lastModified
     }));
+    const knownFiles = new Set(state.technicalFiles.map(technicalFileIdentity));
+    state.technicalFiles = [...state.technicalFiles, ...additions.filter(file => {
+      const identity = technicalFileIdentity(file);
+      if (knownFiles.has(identity)) return false;
+      knownFiles.add(identity);
+      return true;
+    })];
+    root.querySelector(".intake-inline-error")?.remove();
     render();
+  }
+
+  function technicalFileIdentity(file) {
+    return [file.name, file.size, file.type, file.lastModified].join("\u0000");
   }
 
   function handleSubmit(event) {

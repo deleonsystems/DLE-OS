@@ -65,6 +65,42 @@ internal static class SimRfqIntakeEndpoints
                 ? Results.Json(new { code = "DLE_OS_SIM_RFQ_INTAKE_NOT_FOUND", message = "The SIM RFQ Intake does not exist." }, statusCode: 404)
                 : Results.Json(record);
         });
+
+        app.MapGet("/api/sim/technical-reviews", async Task<IResult> (HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.view");
+            if (denied is not null) return denied;
+            return Results.Json(await store.ListTechnicalReviewsAsync());
+        });
+
+        app.MapGet("/api/sim/technical-reviews/{intakeId}", async Task<IResult> (
+            string intakeId, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.view");
+            if (denied is not null) return denied;
+            var review = await store.ReadTechnicalReviewAsync(intakeId);
+            return review is null
+                ? Results.Json(new { code = "DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND", message = "The SIM Technical Review item does not exist." }, statusCode: 404)
+                : Results.Json(review);
+        });
+
+        app.MapPut("/api/sim/technical-reviews/{intakeId}/disposition", async Task<IResult> (
+            string intakeId, SimTechnicalReviewDispositionRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try
+            {
+                var result = await store.SaveTechnicalReviewAsync(
+                    intakeId, request, personas.Resolve(context));
+                return Results.Json(result);
+            }
+            catch (SimRfqIntakeProblem problem)
+            {
+                return Results.Json(new { code = problem.Code, message = problem.Message, environment = "SIM" },
+                    statusCode: problem.StatusCode);
+            }
+        });
     }
 
     private static IResult? Denied(HttpContext context, SimStateStore state,
@@ -77,6 +113,19 @@ internal static class SimRfqIntakeEndpoints
             return Results.Json(new { code = "DLE_OS_USER_DISABLED", message = "The selected synthetic persona is disabled." }, statusCode: 403);
         if (write && !persona.Can("rfq.intake.create"))
             return Results.Json(new { code = "DLE_OS_PERMISSION_DENIED", message = "The selected SIM persona cannot create RFQ intakes.", requiredPermission = "rfq.intake.create" }, statusCode: 403);
+        return null;
+    }
+
+    private static IResult? DeniedTechnicalReview(HttpContext context, SimStateStore state,
+        SimPersonaSessionStore personas, string permission)
+    {
+        if (!state.Current.IsHealthy)
+            return Results.Json(new { code = state.Current.ErrorCode, message = state.Current.Message, environment = "SIM" }, statusCode: 503);
+        var persona = personas.Resolve(context);
+        if (!persona.IsActive)
+            return Results.Json(new { code = "DLE_OS_USER_DISABLED", message = "The selected synthetic persona is disabled." }, statusCode: 403);
+        if (!persona.Can(permission))
+            return Results.Json(new { code = "DLE_OS_PERMISSION_DENIED", message = "The selected SIM persona cannot access this Technical Review action.", requiredPermission = permission }, statusCode: 403);
         return null;
     }
 }

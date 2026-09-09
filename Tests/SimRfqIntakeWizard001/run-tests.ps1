@@ -63,16 +63,20 @@ try {
         assemblies = @(@{ lineNumber = 1; assemblyNumber = 'B11283-17'; revision = 'B'; quantity = 25 })
         deLeonScope = 'MATERIAL_AND_LABOR'
         technicalFilesProvided = $true
-        technicalFiles = @(@{ name = 'B11283-17_rev_B.pdf'; size = 1024; type = 'application/pdf'; lastModified = 0 })
+        technicalFiles = @(
+            @{ name = 'B11283-17_rev_B.pdf'; size = 1024; type = 'application/pdf'; lastModified = 0 },
+            @{ name = 'Abbott_purchase_spec.txt'; size = 512; type = 'text/plain'; lastModified = 0 }
+        )
         customerRequirements = @('PRICE', 'LEAD_TIME')
         createdBy = 'Ray'
         requestCorrelationId = $correlation
     }
     $created = Invoke-SimHttp $session 'POST' '/api/sim/rfq-intakes' $payload
-    Require ($created.Status -eq 201 -and $created.Body.record.status -eq 'READY_FOR_RFQ_QUALIFICATION') 'Abbott intake reaches the RFQ Qualification handoff'
+    Require ($created.Status -eq 201 -and $created.Body.record.status -eq 'READY_FOR_RFQ_QUALIFICATION' -and $created.Body.record.handoffTarget -eq 'Technical Review') 'Abbott intake reaches the Technical Review handoff'
     $record = $created.Body.record
     Require ($record.customer.customerName -eq 'Abbott' -and $record.assemblies[0].assemblyNumber -eq 'B11283-17' -and $record.assemblies[0].revision -eq 'B' -and $record.assemblies[0].quantity -eq 25) 'customer, assembly, revision, and quantity persist'
     Require ($record.deLeonScope -eq 'MATERIAL_AND_LABOR' -and $record.technicalFilesProvided -and $record.customerRequirements -contains 'LEAD_TIME') 'scope, technical files, and lead time persist'
+    Require ($record.technicalFiles.Count -eq 2 -and $record.technicalFiles[0].name -eq 'B11283-17_rev_B.pdf' -and $record.technicalFiles[1].name -eq 'Abbott_purchase_spec.txt') 'multiple technical-file metadata entries persist in order'
     $read = Invoke-SimHttp $session 'GET' ("/api/sim/rfq-intakes/" + $record.intakeId) $null
     Require ($read.Status -eq 200 -and $read.Body.intakeId -eq $record.intakeId) 'persisted intake reads back by identity'
     $duplicate = Invoke-SimHttp $session 'POST' '/api/sim/rfq-intakes' $payload

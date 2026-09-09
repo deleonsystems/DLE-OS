@@ -23,6 +23,20 @@
       purpose: "Incoming opportunities, customer quotations, and estimating workflow."
     },
     {
+      id: "technical-review",
+      label: "Technical Review",
+      purpose: "Trained review of technical packages before downstream work begins.",
+      modulePath: "SRC/workspaces/technical-review/technical-review-workspace.js",
+      stylePath: "SRC/workspaces/technical-review/technical-review-workspace.css",
+      home: Object.freeze({
+        label: "Technical Review",
+        description: "Review Queue \u2022 Technical Package \u2022 Disposition",
+        mark: "TR",
+        requiredPermission: "technical_review.view",
+        preserveLabelCase: true
+      })
+    },
+    {
       id: "order-entry",
       label: "Order Entry",
       purpose: "New customer orders, sales order processing, and initial job creation."

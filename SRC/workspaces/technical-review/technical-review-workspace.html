@@ -1,0 +1,26 @@
+<main class="technical-review-workspace" aria-labelledby="technicalReviewTitle">
+  <header class="technical-review-header">
+    <div>
+      <p class="technical-review-eyebrow">TRAINED REVIEW WORKSPACE</p>
+      <h1 id="technicalReviewTitle">Technical Review</h1>
+      <p>Confirm that technical packages are correct and sufficient before downstream work begins.</p>
+    </div>
+    <div class="technical-review-header-status" id="technicalReviewWorkspaceStatus" role="status">Loading review queue…</div>
+  </header>
+
+  <section id="technicalReviewQueueView" class="technical-review-view" aria-labelledby="technicalReviewQueueTitle">
+    <div class="technical-review-section-heading">
+      <div><p class="technical-review-eyebrow">PRIMARY WORKLIST</p><h2 id="technicalReviewQueueTitle">Review Queue</h2></div>
+      <button type="button" class="technical-review-secondary" data-technical-review-action="refresh">Refresh queue</button>
+    </div>
+    <div class="technical-review-queue-summary">
+      <strong id="technicalReviewQueueCount">0</strong><span>items requiring or recording technical review</span>
+    </div>
+    <div id="technicalReviewQueue" class="technical-review-queue" aria-live="polite"></div>
+  </section>
+
+  <section id="technicalReviewDetailView" class="technical-review-view" hidden aria-labelledby="technicalReviewDetailTitle">
+    <button type="button" class="technical-review-back" data-technical-review-action="back">← Back to Technical Review queue</button>
+    <div id="technicalReviewDetail"></div>
+  </section>
+</main>
