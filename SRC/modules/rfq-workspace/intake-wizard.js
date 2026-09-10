@@ -1,8 +1,12 @@
 (function registerDleIntakeWizard(window, document) {
   "use strict";
 
-  const STEPS = ["intake-type", "customer", "assembly-count", "assembly-number", "revision",
+  const QUOTE_STEPS = ["intake-type", "customer", "assembly-count", "assembly-number", "revision",
     "quantity", "scope", "technical-files", "file-association", "requirements", "review"];
+  const NEW_ORDER_STEPS = ["intake-type", "customer", "customer-po-number", "customer-po-type", "po-attachment",
+    "payment-terms", "payment-terms-note", "address-match", "shipping-note", "shipping-method", "ups-account",
+    "order-classification", "delivery-date", "delivery-date-note", "price-match", "price-note", "traceability",
+    "traceability-records", "aerospace-requirements", "po-flowdowns", "additional-requirements", "review"];
   let root = null;
   let searchTimer = null;
   let committed = null;
@@ -13,6 +17,15 @@
       currentStep: 0, status: "DRAFT", intakeType: "", customer: null, assemblyCount: 1,
       assemblies: [{ lineNumber: 1, assemblyNumber: "", revision: "", quantity: null }],
       deLeonScope: "", technicalFilesProvided: null, technicalFiles: [], requestCorrelationId: null, customerRequirements: ["PRICE"],
+      contractReview: {
+        customerPoNumber: "", customerPoType: "", paymentTermsMatch: null, paymentTermsActionNote: "",
+        billingMatchesShipTo: null, shippingActionNote: "", shippingMethod: "", upsAccountNumber: "",
+        orderClassification: "", deliveryDateAchievable: null, deliveryDateActionNote: "",
+        priceMatchesQuote: null, priceActionNote: "", traceabilityRequired: null,
+        traceabilityDeliverables: [], aerospaceRequirements: [], poFlowdowns: "",
+        additionalContractQualityRequirements: "", specialRequirements: "",
+        requirementsIdentifiedOnAttachedDocument: false
+      },
       customerSearch: { query: "", status: "idle", results: [], message: "" },
       submit: { status: "idle", message: "" }
     };
@@ -48,7 +61,8 @@
     root.querySelector("#intakeAnswers").innerHTML = renderAnswers();
     root.querySelector("#intakeConversation").innerHTML = renderStep();
     syncProgressPlacement();
-    root.querySelector("#intakeProgressBar").style.width = Math.round((Math.min(state.currentStep, 10) / 10) * 100) + "%";
+    const progressMaximum = Math.max(1, steps().length - 1);
+    root.querySelector("#intakeProgressBar").style.width = Math.round((Math.min(state.currentStep, progressMaximum) / progressMaximum) * 100) + "%";
     window.setTimeout(() => root.querySelector("[data-intake-autofocus]")?.focus?.(), 0);
   }
 
@@ -80,13 +94,15 @@
 
   function renderStep() {
     if (state.status === "COMPLETE") return renderComplete();
-    const step = STEPS[state.currentStep];
+    const step = steps()[state.currentStep];
     if (step === "intake-type") return question("Hi " + escapeHtml(firstName()) + ". What intake are we working on?",
-      choice("New Quote Request", "NEW_QUOTE_REQUEST", "intake-type"), "Choose the business event that came into DLE.");
+      choice("New Quote Request", "NEW_QUOTE_REQUEST", "intake-type") +
+      choice("New Order", "NEW_ORDER", "intake-type"), "Choose the business event that came into DLE.");
     if (step === "customer") return question("Who did you get it from?",
       '<label class="intake-search"><span class="sr-only">Search customers</span><input data-intake-customer-search data-intake-autofocus autocomplete="off" value="' +
       escapeHtml(state.customerSearch.query) + '" placeholder="Search customer name or number"></label>' + renderCustomerResults(),
       "Select a governed customer identity from the SIM directory.");
+    if (state.intakeType === "NEW_ORDER") return renderNewOrderStep(step);
     if (step === "assembly-count") return question("How many different assemblies are they asking us to quote?",
       numberInput("assembly-count", state.assemblyCount), "Count distinct assemblies or part numbers here. Piece quantity is captured separately for each assembly.");
     if (step === "assembly-number") return question("What is the assembly number?",
@@ -112,10 +128,107 @@
     return renderReview();
   }
 
+  function steps() {
+    return state.intakeType === "NEW_ORDER" ? NEW_ORDER_STEPS : QUOTE_STEPS;
+  }
+
+  function renderNewOrderStep(step) {
+    const review = state.contractReview;
+    if (step === "customer-po-number") return question("What is the customer PO number?",
+      textInput("customer-po-number", review.customerPoNumber, "Customer PO number"),
+      "Capture the purchase-order identity exactly as received.");
+    if (step === "customer-po-type") return question("How was the order received?",
+      choice("Customer PO", "CUSTOMER_PO", "customer-po-type") +
+      '<button type="button" class="intake-choice intake-choice-disabled" disabled aria-disabled="true"><span>Verbal PO <small>Planned for a future release</small></span></button>',
+      "A customer PO attachment is required for this release.");
+    if (step === "po-attachment") return question("Attach the customer PO.",
+      '<label class="intake-file-control" data-intake-drop-zone><input type="file" data-intake-files multiple>' +
+      '<span class="intake-file-drop-title">Drop the customer PO here</span><small>or click to browse</small></label>' +
+      renderFiles() + '<p class="intake-file-note">SIM saves and verifies its own governed copy. At least one customer PO file is required.</p>' +
+      navButtons(true, "Continue"), "Customer PO — required");
+    if (step === "payment-terms") return question("Do the payment terms match the customer’s current terms?",
+      yesNoChoice("payment-terms"), "Compare the customer PO with the current customer terms.");
+    if (step === "payment-terms-note") return actionNoteQuestion("Notify A/R Department",
+      "payment-terms-note", review.paymentTermsActionNote, "Record the resolution/action note. No notification is sent automatically.");
+    if (step === "address-match") return question("Is the billing address the same as the ship-to address?",
+      yesNoChoice("address-match"), "Confirm the addresses shown on the customer PO.");
+    if (step === "shipping-note") return actionNoteQuestion("Verify and highlight the Ship To address",
+      "shipping-note", review.shippingActionNote, "Record the confirmation or action taken.");
+    if (step === "shipping-method") return question("What shipping method applies?",
+      choice("Will Call", "WILL_CALL", "shipping-method") + choice("DLE Delivery", "DLE_DELIVERY", "shipping-method") +
+      choice("UPS Charge", "UPS_CHARGE", "shipping-method") + choice("UPS Collect", "UPS_COLLECT", "shipping-method"),
+      "Choose one shipping method.");
+    if (step === "ups-account") return question("What UPS account number should be used?",
+      textInput("ups-account", review.upsAccountNumber, "UPS account number"), "Required for UPS Collect.");
+    if (step === "order-classification") return question("How should this order be classified?",
+      choice("Repeat Order", "REPEAT_ORDER", "order-classification") +
+      choice("New Assembly", "NEW_ASSEMBLY", "order-classification") +
+      choice("New Revision", "NEW_REVISION", "order-classification"),
+      "New Assembly: Create new BOM/router and check FAIR requirement. New Revision: Update BOM/router and check FAIR requirement.");
+    if (step === "delivery-date") return question("Can we meet the delivery date?", yesNoChoice("delivery-date"),
+      "Review the requested delivery date manually.");
+    if (step === "delivery-date-note") return actionNoteQuestion("Contact customer to discuss the delivery date",
+      "delivery-date-note", review.deliveryDateActionNote, "Record the required customer action. No contact is sent automatically.");
+    if (step === "price-match") return question("Does the price match the price quoted?", yesNoChoice("price-match"),
+      "Compare the customer PO price with the quote.");
+    if (step === "price-note") return actionNoteQuestion("Review the quote and contact the customer",
+      "price-note", review.priceActionNote, "Record the required action. No contact is sent automatically.");
+    if (step === "traceability") return question("Is traceability required?", yesNoChoice("traceability"),
+      "Record the contract requirement without interpreting or approving it.");
+    if (step === "traceability-records") return question("Which traceability records or deliverables apply?",
+      multiSelectForm("traceability-records", [
+        ["TRAVELER", "Traveler"], ["MATERIAL_CERTS", "Material Certs"]
+      ], review.traceabilityDeliverables), "Select all that apply, then continue.");
+    if (step === "aerospace-requirements") return question("Which common aerospace requirements apply?",
+      multiSelectForm("aerospace-requirements", [
+        ["CERTIFICATE_OF_CONFORMANCE", "Certificate of Conformance"], ["MATERIAL_CERTS", "Material Certs"],
+        ["FAIR", "FAIR"], ["ITAR", "ITAR"], ["DPAS_RATED", "DPAS Rated"]
+      ], review.aerospaceRequirements), "Select all that apply. Intake records these requirements but does not interpret or approve them.");
+    if (step === "po-flowdowns") return question("What PO flowdowns and quality clauses apply?",
+      textAreaInput("po-flowdowns", review.poFlowdowns,
+        "PO flowdowns and quality clauses for the packing slip or Certificate of Conformance"),
+      "Enter the applicable clauses, or enter None.");
+    if (step === "additional-requirements") return question("What additional or special contract requirements apply?",
+      additionalRequirementsForm(review), "Record the customer’s contract language without interpreting compliance.");
+    return renderNewOrderReview();
+  }
+
+  function yesNoChoice(field) {
+    return choice("Yes", "yes", field) + choice("No", "no", field);
+  }
+
+  function actionNoteQuestion(message, field, value, hint) {
+    return question(message, '<p class="intake-triggered-action">' + escapeHtml(message) + '</p>' +
+      textAreaInput(field, value, "Required resolution/action note"), hint);
+  }
+
+  function textAreaInput(field, value, placeholder) {
+    return '<form class="intake-stacked-form" data-intake-form="' + field + '"><textarea data-intake-autofocus data-intake-value-input placeholder="' +
+      escapeHtml(placeholder) + '">' + escapeHtml(value) + '</textarea><button class="intake-primary">Continue</button></form>';
+  }
+
+  function multiSelectForm(field, options, selected) {
+    const selectedValues = new Set(selected || []);
+    return '<form class="intake-stacked-form" data-intake-multiselect="' + field + '"><fieldset class="intake-check-list"><legend class="sr-only">Select all that apply</legend>' +
+      options.map(([value, label]) => '<label><input type="checkbox" name="selection" value="' + value + '" ' +
+        (selectedValues.has(value) ? "checked" : "") + '><span>' + escapeHtml(label) + '</span></label>').join("") +
+      '</fieldset><button class="intake-primary">Continue</button></form>';
+  }
+
+  function additionalRequirementsForm(review) {
+    return '<form class="intake-stacked-form" data-intake-additional-requirements="true">' +
+      '<label><span>Additional contract quality requirements</span><textarea name="qualityRequirements">' +
+      escapeHtml(review.additionalContractQualityRequirements) + '</textarea></label>' +
+      '<label><span>Special requirements</span><textarea name="specialRequirements">' + escapeHtml(review.specialRequirements) + '</textarea></label>' +
+      '<label class="intake-confirmation"><input type="checkbox" name="identifiedOnDocument" ' +
+      (review.requirementsIdentifiedOnAttachedDocument ? "checked" : "") + '><span>Requirements identified on attached document</span></label>' +
+      '<button class="intake-primary">Continue</button></form>';
+  }
+
   function question(title, body, hint) {
-    return '<div class="intake-step-label">Question ' + (state.currentStep + 1) + ' of 10</div><h2>' + title +
+    return '<div class="intake-step-label">Question ' + (state.currentStep + 1) + ' of ' + (steps().length - 1) + '</div><h2>' + title +
       '</h2><p class="intake-question-hint">' + hint + '</p><div class="intake-answer-control">' + body + '</div>' +
-      (state.currentStep > 0 && STEPS[state.currentStep] !== "file-association" ? navButtons(false) : "");
+      (state.currentStep > 0 && !["file-association", "po-attachment"].includes(steps()[state.currentStep]) ? navButtons(false) : "");
   }
 
   function choice(label, value, field) {
@@ -155,6 +268,7 @@
   }
 
   function renderAnswers() {
+    if (state.intakeType === "NEW_ORDER") return renderNewOrderAnswers();
     const items = [];
     if (state.intakeType) items.push([0, "Intake", "New Quote Request"]);
     if (state.customer) items.push([1, "Customer", state.customer.customerName]);
@@ -165,6 +279,25 @@
     if (state.deLeonScope) items.push([6, "Scope", scopeLabel(state.deLeonScope)]);
     if (state.technicalFilesProvided !== null) items.push([7, "Technical Files", state.technicalFilesProvided ? "Customer provided" : "None"]);
     if (state.customerRequirements.includes("LEAD_TIME")) items.push([9, "Customer Requires", "Price + Lead Time"]);
+    if (!items.length) return '<p>Answers will appear here as we go.</p>';
+    return '<p class="intake-answers-title">Answers so far</p>' + items.map(item => '<button type="button" data-intake-edit="' +
+      item[0] + '"><span>' + escapeHtml(item[1]) + '</span><strong>' + escapeHtml(item[2]) + '</strong></button>').join("");
+  }
+
+  function renderNewOrderAnswers() {
+    const review = state.contractReview;
+    const items = [];
+    if (state.intakeType) items.push([0, "Intake", "New Order"]);
+    if (state.customer) items.push([1, "Customer", state.customer.customerName]);
+    if (review.customerPoNumber) items.push([2, "Customer PO", review.customerPoNumber]);
+    if (state.technicalFiles.length) items.push([4, "Customer PO Attachment", state.technicalFiles.length + " file(s)"]);
+    if (review.paymentTermsMatch !== null) items.push([5, "Payment Terms Match", yesNoLabel(review.paymentTermsMatch)]);
+    if (review.billingMatchesShipTo !== null) items.push([7, "Billing = Ship To", yesNoLabel(review.billingMatchesShipTo)]);
+    if (review.shippingMethod) items.push([9, "Shipping", shippingLabel(review.shippingMethod)]);
+    if (review.orderClassification) items.push([11, "Classification", classificationLabel(review.orderClassification)]);
+    if (review.deliveryDateAchievable !== null) items.push([12, "Delivery Date", yesNoLabel(review.deliveryDateAchievable)]);
+    if (review.priceMatchesQuote !== null) items.push([14, "Price Match", yesNoLabel(review.priceMatchesQuote)]);
+    if (review.traceabilityRequired !== null) items.push([16, "Traceability", yesNoLabel(review.traceabilityRequired)]);
     if (!items.length) return '<p>Answers will appear here as we go.</p>';
     return '<p class="intake-answers-title">Answers so far</p>' + items.map(item => '<button type="button" data-intake-edit="' +
       item[0] + '"><span>' + escapeHtml(item[1]) + '</span><strong>' + escapeHtml(item[2]) + '</strong></button>').join("");
@@ -185,20 +318,76 @@
       (state.submit.status === "saving" ? "Sending…" : "Submit for Technical Review") + '</button></div>';
   }
 
-  function reviewRow(label, value, step) {
-    return '<div><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(value) + '</dd><button type="button" data-intake-edit="' + step + '">Edit</button></div>';
+  function renderNewOrderReview() {
+    const review = state.contractReview;
+    const actions = triggeredActions();
+    return '<div class="intake-step-label">Final review</div><h2>New Order Contract Review</h2>' +
+      '<p class="intake-question-hint">Check the completed Contract Review before sending it to Technical Review.</p><dl class="intake-review intake-contract-review">' +
+      reviewRow("Customer", state.customer?.customerName, 1) + reviewRow("Customer PO", review.customerPoNumber, 2) +
+      reviewRow("Customer PO Attachment", state.technicalFiles.length + " verified file(s)", 4) +
+      reviewBooleanRow("Payment terms match", review.paymentTermsMatch, 5) +
+      reviewActionRow("Payment terms action", review.paymentTermsActionNote, 6, !review.paymentTermsMatch) +
+      reviewBooleanRow("Billing matches Ship To", review.billingMatchesShipTo, 7) +
+      reviewActionRow("Shipping action", review.shippingActionNote, 8, !review.billingMatchesShipTo) +
+      reviewRow("Shipping method", shippingLabel(review.shippingMethod), 9) +
+      (review.shippingMethod === "UPS_COLLECT" ? reviewRow("UPS account", review.upsAccountNumber, 10) : "") +
+      reviewRow("Order classification", classificationLabel(review.orderClassification), 11) +
+      reviewBooleanRow("Can meet delivery date", review.deliveryDateAchievable, 12) +
+      reviewActionRow("Delivery-date action", review.deliveryDateActionNote, 13, !review.deliveryDateAchievable) +
+      reviewBooleanRow("Price matches quote", review.priceMatchesQuote, 14) +
+      reviewActionRow("Price action", review.priceActionNote, 15, !review.priceMatchesQuote) +
+      reviewBooleanRow("Traceability required", review.traceabilityRequired, 16) +
+      reviewRow("Traceability records", labelsFor(review.traceabilityDeliverables), 17) +
+      reviewRow("Aerospace requirements", labelsFor(review.aerospaceRequirements), 18) +
+      reviewRow("PO flowdowns", review.poFlowdowns, 19) +
+      reviewRow("Additional quality requirements", review.additionalContractQualityRequirements || "None", 20) +
+      reviewRow("Special requirements", review.specialRequirements || "None", 20) +
+      reviewRow("Requirements identified on attached document", yesNoLabel(review.requirementsIdentifiedOnAttachedDocument), 20) +
+      reviewRow("Reviewed By", window.DleOsSession?.user?.displayName || "SIM User", 20) +
+      reviewRow("Review date", new Date().toLocaleDateString(), 20) + '</dl>' +
+      (actions.length ? '<section class="intake-triggered-summary"><h3>Triggered actions</h3><ul>' +
+        actions.map(action => '<li>' + escapeHtml(action) + '</li>').join("") + '</ul></section>' : "") +
+      (state.submit.message ? '<p class="intake-submit-error" role="alert">' + escapeHtml(state.submit.message) + '</p>' : "") +
+      '<div class="intake-review-actions"><button type="button" data-intake-action="back" class="intake-back">← Back</button>' +
+      '<button type="button" data-intake-action="submit" class="intake-primary" ' + (state.submit.status === "saving" ? "disabled" : "") + '>' +
+      (state.submit.status === "saving" ? "Sending…" : "Submit for Technical Review") + '</button></div>';
+  }
+
+  function reviewBooleanRow(label, value, step) {
+    return reviewRow(label, yesNoLabel(value), step, value === false ? "intake-review-alert" : "");
+  }
+
+  function reviewActionRow(label, value, step, visible) {
+    return visible ? reviewRow(label, value, step, "intake-review-action") : "";
+  }
+
+  function reviewRow(label, value, step, className) {
+    return '<div' + (className ? ' class="' + className + '"' : "") + '><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(value) + '</dd><button type="button" data-intake-edit="' + step + '">Edit</button></div>';
+  }
+
+  function triggeredActions() {
+    const review = state.contractReview;
+    const actions = [];
+    if (review.paymentTermsMatch === false) actions.push("Notify A/R Department — " + review.paymentTermsActionNote);
+    if (review.billingMatchesShipTo === false) actions.push("Verify and highlight the Ship To address — " + review.shippingActionNote);
+    if (review.orderClassification === "NEW_ASSEMBLY") actions.push("Create new BOM/router and check FAIR requirement");
+    if (review.orderClassification === "NEW_REVISION") actions.push("Update BOM/router and check FAIR requirement");
+    if (review.deliveryDateAchievable === false) actions.push("Contact customer to discuss the delivery date — " + review.deliveryDateActionNote);
+    if (review.priceMatchesQuote === false) actions.push("Review the quote and contact the customer — " + review.priceActionNote);
+    return actions;
   }
 
   function renderComplete() {
     return '<div class="intake-complete-mark">✓</div><p class="intake-kicker">INTAKE PRESERVED</p><h2>Submitted for Technical Review</h2>' +
-      '<p class="intake-question-hint">' + escapeHtml(committed?.intakeId || "RFQ Intake") +
+      '<p class="intake-question-hint">' + escapeHtml(committed?.intakeId || (state.intakeType === "NEW_ORDER" ? "New Order" : "RFQ Intake")) +
       ' is preserved in SIM structured state and is waiting for a trained reviewer. Review has not started.</p>' +
       (committed?.documentPreservationState === 'BINARIES_VERIFIED_SIM' ? '<p class="intake-question-hint">Your technical files are saved and verified in SIM. Technical Review can reopen these copies without access to the original files or folders.</p>' : '') + '<div class="intake-handoff"><strong>Handoff point</strong><span>Technical Review · RFQ Review</span></div>' +
       '<button type="button" data-intake-action="restart" class="intake-primary">Start another intake</button>';
   }
 
   function clearAnswerForStep(stepIndex) {
-    const step = STEPS[stepIndex];
+    const step = steps()[stepIndex];
+    const review = state.contractReview;
     if (step === "intake-type") state.intakeType = "";
     if (step === "customer") state.customer = null;
     if (step === "assembly-count") state.assemblyCount = null;
@@ -209,11 +398,35 @@
     if (step === "technical-files") state.technicalFilesProvided = null;
     if (step === "file-association") state.technicalFiles = [];
     if (step === "requirements") state.customerRequirements = ["PRICE"];
+    if (step === "customer-po-number") review.customerPoNumber = "";
+    if (step === "customer-po-type") review.customerPoType = "";
+    if (step === "po-attachment") state.technicalFiles = [];
+    if (step === "payment-terms") review.paymentTermsMatch = null;
+    if (step === "payment-terms-note") review.paymentTermsActionNote = "";
+    if (step === "address-match") review.billingMatchesShipTo = null;
+    if (step === "shipping-note") review.shippingActionNote = "";
+    if (step === "shipping-method") review.shippingMethod = "";
+    if (step === "ups-account") review.upsAccountNumber = "";
+    if (step === "order-classification") review.orderClassification = "";
+    if (step === "delivery-date") review.deliveryDateAchievable = null;
+    if (step === "delivery-date-note") review.deliveryDateActionNote = "";
+    if (step === "price-match") review.priceMatchesQuote = null;
+    if (step === "price-note") review.priceActionNote = "";
+    if (step === "traceability") review.traceabilityRequired = null;
+    if (step === "traceability-records") review.traceabilityDeliverables = [];
+    if (step === "aerospace-requirements") review.aerospaceRequirements = [];
+    if (step === "po-flowdowns") review.poFlowdowns = "";
+    if (step === "additional-requirements") {
+      review.additionalContractQualityRequirements = "";
+      review.specialRequirements = "";
+      review.requirementsIdentifiedOnAttachedDocument = false;
+    }
   }
 
   function goBack() {
-    const previousStep = Math.max(0, state.currentStep - 1);
-    if (STEPS[previousStep] === "file-association" && state.technicalFiles.some(file => file.documentId)) {
+    let previousStep = Math.max(0, state.currentStep - 1);
+    while (previousStep > 0 && isSkippedNewOrderStep(steps()[previousStep])) previousStep -= 1;
+    if (["file-association", "po-attachment"].includes(steps()[previousStep]) && state.technicalFiles.some(file => file.documentId)) {
       void clearStagedFilesAndGoBack(previousStep);
       return;
     }
@@ -329,6 +542,23 @@
   }
 
   function handleSubmit(event) {
+    const multiSelect = event.target.closest("[data-intake-multiselect]");
+    if (multiSelect?.dataset?.intakeMultiselect) {
+      event.preventDefault();
+      state.contractReview[multiSelect.dataset.intakeMultiselect === "traceability-records" ? "traceabilityDeliverables" : "aerospaceRequirements"] =
+        Array.from(multiSelect.querySelectorAll('input[name="selection"]:checked'), input => input.value);
+      next();
+      return;
+    }
+    const additional = event.target.closest("[data-intake-additional-requirements]");
+    if (additional?.dataset?.intakeAdditionalRequirements === "true") {
+      event.preventDefault();
+      state.contractReview.additionalContractQualityRequirements = additional.elements.qualityRequirements.value.trim();
+      state.contractReview.specialRequirements = additional.elements.specialRequirements.value.trim();
+      state.contractReview.requirementsIdentifiedOnAttachedDocument = additional.elements.identifiedOnDocument.checked;
+      next();
+      return;
+    }
     const form = event.target.closest("[data-intake-form]");
     if (!form) return;
     event.preventDefault();
@@ -352,6 +582,21 @@
       if (!Number.isInteger(quantity) || quantity < 1) return showInlineError("Enter a whole quantity greater than zero.");
       state.assemblies[0].quantity = quantity;
     }
+    if (field === "customer-po-number") {
+      if (!value) return showInlineError("Enter the customer PO number.");
+      state.contractReview.customerPoNumber = value;
+    }
+    if (["payment-terms-note", "shipping-note", "delivery-date-note", "price-note"].includes(field) && !value)
+      return showInlineError("Enter the required resolution/action note.");
+    if (field === "payment-terms-note") state.contractReview.paymentTermsActionNote = value;
+    if (field === "shipping-note") state.contractReview.shippingActionNote = value;
+    if (field === "delivery-date-note") state.contractReview.deliveryDateActionNote = value;
+    if (field === "price-note") state.contractReview.priceActionNote = value;
+    if (field === "ups-account") {
+      if (!value) return showInlineError("Enter the UPS account number for UPS Collect.");
+      state.contractReview.upsAccountNumber = value;
+    }
+    if (field === "po-flowdowns") state.contractReview.poFlowdowns = value;
     next();
   }
 
@@ -364,14 +609,30 @@
       if (!state.technicalFilesProvided) state.technicalFiles = [];
     }
     if (field === "requirements") state.customerRequirements = ["PRICE", "LEAD_TIME"];
+    if (field === "customer-po-type") state.contractReview.customerPoType = value;
+    if (field === "payment-terms") state.contractReview.paymentTermsMatch = value === "yes";
+    if (field === "address-match") state.contractReview.billingMatchesShipTo = value === "yes";
+    if (field === "shipping-method") state.contractReview.shippingMethod = value;
+    if (field === "order-classification") state.contractReview.orderClassification = value;
+    if (field === "delivery-date") state.contractReview.deliveryDateAchievable = value === "yes";
+    if (field === "price-match") state.contractReview.priceMatchesQuote = value === "yes";
+    if (field === "traceability") state.contractReview.traceabilityRequired = value === "yes";
     next();
   }
 
   function next() {
     state.currentStep += 1;
-    if (STEPS[state.currentStep] === "file-association" && !state.technicalFilesProvided) state.currentStep += 1;
+    let step = steps()[state.currentStep];
+    if (step === "file-association" && !state.technicalFilesProvided) state.currentStep += 1;
+    step = steps()[state.currentStep];
+    if (state.intakeType === "NEW_ORDER") {
+      while (isSkippedNewOrderStep(step)) {
+        state.currentStep += 1;
+        step = steps()[state.currentStep];
+      }
+    }
     render();
-    if (STEPS[state.currentStep] === "customer") searchCustomers();
+    if (steps()[state.currentStep] === "customer") searchCustomers();
   }
 
   async function searchCustomers() {
@@ -390,7 +651,7 @@
   }
 
   function updateCustomerResults() {
-    if (STEPS[state.currentStep] !== "customer") return;
+    if (steps()[state.currentStep] !== "customer") return;
     root.querySelectorAll(".intake-search-status, .intake-customer-result").forEach(item => item.remove());
     root.querySelector(".intake-answer-control")?.insertAdjacentHTML("beforeend", renderCustomerResults());
   }
@@ -404,18 +665,34 @@
   }
 
   function continueFromFiles() {
-    if (!state.technicalFiles.length) return showInlineError("Choose at least one customer technical file.");
+    if (!state.technicalFiles.length) return showInlineError(state.intakeType === "NEW_ORDER" ?
+      "Attach the customer PO before continuing." : "Choose at least one customer technical file.");
+    if (state.intakeType === "NEW_ORDER") state.technicalFilesProvided = true;
     next();
+  }
+
+  function isSkippedNewOrderStep(step) {
+    if (state.intakeType !== "NEW_ORDER") return false;
+    const review = state.contractReview;
+    return (step === "payment-terms-note" && review.paymentTermsMatch === true) ||
+      (step === "shipping-note" && review.billingMatchesShipTo === true) ||
+      (step === "ups-account" && review.shippingMethod !== "UPS_COLLECT") ||
+      (step === "delivery-date-note" && review.deliveryDateAchievable === true) ||
+      (step === "price-note" && review.priceMatchesQuote === true) ||
+      (step === "traceability-records" && review.traceabilityRequired === false);
   }
 
   async function submitIntake() {
     state.submit = { status: "saving", message: "" };
     render();
     const requestCorrelationId = state.requestCorrelationId ||= window.crypto?.randomUUID?.() || "00000000-0000-4000-8000-" + String(Date.now()).padStart(12, "0").slice(-12);
-    const payload = { intakeType: state.intakeType, customer: state.customer, assemblyCount: state.assemblyCount,
-      assemblies: state.assemblies, deLeonScope: state.deLeonScope, technicalFilesProvided: state.technicalFilesProvided,
+    const isNewOrder = state.intakeType === "NEW_ORDER";
+    const payload = { intakeType: state.intakeType, customer: state.customer, assemblyCount: isNewOrder ? 0 : state.assemblyCount,
+      assemblies: isNewOrder ? [] : state.assemblies, deLeonScope: isNewOrder ? "" : state.deLeonScope,
+      technicalFilesProvided: isNewOrder ? true : state.technicalFilesProvided,
       technicalFiles: state.technicalFiles.map(({binary, ...metadata}) => metadata), customerRequirements: state.customerRequirements,
-      createdBy: window.DleOsSession?.user?.displayName || "SIM User", requestCorrelationId };
+      createdBy: window.DleOsSession?.user?.displayName || "SIM User", requestCorrelationId,
+      contractReview: isNewOrder ? state.contractReview : null };
     try {
       for (const file of state.technicalFiles) {
         if (file.documentId) continue;
@@ -448,6 +725,21 @@
 
   function scopeLabel(value) {
     return { MATERIAL_AND_LABOR: "Material + Labor", LABOR_ONLY: "Labor Only", MATERIAL_ONLY: "Material Only" }[value] || "";
+  }
+
+  function yesNoLabel(value) { return value === true ? "Yes" : value === false ? "No" : ""; }
+  function shippingLabel(value) {
+    return { WILL_CALL: "Will Call", DLE_DELIVERY: "DLE Delivery", UPS_CHARGE: "UPS Charge", UPS_COLLECT: "UPS Collect" }[value] || "";
+  }
+  function classificationLabel(value) {
+    return { REPEAT_ORDER: "Repeat Order", NEW_ASSEMBLY: "New Assembly", NEW_REVISION: "New Revision" }[value] || "";
+  }
+  function labelsFor(values) {
+    const labels = {
+      TRAVELER: "Traveler", MATERIAL_CERTS: "Material Certs", CERTIFICATE_OF_CONFORMANCE: "Certificate of Conformance",
+      FAIR: "FAIR", ITAR: "ITAR", DPAS_RATED: "DPAS Rated"
+    };
+    return (values || []).map(value => labels[value] || value).join(", ") || "None";
   }
 
   function formatBytes(bytes) { return bytes < 1024 ? bytes + " B" : (bytes / 1024).toFixed(1) + " KB"; }

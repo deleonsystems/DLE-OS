@@ -18,6 +18,52 @@ internal sealed record SimRfqIntakeAssembly(
     string Revision,
     int Quantity);
 
+internal sealed record SimContractReviewRequest(
+    string? CustomerPoNumber,
+    string? CustomerPoType,
+    bool? PaymentTermsMatch,
+    string? PaymentTermsActionNote,
+    bool? BillingMatchesShipTo,
+    string? ShippingActionNote,
+    string? ShippingMethod,
+    string? UpsAccountNumber,
+    string? OrderClassification,
+    bool? DeliveryDateAchievable,
+    string? DeliveryDateActionNote,
+    bool? PriceMatchesQuote,
+    string? PriceActionNote,
+    bool? TraceabilityRequired,
+    string[]? TraceabilityDeliverables,
+    string[]? AerospaceRequirements,
+    string? PoFlowdowns,
+    string? AdditionalContractQualityRequirements,
+    string? SpecialRequirements,
+    bool RequirementsIdentifiedOnAttachedDocument);
+
+internal sealed record SimContractReview(
+    string CustomerPoNumber,
+    string CustomerPoType,
+    bool PaymentTermsMatch,
+    string PaymentTermsActionNote,
+    bool BillingMatchesShipTo,
+    string ShippingActionNote,
+    string ShippingMethod,
+    string UpsAccountNumber,
+    string OrderClassification,
+    bool DeliveryDateAchievable,
+    string DeliveryDateActionNote,
+    bool PriceMatchesQuote,
+    string PriceActionNote,
+    bool TraceabilityRequired,
+    string[] TraceabilityDeliverables,
+    string[] AerospaceRequirements,
+    string PoFlowdowns,
+    string AdditionalContractQualityRequirements,
+    string SpecialRequirements,
+    bool RequirementsIdentifiedOnAttachedDocument,
+    string ReviewedBy,
+    DateOnly ReviewDate);
+
 internal sealed record SimRfqIntakeCreateRequest(
     string? IntakeType,
     SimRfqIntakeCustomer? Customer,
@@ -28,7 +74,8 @@ internal sealed record SimRfqIntakeCreateRequest(
     SimRfqIntakeDocument[]? TechnicalFiles,
     string[]? CustomerRequirements,
     string? CreatedBy,
-    string? RequestCorrelationId);
+    string? RequestCorrelationId,
+    SimContractReviewRequest? ContractReview = null);
 
 internal sealed record SimTechnicalReviewDispositionRequest(
     string? AssemblyType,
@@ -133,6 +180,29 @@ internal sealed class SimRfqIntakeStore
             var sequence = checked(++dataset.LastIntakeSequence);
             var intakeId = $"RFQI-SIM-{sequence:0000}";
             var now = DateTimeOffset.UtcNow;
+            var contractReview = request.ContractReview is null ? null : new SimContractReview(
+                request.ContractReview.CustomerPoNumber!.Trim(),
+                request.ContractReview.CustomerPoType!.Trim(),
+                request.ContractReview.PaymentTermsMatch!.Value,
+                request.ContractReview.PaymentTermsActionNote?.Trim() ?? "",
+                request.ContractReview.BillingMatchesShipTo!.Value,
+                request.ContractReview.ShippingActionNote?.Trim() ?? "",
+                request.ContractReview.ShippingMethod!.Trim(),
+                request.ContractReview.UpsAccountNumber?.Trim() ?? "",
+                request.ContractReview.OrderClassification!.Trim(),
+                request.ContractReview.DeliveryDateAchievable!.Value,
+                request.ContractReview.DeliveryDateActionNote?.Trim() ?? "",
+                request.ContractReview.PriceMatchesQuote!.Value,
+                request.ContractReview.PriceActionNote?.Trim() ?? "",
+                request.ContractReview.TraceabilityRequired!.Value,
+                NormalizeContractSelections(request.ContractReview.TraceabilityDeliverables),
+                NormalizeContractSelections(request.ContractReview.AerospaceRequirements),
+                request.ContractReview.PoFlowdowns?.Trim() ?? "",
+                request.ContractReview.AdditionalContractQualityRequirements?.Trim() ?? "",
+                request.ContractReview.SpecialRequirements?.Trim() ?? "",
+                request.ContractReview.RequirementsIdentifiedOnAttachedDocument,
+                persona.DisplayName,
+                DateOnly.FromDateTime(now.LocalDateTime));
             var record = new SimRfqIntakeRecord(
                 intakeId,
                 correlationId,
@@ -152,7 +222,9 @@ internal sealed class SimRfqIntakeStore
                 now,
                 metadata.ScenarioId,
                 metadata.Generation,
-                "SIM");
+                "SIM",
+                null,
+                contractReview);
             dataset.Records.Add(record);
             dataset.UpdatedAtUtc = now;
             await WriteVerifiedAsync(dataset);
@@ -438,15 +510,15 @@ internal sealed class SimRfqIntakeStore
 
     private static bool IsTechnicalReviewRecord(SimRfqIntakeRecord record) =>
         string.Equals(record.Schema, "DLE_RFQ_INTAKE_V1", StringComparison.Ordinal) &&
-        string.Equals(record.IntakeType, "NEW_QUOTE_REQUEST", StringComparison.Ordinal);
+        record.IntakeType is "NEW_QUOTE_REQUEST" or "NEW_ORDER";
 
     private static object BuildTechnicalReviewQueueItem(SimRfqIntakeRecord record)
     {
         var assembly = record.Assemblies.OrderBy(item => item.LineNumber).FirstOrDefault();
         return new
         {
-            reviewType = "RFQ_REVIEW",
-            reviewTypeLabel = "RFQ Review",
+            reviewType = record.IntakeType == "NEW_ORDER" ? "CONTRACT_REVIEW" : "RFQ_REVIEW",
+            reviewTypeLabel = record.IntakeType == "NEW_ORDER" ? "New Order Contract Review" : "RFQ Review",
             record.IntakeId,
             record.Customer,
             assembly,
@@ -578,11 +650,20 @@ internal sealed class SimRfqIntakeStore
 
     private static void Validate(SimRfqIntakeCreateRequest request)
     {
-        if (request.IntakeType != "NEW_QUOTE_REQUEST")
-            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_INTAKE_TYPE_INVALID", "New Quote Request is the only supported intake type.");
+        if (request.IntakeType is not ("NEW_QUOTE_REQUEST" or "NEW_ORDER"))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_INTAKE_TYPE_INVALID", "Select a supported Intake Wizard scenario.");
         if (request.Customer is null || request.Customer.ResolutionSource != "sim-canonical-customer-directory" ||
             string.IsNullOrWhiteSpace(request.Customer.CustomerId) || string.IsNullOrWhiteSpace(request.Customer.CustomerName))
             throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_CUSTOMER_INVALID", "Select a customer from the SIM Canonical Customer Directory.");
+        if (request.IntakeType == "NEW_ORDER")
+        {
+            ValidateContractReview(request);
+            if (!request.TechnicalFilesProvided || request.TechnicalFiles is null || request.TechnicalFiles.Length == 0)
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_CUSTOMER_PO_REQUIRED", "Attach the customer PO before submitting this New Order.");
+            if (!Guid.TryParse(request.RequestCorrelationId, out _))
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_CORRELATION_INVALID", "Request correlation ID must be a UUID.");
+            return;
+        }
         if (request.AssemblyCount < 1 || request.Assemblies is null || request.Assemblies.Length != request.AssemblyCount)
             throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_ASSEMBLY_COUNT_INVALID", "Assembly count must match the supplied assembly records.");
         if (request.Assemblies.Any(item => string.IsNullOrWhiteSpace(item.AssemblyNumber) ||
@@ -598,6 +679,46 @@ internal sealed class SimRfqIntakeStore
         if (!Guid.TryParse(request.RequestCorrelationId, out _))
             throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_CORRELATION_INVALID", "Request correlation ID must be a UUID.");
     }
+
+    private static void ValidateContractReview(SimRfqIntakeCreateRequest request)
+    {
+        var review = request.ContractReview ?? throw SimRfqIntakeProblem.BadRequest(
+            "DLE_OS_SIM_NEW_ORDER_REVIEW_REQUIRED", "Complete the Contract Review before submitting this New Order.");
+        if (string.IsNullOrWhiteSpace(review.CustomerPoNumber))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_PO_NUMBER_REQUIRED", "Enter the customer PO number.");
+        if (review.CustomerPoType != "CUSTOMER_PO")
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_CUSTOMER_PO_REQUIRED", "Customer PO is required. Verbal PO is planned for a future release.");
+        if (review.PaymentTermsMatch is null || review.BillingMatchesShipTo is null ||
+            review.DeliveryDateAchievable is null || review.PriceMatchesQuote is null || review.TraceabilityRequired is null)
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_ANSWER_REQUIRED", "Answer every required Contract Review question.");
+        if (!review.PaymentTermsMatch.Value && string.IsNullOrWhiteSpace(review.PaymentTermsActionNote))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_PAYMENT_NOTE_REQUIRED", "Record the resolution/action note for the payment-terms mismatch.");
+        if (!review.BillingMatchesShipTo.Value && string.IsNullOrWhiteSpace(review.ShippingActionNote))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_SHIPPING_NOTE_REQUIRED", "Confirm how the Ship To address was verified and highlighted.");
+        if (review.ShippingMethod is not ("WILL_CALL" or "DLE_DELIVERY" or "UPS_CHARGE" or "UPS_COLLECT"))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_SHIPPING_METHOD_REQUIRED", "Select a supported shipping method.");
+        if (review.ShippingMethod == "UPS_COLLECT" && string.IsNullOrWhiteSpace(review.UpsAccountNumber))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_UPS_ACCOUNT_REQUIRED", "Enter the UPS account number for UPS Collect.");
+        if (review.OrderClassification is not ("REPEAT_ORDER" or "NEW_ASSEMBLY" or "NEW_REVISION"))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_CLASSIFICATION_REQUIRED", "Select the order classification.");
+        if (!review.DeliveryDateAchievable.Value && string.IsNullOrWhiteSpace(review.DeliveryDateActionNote))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_DELIVERY_NOTE_REQUIRED", "Record the delivery-date customer action note.");
+        if (!review.PriceMatchesQuote.Value && string.IsNullOrWhiteSpace(review.PriceActionNote))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_PRICE_NOTE_REQUIRED", "Record the quote/price customer action note.");
+        var traceability = NormalizeContractSelections(review.TraceabilityDeliverables);
+        if (traceability.Any(value => value is not ("TRAVELER" or "MATERIAL_CERTS")))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_TRACEABILITY_INVALID", "Select only supported traceability records.");
+        if (!review.TraceabilityRequired.Value && traceability.Length > 0)
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_TRACEABILITY_INVALID", "Traceability records cannot be selected when traceability is not required.");
+        var aerospace = NormalizeContractSelections(review.AerospaceRequirements);
+        var supported = new HashSet<string>(["CERTIFICATE_OF_CONFORMANCE", "MATERIAL_CERTS", "FAIR", "ITAR", "DPAS_RATED"], StringComparer.Ordinal);
+        if (aerospace.Any(value => !supported.Contains(value)))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_AEROSPACE_REQUIREMENT_INVALID", "Select only supported aerospace requirements.");
+    }
+
+    private static string[] NormalizeContractSelections(string[]? values) =>
+        (values ?? []).Select(value => value.Trim()).Where(value => value.Length > 0)
+            .Distinct(StringComparer.Ordinal).ToArray();
 
     private async Task<SimRfqIntakeDataset> ReadDatasetAsync()
     {
@@ -668,4 +789,5 @@ internal sealed record SimRfqIntakeRecord(
     string ScenarioId,
     long Generation,
     string Environment,
-    SimTechnicalReviewResult? TechnicalReview = null);
+    SimTechnicalReviewResult? TechnicalReview = null,
+    SimContractReview? ContractReview = null);

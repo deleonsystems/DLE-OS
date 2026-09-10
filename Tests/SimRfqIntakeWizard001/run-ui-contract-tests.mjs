@@ -69,5 +69,5 @@ assert.match(wizard, /stepLabel\.insertAdjacentElement\("afterend", progress\)/)
 assert.match(wizard, /layout\.insertAdjacentElement\("beforebegin", progress\)/);
 assert.match(wizard, /document\.addEventListener\?\.\("dle:view-mode-change", syncProgressPlacement\)/);
 assert.match(css, /body\[data-view-mode="mobile"\]\[data-workspace-view="rfq-quoting"\] \.intake-conversation-card > \.intake-progress \{[^}]*width: 100%;[^}]*max-width: none;[^}]*margin: 6px 0 0;/s);
-assert.doesNotMatch(wizard, /pricing|margin|traveler|send email/i);
+assert.doesNotMatch(wizard, /pricing|margin|send email/i);
 console.log("PASS: 62 SIM Intake Wizard UI and responsive contract checks.");
