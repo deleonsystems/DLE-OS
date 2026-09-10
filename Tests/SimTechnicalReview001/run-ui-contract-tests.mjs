@@ -41,9 +41,12 @@ assert.match(workspace, /method: "PUT"/);
 assert.match(workspace, /READY_FOR_RFQ_WORKING_QUEUE/);
 assert.match(workspace, /governed binary placement and document viewing are not available/);
 assert.match(workspace, /No Materials, Labor, pricing, lead-time, or customer-response work was started/);
+assert.match(workspace, /if \(action === "back"\) showQueue\(\)/);
+assert.match(workspace, /function showQueue\(\) \{[\s\S]*?state\.selected = null;[\s\S]*?technicalReviewDetailView"\)\.hidden = true;[\s\S]*?technicalReviewQueueView"\)\.hidden = false;/);
 assert.doesNotMatch(workspace, /documentIntake|rfqProcessing|bomExtraction/);
 assert.match(styles, /\.technical-review-row/);
 assert.match(styles, /\.technical-review-form/);
+assert.match(styles, /\.technical-review-view\[hidden\]\{display:none\}/);
 assert.match(styles, /@media\(max-width:720px\)/);
 
 assert.match(intake, /Submit for Technical Review/);
