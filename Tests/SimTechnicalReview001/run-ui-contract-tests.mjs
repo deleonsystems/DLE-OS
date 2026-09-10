@@ -51,6 +51,8 @@ assert.match(endpoints, /MapDelete\("\/api\/sim\/technical-reviews\/\{intakeId\}
 assert.match(workspace, /state\.materials \? renderMaterials/);
 assert.match(workspace, /state\.guided = disposition === "START_TECHNICAL_REVIEW"/);
 assert.match(workspace, /READY_FOR_RFQ_WORKING_QUEUE/);
+assert.match(workspace, /if \(action === "back" && !state\.saving\) showQueue\(\)/);
+assert.match(workspace, /function showQueue\(\) \{[\s\S]*?state\.selected = null;[\s\S]*?technicalReviewDetailView"\)\.hidden = true;[\s\S]*?technicalReviewQueueView"\)\.hidden = false;/);
 assert.doesNotMatch(workspace, /documentIntake|rfqProcessing|bomExtraction/);
 assert.match(styles, /\.technical-review-row/);
 assert.match(styles, /\.technical-review-form/);

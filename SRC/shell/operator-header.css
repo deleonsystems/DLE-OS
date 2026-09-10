@@ -280,6 +280,7 @@ body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] #dle-auth-name 
 body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] #dle-auth-identity:not(:has(#dle-auth-signout)) { display:none!important }
 body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .dle-identity-clock-stack:not(:has(#dle-auth-signout)) { display:none }
 body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] > main { margin-top:0;padding-top:0 }
+body[data-view-mode="mobile"]:is([data-workspace-view="dle-home"],[data-workspace-view="operations-center"],[data-workspace-view="invoice-history"],[data-workspace-view="rfq-quoting"]) .dle-operator-header .logo { display:block;grid-area:navigation;justify-self:end;align-self:center;width:auto;height:32px;max-width:96px;object-fit:contain;pointer-events:none }
 body[data-view-mode="mobile"] .dle-view-mode-toggle select { text-align:center;text-align-last:center;transform:translateY(-4px) }
 
 @media screen {
