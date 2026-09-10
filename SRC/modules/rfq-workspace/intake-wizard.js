@@ -12,7 +12,7 @@
     return {
       currentStep: 0, status: "DRAFT", intakeType: "", customer: null, assemblyCount: 1,
       assemblies: [{ lineNumber: 1, assemblyNumber: "", revision: "", quantity: null }],
-      deLeonScope: "", technicalFilesProvided: null, technicalFiles: [], customerRequirements: ["PRICE"],
+      deLeonScope: "", technicalFilesProvided: null, technicalFiles: [], requestCorrelationId: null, customerRequirements: ["PRICE"],
       customerSearch: { query: "", status: "idle", results: [], message: "" },
       submit: { status: "idle", message: "" }
     };
@@ -80,7 +80,7 @@
     if (step === "file-association") return question("Which technical files came with the request?",
       '<label class="intake-file-control" data-intake-drop-zone><input type="file" data-intake-files multiple>' +
       '<span class="intake-file-drop-title">Drop customer technical files here</span><small>or click to browse</small></label>' +
-      renderFiles() + '<p class="intake-file-note">SIM preserves file metadata with this intake. Place the original files in the governed customer folder before qualification.</p>' +
+      renderFiles() + '<p class="intake-file-note">When you submit, SIM saves and verifies its own copy of every selected file. Technical Review opens those copies; no original folder or drive is needed afterward. Up to 20 MB per file.</p>' +
       navButtons(true, "Continue"), "Associate the source package with the intake.");
     if (step === "requirements") return question("What does the customer need back?",
       choice("Price + Lead Time", "PRICE_AND_LEAD_TIME", "requirements"),
@@ -168,11 +168,13 @@
   function renderComplete() {
     return '<div class="intake-complete-mark">✓</div><p class="intake-kicker">INTAKE PRESERVED</p><h2>Submitted for Technical Review</h2>' +
       '<p class="intake-question-hint">' + escapeHtml(committed?.intakeId || "RFQ Intake") +
-      ' is preserved in SIM structured state and is waiting for a trained reviewer. Review has not started.</p><div class="intake-handoff"><strong>Handoff point</strong><span>Technical Review · RFQ Review</span></div>' +
+      ' is preserved in SIM structured state and is waiting for a trained reviewer. Review has not started.</p>' +
+      (committed?.documentPreservationState === 'BINARIES_VERIFIED_SIM' ? '<p class="intake-question-hint">Your technical files are saved and verified in SIM. Technical Review can reopen these copies without access to the original files or folders.</p>' : '') + '<div class="intake-handoff"><strong>Handoff point</strong><span>Technical Review · RFQ Review</span></div>' +
       '<button type="button" data-intake-action="restart" class="intake-primary">Start another intake</button>';
   }
 
   function handleClick(event) {
+    if (state.submit.status === "saving") return;
     const selected = event.target.closest("[data-intake-choice]");
     if (selected) return selectChoice(selected.dataset.intakeChoice, selected.dataset.intakeValue);
     const customer = event.target.closest("[data-intake-customer]");
@@ -180,7 +182,7 @@
     const edit = event.target.closest("[data-intake-edit]");
     if (edit) { state.currentStep = Number(edit.dataset.intakeEdit); return render(); }
     const remove = event.target.closest("[data-intake-remove-file]");
-    if (remove) { state.technicalFiles.splice(Number(remove.dataset.intakeRemoveFile), 1); return render(); }
+    if (remove) { void removeTechnicalFile(Number(remove.dataset.intakeRemoveFile)); return; }
     const action = event.target.closest("[data-intake-action]")?.dataset.intakeAction;
     if (action === "back") { state.currentStep = Math.max(0, state.currentStep - 1); render(); }
     if (action === "continue") continueFromFiles();
@@ -230,8 +232,9 @@
   }
 
   function setTechnicalFiles(files) {
+    if (state.submit.status === "saving") return;
     const additions = Array.from(files || []).map(file => ({
-      name: file.name, size: file.size, type: file.type || "application/octet-stream", lastModified: file.lastModified
+      name: file.name, size: file.size, type: file.type || "application/octet-stream", lastModified: file.lastModified, binary: file
     }));
     const knownFiles = new Set(state.technicalFiles.map(technicalFileIdentity));
     state.technicalFiles = [...state.technicalFiles, ...additions.filter(file => {
@@ -242,6 +245,17 @@
     })];
     root.querySelector(".intake-inline-error")?.remove();
     render();
+  }
+
+  async function removeTechnicalFile(index) {
+    const file = state.technicalFiles[index];
+    try {
+      if (file.documentId) {
+        const response = await window.fetch('/api/sim/intake-drafts/' + encodeURIComponent(state.requestCorrelationId) + '/documents/' + encodeURIComponent(file.documentId), { method: 'DELETE', credentials: 'include' });
+        if (!response.ok) throw new Error('SIM could not remove the staged copy. Retry or finish the existing submission.');
+      }
+      state.technicalFiles.splice(index, 1); render();
+    } catch (error) { showInlineError(error.message); }
   }
 
   function technicalFileIdentity(file) {
@@ -280,6 +294,7 @@
     if (field === "scope") state.deLeonScope = value;
     if (field === "technical-files") {
       state.technicalFilesProvided = value === "yes";
+      if (!state.technicalFilesProvided && state.technicalFiles.some(file => file.documentId)) { state.technicalFilesProvided = true; return showInlineError("Remove staged files individually before changing this answer."); }
       if (!state.technicalFilesProvided) state.technicalFiles = [];
     }
     if (field === "requirements") state.customerRequirements = ["PRICE", "LEAD_TIME"];
@@ -330,12 +345,22 @@
   async function submitIntake() {
     state.submit = { status: "saving", message: "" };
     render();
-    const requestCorrelationId = window.crypto?.randomUUID?.() || "00000000-0000-4000-8000-" + String(Date.now()).padStart(12, "0").slice(-12);
+    const requestCorrelationId = state.requestCorrelationId ||= window.crypto?.randomUUID?.() || "00000000-0000-4000-8000-" + String(Date.now()).padStart(12, "0").slice(-12);
     const payload = { intakeType: state.intakeType, customer: state.customer, assemblyCount: state.assemblyCount,
       assemblies: state.assemblies, deLeonScope: state.deLeonScope, technicalFilesProvided: state.technicalFilesProvided,
-      technicalFiles: state.technicalFiles, customerRequirements: state.customerRequirements,
+      technicalFiles: state.technicalFiles.map(({binary, ...metadata}) => metadata), customerRequirements: state.customerRequirements,
       createdBy: window.DleOsSession?.user?.displayName || "SIM User", requestCorrelationId };
     try {
+      for (const file of state.technicalFiles) {
+        if (file.documentId) continue;
+        const upload = await window.fetch('/api/sim/intake-drafts/' + encodeURIComponent(requestCorrelationId) + '/documents?name=' + encodeURIComponent(file.name) + '&lastModified=' + file.lastModified, {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/octet-stream', 'X-SIM-Document-Upload': '1' }, body: file.binary
+        });
+        const staged = await upload.json();
+        if (!upload.ok || staged.binaryStatus !== 'VERIFIED') throw new Error(staged.message || 'SIM could not verify the selected file. Intake was not submitted.');
+        Object.assign(file, staged);
+      }
+      payload.technicalFiles = state.technicalFiles.map(({binary, ...metadata}) => metadata);
       const response = await window.fetch("/api/sim/rfq-intakes", { method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload) });
       const body = await response.json();

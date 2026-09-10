@@ -23,25 +23,36 @@ assert.match(home, /workAreas = window\.DleWorkspaceRegistry\.all\(\)\.filter/);
 assert.match(home, /window\.setWorkspaceView\(workspaceId\)/);
 
 for (const text of ["Technical Review", "Review Queue", "PRIMARY WORKLIST"]) assert.ok(markup.includes(text));
-for (const text of [
-  "RFQ Review", "PCB Assembly", "Assembly Drawing", "BOM", "Gerber",
-  "Sub-assembly document", "Full turnkey", "Customer-supplied material",
-  "Hybrid / partially customer-supplied", "Qualified — Ready for RFQ",
-  "Needs Customer Clarification", "Missing Technical Documents",
-  "Revision / Document Conflict", "Blocked / Needs Escalation"
-]) assert.ok(workspace.includes(text), text);
+for (const text of ["RFQ Review", "Have we built this assembly before?", "Existing Assembly — History Found", "New Assembly", "No previous DLE build history found"]) assert.ok(workspace.includes(text), text);
+assert.doesNotMatch(workspace, /<form|assemblyDrawingFile|gerbersRequired|materialResponsibility|B11283-17/);
+assert.match(workspace, /assembly-classification/);
+assert.match(workspace, /assembly-history/);
 for (const heading of [
   "Review Type", "Intake ID", "Customer", "Assembly", "Revision", "Qty",
   "Received", "Technical documents", "Review status"
 ]) assert.ok(workspace.includes(heading), heading);
 assert.match(workspace, /\/api\/sim\/technical-reviews/);
 assert.match(workspace, /method: "PUT"/);
+const entryActions = workspace.slice(workspace.indexOf("  function renderEntryActions"), workspace.indexOf("  function renderCloseChoices"));
+assert.equal((entryActions.match(/<button /g) || []).length, 2);
+assert.match(entryActions, />Start Technical Review<\/button>/);
+assert.match(entryActions, />No Longer Required<\/button>/);
+assert.doesNotMatch(entryActions, /<select|<textarea|<form/);
+const closeChoices = workspace.slice(workspace.indexOf("  function renderCloseChoices"), workspace.indexOf("  async function deleteReview"));
+assert.equal((closeChoices.match(/<button /g) || []).length, 2);
+assert.match(closeChoices, /What would you like to do with this intake\?/);
+assert.match(closeChoices, />Delete<\/button>/);
+assert.match(closeChoices, />Save<\/button>/);
+assert.doesNotMatch(closeChoices, /<select|<textarea|<form/);
+assert.match(workspace, /method: "DELETE"/);
+assert.match(endpoints, /MapDelete\("\/api\/sim\/technical-reviews\/\{intakeId\}"/);
+assert.match(workspace, /state\.materials \? renderMaterials/);
+assert.match(workspace, /state\.guided = disposition === "START_TECHNICAL_REVIEW"/);
 assert.match(workspace, /READY_FOR_RFQ_WORKING_QUEUE/);
-assert.match(workspace, /governed binary placement and document viewing are not available/);
-assert.match(workspace, /No Materials, Labor, pricing, lead-time, or customer-response work was started/);
 assert.doesNotMatch(workspace, /documentIntake|rfqProcessing|bomExtraction/);
 assert.match(styles, /\.technical-review-row/);
 assert.match(styles, /\.technical-review-form/);
+assert.match(styles, /\.technical-review-view\[hidden\]\{display:none\}/);
 assert.match(styles, /@media\(max-width:720px\)/);
 
 assert.match(intake, /Submit for Technical Review/);

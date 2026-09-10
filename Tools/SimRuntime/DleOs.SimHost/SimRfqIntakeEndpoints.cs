@@ -38,6 +38,36 @@ internal static class SimRfqIntakeEndpoints
             });
         });
 
+        app.MapPost("/api/sim/intake-drafts/{draft}/documents", async Task<IResult> (string draft, HttpContext context) =>
+        {
+            var denied = Denied(context, state, personas, true); if (denied is not null) return denied;
+            if (!context.Request.Headers.ContainsKey("X-SIM-Document-Upload")) return Results.StatusCode(400);
+            try { return Results.Json(await store.StageDocument(draft, context.Request.Query["name"].ToString(), long.TryParse(context.Request.Query["lastModified"], out var modified) ? modified : 0, context.Request.Body, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { message = p.Message, code = p.Code }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "SIM could not write and verify the file. Intake was not submitted." }, statusCode: 503); }
+        });
+        app.MapDelete("/api/sim/intake-drafts/{draft}/documents/{id}", async Task<IResult> (string draft, string id, HttpContext context) =>
+        {
+            var denied = Denied(context, state, personas, true); if (denied is not null) return denied;
+            try { await store.RemoveStagedDocument(draft,id,personas.Resolve(context)); return Results.NoContent(); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { message = p.Message, code = p.Code }, statusCode: p.StatusCode); }
+        });
+        app.MapGet("/api/sim/rfq-intakes/{intakeId}/documents/{id}", async Task<IResult> (string intakeId, string id, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context,state,personas,"technical_review.view"); if (denied is not null) return denied;
+            try
+            {
+                var result = await store.OpenDocument(intakeId,id);
+                context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                context.Response.Headers["Cache-Control"] = "private, no-store";
+                var disposition = new System.Net.Http.Headers.ContentDispositionHeaderValue(result.Document.Type == "application/pdf" && context.Request.Query["download"] != "true" ? "inline" : "attachment") { FileNameStar = result.Document.Name };
+                context.Response.Headers["Content-Disposition"] = disposition.ToString();
+                return Results.File(result.Bytes,result.Document.Type,enableRangeProcessing:true);
+            }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { message = p.Message, code = p.Code }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "SIM document storage is unavailable." }, statusCode: 503); }
+        });
+
         app.MapPost("/api/sim/rfq-intakes", async Task<IResult> (
             SimRfqIntakeCreateRequest request, HttpContext context) =>
         {
@@ -82,6 +112,72 @@ internal static class SimRfqIntakeEndpoints
             return review is null
                 ? Results.Json(new { code = "DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND", message = "The SIM Technical Review item does not exist." }, statusCode: 404)
                 : Results.Json(review);
+        });
+
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/assembly-history",
+            (string intakeId, HttpContext context) => UpdateHistory(intakeId, null, context));
+        app.MapPut("/api/sim/technical-reviews/{intakeId}/assembly-classification",
+            (string intakeId, SimAssemblyClassificationRequest request, HttpContext context) =>
+                UpdateHistory(intakeId, request.AssemblyClassification ?? "", context));
+
+        async Task<IResult> UpdateHistory(string intakeId, string? classification, HttpContext context)
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.UpdateAssemblyHistoryAsync(intakeId, classification, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem problem)
+            {
+                return Results.Json(new { code = problem.Code, message = problem.Message, environment = "SIM" }, statusCode: problem.StatusCode);
+            }
+        }
+
+        app.MapPut("/api/sim/technical-reviews/{intakeId}/technical-package", async Task<IResult> (string intakeId, SimPackageRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.ReviewMaterialsAsync(intakeId, personas.Resolve(context), request, inventoryOnly: true)); }
+            catch (SimRfqIntakeProblem problem)
+            {
+                return Results.Json(new { code = problem.Code, message = problem.Message, environment = "SIM" }, statusCode: problem.StatusCode);
+            }
+        });
+
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/materials-definition", async Task<IResult> (string intakeId, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.ReviewMaterialsAsync(intakeId, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem problem)
+            {
+                return Results.Json(new { code = problem.Code, message = problem.Message, environment = "SIM" }, statusCode: problem.StatusCode);
+            }
+        });
+
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/candidate-bom", (string intakeId, HttpContext context) => Candidate(intakeId, null, context));
+        app.MapPut("/api/sim/technical-reviews/{intakeId}/candidate-bom", (string intakeId, SimCandidateReviewRequest request, HttpContext context) => Candidate(intakeId, request, context));
+        async Task<IResult> Candidate(string intakeId, SimCandidateReviewRequest? request, HttpContext context)
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.CandidateBomAsync(intakeId, personas.Resolve(context), request)); }
+            catch (SimRfqIntakeProblem problem) { return Results.Json(new { code = problem.Code, message = problem.Message }, statusCode: problem.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "SIM candidate storage is unavailable; reopen before retrying." }, statusCode: 503); }
+        }
+
+        app.MapDelete("/api/sim/technical-reviews/{intakeId}", async Task<IResult> (
+            string intakeId, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try
+            {
+                return Results.Json(await store.DeleteTechnicalReviewAsync(intakeId));
+            }
+            catch (SimRfqIntakeProblem problem)
+            {
+                return Results.Json(new { code = problem.Code, message = problem.Message, environment = "SIM" },
+                    statusCode: problem.StatusCode);
+            }
         });
 
         app.MapPut("/api/sim/technical-reviews/{intakeId}/disposition", async Task<IResult> (

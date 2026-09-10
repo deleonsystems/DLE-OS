@@ -4,7 +4,7 @@ internal sealed record SimRfqIntakeDocument(
     string Name,
     long Size,
     string Type,
-    long LastModified);
+    long LastModified, string? DocumentId = null, string? BinaryStatus = null, string? DocumentReference = null, DateTimeOffset? StagedAtUtc = null);
 
 internal sealed record SimRfqIntakeCustomer(
     string CustomerId,
@@ -60,7 +60,12 @@ internal sealed record SimTechnicalReviewResult(
     string? DownstreamHandoffState,
     string ReviewedBy,
     DateTimeOffset ReviewedAtUtc,
-    string ReviewerNotes);
+    string ReviewerNotes,
+    SimAssemblyHistoryQuestion? AssemblyHistory = null,
+    SimMaterialsDefinition? MaterialsDefinition = null,
+    SimTechnicalPackage? TechnicalPackage = null,
+    SimSubassemblyCoverage[]? SubassemblyCoverage = null,
+    SimCandidateBom? CandidateBom = null);
 
 internal sealed class SimRfqIntakeProblem : Exception
 {
@@ -78,12 +83,16 @@ internal sealed class SimRfqIntakeProblem : Exception
 
     internal static SimRfqIntakeProblem NotFound(string code, string message) =>
         new(StatusCodes.Status404NotFound, code, message);
+
+    internal static SimRfqIntakeProblem Conflict(string code, string message) =>
+        new(StatusCodes.Status409Conflict, code, message);
 }
 
 internal sealed class SimRfqIntakeStore
 {
     private const string DatasetSchema = "DLE_RFQ_INTAKE_DATASET_V1";
     private readonly string dataPath;
+    private readonly SimIntakeDocuments documents;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly JsonSerializerOptions jsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -92,6 +101,7 @@ internal sealed class SimRfqIntakeStore
 
     internal SimRfqIntakeStore(string stateRoot)
     {
+        documents = new SimIntakeDocuments(stateRoot);
         dataPath = SimRuntimeOptions.ResolveStatePath(stateRoot, "data", "rfq-intakes.json");
     }
 
@@ -110,7 +120,17 @@ internal sealed class SimRfqIntakeStore
                 string.Equals(record.RequestCorrelationId, correlationId, StringComparison.Ordinal));
             if (duplicate is not null) return new { duplicate = true, record = duplicate };
 
-            var sequence = dataset.Records.Count + 1;
+            var verifiedFiles = new List<SimRfqIntakeDocument>();
+            foreach (var file in request.TechnicalFiles ?? [])
+            {
+                if (file.DocumentId is not null) verifiedFiles.Add(await documents.Verify(correlationId, file, persona.DisplayName));
+                else if (file.BinaryStatus is not null || file.DocumentReference is not null || file.StagedAtUtc is not null)
+                    throw SimRfqIntakeProblem.BadRequest("SIM_DOCUMENT_REFERENCE_INVALID", "Verified binary state requires a governed staged document.");
+                else verifiedFiles.Add(file);
+            }
+            if (verifiedFiles.Where(file => file.DocumentId is not null).Select(file => file.DocumentId).Distinct().Count() != verifiedFiles.Count(file => file.DocumentId is not null))
+                throw SimRfqIntakeProblem.BadRequest("SIM_DOCUMENT_REFERENCE_INVALID", "A staged document cannot be attached twice.");
+            var sequence = checked(++dataset.LastIntakeSequence);
             var intakeId = $"RFQI-SIM-{sequence:0000}";
             var now = DateTimeOffset.UtcNow;
             var record = new SimRfqIntakeRecord(
@@ -125,8 +145,8 @@ internal sealed class SimRfqIntakeStore
                 request.Assemblies!,
                 request.DeLeonScope!.Trim(),
                 request.TechnicalFilesProvided,
-                request.TechnicalFiles ?? [],
-                request.TechnicalFilesProvided ? "METADATA_PRESERVED_SOURCE_PLACEMENT_REQUIRED" : "NOT_PROVIDED",
+                verifiedFiles.ToArray(),
+                request.TechnicalFilesProvided ? verifiedFiles.All(file => file.BinaryStatus == "VERIFIED") ? "BINARIES_VERIFIED_SIM" : "METADATA_PRESERVED_SOURCE_PLACEMENT_REQUIRED" : "NOT_PROVIDED",
                 request.CustomerRequirements!,
                 persona.DisplayName,
                 now,
@@ -144,6 +164,34 @@ internal sealed class SimRfqIntakeStore
         }
     }
 
+    internal async Task<SimRfqIntakeDocument> StageDocument(string draft, string name, long modified, Stream stream, SimPersona persona)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            if ((await ReadDatasetAsync()).Records.Any(r => r.RequestCorrelationId == draft)) throw SimRfqIntakeProblem.Conflict("SIM_INTAKE_ALREADY_SUBMITTED", "This intake has already been submitted.");
+            return await documents.Stage(draft, name, modified, stream, persona.DisplayName);
+        }
+        finally { gate.Release(); }
+    }
+    internal async Task RemoveStagedDocument(string draft, string id, SimPersona persona)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            if ((await ReadDatasetAsync()).Records.Any(r => r.RequestCorrelationId == draft)) throw SimRfqIntakeProblem.Conflict("SIM_INTAKE_ALREADY_SUBMITTED", "Submitted intake documents cannot be removed as drafts.");
+            await documents.Remove(draft,id,persona.DisplayName);
+        }
+        finally { gate.Release(); }
+    }
+    internal async Task<(SimRfqIntakeDocument Document, byte[] Bytes)> OpenDocument(string intakeId, string id)
+    {
+        var record = (await ReadDatasetAsync()).Records.SingleOrDefault(r => r.IntakeId == intakeId);
+        var doc = record?.TechnicalFiles.SingleOrDefault(d => d.DocumentId == id && d.BinaryStatus == "VERIFIED");
+        if (doc is null) throw SimRfqIntakeProblem.NotFound("SIM_DOCUMENT_NOT_FOUND", "No staged document with this ID belongs to the intake.");
+        return (doc, await documents.Bytes(record!.RequestCorrelationId,id));
+    }
+
     internal async Task<object?> ReadAsync(string intakeId)
     {
         var dataset = await ReadDatasetAsync();
@@ -156,6 +204,7 @@ internal sealed class SimRfqIntakeStore
         var dataset = await ReadDatasetAsync();
         var items = dataset.Records
             .Where(IsTechnicalReviewRecord)
+            .Where(record => record.Status is not ("NO_LONGER_REQUIRED" or "READY_FOR_RFQ_WORKING_QUEUE"))
             .OrderByDescending(record => record.CreatedAtUtc)
             .Select(BuildTechnicalReviewQueueItem)
             .ToArray();
@@ -180,6 +229,7 @@ internal sealed class SimRfqIntakeStore
             reviewType = "RFQ_REVIEW",
             reviewTypeLabel = "RFQ Review",
             reviewStatusLabel = ReviewStatusLabel(record.Status),
+            deletionEligibility = new { allowed = DeletionBlockReason(record) is null, reason = DeletionBlockReason(record) },
             record
         };
     }
@@ -201,6 +251,10 @@ internal sealed class SimRfqIntakeStore
                     "The SIM Technical Review item does not exist.");
 
             var record = dataset.Records[index];
+            // Closed reviews remain readable, but stale clients cannot reopen or overwrite them.
+            if (record.Status == "NO_LONGER_REQUIRED" && request.Disposition != "NO_LONGER_REQUIRED")
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_CLOSED",
+                    "This Technical Review is closed as No Longer Required.");
             var result = ValidateTechnicalReview(request, record, persona);
             var status = result.DownstreamHandoffState ?? result.ReviewStatus;
             var updated = record with { Status = status, TechnicalReview = result };
@@ -220,6 +274,167 @@ internal sealed class SimRfqIntakeStore
             gate.Release();
         }
     }
+
+    internal async Task<object> UpdateAssemblyHistoryAsync(string intakeId, string? classification, SimPersona persona)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var index = dataset.Records.FindIndex(item => item.IntakeId.Equals(intakeId, StringComparison.OrdinalIgnoreCase) && IsTechnicalReviewRecord(item));
+            if (index < 0) throw SimRfqIntakeProblem.NotFound("DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND", "The SIM Technical Review item does not exist.");
+            var record = dataset.Records[index];
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || record.TechnicalReview is null)
+                throw SimRfqIntakeProblem.Conflict("DLE_OS_SIM_REVIEW_NOT_STARTED", "Start an active Technical Review before answering the history question.");
+            var history = record.TechnicalReview.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record);
+            if (classification is not null)
+            {
+                var expected = history.HistoryFound ? "EXISTING_ASSEMBLY" : "NEW_ASSEMBLY";
+                if (classification != expected)
+                    throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_ASSEMBLY_CLASSIFICATION_INVALID", "The assembly decision must match the history lookup result.");
+                if (history.AssemblyClassification != classification)
+                    history = history with { AssemblyClassification = classification, ConfirmedBy = persona.DisplayName, ConfirmedAtUtc = DateTimeOffset.UtcNow };
+            }
+            if (history != record.TechnicalReview.AssemblyHistory)
+            {
+                record = record with { TechnicalReview = record.TechnicalReview with { AssemblyHistory = history } };
+                dataset.Records[index] = record;
+                dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                await WriteVerifiedAsync(dataset);
+            }
+            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+        }
+        finally { gate.Release(); }
+    }
+
+    internal async Task<object> ReviewMaterialsAsync(string intakeId, SimPersona persona, SimPackageRequest? packageRequest = null, bool inventoryOnly = false)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var index = dataset.Records.FindIndex(item => item.IntakeId.Equals(intakeId, StringComparison.OrdinalIgnoreCase) && IsTechnicalReviewRecord(item));
+            if (index < 0) throw SimRfqIntakeProblem.NotFound("DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND", "The SIM Technical Review item does not exist.");
+            var record = dataset.Records[index];
+            var history = record.TechnicalReview?.AssemblyHistory;
+            var revision = record.Assemblies.OrderBy(item => item.LineNumber).First().Revision.Trim();
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || history?.AssemblyClassification != "EXISTING_ASSEMBLY" ||
+                !history.RevisionsFound.Contains(revision, StringComparer.OrdinalIgnoreCase))
+                throw SimRfqIntakeProblem.Conflict("DLE_OS_SIM_BOM_HISTORY_REQUIRED", "Confirm existing assembly history for the requested revision before reviewing materials.");
+            if (inventoryOnly || record.TechnicalReview!.MaterialsDefinition is null || record.TechnicalReview.TechnicalPackage?.GoverningBomDocumentId is null)
+            {
+                var package = packageRequest is null ? record.TechnicalReview!.TechnicalPackage ?? SimTechnicalPackageProvider.Inventory(record) : SimTechnicalPackageProvider.Validate(record, packageRequest, persona);
+                var definition = inventoryOnly ? null : SimMaterialsDefinitionProvider.Compare(record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package } }, persona);
+                var sameSources = JsonSerializer.Serialize(package.Documents, jsonOptions) == JsonSerializer.Serialize(record.TechnicalReview!.TechnicalPackage?.Documents, jsonOptions) && package.GoverningBomDocumentId == record.TechnicalReview.TechnicalPackage?.GoverningBomDocumentId;
+                record = record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package, MaterialsDefinition = definition, CandidateBom = sameSources ? record.TechnicalReview.CandidateBom : null,
+                    SubassemblyCoverage = definition is null ? null : SimTechnicalPackageProvider.Coverage(package, definition) } };
+                dataset.Records[index] = record;
+                dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                await WriteVerifiedAsync(dataset);
+            }
+            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+        }
+        finally { gate.Release(); }
+    }
+
+    internal async Task<object> CandidateBomAsync(string intakeId, SimPersona persona, SimCandidateReviewRequest? request = null)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var index = dataset.Records.FindIndex(r => r.IntakeId == intakeId && IsTechnicalReviewRecord(r));
+            if (index < 0) throw SimRfqIntakeProblem.NotFound("SIM_REVIEW_NOT_FOUND", "Technical Review was not found.");
+            var record = dataset.Records[index];
+            var review = record.TechnicalReview;
+            var package = review?.TechnicalPackage;
+            var governing = package?.Documents.SingleOrDefault(d => d.DocumentId == package.GoverningBomDocumentId);
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || review?.AssemblyHistory?.AssemblyClassification is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
+                governing is not { DocumentType: "ASSEMBLY_DRAWING", EmbeddedBom: true, Applicability: "PARENT_ASSEMBLY", Role: "GOVERNING" })
+                throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_REQUIRED", "Start review, confirm assembly history, and explicitly select a governing parent assembly drawing with an embedded BOM.");
+            var file = record.TechnicalFiles.SingleOrDefault(d => d.DocumentId == governing.DocumentId && d.BinaryStatus == "VERIFIED" && d.Type == "application/pdf");
+            if (file is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_BINARY_REQUIRED", "The governing PDF must have a verified SIM staged binary.");
+            var bytes = await documents.Bytes(record.RequestCorrelationId, file.DocumentId!);
+            var candidate = review.CandidateBom;
+            if (candidate is not null && (candidate.GoverningDocumentId != file.DocumentId || candidate.GoverningSha256 != Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant()))
+                throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_CHANGED", "The governing source changed. Reconfirm the package before building a new candidate.");
+            if (request is not null)
+            {
+                if (candidate is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_REQUIRED", "Build the candidate before reviewing rows.");
+                candidate = SimCandidateBomProvider.Review(candidate, request, persona);
+            }
+            else candidate ??= await SimCandidateBomProvider.Extract(bytes, package!, persona);
+            record = record with { TechnicalReview = review with { CandidateBom = candidate } };
+            dataset.Records[index] = record;
+            dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await WriteVerifiedAsync(dataset);
+            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+        }
+        finally { gate.Release(); }
+    }
+
+    internal async Task<object> DeleteTechnicalReviewAsync(string intakeId)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var record = dataset.Records.FirstOrDefault(item =>
+                string.Equals(item.IntakeId, intakeId, StringComparison.OrdinalIgnoreCase) && IsTechnicalReviewRecord(item));
+            if (record is null)
+                throw SimRfqIntakeProblem.NotFound("DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND",
+                    "The SIM Technical Review item does not exist.");
+
+            var blockedReason = DeletionBlockReason(record);
+            if (blockedReason is not null)
+                throw SimRfqIntakeProblem.Conflict("DLE_OS_SIM_TECHNICAL_REVIEW_DELETE_UNSAFE",
+                    blockedReason + " Nothing was deleted.");
+
+            foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Verify(record.RequestCorrelationId, file, record.CreatedBy);
+            // Own only this record, embedded review, and verified SIM copies.
+            // Never interpret source filenames as paths or delete source/master data.
+            dataset.Records.Remove(record);
+            dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await WriteVerifiedAsync(dataset);
+            foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Remove(record.RequestCorrelationId,file.DocumentId!,record.CreatedBy);
+            return new { deleted = true, intakeId = record.IntakeId, environment = "SIM" };
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private static string? DeletionBlockReason(SimRfqIntakeRecord record)
+    {
+        if (record.Environment != "SIM") return "Deletion is limited to SIM intake records.";
+        // RFQ Qualification is the original name for this same early intake destination.
+        if (record.HandoffTarget is not ("Technical Review" or "RFQ Qualification"))
+            return "The intake handoff target is outside the supported intake/review boundary.";
+        if (record.DocumentPreservationState is not ("NOT_PROVIDED" or "METADATA_PRESERVED_SOURCE_PLACEMENT_REQUIRED" or "BINARIES_VERIFIED_SIM"))
+            return "The document storage state requires a governed ownership check before deletion.";
+        var review = record.TechnicalReview;
+        if (review is not null)
+        {
+            // ValidateTechnicalReview writes this exact pair without creating an RFQ work record.
+            // Only that known placeholder is exempt; any other link/state remains protected.
+            var futureRfqPlaceholder = review.DownstreamHandoffTarget == "RFQs" &&
+                review.DownstreamHandoffState == "READY_FOR_RFQ_WORKING_QUEUE" &&
+                review.Disposition == "QUALIFIED_READY_FOR_RFQ" && review.ReviewStatus == "QUALIFIED_READY_FOR_RFQ";
+            if (!futureRfqPlaceholder && (!string.IsNullOrWhiteSpace(review.DownstreamHandoffTarget) ||
+                !string.IsNullOrWhiteSpace(review.DownstreamHandoffState)))
+                return "The review contains a downstream handoff reference that requires preservation or relationship verification.";
+            if (!IsEarlyReviewState(review.ReviewStatus) || !IsEarlyReviewState(review.Disposition))
+                return "The review status or disposition is outside the recognized early review states.";
+        }
+        return IsEarlyReviewState(record.Status) ? null : "The intake status is outside the recognized early review states.";
+    }
+
+    private static bool IsEarlyReviewState(string value) => value is
+        "READY_FOR_RFQ_QUALIFICATION" or "TECHNICAL_REVIEW_IN_PROGRESS" or "START_TECHNICAL_REVIEW" or
+        "QUALIFIED_READY_FOR_RFQ" or "READY_FOR_RFQ_WORKING_QUEUE" or
+        "NO_LONGER_REQUIRED" or "NEEDS_CUSTOMER_CLARIFICATION" or "MISSING_TECHNICAL_DOCUMENTS" or
+        "REVISION_DOCUMENT_CONFLICT" or "BLOCKED_NEEDS_ESCALATION";
 
     private static bool IsTechnicalReviewRecord(SimRfqIntakeRecord record) =>
         string.Equals(record.Schema, "DLE_RFQ_INTAKE_V1", StringComparison.Ordinal) &&
@@ -246,6 +461,8 @@ internal sealed class SimRfqIntakeStore
     private static string ReviewStatusLabel(string status) => status switch
     {
         "READY_FOR_RFQ_QUALIFICATION" => "Needs Technical Review",
+        "TECHNICAL_REVIEW_IN_PROGRESS" => "Technical Review in progress",
+        "NO_LONGER_REQUIRED" => "No Longer Required",
         "READY_FOR_RFQ_WORKING_QUEUE" => "Qualified — Ready for RFQ",
         "NEEDS_CUSTOMER_CLARIFICATION" => "Needs Customer Clarification",
         "MISSING_TECHNICAL_DOCUMENTS" => "Missing Technical Documents",
@@ -259,6 +476,29 @@ internal sealed class SimRfqIntakeStore
         SimRfqIntakeRecord record,
         SimPersona persona)
     {
+        var entryDisposition = request.Disposition?.Trim();
+        if (entryDisposition is "START_TECHNICAL_REVIEW" or "NO_LONGER_REQUIRED")
+        {
+            if (record.Status == "READY_FOR_RFQ_WORKING_QUEUE" ||
+                !string.IsNullOrWhiteSpace(record.TechnicalReview?.DownstreamHandoffTarget) ||
+                !string.IsNullOrWhiteSpace(record.TechnicalReview?.DownstreamHandoffState))
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_ALREADY_HANDED_OFF",
+                    "This review has already been handed off to RFQ.");
+            var entryStatus = entryDisposition == "NO_LONGER_REQUIRED"
+                ? "NO_LONGER_REQUIRED" : "TECHNICAL_REVIEW_IN_PROGRESS";
+            var previous = record.TechnicalReview;
+            if (previous?.Disposition == entryDisposition) return previous;
+            var result = previous ?? new SimTechnicalReviewResult(
+                "RFQ_REVIEW", "", "", "", false, [], [], "", [], false,
+                "", "", null, null, "", default, "");
+            return result with
+            {
+                Disposition = entryDisposition, ReviewStatus = entryStatus,
+                DownstreamHandoffTarget = null, DownstreamHandoffState = null,
+                ReviewedBy = persona.DisplayName, ReviewedAtUtc = DateTimeOffset.UtcNow
+            };
+        }
+
         var assemblyType = request.AssemblyType?.Trim() ?? "";
         if (assemblyType != "PCB_ASSEMBLY")
             throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_ASSEMBLY_TYPE_INVALID",
@@ -323,7 +563,7 @@ internal sealed class SimRfqIntakeStore
             subAssemblies, responsibility, customerSupplied, request.TechnicalPackageSufficient,
             disposition, reviewStatus, qualified ? "RFQs" : null,
             qualified ? "READY_FOR_RFQ_WORKING_QUEUE" : null,
-            persona.DisplayName, DateTimeOffset.UtcNow, request.ReviewerNotes?.Trim() ?? "");
+            persona.DisplayName, DateTimeOffset.UtcNow, request.ReviewerNotes?.Trim() ?? "", record.TechnicalReview?.AssemblyHistory, record.TechnicalReview?.MaterialsDefinition, record.TechnicalReview?.TechnicalPackage, record.TechnicalReview?.SubassemblyCoverage, record.TechnicalReview?.CandidateBom);
     }
 
     private static string[] NormalizeFileSelection(string[]? selected, HashSet<string> knownFiles, string label)
@@ -366,6 +606,13 @@ internal sealed class SimRfqIntakeStore
         var dataset = await JsonSerializer.DeserializeAsync<SimRfqIntakeDataset>(stream, jsonOptions);
         if (dataset?.Schema != DatasetSchema)
             throw new InvalidOperationException("SIM RFQ Intake data schema is invalid.");
+        // Upgrade legacy datasets before any mutation. Deletion must never recycle IDs.
+        foreach (var record in dataset.Records)
+        {
+            if (record.IntakeId.StartsWith("RFQI-SIM-", StringComparison.Ordinal) &&
+                long.TryParse(record.IntakeId[9..], out var sequence))
+                dataset.LastIntakeSequence = Math.Max(dataset.LastIntakeSequence, sequence);
+        }
         return dataset;
     }
 
@@ -395,6 +642,7 @@ internal sealed class SimRfqIntakeStore
     {
         public string Schema { get; set; } = DatasetSchema;
         public int Version { get; set; } = 1;
+        public long LastIntakeSequence { get; set; }
         public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
         public List<SimRfqIntakeRecord> Records { get; set; } = [];
     }
