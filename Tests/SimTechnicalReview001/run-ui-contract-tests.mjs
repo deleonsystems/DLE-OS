@@ -36,8 +36,11 @@ for (const heading of [
 assert.match(workspace, /\/api\/sim\/technical-reviews/);
 assert.match(workspace, /method: "PUT"/);
 const entryActions = workspace.slice(workspace.indexOf("  function renderEntryActions"), workspace.indexOf("  function renderCloseChoices"));
-assert.equal((entryActions.match(/<button /g) || []).length, 2);
+// Two alternative primary actions and the shared close action; phase-handoff tests
+// verify that only the appropriate primary action is rendered for each record.
+assert.equal((entryActions.match(/<button /g) || []).length, 3);
 assert.match(entryActions, />Start Technical Review<\/button>/);
+assert.match(entryActions, />Start Manufacturing \/ Labor Review<\/button>/);
 assert.match(entryActions, />No Longer Required<\/button>/);
 assert.doesNotMatch(entryActions, /<select|<textarea|<form/);
 const closeChoices = workspace.slice(workspace.indexOf("  function renderCloseChoices"), workspace.indexOf("  async function deleteReview"));

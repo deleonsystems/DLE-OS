@@ -114,6 +114,18 @@ internal static class SimRfqIntakeEndpoints
                 : Results.Json(review);
         });
 
+        app.MapPut("/api/sim/technical-reviews/{intakeId}/assembly-type", async Task<IResult> (
+            string intakeId, SimAssemblyTypeRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.SaveAssemblyTypeAsync(intakeId, request.AssemblyType, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem problem)
+            {
+                return Results.Json(new { code = problem.Code, message = problem.Message, environment = "SIM" }, statusCode: problem.StatusCode);
+            }
+        });
+
         app.MapPost("/api/sim/technical-reviews/{intakeId}/assembly-history",
             (string intakeId, HttpContext context) => UpdateHistory(intakeId, null, context));
         app.MapPut("/api/sim/technical-reviews/{intakeId}/assembly-classification",

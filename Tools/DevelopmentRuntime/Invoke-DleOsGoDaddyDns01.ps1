@@ -24,7 +24,8 @@ $approvedIdentifiers = @(
     'dle-os.internal.dlemfg.com',
     'dev.dle-os.internal.dlemfg.com',
     'auth.internal.dlemfg.com',
-    'sim-adan.dle-os.internal.dlemfg.com'
+    'sim-adan.dle-os.internal.dlemfg.com',
+    'sim-miguel.dle-os.internal.dlemfg.com'
 )
 $secretPath = 'C:\ProgramData\DLE-OS\ACME\Secrets\godaddy-pat.dpapi'
 $stateDirectory = 'C:\ProgramData\DLE-OS\ACME\State'

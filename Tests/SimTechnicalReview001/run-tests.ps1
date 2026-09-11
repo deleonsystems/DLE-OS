@@ -113,9 +113,22 @@ try {
     $payload.requestCorrelationId = [guid]::NewGuid().ToString()
     $deleteFixture = Invoke-SimHttp $session 'POST' '/api/sim/rfq-intakes' $payload
     $deleteId = $deleteFixture.Body.record.intakeId
-    # Reproduce RFQI-SIM-0004's legacy routing label only on this disposable fixture.
+    Require ($deleteFixture.Status -eq 201 -and
+        $deleteFixture.Body.record.technicalReview.reviewPhaseOrder[0] -eq 'MANUFACTURING_LABOR_REVIEW' -and
+        $deleteFixture.Body.record.technicalReview.manufacturingReviewStatus -eq 'NOT_STARTED' -and
+        $deleteFixture.Body.record.technicalReview.materialsReviewStatus -eq 'NOT_STARTED') 'modern quote initializes labor-first review before Start'
+    # A routing label alone does not erase a modern record's initialized review.
     $legacyDataset = Get-Content -LiteralPath $datasetPath -Raw | ConvertFrom-Json
-    ($legacyDataset.records | Where-Object intakeId -EQ $deleteId).handoffTarget = 'RFQ Qualification'
+    $legacyRecord = $legacyDataset.records | Where-Object intakeId -EQ $deleteId
+    $initializedReview = $legacyRecord.technicalReview | ConvertTo-Json -Depth 20 -Compress
+    $legacyRecord.handoffTarget = 'RFQ Qualification'
+    [IO.File]::WriteAllText($datasetPath, ($legacyDataset | ConvertTo-Json -Depth 20))
+    $relabeledDetail = Invoke-SimHttp $session 'GET' "/api/sim/technical-reviews/$deleteId" $null
+    Require ($relabeledDetail.Status -eq 200 -and $relabeledDetail.Body.deletionEligibility.allowed -and
+        ($relabeledDetail.Body.record.technicalReview | ConvertTo-Json -Depth 20 -Compress) -eq $initializedReview) 'legacy routing label preserves initialized review and early-stage deletion eligibility'
+    # Reproduce the historical pre-Start shape, including its absent review state.
+    # This mutation is restricted to this disposable fixture, never existing records.
+    $legacyRecord.technicalReview = $null
     [IO.File]::WriteAllText($datasetPath, ($legacyDataset | ConvertTo-Json -Depth 20))
     $legacyDetail = Invoke-SimHttp $session 'GET' "/api/sim/technical-reviews/$deleteId" $null
     Require ($legacyDetail.Body.deletionEligibility.allowed -and $null -eq $legacyDetail.Body.record.technicalReview) 'legacy RFQ Qualification routing is deletable before review starts'

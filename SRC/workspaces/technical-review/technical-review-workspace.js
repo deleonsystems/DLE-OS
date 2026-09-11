@@ -32,10 +32,18 @@
     if (interactionsBound || !mount) return;
     interactionsBound = true;
     mount.addEventListener("click", event => {
-      const action = event.target.closest?.("[data-technical-review-action]")?.dataset.technicalReviewAction;
+      const actionButton = event.target.closest?.("[data-technical-review-action]");
+      const action = actionButton?.dataset.technicalReviewAction;
+      if (state.step === 'accepted-bom' && ['candidate-confirm', 'complete-bom', 'alternate-add', 'alternate-edit', 'alternate-remove'].includes(action)) return;
       if (action === "refresh") void loadQueue();
       if (action === "back" && !state.saving) showQueue();
-      if (action === "start") void saveEntryDisposition("START_TECHNICAL_REVIEW");
+      if (action === "start" && state.selected?.record?.technicalReview?.materialsReviewStatus !== 'QUALIFIED') void saveEntryDisposition("START_TECHNICAL_REVIEW");
+      if (action === 'save-assembly-type') void saveAssemblyType();
+      if (action === 'manufacturing' && !state.saving && manufacturingIsNext(state.selected?.record) && window.DleOsCapabilities?.can?.('technical_review.disposition') === true) {
+        state.guided = true; state.materials = false; state.step = 'manufacturing';
+        state.message = ''; renderDetail();
+        document.getElementById('manufacturingReviewTitle')?.focus?.();
+      }
       if (action === "close" && !state.saving) {
         state.closing = true;
         state.message = "";
@@ -65,7 +73,13 @@
       }
       if (action === "candidate-from-source") void savePackage(false).then(() => { if (state.messageState !== 'error') return buildCandidate(); });
       if (action === 'complete-bom') void completeBom();
-      if (action === 'accepted-bom') { state.acceptedVersion = Number(event.target.dataset.acceptedVersion); state.candidateIndex = null; state.guided = true; state.step = 'candidate'; renderDetail(); }
+      if (action === 'accepted-bom' && !state.saving) {
+        state.acceptedVersion = Number(actionButton.dataset.acceptedVersion);
+        state.candidateIndex = null; state.guided = true; state.step = 'accepted-bom';
+        renderDetail();
+        document.getElementById('acceptedBomTitle')?.focus?.();
+      }
+      if (action === 'accepted-back' && !state.saving) void openReview(state.selected.record.intakeId);
       if (action === "candidate-confirm") void confirmCandidate();
       if (action === 'alternate-add') void saveAlternate('ADD');
       if (action === 'alternate-edit' || action === 'alternate-remove') void saveAlternate(action === 'alternate-edit' ? 'EDIT' : 'REMOVE', event.target.closest('[data-alternate-id]').dataset.alternateId);
@@ -82,7 +96,7 @@
       if (!state.saving && event.target.dataset?.packageField === 'subassemblyPartNumber') packageDraft().documents[state.documentIndex || 0].subassemblyPartNumber = event.target.value;
     });
     mount.addEventListener('change', event => {
-      if (state.saving || !state.selected) return;
+      if (state.saving || !state.selected || state.step === 'accepted-bom') return;
       if (event.target.dataset?.componentRow !== undefined) { void saveComponentType(event.target); return; }
       const field = event.target.dataset?.packageField;
       const pack = packageDraft();
@@ -253,7 +267,7 @@
       '<p>' + escapeHtml(assembly.assemblyNumber) + ' · Rev ' + escapeHtml(assembly.revision) + ' · Qty ' + escapeHtml(assembly.quantity) + '</p></div>' +
       '<span class="technical-review-status-pill">' + escapeHtml(envelope.reviewStatusLabel) + '</span></div>' +
       '<div id="technicalReviewAnalysisProgress">' + renderAnalysisProgress() + '</div>' +
-      (state.guided ? (state.step === 'candidate' ? renderCandidate(record) : state.materials ? renderMaterials(record) : state.step === 'inventory' ? renderInventory() : state.step === 'governing' ? renderGoverning() : state.step === 'coverage' ? renderCoverage(record) : renderHistoryQuestion(record, canDisposition)) : renderEntryActions(record, canDisposition));
+      (state.guided ? (state.step === 'labor-first' ? renderLaborFirstEntry(record) : state.step === 'manufacturing' ? renderManufacturingHandoff(record) : state.step === 'accepted-bom' ? renderAcceptedBom(record) : state.step === 'candidate' ? renderCandidate(record) : state.materials ? renderMaterials(record) : state.step === 'inventory' ? renderInventory() : state.step === 'governing' ? renderGoverning() : state.step === 'coverage' ? renderCoverage(record) : renderHistoryQuestion(record, canDisposition)) : renderEntryActions(record, canDisposition));
   }
 
   function renderHistoryQuestion(record, canDisposition) {
@@ -490,6 +504,26 @@
     return readOnly ? content.slice(content.indexOf('<details class="candidate-evidence">')) : content;
   }
 
+  function renderAcceptedBom(record) {
+    const acceptance = (record.technicalReview?.bomAcceptances || []).find(a => Number(a.version) === state.acceptedVersion);
+    const back = '<button type="button" class="technical-review-back" data-technical-review-action="accepted-back">← Back to Technical Review</button>';
+    if (!acceptance?.candidate) return '<section class="technical-review-question"><h3 id="acceptedBomTitle" tabindex="-1">Accepted BOM unavailable</h3><p role="alert">The selected accepted version was not found. Return to Technical Review and reopen the saved version.</p>' + back + '</section>';
+    const bom = acceptance.candidate;
+    const title = 'Accepted BOM Version ' + acceptance.version;
+    const rows = bom.rows.map((row, index) => {
+      const values = row.values;
+      const status = candidateStatus(row);
+      const alternates = (row.alternates || []).filter(a => !a.removedAtUtc).map(a => escapeHtml(a.partNumber)).join('<br>') || '—';
+      return '<tr><td>' + escapeHtml(values.lineNumber || '—') + '</td><td class="candidate-part">' + escapeHtml(values.partNumber || '—') + '</td><td>' + alternates + '</td><td>' + escapeHtml(values.quantity || '—') + '</td><td>' + escapeHtml(componentTypes[row.componentType] || componentTypes.STANDARD_COTS) + '</td><td>' + escapeHtml(values.designators || '—') + '</td><td>' + escapeHtml(values.description || '—') + '</td><td><span class="candidate-status" data-status="' + status + '">' + status + '</span></td></tr>' +
+        '<tr class="candidate-detail-row"><td colspan="8">' + renderCandidateRow(bom, row, index, true) + '</td></tr>';
+    }).join('');
+    return '<section class="technical-review-question technical-review-candidate" aria-labelledby="acceptedBomTitle"><h3 id="acceptedBomTitle" tabindex="-1">' + escapeHtml(title) + '</h3>' +
+      '<p>BOM Review Complete · Read-only snapshot</p><p>Accepted by ' + escapeHtml(acceptance.reviewedBy || 'Not recorded') + ' · <time datetime="' + escapeHtml(acceptance.reviewedAtUtc) + '">' + escapeHtml(new Date(acceptance.reviewedAtUtc).toLocaleString()) + '</time></p>' +
+      '<p>This is the BOM accepted at that time. Later Candidate BOM changes do not change this version.</p>' + back +
+      '<div class="candidate-table-scroll" role="region" aria-label="' + escapeHtml(title) + '" tabindex="0"><table class="candidate-table"><caption class="candidate-sr-only">' + escapeHtml(title) + ' · immutable accepted rows</caption><thead><tr><th scope="col">Line</th><th scope="col">Part Number</th><th scope="col">Alternate Part(s)</th><th scope="col">Qty / Assy</th><th scope="col">Component Type</th><th scope="col">Designators</th><th scope="col">Description</th><th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<details class="candidate-analysis-details"><summary>Analysis scope and history</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p></details>' + acceptedLinks(record) + '</section>';
+  }
+
   function acceptedLinks(record) {
     return (record.technicalReview?.bomAcceptances || []).map(a => '<p><button data-technical-review-action="accepted-bom" data-accepted-version="' + a.version + '">View accepted BOM · version ' + a.version + '</button><small> Accepted by ' + escapeHtml(a.reviewedBy) + ' · ' + escapeHtml(new Date(a.reviewedAtUtc).toLocaleString()) + '</small></p>').join('');
   }
@@ -566,14 +600,69 @@
     finally { state.saving = false; renderDetail(); }
   }
 
+  function laborFirst(record) {
+    return record?.technicalReview?.reviewPhaseOrder?.[0] === 'MANUFACTURING_LABOR_REVIEW';
+  }
+
+  function renderLaborFirstEntry(record) {
+    const disabled = state.saving || window.DleOsCapabilities?.can?.('technical_review.disposition') !== true ? 'disabled' : '';
+    return '<section class="technical-review-question" aria-labelledby="laborFirstTitle"><h3 id="laborFirstTitle" tabindex="-1">Manufacturing / Labor Review</h3>' +
+      '<p>First, identify the assembly type. Then continue with the technical package review.</p>' +
+      '<label class="technical-review-field" for="technicalReviewAssemblyType"><span>What type of assembly is this?</span><select id="technicalReviewAssemblyType" ' + disabled + '><option value="">Select assembly type</option><option value="PCB_ASSEMBLY" ' + (record.technicalReview?.assemblyType === 'PCB_ASSEMBLY' ? 'selected' : '') + '>PCB Assembly</option></select></label>' +
+      '<p><button type="button" class="technical-review-primary" data-technical-review-action="save-assembly-type" ' + disabled + '>Save and continue</button></p>' + packageMessage() +
+      '<button type="button" class="technical-review-back" data-technical-review-action="review-back" ' + disabled + '>← Back to Technical Review</button></section>';
+  }
+
+  async function saveAssemblyType() {
+    if (state.saving || !laborFirst(state.selected?.record) || window.DleOsCapabilities?.can?.('technical_review.disposition') !== true) return;
+    const assemblyType = document.getElementById('technicalReviewAssemblyType')?.value;
+    if (assemblyType !== 'PCB_ASSEMBLY') { state.message = 'Select PCB Assembly to continue.'; state.messageState = 'error'; renderDetail(); return; }
+    state.saving = true; state.message = ''; state.messageState = ''; renderDetail();
+    try {
+      state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/assembly-type', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assemblyType }) });
+    } catch (error) { state.message = error.message; state.messageState = 'error'; }
+    finally { state.saving = false; }
+    if (state.messageState === 'error') { renderDetail(); return; }
+    await resumeGuidedBaseline();
+  }
+
+  function renderLaborFirstSummary(record) {
+    const review = record.technicalReview;
+    const labels = { NOT_STARTED: 'Not Started', IN_PROGRESS: 'In Progress', QUALIFIED: 'Complete' };
+    return '<section class="technical-review-phases" aria-label="Review progress">' +
+      [['Manufacturing / Labor Review', review.manufacturingReviewStatus], ['Material / BOM Review', review.materialsReviewStatus]].map(([name, status]) =>
+        '<section class="technical-review-phase"><h4>' + name + '</h4><p class="technical-review-phase-status">' + escapeHtml(labels[status] || 'Not Started') + '</p></section>').join('') + '</section>';
+  }
+
+  function manufacturingIsNext(record) {
+    return record?.technicalReview?.materialsReviewStatus === 'QUALIFIED' &&
+      record.technicalReview.nextReviewPhase === 'MANUFACTURING_LABOR_REVIEW' &&
+      !['NO_LONGER_REQUIRED', 'READY_FOR_RFQ_WORKING_QUEUE'].includes(record.status);
+  }
+
+  function renderManufacturingHandoff(record) {
+    if (!manufacturingIsNext(record)) return renderEntryActions(record, window.DleOsCapabilities?.can?.('technical_review.disposition') === true);
+    return '<section class="technical-review-question" aria-labelledby="manufacturingReviewTitle"><h3 id="manufacturingReviewTitle" tabindex="-1">Manufacturing / Labor Review</h3>' +
+      '<p>Materials definition qualified.</p><p>Next, identify and review the technical information that governs how this assembly is manufactured.</p>' +
+      '<p>The review questions are not available yet. Overall Technical Review remains in progress; this RFQ is not ready for quote.</p>' +
+      acceptedLinks(record) + '<button type="button" class="technical-review-back" data-technical-review-action="review-back">← Back to Technical Review</button></section>';
+  }
+
   function renderEntryActions(record, canDisposition) {
     const message = '<p class="technical-review-message" data-state="' + escapeHtml(state.messageState) + '" role="status">' + escapeHtml(state.message) + '</p>';
     if (record.status === "NO_LONGER_REQUIRED") return message + '<p>This review is closed. The intake record is preserved.</p>';
     if (record.status === "READY_FOR_RFQ_WORKING_QUEUE") return message + '<p>This review has been handed off to RFQ.</p>';
     const disabled = !canDisposition || state.saving ? "disabled" : "";
     if (state.closing) return renderCloseChoices(disabled, message);
-    return acceptedLinks(record) + '<section class="technical-review-card"><h3>Choose how to proceed</h3>' +
-      '<div class="technical-review-field-grid"><div><button type="button" class="technical-review-primary" data-technical-review-action="start" ' + disabled + '>Start Technical Review</button><p>I am going to work this item.</p></div>' +
+    const qualified = record.technicalReview?.materialsReviewStatus === 'QUALIFIED';
+    const nextManufacturing = manufacturingIsNext(record);
+    const summary = laborFirst(record) ? renderLaborFirstSummary(record) : qualified ? '<section class="technical-review-phases" aria-label="Review progress"><section class="technical-review-phase" aria-labelledby="materialPhaseTitle"><h4 id="materialPhaseTitle">Material / BOM Review</h4><p class="technical-review-phase-status">Complete</p><div class="technical-review-phase-acceptances">' + acceptedLinks(record) + '</div></section><section class="technical-review-phase" aria-labelledby="manufacturingPhaseTitle"><h4 id="manufacturingPhaseTitle">Manufacturing / Labor Review</h4><p class="technical-review-phase-status">' + (nextManufacturing ? 'Next · Not Started' : 'Next phase not specified') + '</p></section></section>' : '';
+    const primary = nextManufacturing ? '<button type="button" class="technical-review-primary" data-technical-review-action="manufacturing" ' + disabled + '>Start Manufacturing / Labor Review</button><p>Continue with the next phase. The accepted BOM is retained.</p>' :
+      qualified ? '<p>The materials review is complete. The next review phase is not available.</p>' :
+      '<button type="button" class="technical-review-primary" data-technical-review-action="start" ' + disabled + '>Start Technical Review</button><p>I am going to work this item.</p>';
+    return summary + (record.technicalReview?.assemblyType === 'PCB_ASSEMBLY' ? '<p class="technical-review-source">Assembly type: PCB Assembly</p>' : '') + (qualified ? '' : acceptedLinks(record)) + '<section class="technical-review-card"><h3>Choose how to proceed</h3>' +
+      '<div class="technical-review-field-grid"><div>' + primary + '</div>' +
       '<div><button type="button" class="technical-review-secondary" data-technical-review-action="close" ' + disabled + '>No Longer Required</button><p>Close this review without proceeding.</p></div></div>' +
       (!canDisposition ? '<p>Disposition permission required.</p>' : '') + message + '</section>';
   }
@@ -620,6 +709,7 @@
         method: "PUT", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ disposition })
       });
       state.guided = disposition === "START_TECHNICAL_REVIEW";
+      if (state.guided && laborFirst(state.selected.record)) { state.step = state.selected.record.technicalReview.assemblyType ? '' : 'labor-first'; state.materials = false; }
       state.message = state.guided ? "" : "Closed as No Longer Required. The intake record is preserved.";
       state.messageState = "success";
       await refreshQueueModel();
@@ -633,6 +723,13 @@
       renderDetail();
       document.getElementById("technicalReviewDetailTitle")?.focus?.();
     }
+    if (state.guided && laborFirst(state.selected.record) && !state.selected.record.technicalReview.assemblyType) return;
+    if (state.guided) await resumeGuidedBaseline();
+  }
+
+  async function resumeGuidedBaseline() {
+    state.guided = true; state.step = ''; state.materials = false; state.message = ''; state.messageState = '';
+    renderDetail();
     if (state.guided && !state.selected?.record?.technicalReview?.assemblyHistory) await updateHistory(false);
     else if (state.guided && state.selected?.record?.technicalReview?.candidateBom) { state.step = 'candidate'; state.candidateIndex = null; renderDetail(); }
     else if (state.guided && materialsEligible(state.selected?.record)) enterPackage();

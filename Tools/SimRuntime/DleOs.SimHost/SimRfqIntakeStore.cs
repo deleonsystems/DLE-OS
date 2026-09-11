@@ -77,6 +77,8 @@ internal sealed record SimRfqIntakeCreateRequest(
     string? RequestCorrelationId,
     SimContractReviewRequest? ContractReview = null);
 
+internal sealed record SimAssemblyTypeRequest(string? AssemblyType);
+
 internal sealed record SimTechnicalReviewDispositionRequest(
     string? AssemblyType,
     string? AssemblyDrawingFile,
@@ -116,7 +118,11 @@ internal sealed record SimTechnicalReviewResult(
     SimCandidateBom[]? CandidateBomVersions = null,
     SimBomAcceptance[]? BomAcceptances = null,
     string? MaterialsReviewStatus = null,
-    string? NextReviewPhase = null);
+    string? NextReviewPhase = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string[]? ReviewPhaseOrder = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? ManufacturingReviewStatus = null);
 
 internal sealed class SimRfqIntakeProblem : Exception
 {
@@ -229,6 +235,12 @@ internal sealed partial class SimRfqIntakeStore
                 "SIM",
                 null,
                 contractReview);
+            if (record.IntakeType == "NEW_QUOTE_REQUEST")
+                record = record with { TechnicalReview = new SimTechnicalReviewResult(
+                    "RFQ_REVIEW", "", "", "", false, [], [], "", [], false,
+                    "READY_FOR_RFQ_QUALIFICATION", "READY_FOR_RFQ_QUALIFICATION", null, null, "", now, "",
+                    MaterialsReviewStatus: "NOT_STARTED", NextReviewPhase: "MANUFACTURING_LABOR_REVIEW",
+                    ReviewPhaseOrder: ["MANUFACTURING_LABOR_REVIEW", "MATERIAL_BOM_REVIEW"], ManufacturingReviewStatus: "NOT_STARTED") };
             dataset.Records.Add(record);
             dataset.UpdatedAtUtc = now;
             await WriteVerifiedAsync(dataset);
@@ -308,6 +320,38 @@ internal sealed partial class SimRfqIntakeStore
             deletionEligibility = new { allowed = DeletionBlockReason(record) is null, reason = DeletionBlockReason(record) },
             record
         };
+    }
+
+    internal async Task<object> SaveAssemblyTypeAsync(string intakeId, string? assemblyType, SimPersona persona)
+    {
+        if (assemblyType != "PCB_ASSEMBLY")
+            throw SimRfqIntakeProblem.BadRequest("SIM_ASSEMBLY_TYPE_UNSUPPORTED", "Select PCB Assembly to continue.");
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var index = dataset.Records.FindIndex(r => r.IntakeId == intakeId && IsTechnicalReviewRecord(r));
+            if (index < 0) throw SimRfqIntakeProblem.NotFound("SIM_REVIEW_NOT_FOUND", "Technical Review was not found.");
+            var record = dataset.Records[index];
+            var review = record.TechnicalReview;
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || review?.ReviewPhaseOrder?.FirstOrDefault() != "MANUFACTURING_LABOR_REVIEW")
+                throw SimRfqIntakeProblem.Conflict("SIM_ASSEMBLY_TYPE_GATE_UNAVAILABLE", "Start an active labor-first Technical Review before selecting assembly type.");
+            if (string.IsNullOrEmpty(review.AssemblyType))
+            {
+                // Passing this first gate does not complete manufacturing or qualify the RFQ.
+                record = record with { TechnicalReview = review with {
+                    AssemblyType = assemblyType, NextReviewPhase = "MATERIAL_BOM_REVIEW",
+                    MaterialsReviewStatus = "IN_PROGRESS", ReviewedBy = persona.DisplayName,
+                    ReviewedAtUtc = DateTimeOffset.UtcNow } };
+                dataset.Records[index] = record;
+                dataset.UpdatedAtUtc = record.TechnicalReview.ReviewedAtUtc;
+                await WriteVerifiedAsync(dataset);
+            }
+            else if (review.AssemblyType != assemblyType)
+                throw SimRfqIntakeProblem.Conflict("SIM_ASSEMBLY_TYPE_ALREADY_SAVED", "The saved assembly type cannot be replaced by this entry gate.");
+            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+        }
+        finally { gate.Release(); }
     }
 
     internal async Task<object> SaveTechnicalReviewAsync(
@@ -574,7 +618,11 @@ internal sealed partial class SimRfqIntakeStore
             {
                 Disposition = entryDisposition, ReviewStatus = entryStatus,
                 DownstreamHandoffTarget = null, DownstreamHandoffState = null,
-                ReviewedBy = persona.DisplayName, ReviewedAtUtc = DateTimeOffset.UtcNow
+                ReviewedBy = persona.DisplayName, ReviewedAtUtc = DateTimeOffset.UtcNow,
+                ManufacturingReviewStatus = entryDisposition == "START_TECHNICAL_REVIEW" &&
+                    result.ReviewPhaseOrder?.FirstOrDefault() == "MANUFACTURING_LABOR_REVIEW" &&
+                    result.NextReviewPhase == "MANUFACTURING_LABOR_REVIEW"
+                    ? "IN_PROGRESS" : result.ManufacturingReviewStatus
             };
         }
 
@@ -642,7 +690,7 @@ internal sealed partial class SimRfqIntakeStore
             subAssemblies, responsibility, customerSupplied, request.TechnicalPackageSufficient,
             disposition, reviewStatus, qualified ? "RFQs" : null,
             qualified ? "READY_FOR_RFQ_WORKING_QUEUE" : null,
-            persona.DisplayName, DateTimeOffset.UtcNow, request.ReviewerNotes?.Trim() ?? "", record.TechnicalReview?.AssemblyHistory, record.TechnicalReview?.MaterialsDefinition, record.TechnicalReview?.TechnicalPackage, record.TechnicalReview?.SubassemblyCoverage, record.TechnicalReview?.CandidateBom, record.TechnicalReview?.CandidateBomVersions, record.TechnicalReview?.BomAcceptances, record.TechnicalReview?.MaterialsReviewStatus, record.TechnicalReview?.NextReviewPhase);
+            persona.DisplayName, DateTimeOffset.UtcNow, request.ReviewerNotes?.Trim() ?? "", record.TechnicalReview?.AssemblyHistory, record.TechnicalReview?.MaterialsDefinition, record.TechnicalReview?.TechnicalPackage, record.TechnicalReview?.SubassemblyCoverage, record.TechnicalReview?.CandidateBom, record.TechnicalReview?.CandidateBomVersions, record.TechnicalReview?.BomAcceptances, record.TechnicalReview?.MaterialsReviewStatus, record.TechnicalReview?.NextReviewPhase, record.TechnicalReview?.ReviewPhaseOrder, record.TechnicalReview?.ManufacturingReviewStatus);
     }
 
     private static string[] NormalizeFileSelection(string[]? selected, HashSet<string> knownFiles, string label)
