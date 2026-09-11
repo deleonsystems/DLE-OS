@@ -66,3 +66,52 @@ audit. A terminal provider success never approves a BOM: candidates stay NEEDS_R
 Interrupted running jobs become FAILED on startup; retry creates a new job. Queued
 jobs resume if their deadline and source approval remain valid. Late source/review
 changes prevent publication. Only the host store writes business state.
+
+## Candidate alternate extension
+
+`DLE_CANDIDATE_BOM_V2` versions the persisted DLE candidate independently of the
+unchanged V1 provider analysis result. Legacy candidates deserialize as V1 and
+missing/null alternates are an empty collection. New candidates use V2; manual
+alternate mutations upgrade only the current candidate, never historical versions.
+The provider still extracts only the original five fields, with no alternates.
+
+Each alternate has a server-issued ID, original/current part number, origin,
+review state, optional source/supporting/approval evidence, uncertainty and history.
+Manual additions have no invented extraction provenance and start NEEDS_REVIEW.
+CONFIRMED means the reviewer checked the value, not engineering approval. Removal
+retains a tombstone and audit; only active alternates appear in the main table.
+Mutations use the existing candidate PUT endpoint with `alternateChange` and a
+row-level expected alternate revision. Stale writes are rejected. Source evidence
+and audit are never accepted from the browser. No operational eligibility is created.
+
+## Component Type extension
+
+`DLE_CANDIDATE_BOM_V3` adds row `componentType` and `componentTypeRevision`.
+The four values are STANDARD_COTS, SUBASSEMBLY, REFERENCE_ONLY and OTHER.
+Missing legacy values default to STANDARD_COTS. The provider output and analysis
+instructions remain V1 and unchanged; new rows get the model default.
+The existing candidate PUT accepts `componentChange` with the desired type and
+expected revision. The server validates it, stamps a `componentType` correction
+with actor/time, and preserves extracted values, alternates and prior versions.
+Classification alone does not confirm every extracted field or create downstream
+work. SUBASSEMBLY is a future marker only; there is no upload or review gate here.
+
+## RFQ-scoped BOM completion
+
+`POST /api/sim/technical-reviews/{intakeId}/complete-bom-review` accepts the exact
+candidate snapshot visible to the reviewer. Existing row confirmation resolves
+field conflicts/uncertainty; active alternates require CONFIRMED review state.
+Component changes or alternate history alone do not resolve unreviewed fields.
+Staged source verification, candidate freshness and active-job checks run under
+the existing persistence lock. This endpoint does not dispatch analysis.
+
+`bomAcceptances` preserves numbered, immutable candidate/package snapshots and
+server-derived reviewer/timestamp. `materialsReviewStatus: QUALIFIED` and
+`nextReviewPhase: MANUFACTURING_LABOR_REVIEW` leave overall Technical Review open.
+Accepted candidates reject in-place edits. A new analysis version or changed
+package clears the current qualification while retaining prior acceptances.
+The accepted table stays readable with Source / History, including after restart.
+
+The offline analysis suite covers blocked, accepted, and later-version cases;
+the Technical Review HTTP suite covers permissions, concurrent changes, exact
+snapshot preservation, read-only enforcement and full host restart persistence.

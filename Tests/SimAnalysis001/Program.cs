@@ -49,9 +49,80 @@ var candidate = Data()["records"]![0]!["technicalReview"]!["candidateBom"]!.Dese
 Check(candidate.Analysis?.Status == "NEEDS_REVIEW" && candidate.Rows.All(r => r.RowId is not null && r.AnalysisFields is not null), "candidate status and field evidence persisted");
 var corrected = new Dictionary<string, string>(candidate.Rows[0].Values) { ["partNumber"] = "HUMAN-CORRECTION", ["lineNumber"] = "1", ["quantity"] = "1" };
 await store.CandidateBomAsync(record.intakeId, persona, new(candidate.Id, 0, corrected));
+SimCandidateBom Current() => Data()["records"]![0]!["technicalReview"]!["candidateBom"]!.Deserialize<SimCandidateBom>(json)!;
+Check(Current().Rows.All(r => r.ComponentType == "STANDARD_COTS"), "new provider rows default to Standard COTS");
+var originalValues = JsonSerializer.Serialize(Current().Rows[0].Extracted);
+foreach (var component in new[] { "SUBASSEMBLY", "REFERENCE_ONLY", "OTHER", "STANDARD_COTS", "SUBASSEMBLY" })
+{
+    await store.CandidateBomAsync(record.intakeId, persona, new(candidate.Id, 0, null, ComponentChange:new(component,Current().Rows[0].ComponentTypeRevision)));
+    Check(Current().Rows[0].ComponentType == component, "component type persists: " + component);
+}
+var typed = Current().Rows[0];
+Check(typed.Corrections.Count(c => c.Field == "componentType") == 5 && typed.Corrections.Last().Reviewer == persona.DisplayName && JsonSerializer.Serialize(typed.Extracted) == originalValues, "component changes audit actor/time without changing extracted values");
+try { await store.CandidateBomAsync(record.intakeId, persona, new(candidate.Id,0,null,ComponentChange:new("INVALID",5))); throw new Exception("accepted component"); }
+catch(SimRfqIntakeProblem e) when(e.Code == "SIM_COMPONENT_TYPE_INVALID") { Console.WriteLine("PASS: unknown component type rejected"); }
+try { await store.CandidateBomAsync(record.intakeId, persona, new(candidate.Id,0,null,ComponentChange:new("OTHER",0))); throw new Exception("accepted stale component"); }
+catch(SimRfqIntakeProblem e) when(e.Code == "SIM_COMPONENT_TYPE_STALE") { Console.WriteLine("PASS: stale component change rejected"); }
+async Task Alternate(string action, string? id, string? number, string status = "NEEDS_REVIEW") =>
+    await store.CandidateBomAsync(record.intakeId, persona, new(candidate.Id, 0, null,
+        new(action, id, number, status, Current().Rows[0].AlternateRevision)));
+Check((Current().Rows[0].Alternates ?? []).Length == 0, "zero alternates safe default");
+var oldJson = JsonSerializer.SerializeToNode(candidate, json)!;
+oldJson.AsObject().Remove("contractVersion");
+foreach (var oldRow in oldJson["rows"]!.AsArray()) { oldRow!.AsObject().Remove("alternates"); oldRow.AsObject().Remove("alternateRevision"); oldRow.AsObject().Remove("componentType"); oldRow.AsObject().Remove("componentTypeRevision"); }
+var legacy = oldJson.Deserialize<SimCandidateBom>(json)!;
+Check(legacy.ContractVersion == "DLE_CANDIDATE_BOM_V1" && (legacy.Rows[0].Alternates ?? []).Length == 0, "old candidate with absent alternate property remains readable");
+Check(legacy.Rows[0].ComponentType == "STANDARD_COTS", "old candidate missing Component Type defaults safely");
+await Alternate("ADD", null, "DEMO-ALT-1");
+var added = Current().Rows[0].Alternates!.Single();
+Check(Current().ContractVersion == SimCandidateBomProvider.ContractVersion && added.Origin == "MANUAL" && added.OriginalPartNumber is null && added.ReviewStatus == "NEEDS_REVIEW" && added.ApprovalEvidence is null && added.History[0].Reviewer == persona.DisplayName, "manual add is versioned, audited and never approved/extracted");
+await Alternate("ADD", null, "DEMO-ALT-2");
+Check(Current().Rows[0].Alternates!.Length == 2, "multiple alternates retain independent IDs");
+try { await store.CandidateBomAsync(record.intakeId, persona, new(candidate.Id, 0, null, new("EDIT", added.Id, "STALE", "CONFIRMED", 0))); throw new Exception("accepted stale edit"); }
+catch (SimRfqIntakeProblem e) when (e.Code == "SIM_ALTERNATE_STALE") { Console.WriteLine("PASS: stale alternate mutation blocked"); }
+try { await Alternate("EDIT", added.Id, "BAD", "APPROVED"); throw new Exception("accepted approval"); }
+catch (SimRfqIntakeProblem e) when (e.Code == "SIM_ALTERNATE_INVALID") { Console.WriteLine("PASS: alternate engineering approval cannot be assigned"); }
+await Alternate("EDIT", added.Id, "DEMO-ALT-1-CORRECTED", "CONFIRMED");
+var edited = Current().Rows[0].Alternates![0];
+Check(edited.Id == added.Id && edited.History.Length == 2 && edited.History[1].Previous == "DEMO-ALT-1" && edited.PartNumber == "DEMO-ALT-1-CORRECTED", "alternate correction retains original entry and reviewer history");
+var sourceEvidence = new DleAnalysisEvidence(governing.DocumentId!, 2, null, "synthetic alternate note");
+var extracted = candidate with { Rows = [candidate.Rows[0] with { Alternates = [added with { Origin = "EXTRACTED", OriginalPartNumber = "ORIGINAL-ALT", SourceEvidence = sourceEvidence, SourceContext = "GOVERNING", Uncertainty = "Synthetic evidence" }] }] };
+var changedExtracted = SimCandidateBomProvider.Review(extracted, new(extracted.Id, 0, null, new("EDIT", added.Id, "CORRECTED-ALT", "UNCERTAIN", 0)), persona).Rows[0].Alternates![0];
+Check(changedExtracted.OriginalPartNumber == "ORIGINAL-ALT" && changedExtracted.SourceEvidence == sourceEvidence && changedExtracted.Uncertainty == "Synthetic evidence", "alternate edits preserve extracted provenance and uncertainty");
+await Alternate("REMOVE", added.Id, null);
+Check(Current().Rows[0].Alternates![0].RemovedAtUtc is not null && Current().Rows[0].Alternates![0].History.Last().Action == "REMOVED" && Current().Rows[0].Alternates!.Count(a => a.RemovedAtUtc is null) == 1, "removal hides active alternate and preserves its audit");
+store = new SimRfqIntakeStore(root);
+var reopened = await store.ReadAsync(record.intakeId);
+Check(Current().Rows[0].Alternates!.Length == 2 && Current().Rows[0].Alternates![0].History.Length == 3, "alternate add correction removal survive persistence reopen");
+Check(DleAnalysisContract.Hash(await staging.Bytes(correlation, governing.DocumentId!)) == DleAnalysisContract.Hash(sourceBytes), "alternate editing never modifies staged governing binary");
+async Task CompletionBlocked(string code) {
+    try { await store.CompleteBomReview(record.intakeId, new(Current()), persona); throw new Exception("unexpected BOM completion"); }
+    catch (SimRfqIntakeProblem e) when (e.Code == code) { Console.WriteLine("PASS: BOM completion blocked: " + code); }
+}
+await CompletionBlocked("SIM_BOM_UNRESOLVED");
+for (var i = 0; i < Current().Rows.Length; i++)
+    await store.CandidateBomAsync(record.intakeId, persona, new(candidate.Id, i, Current().Rows[i].Values));
+await CompletionBlocked("SIM_BOM_UNRESOLVED"); // Unconfirmed alternate still blocks even after fields are confirmed.
+var activeAlternate = Current().Rows[0].Alternates!.Single(a => a.RemovedAtUtc is null);
+await Alternate("EDIT", activeAlternate.Id, activeAlternate.PartNumber, "CONFIRMED");
+var beforeSourceTest = Data();
+var sourceTest = Data(); sourceTest["records"]![0]!["technicalReview"]!["candidateBom"]!["governingSha256"] = "changed";
+await File.WriteAllTextAsync(dataPath, sourceTest.ToJsonString());
+await CompletionBlocked("SIM_BOM_SOURCE_CHANGED");
+await File.WriteAllTextAsync(dataPath, beforeSourceTest.ToJsonString());
+var pendingCompletionJob = await store.SubmitAnalysis(record.intakeId, persona);
+await CompletionBlocked("SIM_BOM_ANALYZING");
+await store.SetAnalysisState(pendingCompletionJob.Input.JobId, "FAILED");
+var acceptedSnapshot = JsonSerializer.Serialize(Current(), json);
+await store.CompleteBomReview(record.intakeId, new(Current()), persona);
+Check(Data()["records"]![0]!["technicalReview"]!["materialsReviewStatus"]!.GetValue<string>() == "QUALIFIED", "bridge candidate materials completion persists");
 var next = await store.SubmitAnalysis(record.intakeId, persona); await store.ClaimAnalysisJob(); await store.SetAnalysisState(next.Input.JobId, "VALIDATING"); await store.PublishAnalysis(next.Input.JobId, result);
+Check(JsonSerializer.Serialize(Data()["records"]![0]!["technicalReview"]!["bomAcceptances"]![0]!["candidate"]!.Deserialize<SimCandidateBom>(json), json) == acceptedSnapshot, "later analysis leaves accepted snapshot unchanged");
+Check(Data()["records"]![0]!["technicalReview"]!["materialsReviewStatus"] is null, "new candidate requires materials review again");
 var prior = Data()["records"]![0]!["technicalReview"]!["candidateBomVersions"]![0]!.Deserialize<SimCandidateBom>(json)!;
 Check(prior.Rows[0].Values["partNumber"] == "HUMAN-CORRECTION" && prior.Rows[0].Extracted["partNumber"] != "HUMAN-CORRECTION" && prior.Rows[0].Corrections.Length > 0, "new version preserves prior extraction and correction audit");
+Check(prior.Rows[0].Alternates!.Length == 2 && prior.Rows[0].Alternates![0].History.Length == 3, "candidate version history preserves alternate audit including removal");
+Check(prior.Rows[0].ComponentType == "SUBASSEMBLY" && prior.Rows[0].Corrections.Count(c=>c.Field=="componentType")==5, "candidate version history preserves component classification and audit");
 store = new SimRfqIntakeStore(root);
 Check((await store.LatestAnalysis(record.intakeId))?.Status == "SUCCEEDED", "result and job survive store restart");
 var stale = await store.SubmitAnalysis(record.intakeId, persona); await store.ClaimAnalysisJob(); await store.SetAnalysisState(stale.Input.JobId, "VALIDATING");

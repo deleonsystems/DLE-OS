@@ -113,7 +113,10 @@ internal sealed record SimTechnicalReviewResult(
     SimTechnicalPackage? TechnicalPackage = null,
     SimSubassemblyCoverage[]? SubassemblyCoverage = null,
     SimCandidateBom? CandidateBom = null,
-    SimCandidateBom[]? CandidateBomVersions = null);
+    SimCandidateBom[]? CandidateBomVersions = null,
+    SimBomAcceptance[]? BomAcceptances = null,
+    string? MaterialsReviewStatus = null,
+    string? NextReviewPhase = null);
 
 internal sealed class SimRfqIntakeProblem : Exception
 {
@@ -399,7 +402,7 @@ internal sealed partial class SimRfqIntakeStore
                 var package = packageRequest is null ? record.TechnicalReview!.TechnicalPackage ?? SimTechnicalPackageProvider.Inventory(record) : SimTechnicalPackageProvider.Validate(record, packageRequest, persona);
                 var definition = inventoryOnly ? null : SimMaterialsDefinitionProvider.Compare(record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package } }, persona);
                 var sameSources = JsonSerializer.Serialize(package.Documents, jsonOptions) == JsonSerializer.Serialize(record.TechnicalReview!.TechnicalPackage?.Documents, jsonOptions) && package.GoverningBomDocumentId == record.TechnicalReview.TechnicalPackage?.GoverningBomDocumentId;
-                record = record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package, MaterialsDefinition = definition, CandidateBom = sameSources ? record.TechnicalReview.CandidateBom : null,
+                record = record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package, MaterialsDefinition = definition, MaterialsReviewStatus = sameSources ? record.TechnicalReview.MaterialsReviewStatus : null, NextReviewPhase = sameSources ? record.TechnicalReview.NextReviewPhase : null, CandidateBom = sameSources ? record.TechnicalReview.CandidateBom : null,
                     CandidateBomVersions = !sameSources && record.TechnicalReview.CandidateBom is not null ? (record.TechnicalReview.CandidateBomVersions ?? []).Append(record.TechnicalReview.CandidateBom).ToArray() : record.TechnicalReview.CandidateBomVersions,
                     SubassemblyCoverage = definition is null ? null : SimTechnicalPackageProvider.Coverage(package, definition) } };
                 dataset.Records[index] = record;
@@ -435,6 +438,8 @@ internal sealed partial class SimRfqIntakeStore
             if (request is not null)
             {
                 if (candidate is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_REQUIRED", "Build the candidate before reviewing rows.");
+                if ((review.BomAcceptances ?? []).Any(a => a.Candidate.Id == candidate.Id))
+                    throw SimRfqIntakeProblem.Conflict("SIM_BOM_ACCEPTED", "This accepted BOM is read-only. Build a new candidate version before making changes.");
                 candidate = SimCandidateBomProvider.Review(candidate, request, persona);
             }
             else candidate ??= await SimCandidateBomProvider.Extract(bytes, package!, persona);
@@ -637,7 +642,7 @@ internal sealed partial class SimRfqIntakeStore
             subAssemblies, responsibility, customerSupplied, request.TechnicalPackageSufficient,
             disposition, reviewStatus, qualified ? "RFQs" : null,
             qualified ? "READY_FOR_RFQ_WORKING_QUEUE" : null,
-            persona.DisplayName, DateTimeOffset.UtcNow, request.ReviewerNotes?.Trim() ?? "", record.TechnicalReview?.AssemblyHistory, record.TechnicalReview?.MaterialsDefinition, record.TechnicalReview?.TechnicalPackage, record.TechnicalReview?.SubassemblyCoverage, record.TechnicalReview?.CandidateBom);
+            persona.DisplayName, DateTimeOffset.UtcNow, request.ReviewerNotes?.Trim() ?? "", record.TechnicalReview?.AssemblyHistory, record.TechnicalReview?.MaterialsDefinition, record.TechnicalReview?.TechnicalPackage, record.TechnicalReview?.SubassemblyCoverage, record.TechnicalReview?.CandidateBom, record.TechnicalReview?.CandidateBomVersions, record.TechnicalReview?.BomAcceptances, record.TechnicalReview?.MaterialsReviewStatus, record.TechnicalReview?.NextReviewPhase);
     }
 
     private static string[] NormalizeFileSelection(string[]? selected, HashSet<string> knownFiles, string label)

@@ -178,10 +178,11 @@ internal sealed partial class SimRfqIntakeStore
                     "DLE analysis", false, DateTimeOffset.UtcNow, job.Input.RequestedBy,
                     job.Input.Sources.Where(s => s.Role == "SUPPORTING").Select(s => s.DocumentId).ToArray(),
                     "Partial analysis. Supporting evidence is shown per field; human review is required.", rows,
-                    new(jobId, job.Input, response.Provider, response.ProviderVersion, response.Model, response.Result.Coverage, response.Result.CoverageReason));
+                    new(jobId, job.Input, response.Provider, response.ProviderVersion, response.Model, response.Result.Coverage, response.Result.CoverageReason),
+                    SimCandidateBomProvider.ContractVersion);
                 var versions = review.CandidateBomVersions ?? [];
                 if (review.CandidateBom is not null) versions = versions.Append(review.CandidateBom).ToArray();
-                dataset.Records[recordIndex] = record with { TechnicalReview = review with { CandidateBom = candidate, CandidateBomVersions = versions } };
+                dataset.Records[recordIndex] = record with { TechnicalReview = review with { CandidateBom = candidate, CandidateBomVersions = versions, MaterialsReviewStatus = null, NextReviewPhase = null } };
                 dataset.AnalysisJobs[jobIndex] = job with { Status = "SUCCEEDED", CandidateId = candidate.Id, UpdatedAtUtc = DateTimeOffset.UtcNow };
             }
             // Candidate and terminal job state are committed together by the existing single writer.

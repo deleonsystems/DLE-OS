@@ -43,7 +43,44 @@ Require ($repeated.Body.record.technicalReview.candidateBom.rows[0].values.partN
 $binaryAfter = Invoke-WebRequest "$baseUri/api/sim/rfq-intakes/$candidateId/documents/$($candidateFile.documentId)" -WebSession $session
 Require ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([byte[]]$binaryAfter.Content)) -eq [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($candidateBytes))) 'candidate review does not modify staged source binary'
 Require ($repeated.Body.record.status -eq 'TECHNICAL_REVIEW_IN_PROGRESS' -and -not $repeated.Body.record.technicalReview.downstreamHandoffTarget -and -not $repeated.Body.record.technicalReview.materialsDefinition) 'candidate creates no canonical BOM, synthetic comparison or downstream work'
+$alternateBody = @{candidateId=$candidate.id;rowIndex=0;alternateChange=@{action='ADD';partNumber='SYNTHETIC-ALT';expectedRevision=0}}
+$alternateDenied = Invoke-SimHttp $viewer 'PUT' "$candidateBase/candidate-bom" $alternateBody
+Require ($alternateDenied.Status -eq 403) 'alternate changes require review permission'
+$alternateAdded = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" $alternateBody
+$alternateRow = $alternateAdded.Body.record.technicalReview.candidateBom.rows[0]
+Require ($alternateAdded.Status -eq 200 -and $alternateRow.alternates[0].partNumber -eq 'SYNTHETIC-ALT' -and $alternateRow.alternates[0].origin -eq 'MANUAL') 'alternate persists through candidate HTTP boundary'
+$alternateBody.alternateChange = @{action='EDIT';id=$alternateRow.alternates[0].id;partNumber='SYNTHETIC-ALT-CORRECTED';reviewStatus='CONFIRMED';expectedRevision=1}
+$alternateEdited = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" $alternateBody
+Require ($alternateEdited.Status -eq 200 -and $alternateEdited.Body.record.technicalReview.candidateBom.rows[0].alternates[0].history.Count -eq 2) 'alternate correction persists with audit through HTTP'
+$typedCandidate = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" @{candidateId=$candidate.id;rowIndex=0;componentChange=@{componentType='SUBASSEMBLY';expectedRevision=0}}
+Require ($typedCandidate.Status -eq 200 -and $typedCandidate.Body.record.technicalReview.candidateBom.rows[0].componentType -eq 'SUBASSEMBLY') 'main-table component classification persists through HTTP'
+# RFQ-scoped BOM completion: unresolved state, concurrency, immutable acceptance.
+$completion = Invoke-SimHttp $session 'POST' "$candidateBase/complete-bom-review" @{candidate=$typedCandidate.Body.record.technicalReview.candidateBom}
+if ($completion.Status -ne 409 -or $completion.Body.message -notlike '*rows:*') { Write-Host ($completion | ConvertTo-Json -Depth 5) }
+Require ($completion.Status -eq 409 -and $completion.Body.message -like '*rows:*') 'unreviewed candidate rows block completion with actionable explanation'
+$deniedCompletion = Invoke-SimHttp $viewer 'POST' "$candidateBase/complete-bom-review" @{candidate=$typedCandidate.Body.record.technicalReview.candidateBom}
+Require ($deniedCompletion.Status -eq 403) 'BOM completion requires review permission'
+$current = $typedCandidate.Body.record.technicalReview.candidateBom
+foreach ($i in 0..($current.rows.Count-1)) {
+    $reviewed = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" @{candidateId=$candidate.id;rowIndex=$i;values=$current.rows[$i].values}
+    Require ($reviewed.Status -eq 200) "row $i confirmed for isolated completion"
+}
+$staleCompletion = Invoke-SimHttp $session 'POST' "$candidateBase/complete-bom-review" @{candidate=$current}
+Require ($staleCompletion.Status -eq 409) 'completion rejects a stale browser snapshot even with the same candidate ID'
+$current = $reviewed.Body.record.technicalReview.candidateBom
+$completion = Invoke-SimHttp $session 'POST' "$candidateBase/complete-bom-review" @{candidate=$current}
+Require ($completion.Status -eq 200) 'fully reviewed synthetic BOM completes'
+$accepted = $completion.Body.record.technicalReview.bomAcceptances[0]
+Require ($accepted.candidate.id -eq $candidate.id -and $accepted.version -eq 1 -and $accepted.reviewedBy -and $accepted.reviewedAtUtc) 'exact accepted candidate and reviewer timestamp persist'
+Require (($accepted.candidate | ConvertTo-Json -Depth 40 -Compress) -eq ($current | ConvertTo-Json -Depth 40 -Compress)) 'acceptance snapshot preserves every candidate field including evidence and audit'
+Require ($completion.Body.record.technicalReview.materialsReviewStatus -eq 'QUALIFIED' -and $completion.Body.record.technicalReview.nextReviewPhase -eq 'MANUFACTURING_LABOR_REVIEW' -and $completion.Body.record.status -eq 'TECHNICAL_REVIEW_IN_PROGRESS') 'materials qualification is separate from overall review and next phase remains manufacturing labor'
+$repeatCompletion = Invoke-SimHttp $session 'POST' "$candidateBase/complete-bom-review" @{candidate=$current}
+Require ($repeatCompletion.Body.record.technicalReview.bomAcceptances.Count -eq 1) 'repeated completion does not duplicate accepted versions'
+$frozen = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" @{candidateId=$candidate.id;rowIndex=0;values=$current.rows[0].values}
+Require ($frozen.Status -eq 409 -and $frozen.Body.message -like '*read-only*') 'accepted candidate rejects later in-place edits'
 $candidateSaved = Invoke-SimHttp $session 'PUT' "$candidateBase/disposition" @{disposition='NO_LONGER_REQUIRED'}
 Require ($candidateSaved.Body.record.technicalReview.candidateBom.id -eq $candidate.id) 'Save closure retains candidate review'
 $closedCandidate = Invoke-SimHttp $session 'POST' "$candidateBase/candidate-bom" $null
 Require ($closedCandidate.Status -eq 409) 'closed review candidate cannot be mutated'
+$closedAlternate = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" $alternateBody
+Require ($closedAlternate.Status -eq 409) 'closed review alternate cannot be mutated'

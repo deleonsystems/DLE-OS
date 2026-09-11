@@ -100,7 +100,7 @@ assert.match(node('technicalReviewDetail').innerHTML, /<table class="candidate-t
 assert.match(node('technicalReviewDetail').innerHTML, /1 uncertain/);
 assert.doesNotMatch(node('technicalReviewDetail').innerHTML, /id="candidate-partNumber"/);
 handlers.click({ target: { closest: selector => selector === '[data-technical-review-action]' ? { dataset: { technicalReviewAction: 'candidate-detail' } } : selector === '[data-candidate-row]' ? { dataset: {candidateRow:'0'} } : null } });
-assert.match(node('technicalReviewDetail').innerHTML, /Evidence and correction history/);
+assert.match(node('technicalReviewDetail').innerHTML, /Source \/ History/);
 for (const [key,value] of Object.entries(record.technicalReview.candidateBom.rows[0].values)) node('candidate-' + key).value = value;
 node('candidate-partNumber').value = 'REVIEWER-CORRECTION';
 await click('candidate-confirm');

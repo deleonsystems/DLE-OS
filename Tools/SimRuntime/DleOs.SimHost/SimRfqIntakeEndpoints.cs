@@ -153,6 +153,14 @@ internal static class SimRfqIntakeEndpoints
             }
         });
 
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/complete-bom-review", async Task<IResult> (string intakeId, SimBomCompletionRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.CompleteBomReview(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "BOM Review could not be saved. Reopen before retrying." }, statusCode: 503); }
+        });
         app.MapPost("/api/sim/technical-reviews/{intakeId}/candidate-bom", (string intakeId, HttpContext context) => Candidate(intakeId, null, context));
         app.MapPost("/api/sim/technical-reviews/{intakeId}/analysis-jobs", async Task<IResult> (string intakeId, HttpContext context) =>
         {

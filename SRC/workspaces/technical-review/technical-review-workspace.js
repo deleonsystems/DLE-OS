@@ -54,6 +54,7 @@
       if (fileButton && !state.saving) { state.documentIndex = Number(fileButton.dataset.packageIndex); renderDetail(); }
       if (action === "materials") void reviewMaterials();
       if (action === "candidate") {
+        state.acceptedVersion = null;
         if (state.selected?.record?.technicalReview?.candidateBom) { state.candidateIndex = null; state.step = 'candidate'; state.materials = false; renderDetail(); }
         else void buildCandidate();
       }
@@ -63,7 +64,11 @@
         state.candidateDraft = null; state.candidateIndex = state.candidateIndex === index ? null : index; renderDetail();
       }
       if (action === "candidate-from-source") void savePackage(false).then(() => { if (state.messageState !== 'error') return buildCandidate(); });
+      if (action === 'complete-bom') void completeBom();
+      if (action === 'accepted-bom') { state.acceptedVersion = Number(event.target.dataset.acceptedVersion); state.candidateIndex = null; state.guided = true; state.step = 'candidate'; renderDetail(); }
       if (action === "candidate-confirm") void confirmCandidate();
+      if (action === 'alternate-add') void saveAlternate('ADD');
+      if (action === 'alternate-edit' || action === 'alternate-remove') void saveAlternate(action === 'alternate-edit' ? 'EDIT' : 'REMOVE', event.target.closest('[data-alternate-id]').dataset.alternateId);
       if (action === "candidate-previous" && !state.saving) { state.candidateDraft = null; state.candidateIndex = Math.max(0, (state.candidateIndex || 0) - 1); renderDetail(); }
       if (action === "candidate-next" && !state.saving) { state.candidateDraft = null; state.candidateIndex = (state.candidateIndex || 0) + 1; renderDetail(); }
       if (action === "history-back" && !state.saving) { state.materials = false; state.step = ""; state.message = ""; state.messageState = ""; renderDetail(); }
@@ -78,6 +83,7 @@
     });
     mount.addEventListener('change', event => {
       if (state.saving || !state.selected) return;
+      if (event.target.dataset?.componentRow !== undefined) { void saveComponentType(event.target); return; }
       const field = event.target.dataset?.packageField;
       const pack = packageDraft();
       if (field) {
@@ -198,6 +204,7 @@
   }
 
   async function openReview(intakeId) {
+    state.acceptedVersion = null;
     if (state.saving) return;
     state.guided = false;
     state.materials = false; state.step = ""; state.packageDraft = null; state.documentIndex = 0;
@@ -425,36 +432,124 @@
   }
 
   const candidateFields = { lineNumber: 'BOM line number', partNumber: 'Part number', quantity: 'Quantity per assembly', designators: 'Designator(s)', description: 'Description' };
+  const componentTypes = {STANDARD_COTS:'Standard / COTS',SUBASSEMBLY:'Subassembly',REFERENCE_ONLY:'Reference Only',OTHER:'Other'};
+  function componentSelect(row, index) {
+    const value = componentTypes[row.componentType] ? row.componentType : 'STANDARD_COTS';
+    return '<select class="candidate-component-type" aria-label="Component Type for row ' + (index + 1) + '" data-component-row="' + index + '" ' + (state.saving ? 'disabled' : '') + '>' + Object.entries(componentTypes).map(([key,label]) => '<option value="' + key + '" ' + (key === value ? 'selected' : '') + '>' + label + '</option>').join('') + '</select>';
+  }
+  async function saveComponentType(control) {
+    const rowIndex = Number(control.dataset.componentRow);
+    const bom = state.selected.record.technicalReview.candidateBom;
+    const row = bom.rows[rowIndex];
+    const componentChange = {componentType:control.value,expectedRevision:row.componentTypeRevision || 0};
+    // Preserve any unsaved row-detail inputs while refreshing the saved table status.
+    const drafts = Array.from(document.querySelectorAll('.candidate-detail-row input, .candidate-detail-row select')).map(input => [input.id,input.value]);
+    state.saving = true; control.disabled = true;
+    try {
+      state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/candidate-bom', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex,componentChange})});
+      state.message = 'Component Type saved.'; state.messageState = '';
+    } catch (error) { state.message = error?.message || 'Component Type could not be saved.'; state.messageState = 'error'; }
+    finally {
+      state.saving = false; renderDetail();
+      for (const [id,value] of drafts) { const input = document.getElementById(id); if (input) input.value = value; }
+    }
+  }
   function candidateStatus(row) {
+    if ((row.alternates || []).some(a => !a.removedAtUtc && a.reviewStatus !== 'CONFIRMED')) return 'Uncertain';
+    if ((row.alternates || []).some(a => a.history?.length)) return 'Manually Corrected';
     if (row.corrections?.length) return 'Manually Corrected';
+    if (row.confirmed) return 'Reviewed';
     const comparisons = Object.keys(candidateFields).map(key => row.comparison?.[key]);
     if (comparisons.includes('CONFLICT')) return 'Conflict';
     const uncertain = Object.values(row.analysisFields || {}).some(field => field.uncertainty?.trim() && !/^none[.!]?$/i.test(field.uncertainty.trim()));
     return comparisons.every(value => value === 'MATCH') && !uncertain ? 'Match' : 'Uncertain';
   }
   function renderCandidate(record) {
-    const bom = record.technicalReview.candidateBom;
-    const counts = { Match: 0, Conflict: 0, Uncertain: 0, 'Manually Corrected': 0 };
+    const accepted = (record.technicalReview.bomAcceptances || []).find(a => state.acceptedVersion ? a.version === state.acceptedVersion : a.candidate.id === record.technicalReview.candidateBom?.id);
+    const bom = accepted?.candidate || record.technicalReview.candidateBom;
+    const counts = { Match: 0, Conflict: 0, Uncertain: 0, Reviewed: 0, 'Manually Corrected': 0 };
     bom.rows.forEach(row => counts[candidateStatus(row)]++);
     const fileUrl = '/api/sim/rfq-intakes/' + encodeURIComponent(record.intakeId) + '/documents/' + encodeURIComponent(bom.governingDocumentId) + '#page=' + bom.page;
     const rows = bom.rows.map((row, index) => {
       const status = candidateStatus(row);
       const expanded = state.candidateIndex === index;
-      const conflict = status === 'Manually Corrected' && Object.values(row.comparison || {}).includes('CONFLICT');
-      return '<tr><td>' + escapeHtml(row.values.lineNumber || '—') + '</td><td class="candidate-part">' + escapeHtml(row.values.partNumber || '—') + '</td><td>' + escapeHtml(row.values.quantity || '—') + '</td><td>' + escapeHtml(row.values.designators || '—') + '</td><td>' + escapeHtml(row.values.description || '—') + '</td><td><span class="candidate-status" data-status="' + status + '">' + status + '</span>' + (conflict ? '<small>Source conflict retained</small>' : '') + '<button class="candidate-details-button" data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" aria-expanded="' + expanded + '" aria-controls="candidate-detail-' + index + '" ' + (state.saving ? 'disabled' : '') + '>' + (expanded ? 'Hide details' : 'View details') + '<span class="candidate-sr-only"> for row ' + (index + 1) + '</span></button></td></tr>' +
-        (expanded ? '<tr class="candidate-detail-row"><td colspan="6"><section id="candidate-detail-' + index + '" aria-label="Row ' + (index + 1) + ' details">' + renderCandidateRow(bom, row, index) + '</section></td></tr>' : '');
+      const conflict = status !== 'Conflict' && Object.values(row.comparison || {}).includes('CONFLICT');
+      return '<tr><td>' + escapeHtml(row.values.lineNumber || '—') + '</td><td class="candidate-part">' + escapeHtml(row.values.partNumber || '—') + '</td><td>' + alternateSummary(row) + '</td><td>' + escapeHtml(row.values.quantity || '—') + '</td><td>' + escapeHtml(componentTypes[row.componentType] || componentTypes.STANDARD_COTS) + '</td><td>' + escapeHtml(row.values.designators || '—') + '</td><td>' + escapeHtml(row.values.description || '—') + '</td><td><span class="candidate-status" data-status="' + status + '">' + status + '</span>' + (conflict ? '<small>Source conflict retained</small>' : '') + '<button class="candidate-details-button" data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" aria-expanded="' + expanded + '" aria-controls="candidate-detail-' + index + '" ' + (state.saving ? 'disabled' : '') + '>' + (expanded ? 'Close Details' : accepted ? 'View Details' : 'Edit / Add Details') + '<span class="candidate-sr-only"> for row ' + (index + 1) + '</span></button></td></tr>' +
+        (expanded ? '<tr class="candidate-detail-row"><td colspan="8"><section id="candidate-detail-' + index + '" aria-label="Row ' + (index + 1) + ' details">' + renderCandidateRow(bom, row, index, !!accepted) + '</section></td></tr>' : '');
     }).join('');
-    return '<section class="technical-review-question technical-review-candidate"><h3>Candidate BOM — Pilot</h3><p class="candidate-summary">' + bom.rows.length + ' rows extracted · ' + counts.Match + ' matched · ' + counts.Conflict + ' conflict · ' + counts.Uncertain + ' uncertain · ' + counts['Manually Corrected'] + ' manually corrected</p>' +
-      '<p class="candidate-review-note">Partial / pilot · NEEDS_REVIEW · Not an approved DLE BOM. Review source conflicts and uncertain rows before proceeding.</p><a href="' + fileUrl + '" target="_blank" rel="noopener">View governing PDF · page ' + bom.page + '</a>' +
-      '<div class="candidate-table-scroll" role="region" aria-label="Candidate BOM table" tabindex="0"><table class="candidate-table"><caption class="candidate-sr-only">Candidate BOM rows for human review</caption><thead><tr><th scope="col">Line</th><th scope="col">Part Number</th><th scope="col">Qty</th><th scope="col">Designators</th><th scope="col">Description</th><th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><details class="candidate-analysis-details"><summary>Analysis scope and history</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p><p>' + (record.technicalReview.candidateBomVersions || []).length + ' prior versions preserved. No canonical BOM or downstream work is created.</p></details><button class="technical-review-back" data-technical-review-action="governing-back">← Back to governing BOM selection</button></section>';
+    return '<section class="technical-review-question technical-review-candidate"><h3>' + (accepted ? 'BOM Review Complete' : 'Candidate BOM — Pilot') + '</h3>' + (accepted ? '<p>Materials definition qualified for this RFQ. Accepted version ' + accepted.version + '.</p>' + (record.technicalReview.materialsReviewStatus === 'QUALIFIED' ? '<p>Next: Manufacturing / Labor Review</p>' : '<p>Historical acceptance. The current source package or candidate requires a new BOM review.</p>') : '') + '<p class="candidate-summary">' + bom.rows.length + ' rows extracted · ' + counts.Match + ' matched · ' + counts.Conflict + ' conflict · ' + counts.Uncertain + ' uncertain · ' + counts['Manually Corrected'] + ' manually corrected' + (counts.Reviewed ? ' · ' + counts.Reviewed + ' reviewed' : '') + '</p>' +
+      (accepted ? '<p>RFQ materials acceptance only. This is not a production release.</p>' : '<p class="candidate-review-note">Partial / pilot · Needs Review · Not an approved DLE BOM. Review source conflicts and uncertain rows before proceeding.</p>') + '<a href="' + fileUrl + '" target="_blank" rel="noopener">View governing PDF · page ' + bom.page + '</a>' +
+      '<div class="candidate-table-scroll" role="region" aria-label="Candidate BOM table" tabindex="0"><table class="candidate-table"><caption class="candidate-sr-only">Candidate BOM rows for human review</caption><thead><tr><th scope="col">Line</th><th scope="col">Part Number</th><th scope="col">Alternate Part(s)</th><th scope="col">Qty / Assy</th><th scope="col">Component Type</th><th scope="col">Designators</th><th scope="col">Description</th><th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><details class="candidate-analysis-details"><summary>Analysis scope and history</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p><p>' + (record.technicalReview.candidateBomVersions || []).length + ' prior versions preserved. No canonical BOM or downstream work is created.</p></details>' + acceptedLinks(record) + '<div class="candidate-editor-actions"><button class="technical-review-back" data-technical-review-action="governing-back">← Back to governing BOM selection</button>' + (!accepted ? '<button class="technical-review-primary" data-technical-review-action="complete-bom" ' + (state.saving ? 'disabled' : '') + '>Complete BOM Review</button>' : '') + '</div></section>';
   }
-  function renderCandidateRow(bom, row, index) {
+  function renderCandidateRow(bom, row, index, readOnly = false) {
     const disabled = state.saving ? 'disabled' : '';
-    return '<h4>Row ' + (index + 1) + ' · Review or correct values</h4><div class="candidate-edit-grid">' + Object.entries(candidateFields).map(([key, label]) => '<label class="technical-review-candidate-field">' + label + '<input id="candidate-' + key + '" value="' + escapeHtml((state.candidateDraft || row.values)[key]) + '" maxlength="2000" ' + disabled + '></label>').join('') + '</div><button class="technical-review-primary" data-technical-review-action="candidate-confirm" ' + disabled + '>Confirm row and save</button>' +
-      (row.reviewer ? '<p>Reviewed by ' + escapeHtml(row.reviewer) + ' · ' + escapeHtml(row.reviewedAtUtc) + '</p>' : '') +
-      '<details class="candidate-evidence"><summary>Evidence and correction history</summary>' + Object.entries(candidateFields).map(([key, label]) => '<div class="candidate-evidence-field"><strong>' + label + '</strong><p>Governing extracted value: ' + escapeHtml(row.extracted[key] || '—') + ' · Supporting relationship: ' + escapeHtml(row.comparison[key]) + '</p>' + analysisEvidence(row.analysisFields?.[key]) + '</div>').join('') +
-      '<p>Governing document: ' + escapeHtml(bom.governingDocumentId) + ' · Page ' + bom.page + ' · Bounds: ' + escapeHtml((row.bounds || []).join(', ')) + '</p><p>SHA-256: ' + escapeHtml(bom.governingSha256) + '</p>' + row.corrections.map(c => '<p>' + escapeHtml(candidateFields[c.field]) + ': ' + escapeHtml(c.previous) + ' → ' + escapeHtml(c.value) + ' · ' + escapeHtml(c.reviewer) + ' · ' + escapeHtml(c.atUtc) + '</p>').join('') + '</details>';
+    const content = '<div class="candidate-editor-heading"><h4>Row ' + (index + 1) + ' · Edit / Add Details</h4></div><div class="candidate-edit-grid"><label class="technical-review-candidate-field">Component Type' + componentSelect(row, index) + '</label>' + Object.entries(candidateFields).map(([key, label]) => '<label class="technical-review-candidate-field candidate-field-' + key + '">' + ({lineNumber:'Line',partNumber:'Part Number',quantity:'Qty / Assy',designators:'Designators',description:'Description'}[key]) + '<input id="candidate-' + key + '" value="' + escapeHtml((state.candidateDraft || row.values)[key]) + '" maxlength="2000" ' + disabled + '></label>').join('') + '</div>' + renderAlternates(row) + '<div class="candidate-editor-actions"><button class="technical-review-primary" data-technical-review-action="candidate-confirm" ' + disabled + '>Save Changes</button><button data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" ' + disabled + '>Close</button><small>Component Type saves automatically. Save alternates individually.</small></div>' +
+      '<details class="candidate-evidence"><summary>Source / History</summary>' + (row.reviewer ? '<p>Reviewed by ' + escapeHtml(row.reviewer) + ' · ' + escapeHtml(row.reviewedAtUtc) + '</p>' : '') + renderAlternates(row, true) + Object.entries(candidateFields).map(([key, label]) => '<div class="candidate-evidence-field"><strong>' + label + '</strong><p>Governing extracted value: ' + escapeHtml(row.extracted[key] || '—') + ' · Supporting relationship: ' + escapeHtml(row.comparison[key]) + '</p>' + analysisEvidence(row.analysisFields?.[key]) + '</div>').join('') +
+      '<p>Governing document: ' + escapeHtml(bom.governingDocumentId) + ' · Page ' + bom.page + ' · Bounds: ' + escapeHtml((row.bounds || []).join(', ')) + '</p><p>SHA-256: ' + escapeHtml(bom.governingSha256) + '</p>' + row.corrections.map(c => '<p>' + escapeHtml(candidateFields[c.field] || (c.field === 'componentType' ? 'Component Type' : c.field)) + ': ' + escapeHtml(c.previous) + ' → ' + escapeHtml(c.value) + ' · ' + escapeHtml(c.reviewer) + ' · ' + escapeHtml(c.atUtc) + '</p>').join('') + '</details>';
+    return readOnly ? content.slice(content.indexOf('<details class="candidate-evidence">')) : content;
+  }
+
+  function acceptedLinks(record) {
+    return (record.technicalReview?.bomAcceptances || []).map(a => '<p><button data-technical-review-action="accepted-bom" data-accepted-version="' + a.version + '">View accepted BOM · version ' + a.version + '</button><small> Accepted by ' + escapeHtml(a.reviewedBy) + ' · ' + escapeHtml(new Date(a.reviewedAtUtc).toLocaleString()) + '</small></p>').join('');
+  }
+  async function completeBom() {
+    if (state.saving) return;
+    if (state.candidateIndex != null) {
+      state.message = 'Save your row and alternate changes, then close the editor before completing BOM Review.';
+      const message = document.querySelector('.technical-review-candidate .technical-review-message');
+      if (message) message.textContent = state.message;
+      return;
+    }
+    state.saving = true;
+    try {
+      state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/complete-bom-review', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidate:state.selected.record.technicalReview.candidateBom})});
+      state.message = 'BOM Review Complete. Materials definition qualified for this RFQ.';
+    } catch (error) { state.message = error?.message || 'BOM Review could not be completed.'; }
+    finally { state.saving = false; renderDetail(); }
+  }
+
+  function alternateSummary(row) {
+    const active = (row.alternates || []).filter(a => !a.removedAtUtc);
+    return active.length ? escapeHtml(active[0].partNumber) + (active.length > 1 ? ' <small>+' + (active.length - 1) + ' more</small>' : '') : '—';
+  }
+  function alternateEvidence(evidence) {
+    return evidence ? escapeHtml([evidence.documentId, evidence.page ? 'page ' + evidence.page : '', evidence.sheet, evidence.location].filter(Boolean).join(' · ')) : 'Not supplied';
+  }
+  function renderAlternates(row, historyOnly = false) {
+    const disabled = state.saving ? 'disabled' : '';
+    const labels = {NEEDS_REVIEW:'Needs Review',CONFIRMED:'Reviewed / Confirmed',UNCERTAIN:'Uncertain'};
+    const entries = (row.alternates || []).map(a => {
+      const id = escapeHtml(a.id);
+      const history = '<details><summary>Alternate evidence and history</summary><p>' + (a.origin === 'MANUAL' ? 'Manually added; no extracted value.' : 'Original extracted value: ' + escapeHtml(a.originalPartNumber || '—')) + '</p><p>Source context: ' + escapeHtml(a.sourceContext || 'Not supplied') + '</p><p>Source: ' + alternateEvidence(a.sourceEvidence) + '</p><p>Supporting: ' + alternateEvidence(a.supportingEvidence) + '</p><p>Approval evidence: ' + alternateEvidence(a.approvalEvidence) + ' — evidence alone is not DLE approval.</p><p>Uncertainty: ' + escapeHtml(a.uncertainty || 'None supplied') + '</p>' + (a.history || []).map(h => '<p>' + escapeHtml(h.action) + ': ' + escapeHtml(h.previous ?? '—') + ' → ' + escapeHtml(h.value ?? '—') + ' · ' + escapeHtml(labels[h.reviewStatus] || h.reviewStatus) + ' · ' + escapeHtml(h.reviewer) + ' · ' + escapeHtml(h.atUtc) + '</p>').join('') + '</details>';
+      if (historyOnly) return '<h5>' + (a.removedAtUtc ? 'Removed alternate: ' : 'Alternate: ') + escapeHtml(a.partNumber) + '</h5>' + history;
+      if (a.removedAtUtc) return '';
+      return '<div class="candidate-alternate"><label>Alternate part number<input id="alternate-number-' + id + '" value="' + escapeHtml(a.partNumber) + '" maxlength="200" ' + disabled + '></label><label>Alternate review state<select id="alternate-status-' + id + '" ' + disabled + '>' + Object.entries(labels).map(([value,label]) => '<option value="' + value + '" ' + (value === a.reviewStatus ? 'selected' : '') + '>' + label + '</option>').join('') + '</select></label><button data-technical-review-action="alternate-edit" data-alternate-id="' + id + '" ' + disabled + '>Save alternate</button><button data-technical-review-action="alternate-remove" data-alternate-id="' + id + '" ' + disabled + '>Remove alternate</button></div>';
+    }).join('');
+    if (historyOnly) return entries;
+    return '<section class="candidate-alternates"><h4>Alternate Part(s)</h4>' + entries + '<div class="candidate-alternate-add"><label>New alternate part number<input id="alternate-new" maxlength="200" ' + disabled + '></label><button data-technical-review-action="alternate-add" ' + disabled + '>Add alternate</button></div><small>Reviewing an alternate does not approve its use.</small></section>';
+  }
+  async function saveAlternate(action, id = null) {
+    if (state.saving) return;
+    const bom = state.selected.record.technicalReview.candidateBom;
+    const rowIndex = state.candidateIndex;
+    const row = bom.rows[rowIndex];
+    const alternateChange = {action,id,expectedRevision:row.alternateRevision || 0,
+      partNumber: action === 'REMOVE' ? null : document.getElementById(action === 'ADD' ? 'alternate-new' : 'alternate-number-' + id).value,
+      reviewStatus: action === 'EDIT' ? document.getElementById('alternate-status-' + id).value : 'NEEDS_REVIEW'};
+    state.candidateDraft = Object.fromEntries(Object.keys(candidateFields).map(key => [key,document.getElementById('candidate-' + key).value]));
+    state.saving = true;
+    try {
+      state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/candidate-bom', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex,alternateChange})});
+      state.message = 'Alternate saved. Candidate only; no engineering approval was granted.';
+      state.messageState = '';
+      state.saving = false; renderDetail();
+    } catch (error) {
+      state.message = error?.message || 'Alternate could not be saved.'; state.messageState = 'error';
+      // Leave entered values in place when validation/network fails.
+      const message = document.querySelector('.technical-review-candidate .technical-review-message');
+      if (message) message.textContent = state.message;
+    } finally { state.saving = false; }
   }
 
   async function confirmCandidate() {
@@ -477,7 +572,7 @@
     if (record.status === "READY_FOR_RFQ_WORKING_QUEUE") return message + '<p>This review has been handed off to RFQ.</p>';
     const disabled = !canDisposition || state.saving ? "disabled" : "";
     if (state.closing) return renderCloseChoices(disabled, message);
-    return '<section class="technical-review-card"><h3>Choose how to proceed</h3>' +
+    return acceptedLinks(record) + '<section class="technical-review-card"><h3>Choose how to proceed</h3>' +
       '<div class="technical-review-field-grid"><div><button type="button" class="technical-review-primary" data-technical-review-action="start" ' + disabled + '>Start Technical Review</button><p>I am going to work this item.</p></div>' +
       '<div><button type="button" class="technical-review-secondary" data-technical-review-action="close" ' + disabled + '>No Longer Required</button><p>Close this review without proceeding.</p></div></div>' +
       (!canDisposition ? '<p>Disposition permission required.</p>' : '') + message + '</section>';
