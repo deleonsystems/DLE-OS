@@ -5,10 +5,10 @@ using System.Text.Json;
 internal sealed record SimCandidateCorrection(string Field, string Previous, string Value, string Reviewer, DateTimeOffset AtUtc);
 internal sealed record SimCandidateRow(int Index, Dictionary<string,string> Extracted, Dictionary<string,string> Values,
     double[] Bounds, Dictionary<string,string> Comparison, bool Confirmed, string? Reviewer, DateTimeOffset? ReviewedAtUtc,
-    SimCandidateCorrection[] Corrections);
+    SimCandidateCorrection[] Corrections, string? RowId = null, Dictionary<string, DleAnalysisField>? AnalysisFields = null);
 internal sealed record SimCandidateBom(string Id, string Label, string GoverningDocumentId, string GoverningSha256,
     int Page, string Parser, bool Synthetic, DateTimeOffset ExtractedAtUtc, string RequestedBy,
-    string[] SupportingDocumentIds, string SupportingComparison, SimCandidateRow[] Rows);
+    string[] SupportingDocumentIds, string SupportingComparison, SimCandidateRow[] Rows, DleCandidateAnalysis? Analysis = null);
 internal sealed record SimCandidateReviewRequest(string CandidateId, int RowIndex, Dictionary<string,string> Values);
 
 internal static class SimCandidateBomProvider

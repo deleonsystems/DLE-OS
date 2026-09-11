@@ -27,13 +27,15 @@ const window = {
     if (url.endsWith('/technical-package')) { record.technicalReview.technicalPackage = JSON.parse(options.body); record.technicalReview.materialsDefinition = null; }
     if (url.endsWith('/materials-definition')) record.technicalReview.materialsDefinition = { result: 'DIFFERENCES_FOUND', comparisonCompleted: true, currentBom: { assemblyNumber: 'PROVIDER-INPUT', revision: 'C', reference: 'CURRENT-BOM' }, priorBom: { assemblyNumber: 'PROVIDER-INPUT', revision: 'C', reference: 'PRIOR-BOM' }, parentAssemblyMatch: true, revisionMatch: true, currentLineCount: 2, priorLineCount: 2, unchangedParts: [], addedParts: ['ADDED-PART'], removedParts: ['REMOVED-PART'], quantityChanges: [{partNumber:'CHANGED-PART',priorQuantity:1,currentQuantity:2}], subassemblies:[{partNumber:'SUB-PART',quantityPerAssembly:1,technicalReference:null}] };
     if (url.endsWith('/materials-definition')) record.technicalReview.subassemblyCoverage = [{partNumber:'SUB-PART',quantityPerAssembly:1,knownReference:null,customerDocumentIds:[],coverageState:'UNRESOLVED'}];
-    if (url.endsWith('/candidate-bom')) {
+    if (url.endsWith('/analysis-jobs/latest')) return { ok: true, json: async () => ({ job: record.technicalReview?.candidateBom ? { status: 'SUCCEEDED' } : null }) };
+    if (url.endsWith('/candidate-bom') || url.endsWith('/analysis-jobs')) {
       const values = {lineNumber:'1',partNumber:'EXTRACTED-PART',quantity:'2',designators:'C1',description:'Source description'};
       record.technicalReview.candidateBom ||= {id:'candidate-id',governingDocumentId:'DOC-001',governingSha256:'hash',page:2,parser:'test parser',supportingComparison:'UNAVAILABLE: supporting comparison',rows:[{extracted:values,values:{...values},comparison:Object.fromEntries(Object.keys(values).map(k=>[k,'UNCERTAIN'])),bounds:[1,2,3,4],confirmed:false,corrections:[]}]};
       if (options.method === 'PUT') {
         assert.equal(options.headers['Content-Type'], 'application/json');
         const request = JSON.parse(options.body);
         assert.equal(request.candidateId,'candidate-id');
+        for (const key of Object.keys(request.values)) if (request.values[key] !== record.technicalReview.candidateBom.rows[0].values[key]) record.technicalReview.candidateBom.rows[0].corrections.push({field:key,previous:record.technicalReview.candidateBom.rows[0].values[key],value:request.values[key],reviewer:'Fixture reviewer',atUtc:'2026-09-10T00:00:00Z'});
         record.technicalReview.candidateBom.rows[0].values = request.values;
         record.technicalReview.candidateBom.rows[0].confirmed = true;
       }
@@ -42,7 +44,7 @@ const window = {
   }
 };
 const document = { querySelector: () => mount, getElementById: node, addEventListener() {} };
-vm.runInNewContext(fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js', import.meta.url), 'utf8'), { window, document });
+vm.runInNewContext(fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js', import.meta.url), 'utf8'), { window, document, setTimeout, clearTimeout, setInterval, clearInterval });
 const workspace = window.DleWorkspaces['technical-review'];
 const click = async action => {
   handlers.click({ target: { closest: selector => selector === '[data-technical-review-action]' ? { dataset: { technicalReviewAction: action } } : null } });
@@ -94,13 +96,17 @@ assert.match(node('technicalReviewDetail').innerHTML, /Materials Definition save
 await click('candidate');
 assert.match(node('technicalReviewDetail').innerHTML, /Candidate BOM — Pilot/);
 assert.match(node('technicalReviewDetail').innerHTML, /EXTRACTED-PART/);
-assert.match(node('technicalReviewDetail').innerHTML, /Supporting matches: not evaluated/);
+assert.match(node('technicalReviewDetail').innerHTML, /<table class="candidate-table">/);
+assert.match(node('technicalReviewDetail').innerHTML, /1 uncertain/);
+assert.doesNotMatch(node('technicalReviewDetail').innerHTML, /id="candidate-partNumber"/);
+handlers.click({ target: { closest: selector => selector === '[data-technical-review-action]' ? { dataset: { technicalReviewAction: 'candidate-detail' } } : selector === '[data-candidate-row]' ? { dataset: {candidateRow:'0'} } : null } });
+assert.match(node('technicalReviewDetail').innerHTML, /Evidence and correction history/);
 for (const [key,value] of Object.entries(record.technicalReview.candidateBom.rows[0].values)) node('candidate-' + key).value = value;
 node('candidate-partNumber').value = 'REVIEWER-CORRECTION';
 await click('candidate-confirm');
 assert.equal(record.technicalReview.candidateBom.rows[0].values.partNumber,'REVIEWER-CORRECTION');
 assert.equal(record.technicalReview.candidateBom.rows[0].extracted.partNumber,'EXTRACTED-PART');
-assert.match(node('technicalReviewDetail').innerHTML, /1 \/ 1 rows reviewed/);
+assert.match(node('technicalReviewDetail').innerHTML, /1 manually corrected/);
 await click('materials');
 await workspace.render();
 assert.equal(node('technicalReviewQueueView').hidden, false);

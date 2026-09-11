@@ -112,7 +112,8 @@ internal sealed record SimTechnicalReviewResult(
     SimMaterialsDefinition? MaterialsDefinition = null,
     SimTechnicalPackage? TechnicalPackage = null,
     SimSubassemblyCoverage[]? SubassemblyCoverage = null,
-    SimCandidateBom? CandidateBom = null);
+    SimCandidateBom? CandidateBom = null,
+    SimCandidateBom[]? CandidateBomVersions = null);
 
 internal sealed class SimRfqIntakeProblem : Exception
 {
@@ -135,7 +136,7 @@ internal sealed class SimRfqIntakeProblem : Exception
         new(StatusCodes.Status409Conflict, code, message);
 }
 
-internal sealed class SimRfqIntakeStore
+internal sealed partial class SimRfqIntakeStore
 {
     private const string DatasetSchema = "DLE_RFQ_INTAKE_DATASET_V1";
     private readonly string dataPath;
@@ -399,6 +400,7 @@ internal sealed class SimRfqIntakeStore
                 var definition = inventoryOnly ? null : SimMaterialsDefinitionProvider.Compare(record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package } }, persona);
                 var sameSources = JsonSerializer.Serialize(package.Documents, jsonOptions) == JsonSerializer.Serialize(record.TechnicalReview!.TechnicalPackage?.Documents, jsonOptions) && package.GoverningBomDocumentId == record.TechnicalReview.TechnicalPackage?.GoverningBomDocumentId;
                 record = record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package, MaterialsDefinition = definition, CandidateBom = sameSources ? record.TechnicalReview.CandidateBom : null,
+                    CandidateBomVersions = !sameSources && record.TechnicalReview.CandidateBom is not null ? (record.TechnicalReview.CandidateBomVersions ?? []).Append(record.TechnicalReview.CandidateBom).ToArray() : record.TechnicalReview.CandidateBomVersions,
                     SubassemblyCoverage = definition is null ? null : SimTechnicalPackageProvider.Coverage(package, definition) } };
                 dataset.Records[index] = record;
                 dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -766,6 +768,7 @@ internal sealed class SimRfqIntakeStore
         public long LastIntakeSequence { get; set; }
         public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
         public List<SimRfqIntakeRecord> Records { get; set; } = [];
+        public List<DleAnalysisJob> AnalysisJobs { get; set; } = [];
     }
 }
 

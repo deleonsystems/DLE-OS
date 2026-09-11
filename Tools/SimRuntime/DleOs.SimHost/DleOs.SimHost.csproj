@@ -7,7 +7,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.29" />
+    <InternalsVisibleTo Include="SimAnalysis001" />
     <Content Include="sim_candidate_bom.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Analysis\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\DevelopmentRuntime\DleOs.DevelopmentFrontend\DevelopmentIdentityUi.cs"

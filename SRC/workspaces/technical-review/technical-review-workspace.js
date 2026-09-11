@@ -53,7 +53,15 @@
       const fileButton = event.target.closest?.('[data-package-index]');
       if (fileButton && !state.saving) { state.documentIndex = Number(fileButton.dataset.packageIndex); renderDetail(); }
       if (action === "materials") void reviewMaterials();
-      if (action === "candidate") void buildCandidate();
+      if (action === "candidate") {
+        if (state.selected?.record?.technicalReview?.candidateBom) { state.candidateIndex = null; state.step = 'candidate'; state.materials = false; renderDetail(); }
+        else void buildCandidate();
+      }
+      if (action === 'analysis-retry') void buildCandidate();
+      if (action === 'candidate-detail' && !state.saving) {
+        const index = Number(event.target.closest('[data-candidate-row]').dataset.candidateRow);
+        state.candidateDraft = null; state.candidateIndex = state.candidateIndex === index ? null : index; renderDetail();
+      }
       if (action === "candidate-from-source") void savePackage(false).then(() => { if (state.messageState !== 'error') return buildCandidate(); });
       if (action === "candidate-confirm") void confirmCandidate();
       if (action === "candidate-previous" && !state.saving) { state.candidateDraft = null; state.candidateIndex = Math.max(0, (state.candidateIndex || 0) - 1); renderDetail(); }
@@ -194,6 +202,7 @@
     state.guided = false;
     state.materials = false; state.step = ""; state.packageDraft = null; state.documentIndex = 0;
     state.closing = false;
+    state.analysisJob = null; state.analysisError = ''; state.candidateIndex = null;
     setStatus("Opening " + intakeId + "…", "");
     try {
       state.selected = await fetchJson("/api/sim/technical-reviews/" + encodeURIComponent(intakeId));
@@ -204,6 +213,7 @@
       document.getElementById("technicalReviewDetailView").hidden = false;
       setStatus(state.selected.reviewStatusLabel, "ready");
       document.getElementById("technicalReviewDetailTitle")?.focus?.();
+      void pollAnalysis(intakeId, false);
     } catch (error) {
       state.error = error?.message || "The RFQ Review could not be opened.";
       setStatus("Unable to open review", "error");
@@ -211,6 +221,8 @@
   }
 
   function showQueue() {
+    clearTimeout(analysisPoll); clearInterval(analysisClock);
+    state.analysisJob = null; state.analysisError = '';
     state.guided = false;
     mount?.classList.remove("technical-review-guided");
     state.selected = null;
@@ -233,6 +245,7 @@
       '<h2 id="technicalReviewDetailTitle" tabindex="-1">' + escapeHtml(record.customer?.customerName || "Customer") + '</h2>' +
       '<p>' + escapeHtml(assembly.assemblyNumber) + ' · Rev ' + escapeHtml(assembly.revision) + ' · Qty ' + escapeHtml(assembly.quantity) + '</p></div>' +
       '<span class="technical-review-status-pill">' + escapeHtml(envelope.reviewStatusLabel) + '</span></div>' +
+      '<div id="technicalReviewAnalysisProgress">' + renderAnalysisProgress() + '</div>' +
       (state.guided ? (state.step === 'candidate' ? renderCandidate(record) : state.materials ? renderMaterials(record) : state.step === 'inventory' ? renderInventory() : state.step === 'governing' ? renderGoverning() : state.step === 'coverage' ? renderCoverage(record) : renderHistoryQuestion(record, canDisposition)) : renderEntryActions(record, canDisposition));
   }
 
@@ -333,37 +346,115 @@
 
   async function buildCandidate() {
     if (state.saving) return;
-    state.saving = true; state.message = 'Reading the staged governing PDF…'; state.messageState = ''; renderDetail();
+    const intakeId = state.selected.record.intakeId;
+    state.saving = true; state.message = 'Preparing analysis…'; state.messageState = ''; renderDetail();
     try {
-      state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/candidate-bom', { method: 'POST' });
-      state.candidateIndex = Math.max(0, state.selected.record.technicalReview.candidateBom.rows.findIndex(r => !r.confirmed));
-      state.candidateDraft = null;
-      state.step = 'candidate'; state.materials = false; state.message = '';
+      state.analysisJob = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(intakeId) + '/analysis-jobs', { method: 'POST' });
+      state.analysisError = ''; startAnalysisClock();
+      state.message = '';
+      void pollAnalysis(intakeId, true);
     } catch (error) { state.message = error?.message || 'Candidate extraction unavailable.'; state.messageState = 'error'; }
-    finally { state.saving = false; renderDetail(); }
+    finally { state.saving = false; renderDetail(); document.getElementById('technicalReviewAnalysisProgress')?.scrollIntoView?.({block:'center'}); }
+  }
+
+  let analysisPoll, analysisClock;
+  function analysisProgress(job, now = Date.now()) {
+    const labels = { QUEUED: 'Preparing analysis', RUNNING: 'Analyzing governing BOM', VALIDATING: 'Validating result and saving Candidate BOM', SUCCEEDED: 'Candidate BOM ready', FAILED: 'Analysis failed', TIMED_OUT: 'Analysis timed out', CANCELLED: 'Analysis cancelled', STALE: 'Analysis source changed' };
+    const active = ['QUEUED', 'RUNNING', 'VALIDATING'].includes(job.status);
+    const start = Date.parse(job.input?.requestedAtUtc);
+    const deadline = Date.parse(job.input?.deadlineUtc);
+    const expired = active && Number.isFinite(deadline) && now >= deadline;
+    const end = active ? (expired ? deadline : now) : Date.parse(job.updatedAtUtc);
+    const seconds = Math.max(0, Math.floor((end - start) / 1000)) || 0;
+    return { active, expired, label: expired ? 'Analysis deadline reached' : labels[job.status] || 'Analysis status unavailable',
+      elapsed: String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0') };
+  }
+  function renderAnalysisProgress() {
+    const job = state.analysisJob;
+    if (!job) return '';
+    const progress = analysisProgress(job);
+    const running = progress.active && !progress.expired && !state.analysisError;
+    const message = state.analysisError || (progress.expired ? 'The configured deadline has elapsed. Checking the final job status; analysis is not shown as still running.' : running ? 'Analysis is running in the background. You can leave this review and return later.' : job.message || 'Candidate only; human review is required.');
+    const retry = ['FAILED', 'TIMED_OUT', 'CANCELLED', 'STALE'].includes(job.status);
+    return '<section class="technical-review-analysis-progress" aria-label="Analysis progress"><p><span class="analysis-activity ' + (running ? 'is-running' : '') + '" aria-hidden="true"></span><strong>' + escapeHtml(state.analysisError ? 'Analysis status unavailable' : progress.label) + '</strong> · <span aria-label="Elapsed time">' + progress.elapsed + '</span>' + (running ? ' <span class="analysis-running-label">Running</span>' : '') + '</p><p>' + escapeHtml(message) + '</p>' +
+      (retry ? '<button class="technical-review-secondary" data-technical-review-action="analysis-retry" ' + (state.saving ? 'disabled' : '') + '>Retry analysis</button>' : '') + '</section>';
+  }
+  function updateAnalysisProgress() {
+    const host = document.getElementById('technicalReviewAnalysisProgress');
+    if (host) host.innerHTML = renderAnalysisProgress();
+  }
+  function startAnalysisClock() {
+    clearInterval(analysisClock);
+    analysisClock = setInterval(updateAnalysisProgress, 1000);
+  }
+  async function pollAnalysis(intakeId, followResult) {
+    clearTimeout(analysisPoll);
+    try {
+      const response = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(intakeId) + '/analysis-jobs/latest');
+      if (state.selected?.record?.intakeId !== intakeId || !response.job) return;
+      const job = response.job;
+      state.analysisJob = job; state.analysisError = ''; updateAnalysisProgress();
+      const messages = { QUEUED: 'Preparing analysis…', RUNNING: 'Analyzing governing BOM…', VALIDATING: 'Validating result…' };
+      if (messages[job.status]) {
+        startAnalysisClock();
+        analysisPoll = setTimeout(() => void pollAnalysis(intakeId, true), 1500);
+      } else if (job.status === 'SUCCEEDED' && followResult) {
+        const selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(intakeId));
+        if (state.selected?.record?.intakeId !== intakeId) return;
+        clearInterval(analysisClock);
+        state.selected = selected; state.candidateDraft = null; state.candidateIndex = null;
+        state.guided = true; state.step = 'candidate'; state.materials = false;
+        state.message = 'Candidate BOM ready for review'; state.messageState = ''; renderDetail();
+      } else if (job.status !== 'SUCCEEDED') {
+        clearInterval(analysisClock);
+        state.message = job.message || 'Analysis did not finish. Use Build Candidate BOM to retry.';
+        state.messageState = 'error'; renderDetail();
+      } else { clearInterval(analysisClock); updateAnalysisProgress(); }
+    } catch (error) {
+      if (state.selected?.record?.intakeId === intakeId) { clearInterval(analysisClock); state.analysisError = 'Unable to check the job. Reopen this review to reconnect; no new job has been submitted.'; updateAnalysisProgress(); }
+    }
+  }
+
+  function analysisEvidence(field) {
+    if (!field) return '';
+    const source = field.evidence;
+    const supporting = field.supportingEvidence;
+    return '<small>Evidence: ' + escapeHtml(source.documentId) + ' · page ' + escapeHtml(source.page || '—') + ' · ' + escapeHtml(source.location) + (source.sheet ? ' · sheet ' + escapeHtml(source.sheet) : '') +
+      '</small><small>Uncertainty: ' + escapeHtml(field.uncertainty || 'None reported; human review still required') +
+      '</small><small>Supporting: ' + escapeHtml(field.supportingValue ?? '—') + (supporting ? ' · ' + escapeHtml(supporting.documentId) + ' · ' + escapeHtml(supporting.location) + (supporting.page ? ' · page ' + escapeHtml(supporting.page) : '') + (supporting.sheet ? ' · sheet ' + escapeHtml(supporting.sheet) : '') : '') + '</small>';
   }
 
   const candidateFields = { lineNumber: 'BOM line number', partNumber: 'Part number', quantity: 'Quantity per assembly', designators: 'Designator(s)', description: 'Description' };
+  function candidateStatus(row) {
+    if (row.corrections?.length) return 'Manually Corrected';
+    const comparisons = Object.keys(candidateFields).map(key => row.comparison?.[key]);
+    if (comparisons.includes('CONFLICT')) return 'Conflict';
+    const uncertain = Object.values(row.analysisFields || {}).some(field => field.uncertainty?.trim() && !/^none[.!]?$/i.test(field.uncertainty.trim()));
+    return comparisons.every(value => value === 'MATCH') && !uncertain ? 'Match' : 'Uncertain';
+  }
   function renderCandidate(record) {
     const bom = record.technicalReview.candidateBom;
-    const index = Math.min(state.candidateIndex || 0, bom.rows.length - 1);
-    const row = bom.rows[index];
-    const disabled = state.saving ? 'disabled' : '';
-    const reviewed = bom.rows.filter(r => r.confirmed).length;
-    const corrected = bom.rows.filter(r => r.corrections.length).length;
+    const counts = { Match: 0, Conflict: 0, Uncertain: 0, 'Manually Corrected': 0 };
+    bom.rows.forEach(row => counts[candidateStatus(row)]++);
     const fileUrl = '/api/sim/rfq-intakes/' + encodeURIComponent(record.intakeId) + '/documents/' + encodeURIComponent(bom.governingDocumentId) + '#page=' + bom.page;
-    return '<section class="technical-review-question technical-review-candidate"><h3>Candidate BOM — Pilot</h3><p>Real staged PDF · page ' + bom.page + ' · ' + escapeHtml(bom.parser) + '</p>' +
-      '<p role="status">' + reviewed + ' / ' + bom.rows.length + ' rows reviewed · ' + corrected + ' manually corrected · ' + (bom.rows.length - reviewed) + ' unresolved</p><p>Supporting matches: not evaluated · Differences: not evaluated</p>' +
-      '<p class="technical-review-inline-note">' + escapeHtml(bom.supportingComparison) + ' The PDF remains authoritative.</p>' +
-      '<a href="' + fileUrl + '" target="_blank" rel="noopener">View governing PDF · page 2</a><h4>Review row ' + (index + 1) + ' of ' + bom.rows.length + (row.confirmed ? ' · Confirmed' : ' · Uncertain / needs review') + '</h4>' +
-      Object.entries(candidateFields).map(([key, label]) => '<label class="technical-review-candidate-field">' + label + '<small>Governing PDF extraction: ' + escapeHtml(row.extracted[key] || '—') + '</small><small>Supporting value unavailable · ' + escapeHtml(row.comparison[key]) + '</small><input id="candidate-' + key + '" value="' + escapeHtml((state.candidateDraft || row.values)[key]) + '" maxlength="2000" ' + disabled + '></label>').join('') +
-      '<p>Confirm after checking the PDF. Corrections retain the extracted value and reviewer history. Source files are unchanged.</p>' +
-      '<button class="technical-review-primary" data-technical-review-action="candidate-confirm" ' + disabled + '>Confirm row and save</button> ' +
-      (index > 0 ? '<button data-technical-review-action="candidate-previous" ' + disabled + '>Previous row</button> ' : '') +
-      (index + 1 < bom.rows.length ? '<button data-technical-review-action="candidate-next" ' + disabled + '>Skip to next row</button>' : '') +
+    const rows = bom.rows.map((row, index) => {
+      const status = candidateStatus(row);
+      const expanded = state.candidateIndex === index;
+      const conflict = status === 'Manually Corrected' && Object.values(row.comparison || {}).includes('CONFLICT');
+      return '<tr><td>' + escapeHtml(row.values.lineNumber || '—') + '</td><td class="candidate-part">' + escapeHtml(row.values.partNumber || '—') + '</td><td>' + escapeHtml(row.values.quantity || '—') + '</td><td>' + escapeHtml(row.values.designators || '—') + '</td><td>' + escapeHtml(row.values.description || '—') + '</td><td><span class="candidate-status" data-status="' + status + '">' + status + '</span>' + (conflict ? '<small>Source conflict retained</small>' : '') + '<button class="candidate-details-button" data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" aria-expanded="' + expanded + '" aria-controls="candidate-detail-' + index + '" ' + (state.saving ? 'disabled' : '') + '>' + (expanded ? 'Hide details' : 'View details') + '<span class="candidate-sr-only"> for row ' + (index + 1) + '</span></button></td></tr>' +
+        (expanded ? '<tr class="candidate-detail-row"><td colspan="6"><section id="candidate-detail-' + index + '" aria-label="Row ' + (index + 1) + ' details">' + renderCandidateRow(bom, row, index) + '</section></td></tr>' : '');
+    }).join('');
+    return '<section class="technical-review-question technical-review-candidate"><h3>Candidate BOM — Pilot</h3><p class="candidate-summary">' + bom.rows.length + ' rows extracted · ' + counts.Match + ' matched · ' + counts.Conflict + ' conflict · ' + counts.Uncertain + ' uncertain · ' + counts['Manually Corrected'] + ' manually corrected</p>' +
+      '<p class="candidate-review-note">Partial / pilot · NEEDS_REVIEW · Not an approved DLE BOM. Review source conflicts and uncertain rows before proceeding.</p><a href="' + fileUrl + '" target="_blank" rel="noopener">View governing PDF · page ' + bom.page + '</a>' +
+      '<div class="candidate-table-scroll" role="region" aria-label="Candidate BOM table" tabindex="0"><table class="candidate-table"><caption class="candidate-sr-only">Candidate BOM rows for human review</caption><thead><tr><th scope="col">Line</th><th scope="col">Part Number</th><th scope="col">Qty</th><th scope="col">Designators</th><th scope="col">Description</th><th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><details class="candidate-analysis-details"><summary>Analysis scope and history</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p><p>' + (record.technicalReview.candidateBomVersions || []).length + ' prior versions preserved. No canonical BOM or downstream work is created.</p></details><button class="technical-review-back" data-technical-review-action="governing-back">← Back to governing BOM selection</button></section>';
+  }
+  function renderCandidateRow(bom, row, index) {
+    const disabled = state.saving ? 'disabled' : '';
+    return '<h4>Row ' + (index + 1) + ' · Review or correct values</h4><div class="candidate-edit-grid">' + Object.entries(candidateFields).map(([key, label]) => '<label class="technical-review-candidate-field">' + label + '<input id="candidate-' + key + '" value="' + escapeHtml((state.candidateDraft || row.values)[key]) + '" maxlength="2000" ' + disabled + '></label>').join('') + '</div><button class="technical-review-primary" data-technical-review-action="candidate-confirm" ' + disabled + '>Confirm row and save</button>' +
       (row.reviewer ? '<p>Reviewed by ' + escapeHtml(row.reviewer) + ' · ' + escapeHtml(row.reviewedAtUtc) + '</p>' : '') +
-      '<details><summary>Source and correction history</summary><p>Governing document: ' + escapeHtml(bom.governingDocumentId) + ' · Page ' + bom.page + ' · Bounds (PDF points): ' + row.bounds.join(', ') + '</p><p>SHA-256: ' + escapeHtml(bom.governingSha256) + '</p>' + row.corrections.map(c => '<p>' + escapeHtml(candidateFields[c.field]) + ': ' + escapeHtml(c.previous) + ' → ' + escapeHtml(c.value) + ' · ' + escapeHtml(c.reviewer) + ' · ' + escapeHtml(c.atUtc) + '</p>').join('') + '</details>' +
-      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><p>Candidate only. No canonical BOM or downstream work is created.</p><button class="technical-review-back" data-technical-review-action="materials" ' + disabled + '>← Back to Materials Definition</button></section>';
+      '<details class="candidate-evidence"><summary>Evidence and correction history</summary>' + Object.entries(candidateFields).map(([key, label]) => '<div class="candidate-evidence-field"><strong>' + label + '</strong><p>Governing extracted value: ' + escapeHtml(row.extracted[key] || '—') + ' · Supporting relationship: ' + escapeHtml(row.comparison[key]) + '</p>' + analysisEvidence(row.analysisFields?.[key]) + '</div>').join('') +
+      '<p>Governing document: ' + escapeHtml(bom.governingDocumentId) + ' · Page ' + bom.page + ' · Bounds: ' + escapeHtml((row.bounds || []).join(', ')) + '</p><p>SHA-256: ' + escapeHtml(bom.governingSha256) + '</p>' + row.corrections.map(c => '<p>' + escapeHtml(candidateFields[c.field]) + ': ' + escapeHtml(c.previous) + ' → ' + escapeHtml(c.value) + ' · ' + escapeHtml(c.reviewer) + ' · ' + escapeHtml(c.atUtc) + '</p>').join('') + '</details>';
   }
 
   async function confirmCandidate() {
@@ -375,7 +466,7 @@
     state.saving = true; state.message = 'Saving candidate review…'; renderDetail();
     try {
       state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/candidate-bom', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ candidateId: bom.id, rowIndex, values }) });
-      state.candidateDraft = null; state.candidateIndex = Math.min(rowIndex + 1, bom.rows.length - 1); state.message = 'Row saved. Candidate remains separate from the production BOM.';
+      state.candidateDraft = null; state.candidateIndex = rowIndex; state.message = 'Row saved. Candidate remains separate from the production BOM.';
     } catch (error) { state.message = error?.message || 'Candidate review could not be saved.'; }
     finally { state.saving = false; renderDetail(); }
   }
@@ -448,6 +539,7 @@
       document.getElementById("technicalReviewDetailTitle")?.focus?.();
     }
     if (state.guided && !state.selected?.record?.technicalReview?.assemblyHistory) await updateHistory(false);
+    else if (state.guided && state.selected?.record?.technicalReview?.candidateBom) { state.step = 'candidate'; state.candidateIndex = null; renderDetail(); }
     else if (state.guided && materialsEligible(state.selected?.record)) enterPackage();
   }
 

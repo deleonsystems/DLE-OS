@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const window = {};
+const source = fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js', import.meta.url), 'utf8')
+  .replace('})(window, document);', 'window.testPolish = {analysisProgress, candidateStatus, renderCandidate, renderAnalysisProgress, state}; })(window, document);');
+vm.runInNewContext(source, {window, document:{addEventListener(){}}, setTimeout, clearTimeout, setInterval, clearInterval});
+const {analysisProgress, candidateStatus, renderCandidate, renderAnalysisProgress, state} = window.testPolish;
+const requestedAtUtc = '2026-09-10T00:00:00Z';
+const job = {status:'RUNNING',input:{requestedAtUtc,deadlineUtc:'2026-09-10T00:03:00Z'},updatedAtUtc:'2026-09-10T00:00:01Z'};
+assert.equal(analysisProgress(job,Date.parse('2026-09-10T00:00:23Z')).elapsed,'00:23');
+assert.equal(analysisProgress(job,Date.parse('2026-09-10T00:02:05Z')).elapsed,'02:05');
+assert.equal(analysisProgress(job,Date.parse('2026-09-10T00:04:00Z')).label,'Analysis deadline reached');
+assert.equal(analysisProgress(job,Date.parse('2026-09-10T00:04:00Z')).elapsed,'03:00');
+for (const status of ['FAILED','TIMED_OUT','STALE','CANCELLED']) {
+  state.analysisJob = {...job,status};
+  const html = renderAnalysisProgress();
+  assert.match(html,/Retry analysis/);
+  assert.doesNotMatch(html,/is-running|background\. You can leave/);
+}
+state.analysisJob = {...job,input:{requestedAtUtc:new Date(Date.now()-23000).toISOString(),deadlineUtc:new Date(Date.now()+120000).toISOString()}};
+assert.match(renderAnalysisProgress(),/Analysis is running in the background. You can leave this review and return later/);
+assert.doesNotMatch(renderAnalysisProgress(),/\d+%/);
+const values = {lineNumber:'1',partNumber:'DEMO-1',quantity:'2',designators:'R1',description:'Synthetic part'};
+const row = {values,extracted:{...values},comparison:Object.fromEntries(Object.keys(values).map(k=>[k,'MATCH'])),corrections:[],bounds:[],analysisFields:{quantity:{value:'2',uncertainty:'None.',evidence:{documentId:'PRIVATE-DOC-ID',page:2,location:'row 1'},relationship:'MATCH',supportingValue:'2',supportingEvidence:{documentId:'SUPPORT-ID',page:1,sheet:'Sheet1',location:'A1'}}}};
+assert.equal(candidateStatus(row),'Match');
+const conflict = {...row,comparison:{...row.comparison,quantity:'CONFLICT'}};
+assert.equal(candidateStatus(conflict),'Conflict');
+const uncertain = {...row,comparison:{...row.comparison,quantity:'NOT_COMPARED'}};
+assert.equal(candidateStatus(uncertain),'Uncertain');
+assert.equal(candidateStatus({...row,analysisFields:{quantity:{...row.analysisFields.quantity,uncertainty:'Digit is unclear'}}}),'Uncertain');
+const corrected = {...conflict,corrections:[{field:'quantity',previous:'2',value:'3',reviewer:'Reviewer',atUtc:requestedAtUtc}],values:{...values,quantity:'3'}};
+assert.equal(candidateStatus(corrected),'Manually Corrected');
+const record = {intakeId:'FIXTURE',technicalReview:{candidateBom:{governingDocumentId:'PRIVATE-DOC-ID',governingSha256:'PRIVATE-HASH',page:2,rows:[row,conflict,uncertain,corrected],analysis:{coverageReason:'Four test rows'}}}};
+state.candidateIndex = null;
+let html = renderCandidate(record);
+for(const title of ['Line','Part Number','Qty','Designators','Description','Status']) assert.match(html,new RegExp('>'+title+'</th>'));
+assert.match(html,/4 rows extracted · 1 matched · 1 conflict · 1 uncertain · 1 manually corrected/);
+assert.match(html,/NEEDS_REVIEW/);
+assert.doesNotMatch(html,/PRIVATE-HASH|Governing extracted value:|<input/);
+state.candidateIndex = 3;
+html = renderCandidate(record);
+assert.match(html,/Evidence and correction history/);
+assert.match(html,/Source conflict retained/);
+assert.match(html,/PRIVATE-HASH|Supporting relationship: CONFLICT/);
+assert.match(html,/sheet Sheet1/);
+assert.match(html,/Reviewer/);
+assert.equal((html.match(/<input/g)||[]).length,5);
+console.log('PASS: Candidate polish timers, deadlines, terminal/retry states, truthful counts, status precedence, collapsed table, scoped editing and retained evidence.');
