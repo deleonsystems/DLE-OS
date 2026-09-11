@@ -4,7 +4,14 @@ internal sealed record SimRfqIntakeDocument(
     string Name,
     long Size,
     string Type,
-    long LastModified, string? DocumentId = null, string? BinaryStatus = null, string? DocumentReference = null, DateTimeOffset? StagedAtUtc = null);
+    long LastModified, string? DocumentId = null, string? BinaryStatus = null, string? DocumentReference = null, DateTimeOffset? StagedAtUtc = null,
+    SimIntakeDocumentIdentification? InitialIdentification = null);
+
+internal sealed record SimIntakeDocumentIdentification(string Type, string? OtherDescription = null,
+    string? IdentifiedBy = null, DateTimeOffset? IdentifiedAtUtc = null);
+
+internal sealed record SimIntakeAssemblyIdentification(string Type, string? OtherDescription = null,
+    string? IdentifiedBy = null, DateTimeOffset? IdentifiedAtUtc = null);
 
 internal sealed record SimRfqIntakeCustomer(
     string CustomerId,
@@ -75,7 +82,8 @@ internal sealed record SimRfqIntakeCreateRequest(
     string[]? CustomerRequirements,
     string? CreatedBy,
     string? RequestCorrelationId,
-    SimContractReviewRequest? ContractReview = null);
+    SimContractReviewRequest? ContractReview = null,
+    SimIntakeAssemblyIdentification? PreliminaryAssemblyType = null);
 
 internal sealed record SimAssemblyTypeRequest(string? AssemblyType);
 
@@ -180,13 +188,27 @@ internal sealed partial class SimRfqIntakeStore
             var verifiedFiles = new List<SimRfqIntakeDocument>();
             foreach (var file in request.TechnicalFiles ?? [])
             {
-                if (file.DocumentId is not null) verifiedFiles.Add(await documents.Verify(correlationId, file, persona.DisplayName));
+                var identification = file.InitialIdentification;
+                var initialType = identification?.Type ?? "UNKNOWN";
+                if (initialType is not ("DRAWING" or "DRAWING_AND_BOM" or "BOM_ONLY" or "UNKNOWN" or "OTHER") ||
+                    (identification?.OtherDescription?.Length ?? 0) > 200)
+                    throw SimRfqIntakeProblem.BadRequest("SIM_INITIAL_IDENTIFICATION_INVALID", "Choose a supported initial file identification and keep its description within 200 characters.");
+                SimRfqIntakeDocument verified;
+                if (file.DocumentId is not null) verified = await documents.Verify(correlationId, file, persona.DisplayName);
                 else if (file.BinaryStatus is not null || file.DocumentReference is not null || file.StagedAtUtc is not null)
                     throw SimRfqIntakeProblem.BadRequest("SIM_DOCUMENT_REFERENCE_INVALID", "Verified binary state requires a governed staged document.");
-                else verifiedFiles.Add(file);
+                else verified = file;
+                // Preliminary intake context only. Classification remains owned by Technical Review.
+                verifiedFiles.Add(verified with { InitialIdentification = new(initialType,
+                    initialType == "OTHER" ? identification?.OtherDescription?.Trim() : null,
+                    persona.DisplayName, DateTimeOffset.UtcNow) });
             }
             if (verifiedFiles.Where(file => file.DocumentId is not null).Select(file => file.DocumentId).Distinct().Count() != verifiedFiles.Count(file => file.DocumentId is not null))
                 throw SimRfqIntakeProblem.BadRequest("SIM_DOCUMENT_REFERENCE_INVALID", "A staged document cannot be attached twice.");
+            var preliminary = request.PreliminaryAssemblyType;
+            var preliminaryType = preliminary?.Type ?? "UNKNOWN";
+            if (preliminaryType is not ("PCB_ASSEMBLY" or "CABLE_AND_HARNESS_ASSEMBLY" or "CHASSIS_BOX_BUILD_ASSEMBLY" or "OTHER" or "UNKNOWN") || preliminary?.OtherDescription?.Length > 200)
+                throw SimRfqIntakeProblem.BadRequest("SIM_INTAKE_ASSEMBLY_IDENTIFICATION_INVALID", "Select a supported preliminary assembly type and keep its description within 200 characters.");
             var sequence = checked(++dataset.LastIntakeSequence);
             var intakeId = $"RFQI-SIM-{sequence:0000}";
             var now = DateTimeOffset.UtcNow;
@@ -234,7 +256,9 @@ internal sealed partial class SimRfqIntakeStore
                 metadata.Generation,
                 "SIM",
                 null,
-                contractReview);
+                contractReview,
+                request.IntakeType == "NEW_QUOTE_REQUEST" ? new SimIntakeAssemblyIdentification(preliminaryType,
+                    preliminaryType == "OTHER" ? preliminary?.OtherDescription?.Trim() : null, persona.DisplayName, now) : null);
             if (record.IntakeType == "NEW_QUOTE_REQUEST")
                 record = record with { TechnicalReview = new SimTechnicalReviewResult(
                     "RFQ_REVIEW", "", "", "", false, [], [], "", [], false,
@@ -846,4 +870,5 @@ internal sealed record SimRfqIntakeRecord(
     long Generation,
     string Environment,
     SimTechnicalReviewResult? TechnicalReview = null,
-    SimContractReview? ContractReview = null);
+    SimContractReview? ContractReview = null,
+    SimIntakeAssemblyIdentification? PreliminaryAssemblyType = null);

@@ -2,7 +2,7 @@
   "use strict";
 
   const QUOTE_STEPS = ["intake-type", "customer", "assembly-count", "assembly-number", "revision",
-    "quantity", "scope", "technical-files", "file-association", "requirements", "review"];
+    "quantity", "assembly-type", "scope", "technical-files", "file-association", "requirements", "review"];
   const NEW_ORDER_STEPS = ["intake-type", "customer", "customer-po-number", "customer-po-type", "po-attachment",
     "payment-terms", "payment-terms-note", "address-match", "shipping-note", "shipping-method", "ups-account",
     "order-classification", "delivery-date", "delivery-date-note", "price-match", "price-note", "traceability",
@@ -16,7 +16,7 @@
     return {
       currentStep: 0, status: "DRAFT", intakeType: "", customer: null, assemblyCount: 1,
       assemblies: [{ lineNumber: 1, assemblyNumber: "", revision: "", quantity: null }],
-      deLeonScope: "", technicalFilesProvided: null, technicalFiles: [], requestCorrelationId: null, customerRequirements: ["PRICE"],
+      preliminaryAssemblyType: null, deLeonScope: "", technicalFilesProvided: null, technicalFiles: [], requestCorrelationId: null, customerRequirements: ["PRICE"],
       contractReview: {
         customerPoNumber: "", customerPoType: "", paymentTermsMatch: null, paymentTermsActionNote: "",
         billingMatchesShipTo: null, shippingActionNote: "", shippingMethod: "", upsAccountNumber: "",
@@ -111,6 +111,10 @@
       textInput("revision", state.assemblies[0].revision, "B"), "Revision is explicit and is never substituted from history.");
     if (step === "quantity") return question("What quantity are they asking us to quote?",
       numberInput("quantity", state.assemblies[0].quantity ?? ""), "Enter the requested quantity for this assembly.");
+    if (step === "assembly-type") return question("What type of assembly is this?",
+      Object.entries(intakeAssemblyTypes).map(([value, label]) => choice(label, value, "assembly-type")).join("") +
+      (state.preliminaryAssemblyType?.type === "OTHER" ? '<form data-intake-form="assembly-type-description"><label>Describe the assembly type<input data-intake-value-input maxlength="200" value="' + escapeHtml(state.preliminaryAssemblyType.otherDescription || "") + '"></label><button class="intake-primary">Continue</button></form>' : ""),
+      "Preliminary Intake information only. Technical Review will confirm the assembly type.");
     if (step === "scope") return question("What is De Leon expected to provide?",
       choice("Material + Labor", "MATERIAL_AND_LABOR", "scope") + choice("Labor Only", "LABOR_ONLY", "scope") +
       choice("Material Only", "MATERIAL_ONLY", "scope"), "This prepares the future workstreams without starting them.");
@@ -126,6 +130,13 @@
       choice("Price + Lead Time", "PRICE_AND_LEAD_TIME", "requirements"),
       "Price is inherent in an RFQ; this confirms lead time is also required.");
     return renderReview();
+  }
+
+  const intakeAssemblyTypes = { PCB_ASSEMBLY: "PCB Assembly", CABLE_AND_HARNESS_ASSEMBLY: "Cable and Harness Assembly", CHASSIS_BOX_BUILD_ASSEMBLY: "Chassis / Box Build Assembly", OTHER: "Other", UNKNOWN: "Unknown / Not Determined" };
+
+  function preliminaryAssemblyLabel() {
+    const value = state.preliminaryAssemblyType;
+    return (intakeAssemblyTypes[value?.type] || intakeAssemblyTypes.UNKNOWN) + (value?.type === "OTHER" && value.otherDescription ? ": " + value.otherDescription : "");
   }
 
   function steps() {
@@ -260,10 +271,11 @@
       escapeHtml(customer.customerNumber) + ' · SIM fixture</small></span><b>Choose</b></button>').join("");
   }
 
+  const initialDocumentTypes = {DRAWING:'Drawing', DRAWING_AND_BOM:'Drawing + BOM', BOM_ONLY:'BOM Only', UNKNOWN:'Unknown / Not Determined', OTHER:'Other'};
   function renderFiles() {
     if (!state.technicalFiles.length) return '<p class="intake-search-status">No files selected yet.</p>';
     return '<ul class="intake-file-list">' + state.technicalFiles.map((file, index) => '<li><span><strong>' +
-      escapeHtml(file.name) + '</strong><small>' + formatBytes(file.size) + '</small></span><button type="button" data-intake-remove-file="' +
+      escapeHtml(file.name) + '</strong><small>' + formatBytes(file.size) + '</small><label class="intake-file-identification">Initial identification<select data-intake-identification="' + index + '" aria-label="Initial identification for ' + escapeHtml(file.name) + '">' + Object.entries(initialDocumentTypes).map(([value,label]) => '<option value="' + value + '" ' + (value === (file.initialIdentification?.type || 'UNKNOWN') ? 'selected' : '') + '>' + label + '</option>').join('') + '</select></label>' + (file.initialIdentification?.type === 'OTHER' ? '<label class="intake-file-identification">Describe this file<input data-intake-identification-description="' + index + '" value="' + escapeHtml(file.initialIdentification.otherDescription || '') + '" maxlength="200"></label>' : '') + '<small>Preliminary — Technical Review will validate.</small></span><button type="button" data-intake-remove-file="' +
       index + '">Remove</button></li>').join("") + '</ul>';
   }
 
@@ -276,9 +288,10 @@
     if (state.assemblies[0].assemblyNumber) items.push([3, "Assembly", state.assemblies[0].assemblyNumber]);
     if (state.assemblies[0].revision) items.push([4, "Revision", state.assemblies[0].revision]);
     if (state.assemblies[0].quantity) items.push([5, "Quantity", state.assemblies[0].quantity]);
-    if (state.deLeonScope) items.push([6, "Scope", scopeLabel(state.deLeonScope)]);
-    if (state.technicalFilesProvided !== null) items.push([7, "Technical Files", state.technicalFilesProvided ? "Customer provided" : "None"]);
-    if (state.customerRequirements.includes("LEAD_TIME")) items.push([9, "Customer Requires", "Price + Lead Time"]);
+    if (state.preliminaryAssemblyType) items.push([6, "Assembly type (preliminary)", preliminaryAssemblyLabel()]);
+    if (state.deLeonScope) items.push([7, "Scope", scopeLabel(state.deLeonScope)]);
+    if (state.technicalFilesProvided !== null) items.push([8, "Technical Files", state.technicalFilesProvided ? "Customer provided" : "None"]);
+    if (state.customerRequirements.includes("LEAD_TIME")) items.push([10, "Customer Requires", "Price + Lead Time"]);
     if (!items.length) return '<p>Answers will appear here as we go.</p>';
     return '<p class="intake-answers-title">Answers so far</p>' + items.map(item => '<button type="button" data-intake-edit="' +
       item[0] + '"><span>' + escapeHtml(item[1]) + '</span><strong>' + escapeHtml(item[2]) + '</strong></button>').join("");
@@ -309,9 +322,10 @@
       '<p class="intake-question-hint">Check the request before sending it to Technical Review.</p><dl class="intake-review">' +
       reviewRow("Customer", state.customer?.customerName, 1) + reviewRow("Assembly", assembly.assemblyNumber, 3) +
       reviewRow("Revision", assembly.revision, 4) + reviewRow("Quantity", assembly.quantity, 5) +
-      reviewRow("De Leon Scope", scopeLabel(state.deLeonScope), 6) +
-      reviewRow("Technical Files", state.technicalFilesProvided ? "Customer provided (" + state.technicalFiles.length + " associated)" : "Not provided", 7) +
-      reviewRow("Customer Requires", "Price + Lead Time", 9) + '</dl>' +
+      reviewRow("Assembly type (preliminary)", preliminaryAssemblyLabel(), 6) +
+      reviewRow("De Leon Scope", scopeLabel(state.deLeonScope), 7) +
+      reviewRow("Technical Files", state.technicalFilesProvided ? "Customer provided (" + state.technicalFiles.length + " associated)" : "Not provided", 8) +
+      reviewRow("Customer Requires", "Price + Lead Time", 10) + '</dl>' +
       (state.submit.message ? '<p class="intake-submit-error" role="alert">' + escapeHtml(state.submit.message) + '</p>' : "") +
       '<div class="intake-review-actions"><button type="button" data-intake-action="back" class="intake-back">← Back</button>' +
       '<button type="button" data-intake-action="submit" class="intake-primary" ' + (state.submit.status === "saving" ? "disabled" : "") + '>' +
@@ -381,7 +395,7 @@
     return '<div class="intake-complete-mark">✓</div><p class="intake-kicker">INTAKE PRESERVED</p><h2>Submitted for Technical Review</h2>' +
       '<p class="intake-question-hint">' + escapeHtml(committed?.intakeId || (state.intakeType === "NEW_ORDER" ? "New Order" : "RFQ Intake")) +
       ' is preserved in SIM structured state and is waiting for a trained reviewer. Review has not started.</p>' +
-      (committed?.documentPreservationState === 'BINARIES_VERIFIED_SIM' ? '<p class="intake-question-hint">Your technical files are saved and verified in SIM. Technical Review can reopen these copies without access to the original files or folders.</p>' : '') + '<div class="intake-handoff"><strong>Handoff point</strong><span>Technical Review · RFQ Review</span></div>' +
+      (committed?.documentPreservationState === 'BINARIES_VERIFIED_SIM' ? '<p class="intake-question-hint">Your technical files are saved and verified in SIM. Technical Review can reopen these copies without access to the original files or folders.</p>' : '') + '<div class="intake-handoff"><strong>Next step</strong><span>Technical Review — RFQ Review</span></div>' +
       '<button type="button" data-intake-action="restart" class="intake-primary">Start another intake</button>';
   }
 
@@ -394,6 +408,7 @@
     if (step === "assembly-number") state.assemblies[0].assemblyNumber = "";
     if (step === "revision") state.assemblies[0].revision = "";
     if (step === "quantity") state.assemblies[0].quantity = null;
+    if (step === "assembly-type") state.preliminaryAssemblyType = null;
     if (step === "scope") state.deLeonScope = "";
     if (step === "technical-files") state.technicalFilesProvided = null;
     if (step === "file-association") state.technicalFiles = [];
@@ -467,6 +482,11 @@
   }
 
   function handleInput(event) {
+    if (event.target.matches('[data-intake-identification-description]')) {
+      const file = state.technicalFiles[Number(event.target.dataset.intakeIdentificationDescription)];
+      if (file?.initialIdentification?.type === 'OTHER') file.initialIdentification.otherDescription = event.target.value;
+      return;
+    }
     if (!event.target.matches("[data-intake-customer-search]")) return;
     state.customerSearch.query = event.target.value;
     state.customerSearch.status = "loading";
@@ -476,6 +496,14 @@
   }
 
   function handleChange(event) {
+    if (event.target.matches('[data-intake-identification]')) {
+      const file = state.technicalFiles[Number(event.target.dataset.intakeIdentification)];
+      if (file && initialDocumentTypes[event.target.value]) {
+        file.initialIdentification = {type:event.target.value, otherDescription:null};
+        render();
+      }
+      return;
+    }
     if (!event.target.matches("[data-intake-files]")) return;
     setTechnicalFiles(event.target.files);
     event.target.value = "";
@@ -577,6 +605,7 @@
       if (!value) return showInlineError("Enter the requested revision.");
       state.assemblies[0].revision = value.toUpperCase();
     }
+    if (field === "assembly-type-description") state.preliminaryAssemblyType.otherDescription = value.slice(0, 200) || null;
     if (field === "quantity") {
       const quantity = Number(value);
       if (!Number.isInteger(quantity) || quantity < 1) return showInlineError("Enter a whole quantity greater than zero.");
@@ -602,6 +631,11 @@
 
   function selectChoice(field, value) {
     if (field === "intake-type") state.intakeType = value;
+    if (field === "assembly-type") {
+      if (!intakeAssemblyTypes[value]) return;
+      state.preliminaryAssemblyType = { type: value, otherDescription: null };
+      if (value === "OTHER") { render(); return; }
+    }
     if (field === "scope") state.deLeonScope = value;
     if (field === "technical-files") {
       state.technicalFilesProvided = value === "yes";
@@ -692,7 +726,8 @@
       technicalFilesProvided: isNewOrder ? true : state.technicalFilesProvided,
       technicalFiles: state.technicalFiles.map(({binary, ...metadata}) => metadata), customerRequirements: state.customerRequirements,
       createdBy: window.DleOsSession?.user?.displayName || "SIM User", requestCorrelationId,
-      contractReview: isNewOrder ? state.contractReview : null };
+      contractReview: isNewOrder ? state.contractReview : null,
+      preliminaryAssemblyType: isNewOrder ? null : state.preliminaryAssemblyType };
     try {
       for (const file of state.technicalFiles) {
         if (file.documentId) continue;
@@ -701,7 +736,8 @@
         });
         const staged = await upload.json();
         if (!upload.ok || staged.binaryStatus !== 'VERIFIED') throw new Error(staged.message || 'SIM could not verify the selected file. Intake was not submitted.');
-        Object.assign(file, staged);
+        const initialIdentification = file.initialIdentification;
+        Object.assign(file, staged, {initialIdentification});
       }
       payload.technicalFiles = state.technicalFiles.map(({binary, ...metadata}) => metadata);
       const response = await window.fetch("/api/sim/rfq-intakes", { method: "POST", credentials: "include",

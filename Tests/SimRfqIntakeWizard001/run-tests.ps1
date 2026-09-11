@@ -65,15 +65,29 @@ try {
         technicalFilesProvided = $true
         technicalFiles = @(
             @{ name = 'B11283-17_rev_B.pdf'; size = 1024; type = 'application/pdf'; lastModified = 0 },
-            @{ name = 'Abbott_purchase_spec.txt'; size = 512; type = 'text/plain'; lastModified = 0 }
+            @{ name = 'Abbott_purchase_spec.txt'; size = 512; type = 'text/plain'; lastModified = 0; initialIdentification = @{type='OTHER';otherDescription='Purchase specification'} }
         )
         customerRequirements = @('PRICE', 'LEAD_TIME')
         createdBy = 'Ray'
         requestCorrelationId = $correlation
     }
+    foreach ($assemblyType in @('PCB_ASSEMBLY','CABLE_AND_HARNESS_ASSEMBLY','CHASSIS_BOX_BUILD_ASSEMBLY','OTHER','UNKNOWN')) {
+        $payload.requestCorrelationId = [guid]::NewGuid().ToString()
+        $payload.preliminaryAssemblyType = @{ type=$assemblyType; otherDescription='Synthetic special assembly'; identifiedBy='forged'; identifiedAtUtc='2000-01-01T00:00:00Z' }
+        $typed = Invoke-SimHttp $session 'POST' '/api/sim/rfq-intakes' $payload
+        Require ($typed.Status -eq 201 -and $typed.Body.record.preliminaryAssemblyType.type -eq $assemblyType) "$assemblyType preliminary selection submits"
+        Require ($typed.Body.record.preliminaryAssemblyType.identifiedBy -ne 'forged' -and [datetime]$typed.Body.record.preliminaryAssemblyType.identifiedAtUtc -gt [datetime]'2026-01-01') 'server owns preliminary identification audit'
+        Require ([string]::IsNullOrEmpty($typed.Body.record.technicalReview.assemblyType)) 'preliminary type never confirms Technical Review'
+        Require (($assemblyType -eq 'OTHER' -and $typed.Body.record.preliminaryAssemblyType.otherDescription -eq 'Synthetic special assembly') -or ($assemblyType -ne 'OTHER' -and $null -eq $typed.Body.record.preliminaryAssemblyType.otherDescription)) 'Other description is scoped to Other'
+        $reopened = Invoke-SimHttp $session 'GET' ('/api/sim/technical-reviews/' + $typed.Body.record.intakeId) $null
+        Require ($reopened.Body.record.preliminaryAssemblyType.type -eq $assemblyType) 'review reopens preliminary assembly context'
+    }
+    $payload.Remove('preliminaryAssemblyType')
+    $payload.requestCorrelationId = $correlation
     $created = Invoke-SimHttp $session 'POST' '/api/sim/rfq-intakes' $payload
     Require ($created.Status -eq 201 -and $created.Body.record.status -eq 'READY_FOR_RFQ_QUALIFICATION' -and $created.Body.record.handoffTarget -eq 'Technical Review') 'Abbott intake reaches the Technical Review handoff'
     $record = $created.Body.record
+    Require ($record.technicalFiles[0].initialIdentification.type -eq 'UNKNOWN' -and $record.technicalFiles[1].initialIdentification.type -eq 'OTHER' -and $record.technicalFiles[1].initialIdentification.otherDescription -eq 'Purchase specification') 'Unknown stays nonblocking and Other description persists per file'
     Require ($record.customer.customerName -eq 'Abbott' -and $record.assemblies[0].assemblyNumber -eq 'B11283-17' -and $record.assemblies[0].revision -eq 'B' -and $record.assemblies[0].quantity -eq 25) 'customer, assembly, revision, and quantity persist'
     Require ($record.deLeonScope -eq 'MATERIAL_AND_LABOR' -and $record.technicalFilesProvided -and $record.customerRequirements -contains 'LEAD_TIME') 'scope, technical files, and lead time persist'
     Require ($record.technicalFiles.Count -eq 2 -and $record.technicalFiles[0].name -eq 'B11283-17_rev_B.pdf' -and $record.technicalFiles[1].name -eq 'Abbott_purchase_spec.txt') 'multiple technical-file metadata entries persist in order'

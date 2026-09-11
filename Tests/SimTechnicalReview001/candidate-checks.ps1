@@ -9,10 +9,13 @@ $candidateBytes = [IO.File]::ReadAllBytes($candidatePdf)
 $candidateFile = Invoke-RestMethod "$baseUri/api/sim/intake-drafts/$candidateDraft/documents?name=unrelated-name.pdf" -Method Post -WebSession $session -Headers @{'X-SIM-Document-Upload'='1'} -ContentType 'application/octet-stream' -Body $candidateBytes
 $candidatePayload = $payload.Clone()
 $candidatePayload.requestCorrelationId = $candidateDraft
+$candidatePayload.preliminaryAssemblyType = @{type='PCB_ASSEMBLY'}
 $candidatePayload.assemblies = @(@{lineNumber=1;assemblyNumber='B11283-17';revision='B';quantity=1})
+$candidateFile | Add-Member -NotePropertyName initialIdentification -NotePropertyValue @{type='DRAWING_AND_BOM';identifiedBy='FORGED';identifiedAtUtc='2000-01-01T00:00:00Z'} -Force
 $candidatePayload.technicalFiles = @($candidateFile)
 $candidateCreated = Invoke-SimHttp $session 'POST' '/api/sim/rfq-intakes' $candidatePayload
 Require ($candidateCreated.Status -eq 201) 'isolated candidate fixture submitted through staged Intake persistence'
+Require ($candidateCreated.Body.record.technicalFiles[0].initialIdentification.type -eq 'DRAWING_AND_BOM' -and $candidateCreated.Body.record.technicalFiles[0].initialIdentification.identifiedBy -ne 'FORGED' -and $candidateCreated.Body.record.technicalFiles[0].initialIdentification.identifiedAtUtc.Year -ne 2000) 'verified document retains preliminary identification with server-derived actor/time'
 $candidateId = $candidateCreated.Body.record.intakeId
 $candidateBase = "/api/sim/technical-reviews/$candidateId"
 $null = Invoke-SimHttp $session 'PUT' "$candidateBase/disposition" @{disposition='START_TECHNICAL_REVIEW'}

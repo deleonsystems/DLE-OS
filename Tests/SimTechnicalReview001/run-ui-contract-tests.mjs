@@ -64,7 +64,7 @@ assert.match(styles, /@media\(max-width:720px\)/);
 
 assert.match(intake, /Submit for Technical Review/);
 assert.match(intake, /Submitted for Technical Review/);
-assert.match(intake, /Technical Review · RFQ Review/);
+assert.match(intake, /Next step<\/strong><span>Technical Review — RFQ Review/);
 assert.doesNotMatch(intake, /Send to RFQ Qualification/);
 
 assert.match(endpoints, /MapGet\("\/api\/sim\/technical-reviews"/);

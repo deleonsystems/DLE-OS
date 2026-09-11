@@ -424,6 +424,8 @@ try {
     Require ($candidateRestart.Body.record.technicalReview.candidateBom.rows[0].alternates[0].partNumber -eq 'SYNTHETIC-ALT-CORRECTED' -and $candidateRestart.Body.record.technicalReview.candidateBom.rows[0].alternates[0].history.Count -eq 2) 'alternate values and history survive full host process restart'
     Require ($candidateRestart.Body.record.technicalReview.candidateBom.rows[0].componentType -eq 'SUBASSEMBLY' -and @($candidateRestart.Body.record.technicalReview.candidateBom.rows[0].corrections | Where-Object field -eq 'componentType').Count -eq 1) 'component classification and audit survive full host restart'
     Require ($candidateRestart.Body.record.technicalReview.bomAcceptances[0].candidate.id -eq $candidate.id -and $candidateRestart.Body.record.technicalReview.materialsReviewStatus -eq 'QUALIFIED' -and $candidateRestart.Body.record.technicalReview.nextReviewPhase -eq 'MANUFACTURING_LABOR_REVIEW') 'accepted BOM and materials-only completion survive Save closure and full host restart'
+    Require ($candidateRestart.Body.record.preliminaryAssemblyType.type -eq 'PCB_ASSEMBLY') 'preliminary assembly identification survives full host restart'
+    Require ($candidateRestart.Body.record.technicalFiles[0].initialIdentification.type -eq 'DRAWING_AND_BOM') 'preliminary document identification survives full host restart'
     $candidateDeleted = Invoke-SimHttp $session 'DELETE' "/api/sim/technical-reviews/$candidateId" $null
     Require ($candidateDeleted.Status -eq 200) 'candidate-only state remains early-stage deletable for isolated fixture cleanup'
     $deletedAfterRestart = Invoke-SimHttp $session 'GET' "/api/sim/rfq-intakes/$deleteId" $null

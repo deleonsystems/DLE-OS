@@ -186,7 +186,13 @@ body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .intake-convers
 .intake-file-control small { margin-top: 6px; color: var(--intake-muted); font-size: 14px; font-weight: 650; }
 .intake-file-control input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .intake-file-list { display: grid; gap: 8px; margin: 8px 0; padding: 0; list-style: none; }
-.intake-file-list li { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: 10px; background: #f3f6f6; }
+.intake-file-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-width: 0; padding: 12px 14px; border-radius: 10px; background: #f3f6f6; color: #20343b; }
+.intake-file-list li > span { flex: 1; min-width: 0; }
+.intake-file-list strong { color: #20343b; font-weight: 800; overflow-wrap: anywhere; }
+.intake-file-list small { color: #52636b; }
+.intake-file-list button { flex: 0 0 auto; }
+.intake-file-list .intake-file-identification { color: #20343b; display: grid; gap: 4px; margin-top: 8px; max-width: 320px; font-size: 12px; font-weight: 600; }
+.intake-file-identification select, .intake-file-identification input { box-sizing: border-box; width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid #798c94; border-radius: 5px; color: #20343b; background: #fff; font: inherit; }
 .intake-file-list button, .intake-review button { border: 0; color: #2d6570; background: transparent; font-weight: 800; cursor: pointer; }
 .intake-review { display: grid; margin: 0; border-top: 1px solid var(--intake-line); }
 .intake-review > div { display: grid; grid-template-columns: 150px 1fr auto; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--intake-line); }
@@ -194,7 +200,9 @@ body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .intake-convers
 .intake-review dd { margin: 0; font-weight: 800; }
 .intake-inline-error, .intake-submit-error { padding: 11px 13px; border-radius: 9px; color: #8b2f25; background: #fff0ed; font-size: 13px; }
 .intake-complete-mark { display: grid; width: 58px; height: 58px; margin-bottom: 22px; place-items: center; border-radius: 50%; color: #fff; background: #3d7b64; font-size: 28px; }
-.intake-handoff { display: flex; justify-content: space-between; margin: 28px 0; padding: 18px; border-radius: 12px; background: #edf5f1; }
+.intake-handoff { display: grid; gap: 6px; margin: 24px 0; padding: 16px 18px; border: 1px solid #40556a; border-radius: 10px; color: #f4f7fb; background: #182635; overflow-wrap: anywhere; }
+.intake-handoff strong { color: #b9ccde; font-size: 12px; }
+.intake-handoff span { color: #f4f7fb; font-size: 16px; font-weight: 600; line-height: 1.5; }
 
 @media (max-width: 760px) {
   .intake-wizard { min-height: auto; padding: 18px 12px 28px; }

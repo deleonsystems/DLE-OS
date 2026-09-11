@@ -135,6 +135,9 @@
     if (doc) content += '<nav class="technical-review-package-files" aria-label="Received files">' + docs.map((d, i) => '<button type="button" data-package-index="' + i + '" aria-current="' + (i === index ? 'step' : 'false') + '" ' + (state.saving ? 'disabled' : '') + '>' + (i + 1) + '. ' + escapeHtml(d.name) + (d.documentType === 'UNKNOWN' ? ' · Unclassified' : '') + '</button>').join('') + '</nav><h4>File ' + (index + 1) + ' of ' + docs.length + ' · ' + escapeHtml(doc.name) + '</h4><div class="technical-review-package-fields">' + packageSelect('Document type', 'documentType', documentTypes, doc.documentType) + packageSelect('Document role', 'role', documentRoles, doc.role) + packageSelect('Applies to', 'applicability', applicability, doc.applicability) + (doc.documentType === 'ASSEMBLY_DRAWING' ? '<label class="technical-review-embedded-bom"><span><input type="checkbox" data-package-field="embeddedBom" ' + (doc.embeddedBom ? 'checked' : '') + (state.saving ? ' disabled' : '') + '> BOM embedded in this document</span></label>' : '') + (doc.applicability === 'SUBASSEMBLY' ? '<label>Subassembly part number (leave blank if unresolved)<input data-package-field="subassemblyPartNumber" value="' + escapeHtml(doc.subassemblyPartNumber) + '" maxlength="120"></label>' : '') + '</div>';
     if (doc) {
       const source = state.selected.record.technicalFiles.find(file => file.documentId === doc.documentId);
+      const initial = source?.initialIdentification;
+      const initialLabels = {DRAWING:'Drawing', DRAWING_AND_BOM:'Drawing + BOM', BOM_ONLY:'BOM Only', UNKNOWN:'Unknown / Not Determined', OTHER:'Other'};
+      content += '<p class="technical-review-inline-note">Intake identified as: ' + escapeHtml(initialLabels[initial?.type] || initialLabels.UNKNOWN) + (initial?.type === 'OTHER' && initial.otherDescription ? ' — ' + escapeHtml(initial.otherDescription) : '') + '. Preliminary intake context only.</p><p>Technical Review classification: ' + (doc.documentType === 'UNKNOWN' ? 'Not yet confirmed' : escapeHtml(documentTypes[doc.documentType])) + '</p>';
       content += source?.binaryStatus === 'VERIFIED' ? '<p><a class="technical-review-secondary" target="' + (source.type === 'application/pdf' ? '_blank' : '_self') + '" rel="noopener noreferrer" href="' + ('/api/sim/rfq-intakes/' + encodeURIComponent(state.selected.record.intakeId) + '/documents/' + encodeURIComponent(source.documentId)) + '">View File</a> · Verified SIM copy' + (source.type === 'application/pdf' ? ' · PDF opens in browser · <a href="/api/sim/rfq-intakes/' + encodeURIComponent(state.selected.record.intakeId) + '/documents/' + encodeURIComponent(source.documentId) + '?download=true">Download PDF</a>' : ' · Download original file') + '</p>' : '<p>File content is unavailable for this metadata-only intake.</p>';
     }
     else content += '<p>No technical files were received. A governing BOM cannot be selected yet.</p>';
@@ -604,10 +607,18 @@
     return record?.technicalReview?.reviewPhaseOrder?.[0] === 'MANUFACTURING_LABOR_REVIEW';
   }
 
+  function intakeAssemblyContext(record) {
+    const value = record.preliminaryAssemblyType;
+    const labels = { PCB_ASSEMBLY: 'PCB Assembly', CABLE_AND_HARNESS_ASSEMBLY: 'Cable and Harness Assembly', CHASSIS_BOX_BUILD_ASSEMBLY: 'Chassis / Box Build Assembly', OTHER: 'Other', UNKNOWN: 'Unknown / Not Determined' };
+    return '<p>Intake identified assembly type as: ' + escapeHtml(labels[value?.type] || labels.UNKNOWN) +
+      (value?.type === 'OTHER' && value.otherDescription ? ': ' + escapeHtml(value.otherDescription) : '') +
+      '. Preliminary Intake context only.</p><p>Technical Review confirmation: ' + (record.technicalReview?.assemblyType ? escapeHtml(record.technicalReview.assemblyType) : 'Not yet confirmed') + '</p>';
+  }
+
   function renderLaborFirstEntry(record) {
     const disabled = state.saving || window.DleOsCapabilities?.can?.('technical_review.disposition') !== true ? 'disabled' : '';
     return '<section class="technical-review-question" aria-labelledby="laborFirstTitle"><h3 id="laborFirstTitle" tabindex="-1">Manufacturing / Labor Review</h3>' +
-      '<p>First, identify the assembly type. Then continue with the technical package review.</p>' +
+      intakeAssemblyContext(record) + '<p>First, identify the assembly type. Then continue with the technical package review.</p>' +
       '<label class="technical-review-field" for="technicalReviewAssemblyType"><span>What type of assembly is this?</span><select id="technicalReviewAssemblyType" ' + disabled + '><option value="">Select assembly type</option><option value="PCB_ASSEMBLY" ' + (record.technicalReview?.assemblyType === 'PCB_ASSEMBLY' ? 'selected' : '') + '>PCB Assembly</option></select></label>' +
       '<p><button type="button" class="technical-review-primary" data-technical-review-action="save-assembly-type" ' + disabled + '>Save and continue</button></p>' + packageMessage() +
       '<button type="button" class="technical-review-back" data-technical-review-action="review-back" ' + disabled + '>← Back to Technical Review</button></section>';
