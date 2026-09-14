@@ -81,3 +81,4 @@ assert.match(store, /Gerbers are required for this full-turnkey PCB package befo
 assert.match(store, /Identify the customer-supplied material or components/);
 
 console.log("PASS: Technical Review workspace, queue, guided review, and handoff UI contracts.");
+await import('./run-workflow-ui-tests.mjs');

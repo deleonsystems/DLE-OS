@@ -8,6 +8,14 @@ import sys
 import pdfplumber
 
 
+def deny_external_io(event, args):
+    if event.startswith('socket.') or event in ('subprocess.Popen', 'os.system', 'os.exec', 'os.posix_spawn'):
+        raise RuntimeError('External I/O is disabled in local document extraction.')
+
+
+sys.addaudithook(deny_external_io)
+
+
 def extract(binary):
     with pdfplumber.open(io.BytesIO(binary)) as document:
         if len(document.pages) < 2:

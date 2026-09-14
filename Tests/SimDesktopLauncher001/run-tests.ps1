@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param()
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../../Tools/SimRuntime/Invoke-DleOsSimTestIsolation.ps1')
+if (Invoke-DleOsSimTestIsolation -ScriptPath $PSCommandPath -Parameters $PSBoundParameters) { return }
 $repo = Split-Path (Split-Path $PSScriptRoot)
 $launcher = Join-Path $repo 'Tools\SimRuntime\DesktopControls\Start-DleOsSimServer.ps1'
 $root = Join-Path ([IO.Path]::GetTempPath()) ('sim-launcher-test-' + [guid]::NewGuid())

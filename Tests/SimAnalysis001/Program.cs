@@ -166,7 +166,11 @@ Check((await store.LatestAnalysis(record.intakeId))?.Status == "STALE" && Data()
 changed = Data(); changed["records"]!.AsArray().Add(preservedRecord); await File.WriteAllTextAsync(dataPath, changed.ToJsonString());
 try { DleAnalysisContract.Validate(retry.Input, Example() with { Coverage = "COMPLETE" }); throw new Exception("accepted invalid result"); } catch (InvalidDataException) { Console.WriteLine("PASS: malformed/completeness validation"); }
 Environment.SetEnvironmentVariable("DLE_OS_SIM_ANALYSIS_APPROVED_SHA256", "");
-try { await store.SubmitAnalysis(record.intakeId, persona); throw new Exception("accepted unapproved bytes"); } catch (SimRfqIntakeProblem e) when (e.Code == "ANALYSIS_FIXTURE_ONLY") { Console.WriteLine("PASS: unapproved documents blocked before dispatch"); }
+var localJob = await store.SubmitAnalysis(record.intakeId, persona);
+Check(localJob.Input.ProviderRoute == DleAnalysisPolicy.Local, "unapproved documents are pinned to local-only analysis");
+await LocalProviderChecks.Run(localJob.Input, await GetLocalSources(), Example());
+async Task<DleAnalysisDocument[]> GetLocalSources() { var claimedLocal = await store.ClaimAnalysisJob(); return claimedLocal!.Value.Documents; }
+await WorkflowChecks.Run(sourceBytes);
 Console.WriteLine("ISOLATED_TEST_STATE=" + root);
 
 sealed class UnitTestOfflineProvider(DleAnalysisResult result) : IAnalysisProvider

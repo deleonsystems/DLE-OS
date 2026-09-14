@@ -2,6 +2,8 @@
 param()
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../../Tools/SimRuntime/Invoke-DleOsSimTestIsolation.ps1')
+if (Invoke-DleOsSimTestIsolation -ScriptPath $PSCommandPath -Parameters $PSBoundParameters) { return }
 $repository = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $module = Join-Path $repository 'Tools\SimRuntime\Developer\SimDeveloperTools.psm1'
 $statusCommand = Join-Path $repository 'Tools\SimRuntime\Get-DleOsSimStatus.ps1'

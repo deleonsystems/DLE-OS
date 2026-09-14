@@ -5,6 +5,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Invoke-DleOsSimTestIsolation.ps1')
+if (Invoke-DleOsSimTestIsolation -ScriptPath $PSCommandPath -Parameters $PSBoundParameters) { return }
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $suites = if ($Mode -eq 'Quick') {
     @(

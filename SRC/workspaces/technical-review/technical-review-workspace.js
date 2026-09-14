@@ -34,9 +34,17 @@
     mount.addEventListener("click", event => {
       const actionButton = event.target.closest?.("[data-technical-review-action]");
       const action = actionButton?.dataset.technicalReviewAction;
+      if (completedReview(state.selected?.record)) {
+        if (action === 'rfq-back') { window.DleWorkspaceShell.navigate({workspaceId:'rfqs',requestedState:{intakeId:state.selected.record.intakeId}}); return; }
+        if (action?.startsWith('view-')) { state.step = action.slice(5); state.candidateIndex = null; state.acceptedVersion = null; renderDetail(); return; }
+        if (action && !['back','refresh','accepted-bom','accepted-back','candidate-detail'].includes(action)) return;
+      }
       if (state.step === 'accepted-bom' && ['candidate-confirm', 'complete-bom', 'alternate-add', 'alternate-edit', 'alternate-remove'].includes(action)) return;
       if (action === "refresh") void loadQueue();
       if (action === "back" && !state.saving) showQueue();
+      if (action === 'start' && unifiedEligible(state.selected?.record)) { void workflowAction('START'); return; }
+      if (action === 'flow-back-package') { enterPackage(); return; }
+      if (action?.startsWith('flow-')) { void workflowAction(action.slice(5)); return; }
       if (action === "start" && state.selected?.record?.technicalReview?.materialsReviewStatus !== 'QUALIFIED') void saveEntryDisposition("START_TECHNICAL_REVIEW");
       if (action === 'save-assembly-type') void saveAssemblyType();
       if (action === 'manufacturing' && !state.saving && manufacturingIsNext(state.selected?.record) && window.DleOsCapabilities?.can?.('technical_review.disposition') === true) {
@@ -85,6 +93,7 @@
       if (action === 'alternate-edit' || action === 'alternate-remove') void saveAlternate(action === 'alternate-edit' ? 'EDIT' : 'REMOVE', event.target.closest('[data-alternate-id]').dataset.alternateId);
       if (action === "candidate-previous" && !state.saving) { state.candidateDraft = null; state.candidateIndex = Math.max(0, (state.candidateIndex || 0) - 1); renderDetail(); }
       if (action === "candidate-next" && !state.saving) { state.candidateDraft = null; state.candidateIndex = (state.candidateIndex || 0) + 1; renderDetail(); }
+      if (action === "history-back" && !state.saving && state.selected?.record?.technicalReview?.workflow) { state.guided = false; renderDetail(); return; }
       if (action === "history-back" && !state.saving) { state.materials = false; state.step = ""; state.message = ""; state.messageState = ""; renderDetail(); }
       if (action === "retry-history") void updateHistory(false);
       if (action === "confirm-history") void updateHistory(true);
@@ -93,10 +102,10 @@
       if (row) void openReview(row.dataset.technicalReviewIntake);
     });
     mount.addEventListener('input', event => {
-      if (!state.saving && event.target.dataset?.packageField === 'subassemblyPartNumber') packageDraft().documents[state.documentIndex || 0].subassemblyPartNumber = event.target.value;
+      if (!completedReview(state.selected?.record) && !state.saving && event.target.dataset?.packageField === 'subassemblyPartNumber') packageDraft().documents[state.documentIndex || 0].subassemblyPartNumber = event.target.value;
     });
     mount.addEventListener('change', event => {
-      if (state.saving || !state.selected || state.step === 'accepted-bom') return;
+      if (completedReview(state.selected?.record) || state.saving || !state.selected || state.step === 'accepted-bom') return;
       if (event.target.dataset?.componentRow !== undefined) { void saveComponentType(event.target); return; }
       const field = event.target.dataset?.packageField;
       const pack = packageDraft();
@@ -122,10 +131,10 @@
   function isBomSource(doc) { return doc.documentType === 'BOM' || (doc.documentType === 'ASSEMBLY_DRAWING' && doc.embeddedBom === true); }
   function bomSourceLabel(doc) { return doc.documentType === 'ASSEMBLY_DRAWING' ? 'BOM embedded in Assembly Drawing' : 'Standalone BOM'; }
   function packageDraft() {
-    return state.packageDraft ||= JSON.parse(JSON.stringify(state.selected.record.technicalReview?.technicalPackage || { documents: (state.selected.record.technicalFiles || []).map((file, i) => ({ documentId: file.documentId || 'DOC-' + String(i + 1).padStart(3, '0'), name: file.name, documentType: 'UNKNOWN', role: 'UNRESOLVED', applicability: 'SUPPORTING_REFERENCE', subassemblyPartNumber: null })), governingBomDocumentId: null }));
+    return state.packageDraft ||= JSON.parse(JSON.stringify(state.selected.record.technicalReview?.technicalPackage || { documents: (state.selected.record.technicalFiles || []).map((file, i) => ({ documentId: file.documentId || 'DOC-' + String(i + 1).padStart(3, '0'), name: file.name, documentType: ({DRAWING:'ASSEMBLY_DRAWING',DRAWING_AND_BOM:'ASSEMBLY_DRAWING',BOM_ONLY:'BOM',OTHER:'SUPPORTING_DOCUMENT'})[file.initialIdentification?.type] || 'UNKNOWN', embeddedBom:file.initialIdentification?.type === 'DRAWING_AND_BOM', role: 'UNRESOLVED', applicability: 'SUPPORTING_REFERENCE', subassemblyPartNumber: null })), governingBomDocumentId: null }));
   }
   function enterPackage() { state.materials = false; state.step = 'inventory'; state.message = ''; state.messageState = ''; renderDetail(); }
-  function progress(current) { return '<div class="technical-review-question-progress">History ✓ → ' + ['Package Inventory', 'BOM Review', 'Subassemblies'].map(label => label === current ? '<strong>' + label + '</strong>' : label).join(' → ') + '</div>'; }
+  function progress(current) { if (state.selected?.record?.technicalReview?.workflow) return '<div class="technical-review-question-progress">' + escapeHtml(current) + '</div>'; return '<div class="technical-review-question-progress">History ✓ → ' + ['Package Inventory', 'BOM Review', 'Subassemblies'].map(label => label === current ? '<strong>' + label + '</strong>' : label).join(' → ') + '</div>'; }
   function packageSelect(label, field, options, value) { return '<label>' + label + '<select aria-label="' + label + '" data-package-field="' + field + '" ' + (state.saving ? 'disabled' : '') + '>' + Object.entries(options).map(([key, text]) => '<option value="' + key + '" ' + (key === value ? 'selected' : '') + '>' + text + '</option>').join('') + '</select></label>'; }
   function renderInventory() {
     const pack = packageDraft(), docs = pack.documents, index = Math.min(state.documentIndex || 0, Math.max(0, docs.length - 1)), doc = docs[index];
@@ -141,20 +150,22 @@
       content += source?.binaryStatus === 'VERIFIED' ? '<p><a class="technical-review-secondary" target="' + (source.type === 'application/pdf' ? '_blank' : '_self') + '" rel="noopener noreferrer" href="' + ('/api/sim/rfq-intakes/' + encodeURIComponent(state.selected.record.intakeId) + '/documents/' + encodeURIComponent(source.documentId)) + '">View File</a> · Verified SIM copy' + (source.type === 'application/pdf' ? ' · PDF opens in browser · <a href="/api/sim/rfq-intakes/' + encodeURIComponent(state.selected.record.intakeId) + '/documents/' + encodeURIComponent(source.documentId) + '?download=true">Download PDF</a>' : ' · Download original file') + '</p>' : '<p>File content is unavailable for this metadata-only intake.</p>';
     }
     else content += '<p>No technical files were received. A governing BOM cannot be selected yet.</p>';
-    return '<section class="technical-review-question">' + progress('Package Inventory') + '<h3>Account for the technical package</h3><p>Classify each file and what it applies to. Roles may remain unresolved. Select the governing parent BOM in the next step.</p>' + content + '<button type="button" class="technical-review-primary" data-technical-review-action="save-package" ' + (state.saving ? 'disabled' : '') + '>Save inventory and continue</button>' + packageMessage() + '<button class="technical-review-back" data-technical-review-action="history-back">← Back to assembly history</button></section>';
+    return '<section class="technical-review-question">' + progress('Package Inventory') + '<h3>Account for the technical package</h3><p>Classify each file and what it applies to. Roles may remain unresolved. Confirm the package before continuing.</p>' + content + '<button type="button" class="technical-review-primary" data-technical-review-action="save-package" ' + (state.saving ? 'disabled' : '') + '>Save inventory and continue</button>' + packageMessage() + '<button class="technical-review-back" data-technical-review-action="history-back">' + (state.selected.record.technicalReview?.workflow ? '← Back to Technical Review' : '← Back to assembly history') + '</button></section>';
   }
   function packageMessage() { return '<p role="status" class="technical-review-message" data-state="' + escapeHtml(state.messageState) + '">' + escapeHtml(state.message) + '</p>'; }
   function renderGoverning() {
     const pack = packageDraft();
+    if (state.selected.record.technicalReview?.workflow) return renderUnifiedGoverning(pack);
     const candidates = pack.documents.filter(d => isBomSource(d) && d.applicability === 'PARENT_ASSEMBLY');
     return '<section class="technical-review-question">' + progress('BOM Review') + '<h3>Which BOM governs the parent assembly for this RFQ?</h3><p>Select explicitly. Other BOMs keep their referenced, supporting or unresolved roles.</p>' + (candidates.length ? candidates.map(d => '<label class="technical-review-bom-option"><input type="radio" name="governingBom" data-governing-id="' + d.documentId + '" ' + (pack.governingBomDocumentId === d.documentId ? 'checked' : '') + '> ' + escapeHtml(d.name) + ' — ' + bomSourceLabel(d) + (pack.governingBomDocumentId === d.documentId ? ' · Governing BOM source' : '') + '</label>').join('') : '<p>No parent BOM is classified yet. Return to the inventory to identify one.</p>') + '<label class="technical-review-bom-option"><input type="radio" name="governingBom" data-governing-id="" ' + (!pack.governingBomDocumentId ? 'checked' : '') + '> Unresolved — no governing BOM selected</label><p>Other package documents: ' + pack.documents.filter(d => !candidates.includes(d)).map(d => escapeHtml(d.name) + ' (' + documentRoles[d.role] + ')').join(' · ') + '</p><button class="technical-review-primary" data-technical-review-action="compare-package" ' + (state.saving ? 'disabled' : '') + '>' + (pack.governingBomDocumentId ? 'Save selection and compare BOM' : 'Save as unresolved') + '</button>' + (pack.governingBomDocumentId ? '<p><button class="technical-review-primary" data-technical-review-action="candidate-from-source" ' + (state.saving ? 'disabled' : '') + '>Save selection and build Candidate BOM</button></p>' : '') + packageMessage() + '<button class="technical-review-back" data-technical-review-action="package-back">← Back to package inventory</button></section>';
   }
   async function savePackage(compare) {
     if (state.saving) return;
+    const fromInventory = state.step === 'inventory';
     state.saving = true; state.message = ''; state.messageState = ''; renderDetail();
     try {
       state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/technical-package', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(packageDraft()) });
-      state.packageDraft = null; state.step = 'governing';
+      state.packageDraft = null; state.step = state.selected.record.technicalReview?.workflow && fromInventory ? 'sufficiency' : 'governing';
       state.message = compare ? 'Governing BOM remains unresolved. Inventory saved.' : 'Package inventory saved.';
     } catch (error) { state.message = error.message; state.messageState = 'error'; }
     finally { state.saving = false; renderDetail(); }
@@ -237,7 +248,7 @@
       document.getElementById("technicalReviewDetailView").hidden = false;
       setStatus(state.selected.reviewStatusLabel, "ready");
       document.getElementById("technicalReviewDetailTitle")?.focus?.();
-      void pollAnalysis(intakeId, false);
+      if (!completedReview(state.selected.record)) void pollAnalysis(intakeId, false);
     } catch (error) {
       state.error = error?.message || "The RFQ Review could not be opened.";
       setStatus("Unable to open review", "error");
@@ -264,13 +275,107 @@
     const assembly = record.assemblies?.[0] || {};
     const canDisposition = window.DleOsCapabilities?.can?.("technical_review.disposition") === true;
     if (!host) return;
+    if (completedReview(record)) { host.innerHTML = renderCompletedReview(record); return; }
     mount?.classList.toggle("technical-review-guided", state.guided);
     host.innerHTML = '<div class="technical-review-context"><div><p class="technical-review-eyebrow">RFQ Review · ' + escapeHtml(record.intakeId) + '</p>' +
       '<h2 id="technicalReviewDetailTitle" tabindex="-1">' + escapeHtml(record.customer?.customerName || "Customer") + '</h2>' +
-      '<p>' + escapeHtml(assembly.assemblyNumber) + ' · Rev ' + escapeHtml(assembly.revision) + ' · Qty ' + escapeHtml(assembly.quantity) + '</p></div>' +
+      (!state.guided && record.intakeType === 'NEW_QUOTE_REQUEST' ? renderIntakeSummary(record) : '<p>' + escapeHtml(assembly.assemblyNumber) + ' · Rev ' + escapeHtml(assembly.revision) + ' · Qty ' + escapeHtml(assembly.quantity) + '</p>') + '</div>' +
       '<span class="technical-review-status-pill">' + escapeHtml(envelope.reviewStatusLabel) + '</span></div>' +
       '<div id="technicalReviewAnalysisProgress">' + renderAnalysisProgress() + '</div>' +
-      (state.guided ? (state.step === 'labor-first' ? renderLaborFirstEntry(record) : state.step === 'manufacturing' ? renderManufacturingHandoff(record) : state.step === 'accepted-bom' ? renderAcceptedBom(record) : state.step === 'candidate' ? renderCandidate(record) : state.materials ? renderMaterials(record) : state.step === 'inventory' ? renderInventory() : state.step === 'governing' ? renderGoverning() : state.step === 'coverage' ? renderCoverage(record) : renderHistoryQuestion(record, canDisposition)) : renderEntryActions(record, canDisposition));
+      (state.guided ? (['sufficiency', 'context', 'definition', 'release'].includes(state.step) ? renderWorkflowStep(record) : state.step === 'labor-first' ? renderLaborFirstEntry(record) : state.step === 'manufacturing' ? renderManufacturingHandoff(record) : state.step === 'accepted-bom' ? renderAcceptedBom(record) : state.step === 'candidate' ? renderCandidate(record) : state.materials ? renderMaterials(record) : state.step === 'inventory' ? renderInventory() : state.step === 'governing' ? renderGoverning() : state.step === 'coverage' ? renderCoverage(record) : renderHistoryQuestion(record, canDisposition)) : renderEntryActions(record, canDisposition));
+  }
+
+  function completedReview(record) {
+    return record?.status === 'READY_FOR_RFQ_WORKING_QUEUE' || !!record?.technicalReview?.workflow?.outputs;
+  }
+  function savedFacts(value) {
+    if (value == null) return '<p>Not recorded.</p>';
+    if (typeof value !== 'object') return escapeHtml(String(value));
+    if (Array.isArray(value)) return '<ul>' + value.map(v => '<li>' + savedFacts(v) + '</li>').join('') + '</ul>';
+    return '<dl>' + Object.entries(value).map(([key,v]) => '<dt>' + escapeHtml(key.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase())) + '</dt><dd>' + savedFacts(v) + '</dd>').join('') + '</dl>';
+  }
+  function renderCompletedReview(record) {
+    const review = record.technicalReview, w = review.workflow || {}, pack = review.technicalPackage || {documents:[]};
+    const section = state.step || 'package';
+    let body = '';
+    if (section === 'package') body = '<h3>Package Review</h3><p>Package confirmed: ' + (w.packageConfirmed ? 'Yes' : 'Not recorded') + ' · Sufficient to continue: ' + (w.sufficient ? 'Yes' : 'Not recorded') + '</p>' + (pack.documents || []).map(d => '<details open><summary>' + escapeHtml(d.name) + '</summary>' + savedFacts(d) + ((record.technicalFiles || []).some(f => f.documentId === d.documentId && f.binaryStatus === 'VERIFIED') ? '<a target="_blank" rel="noopener" href="/api/sim/rfq-intakes/' + encodeURIComponent(record.intakeId) + '/documents/' + encodeURIComponent(d.documentId) + '">View File</a>' : '') + '</details>').join('');
+    if (section === 'history') body = '<h3>Assembly history / context</h3>' + savedFacts(review.assemblyHistory);
+    if (section === 'manufacturing') body = '<h3>Manufacturing Definition</h3>' + savedFacts(w.manufacturing);
+    if (section === 'materials') body = '<h3>Materials Definition</h3>' + savedFacts({status:review.materialsReviewStatus,governingBomDocumentId:pack.governingBomDocumentId,materialsTarget:w.outputs?.materialsTarget}) + acceptedLinks(record);
+    if (section === 'completion') body = '<h3>Completion / review history</h3>' + savedFacts({status:record.status,reviewer:w.outputs?.reviewer,atUtc:w.outputs?.atUtc,events:w.events});
+    if (section === 'candidate') body = review.candidateBom ? renderCandidate(record) : '<p>No Candidate BOM recorded.</p>';
+    if (section === 'accepted-bom') body = renderAcceptedBom(record);
+    return '<section class="technical-review-completed"><button class="technical-review-back" data-technical-review-action="rfq-back">← Back to RFQ</button><h2 id="technicalReviewDetailTitle" tabindex="-1">Completed Technical Review — Read-only</h2><p>' + escapeHtml(record.intakeId) + ' · ' + escapeHtml(record.customer?.customerName) + '</p><p>Inspection only. The completed review and accepted BOM remain unchanged.</p><nav aria-label="Completed review sections">' + [['package','Package Review'],['history','History Context'],['manufacturing','Manufacturing Definition'],['materials','Materials Definition / Governing BOM'],['candidate','Candidate / Reviewed BOM'],['completion','Completion History']].map(([key,label]) => '<button data-technical-review-action="view-' + key + '" aria-pressed="' + (section === key) + '">' + label + '</button>').join(' ') + '</nav>' + acceptedLinks(record) + '<section class="technical-review-question">' + body + '</section></section>';
+  }
+
+  function renderIntakeSummary(record) {
+    const assembly = record.assemblies?.[0] || {};
+    const scopes = { MATERIAL_AND_LABOR: 'Material + Labor', LABOR_ONLY: 'Labor Only', MATERIAL_ONLY: 'Material Only' };
+    const types = { PCB_ASSEMBLY: 'PCB Assembly', CABLE_AND_HARNESS_ASSEMBLY: 'Cable and Harness Assembly', CHASSIS_BOX_BUILD_ASSEMBLY: 'Chassis / Box Build Assembly', OTHER: 'Other' };
+    const facts = [
+      ['Assembly', assembly.assemblyNumber || 'Not provided'],
+      ['Revision', assembly.revision || 'Not provided'],
+      ['Qty', assembly.quantity ?? 'Not provided'],
+      ['Scope', scopes[record.deLeonScope] || 'Not determined'],
+      ['Assembly Type', types[record.preliminaryAssemblyType?.type] || 'Not determined'],
+      ['Technical Files Received', (record.technicalFiles?.length || 0) + ' received']
+    ];
+    return '<dl class="technical-review-intake-summary" aria-label="Intake facts">' + facts.map(([label, value]) =>
+      '<div><dt>' + label + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('') + '</dl>';
+  }
+
+  function unifiedEligible(record) {
+    return record?.intakeType === 'NEW_QUOTE_REQUEST' && (record.technicalReview?.workflow || !(record.technicalReview?.bomAcceptances?.length)) && !['NO_LONGER_REQUIRED','READY_FOR_RFQ_WORKING_QUEUE'].includes(record.status);
+  }
+  function resumeWorkflow() {
+    const r = state.selected.record, w = r.technicalReview.workflow;
+    state.guided = true; state.materials = false; state.packageDraft = null;
+    state.step = r.status === 'ON_HOLD' ? 'sufficiency' : !w.packageConfirmed ? 'inventory' : !w.sufficient ? 'sufficiency' : !w.historyReviewed ? 'context' : !w.manufacturing ? 'definition' : r.technicalReview.materialsReviewStatus === 'QUALIFIED' ? 'release' : r.technicalReview.candidateBom ? 'candidate' : 'governing';
+    renderDetail();
+  }
+  function flowButton(label, action) {
+    return '<button class="technical-review-primary" data-technical-review-action="flow-' + action + '" ' + (state.saving ? 'disabled' : '') + '>' + label + '</button>';
+  }
+  async function workflowAction(action) {
+    if (state.saving) return;
+    const body = {action};
+    if (action === 'HOLD') body.needed = document.getElementById('flowNeeded')?.value;
+    if (action === 'MANUFACTURING') { body.governingDocumentId = document.getElementById('flowDrawing')?.value; body.nothingMissing = document.getElementById('flowNothingMissing')?.checked === true; }
+    state.saving = true; state.message = ''; state.messageState = ''; renderDetail();
+    try {
+      state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/workflow', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if (action === 'SUFFICIENT' && !state.selected.record.technicalReview.assemblyHistory) state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/assembly-history', {method:'POST'});
+      await refreshQueueModel();
+      if (action === 'COMPLETE') { state.guided = false; renderDetail(); } else resumeWorkflow();
+    } catch (error) { state.message = error.message; state.messageState = 'error'; }
+    finally { state.saving = false; renderDetail(); }
+  }
+  function renderWorkflowLanding(record, canDisposition) {
+    const w = record.technicalReview.workflow;
+    const phase = (title,status) => '<section class="technical-review-phase"><h4>' + title + '</h4><p>' + status + '</p></section>';
+    return '<section class="technical-review-phases" aria-label="Definition progress">' + phase('Manufacturing Definition', w.manufacturing ? 'Complete' : w.packageConfirmed ? 'In Progress' : 'Not Started') + phase('Material / BOM Definition', record.technicalReview.materialsReviewStatus === 'QUALIFIED' ? 'Complete' : record.technicalReview.technicalPackage?.governingBomDocumentId ? 'In Progress' : 'Not Started') + '</section>' + acceptedLinks(record) +
+      (w.outputs ? '<section class="technical-review-card"><h3>Technical Review Complete</h3><p>Materials input ready for Quotation — Materials.</p><p>Manufacturing input ready for Quotation — Labor.</p></section>' : '<section class="technical-review-card">' + (w.holdReason ? '<h3>On Hold</h3><p>Needed: ' + escapeHtml(w.holdReason) + '</p>' : '') +
+      (canDisposition ? flowButton(w.holdReason ? 'Review hold / resume' : 'Continue Technical Review','START') + '<button class="technical-review-secondary" data-technical-review-action="close">No Longer Required</button>' : '<p>Disposition permission required.</p>') + '</section>') + packageMessage();
+  }
+  function renderWorkflowStep(record) {
+    const w = record.technicalReview.workflow, pack = record.technicalReview.technicalPackage;
+    const hold = '<label class="technical-review-field">What is needed?<textarea id="flowNeeded" maxlength="1000"></textarea></label>' + flowButton('Place On Hold','HOLD');
+    let body = '';
+    if (state.step === 'sufficiency') body = record.status === 'ON_HOLD' ? '<h3>On Hold — information needed</h3><p>' + escapeHtml(w.holdReason) + '</p>' + flowButton('Resume Review','RESUME') : '<h3>Do we have enough technical information to continue?</h3><p>Continue only when the package is sufficient for the next review steps.</p>' + flowButton('Continue Review','SUFFICIENT') + hold;
+    if (state.step === 'context') {
+      const h = record.technicalReview.assemblyHistory;
+      body = '<h3>Assembly history / context</h3>' + (h ? '<p>' + (h.historyFound ? 'Previous revisions: ' + h.revisionsFound.map(escapeHtml).join(', ') + '. Most recent: ' + escapeHtml(h.mostRecentRevision) : 'No previous assembly history found.') + '</p><p>SIM synthetic history is context. New assemblies and new revisions can continue.</p>' : '<p>History is unavailable. Retry the context lookup.</p>') + flowButton(h ? 'Continue to Manufacturing Definition' : 'Load history context', h ? 'HISTORY' : 'SUFFICIENT');
+    }
+    if (state.step === 'definition') {
+      const drawings = (pack?.documents || []).filter(d => d.documentType === 'ASSEMBLY_DRAWING' && d.role === 'GOVERNING' && d.applicability === 'PARENT_ASSEMBLY');
+      body = '<h3>Manufacturing Definition</h3><p>Establish the trusted technical package for future Quotation — Labor.</p><label class="technical-review-field">Governing assembly / manufacturing drawing<select id="flowDrawing"><option value="">Select drawing</option>' + drawings.map(d=>'<option value="'+escapeHtml(d.documentId)+'">'+escapeHtml(d.name)+'</option>').join('') + '</select></label><h4>Supporting and manufacturing references</h4><ul>' + (pack?.documents || []).filter(d=>d.role === 'SUPPORTING' || d.role === 'REFERENCED' || d.applicability === 'SUBASSEMBLY' || d.documentType === 'GERBER').map(d=>'<li>'+escapeHtml(d.name)+' · '+escapeHtml(documentTypes[d.documentType])+'</li>').join('') + '</ul><p>Classify schematics and wire lists as Supporting Documents; their staged references are retained.</p><label><input type="checkbox" id="flowNothingMissing"> Nothing obvious remains missing from the manufacturing package</label><p>' + flowButton('Complete Manufacturing Definition','MANUFACTURING') + '</p>' + hold;
+    }
+    if (state.step === 'release') body = '<h3>Complete Technical Review</h3><p>Manufacturing Definition and the accepted BOM will become two durable quotation inputs. No quote is created.</p>' + acceptedLinks(record) + flowButton('Complete Technical Review','COMPLETE');
+    return '<section class="technical-review-question">' + body + packageMessage() + '<p><button class="technical-review-back" data-technical-review-action="flow-back-package">Review package</button> <button class="technical-review-back" data-technical-review-action="review-back">Back to Technical Review</button></p></section>';
+  }
+  function renderUnifiedGoverning(pack) {
+    const candidates = pack.documents.filter(d=>isBomSource(d) && d.applicability === 'PARENT_ASSEMBLY');
+    return '<section class="technical-review-question"><h3>Which BOM governs the parent assembly for this RFQ?</h3><p>Select the authority for Material / BOM Definition.</p>' + candidates.map(d=>'<label class="technical-review-bom-option"><input type="radio" name="governingBom" data-governing-id="'+escapeHtml(d.documentId)+'" '+(pack.governingBomDocumentId === d.documentId ? 'checked' : '')+'> '+escapeHtml(d.name)+' — '+bomSourceLabel(d)+'</label>').join('') + (candidates.length ? '' : '<p>No eligible parent BOM source. Review the package classification.</p>') + '<p>Candidate extraction uses the governing PDF drawing with embedded BOM. Page 2, up to ten rows; supporting XLS is not compared. Human verification is required.</p>' + (pack.governingBomDocumentId ? '<button class="technical-review-primary" data-technical-review-action="candidate-from-source">Save selection and build Candidate BOM</button>' : '') + packageMessage() + '<p><button class="technical-review-back" data-technical-review-action="package-back">Back to package inventory</button> <button class="technical-review-back" data-technical-review-action="review-back">Back to Technical Review</button></p></section>';
   }
 
   function renderHistoryQuestion(record, canDisposition) {
@@ -491,13 +596,13 @@
       const status = candidateStatus(row);
       const expanded = state.candidateIndex === index;
       const conflict = status !== 'Conflict' && Object.values(row.comparison || {}).includes('CONFLICT');
-      return '<tr><td>' + escapeHtml(row.values.lineNumber || '—') + '</td><td class="candidate-part">' + escapeHtml(row.values.partNumber || '—') + '</td><td>' + alternateSummary(row) + '</td><td>' + escapeHtml(row.values.quantity || '—') + '</td><td>' + escapeHtml(componentTypes[row.componentType] || componentTypes.STANDARD_COTS) + '</td><td>' + escapeHtml(row.values.designators || '—') + '</td><td>' + escapeHtml(row.values.description || '—') + '</td><td><span class="candidate-status" data-status="' + status + '">' + status + '</span>' + (conflict ? '<small>Source conflict retained</small>' : '') + '<button class="candidate-details-button" data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" aria-expanded="' + expanded + '" aria-controls="candidate-detail-' + index + '" ' + (state.saving ? 'disabled' : '') + '>' + (expanded ? 'Close Details' : accepted ? 'View Details' : 'Edit / Add Details') + '<span class="candidate-sr-only"> for row ' + (index + 1) + '</span></button></td></tr>' +
-        (expanded ? '<tr class="candidate-detail-row"><td colspan="8"><section id="candidate-detail-' + index + '" aria-label="Row ' + (index + 1) + ' details">' + renderCandidateRow(bom, row, index, !!accepted) + '</section></td></tr>' : '');
+      return '<tr><td>' + escapeHtml(row.values.lineNumber || '—') + '</td><td class="candidate-part">' + escapeHtml(row.values.partNumber || '—') + '</td><td>' + alternateSummary(row) + '</td><td>' + escapeHtml(row.values.quantity || '—') + '</td><td>' + escapeHtml(componentTypes[row.componentType] || componentTypes.STANDARD_COTS) + '</td><td>' + escapeHtml(row.values.designators || '—') + '</td><td>' + escapeHtml(row.values.description || '—') + '</td><td><span class="candidate-status" data-status="' + status + '">' + status + '</span>' + (conflict ? '<small>Source conflict retained</small>' : '') + '<button class="candidate-details-button" data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" aria-expanded="' + expanded + '" aria-controls="candidate-detail-' + index + '" ' + (state.saving ? 'disabled' : '') + '>' + (expanded ? 'Close Details' : accepted || completedReview(record) ? 'View Details' : 'Edit / Add Details') + '<span class="candidate-sr-only"> for row ' + (index + 1) + '</span></button></td></tr>' +
+        (expanded ? '<tr class="candidate-detail-row"><td colspan="8"><section id="candidate-detail-' + index + '" aria-label="Row ' + (index + 1) + ' details">' + renderCandidateRow(bom, row, index, !!accepted || completedReview(record)) + '</section></td></tr>' : '');
     }).join('');
-    return '<section class="technical-review-question technical-review-candidate"><h3>' + (accepted ? 'BOM Review Complete' : 'Candidate BOM — Pilot') + '</h3>' + (accepted ? '<p>Materials definition qualified for this RFQ. Accepted version ' + accepted.version + '.</p>' + (record.technicalReview.materialsReviewStatus === 'QUALIFIED' ? '<p>Next: Manufacturing / Labor Review</p>' : '<p>Historical acceptance. The current source package or candidate requires a new BOM review.</p>') : '') + '<p class="candidate-summary">' + bom.rows.length + ' rows extracted · ' + counts.Match + ' matched · ' + counts.Conflict + ' conflict · ' + counts.Uncertain + ' uncertain · ' + counts['Manually Corrected'] + ' manually corrected' + (counts.Reviewed ? ' · ' + counts.Reviewed + ' reviewed' : '') + '</p>' +
+    return '<section class="technical-review-question technical-review-candidate"><h3>' + (accepted ? 'BOM Review Complete' : 'Candidate BOM — Pilot') + '</h3>' + (accepted ? '<p>Materials definition qualified for this RFQ. Accepted version ' + accepted.version + '.</p>' + (completedReview(record) ? '<p>Technical Review complete · Read-only</p>' : record.technicalReview.materialsReviewStatus === 'QUALIFIED' ? (record.technicalReview.workflow ? '<p>Next: Complete Technical Review</p>' : '<p>Next: Manufacturing / Labor Review</p>') : '<p>Historical acceptance. The current source package or candidate requires a new BOM review.</p>') : '') + '<p class="candidate-summary">' + bom.rows.length + ' rows extracted · ' + counts.Match + ' matched · ' + counts.Conflict + ' conflict · ' + counts.Uncertain + ' uncertain · ' + counts['Manually Corrected'] + ' manually corrected' + (counts.Reviewed ? ' · ' + counts.Reviewed + ' reviewed' : '') + '</p>' +
       (accepted ? '<p>RFQ materials acceptance only. This is not a production release.</p>' : '<p class="candidate-review-note">Partial / pilot · Needs Review · Not an approved DLE BOM. Review source conflicts and uncertain rows before proceeding.</p>') + '<a href="' + fileUrl + '" target="_blank" rel="noopener">View governing PDF · page ' + bom.page + '</a>' +
       '<div class="candidate-table-scroll" role="region" aria-label="Candidate BOM table" tabindex="0"><table class="candidate-table"><caption class="candidate-sr-only">Candidate BOM rows for human review</caption><thead><tr><th scope="col">Line</th><th scope="col">Part Number</th><th scope="col">Alternate Part(s)</th><th scope="col">Qty / Assy</th><th scope="col">Component Type</th><th scope="col">Designators</th><th scope="col">Description</th><th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><details class="candidate-analysis-details"><summary>Analysis scope and history</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p><p>' + (record.technicalReview.candidateBomVersions || []).length + ' prior versions preserved. No canonical BOM or downstream work is created.</p></details>' + acceptedLinks(record) + '<div class="candidate-editor-actions"><button class="technical-review-back" data-technical-review-action="governing-back">← Back to governing BOM selection</button>' + (!accepted ? '<button class="technical-review-primary" data-technical-review-action="complete-bom" ' + (state.saving ? 'disabled' : '') + '>Complete BOM Review</button>' : '') + '</div></section>';
+      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><details class="candidate-analysis-details"><summary>Analysis scope and history</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p><p>' + (record.technicalReview.candidateBomVersions || []).length + ' prior versions preserved. No canonical BOM or downstream work is created.</p></details>' + acceptedLinks(record) + (completedReview(record) ? '' : '<div class="candidate-editor-actions"><button class="technical-review-back" data-technical-review-action="governing-back">← Back to governing BOM selection</button>' + (!accepted ? '<button class="technical-review-primary" data-technical-review-action="complete-bom" ' + (state.saving ? 'disabled' : '') + '>Complete BOM Review</button>' : '') + '</div>') + '</section>';
   }
   function renderCandidateRow(bom, row, index, readOnly = false) {
     const disabled = state.saving ? 'disabled' : '';
@@ -542,6 +647,7 @@
     try {
       state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/complete-bom-review', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidate:state.selected.record.technicalReview.candidateBom})});
       state.message = 'BOM Review Complete. Materials definition qualified for this RFQ.';
+      if (state.selected.record.technicalReview?.workflow) { state.step = 'release'; state.candidateIndex = null; }
     } catch (error) { state.message = error?.message || 'BOM Review could not be completed.'; }
     finally { state.saving = false; renderDetail(); }
   }
@@ -661,6 +767,7 @@
   }
 
   function renderEntryActions(record, canDisposition) {
+    if (record.technicalReview?.workflow && record.status !== 'NO_LONGER_REQUIRED' && !state.closing) return renderWorkflowLanding(record, canDisposition);
     const message = '<p class="technical-review-message" data-state="' + escapeHtml(state.messageState) + '" role="status">' + escapeHtml(state.message) + '</p>';
     if (record.status === "NO_LONGER_REQUIRED") return message + '<p>This review is closed. The intake record is preserved.</p>';
     if (record.status === "READY_FOR_RFQ_WORKING_QUEUE") return message + '<p>This review has been handed off to RFQ.</p>';
@@ -741,6 +848,7 @@
   async function resumeGuidedBaseline() {
     state.guided = true; state.step = ''; state.materials = false; state.message = ''; state.messageState = '';
     renderDetail();
+    if (state.selected?.record?.technicalReview?.workflow) { resumeWorkflow(); return; }
     if (state.guided && !state.selected?.record?.technicalReview?.assemblyHistory) await updateHistory(false);
     else if (state.guided && state.selected?.record?.technicalReview?.candidateBom) { state.step = 'candidate'; state.candidateIndex = null; renderDetail(); }
     else if (state.guided && materialsEligible(state.selected?.record)) enterPackage();
@@ -755,6 +863,7 @@
   }
 
   async function fetchJson(url, options) {
+    if (completedReview(state.selected?.record) && options?.method && options.method !== 'GET') throw new Error('Completed Technical Review is read-only.');
     const response = await window.fetch(url, { credentials: "include", cache: "no-store", ...(options || {}) });
     let body = null;
     try { body = await response.json(); } catch (_) { /* handled below */ }

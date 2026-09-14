@@ -61,7 +61,7 @@ assert.match(styles, /@media \(max-width:720px\)/);
 assert.match(operatorHeader, /const invoiceHistoryActive = workspaceId === 'invoice-history'/);
 assert.match(operatorHeader, /!operationsCenterActive && !invoiceHistoryActive/);
 assert.match(operatorHeaderStyles, /:not\(\[data-workspace-view="invoice-history"\]\)/);
-assert.match(workAreaHome, /new Set\(\["operations-center", "invoice-history"\]\)/);
+assert.match(workAreaHome, /new Set\(\["operations-center", "invoice-history", "rfq-quoting"\]\)/);
 assert.match(workAreaHome, /MOBILE_READY_WORKSPACE_IDS\.has\(workspace\.id\)/);
 assert.match(source, /data-label=/);
 assert.match(styles, /body\[data-view-mode="mobile"\]\[data-workspace-view="invoice-history"\] > main/);

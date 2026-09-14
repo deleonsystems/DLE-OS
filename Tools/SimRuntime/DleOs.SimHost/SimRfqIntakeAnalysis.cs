@@ -5,6 +5,7 @@ internal sealed partial class SimRfqIntakeStore
 {
     private async Task<DleAnalysisDocument[]> AnalysisDocuments(SimRfqIntakeRecord record)
     {
+        RequireWorkflowMaterials(record);
         var review = record.TechnicalReview;
         var package = review?.TechnicalPackage;
         var governing = package?.Documents.SingleOrDefault(d => d.DocumentId == package.GoverningBomDocumentId);
@@ -26,14 +27,6 @@ internal sealed partial class SimRfqIntakeStore
         }
         return output.ToArray();
     }
-    private static void ApprovePilot(DleAnalysisDocument[] sources)
-    {
-        // Explicit server-side byte allowlist. Names, customer metadata and browser flags cannot authorize transmission.
-        var approved = (Environment.GetEnvironmentVariable("DLE_OS_SIM_ANALYSIS_APPROVED_SHA256") ?? "")
-            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (sources.Any(d => !approved.Contains(d.Source.Sha256, StringComparer.OrdinalIgnoreCase)))
-            throw SimRfqIntakeProblem.Conflict("ANALYSIS_FIXTURE_ONLY", "This experimental bridge is enabled only for explicitly approved non-sensitive fixture files. No documents were sent.");
-    }
     internal async Task<DleAnalysisJob> SubmitAnalysis(string intakeId, SimPersona persona)
     {
         await gate.WaitAsync();
@@ -43,7 +36,7 @@ internal sealed partial class SimRfqIntakeStore
             var record = dataset.Records.SingleOrDefault(r => r.IntakeId == intakeId && IsTechnicalReviewRecord(r))
                 ?? throw SimRfqIntakeProblem.NotFound("ANALYSIS_REVIEW_MISSING", "Review not found.");
             var sources = await AnalysisDocuments(record);
-            ApprovePilot(sources);
+            var route = DleAnalysisPolicy.Select(sources);
             var existing = dataset.AnalysisJobs.LastOrDefault(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status));
             if (existing is not null) return existing;
             var assembly = record.Assemblies.OrderBy(a => a.LineNumber).First();
@@ -52,7 +45,7 @@ internal sealed partial class SimRfqIntakeStore
                 assembly.AssemblyNumber, assembly.Revision, assembly.Quantity, record.TechnicalReview!.TechnicalPackage!.GoverningBomDocumentId!,
                 sources.Select(d => d.Source).ToArray(), 2, 10, DleAnalysisContract.InputVersion, DleAnalysisContract.ResultVersion,
                 DleAnalysisContract.InstructionVersion, DleAnalysisContract.Hash(Encoding.UTF8.GetBytes(DleAnalysisContract.Instructions)),
-                "GOVERNING_AUTHORITATIVE_SUPPORTING_CORROBORATES_ONLY", persona.DisplayName, now, now.AddMinutes(3));
+                "GOVERNING_AUTHORITATIVE_SUPPORTING_CORROBORATES_ONLY", persona.DisplayName, now, now.AddMinutes(3), route);
             var job = new DleAnalysisJob(input, "QUEUED", now);
             dataset.AnalysisJobs.Add(job);
             await WriteVerifiedAsync(dataset);
@@ -108,7 +101,7 @@ internal sealed partial class SimRfqIntakeStore
                 if (!SameAnalysisSources(job.Input, record, sources)) throw new InvalidDataException("Source changed");
                 if (DleAnalysisContract.Hash(Encoding.UTF8.GetBytes(DleAnalysisContract.Instructions)) != job.Input.InstructionHash)
                     throw new InvalidDataException("Instructions changed");
-                ApprovePilot(sources);
+                DleAnalysisPolicy.RequirePermitted(job.Input.ProviderRoute, sources);
                 job = job with { Status = "RUNNING", UpdatedAtUtc = DateTimeOffset.UtcNow };
                 dataset.AnalysisJobs[index] = job;
                 await WriteVerifiedAsync(dataset);
@@ -155,7 +148,7 @@ internal sealed partial class SimRfqIntakeStore
             var job = dataset.AnalysisJobs[jobIndex];
             var recordIndex = dataset.Records.FindIndex(r => r.IntakeId == job.Input.IntakeId);
             DleAnalysisDocument[]? sources = null;
-            try { if (recordIndex >= 0) { sources = await AnalysisDocuments(dataset.Records[recordIndex]); ApprovePilot(sources); } }
+            try { if (recordIndex >= 0) { sources = await AnalysisDocuments(dataset.Records[recordIndex]); DleAnalysisPolicy.RequirePermitted(job.Input.ProviderRoute, sources); } }
             catch (Exception e) when (e is IOException or SimRfqIntakeProblem) { sources = null; }
             if (sources is null || !SameAnalysisSources(job.Input, dataset.Records[recordIndex], sources) ||
                 DleAnalysisContract.Hash(Encoding.UTF8.GetBytes(DleAnalysisContract.Instructions)) != job.Input.InstructionHash)

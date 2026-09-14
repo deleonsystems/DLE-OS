@@ -32,8 +32,16 @@
     const firstName = String(session.user?.displayName || "").trim().split(/\s+/)[0] || "there";
     const workAreas = window.DleWorkspaceRegistry.all().filter(workspace => {
       const assignment = workspace.home;
-      return assignment && capabilities.can(assignment.requiredPermission);
+      return assignment && (!workspace.simOnly || isSimIntakeEnabled()) && capabilities.can(assignment.requiredPermission);
     });
+    if (isSimIntakeEnabled()) {
+      const rfqsIndex = workAreas.findIndex(workspace => workspace.id === "rfqs");
+      const reviewIndex = workAreas.findIndex(workspace => workspace.id === "technical-review");
+      if (rfqsIndex >= 0 && reviewIndex >= 0) {
+        const [rfqs] = workAreas.splice(rfqsIndex, 1);
+        workAreas.splice(workAreas.findIndex(workspace => workspace.id === "technical-review") + 1, 0, rfqs);
+      }
+    }
     const homeEntries = isSimIntakeEnabled()
       ? [INTAKE_WIZARD_HOME_ENTRY, ...workAreas]
       : workAreas;

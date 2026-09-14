@@ -1,4 +1,4 @@
-internal static class SimRfqIntakeEndpoints
+internal static partial class SimRfqIntakeEndpoints
 {
     private static readonly object[] Customers =
     [
@@ -16,6 +16,7 @@ internal static class SimRfqIntakeEndpoints
     internal static void Map(WebApplication app, SimStateStore state,
         SimRfqIntakeStore store, SimPersonaSessionStore personas)
     {
+        MapRfqs(app, state, store, personas);
         app.MapGet("/api/platform/live/v1/customer-directory/search", (HttpContext context) =>
         {
             var denied = Denied(context, state, personas, write: false);
@@ -112,6 +113,14 @@ internal static class SimRfqIntakeEndpoints
             return review is null
                 ? Results.Json(new { code = "DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND", message = "The SIM Technical Review item does not exist." }, statusCode: 404)
                 : Results.Json(review);
+        });
+
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/workflow", async Task<IResult> (string intakeId, SimWorkflowRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.WorkflowAsync(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
         });
 
         app.MapPut("/api/sim/technical-reviews/{intakeId}/assembly-type", async Task<IResult> (

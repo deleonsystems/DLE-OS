@@ -37,3 +37,17 @@
 .technical-review-phase-acceptances button:hover{color:#dbeafe}
 .technical-review-phase-acceptances button:focus-visible{outline:2px solid #93c5fd;outline-offset:3px;border-radius:2px}
 .technical-review-phase-acceptances small{display:block;margin-top:4px;color:#94a3b8;font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+
+.technical-review-intake-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px 24px; margin:16px 0 0; }
+.technical-review-intake-summary dt { color:#b8c5d8; font-size:12px; line-height:1.4; }
+.technical-review-intake-summary dd { margin:3px 0 0; color:#f8fafc; font-size:14px; font-weight:600; line-height:1.4; overflow-wrap:anywhere; }
+@media(max-width:760px) { .technical-review-intake-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 16px; } }
+
+.technical-review-completed { min-width:0; }
+.technical-review-completed nav { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.technical-review-completed button { white-space:normal; padding:8px 12px; border:1px solid #50647a; border-radius:6px; background:#182838; color:#edf4fa; cursor:pointer; }
+.technical-review-completed nav button[aria-pressed="true"] { background:#265c83; border-color:#79b8e5; }
+.technical-review-completed dl { margin:12px 0; overflow-wrap:anywhere; }
+.technical-review-completed dt { font-weight:600; margin-top:10px; }
+.technical-review-completed dd { margin:3px 0 10px 16px; }
+.technical-review-completed .technical-review-question { min-width:0; max-width:100%; }

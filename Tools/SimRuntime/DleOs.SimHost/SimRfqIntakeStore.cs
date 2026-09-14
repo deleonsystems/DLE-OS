@@ -130,7 +130,9 @@ internal sealed record SimTechnicalReviewResult(
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     string[]? ReviewPhaseOrder = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    string? ManufacturingReviewStatus = null);
+    string? ManufacturingReviewStatus = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    SimReviewWorkflow? Workflow = null);
 
 internal sealed class SimRfqIntakeProblem : Exception
 {
@@ -462,15 +464,21 @@ internal sealed partial class SimRfqIntakeStore
             var record = dataset.Records[index];
             var history = record.TechnicalReview?.AssemblyHistory;
             var revision = record.Assemblies.OrderBy(item => item.LineNumber).First().Revision.Trim();
-            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || history?.AssemblyClassification != "EXISTING_ASSEMBLY" ||
-                !history.RevisionsFound.Contains(revision, StringComparer.OrdinalIgnoreCase))
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || (record.TechnicalReview?.Workflow is null && (history?.AssemblyClassification != "EXISTING_ASSEMBLY" ||
+                !history.RevisionsFound.Contains(revision, StringComparer.OrdinalIgnoreCase))))
                 throw SimRfqIntakeProblem.Conflict("DLE_OS_SIM_BOM_HISTORY_REQUIRED", "Confirm existing assembly history for the requested revision before reviewing materials.");
+            if (record.TechnicalReview?.Workflow is not null && !inventoryOnly)
+                throw SimRfqIntakeProblem.Conflict("SIM_LEGACY_COMPARISON", "Use Candidate BOM for this review.");
             if (inventoryOnly || record.TechnicalReview!.MaterialsDefinition is null || record.TechnicalReview.TechnicalPackage?.GoverningBomDocumentId is null)
             {
                 var package = packageRequest is null ? record.TechnicalReview!.TechnicalPackage ?? SimTechnicalPackageProvider.Inventory(record) : SimTechnicalPackageProvider.Validate(record, packageRequest, persona);
                 var definition = inventoryOnly ? null : SimMaterialsDefinitionProvider.Compare(record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package } }, persona);
                 var sameSources = JsonSerializer.Serialize(package.Documents, jsonOptions) == JsonSerializer.Serialize(record.TechnicalReview!.TechnicalPackage?.Documents, jsonOptions) && package.GoverningBomDocumentId == record.TechnicalReview.TechnicalPackage?.GoverningBomDocumentId;
-                record = record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package, MaterialsDefinition = definition, MaterialsReviewStatus = sameSources ? record.TechnicalReview.MaterialsReviewStatus : null, NextReviewPhase = sameSources ? record.TechnicalReview.NextReviewPhase : null, CandidateBom = sameSources ? record.TechnicalReview.CandidateBom : null,
+                var wf = record.TechnicalReview!.Workflow;
+                var sameDocuments = JsonSerializer.Serialize(package.Documents, jsonOptions) == JsonSerializer.Serialize(record.TechnicalReview.TechnicalPackage?.Documents, jsonOptions);
+                if (wf is not null) wf = wf with { PackageConfirmed = true,
+                    Sufficient = sameDocuments && wf.Sufficient, Manufacturing = sameDocuments ? wf.Manufacturing : null };
+                record = record with { TechnicalReview = record.TechnicalReview! with { Workflow = wf, TechnicalPackage = package, MaterialsDefinition = definition, MaterialsReviewStatus = sameSources ? record.TechnicalReview.MaterialsReviewStatus : null, NextReviewPhase = sameSources ? record.TechnicalReview.NextReviewPhase : null, CandidateBom = sameSources ? record.TechnicalReview.CandidateBom : null,
                     CandidateBomVersions = !sameSources && record.TechnicalReview.CandidateBom is not null ? (record.TechnicalReview.CandidateBomVersions ?? []).Append(record.TechnicalReview.CandidateBom).ToArray() : record.TechnicalReview.CandidateBomVersions,
                     SubassemblyCoverage = definition is null ? null : SimTechnicalPackageProvider.Coverage(package, definition) } };
                 dataset.Records[index] = record;
@@ -500,6 +508,7 @@ internal sealed partial class SimRfqIntakeStore
             var file = record.TechnicalFiles.SingleOrDefault(d => d.DocumentId == governing.DocumentId && d.BinaryStatus == "VERIFIED" && d.Type == "application/pdf");
             if (file is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_BINARY_REQUIRED", "The governing PDF must have a verified SIM staged binary.");
             var bytes = await documents.Bytes(record.RequestCorrelationId, file.DocumentId!);
+            RequireWorkflowMaterials(record);
             var candidate = review.CandidateBom;
             if (candidate is not null && (candidate.GoverningDocumentId != file.DocumentId || candidate.GoverningSha256 != Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant()))
                 throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_CHANGED", "The governing source changed. Reconfirm the package before building a new candidate.");
@@ -580,7 +589,7 @@ internal sealed partial class SimRfqIntakeStore
     private static bool IsEarlyReviewState(string value) => value is
         "READY_FOR_RFQ_QUALIFICATION" or "TECHNICAL_REVIEW_IN_PROGRESS" or "START_TECHNICAL_REVIEW" or
         "QUALIFIED_READY_FOR_RFQ" or "READY_FOR_RFQ_WORKING_QUEUE" or
-        "NO_LONGER_REQUIRED" or "NEEDS_CUSTOMER_CLARIFICATION" or "MISSING_TECHNICAL_DOCUMENTS" or
+        "ON_HOLD" or "NO_LONGER_REQUIRED" or "NEEDS_CUSTOMER_CLARIFICATION" or "MISSING_TECHNICAL_DOCUMENTS" or
         "REVISION_DOCUMENT_CONFLICT" or "BLOCKED_NEEDS_ESCALATION";
 
     private static bool IsTechnicalReviewRecord(SimRfqIntakeRecord record) =>
@@ -607,6 +616,7 @@ internal sealed partial class SimRfqIntakeStore
 
     private static string ReviewStatusLabel(string status) => status switch
     {
+        "ON_HOLD" => "On Hold — information needed",
         "READY_FOR_RFQ_QUALIFICATION" => "Needs Technical Review",
         "TECHNICAL_REVIEW_IN_PROGRESS" => "Technical Review in progress",
         "NO_LONGER_REQUIRED" => "No Longer Required",
@@ -624,6 +634,8 @@ internal sealed partial class SimRfqIntakeStore
         SimPersona persona)
     {
         var entryDisposition = request.Disposition?.Trim();
+        if (record.TechnicalReview?.Workflow is not null && (entryDisposition != "NO_LONGER_REQUIRED" && entryDisposition != "START_TECHNICAL_REVIEW" || record.Status == "ON_HOLD" && entryDisposition == "START_TECHNICAL_REVIEW"))
+            throw SimRfqIntakeProblem.Conflict("SIM_UNIFIED_REVIEW", "Use the package review workflow to resume or complete this review.");
         if (entryDisposition is "START_TECHNICAL_REVIEW" or "NO_LONGER_REQUIRED")
         {
             if (record.Status == "READY_FOR_RFQ_WORKING_QUEUE" ||

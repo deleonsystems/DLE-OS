@@ -62,7 +62,7 @@ assert.match(conversation.innerHTML, /intake-choice-disabled" disabled aria-disa
 choose("customer-po-type", "CUSTOMER_PO");
 action("continue");
 assert.match(inlineErrors.pop(), /Attach the customer PO/, "attachment is required before continuing");
-listeners.get("change")({ target: { matches: () => true, files: [{ name: "po.pdf", size: 12, type: "application/pdf", lastModified: 1 }], value: "x" } });
+listeners.get("change")({ target: { matches: selector => selector === "[data-intake-files]", files: [{ name: "po.pdf", size: 12, type: "application/pdf", lastModified: 1 }], value: "x" } });
 action("continue"); choose("payment-terms", "yes");
 expectStep("billing address", "matching payment terms skips the action note");
 action("back"); expectStep("payment terms", "Back skips hidden payment note and returns to payment terms");

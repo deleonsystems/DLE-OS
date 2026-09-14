@@ -13,7 +13,7 @@ internal sealed record DleAnalysisInput(string JobId, string JobType, string Int
     string Revision, int Quantity, string GoverningDocumentId, DleAnalysisSource[] Sources,
     int GoverningPage, int PilotRowLimit, string ContractVersion, string ResultVersion,
     string InstructionVersion, string InstructionHash, string AuthorityRule, string RequestedBy,
-    DateTimeOffset RequestedAtUtc, DateTimeOffset DeadlineUtc);
+    DateTimeOffset RequestedAtUtc, DateTimeOffset DeadlineUtc, string ProviderRoute = "CODEX_APP_SERVER");
 internal sealed record DleAnalysisDocument(DleAnalysisSource Source, byte[] Bytes);
 internal sealed record DleAnalysisEvidence(string DocumentId, int? Page, string? Sheet, string Location);
 internal sealed record DleAnalysisField(string? Value, DleAnalysisEvidence Evidence, string Uncertainty,
@@ -103,7 +103,7 @@ internal sealed class DleAnalysisJobService(SimRfqIntakeStore store, IAnalysisPr
                         if (response.Result.Outcome == "BLOCKED")
                         {
                             await store.SetAnalysisState(claimed.Value.Job.Input.JobId, "FAILED", "GOVERNING_UNREADABLE",
-                                "The provider could not interpret the governing source. No candidate was published. Retry is available.");
+                                "Extraction failed — needs manual review. No candidate was published; no hosted fallback was attempted.");
                             continue;
                         }
                         DleAnalysisContract.Validate(claimed.Value.Job.Input, response.Result);

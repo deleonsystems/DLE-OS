@@ -8,6 +8,8 @@ internal sealed class CodexAppServerAnalysisProvider(string stateRoot, Action<st
     public async Task<DleAnalysisResponse> ExecuteAnalysisJob(DleAnalysisInput input, DleAnalysisDocument[] documents,
         string instructions, CancellationToken cancellationToken)
     {
+        DleAnalysisPolicy.RequirePermitted(DleAnalysisPolicy.Hosted, documents);
+        if (input.ProviderRoute != DleAnalysisPolicy.Hosted) throw new IOException("Hosted route not authorized.");
         var executable = Environment.GetEnvironmentVariable("DLE_OS_SIM_CODEX_EXECUTABLE");
         if (string.IsNullOrWhiteSpace(executable) || !Path.IsPathFullyQualified(executable) || !File.Exists(executable))
             throw new IOException("Provider unavailable");
@@ -98,6 +100,7 @@ internal sealed class CodexAppServerAnalysisProvider(string stateRoot, Action<st
             var threadId = thread.GetProperty("thread").GetProperty("id").GetString();
             var model = thread.GetProperty("model").GetString() ?? "unknown";
             diagnostic?.Invoke("Isolated session started");
+            DleAnalysisPolicy.RequirePermitted(DleAnalysisPolicy.Hosted, documents);
             await Call(5, "turn/start", new { threadId, input = inputs, effort = "low", outputSchema = Schema() });
             diagnostic?.Invoke("Analysis turn started");
             string? final = null;

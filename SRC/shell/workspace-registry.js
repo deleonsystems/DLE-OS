@@ -3,6 +3,13 @@
 
   const WORKSPACE_DEFINITIONS = [
     {
+      id: "rfqs", label: "RFQs", simOnly: true,
+      purpose: "Shared quotation work with Materials and Labor lanes.",
+      modulePath: "SRC/workspaces/rfqs/rfqs-workspace.js",
+      stylePath: "SRC/workspaces/rfqs/rfqs-workspace.css",
+      home: Object.freeze({ label: "RFQs", description: "Qualified RFQs • Materials • Labor", mark: "RQ", requiredPermission: "technical_review.view", preserveLabelCase: true })
+    },
+    {
       id: "dle-home",
       label: "DLE-OS Home",
       purpose: "Choose an assigned operational work area."
@@ -133,20 +140,21 @@
 
   const workspaceById = new Map(WORKSPACE_DEFINITIONS.map(workspace => [workspace.id, workspace]));
   const workspaceByLabel = new Map(WORKSPACE_DEFINITIONS.map(workspace => [workspace.label, workspace]));
+  const available = workspace => workspace && (!workspace.simOnly || window.document?.body?.dataset?.simRuntime === "true");
 
   window.DleWorkspaceRegistry = Object.freeze({
     defaultWorkspaceId: "dle-home",
     all() {
-      return WORKSPACE_DEFINITIONS.slice();
+      return WORKSPACE_DEFINITIONS.filter(available);
     },
     getById(id) {
-      return workspaceById.get(id) || null;
+      const workspace = workspaceById.get(id); return available(workspace) ? workspace : null;
     },
     getByLabel(label) {
-      return workspaceByLabel.get(label) || null;
+      const workspace = workspaceByLabel.get(label); return available(workspace) ? workspace : null;
     },
     resolve(value) {
-      return workspaceById.get(value) || workspaceByLabel.get(value) || workspaceById.get(this.defaultWorkspaceId);
+      return this.getById(value) || this.getByLabel(value) || workspaceById.get(this.defaultWorkspaceId);
     }
   });
 })(window);

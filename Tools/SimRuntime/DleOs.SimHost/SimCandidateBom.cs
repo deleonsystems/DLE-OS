@@ -31,7 +31,7 @@ internal static class SimCandidateBomProvider
     private sealed record ParsedRow(string[] Values, double[] Bounds);
     private sealed record Parsed(string Parser, ParsedRow[] Rows);
 
-    internal static async Task<SimCandidateBom> Extract(byte[] bytes, SimTechnicalPackage package, SimPersona persona)
+    internal static async Task<SimCandidateBom> Extract(byte[] bytes, SimTechnicalPackage package, SimPersona persona, CancellationToken cancellationToken = default)
     {
         // Local SIM adapter only. Deployments may explicitly configure another pdfplumber runtime.
         var python = Environment.GetEnvironmentVariable("DLE_OS_SIM_BOM_PYTHON") ?? Path.Combine(
@@ -48,7 +48,8 @@ internal static class SimCandidateBomProvider
         {
             process.Start();
             started = true;
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(30));
             var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
             var errors = process.StandardError.ReadToEndAsync(timeout.Token);
             await process.StandardInput.BaseStream.WriteAsync(bytes, timeout.Token);
