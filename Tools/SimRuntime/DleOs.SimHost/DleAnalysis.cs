@@ -8,17 +8,35 @@ internal interface IAnalysisProvider
         string instructions, CancellationToken cancellationToken);
 }
 internal sealed record DleAnalysisSource(string DocumentId, string Sha256, string Name, string MimeType,
-    string DocumentType, string Role, string Applicability, bool EmbeddedBom);
+    string DocumentType, string Role, string Applicability, bool EmbeddedBom,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    DleDocumentAnalysisProfile? Profile = null);
+internal sealed record DleStagedBinaryReference(string IntakeId, string DocumentId);
+internal sealed record DleReviewedClassification(string DocumentType, bool ContainsEmbeddedBom, string Role,
+    string Applicability, string? SubassemblyIdentity, string? ReviewedIdentityType);
+internal sealed record DlePartNumberContext(string? Basis, bool? ProvidesManufacturerPartNumbers);
+internal sealed record DleReviewEvidence(string? PackageReviewer, DateTimeOffset? PackageReviewedAtUtc,
+    string? IdentityReviewer, DateTimeOffset? IdentityReviewedAtUtc, string? IdentityDecision,
+    string? PartNumberReviewer, DateTimeOffset? PartNumberReviewedAtUtc);
+internal sealed record DleDocumentAnalysisProfile(string ContractVersion, DleStagedBinaryReference StagedBinaryReference,
+    DleReviewedClassification ReviewedClassification, DlePartNumberContext PartNumberContext,
+    DleReviewEvidence ReviewEvidence, string? DerivedAnalysisPurpose, string MetadataFingerprint);
 internal sealed record DleAnalysisInput(string JobId, string JobType, string IntakeId, string Assembly,
     string Revision, int Quantity, string GoverningDocumentId, DleAnalysisSource[] Sources,
     int GoverningPage, int PilotRowLimit, string ContractVersion, string ResultVersion,
     string InstructionVersion, string InstructionHash, string AuthorityRule, string RequestedBy,
-    DateTimeOffset RequestedAtUtc, DateTimeOffset DeadlineUtc, string ProviderRoute = "CODEX_APP_SERVER");
+    DateTimeOffset RequestedAtUtc, DateTimeOffset DeadlineUtc, string ProviderRoute = "CODEX_APP_SERVER",
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? SourceSelectionVersion = null);
 internal sealed record DleAnalysisDocument(DleAnalysisSource Source, byte[] Bytes);
 internal sealed record DleAnalysisEvidence(string DocumentId, int? Page, string? Sheet, string Location);
 internal sealed record DleAnalysisField(string? Value, DleAnalysisEvidence Evidence, string Uncertainty,
     string Relationship, string? SupportingValue, DleAnalysisEvidence? SupportingEvidence);
-internal sealed record DleAnalysisRow(Dictionary<string, DleAnalysisField> Fields);
+internal sealed record DleManufacturerProposal(string Id, string? ManufacturerName, string PartNumber,
+    DleAnalysisEvidence Evidence, DleAnalysisEvidence CustomerEvidence, DleAnalysisEvidence GoverningEvidence,
+    string SourceLabel, string[] MatchBasis, string[] Conflicts, Dictionary<string,string> SourceValues, string Confidence, string Uncertainty);
+internal sealed record DleAnalysisRow(Dictionary<string, DleAnalysisField> Fields,
+    DleManufacturerProposal[]? ManufacturerProposals = null, string? ManufacturerUncertainty = null);
 internal sealed record DleAnalysisResult(string ContractVersion, string Outcome, string Coverage,
     string CoverageReason, DleAnalysisRow[] Rows);
 internal sealed record DleAnalysisResponse(DleAnalysisResult Result, string Provider, string ProviderVersion, string Model);
@@ -30,19 +48,29 @@ internal sealed record DleCandidateAnalysis(string JobId, DleAnalysisInput Sourc
 
 internal static class DleAnalysisContract
 {
-    internal const string InputVersion = "DLE_ANALYSIS_JOB_V1";
+    internal const string InputVersion = "DLE_ANALYSIS_JOB_V2";
+    internal const string LegacyInputVersion = "DLE_ANALYSIS_JOB_V1";
+    internal const string ProfileVersion = "DLE_DOCUMENT_ANALYSIS_PROFILE_V1";
+    internal const string SourceSelectionVersion = "REVIEWED_CAPABILITY_V1";
     internal const string ResultVersion = "DLE_CANDIDATE_ANALYSIS_RESULT_V1";
+    internal const string EnrichedResultVersion = "DLE_CANDIDATE_ANALYSIS_RESULT_V2";
     internal const string InstructionVersion = "CANDIDATE_BOM_INSTRUCTION_V1";
+    internal const string EnrichedInstructionVersion = "CANDIDATE_BOM_ENRICHMENT_V1";
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     internal static string Instructions => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Analysis", "candidate-bom-v1.md"));
+    internal static string InstructionsFor(string version) => version == EnrichedInstructionVersion
+        ? File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Analysis", "candidate-bom-enrichment-v1.md"))
+        : version == InstructionVersion ? Instructions : throw new InvalidDataException("Unsupported instruction contract.");
     internal static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     internal static bool Active(string status) => status is "QUEUED" or "RUNNING" or "VALIDATING";
 
     internal static void Validate(DleAnalysisInput input, DleAnalysisResult result)
     {
-        if (result.ContractVersion != ResultVersion || result.Outcome != "EXTRACTED" || result.Coverage != "PARTIAL" ||
+        var enriched = input.ResultVersion == EnrichedResultVersion;
+        if (result.ContractVersion != input.ResultVersion || (!enriched && input.ResultVersion != ResultVersion) || result.Outcome != "EXTRACTED" ||
+            (enriched ? result.Coverage != "TABLES_COMPLETE" : result.Coverage != "PARTIAL") ||
             string.IsNullOrWhiteSpace(result.CoverageReason) || result.CoverageReason.Length > 2000 ||
-            result.Rows is null || result.Rows.Length is < 5 or > 10 || result.Rows.Length > input.PilotRowLimit)
+            result.Rows is null || result.Rows.Length < (enriched ? 1 : 5) || result.Rows.Length > (enriched ? 1000 : 10) || result.Rows.Length > input.PilotRowLimit)
             throw new InvalidDataException("RESULT_INVALID");
         foreach (var row in result.Rows)
         {
@@ -54,7 +82,8 @@ internal static class DleAnalysisContract
                     field.Uncertainty is null || field.Uncertainty.Length > 2000 ||
                     field.Relationship is not ("MATCH" or "CONFLICT" or "NOT_FOUND" or "NOT_COMPARED") ||
                     (field.Value is null && string.IsNullOrWhiteSpace(field.Uncertainty))) throw new InvalidDataException("RESULT_INVALID");
-                Evidence(field.Evidence, input.GoverningDocumentId, input.GoverningPage);
+                Evidence(field.Evidence, input.GoverningDocumentId, enriched ? null : input.GoverningPage);
+                if (enriched && field.Evidence.Page is null) throw new InvalidDataException("RESULT_INVALID");
                 if (field.SupportingEvidence is not null)
                 {
                     if (!input.Sources.Any(s => s.DocumentId == field.SupportingEvidence.DocumentId && s.Role == "SUPPORTING"))
@@ -68,6 +97,24 @@ internal static class DleAnalysisContract
                     var equal = field.Value.Trim() == field.SupportingValue.Trim();
                     if ((field.Relationship == "MATCH") != equal) throw new InvalidDataException("RESULT_INVALID");
                 }
+            }
+            if (!enriched && row.ManufacturerProposals is { Length: > 0 }) throw new InvalidDataException("RESULT_INVALID");
+            var proposals = row.ManufacturerProposals ?? [];
+            if (proposals.Length > 100 || proposals.Any(p => p is null) || proposals.Select(p => p.Id).Distinct().Count() != proposals.Length) throw new InvalidDataException("RESULT_INVALID");
+            foreach (var p in proposals)
+            {
+                if (p.Evidence is null || p.CustomerEvidence is null || p.GoverningEvidence is null || string.IsNullOrWhiteSpace(p.PartNumber) || p.PartNumber.Length > 200 || p.ManufacturerName?.Length > 200 ||
+                    string.IsNullOrWhiteSpace(p.Id) || p.Id.Length > 100 || p.Confidence is not ("HIGH" or "MEDIUM" or "LOW") ||
+                    p.MatchBasis is null || p.MatchBasis.Length == 0 || p.Conflicts is null || p.SourceValues is null ||
+                    p.MatchBasis.Any(x => x.Length > 1000) || p.Conflicts.Any(x => x.Length > 1000) ||
+                    p.Uncertainty?.Length > 2000 || p.SourceLabel?.Length > 200 || p.SourceValues.Count > 10 || p.SourceValues.Values.Any(x => x.Length > 2000) ||
+                    !p.SourceValues.TryGetValue("customer", out var customer) || !string.Equals(customer.Trim(), row.Fields["partNumber"].Value?.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                    !input.Sources.Any(s => s.DocumentId == p.Evidence.DocumentId && s.Profile?.DerivedAnalysisPurpose == "MANUFACTURER_ENRICHMENT"))
+                    throw new InvalidDataException("RESULT_INVALID");
+                Evidence(p.Evidence, p.Evidence.DocumentId, null);
+                Evidence(p.CustomerEvidence, p.Evidence.DocumentId, null);
+                Evidence(p.GoverningEvidence, input.GoverningDocumentId, null);
+                if (string.IsNullOrWhiteSpace(p.Evidence.Sheet) || p.GoverningEvidence != row.Fields["partNumber"].Evidence) throw new InvalidDataException("RESULT_INVALID");
             }
         }
     }
@@ -98,7 +145,7 @@ internal sealed class DleAnalysisJobService(SimRfqIntakeStore store, IAnalysisPr
                         var remaining = claimed.Value.Job.Input.DeadlineUtc - DateTimeOffset.UtcNow;
                         deadline.CancelAfter(remaining > TimeSpan.Zero ? remaining : TimeSpan.FromMilliseconds(1));
                         var response = await provider.ExecuteAnalysisJob(claimed.Value.Job.Input, claimed.Value.Documents,
-                            DleAnalysisContract.Instructions, deadline.Token);
+                            DleAnalysisContract.InstructionsFor(claimed.Value.Job.Input.InstructionVersion), deadline.Token);
                         await store.SetAnalysisState(claimed.Value.Job.Input.JobId, "VALIDATING");
                         if (response.Result.Outcome == "BLOCKED")
                         {

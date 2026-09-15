@@ -59,13 +59,21 @@ $typedCandidate = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" @
 Require ($typedCandidate.Status -eq 200 -and $typedCandidate.Body.record.technicalReview.candidateBom.rows[0].componentType -eq 'SUBASSEMBLY') 'main-table component classification persists through HTTP'
 # RFQ-scoped BOM completion: unresolved state, concurrency, immutable acceptance.
 $completion = Invoke-SimHttp $session 'POST' "$candidateBase/complete-bom-review" @{candidate=$typedCandidate.Body.record.technicalReview.candidateBom}
-if ($completion.Status -ne 409 -or $completion.Body.message -notlike '*rows:*') { Write-Host ($completion | ConvertTo-Json -Depth 5) }
-Require ($completion.Status -eq 409 -and $completion.Body.message -like '*rows:*') 'unreviewed candidate rows block completion with actionable explanation'
+if ($completion.Status -ne 409 -or $completion.Body.code -ne 'SIM_BOM_UNRESOLVED') { Write-Host ($completion | ConvertTo-Json -Depth 5) }
+Require ($completion.Status -eq 409 -and $completion.Body.code -eq 'SIM_BOM_UNRESOLVED' -and $completion.Body.message -like '*Row 2:*governing BOM fields*') 'unreviewed candidate rows block completion with actionable explanation'
 $deniedCompletion = Invoke-SimHttp $viewer 'POST' "$candidateBase/complete-bom-review" @{candidate=$typedCandidate.Body.record.technicalReview.candidateBom}
 Require ($deniedCompletion.Status -eq 403) 'BOM completion requires review permission'
 $current = $typedCandidate.Body.record.technicalReview.candidateBom
 foreach ($i in 0..($current.rows.Count-1)) {
-    $reviewed = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" @{candidateId=$candidate.id;rowIndex=$i;values=$current.rows[$i].values}
+    if ($i -eq 1) {
+        $rowApproval=@{candidateId=$candidate.id;rowIndex=$i;wholeRowApproval=@{expectedToken=$current.rows[$i].reviewState.token}}
+        $reviewed = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" $rowApproval
+        Require ($reviewed.Status -eq 200 -and $reviewed.Body.record.technicalReview.candidateBom.rows[$i].reviewState.reviewed -and $reviewed.Body.record.technicalReview.candidateBom.rows[$i].wholeRowHistory.Count -eq 1) 'whole-row HTTP approval returns the same reviewed state used by completion'
+        $rowReplay=Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" $rowApproval
+        Require ($rowReplay.Status -eq 409 -and $rowReplay.Body.code -eq 'SIM_ROW_APPROVAL_STALE') 'whole-row HTTP replay cannot silently overwrite review'
+    } else {
+        $reviewed = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" @{candidateId=$candidate.id;rowIndex=$i;values=$current.rows[$i].values}
+    }
     Require ($reviewed.Status -eq 200) "row $i confirmed for isolated completion"
 }
 $staleCompletion = Invoke-SimHttp $session 'POST' "$candidateBase/complete-bom-review" @{candidate=$current}
@@ -81,6 +89,16 @@ $repeatCompletion = Invoke-SimHttp $session 'POST' "$candidateBase/complete-bom-
 Require ($repeatCompletion.Body.record.technicalReview.bomAcceptances.Count -eq 1) 'repeated completion does not duplicate accepted versions'
 $frozen = Invoke-SimHttp $session 'PUT' "$candidateBase/candidate-bom" @{candidateId=$candidate.id;rowIndex=0;values=$current.rows[0].values}
 Require ($frozen.Status -eq 409 -and $frozen.Body.message -like '*read-only*') 'accepted candidate rejects later in-place edits'
+$rowId=if($current.rows[0].rowId){$current.rows[0].rowId}else{"$($current.id):row:0"}
+$rowTarget=@{candidateId=$current.id;rowId=$rowId;rowIndex=0;expectedToken=$current.rows[0].reviewState.token}
+$rowBytes=[Text.Encoding]::ASCII.GetBytes('G04 SYNTHETIC ROW GERBER* M02*')
+$rowAdded=Add-ReviewTestDocument $session $candidateId 'synthetic-row.gbr' 'GERBER_FILES' 'PARENT_ASSEMBLY' 'FORGED' 'FORGED' $rowBytes $true $rowTarget
+Require ($rowAdded.Status -eq 200) 'Candidate row attachment uses the existing multipart/staging endpoint'
+$rowAddedFile=$rowAdded.Body.record.technicalFiles[-1]
+Require ($rowAddedFile.reviewOrigin.rowContext.customerBomPartNumber -eq $current.rows[0].values.partNumber -and $rowAddedFile.reviewOrigin.rowContext.rowId -eq $rowId -and $rowAddedFile.reviewOrigin.rowContext.componentType -eq 'SUBASSEMBLY') 'server inherits row context and ignores forged client identity'
+Require (($rowAdded.Body.record.technicalReview.candidateBom|ConvertTo-Json -Depth 40 -Compress) -eq ($current|ConvertTo-Json -Depth 40 -Compress)) 'attaching a row file leaves Candidate decisions unchanged'
+$rowTarget.expectedToken='stale'
+Require ((Add-ReviewTestDocument $session $candidateId 'stale.gbr' 'GERBER_FILES' 'PARENT_ASSEMBLY' '' '' $rowBytes $true $rowTarget).Status -eq 409) 'stale row attachment is blocked before staging'
 $candidateSaved = Invoke-SimHttp $session 'PUT' "$candidateBase/disposition" @{disposition='NO_LONGER_REQUIRED'}
 Require ($candidateSaved.Body.record.technicalReview.candidateBom.id -eq $candidate.id) 'Save closure retains candidate review'
 $closedCandidate = Invoke-SimHttp $session 'POST' "$candidateBase/candidate-bom" $null

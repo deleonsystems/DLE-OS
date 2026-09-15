@@ -33,20 +33,17 @@ internal sealed partial class SimRfqIntakeStore
                 throw SimRfqIntakeProblem.Conflict("SIM_BOM_MISSING", "Build a Candidate BOM before completing BOM Review.");
             if (request.Candidate is null || !JsonNode.DeepEquals(ComparableSnapshot(JsonSerializer.SerializeToNode(request.Candidate, jsonOptions)), ComparableSnapshot(JsonSerializer.SerializeToNode(bom, jsonOptions))))
                 throw SimRfqIntakeProblem.Conflict("SIM_BOM_CHANGED", "The candidate changed. Reopen and review the latest version before completing BOM Review.");
-            var sources = await AnalysisDocuments(record);
+            var sources = await AnalysisDocuments(record, bom.Analysis?.SourceSnapshot.SourceSelectionVersion);
             if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status)))
                 throw SimRfqIntakeProblem.Conflict("SIM_BOM_ANALYZING", "Wait for the current analysis to finish before completing BOM Review.");
             var governing = sources.Single(s => s.Source.Role == "GOVERNING").Source;
             if (bom.GoverningDocumentId != governing.DocumentId || bom.GoverningSha256 != governing.Sha256 ||
-                (bom.Analysis is not null && JsonSerializer.Serialize(bom.Analysis.SourceSnapshot.Sources, jsonOptions) != JsonSerializer.Serialize(sources.Select(s => s.Source).ToArray(), jsonOptions)))
+                (bom.Analysis is not null && !SameAnalysisSources(bom.Analysis.SourceSnapshot, record, sources)))
                 throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "The source package changed. Build and review a new candidate before completing BOM Review.");
-            var blockers = bom.Rows.Where(row =>
-                (row.Alternates ?? []).Any(a => a.RemovedAtUtc is null && a.ReviewStatus != "CONFIRMED") ||
-                (!row.Confirmed && (SimCandidateBomProvider.Fields.Any(f => !row.Comparison.TryGetValue(f, out var comparison) || comparison != "MATCH") ||
-                    (row.AnalysisFields?.Values.Any(f => !string.IsNullOrWhiteSpace(f.Uncertainty) && !Regex.IsMatch(f.Uncertainty.Trim(), "^none[.!]?$", RegexOptions.IgnoreCase)) ?? false))))
-                .Select(row => (row.Index + 1).ToString()).ToArray();
+            var blockers = bom.Rows.Where(row => !row.ReviewState.Reviewed)
+                .Select(row => "Row " + (row.Index + 1) + ": " + string.Join(" ", row.ReviewState.Reasons)).ToArray();
             if (blockers.Length > 0)
-                throw SimRfqIntakeProblem.Conflict("SIM_BOM_UNRESOLVED", "Review and save unresolved fields or confirm alternate review on rows: " + string.Join(", ", blockers) + ".");
+                throw SimRfqIntakeProblem.Conflict("SIM_BOM_UNRESOLVED", string.Join("; ", blockers));
             var acceptances = review!.BomAcceptances ?? [];
             if (!acceptances.Any(a => a.Candidate.Id == bom.Id))
             {

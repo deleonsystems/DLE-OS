@@ -407,6 +407,7 @@ try {
     $deletedQualified = Invoke-SimHttp $session 'DELETE' "/api/sim/technical-reviews/$intakeId" $null
     Require ($deletedQualified.Status -eq 200) 'qualification selections without an independent downstream artifact do not block Delete'
 
+    . (Join-Path $PSScriptRoot 'review-document-checks.ps1')
     . (Join-Path $PSScriptRoot 'candidate-checks.ps1')
 
     Stop-Process -Id $hostProcess.Id -Force
@@ -421,6 +422,9 @@ try {
         catch { Start-Sleep -Milliseconds 100 }
     }
     Require $ready 'SIM restarts with persisted review dataset'
+    $reviewFilesRestart=(Invoke-SimHttp $session 'GET' "/api/sim/technical-reviews/$binaryId" $null).Body.record
+    Require ($reviewFilesRestart.technicalFiles[-1].reviewOrigin.documentId -eq $reviewGerber.documentId -and $reviewFilesRestart.technicalReview.technicalPackage.documents[-1].applicability -eq 'PARENT_ASSEMBLY') 'package-added metadata and scope survive full process restart'
+    Require ((Invoke-WebRequest $reviewPdfUri -WebSession $session).RawContentLength -eq $pdfBytes.Length) 'review-added binary opens after full process restart'
     $candidateRestart = Invoke-SimHttp $session 'GET' "/api/sim/technical-reviews/$candidateId" $null
     Require ($candidateRestart.Body.record.technicalReview.candidateBom.rows[0].values.partNumber -eq 'HUMAN-CORRECTION') 'candidate corrections survive process restart'
     Require ($candidateRestart.Body.record.technicalReview.candidateBom.rows[0].alternates[0].partNumber -eq 'SYNTHETIC-ALT-CORRECTED' -and $candidateRestart.Body.record.technicalReview.candidateBom.rows[0].alternates[0].history.Count -eq 2) 'alternate values and history survive full host process restart'
@@ -428,6 +432,9 @@ try {
     Require ($candidateRestart.Body.record.technicalReview.bomAcceptances[0].candidate.id -eq $candidate.id -and $candidateRestart.Body.record.technicalReview.materialsReviewStatus -eq 'QUALIFIED' -and $candidateRestart.Body.record.technicalReview.nextReviewPhase -eq 'MANUFACTURING_LABOR_REVIEW') 'accepted BOM and materials-only completion survive Save closure and full host restart'
     Require ($candidateRestart.Body.record.preliminaryAssemblyType.type -eq 'PCB_ASSEMBLY') 'preliminary assembly identification survives full host restart'
     Require ($candidateRestart.Body.record.technicalFiles[0].initialIdentification.type -eq 'DRAWING_AND_BOM') 'preliminary document identification survives full host restart'
+    Require ($candidateRestart.Body.record.technicalFiles[-1].reviewOrigin.rowContext.candidateId -eq $candidate.id) 'row attachment context survives full host restart'
+    $rowBinaryRestart=Invoke-WebRequest "$baseUri/api/sim/rfq-intakes/$candidateId/documents/$($rowAddedFile.documentId)" -WebSession $session
+    Require ($rowBinaryRestart.RawContentLength -eq $rowBytes.Length) 'row-attached staged binary opens after host restart'
     $candidateDeleted = Invoke-SimHttp $session 'DELETE' "/api/sim/technical-reviews/$candidateId" $null
     Require ($candidateDeleted.Status -eq 200) 'candidate-only state remains early-stage deletable for isolated fixture cleanup'
     $deletedAfterRestart = Invoke-SimHttp $session 'GET' "/api/sim/rfq-intakes/$deleteId" $null

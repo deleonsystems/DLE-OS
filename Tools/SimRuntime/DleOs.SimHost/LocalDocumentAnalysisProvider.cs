@@ -25,10 +25,12 @@ internal sealed class PolicyAnalysisProvider(IAnalysisProvider hosted, IAnalysis
     }
 }
 
-internal sealed class LocalDocumentAnalysisProvider : IAnalysisProvider
+internal sealed class LocalDocumentAnalysisProvider(string? stateRoot = null) : IAnalysisProvider
 {
     public async Task<DleAnalysisResponse> ExecuteAnalysisJob(DleAnalysisInput input, DleAnalysisDocument[] documents, string instructions, CancellationToken cancellationToken)
     {
+        if (input.ResultVersion == DleAnalysisContract.EnrichedResultVersion)
+            return await LocalBomEnrichment.Execute(input, documents, cancellationToken, stateRoot);
         var governing = documents.SingleOrDefault(d => d.Source.DocumentId == input.GoverningDocumentId);
         if (input.ProviderRoute != DleAnalysisPolicy.Local || governing is null || governing.Source.MimeType != "application/pdf" ||
             documents.Any(d => DleAnalysisContract.Hash(d.Bytes) != d.Source.Sha256))

@@ -45,7 +45,7 @@ await File.WriteAllTextAsync(runtimeMetadataPath, JsonSerializer.Serialize(new
 }, new JsonSerializerOptions { WriteIndented = true }));
 
 var builder = WebApplication.CreateBuilder();
-builder.Services.AddSingleton<IAnalysisProvider>(new PolicyAnalysisProvider(new CodexAppServerAnalysisProvider(runtime.StateRoot), new LocalDocumentAnalysisProvider()));
+builder.Services.AddSingleton<IAnalysisProvider>(new PolicyAnalysisProvider(new CodexAppServerAnalysisProvider(runtime.StateRoot), new LocalDocumentAnalysisProvider(runtime.StateRoot)));
 builder.Services.AddSingleton(rfqIntakes);
 builder.Services.AddHostedService<DleAnalysisJobService>();
 builder.Logging.ClearProviders();

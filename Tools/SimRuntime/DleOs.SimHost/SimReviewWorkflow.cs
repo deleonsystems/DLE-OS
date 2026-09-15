@@ -9,13 +9,19 @@ internal sealed record SimQuotationInputs(string Status, string MaterialsTarget,
 internal sealed record SimReviewWorkflow(string Version = "PACKAGE_REVIEW_V1", bool PackageConfirmed = false,
     bool Sufficient = false, bool HistoryReviewed = false, string? HoldReason = null,
     SimManufacturingDefinition? Manufacturing = null, SimQuotationInputs? Outputs = null,
-    SimReviewEvent[]? Events = null);
+    SimReviewEvent[]? Events = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ManufacturingDrawingId = null);
 internal sealed record SimWorkflowRequest(string Action, string? Needed = null, string? GoverningDocumentId = null,
     bool NothingMissing = false);
 
 internal sealed partial class SimRfqIntakeStore
 {
-    private static object WorkflowEnvelope(SimRfqIntakeRecord record) => new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+    internal static string[] ManufacturingDrawingIds(SimRfqIntakeRecord record) => (record.TechnicalReview?.TechnicalPackage?.Documents ?? []).Where(d =>
+        d.DocumentType == "ASSEMBLY_DRAWING" &&
+        ((d.Role == "GOVERNING" && d.Applicability == "PARENT_ASSEMBLY") ||
+         (d.IdentityReview?.Type is "DRAWING" or "DRAWING_AND_BOM" && d.Role == "UNRESOLVED" && d.Applicability is "PARENT_ASSEMBLY" or "SUPPORTING_REFERENCE" && string.IsNullOrWhiteSpace(d.SubassemblyPartNumber))))
+        .Select(d => d.DocumentId).ToArray();
+    private static object WorkflowEnvelope(SimRfqIntakeRecord record) => new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), manufacturingDrawingIds = ManufacturingDrawingIds(record), record };
     private static void RequireWorkflowMaterials(SimRfqIntakeRecord record)
     {
         if (record.TechnicalReview?.Workflow is { } w &&
@@ -67,6 +73,8 @@ internal sealed partial class SimRfqIntakeStore
                 }
                 else if (request.Action == "SUFFICIENT")
                 {
+                    if (review.TechnicalPackage?.Documents.Any(d => d.IdentityReview is not null || d.PartNumberReview is not null) == true)
+                        SimTechnicalPackageProvider.RequirePartNumberReview(review.TechnicalPackage.Documents);
                     if (!w.PackageConfirmed || review.TechnicalPackage is null)
                         throw SimRfqIntakeProblem.Conflict("SIM_PACKAGE_REQUIRED", "Confirm the technical package first.");
                     w = w with { Sufficient = true };
@@ -77,6 +85,17 @@ internal sealed partial class SimRfqIntakeStore
                     var history = review.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record);
                     review = review with { AssemblyHistory = history with { AssemblyClassification = history.HistoryFound ? "EXISTING_ASSEMBLY" : "NEW_ASSEMBLY", ConfirmedBy = persona.DisplayName, ConfirmedAtUtc = now } };
                     w = w with { HistoryReviewed = true };
+                }
+                else if (request.Action == "SELECT_MANUFACTURING_DRAWING")
+                {
+                    if (!w.Sufficient || !w.HistoryReviewed || w.Manufacturing is not null || review.TechnicalPackage is not { } pack ||
+                        !ManufacturingDrawingIds(record).Contains(request.GoverningDocumentId))
+                        throw SimRfqIntakeProblem.Conflict("SIM_MANUFACTURING_DRAWING", "Select a reviewed parent assembly drawing after package and history review.");
+                    var file = record.TechnicalFiles.SingleOrDefault(f => f.DocumentId == request.GoverningDocumentId && f.BinaryStatus == "VERIFIED")
+                        ?? throw SimRfqIntakeProblem.Conflict("SIM_MANUFACTURING_BINARY", "The drawing requires a verified staged file.");
+                    await documents.Verify(record.RequestCorrelationId, file, record.CreatedBy);
+                    review = review with { TechnicalPackage = pack with { Documents = pack.Documents.Select(d => d.DocumentId == request.GoverningDocumentId ? d with { Role = "GOVERNING", Applicability = "PARENT_ASSEMBLY" } : d).ToArray() } };
+                    w = w with { ManufacturingDrawingId = request.GoverningDocumentId };
                 }
                 else if (request.Action == "MANUFACTURING")
                 {
@@ -107,14 +126,16 @@ internal sealed partial class SimRfqIntakeStore
                         JsonSerializer.Serialize(accepted.Package.Documents, jsonOptions) != JsonSerializer.Serialize(review.TechnicalPackage?.Documents, jsonOptions) ||
                         accepted.Package.GoverningBomDocumentId != review.TechnicalPackage?.GoverningBomDocumentId)
                         throw SimRfqIntakeProblem.Conflict("SIM_DEFINITIONS_REQUIRED", "Complete both definitions using the current package before releasing Technical Review.");
-                    await AnalysisDocuments(record);
+                    var releaseSources = await AnalysisDocuments(record, accepted.Candidate.Analysis?.SourceSnapshot.SourceSelectionVersion);
+                    if (accepted.Candidate.Analysis is { } analysis && !SameAnalysisSources(analysis.SourceSnapshot, record, releaseSources))
+                        throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "The accepted source snapshot changed. Rebuild and review before release.");
                     w = w with { Outputs = new("READY", "QUOTATION_MATERIALS", accepted, "QUOTATION_LABOR", w.Manufacturing!, persona.DisplayName, now) };
                     record = record with { Status = "READY_FOR_RFQ_WORKING_QUEUE" };
                     review = review with { Disposition = "TECHNICAL_REVIEW_COMPLETE", DownstreamHandoffTarget = "QUOTATION_INPUTS", DownstreamHandoffState = "READY" };
                 }
                 else throw SimRfqIntakeProblem.BadRequest("SIM_WORKFLOW_ACTION", "Unsupported review action.");
             }
-            w = w! with { Events = (w!.Events ?? []).Append(new(request.Action, request.Action == "HOLD" ? request.Needed?.Trim() : null, persona.DisplayName, now)).ToArray() };
+            w = w! with { Events = (w!.Events ?? []).Append(new(request.Action, request.Action == "HOLD" ? request.Needed?.Trim() : request.Action == "SELECT_MANUFACTURING_DRAWING" ? request.GoverningDocumentId : null, persona.DisplayName, now)).ToArray() };
             review = review with { Workflow = w, ReviewStatus = record.Status, ReviewedBy = persona.DisplayName, ReviewedAtUtc = now,
                 ReviewPhaseOrder = ["MANUFACTURING_DEFINITION", "MATERIAL_BOM_DEFINITION"],
                 ManufacturingReviewStatus = w.Manufacturing is null ? "IN_PROGRESS" : "COMPLETE" };

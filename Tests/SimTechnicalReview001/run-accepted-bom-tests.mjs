@@ -50,7 +50,7 @@ for (const version of [1, 2, 1]) {
   assert.match(html(), new RegExp('id="acceptedBomTitle"[^>]*>Accepted BOM Version ' + version));
   assert.match(html(), new RegExp('ACCEPTED-' + version));
   assert.doesNotMatch(html(), new RegExp('ACCEPTED-' + (version === 1 ? 2 : 1) + '|EDITABLE-CURRENT'));
-  for (const label of ['Line', 'Part Number', 'Alternate Part(s)', 'Qty / Assy', 'Component Type', 'Designators', 'Description', 'Status']) assert.ok(html().includes('>' + label + '</th>'));
+  for (const label of ['Line', 'Customer / BOM P/N', 'Proposed MFG P/N', 'Alternate Part(s)', 'Qty / Assy', 'Component Type', 'Designators', 'Description', 'Status']) assert.ok(html().includes('>' + label + '</th>'));
   for (const value of ['ALT-A', 'ALT-B', 'Subassembly', 'Reviewer ' + version, '2026-09-11T10:00:00Z', 'Source / History', 'saved-hash']) assert.ok(html().includes(value), value);
   assert.doesNotMatch(html(), /<input|<select|<textarea|Edit \/ Add Details|candidate-confirm|alternate-add|alternate-edit|alternate-remove|complete-bom/);
 }

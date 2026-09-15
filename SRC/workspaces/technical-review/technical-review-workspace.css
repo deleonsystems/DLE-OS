@@ -23,7 +23,8 @@
 .technical-review-candidate-field input { padding: .55rem; width: 100%; box-sizing: border-box; }
 .technical-review-analysis-progress{margin:0 0 18px;padding:14px 18px;background:#122239;border:1px solid #355373;border-radius:12px}.technical-review-analysis-progress p{margin:4px 0;line-height:1.5}.technical-review-analysis-progress p+ p{color:#b7c7dc;font-size:14px}.analysis-activity{display:inline-block;width:8px;height:8px;margin-right:9px;border-radius:50%;background:#94a3b8}.analysis-activity.is-running{background:#60a5fa;animation:analysis-pulse 1.5s ease-in-out infinite}.analysis-running-label{margin-left:8px;color:#93c5fd;font-size:12px}.candidate-summary{font-weight:600;color:#dbeafe}.candidate-review-note{color:#b8c5d8;font-size:14px;line-height:1.5}.candidate-table-scroll{overflow-x:auto;margin:18px 0;border:1px solid #334155;border-radius:10px}.candidate-table{width:100%;border-collapse:collapse;min-width:690px;font-size:14px}.candidate-table th{text-align:left;background:#17243a;color:#aebfd7;font-size:12px;letter-spacing:.03em;padding:12px}.candidate-table td{padding:14px 12px;border-top:1px solid #334155;vertical-align:top;line-height:1.45}.candidate-table tbody tr:not(.candidate-detail-row):hover{background:#152139}.candidate-part{font-weight:700;white-space:nowrap}.candidate-status{display:inline-block;white-space:nowrap;padding:3px 8px;border-radius:5px;background:#334155;color:#e2e8f0;font-size:12px;font-weight:700}.candidate-status[data-status="Match"]{background:#14372f;color:#a7e4c9}.candidate-status[data-status="Conflict"]{background:#4c2530;color:#ffc0c7}.candidate-status[data-status="Uncertain"]{background:#493918;color:#f6d998}.candidate-status[data-status="Manually Corrected"]{background:#233d64;color:#b7d5ff}.candidate-table td small{display:block}.candidate-details-button{display:block;margin-top:8px;padding:3px 0;border:0;background:transparent;color:#a9ccff;text-decoration:underline;font:inherit;font-size:13px;cursor:pointer}.candidate-detail-row{background:#152238}.candidate-detail-row h4{margin:4px 0 12px}.candidate-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}.candidate-edit-grid .technical-review-candidate-field{margin:0 0 14px}.candidate-edit-grid label:last-child{grid-column:1/-1}.candidate-evidence,.candidate-analysis-details{margin:16px 0;color:#b9c8da;overflow-wrap:anywhere}.candidate-evidence summary,.candidate-analysis-details summary{cursor:pointer;color:#c7d8ed}.candidate-evidence-field{padding:12px 0;border-bottom:1px solid #334155}.candidate-evidence-field p{margin:5px 0}.candidate-evidence-field small{display:block;line-height:1.6}.candidate-sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@keyframes analysis-pulse{50%{opacity:.35}}@media(prefers-reduced-motion:reduce){.analysis-activity.is-running{animation:none}}@media(max-width:640px){.candidate-edit-grid{grid-template-columns:1fr}.candidate-table-scroll{margin-inline:-6px}}
 .candidate-table{min-width:850px}.candidate-alternates{margin:20px 0;padding:16px;border:1px solid #40536b;border-radius:8px}.candidate-alternates>p{color:#b8c5d8;font-size:13px}.candidate-alternate{display:grid;grid-template-columns:minmax(160px,1fr) minmax(150px,1fr) auto auto;gap:10px;align-items:end;padding:12px 0;border-bottom:1px solid #40536b}.candidate-alternates label{display:flex;flex-direction:column;gap:6px}.candidate-alternates input,.candidate-alternates select{box-sizing:border-box;max-width:100%;padding:8px;background:#0f172a;color:#e2e8f0;border:1px solid #64748b;border-radius:4px}.candidate-alternate details{grid-column:1/-1;font-size:13px;overflow-wrap:anywhere}.candidate-alternates>label{margin-top:12px;max-width:350px}.candidate-alternates>button{margin-top:8px}.candidate-alternate-removed{margin:12px 0;color:#b8c5d8}@media(max-width:900px){.candidate-alternate{grid-template-columns:1fr 1fr}}
-.technical-review-question.technical-review-candidate{max-width:1100px}
+.technical-review-view > *{min-width:0}
+.technical-review-question.technical-review-candidate{max-width:1100px;min-width:0;box-sizing:border-box}
 .candidate-component-type{max-width:135px;padding:6px;background:#0f172a;color:#e2e8f0;border:1px solid #64748b;border-radius:4px;font:inherit;font-size:12px}.candidate-table{min-width:940px}.candidate-table td,.candidate-table th{padding-inline:8px}
 .candidate-detail-row .candidate-edit-grid{display:grid;grid-template-columns:140px 60px minmax(140px,1fr) 70px minmax(110px,1fr);gap:8px 12px;align-items:end}.candidate-detail-row .technical-review-candidate-field{margin:0;font-size:12px;gap:4px}.candidate-detail-row .candidate-field-description{grid-column:1/-1}.candidate-detail-row .candidate-edit-grid input,.candidate-detail-row .candidate-component-type{height:32px;padding:5px 7px;font-size:13px}.candidate-detail-row h4{font-size:14px;margin:0 0 10px}.candidate-detail-row .candidate-alternates{margin:12px 0;padding:0;border:0}.candidate-detail-row .candidate-alternates h4{margin-bottom:4px}.candidate-detail-row .candidate-alternate{grid-template-columns:minmax(150px,1fr) 165px auto auto;gap:8px;padding:6px 0}.candidate-detail-row .candidate-alternate label,.candidate-alternate-add label{font-size:12px;gap:3px}.candidate-detail-row .candidate-alternate input,.candidate-detail-row .candidate-alternate select,.candidate-alternate-add input{padding:5px 7px;height:32px}.candidate-alternate-add{display:flex;gap:8px;align-items:end;max-width:460px;margin-top:6px}.candidate-alternate-add label{flex:1}.candidate-detail-row button{padding:6px 10px;font-size:12px;min-height:32px}.candidate-editor-actions{display:flex;align-items:center;gap:8px;margin:10px 0 8px;flex-wrap:wrap}.candidate-editor-actions small,.candidate-alternates>small{font-size:11px;color:#b8c5d8}.candidate-detail-row .candidate-evidence{margin:8px 0 0;font-size:12px}.candidate-detail-row .candidate-evidence summary{font-size:12px}@media(max-width:760px){.candidate-detail-row .candidate-edit-grid{grid-template-columns:repeat(3,minmax(100px,1fr))}.candidate-detail-row .candidate-alternate{grid-template-columns:1fr 1fr auto auto}}
 
@@ -51,3 +52,66 @@
 .technical-review-completed dt { font-weight:600; margin-top:10px; }
 .technical-review-completed dd { margin:3px 0 10px 16px; }
 .technical-review-completed .technical-review-question { min-width:0; max-width:100%; }
+
+.package-review-table .package-table-scroll { overflow-x:auto; }
+.package-review-table table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:14px; }
+.package-review-table th, .package-review-table td { padding:10px; border-bottom:1px solid #405164; text-align:left; vertical-align:top; overflow-wrap:anywhere; }
+.package-review-table th:nth-child(1) { width:25%; }
+.package-review-table th:nth-child(2) { width:17%; }
+.package-review-table th:nth-child(3) { width:28%; }
+.package-review-table th:nth-child(4) { width:12%; }
+.package-review-table small { display:block; margin-top:5px; }
+.package-row-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.package-review-table button { padding:6px 10px; }
+.package-review-table select, .package-review-table input:not([type=checkbox]) { max-width:100%; width:100%; }
+.package-review-table .package-row-context { margin-top:8px; }
+.package-review-table .technical-review-package-fields { display:block; }
+.package-review-table .technical-review-package-fields label { display:block; margin-top:8px; }
+.package-page-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:18px; }
+@media(max-width:750px) { .package-review-table table { min-width:720px; } }
+.package-review-table { min-width:0; max-width:100%; box-sizing:border-box; }
+.package-review-table .package-row-actions button { border:1px solid #64788f; border-radius:5px; background:#20364c; color:#f0f6fc; }
+.package-review-table a { color:#9dceff; text-decoration:underline; }
+.package-review-table .package-page-actions > button { width:auto; margin:0; }
+@media(max-width:750px) { .package-review-table table { min-width:0; font-size:12px; } .package-review-table th,.package-review-table td { padding:7px 4px; } }
+.package-review-table th:nth-child(3) { width:12%; }
+.package-review-table th:nth-child(4) { width:28%; }
+.package-pn-question { display:block; margin-top:8px; font-size:12px; }
+.package-review-table .package-pn-question select { min-height:30px; height:32px; padding:4px 6px; font-size:12px; border-radius:5px; }
+.manufacturer-summary { min-width: 160px; overflow-wrap: anywhere; }
+.manufacturer-quick{display:grid;gap:6px;margin:6px 0;max-width:180px}
+.manufacturer-quick button{justify-self:start;padding:5px 10px;border:1px solid #60a5fa;border-radius:5px;background:#1e40af;color:#fff;cursor:pointer;font:inherit;font-size:12px}
+.manufacturer-quick button:disabled{opacity:.5;cursor:wait}
+.manufacturer-confirmed{display:block;margin:6px 0;color:#86efac}
+.manufacturer-summary small, .manufacturer-proposals > small { display: block; margin-top: 6px; }
+.manufacturer-proposal { padding: 12px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 6px; }
+.manufacturer-proposal p { margin: 6px 0; overflow-wrap: anywhere; }
+.review-document-upload { margin:16px 0; padding:16px; border:1px solid #64788f; border-radius:8px; }
+.review-document-upload fieldset { min-width:0; margin:14px 0; padding:12px; border:1px solid #64788f; }
+.review-document-upload legend { overflow-wrap:anywhere; max-width:100%; }
+.review-file-drop { position:relative; display:grid; min-height:132px; padding:24px; place-content:center; text-align:center; border:2px dashed #64788f; border-radius:13px; background:#16283c; color:#f0f6fc; cursor:pointer; transition:border-color .15s,background .15s,transform .15s; }
+.review-file-drop:hover, .review-file-drop:focus-within, .review-file-drop.is-dragging { border-color:#9dceff; background:#203c57; }
+.review-file-drop:focus-within { outline:2px solid #9dceff; outline-offset:3px; }
+.review-file-drop.is-dragging { transform:translateY(-1px); }
+.review-file-drop[aria-disabled=true] { opacity:.55; cursor:wait; }
+.package-review-table .review-file-drop input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
+.review-file-drop span { font-weight:800; }
+.row-technical-files { margin-top:20px; border-top:1px solid #64788f; padding-top:12px; min-width:0; }
+.row-technical-file { margin:12px 0; padding:12px; border:1px solid #64788f; border-radius:6px; overflow-wrap:anywhere; }
+.row-technical-file small { display:block; margin:6px 0; }
+.row-technical-file a { color:#9dceff; }
+.row-technical-files .review-file-drop input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
+.row-technical-files .technical-review-package-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+.row-technical-files .technical-review-package-fields label { display:block; min-width:0; }
+.row-technical-files .technical-review-package-fields input, .row-technical-files select { width:100%; box-sizing:border-box; }
+.review-document-upload fieldset { overflow-wrap:anywhere; }
+.package-review-table .review-document-upload .technical-review-package-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+/* Keep secondary row tools compact until the reviewer opens them. */
+.candidate-detail-row .candidate-secondary, .candidate-detail-row .row-technical-files { margin-top:12px; padding-top:8px; }
+.candidate-detail-row summary { cursor:pointer; color:#9dceff; }
+.candidate-detail-row .manufacturer-proposal { padding:8px; margin:6px 0; }
+.candidate-detail-row .manufacturer-proposals h4, .row-technical-files h4 { margin:6px 0; }
+.row-technical-files { max-width:min(100%,calc(100vw - 100px)); }
+.row-technical-files > span { color:#b8c6d6; font-size:13px; margin-right:12px; }
+.row-technical-files .row-add-file { padding:5px 12px; margin:6px 0; }
+.row-file-list { margin:8px 0; }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+PackageIdentityChecks.Run();
 var root = Path.Combine(Path.GetTempPath(), "dle-analysis-tests-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(Path.Combine(root, "data"));
 var json = DleAnalysisContract.Json;
@@ -17,12 +18,40 @@ Environment.SetEnvironmentVariable("DLE_OS_SIM_ANALYSIS_APPROVED_SHA256", DleAna
 var record = new { intakeId = "RFQI-SIM-0001", requestCorrelationId = correlation, environment = "SIM", intakeType = "NEW_QUOTE_REQUEST", handoffTarget = "Technical Review", status = "TECHNICAL_REVIEW_IN_PROGRESS",
     schema = "DLE_RFQ_INTAKE_V1", createdBy = persona.DisplayName, assemblies = new[] { new { lineNumber = 1, assemblyNumber = "DEMO-ASSEMBLY", revision = "A", quantity = 2 } },
     technicalFiles = new[] { governing, supporting }, technicalReview = new { reviewStatus = "TECHNICAL_REVIEW_IN_PROGRESS", disposition = "START_TECHNICAL_REVIEW",
-        assemblyHistory = new { assemblyClassification = "EXISTING_ASSEMBLY" }, technicalPackage = new { governingBomDocumentId = governing.DocumentId,
+        assemblyHistory = new { assemblyClassification = "EXISTING_ASSEMBLY" }, technicalPackage = new { governingBomDocumentId = governing.DocumentId, reviewedBy = persona.DisplayName, reviewedAtUtc = DateTimeOffset.UtcNow,
             documents = new[] { new { documentId = governing.DocumentId, name = governing.Name, documentType = "ASSEMBLY_DRAWING", role = "GOVERNING", applicability = "PARENT_ASSEMBLY", embeddedBom = true },
                 new { documentId = supporting.DocumentId, name = supporting.Name, documentType = "BOM", role = "SUPPORTING", applicability = "PARENT_ASSEMBLY", embeddedBom = false } } } } };
 var dataPath = Path.Combine(root, "data", "rfq-intakes.json");
 await File.WriteAllTextAsync(dataPath, JsonSerializer.Serialize(new { schema = "DLE_RFQ_INTAKE_DATASET_V1", records = new[] { record } }, json));
 void Check(bool condition, string name) { if (!condition) throw new Exception("FAIL: " + name); Console.WriteLine("PASS: " + name); }
+var beforePnReview = await File.ReadAllTextAsync(dataPath);
+try {
+    var pnData=JsonNode.Parse(beforePnReview)!;pnData["records"]![0]!["technicalReview"]!["workflow"]=new JsonObject();
+    await File.WriteAllTextAsync(dataPath,pnData.ToJsonString());
+    var pnRecord=JsonSerializer.Deserialize<SimRfqIntakeRecord>(pnData["records"]![0]!.ToJsonString(),json)!;
+    var pnDocs=pnRecord.TechnicalReview!.TechnicalPackage!.Documents.Select((d,i)=>d with {IdentityReview=new(i==0?"DRAWING_AND_BOM":"BOM_ONLY"),PartNumberReview=new(i==0?"CUSTOMER_INTERNAL":"MANUFACTURER",i==1)}).ToArray();
+    await store.ReviewMaterialsAsync(record.intakeId,persona,new(pnDocs,governing.DocumentId),true);
+    var reloaded=JsonSerializer.SerializeToNode(await new SimRfqIntakeStore(root).ReadTechnicalReviewAsync(record.intakeId),json)!;
+    var savedPn=reloaded["record"]!["technicalReview"]!["technicalPackage"]!["documents"]!;
+    Check(savedPn[0]!["partNumberReview"]!["basis"]!.GetValue<string>()=="CUSTOMER_INTERNAL" && savedPn[1]!["partNumberReview"]!["providesManufacturerPartNumbers"]!.GetValue<bool>(),"P/N basis and explicit source survive verified save and new store instance");
+    var drawingData=JsonNode.Parse(await File.ReadAllTextAsync(dataPath))!;
+    var dr=drawingData["records"]![0]!;dr["technicalReview"]!["workflow"]!["sufficient"]=true;dr["technicalReview"]!["workflow"]!["historyReviewed"]=true;
+    var dp=dr["technicalReview"]!["technicalPackage"]!;dp["governingBomDocumentId"]=null;dp["documents"]![0]!["role"]="UNRESOLVED";dp["documents"]![0]!["applicability"]="SUPPORTING_REFERENCE";
+    await File.WriteAllTextAsync(dataPath,drawingData.ToJsonString());
+    var drawingRecord=JsonSerializer.Deserialize<SimRfqIntakeRecord>(dr.ToJsonString(),json)!;
+    Check(SimRfqIntakeStore.ManufacturingDrawingIds(drawingRecord).SequenceEqual(new[]{governing.DocumentId!}),"reviewed drawing with unresolved defaults eligible; BOM-only excluded");
+    foreach(var context in new[]{("SUPPORTING","PARENT_ASSEMBLY"),("REFERENCED","PARENT_ASSEMBLY"),("UNRESOLVED","SUBASSEMBLY")}) {
+        var blocked=drawingRecord with {TechnicalReview=drawingRecord.TechnicalReview! with {TechnicalPackage=drawingRecord.TechnicalReview!.TechnicalPackage! with {Documents=drawingRecord.TechnicalReview.TechnicalPackage.Documents.Select((d,i)=>i==0?d with {Role=context.Item1,Applicability=context.Item2}:d).ToArray()}}};
+        Check(SimRfqIntakeStore.ManufacturingDrawingIds(blocked).Length==0,"explicit supporting/reference/subassembly context excluded");
+    }
+    await store.WorkflowAsync(record.intakeId,new("SELECT_MANUFACTURING_DRAWING",GoverningDocumentId:governing.DocumentId),persona);
+    var selectedDrawing=JsonSerializer.SerializeToNode(await new SimRfqIntakeStore(root).ReadTechnicalReviewAsync(record.intakeId),json)!;
+    Check(selectedDrawing["record"]!["technicalReview"]!["workflow"]!["manufacturingDrawingId"]!.GetValue<string>()==governing.DocumentId && selectedDrawing["record"]!["technicalReview"]!["technicalPackage"]!["documents"]![0]!["role"]!.GetValue<string>()=="GOVERNING","explicit drawing selection saves context and survives store restart");
+    try{await store.WorkflowAsync(record.intakeId,new("SELECT_MANUFACTURING_DRAWING",GoverningDocumentId:supporting.DocumentId),persona);throw new Exception("BOM-only selection accepted");}catch(SimRfqIntakeProblem){}
+} finally { await File.WriteAllTextAsync(dataPath,beforePnReview); }
+await AnalysisMetadataChecks.Run(root, dataPath, persona);
+await SourceSelectionChecks.Run(root, dataPath, persona);
+await EnrichmentChecks.Run(root, dataPath, persona);
 var job = await store.SubmitAnalysis(record.intakeId, persona);
 Check(job.Status == "QUEUED" && (await new SimRfqIntakeStore(root).LatestAnalysis(record.intakeId))?.Input.JobId == job.Input.JobId, "queued job survives new store instance");
 Check((await store.SubmitAnalysis(record.intakeId, persona)).Input.JobId == job.Input.JobId, "duplicate submit reuses active job");
@@ -116,6 +145,7 @@ await store.SetAnalysisState(pendingCompletionJob.Input.JobId, "FAILED");
 var acceptedSnapshot = JsonSerializer.Serialize(Current(), json);
 await store.CompleteBomReview(record.intakeId, new(Current()), persona);
 Check(Data()["records"]![0]!["technicalReview"]!["materialsReviewStatus"]!.GetValue<string>() == "QUALIFIED", "bridge candidate materials completion persists");
+await ReviewDocumentChecks.Run(root, dataPath, persona);
 var next = await store.SubmitAnalysis(record.intakeId, persona); await store.ClaimAnalysisJob(); await store.SetAnalysisState(next.Input.JobId, "VALIDATING"); await store.PublishAnalysis(next.Input.JobId, result);
 Check(JsonSerializer.Serialize(Data()["records"]![0]!["technicalReview"]!["bomAcceptances"]![0]!["candidate"]!.Deserialize<SimCandidateBom>(json), json) == acceptedSnapshot, "later analysis leaves accepted snapshot unchanged");
 Check(Data()["records"]![0]!["technicalReview"]!["materialsReviewStatus"] is null, "new candidate requires materials review again");

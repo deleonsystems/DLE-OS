@@ -46,7 +46,8 @@ internal sealed class SimIntakeDocuments(string stateRoot)
             await File.WriteAllBytesAsync(path, bytes);
             if (Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(path))) != hash) throw new IOException("SIM document verification failed.");
             var extension = Path.GetExtension(name).ToLowerInvariant();
-            var type = extension == ".pdf" && bytes.AsSpan().StartsWith("%PDF-"u8) ? "application/pdf" : extension == ".xls" ? "application/vnd.ms-excel" : "application/octet-stream";
+            var type = extension == ".pdf" && bytes.AsSpan().StartsWith("%PDF-"u8) ? "application/pdf" : extension == ".xls" ? "application/vnd.ms-excel" :
+                extension == ".xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/octet-stream";
             var doc = new SimRfqIntakeDocument(name, bytes.Length, type, lastModified, id, "VERIFIED", $"sim-document:{draft}:{id}", DateTimeOffset.UtcNow);
             var manifestPath = FilePath(draft, id, ".json");
             var manifest = new Manifest(owner, doc, hash);

@@ -1,0 +1,25 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+let request;
+const window={fetch:async(url,options)=>{request=JSON.parse(options.body);return {ok:false,json:async()=>({message:'synthetic failure'})}}};
+const document={addEventListener(){},getElementById(){return null;}};
+const source=fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js',import.meta.url),'utf8')
+ .replace('})(window, document);','window.test={state,renderManufacturer,manufacturerSummary,reviewManufacturer}; })(window, document);');
+vm.runInNewContext(source,{window,document,setTimeout,clearTimeout,setInterval,clearInterval});
+const t=window.test;
+const evidence={documentId:'sheet',sheet:'Synthetic',location:'G2'};
+const row={manufacturerIdentity:{state:'PROPOSED',revision:2,history:[],uncertainty:'Review required',proposals:[{id:'p1',partNumber:'<unsafe>',manufacturerName:'Test',evidence,customerEvidence:evidence,governingEvidence:{documentId:'pdf',page:2,location:'BOM row 1'},sourceLabel:'Manufacturer Part Number',matchBasis:['Exact customer P/N'],conflicts:['quantity differs'],sourceValues:{customer:'CUSTOMER-1'},confidence:'MEDIUM',uncertainty:'Human review required'}]}};
+t.state.selected={record:{intakeId:'SYNTHETIC',status:'TECHNICAL_REVIEW_IN_PROGRESS',technicalReview:{candidateBom:{id:'candidate',rows:[row]}}}};
+t.state.candidateIndex=0;
+let html=t.renderManufacturer(row);
+assert.match(html,/Confirm mapping/);assert.match(html,/Reject mapping/);assert.match(html,/Synthetic · G2/);
+assert.match(html,/quantity differs/);assert.match(html,/&lt;unsafe&gt;/);assert.doesNotMatch(html,/<unsafe>/);
+assert.doesNotMatch(t.renderManufacturer(row,true),/<button/);
+assert.match(t.renderManufacturer({...row,manufacturerIdentity:{...row.manufacturerIdentity,stale:true}}),/disabled/);
+const before=JSON.stringify(row);
+await t.reviewManufacturer('p1','CONFIRMED');
+assert.deepEqual(request,{candidateId:'candidate',rowIndex:0,manufacturerChange:{proposalId:'p1',decision:'CONFIRMED',expectedRevision:2}});
+assert.equal(JSON.stringify(row),before);assert.equal(t.state.saving,false);
+request=null;t.state.step='accepted-bom';await t.reviewManufacturer('p1','REJECTED');assert.equal(request,null);
+console.log('PASS: manufacturer proposals show separate evidence, escaped values, explicit review, concurrency revision, failed-write preservation and read-only guards.');

@@ -115,3 +115,30 @@ The accepted table stays readable with Source / History, including after restart
 The offline analysis suite covers blocked, accepted, and later-version cases;
 the Technical Review HTTP suite covers permissions, concurrent changes, exact
 snapshot preservation, read-only enforcement and full host restart persistence.
+# Local manufacturer enrichment
+
+New local jobs with reviewed manufacturer-enrichment sources use result contract
+`DLE_CANDIDATE_ANALYSIS_RESULT_V2` and instructions `CANDIDATE_BOM_ENRICHMENT_V1`.
+The input remains V2 with its pinned source-selection policy. Legacy jobs retain
+their original parser, result contract and snapshot semantics.
+
+Run `Tools/SimRuntime/Install-SimAnalysisDependencies.ps1` once to install pinned
+xlrd 2.0.2 inside ignored `.sim-state/analysis-python-packages`. The bundled Python
+provides pdfplumber and openpyxl. `DLE_OS_SIM_ANALYSIS_PACKAGES` can point an isolated
+test process at the dependency directory; no source binaries are stored there.
+
+The local adapter reads complete recognized PDF BOM tables (maximum 1,000 rows,
+50 PDF pages), plus bounded XLS/XLSX tables (20 sheets, 10,000 rows, 100 columns;
+XLSX expanded content limited to 50 MB). It never evaluates formulas/macros/links.
+Customer P/N exact matching precedes Find/line disambiguation. Manufacturer and
+alternate-number columns create identity proposals, never approved alternates.
+Unreadable or unrecognized enrichment is explicitly NOT PROCESSED.
+
+Candidate V4 adds optional manufacturer proposals, cell/page evidence, uncertainty,
+revisioned human decisions and audit history. Governing edits stale the mappings.
+Acceptance requires resolving proposed mappings and retains both identities in
+its immutable snapshot. Existing Material Quotation fields are unchanged.
+
+`EnrichmentChecks` tests synthetic XLSX extraction, ambiguity, unmatched/foreign
+rows, conflicts, evidence validation, review concurrency and accepted persistence.
+`run-manufacturer-review-tests.mjs` covers rendering, escaping, requests and readonly UI.

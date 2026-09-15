@@ -3,7 +3,32 @@ using System.Text.Json;
 
 internal sealed partial class SimRfqIntakeStore
 {
-    private async Task<DleAnalysisDocument[]> AnalysisDocuments(SimRfqIntakeRecord record)
+    // Pure projection: no document reads, inferred reviewer decisions, or source-selection changes.
+    internal static DleDocumentAnalysisProfile AnalysisProfile(string intakeId, SimTechnicalPackage package, SimPackageDocument doc, string? selectionVersion = null)
+    {
+        var classification = new DleReviewedClassification(doc.DocumentType, doc.EmbeddedBom, doc.Role,
+            doc.Applicability, doc.SubassemblyPartNumber, doc.IdentityReview?.Type);
+        var partNumbers = new DlePartNumberContext(doc.PartNumberReview?.Basis, doc.PartNumberReview?.ProvidesManufacturerPartNumbers);
+        var evidence = new DleReviewEvidence(string.IsNullOrEmpty(package.ReviewedBy) ? null : package.ReviewedBy,
+            package.ReviewedAtUtc == default ? null : package.ReviewedAtUtc,
+            doc.IdentityReview?.ReviewedBy, doc.IdentityReview?.ReviewedAtUtc, doc.IdentityReview?.Decision,
+            doc.PartNumberReview?.ReviewedBy, doc.PartNumberReview?.ReviewedAtUtc);
+        var reviewed = doc.IdentityReview?.Decision is "CONFIRMED" or "CORRECTED" || !string.IsNullOrEmpty(package.ReviewedBy);
+        var resolvedScope = doc.Applicability == "PARENT_ASSEMBLY" ||
+            (doc.Applicability == "SUBASSEMBLY" && !string.IsNullOrWhiteSpace(doc.SubassemblyPartNumber));
+        string? purpose = doc.DocumentId == package.GoverningBomDocumentId ? "GOVERNING_BOM" :
+            reviewed && resolvedScope && doc.Role is "SUPPORTING" or "REFERENCED" && doc.DocumentType != "UNKNOWN"
+                ? partNumbers.ProvidesManufacturerPartNumbers == true ? "MANUFACTURER_ENRICHMENT" : "REFERENCE"
+                : null;
+        if (selectionVersion == DleAnalysisContract.SourceSelectionVersion)
+            purpose = SimAnalysisSourceSelection.Purpose(package, doc);
+        var fingerprint = DleAnalysisContract.Hash(JsonSerializer.SerializeToUtf8Bytes(new {
+            package.GoverningBomDocumentId, classification, partNumbers, evidence, purpose
+        }, DleAnalysisContract.Json));
+        return new(DleAnalysisContract.ProfileVersion, new(intakeId, doc.DocumentId), classification, partNumbers, evidence, purpose, fingerprint);
+    }
+
+    private async Task<DleAnalysisDocument[]> AnalysisDocuments(SimRfqIntakeRecord record, string? selectionVersion = null)
     {
         RequireWorkflowMaterials(record);
         var review = record.TechnicalReview;
@@ -13,8 +38,7 @@ internal sealed partial class SimRfqIntakeStore
             review?.AssemblyHistory?.AssemblyClassification is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
             governing is not { DocumentType: "ASSEMBLY_DRAWING", EmbeddedBom: true, Applicability: "PARENT_ASSEMBLY", Role: "GOVERNING" })
             throw SimRfqIntakeProblem.Conflict("ANALYSIS_SOURCE_REQUIRED", "Confirm assembly history and select the governing parent assembly drawing first.");
-        var selected = package!.Documents.Where(d => d.DocumentId == governing.DocumentId || d.Role == "SUPPORTING").ToArray();
-        if (selected.Length is < 1 or > 4) throw SimRfqIntakeProblem.Conflict("ANALYSIS_SOURCE_LIMIT", "This pilot supports up to four approved sources.");
+        var selected = SimAnalysisSourceSelection.Select(package!, selectionVersion);
         var output = new List<DleAnalysisDocument>();
         foreach (var selectedDocument in selected)
         {
@@ -23,7 +47,8 @@ internal sealed partial class SimRfqIntakeStore
             await documents.Verify(record.RequestCorrelationId, file, record.CreatedBy);
             var bytes = await documents.Bytes(record.RequestCorrelationId, file.DocumentId!);
             output.Add(new(new(file.DocumentId!, DleAnalysisContract.Hash(bytes), file.Name, file.Type,
-                selectedDocument.DocumentType, selectedDocument.Role, selectedDocument.Applicability, selectedDocument.EmbeddedBom), bytes));
+                selectedDocument.DocumentType, selectedDocument.Role, selectedDocument.Applicability, selectedDocument.EmbeddedBom,
+                AnalysisProfile(record.IntakeId, package!, selectedDocument, selectionVersion)), bytes));
         }
         return output.ToArray();
     }
@@ -35,17 +60,21 @@ internal sealed partial class SimRfqIntakeStore
             var dataset = await ReadDatasetAsync();
             var record = dataset.Records.SingleOrDefault(r => r.IntakeId == intakeId && IsTechnicalReviewRecord(r))
                 ?? throw SimRfqIntakeProblem.NotFound("ANALYSIS_REVIEW_MISSING", "Review not found.");
-            var sources = await AnalysisDocuments(record);
+            var sources = await AnalysisDocuments(record, DleAnalysisContract.SourceSelectionVersion);
             var route = DleAnalysisPolicy.Select(sources);
+            var enriched = route == DleAnalysisPolicy.Local && sources.Any(s => s.Source.Profile?.DerivedAnalysisPurpose == "MANUFACTURER_ENRICHMENT");
+            var instructionVersion = enriched ? DleAnalysisContract.EnrichedInstructionVersion : DleAnalysisContract.InstructionVersion;
             var existing = dataset.AnalysisJobs.LastOrDefault(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status));
             if (existing is not null) return existing;
             var assembly = record.Assemblies.OrderBy(a => a.LineNumber).First();
             var now = DateTimeOffset.UtcNow;
             var input = new DleAnalysisInput(Guid.NewGuid().ToString("D"), "BUILD_CANDIDATE_BOM", intakeId,
                 assembly.AssemblyNumber, assembly.Revision, assembly.Quantity, record.TechnicalReview!.TechnicalPackage!.GoverningBomDocumentId!,
-                sources.Select(d => d.Source).ToArray(), 2, 10, DleAnalysisContract.InputVersion, DleAnalysisContract.ResultVersion,
-                DleAnalysisContract.InstructionVersion, DleAnalysisContract.Hash(Encoding.UTF8.GetBytes(DleAnalysisContract.Instructions)),
-                "GOVERNING_AUTHORITATIVE_SUPPORTING_CORROBORATES_ONLY", persona.DisplayName, now, now.AddMinutes(3), route);
+                sources.Select(d => d.Source).ToArray(), 2, enriched ? 1000 : 10, DleAnalysisContract.InputVersion,
+                enriched ? DleAnalysisContract.EnrichedResultVersion : DleAnalysisContract.ResultVersion,
+                instructionVersion, DleAnalysisContract.Hash(Encoding.UTF8.GetBytes(DleAnalysisContract.InstructionsFor(instructionVersion))),
+                "GOVERNING_AUTHORITATIVE_SUPPORTING_CORROBORATES_ONLY", persona.DisplayName, now, now.AddMinutes(3), route,
+                DleAnalysisContract.SourceSelectionVersion);
             var job = new DleAnalysisJob(input, "QUEUED", now);
             dataset.AnalysisJobs.Add(job);
             await WriteVerifiedAsync(dataset);
@@ -97,17 +126,19 @@ internal sealed partial class SimRfqIntakeStore
             {
                 var record = dataset.Records.SingleOrDefault(r => r.IntakeId == job.Input.IntakeId)
                     ?? throw new InvalidDataException("Review deleted");
-                var sources = await AnalysisDocuments(record);
+                var sources = await AnalysisDocuments(record, job.Input.SourceSelectionVersion);
                 if (!SameAnalysisSources(job.Input, record, sources)) throw new InvalidDataException("Source changed");
-                if (DleAnalysisContract.Hash(Encoding.UTF8.GetBytes(DleAnalysisContract.Instructions)) != job.Input.InstructionHash)
+                if (DleAnalysisContract.Hash(Encoding.UTF8.GetBytes(DleAnalysisContract.InstructionsFor(job.Input.InstructionVersion))) != job.Input.InstructionHash)
                     throw new InvalidDataException("Instructions changed");
                 DleAnalysisPolicy.RequirePermitted(job.Input.ProviderRoute, sources);
                 job = job with { Status = "RUNNING", UpdatedAtUtc = DateTimeOffset.UtcNow };
                 dataset.AnalysisJobs[index] = job;
                 await WriteVerifiedAsync(dataset);
-                return (job, sources);
+                // Providers receive the persisted snapshot, never refreshed live review metadata.
+                return (job, sources.Select(d => new DleAnalysisDocument(
+                    job.Input.Sources.Single(s => s.DocumentId == d.Source.DocumentId), d.Bytes)).ToArray());
             }
-            catch (Exception e) when (e is IOException or SimRfqIntakeProblem)
+            catch (Exception e) when (e is IOException or InvalidDataException or SimRfqIntakeProblem)
             {
                 dataset.AnalysisJobs[index] = job with { Status = "STALE", UpdatedAtUtc = DateTimeOffset.UtcNow,
                     ErrorCode = "SOURCE_UNAVAILABLE", Message = "Review/source approval changed or job expired. Reopen before retrying." };
@@ -119,10 +150,15 @@ internal sealed partial class SimRfqIntakeStore
     }
     private static bool SameAnalysisSources(DleAnalysisInput input, SimRfqIntakeRecord record, DleAnalysisDocument[] sources)
     {
+        if (input.ContractVersion != DleAnalysisContract.InputVersion && input.ContractVersion != DleAnalysisContract.LegacyInputVersion)
+            return false;
+        // V1 jobs keep their original comparison semantics and are never relabelled as V2.
+        var current = sources.Select(d => input.ContractVersion == DleAnalysisContract.LegacyInputVersion
+            ? d.Source with { Profile = null } : d.Source);
         var assembly = record.Assemblies.OrderBy(a => a.LineNumber).First();
         return record.TechnicalReview?.TechnicalPackage?.GoverningBomDocumentId == input.GoverningDocumentId &&
             assembly.AssemblyNumber == input.Assembly && assembly.Revision == input.Revision && assembly.Quantity == input.Quantity &&
-            JsonSerializer.Serialize(sources.Select(d => d.Source).OrderBy(s => s.DocumentId)) == JsonSerializer.Serialize(input.Sources.OrderBy(s => s.DocumentId));
+            JsonSerializer.Serialize(current.OrderBy(s => s.DocumentId)) == JsonSerializer.Serialize(input.Sources.OrderBy(s => s.DocumentId));
     }
     internal async Task SetAnalysisState(string jobId, string status, string? code = null, string? message = null)
     {
@@ -148,10 +184,10 @@ internal sealed partial class SimRfqIntakeStore
             var job = dataset.AnalysisJobs[jobIndex];
             var recordIndex = dataset.Records.FindIndex(r => r.IntakeId == job.Input.IntakeId);
             DleAnalysisDocument[]? sources = null;
-            try { if (recordIndex >= 0) { sources = await AnalysisDocuments(dataset.Records[recordIndex]); DleAnalysisPolicy.RequirePermitted(job.Input.ProviderRoute, sources); } }
-            catch (Exception e) when (e is IOException or SimRfqIntakeProblem) { sources = null; }
+            try { if (recordIndex >= 0) { sources = await AnalysisDocuments(dataset.Records[recordIndex], job.Input.SourceSelectionVersion); DleAnalysisPolicy.RequirePermitted(job.Input.ProviderRoute, sources); } }
+            catch (Exception e) when (e is IOException or InvalidDataException or SimRfqIntakeProblem) { sources = null; }
             if (sources is null || !SameAnalysisSources(job.Input, dataset.Records[recordIndex], sources) ||
-                DleAnalysisContract.Hash(Encoding.UTF8.GetBytes(DleAnalysisContract.Instructions)) != job.Input.InstructionHash)
+                DleAnalysisContract.Hash(Encoding.UTF8.GetBytes(DleAnalysisContract.InstructionsFor(job.Input.InstructionVersion))) != job.Input.InstructionHash)
             {
                 dataset.AnalysisJobs[jobIndex] = job with { Status = "STALE", UpdatedAtUtc = DateTimeOffset.UtcNow,
                     ErrorCode = "SOURCE_CHANGED", Message = "Review or sources changed during analysis. No candidate was replaced." };
@@ -164,12 +200,14 @@ internal sealed partial class SimRfqIntakeStore
                 var rows = response.Result.Rows.Select((r, i) => {
                     var values = r.Fields.ToDictionary(p => p.Key, p => p.Value.Value ?? "");
                     return new SimCandidateRow(i, values, new(values), [], r.Fields.ToDictionary(p => p.Key, p => p.Value.Relationship),
-                        false, null, null, [], Guid.NewGuid().ToString("D"), r.Fields);
+                        false, null, null, [], Guid.NewGuid().ToString("D"), r.Fields,
+                        ManufacturerIdentity: job.Input.ResultVersion == DleAnalysisContract.EnrichedResultVersion
+                            ? new(r.ManufacturerProposals ?? [], r.ManufacturerUncertainty ?? "No manufacturer proposal.", []) : null);
                 }).ToArray();
-                var candidate = new SimCandidateBom(Guid.NewGuid().ToString("D"), "Candidate BOM — Pilot", job.Input.GoverningDocumentId,
+                var candidate = new SimCandidateBom(Guid.NewGuid().ToString("D"), job.Input.ResultVersion == DleAnalysisContract.EnrichedResultVersion ? "Candidate BOM" : "Candidate BOM — Pilot", job.Input.GoverningDocumentId,
                     sources.Single(d => d.Source.DocumentId == job.Input.GoverningDocumentId).Source.Sha256, job.Input.GoverningPage,
                     "DLE analysis", false, DateTimeOffset.UtcNow, job.Input.RequestedBy,
-                    job.Input.Sources.Where(s => s.Role == "SUPPORTING").Select(s => s.DocumentId).ToArray(),
+                    job.Input.Sources.Where(s => s.DocumentId != job.Input.GoverningDocumentId).Select(s => s.DocumentId).ToArray(),
                     "Partial analysis. Supporting evidence is shown per field; human review is required.", rows,
                     new(jobId, job.Input, response.Provider, response.ProviderVersion, response.Model, response.Result.Coverage, response.Result.CoverageReason),
                     SimCandidateBomProvider.ContractVersion);

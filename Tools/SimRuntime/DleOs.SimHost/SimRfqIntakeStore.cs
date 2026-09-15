@@ -5,7 +5,8 @@ internal sealed record SimRfqIntakeDocument(
     long Size,
     string Type,
     long LastModified, string? DocumentId = null, string? BinaryStatus = null, string? DocumentReference = null, DateTimeOffset? StagedAtUtc = null,
-    SimIntakeDocumentIdentification? InitialIdentification = null);
+    SimIntakeDocumentIdentification? InitialIdentification = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimReviewDocumentOrigin? ReviewOrigin = null);
 
 internal sealed record SimIntakeDocumentIdentification(string Type, string? OtherDescription = null,
     string? IdentifiedBy = null, DateTimeOffset? IdentifiedAtUtc = null);
@@ -344,6 +345,7 @@ internal sealed partial class SimRfqIntakeStore
             reviewTypeLabel = "RFQ Review",
             reviewStatusLabel = ReviewStatusLabel(record.Status),
             deletionEligibility = new { allowed = DeletionBlockReason(record) is null, reason = DeletionBlockReason(record) },
+            manufacturingDrawingIds = ManufacturingDrawingIds(record),
             record
         };
     }
@@ -517,6 +519,14 @@ internal sealed partial class SimRfqIntakeStore
                 if (candidate is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_REQUIRED", "Build the candidate before reviewing rows.");
                 if ((review.BomAcceptances ?? []).Any(a => a.Candidate.Id == candidate.Id))
                     throw SimRfqIntakeProblem.Conflict("SIM_BOM_ACCEPTED", "This accepted BOM is read-only. Build a new candidate version before making changes.");
+                if (request.WholeRowApproval is not null)
+                {
+                    if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status)))
+                        throw SimRfqIntakeProblem.Conflict("SIM_BOM_ANALYZING", "Wait for analysis to finish before approving rows.");
+                    var sources = await AnalysisDocuments(record, candidate.Analysis?.SourceSnapshot.SourceSelectionVersion);
+                    if (candidate.Analysis is not null && !SameAnalysisSources(candidate.Analysis.SourceSnapshot,record,sources))
+                        throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "Source package changed. Rebuild/review before approving rows.");
+                }
                 candidate = SimCandidateBomProvider.Review(candidate, request, persona);
             }
             else candidate ??= await SimCandidateBomProvider.Extract(bytes, package!, persona);
@@ -546,13 +556,13 @@ internal sealed partial class SimRfqIntakeStore
                 throw SimRfqIntakeProblem.Conflict("DLE_OS_SIM_TECHNICAL_REVIEW_DELETE_UNSAFE",
                     blockedReason + " Nothing was deleted.");
 
-            foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Verify(record.RequestCorrelationId, file, record.CreatedBy);
+            foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Verify(record.RequestCorrelationId, file, file.ReviewOrigin?.AddedBy ?? record.CreatedBy);
             // Own only this record, embedded review, and verified SIM copies.
             // Never interpret source filenames as paths or delete source/master data.
             dataset.Records.Remove(record);
             dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await WriteVerifiedAsync(dataset);
-            foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Remove(record.RequestCorrelationId,file.DocumentId!,record.CreatedBy);
+            foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Remove(record.RequestCorrelationId,file.DocumentId!,file.ReviewOrigin?.AddedBy ?? record.CreatedBy);
             return new { deleted = true, intakeId = record.IntakeId, environment = "SIM" };
         }
         finally

@@ -69,6 +69,29 @@ internal static partial class SimRfqIntakeEndpoints
             catch (IOException) { return Results.Json(new { message = "SIM document storage is unavailable." }, statusCode: 503); }
         });
 
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/documents", async Task<IResult> (string intakeId, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            if (!context.Request.Headers.ContainsKey("X-SIM-Document-Upload") || !context.Request.HasFormContentType) return Results.StatusCode(400);
+            try
+            {
+                if (context.Request.ContentLength > 21 * 1024 * 1024) return Results.StatusCode(413);
+                var form = await context.Request.ReadFormAsync(new Microsoft.AspNetCore.Http.Features.FormOptions { MultipartBodyLengthLimit = 21 * 1024 * 1024, ValueLengthLimit = 4096 });
+                var metadata = form["metadata"].ToString();
+                if (form.Files.Count != 1 || metadata.Length > 4096) return Results.BadRequest(new { message = "Upload one file with its classification per request." });
+                var request = System.Text.Json.JsonSerializer.Deserialize<SimReviewDocumentRequest>(metadata, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+                if (request is null) return Results.BadRequest();
+                var file = form.Files[0];
+                await using var stream = file.OpenReadStream();
+                return Results.Json(await store.AddReviewDocument(intakeId, file.FileName, long.TryParse(form["lastModified"], out var modified) ? modified : 0, request, stream, personas.Resolve(context)));
+            }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { message = p.Message, code = p.Code }, statusCode: p.StatusCode); }
+            catch (System.Text.Json.JsonException) { return Results.BadRequest(new { message = "Document classification is invalid." }); }
+            catch (InvalidDataException) { return Results.BadRequest(new { message = "The file upload is invalid or exceeds the size limit." }); }
+            catch (IOException) { return Results.Json(new { message = "SIM could not preserve and verify this document. Reload the package before retrying." }, statusCode: 503); }
+        });
+
         app.MapPost("/api/sim/rfq-intakes", async Task<IResult> (
             SimRfqIntakeCreateRequest request, HttpContext context) =>
         {
