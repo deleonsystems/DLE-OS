@@ -20,9 +20,7 @@ assert.match(mount.innerHTML,/Overall RFQ Status/); assert.match(mount.innerHTML
 const click=dataset=>mount.onclick({target:{closest:()=>({dataset})}});
 await click({rfq:fixture.intakeId});assert.match(mount.innerHTML,/View Technical Review/);assert.match(mount.innerHTML,/Open Materials/);assert.match(mount.innerHTML,/Open Labor/);
 let dedicated=false;window.DleMaterialsWorkbench={open:async()=>{dedicated=true;}};await click({open:'materials'});assert.ok(dedicated);assert.doesNotMatch(mount.innerHTML,/Save Materials status/);
-await click({open:'labor'});assert.match(mount.innerHTML,/documents\/DOC-TEST/);assert.doesNotMatch(mount.innerHTML,/documents\/undefined/);
-await click({save:'labor'});assert.equal(requested.status,'IN_PROGRESS');assert.equal(fixture.lanes.materials.status,'NOT_STARTED');
-rejectWrite=true;await click({save:'labor'});assert.match(mount.innerHTML,/Write rejected/);assert.equal(fixture.lanes.labor.status,'IN_PROGRESS');
+let laborDedicated=false;window.DleLaborWorkbench={open:async()=>{laborDedicated=true;}};await click({open:'labor'});assert.ok(laborDedicated);assert.doesNotMatch(mount.innerHTML,/Save Labor status/);
 window.DleWorkspaces['technical-review']={openReview:async id=>{requested=id;}};
 await click({action:'source'});assert.equal(requested,fixture.intakeId);
 navigationListener({detail:{workspace:{id:'rfqs'},requestedState:{intakeId:fixture.intakeId}}});await window.DleWorkspaces.rfqs.render();assert.match(mount.innerHTML,/View Technical Review/);

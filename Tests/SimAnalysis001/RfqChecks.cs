@@ -23,7 +23,10 @@ internal static class RfqChecks
         await Block(()=>store.SaveRfqLane(record.IntakeId,"materials","COMPLETE",persona),"generic lane completion cannot bypass quotation validation");
         await Block(()=>store.SaveMaterials(record.IntakeId,new(0,view.Plan.Rows,true),persona),"incomplete lines block completion");
         var partial=view.Plan.Rows.Select((r,i)=>i==0?r with{Vendor="Synthetic Vendor",UnitPrice=1.235m,OrderQuantity=10,OrderQuantityMode="MANUAL",LeadDays=7,Notes="Test only",MfgPartNumber="MFG-TEST",VendorPartNumber="VENDOR-TEST",Uom="FT"}:r).ToArray();
-        await Task.WhenAll(store.SaveMaterials(record.IntakeId,new(0,partial),persona),store.SaveRfqLane(record.IntakeId,"labor","COMPLETE",persona));
+        var labor=await store.ReadLabor(record.IntakeId);
+        Check(labor.Plan.Template=="PCB Assembly — SMT / Thru-Hole"&&labor.Plan.Operations.Any(o=>o.Name=="SMT Placement")&&labor.Plan.Operations.Any(o=>o.Name=="Thru-Hole Assembly"),"PCB and legacy default labor template contains editable SMT/Thru-Hole operations");
+        await Block(()=>store.SaveRfqLane(record.IntakeId,"labor","COMPLETE",persona),"generic Labor completion cannot bypass quotation validation");
+        await Task.WhenAll(store.SaveMaterials(record.IntakeId,new(0,partial),persona),store.SaveLabor(record.IntakeId,new(labor.Plan.Revision,labor.Plan.DefinitionId,labor.Plan.Quantity,labor.Plan.Operations,75,0,true,"LABOR_BATCH_ALLOCATION_V6"),persona));
         view=await new SimRfqIntakeStore(root).ReadMaterials(record.IntakeId);
         Check(view.Plan.Rows[0].OrderQuantityMode=="MANUAL"&&view.Plan.Rows[0].OrderQuantity==10&&view.Plan.Rows[0].Vendor=="Synthetic Vendor"&&view.Plan.Rows[0].Notes=="Test only"&&view.Plan.Rows[0].MfgPartNumber=="MFG-TEST"&&view.Plan.Rows[0].VendorPartNumber=="VENDOR-TEST"&&view.Plan.Rows[0].Uom=="FT"&&view.Rows[0].ExtendedCost==12.35m,"partial save and decimal arithmetic survive store restart");
         Check(view.Rfq.Lanes.Labor.Status=="COMPLETE"&&view.Rfq.Lanes.Materials.Status=="IN_PROGRESS","concurrent save preserves independent Labor status");
@@ -80,6 +83,8 @@ internal static class RfqChecks
         Check(markupRestart.Plan.MarkupPercent==25.5m&&markupRestart.Plan.Versions.Last().MarkupPercent==25.5m&&markupRestart.Plan.Versions.Last().MaterialUnitSalePrice==SimRfqIntakeStore.MaterialUnitSale(markupRestart.TotalCost,25.5m,markupRestart.Rfq.Assemblies[0].Quantity),"markup and sale snapshot survive restart");
         Check(JsonSerializer.Serialize(markupRestart.Plan.Versions.Take(vendorRestart.Plan.Versions.Length))==priorVersions,"markup preserves historical versions");
         await Block(()=>store.SaveMaterials(record.IntakeId,new(markupRestart.Plan.Revision,markupRestart.Plan.Rows,false,-1),persona),"negative markup rejected");
-        await File.WriteAllTextAsync(path,before);Console.WriteLine("RFQS_FIXTURE_ROOT="+root);
+        await File.WriteAllTextAsync(path,before);
+        await LaborChecks.Run(root, record, persona);
+        Console.WriteLine("RFQS_FIXTURE_ROOT="+root);
     }
 }
