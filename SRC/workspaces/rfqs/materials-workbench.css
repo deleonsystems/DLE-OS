@@ -33,3 +33,142 @@
 .material-grid .material-col-3 { width:240px; }
 .material-grid select { width:100%; min-width:0; height:27px; padding:2px 4px; border:1px solid #bdcdd9; border-radius:2px; color:#183247; background:white; font:inherit; }
 .material-detail-row pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:160px; overflow:auto; font-size:11px; }
+.material-mfg { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.material-mfg-value { user-select:text; overflow-wrap:anywhere; flex:1 1 100%; }
+.material-mfg button,.material-mfg summary { padding:2px 5px; font-size:11px; cursor:pointer; }
+.material-mfg details { position:relative; }
+.material-mfg details select { min-width:180px; }
+.material-grid .material-mfg { flex-wrap:nowrap; gap:3px; }
+.material-grid .material-mfg-value { flex:1 1 auto; min-width:0; }
+.material-grid .material-mfg-icon { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; padding:3px; border:0; background:transparent; }
+.material-mfg-menu summary { list-style:none; padding:3px; }
+.material-mfg-menu summary::-webkit-details-marker { display:none; }
+.material-mfg-menu > div { position:absolute; z-index:5; right:0; min-width:230px; padding:4px; background:#fff; border:1px solid #94a3b8; box-shadow:0 3px 8px #0002; }
+.material-mfg-menu > div > button { display:block; width:100%; text-align:left; white-space:nowrap; border:0; padding:5px; }
+.material-mfg-menu small { color:#526375; }
+.material-mfg-status { font-size:10px; color:#795b37; }
+.material-mfg-entry { display:flex; gap:3px; margin-top:3px; }
+.material-mfg-icon:focus-visible,.material-mfg-menu summary:focus-visible { outline:2px solid #2563eb; }
+.materials-workbench .material-grid td:has(.material-mfg-menu[open]) { overflow:visible; }
+.material-view-toggle { display:inline-flex; gap:0; border:1px solid #a9bbc9; border-radius:4px; overflow:hidden; }
+.materials-workbench .material-view-toggle button { border:0; border-radius:0; padding:4px 8px; font-size:12px; }
+.material-view-toggle button[aria-pressed=true] { background:#245b78; color:white; }
+.materials-sourcing .material-grid col.material-col-4,
+.materials-sourcing .material-grid thead th:nth-child(5),
+.materials-sourcing .material-grid-row > td:nth-child(5) { display:none; }
+.materials-workbench.materials-sourcing .material-grid { width:1650px; }
+.materials-sourcing .material-grid .material-col-0 { width:45px; }
+.materials-sourcing .material-grid .material-col-1 { width:125px; }
+.materials-sourcing .material-grid .material-col-2 { width:230px; }
+.materials-sourcing .material-grid .material-col-3 { width:175px; }
+.materials-sourcing .material-grid .material-col-5,.materials-sourcing .material-grid .material-col-7,.materials-sourcing .material-grid .material-col-8,.materials-sourcing .material-grid .material-col-9,.materials-sourcing .material-grid .material-col-10,.materials-sourcing .material-grid .material-col-13 { width:80px; }
+.materials-sourcing .material-grid .material-col-11 { width:160px; }
+.materials-sourcing .material-grid .material-col-12 { width:130px; }
+.materials-sourcing .material-grid .material-col-14 { width:120px; }
+/* Materials is a desktop worksheet, not the shell's centered form column. */
+@media (min-width: 1024px) {
+  body[data-view-mode="desktop"] > main:has(.materials-workbench) { padding-inline:clamp(16px,1.5vw,32px); }
+  body[data-view-mode="desktop"] .rfqs-workspace.materials-workbench { width:100%; max-width:none; min-width:0; box-sizing:border-box; }
+  body[data-view-mode="desktop"] .materials-workbench .material-grid { width:100%; min-width:1850px; }
+  body[data-view-mode="desktop"] .materials-workbench.materials-sourcing .material-grid { min-width:1650px; }
+}
+
+.material-lead select { width:100%; min-width:0; }
+.material-lead input { width:100%; min-width:0; }
+.material-lead small { font-size:11px; }
+
+.material-lead { display:block; }
+.material-lead summary { cursor:pointer; white-space:nowrap; }
+.material-lead > div { display:flex; align-items:center; gap:3px; width:100%; padding:0; }
+.material-lead[open] summary { display:none; }
+.material-lead small { display:none; }
+
+/* The shell allocates main between its actual header and footer. Let the grid
+   shrink into that allocation instead of adding 65vh to toolbar/footer height. */
+@media (min-width:1024px) and (min-height:700px) {
+  body[data-view-mode="desktop"] > main:has(.materials-workbench) { box-sizing:border-box; }
+  body[data-view-mode="desktop"] main :is(#home,.workspace-home.active):has(.materials-workbench),
+  body[data-view-mode="desktop"] .workspace-home.active > div:has(> .materials-workbench) { height:100%; min-height:0; }
+  body[data-view-mode="desktop"] .materials-workbench { height:100%; display:flex; flex-direction:column; min-height:0; }
+  body[data-view-mode="desktop"] .materials-workbench > :not(.material-grid-scroll) { flex-shrink:0; }
+  body[data-view-mode="desktop"] .materials-workbench .material-grid-scroll { flex:1 1 auto; min-height:120px; max-height:none; }
+}
+
+.material-lead summary { list-style:none; padding:5px 0; min-height:19px; }
+.material-lead summary::-webkit-details-marker { display:none; }
+.materials-workbench .material-grid td:has(> .material-lead) { cursor:pointer; }
+.materials-workbench .material-grid .material-col-13 { width:145px; }
+.material-lead select { flex:1 1 75px; width:75px; }
+.material-grid .material-lead input { flex:0 0 45px; width:45px; text-align:right; }
+
+.material-vendor summary { cursor:pointer; list-style:none; padding:4px 0; }
+.material-vendor summary::-webkit-details-marker { display:none; }
+.material-vendor > div { display:grid; gap:3px; }
+.material-vendor button { text-align:left; font:inherit; padding:3px; }
+.material-vendor button[hidden] { display:none; }
+.material-vendor small,.material-vendor ~ small { font-size:10px; white-space:normal; }
+.material-vendor-entry { display:flex; gap:2px; }
+
+.material-vendor-trigger { display:block; width:100%; border:0; background:transparent; text-align:left; padding:3px 0; font:inherit; cursor:pointer; overflow:hidden; text-overflow:ellipsis; }
+.material-vendor[popover] { position:fixed; inset:auto; margin:0; box-sizing:border-box; width:220px; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); overflow:auto; padding:6px; border:1px solid #94a3b8; border-radius:4px; box-shadow:0 4px 12px #0003; background:white; color:#183247; font-size:12px; white-space:normal; }
+.material-vendor[popover]:popover-open { display:grid; gap:3px; }
+.material-vendor [data-vendor-option="digi-key"] { border-top:1px solid #cbd5e1; }
+.material-vendor input { box-sizing:border-box; width:100%; }
+.material-vendor::backdrop { background:transparent; }
+
+.materials-workbench .material-grid .material-vendor-trigger { padding:2px 0; height:22px; border:0; border-radius:0; box-shadow:none; background:transparent; font:inherit; }
+.materials-workbench [data-vendor-status] { display:block; line-height:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Numeric behavior remains native; hide only the browser spin controls. */
+.material-grid input[data-field=unitPrice],.material-grid input[data-field=orderQuantity] { appearance:textfield; -moz-appearance:textfield; }
+.material-grid input[data-field=unitPrice]::-webkit-inner-spin-button,.material-grid input[data-field=unitPrice]::-webkit-outer-spin-button,.material-grid input[data-field=orderQuantity]::-webkit-inner-spin-button,.material-grid input[data-field=orderQuantity]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+.material-lead > div { justify-content:flex-end; }
+.material-lead select { order:2; flex:0 0 75px; }
+.material-grid .material-lead input { order:1; }
+
+.materials-workbench .material-grid .material-vendor-trigger,
+.materials-workbench [data-vendor-status],
+.material-lead summary { text-align:right; }
+
+/* Compact sourcing only; the full worksheet keeps its existing widths. */
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid { width:100%; min-width:1452px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-0 { width:40px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-1 { width:120px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-2 { width:calc(50% - 496px); }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-3 { width:calc(50% - 536px); }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-5 { width:65px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-6 { width:60px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-7 { width:75px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-8 { width:75px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-9 { width:75px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-10 { width:85px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-11 { width:150px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-12 { width:120px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-13 { width:135px; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-14 { width:32px; }
+
+.material-note-icon { display:none; }
+.materials-sourcing .material-notes-cell > input,.materials-sourcing .material-notes-cell > .material-row-toggle { display:none; }
+.materials-workbench.materials-sourcing .material-note-icon { display:block; width:22px; height:26px; padding:0; border:0; background:transparent; color:#245b78; font-size:17px; cursor:pointer; }
+.materials-sourcing th[data-status-heading] { font-size:0; }
+.materials-sourcing th[data-status-heading]::after { content:'▣'; font-size:14px; }
+.material-note-panel[popover] { position:fixed; inset:auto; margin:0; width:280px; max-width:calc(100vw - 16px); box-sizing:border-box; padding:8px; border:1px solid #94a3b8; border-radius:4px; background:white; color:#183247; box-shadow:0 4px 12px #0003; white-space:normal; font-size:12px; }
+.material-note-panel textarea { display:block; width:100%; box-sizing:border-box; min-height:80px; max-height:180px; resize:vertical; }
+.material-note-panel button { margin-top:5px; padding:4px 8px; }
+
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-2 { width:16%; }
+body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-3 { width:auto; }
+.materials-sourcing .material-grid th { overflow:hidden; text-overflow:ellipsis; }
+
+.material-commercial-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 18px; padding:9px 6px; border-top:1px solid #b6c6d2; background:#e4edf4; font-size:13px; }
+.material-commercial-footer b { margin-left:6px; white-space:nowrap; }
+.material-commercial-footer input { width:62px; padding:4px; text-align:right; }
+.material-money-input { display:flex; align-items:center; gap:2px; }
+.material-money-input > span { color:#526375; }
+.material-grid .material-money-input input { min-width:0; flex:1; width:0; }
+
+.materials-workbench .material-commercial-footer > label { display:inline-flex; align-items:center; gap:5px; margin:0; padding:0; font:inherit; }
+.materials-workbench .material-commercial-footer input { margin:0; box-sizing:border-box; height:27px; width:65px; border:1px solid #a9bbc9; border-radius:3px; background:white; color:#183247; font:inherit; }
+
+.material-order-warning { display:block; white-space:normal; color:#8b420b; font-size:10px; line-height:12px; }
+.material-order-warning:empty { display:none; }
