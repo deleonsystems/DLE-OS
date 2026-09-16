@@ -31,7 +31,10 @@ if (simState.Current.IsHealthy)
 var operationsData = new SimOperationsDataStore(runtime.RepositoryRoot, runtime.StateRoot);
 var rfqIntakes = new SimRfqIntakeStore(runtime.StateRoot);
 if (simState.Current.IsHealthy)
+{
     await operationsData.InitializeAsync(simState.Current.Metadata!);
+    await rfqIntakes.EnsureMaterialQuotationFixtureAsync(runtime.RepositoryRoot);
+}
 var runtimeMetadataPath = SimRuntimeOptions.ResolveStatePath(runtime.StateRoot, "runtime", "runtime.json");
 await File.WriteAllTextAsync(runtimeMetadataPath, JsonSerializer.Serialize(new
 {
@@ -201,6 +204,7 @@ app.MapPost("/api/sim/reset", async (ResetSimStateRequest request, HttpContext c
     {
         await simDocuments.RebuildAsync();
         await operationsData.RebuildAsync(metadata);
+        await rfqIntakes.EnsureMaterialQuotationFixtureAsync(runtime.RepositoryRoot);
     });
     if (reset.Result is not null)
     {
