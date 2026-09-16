@@ -41,7 +41,7 @@ internal static class RfqChecks
         Check(view.Rfq.Lanes.Materials.Status=="IN_PROGRESS"&&JsonSerializer.Serialize(view.Plan.Versions[0])==snapshot,"editing reopens work while preserving previous completion");
         view=await store.SaveMaterials(record.IntakeId,new(view.Plan.Revision,full,true),persona);
         var restarted=await new SimRfqIntakeStore(root).ReadMaterials(record.IntakeId);
-        Check(restarted.Plan.Versions.Length==2&&restarted.Rfq.Lanes.Materials.Status=="COMPLETE","versioned completion survives restart");
+        Check(restarted.Plan.Versions.Length==1&&restarted.Rfq.Lanes.Materials.Status=="COMPLETE"&&JsonSerializer.Serialize(restarted.Plan.Versions[0])==snapshot,"unchanged completion retains immutable version through restart");
         await Block(()=>store.SaveMaterials(record.IntakeId,new(view.Plan.Revision,full.Select(r=>r with{UnitPrice=-1}).ToArray()),persona),"negative prices rejected");
         Check(await File.ReadAllTextAsync(path)==before,"accepted BOM and Technical Review bytes unchanged");
         foreach(var excluded in new[]{record with{Status="TECHNICAL_REVIEW_IN_PROGRESS"},record with{IntakeType="NEW_ORDER"},record with{TechnicalReview=record.TechnicalReview! with{Workflow=record.TechnicalReview!.Workflow! with{Outputs=null}}}}){await File.WriteAllTextAsync(path,JsonSerializer.Serialize(new{schema="DLE_RFQ_INTAKE_DATASET_V1",records=new[]{excluded}},DleAnalysisContract.Json));Check((await store.ReadRfqs()).Length==0,"ineligible source excluded");await Block(()=>store.SaveMaterials(record.IntakeId,new(0,full),persona),"ineligible source cannot save");}

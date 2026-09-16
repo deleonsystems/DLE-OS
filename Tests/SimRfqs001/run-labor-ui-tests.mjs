@@ -32,7 +32,7 @@ await choose('a',0);assert.match(mount.innerHTML,/Kitting/);
 await click('sub','a');const child1=`new-${next}`;await choose(child1,0);edit('operationQuantity','55',child1);edit('runSeconds','8',child1);
 await click('sub','a');const child2=`new-${next}`;await choose(child2,3);edit('operationQuantity','55',child2);edit('runSeconds','20',child2);
 assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'1540 sec');assert.equal(root.querySelector('[data-total="run"]').textContent,'1540');
-assert.match(mount.innerHTML,/Children roll up/);assert.match(mount.innerHTML,/20\.1/);assert.match(mount.innerHTML,/data-rollup-run="a"/);
+assert.doesNotMatch(mount.innerHTML,/Children roll up|parent Qty\/time not counted/);assert.match(mount.innerHTML,/20\.1/);assert.match(mount.innerHTML,/data-rollup-run="a"/);
 await click('up','a');await click('up',child2);await click('save');
 assert.deepEqual(saved.plan.operations.map(o=>o.id),['a',child2,child1,'b']);assert.equal(saved.plan.operations[1].parentId,'a');
 await reopen();assert.match(mount.innerHTML,/10\.1/);assert.match(mount.innerHTML,/10\.2/);
@@ -87,3 +87,94 @@ await click('save');await reopen();assert.equal(root.querySelector('[data-rollup
 assert.equal(saved.plan.operations.find(o=>o.id==='a').runSeconds,30);
 await click('remove',roll1);await click('remove',dashChild);assert.match(mount.innerHTML,/data-id="a" data-field="runSeconds"[^>]*value="30"/);
 console.log('PASS: parent Qty/Run dashes, 24 + 396 = 420 child allocation, collapse, save/reopen, and retained standalone inputs.');
+
+// Real event handlers: ClipboardEvent and file choice share the upload request.
+let uploads=0,uploadFail=false;
+window.FormData=class { constructor(){this.values=new Map();} append(k,v){this.values.set(k,v);} };
+const laborFetch=window.fetch;
+window.fetch=async(url,options)=>{
+  if(!url.endsWith('/visuals'))return laborFetch(url,options);
+  if(uploadFail)return {ok:false,json:async()=>({message:'Synthetic staging failure'})};
+  const meta=JSON.parse(options.body.values.get('metadata')),file=options.body.values.get('file');
+  return {ok:true,json:async()=>({documentId:'image-'+(++uploads),rowId:meta.rowId,name:file.name,type:file.type,addedBy:'Synthetic reviewer',addedAt:'2026-09-15T00:00:00Z',caption:''})};
+};
+const imageFile={name:'Screenshot.png',type:'image/png',size:80};
+const paste=async(file=imageFile)=>{let prevented=false;await root.onpaste({target:{closest:()=>true},clipboardData:{items:[{kind:'file',type:file.type,getAsFile:()=>file}]},preventDefault(){prevented=true;}});return prevented;};
+await click('visuals','a');assert.match(mount.innerHTML,/Visuals for \d+ Kitting/);
+assert.equal(await paste(),true);assert.equal(uploads,1);assert.match(mount.innerHTML,/Visuals a \(1\)/);assert.match(mount.innerHTML,/<img src="[^"]+image-1"/);
+root.oninput({target:{dataset:{visualCaption:'image-1'},value:'Watch <polarity>'}});
+await root.onchange({target:{dataset:{visualFile:''},files:[imageFile]}});assert.equal(uploads,2);assert.match(mount.innerHTML,/Visuals a \(2\)/);
+await click('save');assert.equal(saved.plan.visualContractVersion,1);await reopen();await click('visuals','a');assert.match(mount.innerHTML,/Watch &lt;polarity&gt;/);
+await click('complete');assert.ok(saved.plan.versions.at(-1).operations.find(o=>o.id==='a').visuals.length===2);
+await root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{action:'remove-visual',document:'image-1'}})}});assert.match(mount.innerHTML,/Visuals a \(1\)/);
+await click('save');assert.equal(saved.plan.operations.find(o=>o.id==='a').visuals[0].removed,true);
+await click('sub','a');const imageChild='new-'+next;await click('visuals',imageChild);await paste();assert.match(mount.innerHTML,new RegExp('Visuals '+imageChild+' \\(1\\)'));
+await click('save');assert.equal(saved.plan.operations.find(o=>o.id===imageChild).visuals[0].rowId,imageChild);
+uploadFail=true;await paste();assert.equal(root.querySelector('[role="status"]').textContent,'Synthetic staging failure');uploadFail=false;
+readonly=true;await reopen();await click('visuals','a');const count=uploads;await paste();assert.equal(uploads,count);assert.match(mount.innerHTML,/data-visual-file[^>]+disabled/);
+console.log('PASS: clipboard/file events, multiple thumbnails/counts, caption escaping, save/reopen/version references, remove, independent child images, staging failure and read-only protection.');
+
+readonly=false;await reopen();
+assert.doesNotMatch(mount.innerHTML,/labor-visual-trigger/);
+for(const label of ['Add Note','View Notes','Add Visual','View Visuals','View All Notes'])assert.ok(mount.innerHTML.includes(label));
+const noteField=(key,value)=>root.oninput({target:{dataset:{noteField:key},value}});
+await click('add-note','a');assert.match(mount.innerHTML,/Note Type/);noteField('text','Use tool HT-101 <here>.');await click('apply-note');
+await click('add-note',imageChild);noteField('purpose','INTERNAL_RFQ');noteField('text','Assumed supplied stencil');await click('apply-note');
+assert.match(mount.innerHTML,/Internal RFQ<\/strong>/);
+await click('view-notes','a');assert.match(mount.innerHTML,/Use tool HT-101 &lt;here&gt;/);assert.doesNotMatch(mount.innerHTML,/Assumed supplied stencil/);
+await click('all-notes');assert.ok(mount.innerHTML.indexOf('Use tool HT-101 &lt;here&gt;')<mount.innerHTML.indexOf('Assumed supplied stencil'));
+await click('save');assert.equal(saved.plan.noteContractVersion,1);await reopen();await click('view-notes',imageChild);assert.match(mount.innerHTML,/Assumed supplied stencil/);
+await click('complete');const noteHistory=JSON.stringify(saved.plan.versions);
+await click('view-notes','a');const noteId=saved.plan.operations.find(o=>o.id==='a').notes[0].id;
+const noteAction=action=>root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{action,note:noteId}})}});
+await noteAction('edit-note');noteField('text','Updated HT-101 instruction');await click('apply-note');await click('save');assert.equal(JSON.stringify(saved.plan.versions),noteHistory);
+await noteAction('remove-note');await click('save');assert.equal(saved.plan.operations.find(o=>o.id==='a').notes[0].removed,true);
+await click('all-notes');assert.match(mount.innerHTML,/Assumed supplied stencil/);
+readonly=true;await reopen();await click('view-notes',imageChild);assert.match(mount.innerHTML,/Assumed supplied stencil/);assert.doesNotMatch(mount.innerHTML,/data-action="edit-note"/);
+const oldWrites=writes;await click('add-note',imageChild);await click('apply-note');assert.equal(writes,oldWrites);
+console.log('PASS: Options-only Visuals/Notes, both purposes, row scoping, traveler-order summary, save/reopen, historical notes, edit/remove and read-only viewing.');
+
+const quoteExample={quantity:25,rate:60,markup:25,operations:[{id:'example',operationQuantity:1,runSeconds:'13690.8'}],charges:[{kind:'RECURRING',amount:'1'},{kind:'RECURRING',amount:'0.5'},{kind:'RECURRING',amount:'0.25'},{kind:'NRE',amount:'150'},{kind:'NRE',amount:'250'}]};
+assert.equal(api.calculate(quoteExample).base,'$228.18');assert.equal(api.calculate(quoteExample).consumables,'$1.75');assert.equal(api.calculate(quoteExample).cost,'$229.93');assert.equal(api.calculate(quoteExample).unit,'$287.41');assert.equal(api.calculate(quoteExample).nre,'$400.00');
+assert.equal(api.calculate({...quoteExample,quantity:250}).nre,'$400.00');
+assert.equal(api.calculate({...quoteExample,charges:quoteExample.charges.filter(c=>c.kind==='RECURRING')}).unit,'$287.41');
+assert.equal(api.calculate({...quoteExample,rate:120}).unit,'$572.64');
+readonly=false;await reopen();
+assert.doesNotMatch(mount.innerHTML,/data-add-charge/);
+const navWrites=writes;await click('supplemental');assert.match(mount.innerHTML,/Labor Supplemental Charges/);assert.doesNotMatch(mount.innerHTML,/class="labor-grid"/);assert.equal(writes,navWrites);
+const addCharge=(kind,label)=>root.onchange({target:{dataset:{addCharge:kind},value:label}});
+const chargeEdit=(id,key,value)=>root.oninput({target:{dataset:{charge:id,chargeField:key},value}});
+await addCharge('RECURRING','Manual Consumable…');const recurringId='new-'+next;chargeEdit(recurringId,'label','Synthetic consumable');chargeEdit(recurringId,'amount','1.75');const unitBeforeNre=root.querySelector('[data-total="unit"]').textContent;
+await addCharge('NRE','Manual NRE…');const nreId='new-'+next;chargeEdit(nreId,'label','Synthetic tooling');chargeEdit(nreId,'amount','400');assert.equal(root.querySelector('[data-total="unit"]').textContent,unitBeforeNre);assert.equal(root.querySelector('[data-total="nre"]').textContent,'$400.00');
+await click('traveler');assert.doesNotMatch(mount.innerHTML,/data-add-charge/);assert.equal(root.querySelector('[data-total="nre"]').textContent,'$400.00');await click('supplemental');assert.match(mount.innerHTML,/Synthetic tooling/);
+chargeEdit(nreId,'amount','-1');const beforeBad=writes;await click('save');assert.equal(writes,beforeBad);chargeEdit(nreId,'amount','400');
+await click('save');assert.equal(saved.plan.chargeContractVersion,1);await reopen();await click('supplemental');assert.match(mount.innerHTML,/Synthetic consumable/);assert.match(mount.innerHTML,/Synthetic tooling/);assert.equal(root.querySelector('[data-total="nre"]').textContent,'$400.00');
+await click('complete');const chargesHistory=JSON.stringify(saved.plan.versions);chargeEdit(recurringId,'amount','2');await click('save');assert.equal(JSON.stringify(saved.plan.versions),chargesHistory);
+await root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{action:'remove-charge',charge:nreId}})}});assert.equal(root.querySelector('[data-total="nre"]').textContent,'$0.00');
+await root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{action:'remove-charge',charge:recurringId}})}});assert.equal(root.querySelector('[data-total="consumables"]').textContent,'$0.00');
+readonly=true;await reopen();const chargeCount=saved.plan.charges.length;await addCharge('NRE','SMT Programming');assert.equal(saved.plan.charges.length,chargeCount);
+console.log('PASS: recurring cost and markup arithmetic, NRE isolation, both manual charges, live totals, invalid input guard, save/reopen/history, remove and read-only controls.');
+
+readonly=false;await reopen();await click('supplemental');
+for(const amount of ['0','0.50','1','1.00','250','400','12.345678','.50']){
+  chargeEdit(recurringId,'amount',amount);await click('save');assert.equal(saved.plan.charges.find(c=>c.id===recurringId).amount,Number(amount));
+}
+for(const amount of ['-1','abc','1.1234567','1000001']){
+  chargeEdit(recurringId,'amount',amount);const count=writes;await click('save');assert.equal(writes,count);assert.match(root.querySelector('[role="status"]').textContent,/Recurring row .*Amount/);
+}
+chargeEdit(recurringId,'amount','1.00');setting('markup','');await click('save');assert.match(root.querySelector('[role="status"]').textContent,/Labor Markup/);setting('markup','25');
+edit('runSeconds','-1','b');await click('save');assert.match(root.querySelector('[role="status"]').textContent,/Operation .*Run \/ Unit.*Back to Labor/);edit('runSeconds','30','b');
+setting('rate','bad');await click('save');assert.match(root.querySelector('[role="status"]').textContent,/Labor Rate/);setting('rate','75');
+chargeEdit(recurringId,'amount','');await click('save');assert.equal(saved.plan.charges.find(c=>c.id===recurringId).amount,null);
+chargeEdit(recurringId,'amount','.50');await click('save');await click('traveler');await reopen();await click('supplemental');assert.equal(saved.plan.charges.find(c=>c.id===recurringId).amount,0.5);
+console.log('PASS: supplemental decimal forms, exact field errors, hidden traveler validation, blank draft amount, secondary save/back/reopen.');
+
+readonly=false;await reopen();assert.match(mount.innerHTML,/value="WEEKS" selected/);assert.doesNotMatch(mount.innerHTML,/type="number"/);
+assert.equal(api.calculate({quantity:25,rate:75,markup:0,operations:[{id:'time',operationQuantity:55,runSeconds:30}]}).estimatedHours,'11.46');
+assert.equal(api.calculate({quantity:25,rate:75,markup:0,operations:[{id:'batch',operationQuantity:55,runSeconds:180,timeBasis:'BATCH'}]}).estimatedHours,'2.75');
+const lead=(key,value)=>root.oninput({target:{dataset:{lead:key},value}});
+const priceBeforeLead=root.querySelector('[data-total="unit"]').textContent;
+for(const bad of ['0','-1','1.5','abc','36501']){lead('value',bad);const w=writes;await click('save');assert.equal(writes,w);assert.match(root.querySelector('[role="status"]').textContent,/Manufacturing Lead/);}
+lead('value','3');assert.equal(root.querySelector('[data-total="unit"]').textContent,priceBeforeLead);await click('save');await reopen();assert.equal(saved.plan.manufacturingLead.value,3);assert.equal(saved.plan.manufacturingLead.unit,'WEEKS');
+lead('unit','DAYS');lead('value','10');await click('save');await reopen();assert.equal(saved.plan.manufacturingLead.unit,'DAYS');assert.equal(saved.plan.manufacturingLead.value,10);
+console.log('PASS: unrounded estimated workload, Batch allocation, Weeks default, Days save/reopen, positive lead validation and unchanged prices.');

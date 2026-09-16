@@ -8,6 +8,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.29" />
     <InternalsVisibleTo Include="SimAnalysis001" />
+    <Content Include="sim_quotation_pdf.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Quotation\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_candidate_bom.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_bom_enrichment.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Analysis\**\*" CopyToOutputDirectory="PreserveNewest" />

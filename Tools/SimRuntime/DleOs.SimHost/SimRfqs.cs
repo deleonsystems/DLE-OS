@@ -3,7 +3,8 @@ using System.Text.Json;
 internal sealed record SimRfqLane(string Status = "NOT_STARTED", string? UpdatedBy = null, DateTimeOffset? UpdatedAtUtc = null);
 internal sealed record SimRfqLanes(SimRfqLane Materials, SimRfqLane Labor,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialPlan? MaterialsQuote = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborPlan? LaborQuote = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborPlan? LaborQuote = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimFinalApproval[]? FinalReviews = null);
 internal sealed record SimRfqLaneRequest(string Status);
 internal sealed record SimRfqWorkspace(string IntakeId, SimRfqIntakeCustomer Customer, SimRfqIntakeAssembly[] Assemblies,
     string Scope, SimRfqLanes Lanes, string Status, SimQuotationInputs Inputs, string? AssemblyType = null);
@@ -18,7 +19,7 @@ internal sealed partial class SimRfqIntakeStore
     private static SimRfqWorkspace RfqView(SimRfqIntakeRecord r, Dictionary<string, SimRfqLanes> lanes)
     {
         var value = lanes.GetValueOrDefault(r.IntakeId) ?? new(new(), new());
-        var status = value.Materials.Status == "COMPLETE" && value.Labor.Status == "COMPLETE" ? "READY_FOR_QUOTE_ASSEMBLY" :
+        var status = value.FinalReviews?.Length > 0 && FinalReviewView(r, value).ApprovalCurrent ? "QUOTE_APPROVED" : value.Materials.Status == "COMPLETE" && value.Labor.Status == "COMPLETE" ? "READY_FOR_QUOTE_ASSEMBLY" :
             value.Materials.Status == "NOT_STARTED" && value.Labor.Status == "NOT_STARTED" ? "READY_TO_WORK" : "IN_PROGRESS";
         return new(r.IntakeId, r.Customer, r.Assemblies, r.DeLeonScope, value, status, r.TechnicalReview!.Workflow!.Outputs!, r.TechnicalReview.AssemblyType);
     }
@@ -41,6 +42,7 @@ internal static partial class SimRfqIntakeEndpoints
     {
         MapMaterials(app, state, store, personas);
         MapLabor(app, state, store, personas);
+        MapFinalReview(app, state, store, personas);
         app.MapGet("/api/sim/rfqs", async Task<IResult> (HttpContext context) =>
         {
             var denied = DeniedTechnicalReview(context, state, personas, "technical_review.view");

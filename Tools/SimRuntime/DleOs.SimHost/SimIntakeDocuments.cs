@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 
-internal sealed class SimIntakeDocuments(string stateRoot)
+internal sealed partial class SimIntakeDocuments(string stateRoot)
 {
     private readonly string root = SimRuntimeOptions.ResolveStatePath(stateRoot, "intake-documents");
     private readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);

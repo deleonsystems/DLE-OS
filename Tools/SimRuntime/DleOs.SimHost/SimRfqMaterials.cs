@@ -23,6 +23,27 @@ internal sealed record SimMaterialView(SimRfqWorkspace Rfq, SimMaterialPlan Plan
 
 internal sealed partial class SimRfqIntakeStore
 {
+    // Compare commercial content, not audit timestamps, version numbers or row display order.
+    internal static bool SameMaterialBusiness(SimMaterialSnapshot a, SimMaterialSnapshot b)
+    {
+        string? Number(decimal? value) => value?.ToString("G29", CultureInfo.InvariantCulture);
+        object Canonical(SimMaterialSnapshot s) => new {
+            s.BomVersion, s.CandidateId, s.RfqQuantity, Currency=s.Currency.Trim().ToUpperInvariant(),
+            Markup=Number(s.MarkupPercent ?? 0), Total=Number(s.TotalCost),
+            Sale=Number(s.MaterialUnitSalePrice ?? MaterialUnitSale(s.TotalCost,s.MarkupPercent ?? 0,s.RfqQuantity)),
+            Rows=s.Rows.OrderBy(r=>r.Quote.Index).Select(r=>new {
+                r.Quote.Index, Vendor=(r.Quote.Vendor ?? "").Trim(), UnitPrice=Number(r.Quote.UnitPrice),
+                OrderQuantity=Number(r.Quote.OrderQuantity), LeadDays=MaterialLeadDays(r.Quote),
+                Notes=(r.Quote.Notes ?? "").Trim(), r.Quote.CustomerSupplied,
+                MfgPartNumber=(r.Quote.MfgPartNumber ?? "").Trim(), VendorPartNumber=(r.Quote.VendorPartNumber ?? "").Trim(),
+                Uom=string.IsNullOrEmpty(r.Quote.Uom)?"EA":r.Quote.Uom.Trim(),
+                MfgSource=r.Quote.MfgPartNumberSource ?? "", VendorSource=r.Quote.VendorSource ?? "",
+                OrderMode=r.Quote.OrderQuantityMode ?? (r.Quote.OrderQuantity is null?"AUTO":"MANUAL"),
+                RequiredQuantity=Number(r.RequiredQuantity), ExtendedCost=Number(r.ExtendedCost), r.Required
+            }).ToArray()
+        };
+        return JsonSerializer.Serialize(Canonical(a)) == JsonSerializer.Serialize(Canonical(b));
+    }
     internal static decimal MaterialUnitSale(decimal total, decimal markup, int quantity) => decimal.Round(total * (1 + markup / 100) / quantity, 2, MidpointRounding.AwayFromZero);
     internal static int? MaterialLeadDays(SimMaterialRow row) => row.LeadTimeMode switch { "STOCK" => 0, "DAYS" => row.LeadTimeValue, "WEEKS" => row.LeadTimeValue * 7, _ => row.LeadDays };
     internal static SimMaterialResultRow CalculateMaterial(SimMaterialRow row, SimCandidateRow source, int quantity)
@@ -123,7 +144,9 @@ internal sealed partial class SimRfqIntakeStore
                 var incomplete = calculated.Rows.Where(r=>r.Issues.Length>0).Select(r=>"Line " + (r.Quote.Index+1) + ": " + string.Join(", ", r.Issues)).ToArray();
                 if (incomplete.Length>0) throw SimRfqIntakeProblem.Conflict("MATERIALS_INCOMPLETE",string.Join("; ",incomplete));
                 var snapshot = new SimMaterialSnapshot(plan.Versions.Length+1,plan.BomVersion,plan.CandidateId,view.Rfq.Assemblies[0].Quantity,calculated.Rows,calculated.TotalCost,"USD",persona.DisplayName,now,plan.MarkupPercent,MaterialUnitSale(calculated.TotalCost,plan.MarkupPercent ?? 0,view.Rfq.Assemblies[0].Quantity));
-                current = current with {MaterialsQuote=plan with {Versions=plan.Versions.Append(snapshot).ToArray()},Materials=new("COMPLETE",persona.DisplayName,now)};
+                var previous = plan.Versions.LastOrDefault();
+                var unchanged = previous is not null && SameMaterialBusiness(previous, snapshot);
+                current = current with {MaterialsQuote=plan with {Versions=unchanged?plan.Versions:plan.Versions.Append(snapshot).ToArray()},Materials=new("COMPLETE",persona.DisplayName,now)};
             }
             lanes[id] = current;
             var temporary = RfqLanesPath + ".write-" + Guid.NewGuid().ToString("N");

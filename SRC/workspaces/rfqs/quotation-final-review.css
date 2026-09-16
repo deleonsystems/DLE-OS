@@ -1,0 +1,54 @@
+.quotation-final-review { max-width:1500px; margin:auto; font-size:13px; color:#173042; }
+.quotation-final-review > header { display:flex; gap:12px; align-items:center; justify-content:flex-start; background:transparent; color:inherit; padding:0; min-height:0; border:0; margin:0 0 12px; }
+.quotation-final-review h1 { font-size:21px; color:inherit; margin:0; }
+.quotation-final-review h2 { font-size:14px; margin:0 0 8px; }
+.quotation-final-review section { padding:12px 0; border-top:1px solid #cfdae0; }
+.final-context { margin:0 0 12px; }
+.final-economics { display:flex; flex-wrap:wrap; gap:12px 32px; }
+.final-economics > span { display:flex; flex-direction:column; gap:3px; }
+.final-economics b { font-size:18px; }
+.quotation-final-review small { font-size:11px; color:#566777; }
+.final-nre { margin-top:8px; }
+.final-delivery { display:flex; gap:16px; align-items:center; flex-wrap:wrap; padding:14px 0; }
+.final-delivery label { display:flex; align-items:center; gap:10px; margin:0; }
+.final-delivery input { width:320px; max-width:100%; }
+.final-fields { display:flex; flex-wrap:wrap; gap:12px 18px; align-items:end; }
+.quotation-final-review .final-fields label,.final-supplied { display:flex; flex-direction:column; gap:5px; width:auto; margin:0; }
+.final-supplied strong { padding:5px 0; }
+.quotation-final-review input,.quotation-final-review select,.quotation-final-review textarea { font:inherit; padding:5px 7px; border:1px solid #bacbd5; border-radius:3px; background:#fff; color:#173042; }
+.quotation-final-review select { min-width:85px; }
+.quotation-final-review textarea { display:block; box-sizing:border-box; width:100%; margin:6px 0 0; }
+.final-notes { display:block; margin:4px 0; }
+.final-notes small { margin-left:8px; }
+.final-approval { display:flex; justify-content:flex-end; align-items:center; gap:16px; margin-top:14px; }
+.quotation-final-review [data-final-blockers] { color:#864707; }
+.quotation-final-review [data-final-blockers]:empty,.quotation-final-review [role="status"]:empty { display:none; }
+.final-history { margin-top:12px; font-size:12px; }
+.final-history details { margin:8px 0; }
+.final-price-scroll { overflow-x:auto; }
+.quotation-final-review table { width:100%; border-collapse:collapse; white-space:nowrap; }
+.quotation-final-review td,.quotation-final-review th { padding:7px; text-align:left; border-bottom:1px solid #d5dfe5; }
+.quotation-final-review dl { display:grid; grid-template-columns:max-content 1fr; gap:4px 18px; }
+.quotation-final-review dd { margin:0; white-space:pre-wrap; }
+@media(max-width:650px) { .final-delivery label { align-items:stretch; flex-direction:column; width:100%; } .final-delivery input { width:100%; box-sizing:border-box; } }
+
+.final-delivery > span,.final-delivery > label { display:flex; flex-direction:column; align-items:flex-start; gap:5px; }
+.final-delivery-controls { display:flex; gap:5px; }
+.final-delivery .final-delivery-controls input { width:65px; }
+
+.final-supplied-items { margin:0; padding-left:16px; font-size:12px; max-width:340px; }
+.customer-quote { background:white; padding:24px; color:#173042; }
+
+.final-context { display:flex; flex-wrap:wrap; gap:8px 28px; }
+.final-line-table .line-description { white-space:normal; min-width:140px; }
+.final-quote-line .final-delivery { padding:10px 0; gap:10px 22px; font-size:12px; }
+.final-quote-line .final-delivery > span { flex-direction:row; align-items:center; }
+.final-quote-line .final-delivery > label { flex-direction:row; align-items:center; }
+.final-quote-line .final-supplied { display:block; margin:6px 0 12px; }
+.final-line-nre { padding-left:18px; border-left:2px solid #d5dfe5; max-width:650px; }
+.final-line-nre h3 { font-size:12px; margin:0 0 4px; }
+.final-line-nre p { margin:6px 0; }
+.final-line-nre td:last-child,.final-line-nre th:last-child { text-align:right; }
+.final-quote-total { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:8px 22px; padding:12px 0; border-top:1px solid #cfdae0; }
+.final-quote-total strong { font-size:17px; }
+@media(max-width:650px) { .final-quote-line .final-delivery > label { width:auto; flex-wrap:wrap; } .final-quote-total { align-items:flex-end; flex-direction:column; } }

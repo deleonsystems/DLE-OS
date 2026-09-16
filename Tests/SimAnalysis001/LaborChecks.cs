@@ -87,5 +87,9 @@ internal static class LaborChecks
         var allocated=SimRfqIntakeStore.CalculateLabor([batch],25,75,25);
         Check(allocated.TotalSeconds==396 && allocated.TotalMinutes==6.6m && allocated.Cost==8.25m && allocated.UnitSalePrice==10.31m,"allocated per-assembly pricing has no second quantity division");
         await Block(()=>store.SaveLabor(id,Request([batch]) with{CalculationVersion="LABOR_TIME_BASIS_V5"},persona),"old Batch interpretation client blocked");
+        await LaborVisualChecks.Run(root,record,persona);
+        await LaborNoteChecks.Run(root,record,persona);
+        await LaborChargeChecks.Run(root,record,persona);
+        await FinalReviewChecks.Run(root,record,persona);
     }
 }
