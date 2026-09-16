@@ -1,0 +1,83 @@
+{
+  "schema": "DLE_MATERIAL_QUOTATION_UI_FIXTURE_V1",
+  "intakeId": "RFQI-SIM-0040",
+  "requestCorrelationId": "00000000-0000-4000-8000-000000000040",
+  "scenarioId": "material-quotation-ui-v1",
+  "createdAtUtc": "2026-09-14T16:00:00Z",
+  "customer": {
+    "customerId": "SIM-CUSTOMER-MATERIAL-UI",
+    "customerNumber": "990140",
+    "customerName": "Northstar Controls — SIM UI Fixture"
+  },
+  "assembly": {
+    "assemblyNumber": "SIM-MQ-ASSY-0040",
+    "revision": "C",
+    "quantity": 24
+  },
+  "rows": [
+    {
+      "partNumber": "RES-10K-1PCT",
+      "quantity": "2",
+      "designators": "R1, R2",
+      "description": "Resistor, 10 kOhm, 1%, 0.125 W, surface mount 0805",
+      "componentType": "STANDARD_COTS",
+      "alternatePartNumbers": ["RC0805FR-0710KL"]
+    },
+    {
+      "partNumber": "CAP-0.1UF-50V",
+      "quantity": "4",
+      "designators": "C1, C2, C7, C12",
+      "description": "Ceramic capacitor, 0.1 uF, 50 V, X7R, 0805",
+      "componentType": "STANDARD_COTS",
+      "alternatePartNumbers": []
+    },
+    {
+      "partNumber": "STM32G071CBT6",
+      "quantity": "1",
+      "designators": "U1",
+      "description": "Microcontroller, 32-bit ARM Cortex-M0+, 128 KB Flash, LQFP-48; programming requirements retained in quotation notes",
+      "componentType": "STANDARD_COTS",
+      "alternatePartNumbers": ["STM32G071CBT6TR"]
+    },
+    {
+      "partNumber": "CONN-M12-08-F",
+      "quantity": "2",
+      "designators": "J1, J2",
+      "description": "Circular connector, M12, 8-position, female, shielded, panel mount",
+      "componentType": "STANDARD_COTS",
+      "alternatePartNumbers": []
+    },
+    {
+      "partNumber": "WIRE-22AWG-BLK",
+      "quantity": "18.5",
+      "designators": "W1–W8",
+      "description": "Hook-up wire, 22 AWG stranded copper, black insulation; quotation quantity is measured in feet",
+      "componentType": "STANDARD_COTS",
+      "alternatePartNumbers": []
+    },
+    {
+      "partNumber": "SIM-SUB-CONTROLLER-C",
+      "quantity": "1",
+      "designators": "A1",
+      "description": "Synthetic controller subassembly, revision C, separately reviewed technical package",
+      "componentType": "SUBASSEMBLY",
+      "alternatePartNumbers": []
+    },
+    {
+      "partNumber": "LBL-THERMAL-2X1",
+      "quantity": "1",
+      "designators": "LBL1",
+      "description": "Thermal-transfer identification label, 2.00 x 1.00 inch, serialized customer format",
+      "componentType": "STANDARD_COTS",
+      "alternatePartNumbers": []
+    },
+    {
+      "partNumber": "DOC-REF-IPC-A-610",
+      "quantity": "1",
+      "designators": "REF",
+      "description": "Reference-only workmanship requirement; no purchased material required",
+      "componentType": "REFERENCE_ONLY",
+      "alternatePartNumbers": []
+    }
+  ]
+}
