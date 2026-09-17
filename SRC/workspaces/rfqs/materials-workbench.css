@@ -172,3 +172,98 @@ body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .mat
 
 .material-order-warning { display:block; white-space:normal; color:#8b420b; font-size:10px; line-height:12px; }
 .material-order-warning:empty { display:none; }
+
+.material-add-charge { padding:0 4px; margin-left:3px; border:1px solid #bdcfd8; border-radius:3px; color:#245b78; background:transparent; }
+.material-grid .material-charge-row > td { display:table-cell!important; padding:5px!important; background:#f0f6fa; white-space:normal; }
+.material-charge-fields { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.material-charge-fields label { display:flex; flex-direction:column; font-size:10px; gap:2px; }
+.material-charge-fields input,.material-charge-fields select { width:140px!important; font-size:12px; min-height:25px; }
+.material-charge-fields input[inputmode] { width:85px!important; }
+.material-charge-fields details { position:relative; }
+.material-charge-fields details[open] label { position:absolute; z-index:2; background:white; padding:8px; right:0; }
+.material-charge-fields details input { width:220px!important; }
+.material-commercial-footer { flex-wrap:wrap; }
+
+.material-total-with-charge .material-add-charge { display:inline-flex; align-items:center; justify-content:center; width:19px; height:19px; padding:0; margin:0 0 0 4px; vertical-align:middle; cursor:pointer; }
+.material-total-with-charge small { display:block; font-size:10px; }
+.material-charge-fields select[data-charge-field="treatment"] { width:165px!important; }
+
+.material-fee-toggle { border:0; background:transparent; color:#245b78; padding:0; width:14px; cursor:pointer; }
+.material-fee-legend { display:block; font-size:9px; font-weight:normal; color:#526375; }
+.materials-workbench .material-grid .material-fee-toggle { position:absolute; right:2px; bottom:2px; display:inline-block; min-width:0; width:12px; height:18px; min-height:0; padding:0; margin:0; border:0; border-radius:0; box-shadow:none; background:transparent; font-size:12px; line-height:18px; vertical-align:middle; }
+.materials-workbench .material-grid .material-add-charge { min-width:0; min-height:0; width:19px; height:19px; padding:0; font-size:12px; line-height:17px; }
+
+.material-grid .material-charge-row > td { vertical-align:top; }
+.material-grid .material-charge-row .material-fee-sequence { position:sticky; left:0; z-index:1; font-size:10px; white-space:nowrap; }
+.material-fee-category .material-charge-fields { align-items:flex-start; }
+.material-fee-commercial .material-charge-fields { flex-direction:column; align-items:stretch; gap:4px; }
+.material-fee-commercial .material-charge-fields select { width:100%!important; min-width:0; }
+.material-fee-commercial .material-fee-sell { text-align:right; white-space:nowrap; }
+.material-fee-cost .material-charge-fields input[inputmode] { width:100%!important; min-width:0; box-sizing:border-box; text-align:right; }
+.material-fee-cost .material-charge-fields label { width:100%; }
+.material-fee-notes .material-charge-fields { justify-content:space-between; }
+.material-fee-notes .material-charge-fields details[open] label { right:auto; left:0; }
+.materials-workbench .material-charge-fields label { margin:0; padding:0; line-height:12px; }
+.materials-workbench .material-charge-fields input,.materials-workbench .material-charge-fields select { margin:0; padding:3px; box-sizing:border-box; height:25px; }
+.material-fee-commercial .material-charge-fields { gap:3px; }
+
+.materials-workbench .material-grid .material-charge-row > td { vertical-align:middle; }
+.material-fee-category .material-charge-fields { gap:4px 6px; }
+.material-fee-category .material-charge-fields label { flex:1 1 140px; min-width:0; }
+.material-fee-category .material-charge-fields select,.material-fee-category .material-charge-fields input { width:100%!important; }
+.material-fee-sequence,.material-fee-uom,.material-fee-qty,.material-fee-ext,.material-fee-sell { white-space:nowrap!important; }
+.material-fee-sell { font-size:11px; }
+/* Column headings and accessible names label costing-line controls. */
+.materials-workbench .material-fee-category .material-charge-fields label,
+.materials-workbench .material-fee-cost .material-charge-fields label { font-size:0; line-height:0; gap:0; }
+.materials-workbench .material-fee-category .material-charge-fields input,
+.materials-workbench .material-fee-category .material-charge-fields select,
+.materials-workbench .material-fee-cost .material-charge-fields input { font-size:12px; line-height:18px; }
+.materials-workbench .material-fee-category label:has([data-charge-field="customMarkupPercent"]) { font-size:10px; line-height:12px; }
+
+/* Use the otherwise-empty P/N area for one horizontal fee costing line. */
+.materials-workbench .material-fee-category .material-charge-fields { flex-wrap:nowrap; align-items:center; gap:5px; }
+.materials-workbench .material-fee-category .material-charge-fields label { flex:0 0 auto; width:auto; font-size:0; line-height:0; }
+.materials-workbench .material-fee-category select[data-charge-field="category"] { width:140px!important; }
+.materials-workbench .material-fee-category select[data-charge-field="treatment"] { width:155px!important; }
+.materials-workbench .material-fee-category select[data-charge-field="markupTreatment"] { width:85px!important; }
+.materials-workbench .material-fee-category input[data-charge-field="description"] { width:100px!important; }
+.materials-workbench .material-fee-category input[data-charge-field="customMarkupPercent"] { width:45px!important; }
+.materials-workbench .material-fee-category label:has([data-charge-field="customMarkupPercent"]) { flex-direction:row; align-items:center; gap:2px; }
+.materials-workbench .material-fee-category label:has([data-charge-field="customMarkupPercent"])::after { content:'%'; font-size:11px; line-height:18px; }
+.materials-workbench .material-fee-qty label { font-size:0; line-height:0; gap:0; width:100%; } .materials-workbench .material-fee-qty input[inputmode] { width:100%!important; min-width:0; text-align:right; }
+
+/* Qty inputs must not inherit the hidden label's zero-size font. */
+.materials-workbench .material-fee-qty input[inputmode] { font-size:12px; line-height:18px; }
+.materials-workbench .material-fee-category .material-charge-fields { justify-content:flex-end; }
+
+/* Supplemental fee content uses the ordinary grid's regular typography. */
+.materials-workbench .material-grid .material-charge-row,
+.materials-workbench .material-grid .material-charge-row :is(td,label,input,select,option,b,summary,button) { font-weight:400; font-style:normal; }
+/* Compact Material evidence controls; content lives outside grid rows. */
+.material-evidence-options { display:inline-flex; align-items:center; justify-content:flex-end; gap:3px; margin-left:auto; }
+.material-evidence-options > small { font-size:10px; color:#64748b; font-weight:400; }
+.materials-workbench .material-evidence-options > button { padding:0 5px; min-width:24px; height:24px; font-size:19px; font-weight:400; background:transparent; border:0; cursor:pointer; }
+.material-options-menu[popover] { position:fixed; inset:auto; margin:0; padding:4px; width:160px; border:1px solid #94a3b8; border-radius:5px; background:white; box-shadow:0 4px 12px #0003; }
+.material-options-menu button { display:block; width:100%; text-align:left; border:0; background:white; padding:6px 8px; font:400 12px system-ui; cursor:pointer; }
+.material-options-menu button:hover { background:#edf4f8; }
+.material-notes-cell { text-align:right; }
+.material-fee-notes .material-charge-fields { justify-content:flex-end; }
+.material-evidence-panel { position:fixed; z-index:1100; right:18px; top:80px; bottom:30px; width:min(460px,calc(100vw - 36px)); overflow:auto; box-sizing:border-box; background:white; border:1px solid #94a3b8; border-radius:6px; box-shadow:0 6px 24px #0003; padding:14px; color:#183247; font:400 13px system-ui; }
+.material-evidence-panel .material-evidence-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.material-evidence-panel h2 { font-size:16px; margin:0; }
+.material-evidence-panel p { white-space:pre-wrap; overflow-wrap:anywhere; }
+.material-evidence-boundary,.material-evidence-panel small { color:#64748b; font-size:11px; }
+.material-evidence-panel article { border-bottom:1px solid #dbe4eb; padding:9px 0; }
+.material-evidence-panel label,.material-evidence-panel small { display:block; margin:5px 0; }
+.material-evidence-panel textarea { width:100%; min-height:90px; box-sizing:border-box; }
+.material-evidence-panel button,.material-evidence-panel select,.material-evidence-panel input { font:inherit; }
+.material-evidence-attachment { display:flex; gap:8px; align-items:center; }
+.material-evidence-attachment > div { flex:1; min-width:0; overflow-wrap:anywhere; }
+.material-evidence-attachment img { width:72px; height:58px; object-fit:contain; }
+
+.material-evidence-panel textarea,.material-evidence-panel select,.material-evidence-panel input { color:#183247; background:white; border:1px solid #94a3b8; border-radius:4px; padding:5px; }
+.material-evidence-panel button { color:#183247; background:#f2f6f9; border:1px solid #94a3b8; border-radius:4px; padding:5px 8px; }
+.materials-sourcing .material-notes-cell .material-evidence-options > small { display:none; }
+.materials-workbench.materials-sourcing .material-notes-cell { padding-left:3px; padding-right:3px; }
+.materials-sourcing th[data-status-heading]::after { content:'⋯'; }

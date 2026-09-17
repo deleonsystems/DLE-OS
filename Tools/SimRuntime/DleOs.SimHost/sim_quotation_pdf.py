@@ -37,6 +37,8 @@ def render(data, logo, output):
             [p(data['quantity']), p(data['assembly']+' / Rev '+data['revision']), p(data.get('description','')), p(money(data['unitPrice']),right),p(money(data['productTotal']),right)]]
     for charge in data['nreLines']:
         rows.append(['',p('NRE',small),p(charge['label']+' (one-time)'),'',p(money(charge['amount']),right)])
+    for charge in data.get('materialCharges', []):
+        rows.append(['',p('Material NRE' if charge['treatment']=='NRE' else 'Charge',small),p(charge['label']),'',p(money(charge['amount']),right)])
     table = Table(rows, colWidths=[35,145,160,85,95], repeatRows=1)
     table.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LINEBELOW',(0,0),(-1,0),0.8,blue),
                               ('LINEBELOW',(0,-1),(-1,-1),0.4,colors.HexColor('#CFD9DF')),
@@ -53,6 +55,8 @@ def render(data, logo, output):
     callout.setStyle(TableStyle([('BOX',(0,0),(-1,-1),0.5,colors.HexColor('#BCCFD9')),('LEFTPADDING',(0,0),(-1,-1),12),
                                 ('RIGHTPADDING',(0,0),(-1,-1),12),('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5)]))
     story.extend([callout,Spacer(1,26)])
+    if data.get('materialSeparateTotal') or data.get('materialNreTotal'):
+        story.extend([p('Separate Material Charges: '+money(data.get('materialSeparateTotal',0)),right),p('Material NRE: '+money(data.get('materialNreTotal',0)),right)])
     total_label=ParagraphStyle('total-label',parent=right,fontName='Helvetica-Bold',fontSize=12,textColor=blue)
     total_value=ParagraphStyle('total-value',parent=total_label,fontSize=14,leading=18)
     totals = Table([[p('Product Total',right),p(money(data['productTotal']),right)],

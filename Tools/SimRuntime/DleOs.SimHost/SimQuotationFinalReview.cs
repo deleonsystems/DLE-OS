@@ -9,9 +9,9 @@ internal sealed record SimFinalSummary(string IntakeId, string Customer, string 
     string? Description, string? QuoteDue, decimal? MaterialUnitSale, decimal? LaborUnitSale, decimal? CombinedUnitPrice,
     decimal? Total, decimal NreTotal, SimLaborCharge[] NreLines, int? MaterialLongestLeadDays, string? ManufacturingLead,
     bool? CustomerSuppliedMaterial, bool TechnicalPackageAvailable, bool TechnicalComplete, bool MaterialsComplete,
-    bool LaborComplete, int? MaterialsVersion, int? LaborVersion, string? ManufacturingDefinitionId, string Currency = "USD", int? ManufacturingLeadDays = null, int? SuggestedLeadDays = null, SimCustomerSuppliedMaterial[]? CustomerSuppliedItems = null)
+    bool LaborComplete, int? MaterialsVersion, int? LaborVersion, string? ManufacturingDefinitionId, string Currency = "USD", int? ManufacturingLeadDays = null, int? SuggestedLeadDays = null, SimCustomerSuppliedMaterial[]? CustomerSuppliedItems = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialCommercialTotals? MaterialSupplemental = null)
 {
-    public decimal? QuoteTotal => Total + NreTotal;
+    public decimal? QuoteTotal => Total + NreTotal + (MaterialSupplemental?.SeparateCharges ?? 0) + (MaterialSupplemental?.MaterialNre ?? 0);
 }
 internal sealed record SimFinalApproval(string Id, int Version, string SourceToken, SimFinalSummary Summary,
     SimFinalAnswers Answers, string ApprovedBy, string ApprovedById, DateTimeOffset ApprovedAt, string ContractVersion = "QUOTATION_FINAL_REVIEW_V1");
@@ -52,7 +52,7 @@ internal sealed partial class SimRfqIntakeStore
             labor ? ls!.Totals.NreTotal ?? 0 : 0, nre,
             materialDays,
             manufacturingDays is int md ? LeadDisplay(md) : null, supplied is null ? null : supplied.Length > 0,
-            package, technical, materials, labor, ms?.Version, ls?.Version, inputs?.Manufacturing.Id, ManufacturingLeadDays: manufacturingDays, SuggestedLeadDays: materialDays + manufacturingDays, CustomerSuppliedItems: supplied);
+            package, technical, materials, labor, ms?.Version, ls?.Version, inputs?.Manufacturing.Id, ManufacturingLeadDays: manufacturingDays, SuggestedLeadDays: materialDays + manufacturingDays, CustomerSuppliedItems: supplied, MaterialSupplemental: materials ? ms!.SupplementalTotals : null);
         var blockers = new List<string>();
         if (!technical) blockers.Add("Complete Technical Review.");
         if (!package) blockers.Add("Confirm the governing technical package.");

@@ -10,16 +10,18 @@ internal sealed record SimMaterialRow(int Index, string Vendor = "", decimal? Un
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? LeadTimeMode = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] int? LeadTimeValue = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? VendorSource = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? OrderQuantityMode = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? OrderQuantityMode = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialCharge[]? Charges = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialEvidence? Evidence = null);
 internal sealed record SimMaterialResultRow(SimMaterialRow Quote, decimal? RequiredQuantity, decimal? ExtendedCost, string[] Issues, bool Required = true,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? AssemblyCost = null);
 internal sealed record SimMaterialSnapshot(int Version, int BomVersion, string CandidateId, int RfqQuantity,
-    SimMaterialResultRow[] Rows, decimal TotalCost, string Currency, string UpdatedBy, DateTimeOffset AtUtc, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? MarkupPercent = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? MaterialUnitSalePrice = null);
+    SimMaterialResultRow[] Rows, decimal TotalCost, string Currency, string UpdatedBy, DateTimeOffset AtUtc, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? MarkupPercent = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? MaterialUnitSalePrice = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialCommercialTotals? SupplementalTotals = null);
 internal sealed record SimMaterialPlan(int Revision, int BomVersion, string CandidateId, SimMaterialRow[] Rows,
     string UpdatedBy, DateTimeOffset AtUtc, SimMaterialSnapshot[] Versions, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? MarkupPercent = null);
-internal sealed record SimMaterialRequest(int ExpectedRevision, SimMaterialRow[] Rows, bool Complete = false, decimal? MarkupPercent = null);
+internal sealed record SimMaterialRequest(int ExpectedRevision, SimMaterialRow[] Rows, bool Complete = false, decimal? MarkupPercent = null, int ChargeContractVersion = 0, int EvidenceContractVersion = 0);
 internal sealed record SimMaterialView(SimRfqWorkspace Rfq, SimMaterialPlan Plan, SimMaterialResultRow[] Rows,
-    int LinesQuoted, decimal TotalCost, int? LongestLeadDays);
+    int LinesQuoted, decimal TotalCost, int? LongestLeadDays, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialCommercialTotals? SupplementalTotals = null);
 
 internal sealed partial class SimRfqIntakeStore
 {
@@ -32,7 +34,7 @@ internal sealed partial class SimRfqIntakeStore
             Markup=Number(s.MarkupPercent ?? 0), Total=Number(s.TotalCost),
             Sale=Number(s.MaterialUnitSalePrice ?? MaterialUnitSale(s.TotalCost,s.MarkupPercent ?? 0,s.RfqQuantity)),
             Rows=s.Rows.OrderBy(r=>r.Quote.Index).Select(r=>new {
-                r.Quote.Index, Vendor=(r.Quote.Vendor ?? "").Trim(), UnitPrice=Number(r.Quote.UnitPrice),
+                r.Quote.Index, Evidence=MaterialEvidenceContent(r.Quote.Evidence), Charges=(r.Quote.Charges ?? []).OrderBy(c=>c.Id).Select(c=>new {c.Id, Description=c.Description.Trim(),c.Category,RawCost=Number(c.RawCost),Quantity=Number(c.Quantity ?? 1),c.Treatment,c.MarkupTreatment,CustomMarkup=c.MarkupTreatment=="CUSTOM"?Number(c.CustomMarkupPercent):null,Notes=c.Notes.Trim(),Evidence=MaterialEvidenceContent(c.Evidence)}).ToArray(), Vendor=(r.Quote.Vendor ?? "").Trim(), UnitPrice=Number(r.Quote.UnitPrice),
                 OrderQuantity=Number(r.Quote.OrderQuantity), LeadDays=MaterialLeadDays(r.Quote),
                 Notes=(r.Quote.Notes ?? "").Trim(), r.Quote.CustomerSupplied,
                 MfgPartNumber=(r.Quote.MfgPartNumber ?? "").Trim(), VendorPartNumber=(r.Quote.VendorPartNumber ?? "").Trim(),
@@ -52,7 +54,7 @@ internal sealed partial class SimRfqIntakeStore
         if (source.ComponentType == "REFERENCE_ONLY") return new(row, required, 0, [], false, 0);
         var issues = new List<string>();
         if (required is null) issues.Add("Qty / Assy needs review");
-        if (row.CustomerSupplied) { if (string.IsNullOrWhiteSpace(row.Notes)) issues.Add("Identify customer-supply assumption in Notes"); }
+        if (row.CustomerSupplied) { if (string.IsNullOrWhiteSpace(row.Notes) && !(row.Evidence?.Notes.Any(n=>n.Purpose=="SOURCING_PURCHASING") ?? false)) issues.Add("Identify customer-supply assumption in Notes"); }
         else
         {
             if (string.IsNullOrWhiteSpace(row.Vendor)) issues.Add("Vendor required");
@@ -88,7 +90,8 @@ internal sealed partial class SimRfqIntakeStore
         plan=plan with{Rows=plan.Rows.Select(r=>DefaultMaterialQuantity(r,accepted.Candidate.Rows.Single(s=>s.Index==r.Index),rfq.Assemblies[0].Quantity)).ToArray()};
         var rows = plan.Rows.Select(r => CalculateMaterial(r, accepted.Candidate.Rows.Single(s => s.Index == r.Index), rfq.Assemblies[0].Quantity)).ToArray();
         return new(rfq, plan, rows, rows.Count(r => r.Required && !r.Quote.CustomerSupplied && r.Issues.Length == 0), rows.Sum(r => r.ExtendedCost ?? 0),
-            rows.Where(r => r.Required && !r.Quote.CustomerSupplied).Select(r => MaterialLeadDays(r.Quote)).DefaultIfEmpty().Max());
+            rows.Where(r => r.Required && !r.Quote.CustomerSupplied).Select(r => MaterialLeadDays(r.Quote)).DefaultIfEmpty().Max(),
+            MaterialCommercial(rows.Sum(r=>r.ExtendedCost ?? 0),plan.Rows,plan.MarkupPercent ?? 0,rfq.Assemblies[0].Quantity));
     }
     internal async Task<SimMaterialView> ReadMaterials(string id)
     {
@@ -106,6 +109,8 @@ internal sealed partial class SimRfqIntakeStore
             if (request.ExpectedRevision != view.Plan.Revision) throw SimRfqIntakeProblem.Conflict("MATERIALS_STALE", "Another user saved this plan. Reopen Materials before saving again.");
             if (request.Rows is null || request.Rows.Length != view.Plan.Rows.Length || request.Rows.Select(r => r.Index).Distinct().Count() != request.Rows.Length || request.Rows.Any(r => !view.Plan.Rows.Any(p => p.Index == r.Index)))
                 throw SimRfqIntakeProblem.Conflict("MATERIALS_ROWS", "Quotation rows must match the accepted BOM.");
+            ValidateMaterialCharges(request,view.Plan);
+            request=request with {Rows=await ValidateMaterialEvidence(record,view.Plan,request,persona)};
             foreach (var row in request.Rows)
             {
                 if(row.OrderQuantityMode is not (null or "AUTO" or "MANUAL"))throw SimRfqIntakeProblem.Conflict("MATERIALS_ORDER_MODE","Invalid Order Qty mode.");
@@ -135,7 +140,7 @@ internal sealed partial class SimRfqIntakeStore
             }
             if (request.MarkupPercent is < 0 or > 10000) throw SimRfqIntakeProblem.Conflict("MATERIALS_MARKUP", "Use a markup from 0 to 10000 percent.");
             var now = DateTimeOffset.UtcNow;
-            var plan = view.Plan with {Revision=view.Plan.Revision+1, MarkupPercent=request.MarkupPercent ?? view.Plan.MarkupPercent ?? 0, Rows=request.Rows.Select(r=>r with {Vendor=(r.Vendor??"").Trim(),Notes=(r.Notes??"").Trim(),MfgPartNumber=r.MfgPartNumber?.Trim(),MfgPartNumberSource=string.IsNullOrEmpty(r.MfgPartNumber)?null:r.MfgPartNumberSource??"MANUAL_QUOTE_ONLY",VendorPartNumber=r.VendorPartNumber?.Trim(),Uom=string.IsNullOrEmpty(r.Uom)?"EA":r.Uom,LeadDays=r.LeadTimeMode is null?r.LeadDays:null}).ToArray(),UpdatedBy=persona.DisplayName,AtUtc=now};
+            var plan = view.Plan with {Revision=view.Plan.Revision+1, MarkupPercent=request.MarkupPercent ?? view.Plan.MarkupPercent ?? 0, Rows=request.Rows.Select(r=>r with {Charges=r.Charges?.Select(c=>c with {Description=c.Description.Trim(),Notes=c.Notes.Trim(),Quantity=c.Quantity==1?null:c.Quantity,CustomMarkupPercent=c.MarkupTreatment=="CUSTOM"?c.CustomMarkupPercent:null}).ToArray(),Vendor=(r.Vendor??"").Trim(),Notes=(r.Notes??"").Trim(),MfgPartNumber=r.MfgPartNumber?.Trim(),MfgPartNumberSource=string.IsNullOrEmpty(r.MfgPartNumber)?null:r.MfgPartNumberSource??"MANUAL_QUOTE_ONLY",VendorPartNumber=r.VendorPartNumber?.Trim(),Uom=string.IsNullOrEmpty(r.Uom)?"EA":r.Uom,LeadDays=r.LeadTimeMode is null?r.LeadDays:null}).ToArray(),UpdatedBy=persona.DisplayName,AtUtc=now};
             plan=plan with{Rows=plan.Rows.Select(r=>DefaultMaterialQuantity(r,view.Rfq.Inputs.Materials.Candidate.Rows.Single(s=>s.Index==r.Index),view.Rfq.Assemblies[0].Quantity)).ToArray()};
             var current = view.Rfq.Lanes with {MaterialsQuote=plan, Materials=new("IN_PROGRESS",persona.DisplayName,now)};
             var calculated = MaterialView(view.Rfq with {Lanes=current});
@@ -143,7 +148,7 @@ internal sealed partial class SimRfqIntakeStore
             {
                 var incomplete = calculated.Rows.Where(r=>r.Issues.Length>0).Select(r=>"Line " + (r.Quote.Index+1) + ": " + string.Join(", ", r.Issues)).ToArray();
                 if (incomplete.Length>0) throw SimRfqIntakeProblem.Conflict("MATERIALS_INCOMPLETE",string.Join("; ",incomplete));
-                var snapshot = new SimMaterialSnapshot(plan.Versions.Length+1,plan.BomVersion,plan.CandidateId,view.Rfq.Assemblies[0].Quantity,calculated.Rows,calculated.TotalCost,"USD",persona.DisplayName,now,plan.MarkupPercent,MaterialUnitSale(calculated.TotalCost,plan.MarkupPercent ?? 0,view.Rfq.Assemblies[0].Quantity));
+                var snapshot = new SimMaterialSnapshot(plan.Versions.Length+1,plan.BomVersion,plan.CandidateId,view.Rfq.Assemblies[0].Quantity,calculated.Rows,calculated.TotalCost,"USD",persona.DisplayName,now,plan.MarkupPercent,calculated.SupplementalTotals!.MaterialUnitSalePrice,calculated.SupplementalTotals);
                 var previous = plan.Versions.LastOrDefault();
                 var unchanged = previous is not null && SameMaterialBusiness(previous, snapshot);
                 current = current with {MaterialsQuote=plan with {Versions=unchanged?plan.Versions:plan.Versions.Append(snapshot).ToArray()},Materials=new("COMPLETE",persona.DisplayName,now)};
@@ -168,6 +173,7 @@ internal static partial class SimRfqIntakeEndpoints
 {
     private static void MapMaterials(WebApplication app, SimStateStore state, SimRfqIntakeStore store, SimPersonaSessionStore personas)
     {
+        MapMaterialEvidence(app,state,store,personas);
         app.MapGet("/api/sim/rfqs/{id}/materials", async Task<IResult> (string id,HttpContext context)=>
         {
             var denied=DeniedTechnicalReview(context,state,personas,"technical_review.view");if(denied is not null)return denied;

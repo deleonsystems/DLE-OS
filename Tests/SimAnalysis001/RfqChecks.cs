@@ -84,6 +84,8 @@ internal static class RfqChecks
         Check(JsonSerializer.Serialize(markupRestart.Plan.Versions.Take(vendorRestart.Plan.Versions.Length))==priorVersions,"markup preserves historical versions");
         await Block(()=>store.SaveMaterials(record.IntakeId,new(markupRestart.Plan.Revision,markupRestart.Plan.Rows,false,-1),persona),"negative markup rejected");
         await File.WriteAllTextAsync(path,before);
+        await MaterialChargeChecks.Run(root, record, persona);
+        await MaterialEvidenceChecks.Run(root, record, persona);
         await LaborChecks.Run(root, record, persona);
         Console.WriteLine("RFQS_FIXTURE_ROOT="+root);
     }

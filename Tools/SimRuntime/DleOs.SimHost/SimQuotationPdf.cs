@@ -21,6 +21,8 @@ internal static class SimQuotationPdf
         return new {quoteNumber=QuoteNumber(approval),quoteDate=approval.ApprovedAt.ToString("yyyy-MM-dd"),
             customer=s.Customer,assembly=s.Assembly,revision=s.Revision,quantity=s.Quantity,description=s.Description,
             unitPrice=s.CombinedUnitPrice,productTotal=s.Total,nreTotal=s.NreTotal,grandTotal=s.QuoteTotal,
+            materialCharges=(s.MaterialSupplemental?.Charges ?? []).Where(c=>c.Treatment!="BLEND").Select(c=>new{label=c.Description,amount=c.SellAmount,treatment=c.Treatment}),
+            materialSeparateTotal=s.MaterialSupplemental?.SeparateCharges ?? 0,materialNreTotal=s.MaterialSupplemental?.MaterialNre ?? 0,
             delivery=approval.Answers.Delivery,nreLines=s.NreLines.Select(c=>new{label=c.Label,amount=c.Amount}),
             customerSuppliedItems=(s.CustomerSuppliedItems??[]).Select(r=>new{findNo=r.FindNo,internalPartNumber=r.InternalPartNumber})};
     }

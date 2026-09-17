@@ -1,12 +1,12 @@
-import vm from 'node:vm';import fs from 'node:fs';import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';import vm from 'node:vm';import fs from 'node:fs';import assert from 'node:assert/strict';
 const source=fs.readFileSync(new URL('../../SRC/workspaces/rfqs/materials-workbench.js',import.meta.url),'utf8');
 const row={index:0,vendor:'',unitPrice:null,orderQuantity:null,leadDays:null,notes:'',customerSupplied:false};
 const rfq={intakeId:'SYNTHETIC',customer:{customerName:'Synthetic'},assemblies:[{assemblyNumber:'TEST',revision:'A',quantity:5}],lanes:{materials:{status:'NOT_STARTED'}},inputs:{materials:{version:1,candidate:{rows:[{index:0,values:{partNumber:'TEST',quantity:'3',designators:'R1',description:'Fixture'},componentType:'STANDARD_COTS',alternates:[{partNumber:'ALT',reviewStatus:'CONFIRMED',origin:'MANUAL',history:[]},{partNumber:'ALT-2',reviewStatus:'UNCONFIRMED',sourceContext:'Synthetic evidence'},{partNumber:'REMOVED',removedAtUtc:'2026-01-01'}]}]}}}};
 rfq.inputs.materials.candidate.rows[0].manufacturerIdentity={proposals:[{id:'a',partNumber:'MFG-A'},{id:'b',partNumber:'MFG-B'},{id:'c',partNumber:'PENDING'},{id:'d',partNumber:'REJECTED'}],history:[{proposalId:'a',decision:'CONFIRMED'},{proposalId:'b',decision:'CONFIRMED'},{proposalId:'d',decision:'REJECTED'}]};
 let copied;
 let saved={rfq,plan:{revision:0,rows:[row],versions:[]},rows:[{quote:row,requiredQuantity:10,extendedCost:null,issues:['Vendor required']}],linesQuoted:0,totalCost:0,longestLeadDays:null},fail=false,writes=0,back=false;
-const cells=new Map();const root={querySelector:selector=>{if(!cells.has(selector))cells.set(selector,{textContent:''});return cells.get(selector);}};const mount={innerHTML:'',querySelector:()=>root};
-const window={navigator:{clipboard:{writeText:async v=>{copied=v;}}},DleOsCapabilities:{can:()=>true},confirm:()=>true,fetch:async(url,options)=>{
+const cells=new Map();const root={focus(){},querySelector:selector=>{if(!cells.has(selector))cells.set(selector,{textContent:'',focus(){this.focused=true;}});return cells.get(selector);}};const mount={innerHTML:'',querySelector:()=>root};
+const window={crypto:{randomUUID},navigator:{clipboard:{writeText:async v=>{copied=v;}}},DleOsCapabilities:{can:()=>true},confirm:()=>true,fetch:async(url,options)=>{
  if(options.method){writes++;if(fail)return{ok:false,json:async()=>({message:'Test rejected write'})};const body=JSON.parse(options.body);saved.plan={...saved.plan,revision:saved.plan.revision+1,rows:body.rows,markupPercent:body.markupPercent};saved.rfq.lanes.materials.status='IN_PROGRESS';}
  return{ok:true,json:async()=>structuredClone(saved)};
 }};
@@ -16,7 +16,7 @@ assert.match(mount.innerHTML,/Material Quotation/);assert.match(mount.innerHTML,
 root.oninput({target:{dataset:{row:'0',field:'vendor'},type:'text',value:'Synthetic Vendor'}});
 const click=action=>root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:action,index:'0'}})}});
 await click('details');assert.match(mount.innerHTML,/ALT/);assert.match(mount.innerHTML,/Component Type/);
-assert.deepEqual([...mount.innerHTML.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map(m=>m[1]),['Find #','Customer / BOM P/N','MFG / Approved P/N','Description','Ref Des','Qty / Unit','UoM','Unit Cost','Ext Cost','Order Qty','Total Cost','Vendor','Vendor P/N','Lead Time','Notes']);
+assert.deepEqual([...mount.innerHTML.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map(m=>m[1].replace('<small class="material-fee-legend">+ fee</small>','')),['Find #','Customer / BOM P/N','MFG / Approved P/N','Description','Ref Des','Qty / Unit','UoM','Unit Cost','Ext Cost','Order Qty','Total Cost','Vendor','Vendor P/N','Lead Time','Options']);
 const choose=value=>root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:'confirmed-mfg',index:'0',choice:value.split(':')[1]}})}});
 assert.match(mount.innerHTML,/Not resolved/);
 assert.match(mount.innerHTML,/MFG-A <small>Approved/);assert.doesNotMatch(mount.innerHTML,/<option[^>]*>(PENDING|REJECTED|ALT)/);
@@ -50,7 +50,7 @@ assert.doesNotMatch(mount.innerHTML,/<input[^>]+data-field="totalCost"/);
 fail=true;await click('save');assert.match(mount.innerHTML,/Synthetic Vendor/);assert.match(mount.innerHTML,/Test rejected write/);
 fail=false;await click('save');assert.equal(saved.plan.rows[0].vendor,'Synthetic Vendor');assert.equal(saved.plan.rows[0].mfgPartNumber,'MFG-TEST');assert.equal(saved.plan.rows[0].vendorPartNumber,'VENDOR-TEST');assert.equal(saved.plan.rows[0].uom,'FT');await click('back');assert.ok(back);
 await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/Synthetic Vendor/);assert.equal(writes,2);assert.ok(mount.innerHTML.includes('data-assembly-cost="0">$6.00</td>'));
-assert.ok(mount.innerHTML.includes('data-total-cost="0">$200.00</td>'));
+assert.ok(mount.innerHTML.includes('data-total-cost="0">$200.00</span>'));
 saved.rfq.inputs.materials.candidate.rows[0].values.quantity='4';await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.ok(mount.innerHTML.includes('data-assembly-cost="0">$8.00</td>'));
 choose('confirmed:1');await click('save');assert.equal(saved.plan.rows[0].mfgPartNumber,'MFG-B');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/✓ MFG-B/);assert.equal(saved.rfq.inputs.materials.candidate.rows[0].values.partNumber,'TEST');
 console.log('PASS: dedicated Materials UI, accepted source details, save/reopen, failed-write draft preservation, Back to RFQ, and no Labor form.');
@@ -63,8 +63,8 @@ let sourcingClass=false;root.classList={toggle:(name,on)=>{assert.equal(name,'ma
 for(const selector of ['[data-material-action="full-view"]','[data-material-action="sourcing-view"]'])root.querySelector(selector).setAttribute=function(k,v){this[k]=v;};
 const unchangedHtml=mount.innerHTML,unchangedWrites=writes;
 root.oninput({target:{dataset:{row:'0',field:'vendor'},type:'text',value:'UNSAVED SOURCING VENDOR'}});
-await click('sourcing-view');assert.equal(sourcingClass,true);assert.equal(root.querySelector('[data-status-heading]').textContent,'Notes');assert.equal(mount.innerHTML,unchangedHtml,'toggle does not reconstruct inputs');assert.equal(writes,unchangedWrites);
-await click('full-view');assert.equal(sourcingClass,false);assert.equal(root.querySelector('[data-status-heading]').textContent,'Notes');await click('save');assert.equal(saved.plan.rows[0].vendor,'UNSAVED SOURCING VENDOR');assert.equal(saved.plan.rows[0].mfgPartNumberSource,'MANUAL_QUOTE_ONLY');
+await click('sourcing-view');assert.equal(sourcingClass,true);assert.equal(root.querySelector('[data-status-heading]').textContent,'Options');assert.equal(mount.innerHTML,unchangedHtml,'toggle does not reconstruct inputs');assert.equal(writes,unchangedWrites);
+await click('full-view');assert.equal(sourcingClass,false);assert.equal(root.querySelector('[data-status-heading]').textContent,'Options');await click('save');assert.equal(saved.plan.rows[0].vendor,'UNSAVED SOURCING VENDOR');assert.equal(saved.plan.rows[0].mfgPartNumberSource,'MANUAL_QUOTE_ONLY');
 await click('sourcing-view');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/materials-workbench materials-sourcing/);assert.match(mount.innerHTML,/data-material-action="sourcing-view" aria-pressed="true"/);
 console.log('PASS: Full/Sourcing toggle retains live inputs, quotation edits and P/N source without auto-save; page-session reopen preference retained.');
 
@@ -97,9 +97,60 @@ const newVendorPanel={querySelector:()=>({value:'Synthetic New Vendor'})};await 
 const options=[{dataset:{vendorOption:'digi-key'}},{dataset:{vendorOption:'mouser'}}];root.oninput({target:{dataset:{vendorSearch:''},value:'dig',closest:()=>({querySelectorAll:()=>options})}});assert.equal(options[0].hidden,false);assert.equal(options[1].hidden,true);
 console.log('PASS: SIM vendor search, customer supply, manual quote-only vendor and shared Notes save/reopen.');
 
-const notesBeforeWrites=writes;const notePanel={querySelector:()=>({value:'Popover working note'})};await root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:'note-apply',index:'0'},closest:()=>notePanel})}});assert.equal(writes,notesBeforeWrites);assert.match(mount.innerHTML,/Popover working note/);await click('full-view');await click('save');assert.equal(saved.plan.rows[0].notes,'Popover working note');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/Popover working note/);console.log('PASS: note Apply changes working state only; shared Full View Notes persist through Save/reopen.');
+const notesBeforeWrites=writes;
+await click('evidence-add-note');assert.match(mount.innerHTML,/Sourcing \/ Purchasing/);assert.match(mount.innerHTML,/Synthetic note/);
+root.querySelector('[data-evidence-text]').value='Internal sourcing fixture';root.querySelector('[data-evidence-purpose]').value='SOURCING_PURCHASING';
+await click('evidence-note-apply');assert.equal(writes,notesBeforeWrites);assert.match(mount.innerHTML,/Internal sourcing fixture/);
+await click('save');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});await click('evidence-view-notes');assert.match(mount.innerHTML,/Internal sourcing fixture/);
+assert.equal(saved.plan.rows[0].evidence.notes[0].purpose,'SOURCING_PURCHASING');await click('evidence-close');
+console.log('PASS: Options notes stay in working state until Save and survive reopen.');
 
 
 saved.rfq.assemblies[0].quantity=25;await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});price('15');order('100');const markup=value=>root.oninput({target:{dataset:{markup:''},value,setCustomValidity(){}}});markup('25');assert.equal(root.querySelector('[data-live-total]').textContent,'$1,500.00');assert.equal(root.querySelector('[data-live-sale]').textContent,'$75.00');const mw=writes;markup('-1');await click('save');assert.equal(writes,mw);markup('25.5');assert.equal(root.querySelector('[data-live-sale]').textContent,'$75.30');await click('save');assert.equal(saved.plan.markupPercent,25.5);await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/75.30/);console.log('PASS: live exact markup example, decimal markup, invalid save blocking and persistence.');
 
 saved.rows[0].requiredQuantity=75;saved.plan.rows[0].orderQuantityMode='AUTO';saved.plan.rows[0].orderQuantity=null;await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/data-field="orderQuantity"[^>]*value="75"/);order('100');await click('sourcing-view');await click('full-view');await click('save');assert.equal(saved.plan.rows[0].orderQuantityMode,'MANUAL');assert.equal(saved.plan.rows[0].orderQuantity,100);order('50');assert.equal(root.querySelector('[data-order-warning="0"]').textContent,'Below required qty · Minimum 75');console.log('PASS: automatic required qty, manual override tracking, view/save preservation and live minimum warning.');
+
+await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});price('5');order('100');markup('40');
+await click('add-charge');await click('add-charge');await click('add-charge');await click('save');
+const ids=saved.plan.rows[0].charges.map(c=>c.id);
+const edit=(id,field,value)=>root.oninput({target:{dataset:{charge:id,chargeField:field},value,setCustomValidity(){}}});
+for(const [i,treatment,cost] of [[0,'BLEND','100'],[1,'SEPARATE','50'],[2,'NRE','250']]){edit(ids[i],'description','Synthetic '+i);edit(ids[i],'rawCost',cost);edit(ids[i],'treatment',treatment);}
+assert.equal(root.querySelector('[data-live-sale]').textContent,'$33.60');assert.equal(root.querySelector('[data-live-separate]').textContent,'$70.00');assert.equal(root.querySelector('[data-live-nre]').textContent,'$350.00');assert.equal(root.querySelector('[data-live-basis]').textContent,'$600.00');
+edit(ids[0],'markupTreatment','CUSTOM');edit(ids[0],'customMarkupPercent','12.5');assert.equal(root.querySelector('[data-live-sale]').textContent,'$32.50');
+edit(ids[0],'markupTreatment','NONE');assert.equal(root.querySelector('[data-live-sale]').textContent,'$32.00');
+edit(ids[0],'markupTreatment','MATERIAL');edit(ids[0],'rawCost','-1');const badWrites=writes;await click('save');assert.equal(writes,badWrites);edit(ids[0],'rawCost','100');await click('save');
+assert.deepEqual(saved.plan.rows[0].charges.map(c=>c.id),ids);await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/3 charges/);assert.match(mount.innerHTML,/material-charge-row/);assert.match(mount.innerHTML,/33.60/);
+await root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:'remove-charge',index:'0',chargeId:ids[1]}})}});await click('save');assert.equal(saved.plan.rows[0].charges.length,2);assert.equal(saved.plan.rows[0].charges[1].id,ids[2]);
+console.log('PASS: supplemental children add/edit/remove, all treatments, markup modes, exact example, invalid save blocking and stable save/reopen IDs.');
+
+// Buyer-facing defaults apply only to new charges until pricing is explicitly chosen.
+await click('add-charge');
+const newId=[...mount.innerHTML.matchAll(/data-charge="([^"]+)"/g)].map(m=>m[1]).at(-1);
+const change=(field,value)=>{const target={dataset:{charge:newId,chargeField:field},value,setCustomValidity(){}};root.oninput({target});root.onchange({target});};
+assert.match(mount.innerHTML,/title="Add supplemental fee"[^>]*>\+<\/button>/);
+assert.doesNotMatch(mount.innerHTML,/Description charge 3/);
+for(const [category,expected] of [['SETUP','NRE'],['TOOLING','NRE'],['FREIGHT','BLEND'],['COD','BLEND'],['TARIFF','BLEND'],['OTHER','BLEND']]){change('category',category);await click('save');assert.equal(saved.plan.rows[0].charges.at(-1).treatment,expected);}
+assert.match(mount.innerHTML,/Description charge 3/);
+edit(newId,'description','Expedite fee');change('treatment','SEPARATE');change('category','SETUP');await click('save');assert.equal(saved.plan.rows[0].charges.at(-1).treatment,'SEPARATE');assert.equal(saved.plan.rows[0].charges.at(-1).description,'Vendor NRE / Setup');
+change('markupTreatment','CUSTOM');assert.match(mount.innerHTML,/Custom Markup % charge 3/);change('markupTreatment','MATERIAL');assert.doesNotMatch(mount.innerHTML,/Custom Markup % charge 3/);markup('38');assert.equal(root.querySelector('[data-charge="'+newId+'"][data-charge-field="markupTreatment"] option[value="MATERIAL"]').textContent,'Std 38%');
+await click('save');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});change('category','TARIFF');await click('save');assert.equal(saved.plan.rows[0].charges.at(-1).treatment,'SEPARATE');assert.equal(saved.plan.rows[0].charges[0].description,'Synthetic 0');
+console.log('PASS: buyer labels, conditional fields, six category defaults, explicit overrides, dynamic Standard markup and legacy saved descriptions preserved.');
+
+const persistedBeforeToggle=JSON.stringify(saved.plan),toggleWrites=writes;
+await click('toggle-fees');assert.doesNotMatch(mount.innerHTML,/material-charge-row/);assert.match(mount.innerHTML,/3 charges/);assert.match(mount.innerHTML,/aria-expanded="false">▸/);assert.equal(writes,toggleWrites);
+await click('sourcing-view');assert.doesNotMatch(mount.innerHTML,/material-charge-row/);await click('full-view');assert.doesNotMatch(mount.innerHTML,/material-charge-row/);assert.equal(JSON.stringify(saved.plan),persistedBeforeToggle);
+await click('toggle-fees');assert.match(mount.innerHTML,/material-charge-row/);assert.match(mount.innerHTML,/Vendor NRE|Tariff/);
+await click('toggle-fees');await click('add-charge');assert.match(mount.innerHTML,/material-charge-row/);assert.match(mount.innerHTML,/4 charges/);assert.match(mount.innerHTML,/aria-expanded="true">▾/);assert.ok([...cells.values()].some(c=>c.focused));assert.equal(writes,toggleWrites);
+console.log('PASS: fee collapse removes child rows without writes, survives view toggle, retains counts and values, and add expands/focuses Category.');
+
+edit(newId,'rawCost','200');assert.equal(root.querySelector('[data-charge-ext="'+newId+'"]').textContent,'$200.00');edit(newId,'rawCost','');assert.equal(root.querySelector('[data-charge-ext="'+newId+'"]').textContent,'');
+assert.match(mount.innerHTML,/data-charge-field="quantity" value="1"/);assert.match(mount.innerHTML,/material-fee-uom">EA<\/td>/);
+console.log('PASS: fixed fee Qty/EA and live quantity-one Ext Cost, including blank clearing.');
+
+edit(newId,'rawCost','20');edit(newId,'quantity','3');assert.equal(root.querySelector('[data-charge-ext="'+newId+'"]').textContent,'$60.00');await click('save');assert.equal(saved.plan.rows[0].charges.find(c=>c.id===newId).quantity,'3');const qtyWrites=writes;edit(newId,'quantity','0');await click('save');assert.equal(writes,qtyWrites);edit(newId,'quantity','');await click('save');assert.equal(writes,qtyWrites);edit(newId,'quantity','1');
+console.log('PASS: editable fee quantity multiplies cost, persists, and blocks zero/blank.');
+
+markup('38');
+for(const [qty,cost,mode,rate,ext,sell] of [['1','200','MATERIAL',null,'$200.00','$276.00'],['3','200','MATERIAL',null,'$600.00','$828.00'],['2','100','CUSTOM','10','$200.00','$220.00'],['5','20','NONE',null,'$100.00','$100.00']]){edit(newId,'quantity',qty);edit(newId,'rawCost',cost);edit(newId,'markupTreatment',mode);if(rate)edit(newId,'customMarkupPercent',rate);assert.equal(root.querySelector('[data-charge-ext="'+newId+'"]').textContent,ext);assert.equal(root.querySelector('[data-charge-sell="'+newId+'"]').textContent,sell);}
+edit(newId,'quantity','');assert.equal(root.querySelector('[data-charge-ext="'+newId+'"]').textContent,'');assert.equal(root.querySelector('[data-charge-sell="'+newId+'"]').textContent,'\u2014');edit(newId,'quantity','5');
+console.log('PASS: requested Qty/Cost/Ext/Sell examples A-D and blank Qty clears calculations instead of reverting to 1.');
