@@ -1,0 +1,33 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+const source=fs.readFileSync(new URL('../../SRC/workspaces/rfqs/materials-workbench.js',import.meta.url),'utf8');
+const start=source.indexOf('function materialColumnWidths('),end=source.indexOf('  // Presentation-only selection.',start);
+const defaults=[55,160,230,240,125,95,65,95,95,95,95,155,150,145,140],storage=new Map();
+const window={DleOsSession:{user:{userName:'buyer-a'}},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}};
+const document={createElement:tag=>({tag,children:[],setAttribute(){},appendChild(c){this.children.push(c);},setPointerCapture(){},hasPointerCapture:()=>false})};
+const create=vm.runInNewContext('('+source.slice(start,end).trim()+')',{window,document,columns:defaults.map((_,i)=>'Column '+i)});
+function fixture(){const cols=defaults.map(()=>({style:{}})),table={style:{}},reset={},toolbar={appendChild(c){this.menu=c;}},headers=defaults.map((w,i)=>({children:[],getBoundingClientRect:()=>({width:cols[i].hidden?0:parseFloat(cols[i].style.width)||w}),appendChild(h){this.children.push(h);this.handle=h;}}));
+const row={cells:defaults.map(()=>({colSpan:1}))},fee={cells:[1,4,1,1,1,1,1,1,4].map(colSpan=>({colSpan}))};
+const root={querySelector:s=>s==='.material-grid'?table:s==='.material-toolbar'?toolbar:reset,querySelectorAll:s=>s.endsWith('col')?cols:s.endsWith('th')?headers:[row,fee],classList:{add(){},remove(){}}};return {ui:create(root),cols,headers,reset,table,toolbar,row,fee};}
+const e=x=>({clientX:x,button:0,pointerId:1,preventDefault(){},stopPropagation(){}});
+let f=fixture();f.ui.view(false);assert.ok(f.headers.every(h=>h.handle.hidden));f.ui.view(true);assert.ok(f.cols.every(c=>!c.style.width));
+const h=f.headers[1].handle;h.onpointerdown(e(100));h.onpointermove(e(170));h.onpointerup(e(170));assert.equal(f.cols[1].style.width,'230px');assert.equal(f.cols[2].style.width,'230px');assert.equal(storage.size,1);
+f.ui.view(false);assert.ok(f.cols.every(c=>!c.style.width));f.ui.view(true);assert.equal(f.cols[1].style.width,'230px');
+f=fixture();f.ui.view(true);assert.equal(f.cols[1].style.width,'230px','same user reopen');
+const h2=f.headers[2].handle;h2.onpointerdown(e(500));h2.onpointermove(e(-1000));h2.onpointerup(e(-1000));assert.equal(f.cols[2].style.width,'140px');assert.equal(f.cols[1].style.width,'230px');
+h2.onpointerdown(e(0));h2.onpointermove(e(200));h2.onpointercancel();assert.equal(f.cols[2].style.width,'140px','cancel restores');
+window.DleOsSession.user.userName='buyer-b';const other=fixture();other.ui.view(true);assert.ok(other.cols.every(c=>!c.style.width),'preferences isolated by user');
+f.ui.reset();assert.ok(f.cols.every(c=>!c.style.width));assert.equal(storage.size,0);
+console.log('PASS: default geometry, one-column resize, minimum width, independent columns, Full isolation, per-user persistence, cancellation and reset.');
+
+window.DleOsSession.user.userName='buyer-a';f=fixture();f.ui.view(true);
+const hide=i=>f.headers[i].children[0].onclick(e(0));
+assert.equal(f.headers[0].children.length,1,'Find has resize only, no hide button');
+hide(1);hide(4);assert.ok(f.cols[1].hidden&&f.cols[4].hidden);assert.equal(f.fee.cells[1].colSpan,2,'merged category spans surviving columns');assert.equal(f.row.cells[1].hidden,true);
+assert.equal(f.toolbar.menu.children[1].children[1].children[0].checked,false);
+const restored=fixture();restored.ui.view(true);assert.ok(restored.cols[1].hidden&&restored.cols[4].hidden,'hidden state persists');
+f.ui.view(false);assert.ok(f.cols.every(c=>!c.hidden));assert.equal(f.fee.cells[1].colSpan,4);f.ui.view(true);assert.ok(f.cols[1].hidden);
+const resized=f.headers[2].handle;resized.onpointerdown(e(0));resized.onpointermove(e(40));resized.onpointerup(e(40));assert.equal(f.cols[2].style.width,'270px');assert.equal(f.cols[1].style.width,'160px','hidden width is retained');
+const check=f.toolbar.menu.children[1].children[1].children[0];check.checked=true;check.onchange(e(0));assert.equal(f.cols[1].hidden,false);assert.equal(f.cols[1].style.width,'160px');
+hide(1);hide(2);hide(3);assert.equal(f.fee.cells[1].hidden,true,'fully hidden merged cell removed');
+f.ui.reset();assert.ok(f.cols.every(c=>!c.hidden&&!c.style.width));assert.equal(f.fee.cells[1].colSpan,4);assert.equal(f.fee.cells[1].hidden,false);assert.equal(storage.size,0);
+console.log('PASS: hide/show checklist, protected Find, merged fee alignment, hidden width retention, reload, Full isolation and Reset Layout.');

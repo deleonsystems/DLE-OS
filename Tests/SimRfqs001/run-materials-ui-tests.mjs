@@ -20,7 +20,7 @@ assert.deepEqual([...mount.innerHTML.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/
 const choose=value=>root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:'confirmed-mfg',index:'0',choice:value.split(':')[1]}})}});
 assert.match(mount.innerHTML,/Not resolved/);
 assert.match(mount.innerHTML,/MFG-A <small>Approved/);assert.doesNotMatch(mount.innerHTML,/<option[^>]*>(PENDING|REJECTED|ALT)/);
-choose('confirmed:1');await click('copy-mfg');assert.equal(copied,'MFG-B');
+choose('confirmed:1');assert.doesNotMatch(mount.innerHTML,/data-material-action="copy-mfg"/);assert.match(mount.innerHTML,/MFG-B/);
 await click('manual-mfg');assert.match(mount.innerHTML,/Manual MFG \/ Approved P\/N/);
 assert.equal(rfq.inputs.materials.candidate.rows[0].values.partNumber,'TEST');
 for(const [field,value] of [['mfgPartNumber','MFG-TEST'],['vendorPartNumber','VENDOR-TEST'],['uom','FT']])root.oninput({target:{dataset:{row:'0',field},type:'text',value}});
@@ -55,16 +55,16 @@ saved.rfq.inputs.materials.candidate.rows[0].values.quantity='4';await window.Dl
 choose('confirmed:1');await click('save');assert.equal(saved.plan.rows[0].mfgPartNumber,'MFG-B');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/✓ MFG-B/);assert.equal(saved.rfq.inputs.materials.candidate.rows[0].values.partNumber,'TEST');
 console.log('PASS: dedicated Materials UI, accepted source details, save/reopen, failed-write draft preservation, Back to RFQ, and no Labor form.');
 
-saved.rfq.inputs.materials.candidate.rows[0].manufacturerIdentity.proposals=saved.rfq.inputs.materials.candidate.rows[0].manufacturerIdentity.proposals.slice(0,1);await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.doesNotMatch(mount.innerHTML,/data-mfg-selection/);await click('copy-mfg');assert.equal(copied,'MFG-B');
+saved.rfq.inputs.materials.candidate.rows[0].manufacturerIdentity.proposals=saved.rfq.inputs.materials.candidate.rows[0].manufacturerIdentity.proposals.slice(0,1);await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.doesNotMatch(mount.innerHTML,/data-mfg-selection/);assert.doesNotMatch(mount.innerHTML,/data-material-action="copy-mfg"/);assert.match(mount.innerHTML,/MFG-B/);
 
-assert.match(mount.innerHTML,/<rect[^>]*rx="2"/);assert.doesNotMatch(mount.innerHTML,/>Copy<|>Manual…</);await click('manual-mfg');root.oninput({target:{dataset:{row:'0',field:'mfgPartNumber'},type:'text',value:'MFG-A'}});await click('done-mfg');assert.match(mount.innerHTML,/Not Approved · Quote Only/);await click('save');assert.equal(saved.plan.rows[0].mfgPartNumberSource,'MANUAL_QUOTE_ONLY');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/Not Approved · Quote Only/);
+assert.doesNotMatch(mount.innerHTML,/material-mfg-icon/);assert.doesNotMatch(mount.innerHTML,/>Copy<|>Manual…</);await click('manual-mfg');root.oninput({target:{dataset:{row:'0',field:'mfgPartNumber'},type:'text',value:'MFG-A'}});await click('done-mfg');assert.match(mount.innerHTML,/Not Approved · Quote Only/);await click('save');assert.equal(saved.plan.rows[0].mfgPartNumberSource,'MANUAL_QUOTE_ONLY');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/Not Approved · Quote Only/);
 
 let sourcingClass=false;root.classList={toggle:(name,on)=>{assert.equal(name,'materials-sourcing');sourcingClass=on;}};
 for(const selector of ['[data-material-action="full-view"]','[data-material-action="sourcing-view"]'])root.querySelector(selector).setAttribute=function(k,v){this[k]=v;};
 const unchangedHtml=mount.innerHTML,unchangedWrites=writes;
 root.oninput({target:{dataset:{row:'0',field:'vendor'},type:'text',value:'UNSAVED SOURCING VENDOR'}});
-await click('sourcing-view');assert.equal(sourcingClass,true);assert.equal(root.querySelector('[data-status-heading]').textContent,'Options');assert.equal(mount.innerHTML,unchangedHtml,'toggle does not reconstruct inputs');assert.equal(writes,unchangedWrites);
-await click('full-view');assert.equal(sourcingClass,false);assert.equal(root.querySelector('[data-status-heading]').textContent,'Options');await click('save');assert.equal(saved.plan.rows[0].vendor,'UNSAVED SOURCING VENDOR');assert.equal(saved.plan.rows[0].mfgPartNumberSource,'MANUAL_QUOTE_ONLY');
+await click('sourcing-view');assert.equal(sourcingClass,true);assert.match(mount.innerHTML,/data-status-heading>Options/);assert.equal(mount.innerHTML,unchangedHtml,'toggle does not reconstruct inputs');assert.equal(writes,unchangedWrites);
+await click('full-view');assert.equal(sourcingClass,false);assert.match(mount.innerHTML,/data-status-heading>Options/);await click('save');assert.equal(saved.plan.rows[0].vendor,'UNSAVED SOURCING VENDOR');assert.equal(saved.plan.rows[0].mfgPartNumberSource,'MANUAL_QUOTE_ONLY');
 await click('sourcing-view');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/materials-workbench materials-sourcing/);assert.match(mount.innerHTML,/data-material-action="sourcing-view" aria-pressed="true"/);
 console.log('PASS: Full/Sourcing toggle retains live inputs, quotation edits and P/N source without auto-save; page-session reopen preference retained.');
 
@@ -82,7 +82,7 @@ lead('STOCK','');await click('save');assert.equal(saved.plan.rows[0].leadTimeVal
 console.log('PASS: structured lead controls, abbreviated display, validation, view toggle and save/reopen persistence.');
 
 leadMode.dataset={row:'0'};leadMode.focus=()=>{};leadContainer.contains=()=>false;leadContainer.open=false;
-const openLead=async()=>{await root.onclick({stopPropagation(){},preventDefault(){},target:{closest:s=>s==='td'?{querySelector:()=>leadContainer}:null}});leadContainer.open=true;};
+const openLead=async()=>{await root.onclick({stopPropagation(){},preventDefault(){},target:{closest:s=>s==='td'?{querySelector:()=>leadContainer}:s==='summary'?{}:null}});leadContainer.open=true;};
 await openLead();lead('WEEKS','6');root.onkeydown({target:{closest:()=>leadContainer},key:'Enter',preventDefault(){}});assert.equal(leadContainer.open,false);
 await openLead();lead('DAYS','-1');root.onkeydown({target:{closest:()=>leadContainer},key:'Escape',preventDefault(){}});assert.match(leadContainer.outerHTML,/<summary>6 Weeks<\/summary>/);await click('save');assert.equal(saved.plan.rows[0].leadTimeValue,6);assert.equal(saved.plan.rows[0].leadTimeMode,'WEEKS');
 await openLead();lead('DAYS','5');root.onfocusout({target:{closest:()=>leadContainer},relatedTarget:null});assert.equal(leadContainer.open,false);await click('save');assert.equal(saved.plan.rows[0].leadTimeValue,5);

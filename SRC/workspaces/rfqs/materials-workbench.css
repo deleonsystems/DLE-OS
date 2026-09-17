@@ -40,7 +40,6 @@
 .material-mfg details select { min-width:180px; }
 .material-grid .material-mfg { flex-wrap:nowrap; gap:3px; }
 .material-grid .material-mfg-value { flex:1 1 auto; min-width:0; }
-.material-grid .material-mfg-icon { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; padding:3px; border:0; background:transparent; }
 .material-mfg-menu summary { list-style:none; padding:3px; }
 .material-mfg-menu summary::-webkit-details-marker { display:none; }
 .material-mfg-menu > div { position:absolute; z-index:5; right:0; min-width:230px; padding:4px; background:#fff; border:1px solid #94a3b8; box-shadow:0 3px 8px #0002; }
@@ -48,29 +47,15 @@
 .material-mfg-menu small { color:#526375; }
 .material-mfg-status { font-size:10px; color:#795b37; }
 .material-mfg-entry { display:flex; gap:3px; margin-top:3px; }
-.material-mfg-icon:focus-visible,.material-mfg-menu summary:focus-visible { outline:2px solid #2563eb; }
 .materials-workbench .material-grid td:has(.material-mfg-menu[open]) { overflow:visible; }
 .material-view-toggle { display:inline-flex; gap:0; border:1px solid #a9bbc9; border-radius:4px; overflow:hidden; }
 .materials-workbench .material-view-toggle button { border:0; border-radius:0; padding:4px 8px; font-size:12px; }
 .material-view-toggle button[aria-pressed=true] { background:#245b78; color:white; }
-.materials-sourcing .material-grid col.material-col-4,
-.materials-sourcing .material-grid thead th:nth-child(5),
-.materials-sourcing .material-grid-row > td:nth-child(5) { display:none; }
-.materials-workbench.materials-sourcing .material-grid { width:1650px; }
-.materials-sourcing .material-grid .material-col-0 { width:45px; }
-.materials-sourcing .material-grid .material-col-1 { width:125px; }
-.materials-sourcing .material-grid .material-col-2 { width:230px; }
-.materials-sourcing .material-grid .material-col-3 { width:175px; }
-.materials-sourcing .material-grid .material-col-5,.materials-sourcing .material-grid .material-col-7,.materials-sourcing .material-grid .material-col-8,.materials-sourcing .material-grid .material-col-9,.materials-sourcing .material-grid .material-col-10,.materials-sourcing .material-grid .material-col-13 { width:80px; }
-.materials-sourcing .material-grid .material-col-11 { width:160px; }
-.materials-sourcing .material-grid .material-col-12 { width:130px; }
-.materials-sourcing .material-grid .material-col-14 { width:120px; }
 /* Materials is a desktop worksheet, not the shell's centered form column. */
 @media (min-width: 1024px) {
   body[data-view-mode="desktop"] > main:has(.materials-workbench) { padding-inline:clamp(16px,1.5vw,32px); }
   body[data-view-mode="desktop"] .rfqs-workspace.materials-workbench { width:100%; max-width:none; min-width:0; box-sizing:border-box; }
   body[data-view-mode="desktop"] .materials-workbench .material-grid { width:100%; min-width:1850px; }
-  body[data-view-mode="desktop"] .materials-workbench.materials-sourcing .material-grid { min-width:1650px; }
 }
 
 .material-lead select { width:100%; min-width:0; }
@@ -130,35 +115,10 @@
 .materials-workbench [data-vendor-status],
 .material-lead summary { text-align:right; }
 
-/* Compact sourcing only; the full worksheet keeps its existing widths. */
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid { width:100%; min-width:1452px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-0 { width:40px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-1 { width:120px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-2 { width:calc(50% - 496px); }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-3 { width:calc(50% - 536px); }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-5 { width:65px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-6 { width:60px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-7 { width:75px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-8 { width:75px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-9 { width:75px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-10 { width:85px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-11 { width:150px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-12 { width:120px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-13 { width:135px; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-14 { width:32px; }
-
 .material-note-icon { display:none; }
-.materials-sourcing .material-notes-cell > input,.materials-sourcing .material-notes-cell > .material-row-toggle { display:none; }
-.materials-workbench.materials-sourcing .material-note-icon { display:block; width:22px; height:26px; padding:0; border:0; background:transparent; color:#245b78; font-size:17px; cursor:pointer; }
-.materials-sourcing th[data-status-heading] { font-size:0; }
-.materials-sourcing th[data-status-heading]::after { content:'▣'; font-size:14px; }
 .material-note-panel[popover] { position:fixed; inset:auto; margin:0; width:280px; max-width:calc(100vw - 16px); box-sizing:border-box; padding:8px; border:1px solid #94a3b8; border-radius:4px; background:white; color:#183247; box-shadow:0 4px 12px #0003; white-space:normal; font-size:12px; }
 .material-note-panel textarea { display:block; width:100%; box-sizing:border-box; min-height:80px; max-height:180px; resize:vertical; }
 .material-note-panel button { margin-top:5px; padding:4px 8px; }
-
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-2 { width:16%; }
-body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .material-col-3 { width:auto; }
-.materials-sourcing .material-grid th { overflow:hidden; text-overflow:ellipsis; }
 
 .material-commercial-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 18px; padding:9px 6px; border-top:1px solid #b6c6d2; background:#e4edf4; font-size:13px; }
 .material-commercial-footer b { margin-left:6px; white-space:nowrap; }
@@ -264,6 +224,29 @@ body[data-view-mode] .materials-workbench.materials-sourcing .material-grid .mat
 
 .material-evidence-panel textarea,.material-evidence-panel select,.material-evidence-panel input { color:#183247; background:white; border:1px solid #94a3b8; border-radius:4px; padding:5px; }
 .material-evidence-panel button { color:#183247; background:#f2f6f9; border:1px solid #94a3b8; border-radius:4px; padding:5px 8px; }
-.materials-sourcing .material-notes-cell .material-evidence-options > small { display:none; }
-.materials-workbench.materials-sourcing .material-notes-cell { padding-left:3px; padding-right:3px; }
-.materials-sourcing th[data-status-heading]::after { content:'⋯'; }
+/* Table-local selection leaves an exposed padding strip around editing controls. */
+.materials-workbench .material-grid :is(.material-grid-row,.material-charge-row) > td { cursor:cell; }
+.materials-workbench .material-grid :is(.material-grid-row,.material-charge-row) > td.material-cell-selected { box-shadow:inset 0 0 0 2px #287da4; background:#e2f0f8!important; outline:none; }
+.materials-workbench .material-grid :is(input,select,button,summary,a) { cursor:auto; }
+.materials-workbench .material-grid .material-grid-row > td { padding-top:3px; padding-bottom:3px; }
+/* Applied only while a pointer gesture starts on a selectable grid background. */
+.material-grid-dragging .material-grid { user-select:none; -webkit-user-select:none; }
+.material-grid-dragging .material-grid :is(input,textarea,[contenteditable="true"]) { user-select:text; -webkit-user-select:text; }
+
+.material-toolbar h1 { position:relative; }
+.material-copy-status { position:absolute; top:100%; left:0; white-space:nowrap; font-size:11px; font-weight:400; color:#287da4; pointer-events:none; }
+
+
+.materials-workbench .material-grid .material-column-resize { position:absolute; right:0; top:0; bottom:0; width:7px; padding:0; border:0; border-radius:0; background:transparent; cursor:col-resize; touch-action:none; }
+.materials-workbench .material-grid .material-column-resize:hover { background:rgba(40,125,164,.22); }
+.material-column-resizing .material-grid { user-select:none; cursor:col-resize; }
+.materials-workbench [hidden] { display:none!important; }
+
+.material-mfg-menu summary:focus-visible { outline:2px solid #2563eb; }
+
+.material-columns-menu { position:relative; font-size:12px; }
+.material-columns-menu > summary { cursor:pointer; padding:4px 8px; border:1px solid #a9bbc9; border-radius:4px; color:#245b78; }
+.material-columns-checklist { position:absolute; top:100%; right:0; z-index:20; min-width:205px; max-height:55vh; overflow:auto; padding:7px; border:1px solid #a9bbc9; border-radius:4px; background:white; box-shadow:0 3px 8px #0002; }
+.material-columns-checklist label { display:flex; align-items:center; gap:6px; padding:3px; white-space:nowrap; }
+.material-columns-checklist input { margin:0; }
+.materials-workbench .material-grid .material-column-hide { position:absolute; right:8px; bottom:0; width:13px; height:13px; padding:0; border:0; background:#dce7ee; color:#527086; font:12px/12px sans-serif; cursor:pointer; }
