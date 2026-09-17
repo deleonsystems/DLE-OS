@@ -175,6 +175,14 @@ internal static partial class SimRfqIntakeEndpoints
             }
         }
 
+        app.MapPut("/api/sim/technical-reviews/{intakeId}/package-review", async Task<IResult> (string intakeId, SimUnifiedPackageRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.SaveUnifiedPackage(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem problem) { return Results.Json(new { code = problem.Code, message = problem.Message }, statusCode: problem.StatusCode); }
+        });
+
         app.MapPut("/api/sim/technical-reviews/{intakeId}/technical-package", async Task<IResult> (string intakeId, SimPackageRequest request, HttpContext context) =>
         {
             var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");

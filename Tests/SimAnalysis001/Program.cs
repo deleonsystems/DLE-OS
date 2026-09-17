@@ -201,6 +201,7 @@ Check(localJob.Input.ProviderRoute == DleAnalysisPolicy.Local, "unapproved docum
 await LocalProviderChecks.Run(localJob.Input, await GetLocalSources(), Example());
 async Task<DleAnalysisDocument[]> GetLocalSources() { var claimedLocal = await store.ClaimAnalysisJob(); return claimedLocal!.Value.Documents; }
 await WorkflowChecks.Run(sourceBytes);
+await UnifiedPackageChecks.Run(sourceBytes);
 Console.WriteLine("ISOLATED_TEST_STATE=" + root);
 
 sealed class UnitTestOfflineProvider(DleAnalysisResult result) : IAnalysisProvider

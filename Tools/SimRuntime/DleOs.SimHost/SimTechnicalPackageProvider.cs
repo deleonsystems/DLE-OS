@@ -4,7 +4,9 @@ internal sealed record SimPackageDocument(string DocumentId, string Name, string
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimDocumentIdentityReview? IdentityReview = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimPartNumberReview? PartNumberReview = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProposedSubassemblyIdentity = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimRowDocumentContext? RowAssociation = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimRowDocumentContext? RowAssociation = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProductionUse = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? BomUse = null);
 internal sealed record SimPackageRequest(SimPackageDocument[]? Documents, string? GoverningBomDocumentId);
 internal sealed record SimTechnicalPackage(SimPackageDocument[] Documents, string? GoverningBomDocumentId, string Source, bool Synthetic, string ReviewedBy, DateTimeOffset ReviewedAtUtc, string? GoverningBomSourceKind = null);
 internal sealed record SimSubassemblyCoverage(string PartNumber, decimal QuantityPerAssembly, string? KnownReference, string[] CustomerDocumentIds, string CoverageState);
@@ -30,7 +32,7 @@ internal static class SimTechnicalPackageProvider
         record.TechnicalFiles.Select((file, index) => new SimPackageDocument(file.DocumentId ?? $"DOC-{index + 1:D3}", file.Name, "UNKNOWN", "UNRESOLVED", "SUPPORTING_REFERENCE", null)).ToArray(),
         null, "SIM_RECEIVED_PACKAGE_METADATA_V1", true, "", default);
 
-    internal static SimTechnicalPackage Validate(SimRfqIntakeRecord record, SimPackageRequest request, SimPersona persona)
+    internal static SimTechnicalPackage Validate(SimRfqIntakeRecord record, SimPackageRequest request, SimPersona persona, bool allowIncomplete = false)
     {
         var received = Inventory(record).Documents;
         var docs = request.Documents ?? [];
@@ -39,6 +41,9 @@ internal static class SimTechnicalPackageProvider
             throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_PACKAGE_INVENTORY_INVALID", "Account for every received file exactly once; received identities and names cannot be changed.");
         foreach (var doc in docs)
         {
+            if ((doc.ProductionUse is not null && !new[] { "PRIMARY_DRAWING", "SUPPORTING_PRODUCTION", "NOT_FOR_PRODUCTION" }.Contains(doc.ProductionUse)) ||
+                (doc.BomUse is not null && !new[] { "GOVERNING_BOM", "SUPPORTING_BOM", "NO_BOM_ROLE" }.Contains(doc.BomUse)))
+                throw SimRfqIntakeProblem.BadRequest("SIM_PACKAGE_USE", "Choose supported Production and BOM uses.");
             var association = record.TechnicalFiles.FirstOrDefault(f => f.DocumentId == doc.DocumentId)?.ReviewOrigin?.RowContext;
             if (System.Text.Json.JsonSerializer.Serialize(doc.RowAssociation) != System.Text.Json.JsonSerializer.Serialize(association) ||
                 (association is not null && (doc.Applicability != (association.ComponentType == "SUBASSEMBLY" ? "SUBASSEMBLY" : "SUPPORTING_REFERENCE") || doc.SubassemblyPartNumber != (association.ComponentType == "SUBASSEMBLY" ? association.CustomerBomPartNumber : null) || doc.ProposedSubassemblyIdentity != (association.ProposedSubassemblyIdentities.Length == 1 ? association.ProposedSubassemblyIdentities[0] : null))))
@@ -66,7 +71,7 @@ internal static class SimTechnicalPackageProvider
         }
         // Historical callers without identity-review metadata retain their existing contract.
         // Current reviews cannot strip the metadata to bypass the package gate.
-        if (docs.Any(d => d.IdentityReview is not null || d.PartNumberReview is not null) || record.TechnicalReview?.TechnicalPackage?.Documents.Any(d => d.IdentityReview is not null) == true)
+        if (!allowIncomplete && (docs.Any(d => d.IdentityReview is not null || d.PartNumberReview is not null) || record.TechnicalReview?.TechnicalPackage?.Documents.Any(d => d.IdentityReview is not null) == true))
             RequirePartNumberReview(docs);
         var governing = string.IsNullOrWhiteSpace(request.GoverningBomDocumentId) ? null : request.GoverningBomDocumentId;
         var parentGoverning = docs.Where(doc => doc.Role == "GOVERNING" && doc.Applicability == "PARENT_ASSEMBLY" && new[] { "BOM", "SUBASSEMBLY_BOM" }.Contains(doc.DocumentType)).ToArray();

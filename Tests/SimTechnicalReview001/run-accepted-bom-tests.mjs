@@ -44,7 +44,7 @@ const click = async (action, version) => {
 const html = () => node('technicalReviewDetail').innerHTML;
 await workspace.render();
 await workspace.openReview(fixture.intakeId);
-assert.match(html(), /BOM Review Complete/);
+assert.match(html(), /technical-review-entry-card/);
 for (const version of [1, 2, 1]) {
   await click('accepted-bom', version);
   assert.match(html(), new RegExp('id="acceptedBomTitle"[^>]*>Accepted BOM Version ' + version));
@@ -57,8 +57,8 @@ for (const version of [1, 2, 1]) {
 await click('candidate-confirm');
 handlers.change({ target: { dataset: { componentRow: '0' }, value: 'OTHER' } });
 await click('accepted-back');
-assert.match(html(), /Choose how to proceed/);
-assert.match(html(), /BOM Review Complete/);
+assert.match(html(), /Back to Queue/);
+assert.match(html(), /technical-review-entry-card/);
 await workspace.render();
 await workspace.openReview(fixture.intakeId);
 await click('accepted-bom', 2);

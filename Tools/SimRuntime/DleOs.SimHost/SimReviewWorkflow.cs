@@ -21,7 +21,7 @@ internal sealed partial class SimRfqIntakeStore
         ((d.Role == "GOVERNING" && d.Applicability == "PARENT_ASSEMBLY") ||
          (d.IdentityReview?.Type is "DRAWING" or "DRAWING_AND_BOM" && d.Role == "UNRESOLVED" && d.Applicability is "PARENT_ASSEMBLY" or "SUPPORTING_REFERENCE" && string.IsNullOrWhiteSpace(d.SubassemblyPartNumber))))
         .Select(d => d.DocumentId).ToArray();
-    private static object WorkflowEnvelope(SimRfqIntakeRecord record) => new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), manufacturingDrawingIds = ManufacturingDrawingIds(record), record };
+    private static object WorkflowEnvelope(SimRfqIntakeRecord record) => new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), manufacturingDrawingIds = ManufacturingDrawingIds(record), packageReviewToken = PackageReviewToken(record), assemblyHistoryContext = record.TechnicalReview?.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record), record };
     private static void RequireWorkflowMaterials(SimRfqIntakeRecord record)
     {
         if (record.TechnicalReview?.Workflow is { } w &&
@@ -39,6 +39,8 @@ internal sealed partial class SimRfqIntakeStore
             var record = dataset.Records[index];
             var review = record.TechnicalReview ?? throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_MISSING", "Review state is unavailable.");
             var w = review.Workflow;
+            if (w?.Version == UnifiedPackageVersion && request.Action is not ("START" or "COMPLETE"))
+                throw SimRfqIntakeProblem.Conflict("SIM_COMBINED_PACKAGE_REQUIRED", "Use the combined Technical Package Review to update this package.");
             var now = DateTimeOffset.UtcNow;
             if (record.Status is "NO_LONGER_REQUIRED" or "READY_FOR_RFQ_WORKING_QUEUE" || w?.Outputs is not null || !string.IsNullOrEmpty(review.DownstreamHandoffState))
                 throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_CLOSED", "This historical or released review is read-only.");
@@ -123,7 +125,8 @@ internal sealed partial class SimRfqIntakeStore
                         throw SimRfqIntakeProblem.Conflict("SIM_ANALYSIS_ACTIVE", "Wait for analysis before release.");
                     var accepted = review.BomAcceptances?.LastOrDefault(a => a.Candidate.Id == review.CandidateBom?.Id);
                     if (review.MaterialsReviewStatus != "QUALIFIED" || accepted is null ||
-                        JsonSerializer.Serialize(accepted.Package.Documents, jsonOptions) != JsonSerializer.Serialize(review.TechnicalPackage?.Documents, jsonOptions) ||
+                        (w.Version == UnifiedPackageVersion ? !SameMaterialPackage(accepted.Package, review.TechnicalPackage) :
+                         JsonSerializer.Serialize(accepted.Package.Documents, jsonOptions) != JsonSerializer.Serialize(review.TechnicalPackage?.Documents, jsonOptions)) ||
                         accepted.Package.GoverningBomDocumentId != review.TechnicalPackage?.GoverningBomDocumentId)
                         throw SimRfqIntakeProblem.Conflict("SIM_DEFINITIONS_REQUIRED", "Complete both definitions using the current package before releasing Technical Review.");
                     var releaseSources = await AnalysisDocuments(record, accepted.Candidate.Analysis?.SourceSnapshot.SourceSelectionVersion);

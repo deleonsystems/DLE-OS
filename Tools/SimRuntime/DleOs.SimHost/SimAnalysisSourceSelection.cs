@@ -31,6 +31,7 @@ internal static class SimAnalysisSourceSelection
         else if (!string.IsNullOrWhiteSpace(doc.SubassemblyPartNumber)) return null;
 
         if (manufacturer) return "MANUFACTURER_ENRICHMENT";
+        if (doc.BomUse == "NO_BOM_ROLE" && SimTechnicalPackageProvider.BomBearing(doc)) return null;
         return doc.Role is "SUPPORTING" or "REFERENCED" ? "REFERENCE" : null;
     }
 

@@ -36,7 +36,7 @@ internal sealed partial class SimRfqIntakeStore
             var sources = await AnalysisDocuments(record, bom.Analysis?.SourceSnapshot.SourceSelectionVersion);
             if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status)))
                 throw SimRfqIntakeProblem.Conflict("SIM_BOM_ANALYZING", "Wait for the current analysis to finish before completing BOM Review.");
-            var governing = sources.Single(s => s.Source.Role == "GOVERNING").Source;
+            var governing = sources.Single(s => s.Source.DocumentId == review!.TechnicalPackage!.GoverningBomDocumentId).Source;
             if (bom.GoverningDocumentId != governing.DocumentId || bom.GoverningSha256 != governing.Sha256 ||
                 (bom.Analysis is not null && !SameAnalysisSources(bom.Analysis.SourceSnapshot, record, sources)))
                 throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "The source package changed. Build and review a new candidate before completing BOM Review.");

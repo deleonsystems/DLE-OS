@@ -346,6 +346,8 @@ internal sealed partial class SimRfqIntakeStore
             reviewStatusLabel = ReviewStatusLabel(record.Status),
             deletionEligibility = new { allowed = DeletionBlockReason(record) is null, reason = DeletionBlockReason(record) },
             manufacturingDrawingIds = ManufacturingDrawingIds(record),
+            packageReviewToken = PackageReviewToken(record),
+            assemblyHistoryContext = record.TechnicalReview?.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record),
             record
         };
     }
@@ -465,6 +467,8 @@ internal sealed partial class SimRfqIntakeStore
             if (index < 0) throw SimRfqIntakeProblem.NotFound("DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND", "The SIM Technical Review item does not exist.");
             var record = dataset.Records[index];
             var history = record.TechnicalReview?.AssemblyHistory;
+            if (record.TechnicalReview?.Workflow?.Version == UnifiedPackageVersion)
+                throw SimRfqIntakeProblem.Conflict("SIM_COMBINED_PACKAGE_REQUIRED", "Use the combined Technical Package Review to update this package.");
             var revision = record.Assemblies.OrderBy(item => item.LineNumber).First().Revision.Trim();
             if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || (record.TechnicalReview?.Workflow is null && (history?.AssemblyClassification != "EXISTING_ASSEMBLY" ||
                 !history.RevisionsFound.Contains(revision, StringComparer.OrdinalIgnoreCase))))
