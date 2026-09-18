@@ -145,3 +145,86 @@
 .technical-review-entry-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-top:18px; }
 .technical-review-entry-actions .technical-review-back { margin:0; }
 .technical-review-entry-card .technical-review-message:empty { display:none; }
+
+/* Give only the unified package page the available desktop workspace. */
+.technical-review-workspace:has(.unified-package-review) { max-width:1600px; }
+.unified-package-review { width:100%; }
+.unified-package-review th:nth-child(4) { min-width:205px; }
+.unified-package-review th:nth-child(5) { min-width:145px; }
+.unified-package-review th:nth-child(6) { min-width:145px; }
+.unified-package-review .package-help { position:relative; display:inline-block; cursor:help; }
+.unified-package-review .package-help-text { display:none; position:absolute; top:100%; right:0; width:260px; padding:10px; border:1px solid #64748b; border-radius:6px; background:#0f172a; color:#f8fafc; font-size:12px; font-weight:400; line-height:1.4; z-index:5; box-shadow:0 4px 12px #0006; }
+.unified-package-review .package-help:hover .package-help-text,
+.unified-package-review .package-help:focus .package-help-text { display:block; }
+
+#home:has(.unified-package-review) { width:100%; max-width:1680px; margin-inline:auto; box-sizing:border-box; }
+@media(min-width:1024px) { body > main:has(.unified-package-review) { padding-inline:24px; } }
+
+.unified-package-review .package-authority-summary > section { min-width:0; }
+.unified-package-review .package-summary-list { list-style:none; padding:0; margin:0; }
+.unified-package-review .package-summary-list li { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:3px 14px; margin:7px 0; }
+.unified-package-review .package-summary-name { min-width:0; overflow-wrap:anywhere; }
+.unified-package-review .package-summary-roles,
+.unified-package-review .package-summary-empty { color:#94a3b8; font-size:12px; }
+
+.unified-package-review .package-review-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px 24px; margin-bottom:16px; }
+.unified-package-review .package-review-heading h3 { margin:0 0 8px; }
+.unified-package-review .package-review-heading p { margin:0; }
+.unified-package-review .package-review-heading > button { flex-shrink:0; padding:10px 14px; }
+/* Compact identity controls; evidence stays available in closed disclosures. */
+.technical-review-candidate .manufacturer-proposals>label,
+.technical-review-candidate .candidate-alternates>label{display:inline-flex;flex-direction:column;gap:5px;max-width:100%;margin-right:12px}
+.technical-review-candidate #primaryChoice,
+.technical-review-candidate #alternateChoice{width:300px;max-width:100%}
+.technical-review-candidate .manufacturer-proposals>details{margin-top:8px}
+/* Worksheet decisions stay inline; secondary tools open only on request. */
+.technical-review-candidate .candidate-table td>input,
+.technical-review-candidate .candidate-table td>select { box-sizing:border-box; width:100%; max-width:250px; min-width:125px; padding:6px; font:inherit; font-size:13px; color:#e2e8f0; background:#0f172a; border:1px solid #64748b; border-radius:4px; }
+.technical-review-candidate .candidate-table td>input { margin-top:4px; }
+.technical-review-candidate .candidate-options { position:relative; min-width:74px; }
+.technical-review-candidate .candidate-options summary { cursor:pointer; color:#9dceff; }
+.technical-review-candidate .candidate-options[open] { min-width:175px; }
+.technical-review-candidate .candidate-options button { display:block; width:100%; text-align:left; margin-top:4px; padding:5px 7px; font-size:12px; }
+.technical-review-candidate .candidate-table td>button { padding:5px 9px; margin-top:5px; }
+
+/* Candidate worksheet uses the desktop work area; narrow screens scroll the table. */
+#home:has(.technical-review-candidate) { width:100%; max-width:none; box-sizing:border-box; }
+.technical-review-workspace:has(.technical-review-candidate) { width:100%; max-width:none; min-width:0; box-sizing:border-box; }
+.technical-review-question.technical-review-candidate { width:100%; max-width:none; }
+.technical-review-candidate .candidate-table-scroll { width:100%; max-width:100%; overflow-x:auto; }
+.technical-review-candidate .candidate-table { table-layout:fixed; min-width:1200px; }
+.technical-review-candidate .candidate-table th:nth-child(1) { width:3%; }
+.technical-review-candidate .candidate-table th:nth-child(2) { width:12%; }
+.technical-review-candidate .candidate-table th:nth-child(3) { width:20%; }
+.technical-review-candidate .candidate-table th:nth-child(4) { width:25%; }
+.technical-review-candidate .candidate-table th:nth-child(5) { width:5%; }
+.technical-review-candidate .candidate-table th:nth-child(6) { width:10%; }
+.technical-review-candidate .candidate-table th:nth-child(7) { width:12%; }
+.technical-review-candidate .candidate-table th:nth-child(8) { width:7%; }
+.technical-review-candidate .candidate-table th:nth-child(9) { width:6%; }
+.technical-review-candidate .candidate-table td { overflow-wrap:anywhere; }
+.technical-review-candidate .candidate-table td:nth-child(3)>input,
+.technical-review-candidate .candidate-table td:nth-child(3)>select { max-width:none; }
+@media(min-width:1024px) {
+  body > main:has(.technical-review-candidate) { max-width:none; padding-inline:24px; }
+  .technical-review-workspace:has(.technical-review-candidate) { padding-inline:0; }
+}
+.technical-review-candidate .candidate-table td:nth-child(6)>select { min-width:0; }
+.technical-review-candidate .candidate-status { max-width:100%; box-sizing:border-box; white-space:normal; }
+.technical-review-candidate .candidate-part { white-space:normal; }
+
+.technical-review-release{margin-top:16px}.technical-review-release h4{margin:0 0 14px;color:#f8fafc}.release-summary{display:flex;flex-wrap:wrap;align-items:flex-start;gap:18px 36px;margin-bottom:16px}.release-summary>div{min-width:0}.release-summary h5{font-size:14px;margin:0 0 6px;color:#e2e8f0}.release-summary p{margin:0 0 10px;color:#94a3b8;font-size:13px;overflow-wrap:anywhere}.technical-review-release .technical-review-secondary{padding:8px 12px;font-size:13px}
+
+/* Compact selected-RFQ launch summary; other review screens retain their layout. */
+#home:has(.technical-review-entry-card){width:100%;max-width:none;box-sizing:border-box}
+.technical-review-workspace:has(.technical-review-entry-card){width:100%;max-width:none;box-sizing:border-box;padding:20px 24px 40px}
+.technical-review-entry-card{width:100%;max-width:none;box-sizing:border-box;margin:0 auto;padding:20px 24px}
+.technical-review-entry-card h2{margin-bottom:8px}
+.technical-review-entry-customer{margin:0 0 6px;font-size:16px}
+.technical-review-entry-identity{margin:0;color:#cbd5e1;font-size:16px;overflow-wrap:anywhere}
+.technical-review-entry-card .technical-review-intake-summary{margin-top:16px;gap:10px 24px}
+.technical-review-entry-actions{margin-top:16px}
+@media(min-width:1024px){body>main:has(.technical-review-entry-card){max-width:none;padding-inline:24px}.technical-review-workspace:has(.technical-review-entry-card){width:85%;padding-inline:0}}
+@media(max-width:600px){.technical-review-workspace:has(.technical-review-entry-card){padding:16px 8px 28px}.technical-review-entry-card{padding:16px}.technical-review-entry-card .technical-review-intake-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.technical-review-entry-card h2{font-size:20px;overflow-wrap:anywhere}.technical-review-entry-actions>button{max-width:100%}}
+
+.accepted-bom-reference .candidate-table th:nth-child(8){width:10%}.accepted-bom-reference .candidate-table th:nth-child(4){width:23%}.accepted-row-details>summary{cursor:pointer;color:#bfdbfe}.accepted-row-details{font-size:13px;overflow-wrap:anywhere}.accepted-row-details h4{font-size:13px}.accepted-row-details details{margin-top:10px}

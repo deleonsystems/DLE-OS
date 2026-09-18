@@ -10,8 +10,8 @@ const r=state.selected.record,w=r.technicalReview.workflow;
 assert.equal(c.unifiedEligible(r),true);
 const pack=c.packageDraft();assert.equal(pack.documents[0].documentType,'ASSEMBLY_DRAWING');assert.equal(pack.documents[0].embeddedBom,true);assert.equal(pack.documents[0].role,'UNRESOLVED');assert.equal(pack.documents[1].documentType,'BOM');assert.equal(pack.governingBomDocumentId,null);assert.equal(w.packageConfirmed,undefined);
 for(const [changes,step] of [[{},'inventory'],[{packageConfirmed:true},'inventory'],[{sufficient:true},'inventory'],[{historyReviewed:true},'inventory'],[{manufacturing:{id:'m'}},'inventory']]) {Object.assign(w,changes);c.resumeWorkflow();assert.equal(state.step,step);}
-r.technicalReview.candidateBom={};c.resumeWorkflow();assert.equal(state.step,'candidate');
-r.technicalReview.materialsReviewStatus='QUALIFIED';c.resumeWorkflow();assert.equal(state.step,'release');
+r.technicalReview.candidateBom={};c.resumeWorkflow();assert.equal(state.step,'inventory');
+r.technicalReview.materialsReviewStatus='QUALIFIED';c.resumeWorkflow();assert.equal(state.step,'inventory');
 r.status='ON_HOLD';c.resumeWorkflow();assert.equal(state.step,'inventory');
 const html=c.renderUnifiedGoverning({documents:[{documentId:'pdf',name:'drawing.pdf',documentType:'ASSEMBLY_DRAWING',embeddedBom:true,applicability:'PARENT_ASSEMBLY'}],governingBomDocumentId:'pdf'});
 assert.match(html,/Save selection and build Candidate BOM/);assert.doesNotMatch(html,/compare-package|Save selection and compare BOM/);

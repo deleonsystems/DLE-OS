@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source=fs.readFileSync('SRC/workspaces/technical-review/technical-review-workspace.js','utf8');
+const extract=name=>{const start=source.indexOf('  function '+name+'(');return source.slice(start,source.indexOf('\n  }',start)+4);};
+const state={selected:{packageReviewToken:'one',record:{intakeId:'SYNTHETIC',technicalReview:{materialsReviewStatus:'IN_PROGRESS',candidateBom:{id:'candidate-2'},bomAcceptances:[{version:1,candidate:{id:'old'}},{version:2,candidate:{id:'candidate-2'},reviewedBy:'Synthetic reviewer',reviewedAtUtc:'2026-09-17'}]}}},step:'inventory'};
+let candidate={}, calls=0, result={ready:true}, rendered=0;
+const context={state,packageCandidateState:()=>candidate,fetchJson:async()=>{calls++;return result;},renderDetail:()=>rendered++,flowButton:()=>'<button>Release</button>',escapeHtml:x=>x,formatDateTime:x=>x};
+vm.createContext(context);vm.runInContext('let releaseReadiness=null;'+extract('renderPackageRelease'),context);
+assert.equal(context.renderPackageRelease(),'');assert.equal(calls,0);
+state.selected.record.technicalReview.materialsReviewStatus='QUALIFIED';candidate.active=true;assert.equal(context.renderPackageRelease(),'');
+candidate={dirty:true};assert.match(context.renderPackageRelease(),/save the package/);assert.equal(calls,0);
+candidate={};assert.match(context.renderPackageRelease(),/Checking/);await new Promise(setImmediate);assert.match(context.renderPackageRelease(),/Technical Review Ready/);assert.equal(calls,1);assert.equal(rendered,1);
+state.selected.packageReviewToken='two';result={ready:false,message:'Source integrity failed'};context.renderPackageRelease();await new Promise(setImmediate);assert.match(context.renderPackageRelease(),/Source integrity failed/);assert.doesNotMatch(context.renderPackageRelease(),/>Release<\/button>/);
+assert.match(source,/state.step = 'inventory'; state.candidateIndex = null/);assert.doesNotMatch(source,/state.step = 'release'/);
+assert.match(source,/if\(action === 'COMPLETE'\) \{ state.step = 'inventory'/);
+assert.match(source,/flowButton\('Submit to RFQs','COMPLETE'\)/);
+console.log('PASS: package release hides before acceptance/during analysis/dirty package, waits for server readiness, blocks failures, returns acceptance to package, retains COMPLETE action.');
+
+state.selected.packageReviewToken='three';result={ready:true};context.renderPackageRelease();await new Promise(setImmediate);
+const card=context.renderPackageRelease();assert.match(card,/technical-review-release/);assert.match(card,/Version 2 · Accepted by Synthetic reviewer/);assert.match(card,/class="technical-review-secondary"[^>]*data-accepted-version="2">View Accepted BOM/);assert.doesNotMatch(card,/data-accepted-version="1"/);
+assert.match(source,/materialsReviewStatus === 'QUALIFIED'\) return ''/);
+console.log('PASS: release card contains current immutable BOM version, reviewer/date and styled secondary access; primary label uses existing COMPLETE action.');

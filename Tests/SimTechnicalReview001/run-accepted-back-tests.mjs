@@ -1,0 +1,14 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+let source=fs.readFileSync('SRC/workspaces/technical-review/technical-review-workspace.js','utf8');
+source=source.replace('  function renderDetail() {','  function renderDetail() { window.renders++; return;');
+source=source.replace('  window.DleWorkspaces = window.DleWorkspaces || {};','  window.test={state,renderAcceptedBom,bind:m=>{mount=m;bindInteractions();}}; window.DleWorkspaces = window.DleWorkspaces || {};');
+const handlers={},window={renders:0,fetch(){throw Error('Back must not request or write data');}},document={addEventListener(){},getElementById(){return null;}};
+vm.runInNewContext(source,{window,document,setTimeout,clearTimeout,setInterval,clearInterval});
+const t=window.test;t.bind({addEventListener:(key,fn)=>handlers[key]=fn});
+const record={intakeId:'SYNTHETIC-BACK',status:'TECHNICAL_REVIEW_IN_PROGRESS',technicalReview:{workflow:{packageConfirmed:true},bomAcceptances:[]}};
+const before=JSON.stringify(record),draft={preserved:true};t.state.selected={record};t.state.packageDraft=draft;t.state.step='accepted-bom';t.state.acceptedVersion=2;
+assert.match(t.renderAcceptedBom(record),/Back to Package Review/);
+const click=()=>handlers.click({target:{closest:selector=>selector==='[data-technical-review-action]'?{dataset:{technicalReviewAction:'accepted-back'}}:null}});
+click();assert.equal(t.state.step,'inventory');assert.equal(t.state.guided,true);assert.equal(t.state.selected.record,record);assert.equal(t.state.packageDraft,draft);assert.equal(t.state.acceptedVersion,null);assert.equal(JSON.stringify(record),before);
+record.status='READY_FOR_RFQ_WORKING_QUEUE';t.state.step='accepted-bom';click();assert.equal(t.state.step,'package');assert.equal(window.renders,2);
+console.log('PASS: accepted Back returns directly to same active package with draft and business state preserved; completed review returns to read-only package; no requests.');

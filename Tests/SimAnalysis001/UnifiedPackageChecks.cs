@@ -21,9 +21,8 @@ internal static class UnifiedPackageChecks
         SimRfqIntakeRecord Current() => JsonDocument.Parse(File.ReadAllText(path)).RootElement.GetProperty("records")[0].Deserialize<SimRfqIntakeRecord>(json)!;
         var docs = files.Select((f,i) => new SimPackageDocument(f.DocumentId!, f.Name, "ASSEMBLY_DRAWING", i==0?"GOVERNING":"UNRESOLVED", i==3?"SUBASSEMBLY":"PARENT_ASSEMBLY", i==3?"SYN-SUB":null, i==0,
             new(i==0?"DRAWING_AND_BOM":"DRAWING"), new(i==0?"MANUFACTURER":null, i==2), ProductionUse:i==0?"PRIMARY_DRAWING":"NOT_FOR_PRODUCTION", BomUse:i==0?"GOVERNING_BOM":"NO_BOM_ROLE")).ToArray();
-        SimUnifiedPackageRequest Request(bool complete=true, bool history=true, string? missing=null) => new(SimRfqIntakeStore.UnifiedPackageVersion, SimRfqIntakeStore.PackageReviewToken(Current()), docs, files[0].DocumentId, complete, history, missing);
+        SimUnifiedPackageRequest Request(bool complete=true, bool history=false, string? missing=null) => new(SimRfqIntakeStore.UnifiedPackageVersion, SimRfqIntakeStore.PackageReviewToken(Current()), docs, files[0].DocumentId, complete, history, missing);
         await store.WorkflowAsync(record.IntakeId, new("START"), persona);
-        await Block(()=>store.SaveUnifiedPackage(record.IntakeId, Request(history:false), persona), "SIM_HISTORY_REQUIRED");
         var before=File.ReadAllText(path);
         docs[0]=docs[0] with {PartNumberReview=new("UNKNOWN",false)};
         await Block(()=>store.SaveUnifiedPackage(record.IntakeId, Request(), persona), "SIM_PN_BASIS_UNKNOWN");
@@ -39,7 +38,7 @@ internal static class UnifiedPackageChecks
         var current=Current(); docs=current.TechnicalReview!.TechnicalPackage!.Documents;
         var manufacturingId=current.TechnicalReview.Workflow!.Manufacturing!.Id;
         Check(current.TechnicalReview.Workflow.Manufacturing.GoverningDocumentId==files[0].DocumentId && current.TechnicalReview.TechnicalPackage.GoverningBomDocumentId==files[0].DocumentId,"same PDF serves both authorities");
-        Check(current.TechnicalReview.Workflow.HistoryReviewed && current.TechnicalReview.AssemblyHistory!.ConfirmedBy==persona.DisplayName,"history acknowledged with reviewer evidence");
+        Check(!current.TechnicalReview.Workflow.HistoryReviewed && current.TechnicalReview.AssemblyHistory!.ConfirmedBy is null && current.TechnicalReview.AssemblyHistory.ConfirmedAtUtc is null && current.TechnicalReview.AssemblyHistory.AssemblyClassification == "NEW_ASSEMBLY","classification derived without false history reviewer evidence");
         Check(SimAnalysisSourceSelection.Select(current.TechnicalReview.TechnicalPackage,DleAnalysisContract.SourceSelectionVersion).Select(d=>d.DocumentId).SequenceEqual(new[]{files[0].DocumentId,files[2].DocumentId}),"parent manufacturer source included, subassembly excluded");
         before=File.ReadAllText(path); var stale=Request();
         await store.SaveUnifiedPackage(record.IntakeId,Request(),persona);
@@ -54,6 +53,89 @@ internal static class UnifiedPackageChecks
         await store.SetAnalysisState(job.Input.JobId,"VALIDATING"); await store.PublishAnalysis(job.Input.JobId,new(result,"UNIT_TEST_OFFLINE","1","none"));
         var candidate=Current().TechnicalReview!.CandidateBom!;
         Check(candidate.Rows.Length==6,"Candidate BOM lifecycle works after combined save and no-op during analysis");
+        // Row acceptance persists only one row and reuses package invalidation/version contracts.
+        var rowCheckpoint=File.ReadAllText(path);
+        SimUnifiedPackageRequest RowRequest(SimPackageDocument d) => new(SimRfqIntakeStore.UnifiedPackageVersion,
+            SimRfqIntakeStore.PackageReviewToken(Current()), [d], null, false, AcceptDocumentId:d.DocumentId);
+        var rowDoc=Current().TechnicalReview!.TechnicalPackage!.Documents[0];
+        await Block(()=>store.SaveUnifiedPackage(record.IntakeId,RowRequest(rowDoc with {PartNumberReview=new("MANUFACTURER",null)}),persona),"SIM_ROW_REVIEW");
+        Check(File.ReadAllText(path)==rowCheckpoint,"row missing decision blocks atomically");
+        await store.SaveUnifiedPackage(record.IntakeId,RowRequest(rowDoc),persona);
+        Check(File.ReadAllText(path)==rowCheckpoint,"unchanged row acceptance has no timestamp/version churn");
+        var productionDoc=Current().TechnicalReview!.TechnicalPackage!.Documents[1];
+        await store.SaveUnifiedPackage(record.IntakeId,RowRequest(productionDoc with {ProductionUse="SUPPORTING_PRODUCTION"}),persona);
+        Check(Current().TechnicalReview!.CandidateBom!.Id==candidate.Id,"row Production-only acceptance preserves ready candidate");
+        Check(Current().TechnicalReview!.TechnicalPackage!.Documents[1].ProductionUse=="SUPPORTING_PRODUCTION","row decisions persist independently");
+        rowDoc=Current().TechnicalReview!.TechnicalPackage!.Documents[0];
+        await store.SaveUnifiedPackage(record.IntakeId,RowRequest(rowDoc with {PartNumberReview=new("MANUFACTURER",true)}),persona);
+        Check(Current().TechnicalReview!.CandidateBom is null && Current().TechnicalReview!.CandidateBomVersions!.Any(c=>c.Id==candidate.Id),"row material change archives candidate for explicit rebuild");
+        store=new SimRfqIntakeStore(root);
+        Check(Current().TechnicalReview!.TechnicalPackage!.Documents[0].PartNumberReview!.ProvidesManufacturerPartNumbers==true,"accepted row survives store reopen");
+        await File.WriteAllTextAsync(path,rowCheckpoint);store=new SimRfqIntakeStore(root);
+        await store.CandidateBomAsync(record.IntakeId,persona,new(candidate.Id,0,null,AlternateChange:new("APPROVE",null,"SYN-APPROVED-ALT","APPROVED",0,"Synthetic maker","Synthetic review note")));
+        var altRow=Current().TechnicalReview!.CandidateBom!.Rows[0];
+        Check(altRow.Alternates!.Single().ReviewStatus=="APPROVED" && altRow.Alternates!.Single().ManufacturerName=="Synthetic maker","explicit alternate approval persists independently");
+        await store.CandidateBomAsync(record.IntakeId,persona,new(candidate.Id,0,new(altRow.Values),PrimarySelection:new(null,"SYN-MANUAL-PRIMARY","Synthetic maker",altRow.ReviewState.Token)));
+        var primaryRow=Current().TechnicalReview!.CandidateBom!.Rows[0];
+        Check(primaryRow.ManufacturerIdentity!.Proposals.Single(p=>primaryRow.ManufacturerIdentity.Decision(p.Id)=="CONFIRMED").PartNumber=="SYN-MANUAL-PRIMARY" && primaryRow.ReviewState.Reviewed,"manual primary accepted explicitly with row review");
+        Check(primaryRow.Alternates!.Single().PartNumber=="SYN-APPROVED-ALT","primary remains distinct from approved alternate");
+        var identity=primaryRow.ManufacturerIdentity!;
+        var two=primaryRow with {ManufacturerIdentity=identity with {Proposals=identity.Proposals.Append(identity.Proposals[0] with {Id="second",PartNumber="SYN-SECOND"}).ToArray()}};
+        var twoBom=Current().TechnicalReview!.CandidateBom! with {Rows=[two]};
+        var chosen=SimCandidateBomProvider.Review(twoBom,new(twoBom.Id,0,new(two.Values),PrimarySelection:new("second",null,null,two.ReviewState.Token)),persona).Rows[0];
+        Check(chosen.ManufacturerIdentity!.Proposals.Count(p=>chosen.ManufacturerIdentity.Decision(p.Id)=="CONFIRMED")==1 && chosen.ManufacturerIdentity.Decision("second")=="CONFIRMED","selection explicitly confirms only one primary, never creates alternates");
+        Check(chosen.ManufacturerIdentity.Decision(identity.Proposals[0].Id)=="NOT_SELECTED" && chosen.Alternates!.Length==1,"other proposals remain available with history, not automatic alternates");
+        var worksheetChosen=SimCandidateBomProvider.Review(twoBom,new(twoBom.Id,0,new(two.Values){["description"]="Corrected synthetic description"},WorksheetAcceptance:new(two.ReviewState.Token,"STANDARD_COTS",ProposalId:"second")),persona).Rows[0];
+        Check(worksheetChosen.ReviewState.Reviewed && worksheetChosen.Corrections.Length>two.Corrections.Length,"worksheet accepts field correction and chosen identity atomically");
+        Check(worksheetChosen.ManufacturerIdentity!.Proposals.Any(p=>p.Id=="second") && worksheetChosen.ManufacturerIdentity.Proposals.Where(p=>worksheetChosen.ManufacturerIdentity.Decision(p.Id)=="CONFIRMED").All(p=>p.Id.StartsWith("manual-")),"corrected row retains extraction and records separate human reaffirmation");
+        var staleWorksheet=two with {ManufacturerIdentity=two.ManufacturerIdentity! with {Stale=true}};
+        var five=two with {ManufacturerIdentity=identity with {Proposals=Enumerable.Range(1,5).Select(i=>identity.Proposals[0] with {Id="multi-"+i,PartNumber="SYN-MFG-"+i}).ToArray(),History=[]}};
+        var fiveBom=twoBom with {Rows=[five]};
+        var all=SimCandidateBomProvider.Review(fiveBom,new(fiveBom.Id,0,new(five.Values),WorksheetAcceptance:new(five.ReviewState.Token,"STANDARD_COTS")),persona).Rows[0];
+        Check(all.ReviewState.Reviewed && all.ManufacturerIdentity!.Proposals.All(p=>all.ManufacturerIdentity.Decision(p.Id)=="CONFIRMED"),"one Accept confirms five proposals without selecting a commercial winner");
+        var rejected=SimCandidateBomProvider.Review(fiveBom,new(fiveBom.Id,0,null,ManufacturerChange:new("multi-3","REJECTED",five.ManufacturerIdentity!.Revision)),persona);
+        var remaining=SimCandidateBomProvider.Review(rejected,new(fiveBom.Id,0,new(five.Values),WorksheetAcceptance:new(rejected.Rows[0].ReviewState.Token,"STANDARD_COTS")),persona).Rows[0];
+        Check(remaining.ManufacturerIdentity!.Decision("multi-3")=="REJECTED" && remaining.ManufacturerIdentity.Proposals.Count(p=>remaining.ManufacturerIdentity.Decision(p.Id)=="CONFIRMED")==4,"row Accept preserves explicit rejection and confirms remaining four");
+        Check(SimRfqIntakeStore.MaterialIdentityChoices(remaining).Contains("SYN-MFG-5") && !SimRfqIntakeStore.MaterialIdentityChoices(remaining).Contains("SYN-MFG-3") && remaining.Alternates!.Length==five.Alternates!.Length,"Materials offers all approved identities; true alternates stay separate");
+        var one=five with {ManufacturerIdentity=five.ManufacturerIdentity! with {Proposals=[five.ManufacturerIdentity.Proposals[0]]}};
+        Check(SimCandidateBomProvider.Review(fiveBom with {Rows=[one]},new(fiveBom.Id,0,new(one.Values),WorksheetAcceptance:new(one.ReviewState.Token,"STANDARD_COTS")),persona).Rows[0].ReviewState.Reviewed,"one proposal accepts without a selection");
+        var empty=five with {ManufacturerIdentity=five.ManufacturerIdentity! with {Proposals=[]}};
+        try {SimCandidateBomProvider.Review(fiveBom with {Rows=[empty]},new(fiveBom.Id,0,new(empty.Values),WorksheetAcceptance:new(empty.ReviewState.Token,"STANDARD_COTS")),persona);throw new Exception("empty identity accepted");}
+        catch(SimRfqIntakeProblem p){Check(p.Code=="SIM_MFG_REVIEW_INVALID","no proposal cannot fabricate identity");}
+        try { SimCandidateBomProvider.Review(twoBom with {Rows=[staleWorksheet]},new(twoBom.Id,0,new(two.Values),WorksheetAcceptance:new(staleWorksheet.ReviewState.Token,"STANDARD_COTS",ProposalId:"second")),persona);throw new Exception("stale worksheet accepted"); }
+        catch(SimRfqIntakeProblem p){Check(p.Code=="SIM_MFG_REVIEW_STALE","worksheet cannot accept pre-existing stale extraction");}
+        await Block(()=>store.CandidateBomAsync(record.IntakeId,persona,new(candidate.Id,0,new(primaryRow.Values),PrimarySelection:new(null,"STALE",null,altRow.ReviewState.Token))),"SIM_MFG_REVIEW_STALE");
+        Check(SimRfqIntakeStore.MaterialIdentityChoices(primaryRow).Order().SequenceEqual(new[]{"SYN-APPROVED-ALT","SYN-MANUAL-PRIMARY"}),"Materials receives confirmed primary and explicitly approved alternate");
+        Check(!SimRfqIntakeStore.MaterialIdentityChoices(primaryRow with {Alternates=primaryRow.Alternates!.Select(a=>a with {ReviewStatus="NOT_APPROVED"}).ToArray()}).Contains("SYN-APPROVED-ALT"),"Not Approved alternate is excluded from Materials choices");
+        var multiFixture=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+        multiFixture["records"]![0]!["technicalReview"]!["candidateBom"]!["rows"]![0]=JsonSerializer.SerializeToNode(remaining,json);
+        await File.WriteAllTextAsync(path,multiFixture.ToJsonString());store=new SimRfqIntakeStore(root);
+        foreach(var r in Current().TechnicalReview!.CandidateBom!.Rows.Skip(1)) await store.CandidateBomAsync(record.IntakeId,persona,new(candidate.Id,r.Index,new(r.Values)));
+        await store.CompleteBomReview(record.IntakeId,new(Current().TechnicalReview!.CandidateBom!),persona);
+        var approvedSnapshot=Current().TechnicalReview!.BomAcceptances!.Last().Candidate.Rows[0];
+        store=new SimRfqIntakeStore(root);
+        Check(approvedSnapshot.ManufacturerIdentity!.Proposals.Count(p=>approvedSnapshot.ManufacturerIdentity.Decision(p.Id)=="CONFIRMED")==4 && SimRfqIntakeStore.MaterialIdentityChoices(approvedSnapshot).Contains("SYN-MFG-5"),"Accepted BOM preserves multiple identities for Materials after persisted reopen");
+        Check(approvedSnapshot.Alternates!.Single().ReviewStatus=="APPROVED" && SimRfqIntakeStore.MaterialIdentityChoices(approvedSnapshot).Contains("SYN-APPROVED-ALT"),"Accepted BOM preserves approved alternate for Materials without approving it there");
+        await File.WriteAllTextAsync(path,rowCheckpoint);store=new SimRfqIntakeStore(root);
+        var worksheetRow=Current().TechnicalReview!.CandidateBom!.Rows[0];
+        var worksheetValues=new Dictionary<string,string>(worksheetRow.Values){["partNumber"]="N4-554"};
+        await store.CandidateBomAsync(record.IntakeId,persona,new(candidate.Id,0,worksheetValues,WorksheetAcceptance:new(worksheetRow.ReviewState.Token,"SUBASSEMBLY","N4-554 REV -")));
+        var assemblyRow=Current().TechnicalReview!.CandidateBom!.Rows[0];
+        Check(assemblyRow.Values["partNumber"]=="N4-554" && assemblyRow.AssemblyIdentity!.PartNumber=="N4-554 REV -" && assemblyRow.ReviewState.Reviewed,"worksheet atomically accepts distinct Assembly P/N and customer identity");
+        Check(!(assemblyRow.Alternates??[]).Any(a=>a.PartNumber=="N4-554 REV -") && !(assemblyRow.ManufacturerIdentity?.Proposals??[]).Any(p=>p.PartNumber=="N4-554 REV -"),"Assembly P/N is neither alternate nor manufacturer identity");
+        var assemblyMaterial=SimRfqIntakeStore.MaterialIdentityDefaults(new(0),assemblyRow);
+        Check(assemblyMaterial.AssemblyPartNumber=="N4-554 REV -" && assemblyMaterial.MfgPartNumber is null,"Materials retains typed Assembly P/N without MFG relabeling");
+        var persisted=File.ReadAllText(path);
+        await Block(()=>store.CandidateBomAsync(record.IntakeId,persona,new(candidate.Id,0,worksheetValues,WorksheetAcceptance:new(assemblyRow.ReviewState.Token,"SUBASSEMBLY",""))),"SIM_ASSEMBLY_IDENTITY_REQUIRED");
+        Check(File.ReadAllText(path)==persisted,"invalid worksheet acceptance is atomic");
+        await Block(()=>store.CandidateBomAsync(record.IntakeId,persona,new(candidate.Id,0,worksheetValues,WorksheetAcceptance:new(worksheetRow.ReviewState.Token,"SUBASSEMBLY","STALE"))),"SIM_ROW_APPROVAL_STALE");
+        foreach(var r in Current().TechnicalReview!.CandidateBom!.Rows.Skip(1))await store.CandidateBomAsync(record.IntakeId,persona,new(candidate.Id,r.Index,new(r.Values)));
+        await store.CompleteBomReview(record.IntakeId,new(Current().TechnicalReview!.CandidateBom!),persona);
+        store=new SimRfqIntakeStore(root);
+        var acceptedAssembly=Current().TechnicalReview!.BomAcceptances!.Last().Candidate.Rows[0];
+        Check(acceptedAssembly.AssemblyIdentity!.PartNumber=="N4-554 REV -" && acceptedAssembly.AssemblyIdentityHistory!.Length==1 && acceptedAssembly.Values["partNumber"]=="N4-554","Accepted BOM retains distinct Assembly identity and audit after reopen");
+        Check(SimRfqIntakeStore.MaterialIdentityDefaults(new(0),acceptedAssembly).AssemblyPartNumber=="N4-554 REV -","Materials uses Assembly identity from immutable Accepted BOM");
+        await File.WriteAllTextAsync(path,rowCheckpoint);store=new SimRfqIntakeStore(root);
         foreach(var row in candidate.Rows) await store.CandidateBomAsync(record.IntakeId,persona,new(candidate.Id,row.Index,new(row.Values)));
         candidate=Current().TechnicalReview!.CandidateBom!;
         await store.CompleteBomReview(record.IntakeId,new(candidate),persona);
@@ -68,8 +150,17 @@ internal static class UnifiedPackageChecks
         await store.SaveUnifiedPackage(record.IntakeId,Request(false,true,"Missing production clarification"),persona);
         await store.SaveUnifiedPackage(record.IntakeId,Request(),persona);
         Check(Current().TechnicalReview!.Workflow!.Manufacturing!.Id==current.TechnicalReview.Workflow.Manufacturing.Id,"hold/resume reuses unchanged manufacturing identity");
+        Check(!Current().TechnicalReview!.Workflow!.HistoryReviewed && Current().TechnicalReview!.AssemblyHistory!.ConfirmedBy is null,"even an old client acknowledgment cannot fabricate review evidence");
         // Preserve a pre-release dataset for source-change qualification, without touching the accepted snapshot.
         var saved=File.ReadAllText(path);
+        var historical = current with { TechnicalReview = current.TechnicalReview! with {
+            AssemblyHistory = current.TechnicalReview!.AssemblyHistory! with { ConfirmedBy = "Prior reviewer", ConfirmedAtUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z") },
+            Workflow = current.TechnicalReview.Workflow! with { HistoryReviewed = true } } };
+        var historicalData=System.Text.Json.Nodes.JsonNode.Parse(saved)!; historicalData["records"]![0]=JsonSerializer.SerializeToNode(historical,json);
+        await File.WriteAllTextAsync(path,historicalData.ToJsonString()); store=new SimRfqIntakeStore(root);
+        await store.SaveUnifiedPackage(record.IntakeId,Request(),persona);
+        Check(Current().TechnicalReview!.Workflow!.HistoryReviewed && JsonSerializer.Serialize(Current().TechnicalReview!.AssemblyHistory,json)==JsonSerializer.Serialize(historical.TechnicalReview!.AssemblyHistory,json),"historical acknowledgment and snapshot preserved exactly");
+        await File.WriteAllTextAsync(path,saved);store=new SimRfqIntakeStore(root);
         var legacy=current with {TechnicalReview=current.TechnicalReview with {
             TechnicalPackage=current.TechnicalReview.TechnicalPackage! with {Documents=current.TechnicalReview.TechnicalPackage!.Documents.Select(d=>d with {ProductionUse=null,BomUse=null}).ToArray()},
             Workflow=current.TechnicalReview.Workflow with {Version="PACKAGE_REVIEW_V1",Manufacturing=current.TechnicalReview.Workflow.Manufacturing with {
@@ -99,7 +190,9 @@ internal static class UnifiedPackageChecks
         await store.PublishAnalysis(staleJob.Input.JobId,new(result,"UNIT_TEST_OFFLINE","1","none"));
         Check(Current().TechnicalReview!.CandidateBom is null,"result from changed sources cannot replace current candidate");
         await File.WriteAllTextAsync(path,saved);store=new SimRfqIntakeStore(root);
+        Check(JsonSerializer.Serialize(await store.ReleaseReadinessAsync(record.IntakeId)).Contains("\"ready\":true"), "release readiness passes before COMPLETE");
         await store.WorkflowAsync(record.IntakeId,new("COMPLETE"),persona);
+        Check(JsonSerializer.Serialize(await store.ReleaseReadinessAsync(record.IntakeId)).Contains("\"ready\":false"), "released review remains protected");
         current=Current();
         Check(current.TechnicalReview!.Workflow!.Outputs!.Manufacturing.GoverningDocumentId==files[1].DocumentId,"Labor handoff resolves independent primary drawing");
         Check(((SimRfqIntakeRecord)(await new SimRfqIntakeStore(root).ReadAsync(record.IntakeId))!).TechnicalReview!.Workflow!.Outputs!.Manufacturing.Id==current.TechnicalReview.Workflow.Manufacturing!.Id,"completed review survives restart with stable outputs");

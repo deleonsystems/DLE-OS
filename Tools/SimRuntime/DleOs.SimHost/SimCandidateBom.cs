@@ -8,9 +8,9 @@ internal sealed record SimCandidateAlternateAudit(string Action, string? Previou
 internal sealed record SimCandidateAlternate(string Id, string? OriginalPartNumber, string PartNumber,
     string Origin, string ReviewStatus, string Uncertainty, DleAnalysisEvidence? SourceEvidence,
     string? SourceContext, DleAnalysisEvidence? SupportingEvidence, DleAnalysisEvidence? ApprovalEvidence,
-    SimCandidateAlternateAudit[] History, DateTimeOffset? RemovedAtUtc = null);
+    SimCandidateAlternateAudit[] History, DateTimeOffset? RemovedAtUtc = null, string? ManufacturerName = null, string? Note = null);
 internal sealed record SimCandidateAlternateChange(string Action, string? Id, string? PartNumber,
-    string? ReviewStatus, int ExpectedRevision);
+    string? ReviewStatus, int ExpectedRevision, string? ManufacturerName = null, string? Note = null);
 internal sealed record SimCandidateComponentChange(string ComponentType, int ExpectedRevision);
 internal sealed record SimManufacturerDecision(string ProposalId, string Decision, string Reviewer, DateTimeOffset AtUtc);
 internal sealed record SimManufacturerIdentity(DleManufacturerProposal[] Proposals, string Uncertainty,
@@ -21,6 +21,8 @@ internal sealed record SimManufacturerIdentity(DleManufacturerProposal[] Proposa
         Proposals.Any(p => Decision(p.Id) == "CONFIRMED") ? "CONFIRMED" : "UNRESOLVED";
 }
 internal sealed record SimManufacturerChange(string ProposalId, string Decision, int ExpectedRevision, bool ConfirmAllProposed = false);
+internal sealed record SimAssemblyPartIdentity(string PartNumber, string Reviewer, DateTimeOffset AtUtc);
+internal sealed record SimWorksheetAcceptance(string ExpectedToken, string ComponentType, string? AssemblyPartNumber = null, string? ProposalId = null, string? ManualPartNumber = null, string? ManufacturerName = null);
 internal sealed record SimCandidateRow(int Index, Dictionary<string,string> Extracted, Dictionary<string,string> Values,
     double[] Bounds, Dictionary<string,string> Comparison, bool Confirmed, string? Reviewer, DateTimeOffset? ReviewedAtUtc,
     SimCandidateCorrection[] Corrections, string? RowId = null, Dictionary<string, DleAnalysisField>? AnalysisFields = null,
@@ -29,7 +31,9 @@ internal sealed record SimCandidateRow(int Index, Dictionary<string,string> Extr
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     SimManufacturerIdentity? ManufacturerIdentity = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    SimWholeRowAudit[]? WholeRowHistory = null)
+    SimWholeRowAudit[]? WholeRowHistory = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimAssemblyPartIdentity? AssemblyIdentity = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimAssemblyPartIdentity[]? AssemblyIdentityHistory = null)
 {
     public SimRowReviewState ReviewState => SimCandidateRowReview.Evaluate(this);
 }
@@ -37,11 +41,12 @@ internal sealed record SimCandidateBom(string Id, string Label, string Governing
     int Page, string Parser, bool Synthetic, DateTimeOffset ExtractedAtUtc, string RequestedBy,
     string[] SupportingDocumentIds, string SupportingComparison, SimCandidateRow[] Rows, DleCandidateAnalysis? Analysis = null,
     string ContractVersion = "DLE_CANDIDATE_BOM_V1");
+internal sealed record SimPrimarySelection(string? ProposalId, string? PartNumber, string? ManufacturerName, string ExpectedToken);
 internal sealed record SimCandidateReviewRequest(string CandidateId, int RowIndex, Dictionary<string,string>? Values,
     SimCandidateAlternateChange? AlternateChange = null, SimCandidateComponentChange? ComponentChange = null,
-    SimManufacturerChange? ManufacturerChange = null, SimWholeRowApproval? WholeRowApproval = null);
+    SimManufacturerChange? ManufacturerChange = null, SimWholeRowApproval? WholeRowApproval = null, SimPrimarySelection? PrimarySelection = null, SimWorksheetAcceptance? WorksheetAcceptance = null);
 
-internal static class SimCandidateBomProvider
+internal static partial class SimCandidateBomProvider
 {
     internal const string ContractVersion = "DLE_CANDIDATE_BOM_V4";
     internal static readonly string[] Fields = ["lineNumber", "partNumber", "quantity", "designators", "description"];
@@ -99,6 +104,8 @@ internal static class SimCandidateBomProvider
     {
         if (request.CandidateId != bom.Id || request.RowIndex < 0 || request.RowIndex >= bom.Rows.Length)
             throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_STALE", "Reopen the current candidate before reviewing it.");
+        if (request.WorksheetAcceptance is not null) return ReviewWorksheet(bom,request,persona);
+        if (request.PrimarySelection is not null) return ReviewPrimary(bom, request, persona);
         if (request.WholeRowApproval is { } approval)
         {
             var original = bom.Rows[request.RowIndex];
@@ -178,6 +185,8 @@ internal static class SimCandidateBomProvider
     private static SimCandidateBom ReviewAlternate(SimCandidateBom bom, SimCandidateReviewRequest request, SimPersona persona)
     {
         var change = request.AlternateChange!;
+        var approving = change.Action == "APPROVE";
+        if (approving) change = change with {Action = change.Id is null ? "ADD" : "EDIT", ReviewStatus = "APPROVED"};
         var row = bom.Rows[request.RowIndex];
         if (change.ExpectedRevision != row.AlternateRevision)
             throw SimRfqIntakeProblem.Conflict("SIM_ALTERNATE_STALE", "Alternates changed. Reopen this review before saving.");
@@ -188,15 +197,15 @@ internal static class SimCandidateBomProvider
         if (change.Action is not ("ADD" or "EDIT" or "REMOVE") ||
             (change.Action != "ADD" && index < 0) || (change.Action == "ADD" && change.Id is not null) ||
             (change.Action != "REMOVE" && (string.IsNullOrWhiteSpace(number) || number.Length > 200 ||
-                status is not ("NEEDS_REVIEW" or "CONFIRMED" or "UNCERTAIN"))) ||
+                status is not ("NEEDS_REVIEW" or "CONFIRMED" or "UNCERTAIN" or "NOT_APPROVED" or "APPROVED") || (status == "APPROVED" && !approving) || (change.ManufacturerName?.Length ?? 0)>200 || (change.Note?.Length ?? 0)>2000)) ||
             (change.Action == "ADD" && alternates.Count >= 100))
             throw SimRfqIntakeProblem.BadRequest("SIM_ALTERNATE_INVALID", "Provide an alternate part number and a valid review state. This pilot allows 100 alternate history entries per row.");
         var now = DateTimeOffset.UtcNow;
         if (change.Action == "ADD")
         {
-            // The reviewer supplies a number, never extraction provenance or engineering approval.
-            alternates.Add(new(Guid.NewGuid().ToString("D"), null, number!, "MANUAL", "NEEDS_REVIEW", "",
-                null, null, null, null, [new("ADDED", null, number, "NEEDS_REVIEW", persona.DisplayName, now)]));
+            // Explicit approval is reviewer evidence; no extraction provenance is fabricated.
+            alternates.Add(new(Guid.NewGuid().ToString("D"), null, number!, "MANUAL", approving ? "APPROVED" : "NEEDS_REVIEW", "",
+                null, null, null, null, [new(approving ? "APPROVED" : "ADDED", null, number, approving ? "APPROVED" : "NEEDS_REVIEW", persona.DisplayName, now)], ManufacturerName:change.ManufacturerName?.Trim(), Note:change.Note?.Trim()));
         }
         else
         {
@@ -205,8 +214,10 @@ internal static class SimCandidateBomProvider
             alternates[index] = original with {
                 PartNumber = removed ? original.PartNumber : number!,
                 ReviewStatus = removed ? original.ReviewStatus : status,
+                ManufacturerName = removed ? original.ManufacturerName : change.ManufacturerName?.Trim() ?? original.ManufacturerName,
+                Note = removed ? original.Note : change.Note?.Trim() ?? original.Note,
                 RemovedAtUtc = removed ? now : null,
-                History = original.History.Append(new(removed ? "REMOVED" : "EDITED", original.PartNumber,
+                History = original.History.Append(new(removed ? "REMOVED" : approving ? "APPROVED" : "EDITED", original.PartNumber,
                     removed ? null : number, removed ? original.ReviewStatus : status, persona.DisplayName, now)).ToArray()
             };
         }

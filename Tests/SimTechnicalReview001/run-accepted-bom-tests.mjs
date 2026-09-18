@@ -13,6 +13,13 @@ const fixture = { intakeId: 'VERSION-FIXTURE', assemblies: [], technicalFiles: [
   technicalReview: { materialsReviewStatus: 'QUALIFIED', candidateBom: candidate('current', 'EDITABLE-CURRENT'),
     bomAcceptances: [1, 2].map(version => ({ version, candidate: candidate('saved-' + version, 'ACCEPTED-' + version),
       reviewedBy: 'Reviewer ' + version, reviewedAtUtc: '2026-09-11T10:00:00Z' })) } };
+for(const a of fixture.technicalReview.bomAcceptances){
+ a.candidate.rows[0].assemblyIdentity={partNumber:'ASSEMBLY-APPROVED'};
+ a.candidate.rows[0].rowId='row-one';
+ a.candidate.rows[0].alternates.push({partNumber:'EXPLICIT-APPROVED-ALT',reviewStatus:'APPROVED'});
+ a.package={documents:[{documentId:'frozen-file',name:'Frozen reference.pdf',rowAssociation:{rowId:'row-one'}}]};
+ a.candidate.rows.push({values:values('STANDARD-ROW'),componentType:'STANDARD_COTS',manufacturerIdentity:{proposals:[{id:'m1',partNumber:'MFG-ONE'},{id:'m2',partNumber:'MFG-TWO'},{id:'m3',partNumber:'REJECTED-PART'}],history:[{proposalId:'m1',decision:'CONFIRMED'},{proposalId:'m2',decision:'CONFIRMED'},{proposalId:'m3',decision:'REJECTED'}]}});
+}
 let persisted = fixture;
 const before = JSON.stringify(fixture);
 const nodes = new Map();
@@ -47,11 +54,13 @@ await workspace.openReview(fixture.intakeId);
 assert.match(html(), /technical-review-entry-card/);
 for (const version of [1, 2, 1]) {
   await click('accepted-bom', version);
-  assert.match(html(), new RegExp('id="acceptedBomTitle"[^>]*>Accepted BOM Version ' + version));
+  assert.match(html(), new RegExp('id="acceptedBomTitle"[^>]*>Accepted BOM · Version ' + version));
   assert.match(html(), new RegExp('ACCEPTED-' + version));
   assert.doesNotMatch(html(), new RegExp('ACCEPTED-' + (version === 1 ? 2 : 1) + '|EDITABLE-CURRENT'));
-  for (const label of ['Line', 'Customer / BOM P/N', 'Proposed MFG P/N', 'Alternate Part(s)', 'Qty / Assy', 'Component Type', 'Designators', 'Description', 'Status']) assert.ok(html().includes('>' + label + '</th>'));
+  for (const label of ['Line', 'Customer / BOM P/N', 'Approved P/N', 'Description', 'Qty / Assy', 'Type', 'Designators', 'Details']) assert.ok(html().includes('>' + label + '</th>'));
   for (const value of ['ALT-A', 'ALT-B', 'Subassembly', 'Reviewer ' + version, '2026-09-11T10:00:00Z', 'Source / History', 'saved-hash']) assert.ok(html().includes(value), value);
+  for(const text of ['EXPLICIT-APPROVED-ALT','ASSEMBLY-APPROVED','MFG-ONE','MFG-TWO','+1 more','Technical Files (1)','Frozen reference.pdf'])assert.ok(html().includes(text),text);
+  assert.doesNotMatch(html(),/REJECTED-PART|Add Technical Document|Add File|Proposed MFG P\/N|>Status<|CONFIRMED|UNRESOLVED/);
   assert.doesNotMatch(html(), /<input|<select|<textarea|Edit \/ Add Details|candidate-confirm|alternate-add|alternate-edit|alternate-remove|complete-bom/);
 }
 await click('candidate-confirm');
@@ -78,7 +87,7 @@ assert.ok(persisted?.technicalReview.bomAcceptances.some(a => a.version === 1));
 assert.equal(persisted.technicalReview.materialsReviewStatus, 'QUALIFIED');
 await workspace.openReview(persisted.intakeId);
 await click('accepted-bom', 1);
-assert.match(html(), /Accepted BOM Version 1/);
+assert.match(html(), /Accepted BOM · Version 1/);
 assert.match(html(), /SIM Administrator/);
 assert.doesNotMatch(html(), /<input|<select|Edit \/ Add Details/);
 for (const row of persisted.technicalReview.bomAcceptances[0].candidate.rows) assert.ok(html().includes(row.values.partNumber));

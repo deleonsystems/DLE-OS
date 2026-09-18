@@ -12,7 +12,8 @@ internal sealed record SimMaterialRow(int Index, string Vendor = "", decimal? Un
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? VendorSource = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? OrderQuantityMode = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialCharge[]? Charges = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialEvidence? Evidence = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialEvidence? Evidence = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? AssemblyPartNumber = null);
 internal sealed record SimMaterialResultRow(SimMaterialRow Quote, decimal? RequiredQuantity, decimal? ExtendedCost, string[] Issues, bool Required = true,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? AssemblyCost = null);
 internal sealed record SimMaterialSnapshot(int Version, int BomVersion, string CandidateId, int RfqQuantity,
@@ -37,7 +38,7 @@ internal sealed partial class SimRfqIntakeStore
                 r.Quote.Index, Evidence=MaterialEvidenceContent(r.Quote.Evidence), Charges=(r.Quote.Charges ?? []).OrderBy(c=>c.Id).Select(c=>new {c.Id, Description=c.Description.Trim(),c.Category,RawCost=Number(c.RawCost),Quantity=Number(c.Quantity ?? 1),c.Treatment,c.MarkupTreatment,CustomMarkup=c.MarkupTreatment=="CUSTOM"?Number(c.CustomMarkupPercent):null,Notes=c.Notes.Trim(),Evidence=MaterialEvidenceContent(c.Evidence)}).ToArray(), Vendor=(r.Quote.Vendor ?? "").Trim(), UnitPrice=Number(r.Quote.UnitPrice),
                 OrderQuantity=Number(r.Quote.OrderQuantity), LeadDays=MaterialLeadDays(r.Quote),
                 Notes=(r.Quote.Notes ?? "").Trim(), r.Quote.CustomerSupplied,
-                MfgPartNumber=(r.Quote.MfgPartNumber ?? "").Trim(), VendorPartNumber=(r.Quote.VendorPartNumber ?? "").Trim(),
+                AssemblyPartNumber=r.Quote.AssemblyPartNumber, MfgPartNumber=(r.Quote.MfgPartNumber ?? "").Trim(), VendorPartNumber=(r.Quote.VendorPartNumber ?? "").Trim(),
                 Uom=string.IsNullOrEmpty(r.Quote.Uom)?"EA":r.Quote.Uom.Trim(),
                 MfgSource=r.Quote.MfgPartNumberSource ?? "", VendorSource=r.Quote.VendorSource ?? "",
                 OrderMode=r.Quote.OrderQuantityMode ?? (r.Quote.OrderQuantity is null?"AUTO":"MANUAL"),
@@ -73,6 +74,19 @@ internal sealed partial class SimRfqIntakeStore
         var required=CalculateMaterial(row,source,quantity).RequiredQuantity;
         return row with{OrderQuantityMode="AUTO",OrderQuantity=row.CustomerSupplied||source.ComponentType=="REFERENCE_ONLY"?null:required};
     }
+    internal static string[] MaterialIdentityChoices(SimCandidateRow row) =>
+        (row.ManufacturerIdentity?.Proposals.Where(p=>row.ManufacturerIdentity.Decision(p.Id)=="CONFIRMED").Select(p=>p.PartNumber) ?? [])
+        .Concat((row.Alternates ?? []).Where(a=>a.RemovedAtUtc is null && a.ReviewStatus=="APPROVED").Select(a=>a.PartNumber))
+        .Where(p=>!string.IsNullOrWhiteSpace(p)).Distinct().ToArray();
+    internal static SimMaterialRow MaterialIdentityDefaults(SimMaterialRow row, SimCandidateRow source)
+    {
+        if(source.ComponentType=="SUBASSEMBLY" && source.AssemblyIdentity is {} assembly)
+            return row with {AssemblyPartNumber=assembly.PartNumber};
+        if(row.MfgPartNumber is not null)return row with {MfgPartNumberSource=row.MfgPartNumberSource??"MANUAL_QUOTE_ONLY"};
+        var identity=source.ManufacturerIdentity;
+        var number=identity?.Proposals.FirstOrDefault(p=>identity.Decision(p.Id)=="CONFIRMED"&&!string.IsNullOrWhiteSpace(p.PartNumber))?.PartNumber;
+        return row with {MfgPartNumber=number,MfgPartNumberSource=number is null?null:"CONFIRMED_ACCEPTED_BOM"};
+    }
     private static SimMaterialView MaterialView(SimRfqWorkspace rfq)
     {
         if (rfq.Assemblies.Length != 1) throw SimRfqIntakeProblem.Conflict("MATERIALS_ASSEMBLY_SCOPE", "Phase 1 Materials requires one assembly per RFQ.");
@@ -82,11 +96,7 @@ internal sealed partial class SimRfqIntakeStore
         if (plan.BomVersion != accepted.Version || plan.CandidateId != accepted.Candidate.Id)
             throw SimRfqIntakeProblem.Conflict("MATERIALS_SOURCE_CHANGED", "Accepted BOM changed; preserve this plan for review before continuing.");
         // Default only missing quotation selections; never rewrite completed snapshots or technical decisions.
-        plan = plan with {Rows = plan.Rows.Select(r => r.MfgPartNumber is not null ? r with {MfgPartNumberSource=r.MfgPartNumberSource ?? "MANUAL_QUOTE_ONLY"} : r with {
-            MfgPartNumberSource = "CONFIRMED_ACCEPTED_BOM",
-            MfgPartNumber = accepted.Candidate.Rows.Single(s => s.Index == r.Index).ManufacturerIdentity is { } identity
-                ? identity.Proposals.FirstOrDefault(p => identity.Decision(p.Id) == "CONFIRMED" && !string.IsNullOrWhiteSpace(p.PartNumber))?.PartNumber : null
-        }).Select(r=>r.MfgPartNumber is null?r with {MfgPartNumberSource=null}:r).ToArray()};
+        plan = plan with {Rows=plan.Rows.Select(r=>MaterialIdentityDefaults(r,accepted.Candidate.Rows.Single(s=>s.Index==r.Index))).ToArray()};
         plan=plan with{Rows=plan.Rows.Select(r=>DefaultMaterialQuantity(r,accepted.Candidate.Rows.Single(s=>s.Index==r.Index),rfq.Assemblies[0].Quantity)).ToArray()};
         var rows = plan.Rows.Select(r => CalculateMaterial(r, accepted.Candidate.Rows.Single(s => s.Index == r.Index), rfq.Assemblies[0].Quantity)).ToArray();
         return new(rfq, plan, rows, rows.Count(r => r.Required && !r.Quote.CustomerSupplied && r.Issues.Length == 0), rows.Sum(r => r.ExtendedCost ?? 0),
@@ -116,12 +126,15 @@ internal sealed partial class SimRfqIntakeStore
                 if(row.OrderQuantityMode is not (null or "AUTO" or "MANUAL"))throw SimRfqIntakeProblem.Conflict("MATERIALS_ORDER_MODE","Invalid Order Qty mode.");
                 if (row.VendorSource is not (null or "SIM_LIST" or "MANUAL_QUOTE_ONLY") || (row.VendorSource == "SIM_LIST" && row.Vendor is not ("Digi-Key" or "Mouser" or "Newark" or "Arrow" or "Avnet")))
                     throw SimRfqIntakeProblem.Conflict("MATERIALS_VENDOR_SOURCE", "Choose a SIM vendor or enter a quote-only vendor.");
+                var assemblySource=view.Rfq.Inputs.Materials.Candidate.Rows.Single(s=>s.Index==row.Index);
+                if(row.AssemblyPartNumber is not null && (assemblySource.ComponentType!="SUBASSEMBLY" || row.AssemblyPartNumber!=assemblySource.AssemblyIdentity?.PartNumber))
+                    throw SimRfqIntakeProblem.Conflict("MATERIALS_IDENTITY_SOURCE","Assembly P/N must match the Accepted BOM.");
                 if (row.MfgPartNumberSource is not (null or "MANUAL_QUOTE_ONLY" or "CONFIRMED_ACCEPTED_BOM"))
                     throw SimRfqIntakeProblem.Conflict("MATERIALS_IDENTITY_SOURCE", "Choose an Accepted BOM identity or manual quote-only entry.");
                 if (!string.IsNullOrEmpty(row.MfgPartNumber) && row.MfgPartNumberSource == "CONFIRMED_ACCEPTED_BOM")
                 {
-                    var identity=view.Rfq.Inputs.Materials.Candidate.Rows.Single(s=>s.Index==row.Index).ManufacturerIdentity;
-                    if (identity is null || !identity.Proposals.Any(p=>p.PartNumber==row.MfgPartNumber && identity.Decision(p.Id)=="CONFIRMED"))
+                    var source=view.Rfq.Inputs.Materials.Candidate.Rows.Single(s=>s.Index==row.Index);
+                    if (!MaterialIdentityChoices(source).Contains(row.MfgPartNumber))
                         throw SimRfqIntakeProblem.Conflict("MATERIALS_IDENTITY_SOURCE", "This P/N is not a confirmed identity in the Accepted BOM.");
                 }
             }

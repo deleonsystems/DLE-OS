@@ -69,7 +69,7 @@ assert.doesNotMatch(html(), /Have we built this assembly before|<input|<select/)
 await click('review-back');
 expectComplete();
 await click('accepted-bom');
-assert.match(html(), /Accepted BOM Version 1/);
+assert.match(html(), /Accepted BOM · Version 1/);
 assert.match(html(), /SAVED-PART/);
 assert.doesNotMatch(html(), /<input|<select/);
 await click('accepted-back');

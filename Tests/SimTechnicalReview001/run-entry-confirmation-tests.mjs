@@ -5,7 +5,7 @@ const code=names.map(n=>{const a=source.indexOf('  function '+n+'(');return sour
 const context={state:{saving:false},packageMessage:()=>'',escapeHtml:v=>String(v??'')};vm.createContext(context);vm.runInContext(code,context);
 const record={intakeId:'SYNTHETIC-ENTRY',customer:{customerName:'Synthetic Customer'},status:'READY_FOR_RFQ_QUALIFICATION',deLeonScope:'MATERIAL_AND_LABOR',preliminaryAssemblyType:{type:'PCB_ASSEMBLY'},assemblies:[{assemblyNumber:'TEST-ASSEMBLY',revision:'C',quantity:25}],technicalFiles:[{},{}]};
 const before=JSON.stringify(record);let html=context.renderEntryConfirmation(record,true);
-for(const label of ['SYNTHETIC-ENTRY','Synthetic Customer','TEST-ASSEMBLY','>C<','>25<','Material + Labor','PCB Assembly','2 received','Start Technical Review','Back to Queue'])assert.ok(html.includes(label),label);
+for(const label of ['SYNTHETIC-ENTRY','Synthetic Customer','TEST-ASSEMBLY','Rev C · Qty 25','Material + Labor','PCB Assembly','2 received','Start Technical Review','Back to Queue'])assert.ok(html.includes(label),label);
 assert.equal((html.match(/<button /g)||[]).length,2);assert.doesNotMatch(html,/No Longer Required|Add Technical Document|Definition|technical-review-phases/);assert.equal(JSON.stringify(record),before);
 record.status='TECHNICAL_REVIEW_IN_PROGRESS';record.technicalReview={workflow:{}};html=context.renderEntryConfirmation(record,true);assert.match(html,/Continue Technical Review/);assert.match(html,/data-technical-review-action="flow-START"/);
 record.status='ON_HOLD';assert.match(context.renderEntryConfirmation(record,true),/On Hold/);

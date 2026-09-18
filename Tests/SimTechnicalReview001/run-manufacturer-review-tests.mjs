@@ -13,7 +13,7 @@ const row={manufacturerIdentity:{state:'PROPOSED',revision:2,history:[],uncertai
 t.state.selected={record:{intakeId:'SYNTHETIC',status:'TECHNICAL_REVIEW_IN_PROGRESS',technicalReview:{candidateBom:{id:'candidate',rows:[row]}}}};
 t.state.candidateIndex=0;
 let html=t.renderManufacturer(row);
-assert.match(html,/Confirm mapping/);assert.match(html,/Reject mapping/);assert.match(html,/Synthetic · G2/);
+assert.match(html,/id="primaryChoice"/);assert.match(html,/Manual Entry/);assert.doesNotMatch(html,/Confirm mapping|Reject mapping|<details open/);assert.match(html,/Synthetic · G2/);
 assert.match(html,/quantity differs/);assert.match(html,/&lt;unsafe&gt;/);assert.doesNotMatch(html,/<unsafe>/);
 assert.doesNotMatch(t.renderManufacturer(row,true),/<button/);
 assert.match(t.renderManufacturer({...row,manufacturerIdentity:{...row.manufacturerIdentity,stale:true}}),/disabled/);
@@ -23,3 +23,8 @@ assert.deepEqual(request,{candidateId:'candidate',rowIndex:0,manufacturerChange:
 assert.equal(JSON.stringify(row),before);assert.equal(t.state.saving,false);
 request=null;t.state.step='accepted-bom';await t.reviewManufacturer('p1','REJECTED');assert.equal(request,null);
 console.log('PASS: manufacturer proposals show separate evidence, escaped values, explicit review, concurrency revision, failed-write preservation and read-only guards.');
+const multi={...row,manufacturerIdentity:{...row.manufacturerIdentity,proposals:[...row.manufacturerIdentity.proposals,{...row.manufacturerIdentity.proposals[0],id:'p2',partNumber:'SECOND',manufacturerName:'Second maker'}]}};
+const multiBefore=JSON.stringify(multi);html=t.renderManufacturer(multi);
+assert.match(html,/value="p1"/);assert.match(html,/value="p2"/);assert.match(html,/SECOND — Second maker/);assert.doesNotMatch(html,/<details[^>]*open/);assert.equal(JSON.stringify(multi),multiBefore);
+assert.match(t.renderManufacturer({...row,manufacturerIdentity:{...row.manufacturerIdentity,proposals:[]}}),/Not resolved[\s\S]*Manual Entry/);
+console.log('PASS: compact multiple-proposal choices and unresolved manual-entry route preserve data without confirmation.');

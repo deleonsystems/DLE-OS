@@ -25,8 +25,41 @@ internal sealed partial class SimRfqIntakeStore
     private static void RequireWorkflowMaterials(SimRfqIntakeRecord record)
     {
         if (record.TechnicalReview?.Workflow is { } w &&
-            (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || !w.PackageConfirmed || !w.Sufficient || !w.HistoryReviewed || w.Manufacturing is null || w.HoldReason is not null || w.Outputs is not null))
-            throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_GATE", "Complete package, sufficiency, history and Manufacturing Definition before materials work.");
+            (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || !w.PackageConfirmed || !w.Sufficient || (w.Version != UnifiedPackageVersion && !w.HistoryReviewed) || w.Manufacturing is null || w.HoldReason is not null || w.Outputs is not null))
+            throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_GATE", "Complete the required package review and Manufacturing Definition before materials work.");
+    }
+    private async Task<SimBomAcceptance> RequireReleaseReady(SimRfqIntakeRecord record, SimRfqIntakeDataset dataset)
+    {
+        var review = record.TechnicalReview!;
+        var w = review.Workflow ?? throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_NOT_STARTED", "Start Technical Review first.");
+        if (!string.IsNullOrEmpty(review.DownstreamHandoffState))
+            throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_CLOSED", "This historical or released review is read-only.");
+        RequireWorkflowMaterials(record);
+        if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == record.IntakeId && DleAnalysisContract.Active(j.Status)))
+            throw SimRfqIntakeProblem.Conflict("SIM_ANALYSIS_ACTIVE", "Wait for analysis before release.");
+        var accepted = review.BomAcceptances?.LastOrDefault(a => a.Candidate.Id == review.CandidateBom?.Id);
+        if (review.MaterialsReviewStatus != "QUALIFIED" || accepted is null ||
+            (w.Version == UnifiedPackageVersion ? !SameMaterialPackage(accepted.Package, review.TechnicalPackage) :
+             JsonSerializer.Serialize(accepted.Package.Documents, jsonOptions) != JsonSerializer.Serialize(review.TechnicalPackage?.Documents, jsonOptions)) ||
+            accepted.Package.GoverningBomDocumentId != review.TechnicalPackage?.GoverningBomDocumentId)
+            throw SimRfqIntakeProblem.Conflict("SIM_DEFINITIONS_REQUIRED", "Complete both definitions using the current package before releasing Technical Review.");
+        var releaseSources = await AnalysisDocuments(record, accepted.Candidate.Analysis?.SourceSnapshot.SourceSelectionVersion);
+        if (accepted.Candidate.Analysis is { } analysis && !SameAnalysisSources(analysis.SourceSnapshot, record, releaseSources))
+            throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "The accepted source snapshot changed. Rebuild and review before release.");
+        return accepted;
+    }
+    internal async Task<object> ReleaseReadinessAsync(string intakeId)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var record = dataset.Records.SingleOrDefault(r => r.IntakeId == intakeId && r.Environment == "SIM" && r.IntakeType == "NEW_QUOTE_REQUEST")
+                ?? throw SimRfqIntakeProblem.NotFound("SIM_REVIEW_NOT_FOUND", "RFQ review not found.");
+            try { await RequireReleaseReady(record, dataset); return new { ready = true, message = "" }; }
+            catch (SimRfqIntakeProblem p) { return new { ready = false, message = p.Message }; }
+        }
+        finally { gate.Release(); }
     }
     internal async Task<object> WorkflowAsync(string intakeId, SimWorkflowRequest request, SimPersona persona)
     {
@@ -120,18 +153,7 @@ internal sealed partial class SimRfqIntakeStore
                 }
                 else if (request.Action == "COMPLETE")
                 {
-                    RequireWorkflowMaterials(record);
-                    if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status)))
-                        throw SimRfqIntakeProblem.Conflict("SIM_ANALYSIS_ACTIVE", "Wait for analysis before release.");
-                    var accepted = review.BomAcceptances?.LastOrDefault(a => a.Candidate.Id == review.CandidateBom?.Id);
-                    if (review.MaterialsReviewStatus != "QUALIFIED" || accepted is null ||
-                        (w.Version == UnifiedPackageVersion ? !SameMaterialPackage(accepted.Package, review.TechnicalPackage) :
-                         JsonSerializer.Serialize(accepted.Package.Documents, jsonOptions) != JsonSerializer.Serialize(review.TechnicalPackage?.Documents, jsonOptions)) ||
-                        accepted.Package.GoverningBomDocumentId != review.TechnicalPackage?.GoverningBomDocumentId)
-                        throw SimRfqIntakeProblem.Conflict("SIM_DEFINITIONS_REQUIRED", "Complete both definitions using the current package before releasing Technical Review.");
-                    var releaseSources = await AnalysisDocuments(record, accepted.Candidate.Analysis?.SourceSnapshot.SourceSelectionVersion);
-                    if (accepted.Candidate.Analysis is { } analysis && !SameAnalysisSources(analysis.SourceSnapshot, record, releaseSources))
-                        throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "The accepted source snapshot changed. Rebuild and review before release.");
+                    var accepted = await RequireReleaseReady(record, dataset);
                     w = w with { Outputs = new("READY", "QUOTATION_MATERIALS", accepted, "QUOTATION_LABOR", w.Manufacturing!, persona.DisplayName, now) };
                     record = record with { Status = "READY_FOR_RFQ_WORKING_QUEUE" };
                     review = review with { Disposition = "TECHNICAL_REVIEW_COMPLETE", DownstreamHandoffTarget = "QUOTATION_INPUTS", DownstreamHandoffState = "READY" };

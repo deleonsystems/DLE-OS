@@ -35,7 +35,7 @@ internal sealed partial class SimRfqIntakeStore
         var package = review?.TechnicalPackage;
         var governing = package?.Documents.SingleOrDefault(d => d.DocumentId == package.GoverningBomDocumentId);
         if (record.Environment != "SIM" || record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" ||
-            review?.AssemblyHistory?.AssemblyClassification is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
+            EffectiveAssemblyClassification(record) is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
             governing is not { DocumentType: "ASSEMBLY_DRAWING", EmbeddedBom: true, Applicability: "PARENT_ASSEMBLY", Role: "GOVERNING" })
             throw SimRfqIntakeProblem.Conflict("ANALYSIS_SOURCE_REQUIRED", "Confirm assembly history and select the governing parent assembly drawing first.");
         var selected = SimAnalysisSourceSelection.Select(package!, selectionVersion);

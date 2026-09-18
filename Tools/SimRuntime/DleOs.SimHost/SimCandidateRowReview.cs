@@ -12,10 +12,10 @@ internal sealed record SimRowReviewState(bool Reviewed, bool CanApprove, string[
 internal static class SimCandidateRowReview
 {
     internal static bool HasConfirmedSubassemblyIdentity(SimCandidateRow row) =>
-        row.ComponentType == "SUBASSEMBLY" && (row.Alternates ?? []).Any(a =>
+        row.ComponentType == "SUBASSEMBLY" && (row.AssemblyIdentity is {PartNumber.Length: > 0, Reviewer.Length: > 0} || (row.Alternates ?? []).Any(a =>
             a.RemovedAtUtc is null && a.Origin == "MANUAL" && a.ReviewStatus == "CONFIRMED" &&
             !string.IsNullOrWhiteSpace(a.PartNumber) && a.History.LastOrDefault() is { ReviewStatus: "CONFIRMED" } h &&
-            !string.IsNullOrWhiteSpace(h.Reviewer));
+            !string.IsNullOrWhiteSpace(h.Reviewer)));
 
     internal static SimRowReviewState Evaluate(SimCandidateRow row)
     {
@@ -39,7 +39,7 @@ internal static class SimCandidateRowReview
                 p.Confidence == "LOW" || p.Conflicts.Any(c => c != "description differs; governing value retained")))
                 blockers.Add("A manufacturer proposal has conflicting or incomplete evidence; confirm/reject it individually in details.");
         }
-        if ((row.Alternates ?? []).Any(a => a.RemovedAtUtc is null && a.ReviewStatus != "CONFIRMED"))
+        if ((row.Alternates ?? []).Any(a => a.RemovedAtUtc is null && a.ReviewStatus is not ("CONFIRMED" or "APPROVED" or "NOT_APPROVED")))
             blockers.Add("An alternate requires individual review in details.");
         var fieldsNeedReview = !row.Confirmed && (SimCandidateBomProvider.Fields.Any(f => !row.Comparison.TryGetValue(f, out var c) || c != "MATCH") ||
             (row.AnalysisFields?.Values.Any(f => HasUncertainty(f.Uncertainty)) ?? false));
@@ -52,7 +52,7 @@ internal static class SimCandidateRowReview
         reasons.AddRange(completionBlockers);
         var tokenData = new { row.Index, row.Values, row.Extracted, row.Comparison, row.AnalysisFields, row.Confirmed, row.Reviewer,
             row.ReviewedAtUtc, row.Corrections, row.ManufacturerIdentity, row.Alternates, row.AlternateRevision,
-            row.ComponentType, row.ComponentTypeRevision, row.WholeRowHistory };
+            row.ComponentType, row.ComponentTypeRevision, row.WholeRowHistory, row.AssemblyIdentity, row.AssemblyIdentityHistory };
         var token = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Canonical(JsonSerializer.SerializeToNode(tokenData))!.ToJsonString()))).ToLowerInvariant();
         return new(reasons.Count == 0, reasons.Count != 0 && blockers.Count == 0, reasons.Distinct().ToArray(), blockers.Distinct().ToArray(), token);
     }

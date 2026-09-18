@@ -2,11 +2,16 @@ using System.Text.Json;
 
 internal sealed record SimUnifiedPackageRequest(string Version, string ExpectedReviewToken,
     SimPackageDocument[] Documents, string? GoverningBomDocumentId, bool Complete,
-    bool HistoryAcknowledged = false, string? Missing = null);
+    bool HistoryAcknowledged = false, string? Missing = null, string? AcceptDocumentId = null);
 
 internal sealed partial class SimRfqIntakeStore
 {
     internal const string UnifiedPackageVersion = "UNIFIED_PACKAGE_REVIEW_V2";
+    internal static string? EffectiveAssemblyClassification(SimRfqIntakeRecord record) =>
+        record.TechnicalReview?.AssemblyHistory?.AssemblyClassification ??
+        (record.TechnicalReview?.Workflow?.Version == UnifiedPackageVersion
+            ? (record.TechnicalReview.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record)).HistoryFound ? "EXISTING_ASSEMBLY" : "NEW_ASSEMBLY"
+            : null);
     internal static string PackageReviewToken(SimRfqIntakeRecord record) => DleAnalysisContract.Hash(
         JsonSerializer.SerializeToUtf8Bytes(new { record.Status, record.TechnicalFiles, record.TechnicalReview }, DleAnalysisContract.Json));
 
@@ -56,6 +61,26 @@ internal sealed partial class SimRfqIntakeStore
                 throw SimRfqIntakeProblem.BadRequest("SIM_PACKAGE_VERSION", "Unsupported package review version.");
             if (request.ExpectedReviewToken != PackageReviewToken(record))
                 throw SimRfqIntakeProblem.Conflict("SIM_PACKAGE_CHANGED", "The review changed. Reopen the latest package before saving.");
+            var rowAccept = request.AcceptDocumentId is not null;
+            if (rowAccept)
+            {
+                var target = request.Documents?.SingleOrDefault(d => d.DocumentId == request.AcceptDocumentId)
+                    ?? throw SimRfqIntakeProblem.BadRequest("SIM_ROW_REVIEW", "Select one received document to accept.");
+                if (target.DocumentType == "UNKNOWN" || target.IdentityReview is null ||
+                    target.PartNumberReview?.ProvidesManufacturerPartNumbers is null ||
+                    (SimTechnicalPackageProvider.BomBearing(target) && target.PartNumberReview?.Basis is not ("MANUFACTURER" or "CUSTOMER_INTERNAL" or "MIXED")) ||
+                    (target.Applicability == "SUBASSEMBLY" && string.IsNullOrWhiteSpace(target.SubassemblyPartNumber)))
+                    throw SimRfqIntakeProblem.BadRequest("SIM_ROW_REVIEW", "Resolve the document identity, BOM P/N Type, MFG P/N Source and scope before accepting.");
+                var priorPackage = review.TechnicalPackage ?? SimTechnicalPackageProvider.Inventory(record);
+                if (!priorPackage.Documents.Any(d => d.DocumentId == target.DocumentId))
+                    throw SimRfqIntakeProblem.BadRequest("SIM_ROW_REVIEW", "Select a received document.");
+                // Only the selected row is accepted. Other client drafts cannot leak into this save.
+                var merged = priorPackage.Documents.Select(d => d.DocumentId == target.DocumentId ? target : d with {
+                    ProductionUse = target.ProductionUse == "PRIMARY_DRAWING" && ProductionUse(d, workflow.Manufacturing) == "PRIMARY_DRAWING" ? "NOT_FOR_PRODUCTION" : ProductionUse(d, workflow.Manufacturing),
+                    BomUse = target.BomUse == "GOVERNING_BOM" && BomUse(priorPackage,d) == "GOVERNING_BOM" ? "NO_BOM_ROLE" : BomUse(priorPackage,d) }).ToArray();
+                request = request with { Documents = merged, Complete = false,
+                    GoverningBomDocumentId = merged.SingleOrDefault(d => d.BomUse == "GOVERNING_BOM")?.DocumentId };
+            }
             if (request.Documents is null || request.Documents.Any(d => d is null || d.ProductionUse is null || d.BomUse is null))
                 throw SimRfqIntakeProblem.BadRequest("SIM_PACKAGE_USE", "Review Production and BOM use for every document.");
             var normalized = request.Documents.Select(d => d with { Role = d.BomUse == "GOVERNING_BOM" ? "GOVERNING" :
@@ -73,8 +98,6 @@ internal sealed partial class SimRfqIntakeStore
                 throw SimRfqIntakeProblem.BadRequest("SIM_BOM_USE", "Select one eligible parent Governing BOM; Supporting BOM requires a BOM-bearing document.");
             if (request.Complete)
             {
-                if (!request.HistoryAcknowledged)
-                    throw SimRfqIntakeProblem.Conflict("SIM_HISTORY_REQUIRED", "Acknowledge the assembly-history context before proceeding.");
                 if (primary.Length != 1 || governing.Length != 1)
                     throw SimRfqIntakeProblem.BadRequest("SIM_PACKAGE_AUTHORITY", "Select a Primary Production Drawing and a Governing BOM.");
                 if (package.Documents.Any(d => d.RowAssociation is null && (d.DocumentType == "UNKNOWN" ||
@@ -93,7 +116,7 @@ internal sealed partial class SimRfqIntakeStore
                     await documents.Verify(record.RequestCorrelationId, file, record.CreatedBy);
                 }
             }
-            else if (string.IsNullOrWhiteSpace(request.Missing) || request.Missing.Length > 1000)
+            else if (!rowAccept && (string.IsNullOrWhiteSpace(request.Missing) || request.Missing.Length > 1000))
                 throw SimRfqIntakeProblem.BadRequest("SIM_HOLD_REASON", "Describe what is missing in 1–1000 characters.");
 
             var now = DateTimeOffset.UtcNow;
@@ -109,14 +132,42 @@ internal sealed partial class SimRfqIntakeStore
                 package.Documents.Where(d => d.ProductionUse != "NOT_FOR_PRODUCTION" && d.Applicability == "SUBASSEMBLY" && d.DocumentType == "ASSEMBLY_DRAWING").Select(d => d.DocumentId).ToArray(),
                 package.Documents.Where(d => d.ProductionUse != "NOT_FOR_PRODUCTION" && d.DocumentType is "GERBER" or "SUPPORTING_DOCUMENT").Select(d => d.DocumentId).ToArray(),
                 package, true, persona.DisplayName, now) : null;
+            // History is future context, not reviewer evidence. Never rewrite an existing snapshot.
             var history = review.AssemblyHistory;
-            if (request.HistoryAcknowledged && !workflow.HistoryReviewed)
+            if (history is null)
             {
-                history ??= SimAssemblyHistoryProvider.Lookup(record);
-                history = history with { AssemblyClassification = history.HistoryFound ? "EXISTING_ASSEMBLY" : "NEW_ASSEMBLY", ConfirmedBy = persona.DisplayName, ConfirmedAtUtc = now };
+                var context = SimAssemblyHistoryProvider.Lookup(record);
+                history = context with { AssemblyClassification = context.HistoryFound ? "EXISTING_ASSEMBLY" : "NEW_ASSEMBLY" };
+            }
+            if (rowAccept)
+            {
+                var file = record.TechnicalFiles.SingleOrDefault(f => f.DocumentId == request.AcceptDocumentId && f.BinaryStatus == "VERIFIED")
+                    ?? throw SimRfqIntakeProblem.Conflict("SIM_MANUFACTURING_BINARY", "The document requires a verified staged file.");
+                await documents.Verify(record.RequestCorrelationId, file, record.CreatedBy);
+                // Validate and preserve unchanged evidence; acceptance never queues analysis.
+                var samePackage = JsonSerializer.Serialize(package, jsonOptions) == JsonSerializer.Serialize(review.TechnicalPackage, jsonOptions);
+                if (samePackage) return WorkflowEnvelope(record);
+                var rowWorkflow = workflow with {
+                    PackageConfirmed = sameMaterials && sameProduction && workflow.PackageConfirmed,
+                    Sufficient = sameMaterials && sameProduction && workflow.Sufficient,
+                    Manufacturing = sameProduction ? workflow.Manufacturing : null,
+                    Events = (workflow.Events ?? []).Append(new("DOCUMENT_ACCEPTED", request.AcceptDocumentId!, persona.DisplayName, now)).ToArray() };
+                var rowReview = review with { TechnicalPackage = package, Workflow = rowWorkflow,
+                    ReviewedBy = persona.DisplayName, ReviewedAtUtc = now,
+                    ManufacturingReviewStatus = sameProduction ? review.ManufacturingReviewStatus : "IN_PROGRESS",
+                    CandidateBom = sameMaterials ? review.CandidateBom : null,
+                    CandidateBomVersions = !sameMaterials && review.CandidateBom is not null ? (review.CandidateBomVersions ?? []).Append(review.CandidateBom).ToArray() : review.CandidateBomVersions,
+                    MaterialsDefinition = sameMaterials ? review.MaterialsDefinition : null,
+                    SubassemblyCoverage = sameMaterials ? review.SubassemblyCoverage : null,
+                    MaterialsReviewStatus = sameMaterials ? review.MaterialsReviewStatus : null,
+                    NextReviewPhase = sameMaterials ? review.NextReviewPhase : null };
+                record = record with { TechnicalReview = rowReview };
+                dataset.Records[index] = record; dataset.UpdatedAtUtc = now;
+                await WriteVerifiedAsync(dataset);
+                return WorkflowEnvelope(record);
             }
             var updatedWorkflow = workflow with { Version = UnifiedPackageVersion, PackageConfirmed = request.Complete,
-                Sufficient = request.Complete, HistoryReviewed = workflow.HistoryReviewed || request.HistoryAcknowledged,
+                Sufficient = request.Complete, HistoryReviewed = workflow.HistoryReviewed,
                 HoldReason = request.Complete ? null : request.Missing!.Trim(), Manufacturing = manufacturing,
                 ManufacturingDrawingId = primary.SingleOrDefault()?.DocumentId };
             var status = request.Complete ? "TECHNICAL_REVIEW_IN_PROGRESS" : "ON_HOLD";
@@ -124,7 +175,7 @@ internal sealed partial class SimRfqIntakeStore
                 JsonSerializer.Serialize(package, jsonOptions) == JsonSerializer.Serialize(review.TechnicalPackage, jsonOptions))
                 return WorkflowEnvelope(record);
             updatedWorkflow = updatedWorkflow with { Events = (workflow.Events ?? []).Append(new(
-                request.Complete ? "PACKAGE_CONFIRMED" : "PACKAGE_HELD", request.Complete ? "Production, BOM, history and completeness reviewed" : request.Missing!.Trim(), persona.DisplayName, now)).ToArray() };
+                request.Complete ? "PACKAGE_CONFIRMED" : "PACKAGE_HELD", request.Complete ? "Production, BOM and completeness reviewed" : request.Missing!.Trim(), persona.DisplayName, now)).ToArray() };
             review = review with { Workflow = updatedWorkflow, TechnicalPackage = package, AssemblyHistory = history,
                 ReviewStatus = status, ReviewedBy = persona.DisplayName, ReviewedAtUtc = now,
                 ManufacturingReviewStatus = manufacturing is null ? "IN_PROGRESS" : "COMPLETE",

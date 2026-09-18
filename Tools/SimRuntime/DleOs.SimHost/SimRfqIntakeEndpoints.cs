@@ -138,6 +138,14 @@ internal static partial class SimRfqIntakeEndpoints
                 : Results.Json(review);
         });
 
+        app.MapGet("/api/sim/technical-reviews/{intakeId}/release-readiness", async Task<IResult> (string intakeId, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.ReleaseReadinessAsync(intakeId)); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+        });
+
         app.MapPost("/api/sim/technical-reviews/{intakeId}/workflow", async Task<IResult> (string intakeId, SimWorkflowRequest request, HttpContext context) =>
         {
             var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");

@@ -508,14 +508,14 @@ internal sealed partial class SimRfqIntakeStore
             var review = record.TechnicalReview;
             var package = review?.TechnicalPackage;
             var governing = package?.Documents.SingleOrDefault(d => d.DocumentId == package.GoverningBomDocumentId);
-            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || review?.AssemblyHistory?.AssemblyClassification is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || EffectiveAssemblyClassification(record) is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
                 governing is not { DocumentType: "ASSEMBLY_DRAWING", EmbeddedBom: true, Applicability: "PARENT_ASSEMBLY", Role: "GOVERNING" })
                 throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_REQUIRED", "Start review, confirm assembly history, and explicitly select a governing parent assembly drawing with an embedded BOM.");
             var file = record.TechnicalFiles.SingleOrDefault(d => d.DocumentId == governing.DocumentId && d.BinaryStatus == "VERIFIED" && d.Type == "application/pdf");
             if (file is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_BINARY_REQUIRED", "The governing PDF must have a verified SIM staged binary.");
             var bytes = await documents.Bytes(record.RequestCorrelationId, file.DocumentId!);
             RequireWorkflowMaterials(record);
-            var candidate = review.CandidateBom;
+            var candidate = review!.CandidateBom;
             if (candidate is not null && (candidate.GoverningDocumentId != file.DocumentId || candidate.GoverningSha256 != Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant()))
                 throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_CHANGED", "The governing source changed. Reconfirm the package before building a new candidate.");
             if (request is not null)

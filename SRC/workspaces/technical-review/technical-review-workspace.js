@@ -6,6 +6,7 @@
   const state = { items: [], selected: null, loading: false, guided: false, materials: false, step: '', packageDraft: null, documentIndex: 0, closing: false, saving: false, error: "", message: "", messageState: "" };
   let mount = null;
   let identityChanges = {};
+  let packageRowErrors = {};
   let addingDocuments = false;
   let reviewUploads = [];
   let reviewUploadRowTarget = null;
@@ -47,7 +48,7 @@
       if (completedReview(state.selected?.record)) {
         if (action === 'rfq-back') { window.DleWorkspaceShell.navigate({workspaceId:'rfqs',requestedState:{intakeId:state.selected.record.intakeId}}); return; }
         if (action?.startsWith('view-')) { state.step = action.slice(5); state.candidateIndex = null; state.acceptedVersion = null; renderDetail(); return; }
-        if (action && !['back','refresh','accepted-bom','accepted-back','candidate-detail'].includes(action)) return;
+        if (action && !['back','refresh','accepted-bom','accepted-back','candidate-detail','worksheet-options'].includes(action)) return;
       }
       if (state.step === 'accepted-bom' && ['candidate-confirm', 'complete-bom', 'alternate-add', 'alternate-edit', 'alternate-remove'].includes(action)) return;
       if (action === 'add-document' && !state.saving) { reviewUploads=[]; reviewUploadRowTarget=null; addingDocuments = true; state.guided = true; enterPackage(); return; }
@@ -83,6 +84,7 @@
       if (action === "package" || action === "package-back") enterPackage();
       if (action === 'identity-change') { const d=packageDraft().documents[state.documentIndex||0]; identityChanges[d.documentId]={type:identityType(d),otherDescription:d.identityReview?.otherDescription||''}; renderDetail(); }
       if (action === 'identity-confirm') confirmIdentity();
+      if (action === 'accept-package-row') void acceptPackageRow();
       if (action === "save-package") void savePackage(false);
       if (action === 'confirm-package' || action === 'hold-package') { void saveUnifiedPackage(action === 'confirm-package'); return; }
       if (action === "compare-package") void savePackage(true);
@@ -94,13 +96,13 @@
       if (action === "materials") void reviewMaterials();
       if (action === "candidate") {
         state.acceptedVersion = null;
-        if (state.selected?.record?.technicalReview?.candidateBom) { state.candidateIndex = null; state.step = 'candidate'; state.materials = false; renderDetail(); }
+        if (state.selected?.record?.technicalReview?.candidateBom) { state.message = ''; state.messageState = ''; state.candidateIndex = null; state.step = 'candidate'; state.materials = false; renderDetail(); }
         else void buildCandidate();
       }
       if (action === 'analysis-retry') void buildCandidate();
       if (action === 'candidate-detail' && !state.saving) {
         const index = Number(event.target.closest('[data-candidate-row]').dataset.candidateRow);
-        reviewUploads=[];reviewUploadRowTarget=null;addingDocuments=false; state.candidateDraft = null; state.candidateIndex = state.candidateIndex === index ? null : index; renderDetail();
+        reviewUploads=[];reviewUploadRowTarget=null;addingDocuments=false; const row=state.selected.record.technicalReview.candidateBom?.rows[index];if(row)rowReviewUi(row).editing=false; state.candidateDraft = null; state.candidateIndex = state.candidateIndex === index ? null : index; renderDetail();
       }
       if (action === "candidate-from-source") void savePackage(false).then(() => { if (state.messageState !== 'error') return buildCandidate(); });
       if (action === 'complete-bom') void completeBom();
@@ -110,10 +112,28 @@
         renderDetail();
         document.getElementById('acceptedBomTitle')?.focus?.();
       }
-      if (action === 'accepted-back' && !state.saving) void openReview(state.selected.record.intakeId);
+      if (action === 'accepted-back' && !state.saving) {
+        if (state.selected.record.technicalReview?.workflow) {
+          state.acceptedVersion = null; state.candidateIndex = null; state.materials = false;
+          state.guided = true; state.step = completedReview(state.selected.record) ? 'package' : 'inventory';
+          renderDetail();
+        } else void openReview(state.selected.record.intakeId);
+      }
       if (action === "candidate-confirm") void confirmCandidate();
       if (action === 'mfg-confirm' || action === 'mfg-reject') void reviewManufacturer(actionButton.dataset.proposalId, action === 'mfg-confirm' ? 'CONFIRMED' : 'REJECTED');
       if (action === 'mfg-approve') void quickApproveManufacturer(Number(actionButton.dataset.candidateRow));
+      if(action==='worksheet-reject'){void reviewManufacturer(actionButton.dataset.proposalId,'REJECTED',Number(actionButton.dataset.candidateRow));return;}
+      if(action==='worksheet-accept'){void acceptWorksheetRow(Number(actionButton.dataset.candidateRow));return;}
+      if(action==='worksheet-options'){
+        if(state.candidateIndex!==Number(actionButton.dataset.candidateRow))state.candidateDraft=null;
+        state.candidateIndex=Number(actionButton.dataset.candidateRow);state.rowOption=actionButton.dataset.panel;
+        const review=state.selected.record.technicalReview;const row=(review.bomAcceptances?.find(a=>state.acceptedVersion?a.version===state.acceptedVersion:a.candidate.id===review.candidateBom?.id)?.candidate||review.candidateBom).rows[state.candidateIndex];
+        if(state.rowOption==='edit')rowReviewUi(row).editing=true;
+        renderDetail();return;
+      }
+      if (action === 'alternate-approve') void saveCompactAlternate();
+      if (action === 'alternate-not-approved') void saveCompactAlternate(false);
+      if (action === 'primary-accept') void acceptPrimaryRow();
       if (action === 'alternate-add') void saveAlternate('ADD');
       if (action === 'alternate-edit' || action === 'alternate-remove') void saveAlternate(action === 'alternate-edit' ? 'EDIT' : 'REMOVE', event.target.closest('[data-alternate-id]').dataset.alternateId);
       if (action === "candidate-previous" && !state.saving) { state.candidateDraft = null; state.candidateIndex = Math.max(0, (state.candidateIndex || 0) - 1); renderDetail(); }
@@ -127,20 +147,35 @@
       if (row) void openReview(row.dataset.technicalReviewIntake);
     });
     mount.addEventListener('input', event => {
+      if(event.target.dataset?.worksheetField && !state.saving && !completedReview(state.selected?.record)) {
+        const row=state.selected?.record?.technicalReview?.candidateBom?.rows[Number(event.target.dataset.worksheetRow)];
+        if(row)rowReviewUi(row)[event.target.dataset.worksheetField]=event.target.value;
+      }
       if (event.target.id === 'packageMissing') { packageAnswers().missing = event.target.value; return; }
       if (updateReviewUpload(event.target)) return;
       if (event.target.id?.startsWith('candidate-') && state.candidateIndex != null && !state.saving) { const field=event.target.id.slice(10); if(candidateFields[field])state.candidateDraft={...(state.candidateDraft||state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex].values),[field]:event.target.value}; }
       const packageRow=event.target.closest?.('[data-package-row]'); if(packageRow)state.documentIndex=Number(packageRow.dataset.packageRow);
-      if (event.target.dataset?.identityOther !== undefined && !completedReview(state.selected?.record)) { const d=packageDraft().documents[state.documentIndex||0]; identityChanges[d.documentId].otherDescription=event.target.value; }
+      if (event.target.dataset?.identityOther !== undefined && !completedReview(state.selected?.record)) { const d=packageDraft().documents[state.documentIndex||0]; identityChanges[d.documentId] ||= {type:identityType(d),otherDescription:''}; identityChanges[d.documentId].otherDescription=event.target.value; }
       if (!completedReview(state.selected?.record) && !state.saving && ['subassemblyPartNumber','proposedSubassemblyIdentity'].includes(event.target.dataset?.packageField)) packageDraft().documents[state.documentIndex || 0][event.target.dataset.packageField] = event.target.value;
     });
     mount.addEventListener('change', event => {
       const packageRow=event.target.closest?.('[data-package-row]'); if(packageRow)state.documentIndex=Number(packageRow.dataset.packageRow);
       if (completedReview(state.selected?.record) || state.saving || !state.selected || state.step === 'accepted-bom') return;
-      if (event.target.id === 'packageHistory') { packageAnswers().historyAcknowledged = event.target.checked; renderDetail(); return; }
       if (event.target.name === 'packageComplete') { packageAnswers().complete = event.target.value; renderDetail(); return; }
+      if(event.target.dataset?.worksheetField){
+        const index=Number(event.target.dataset.worksheetRow),row=state.selected.record.technicalReview.candidateBom.rows[index];
+        const ui=rowReviewUi(row);ui[event.target.dataset.worksheetField]=event.target.value;
+        if(state.candidateIndex===index && document.getElementById('candidate-partNumber'))state.candidateDraft=Object.fromEntries(Object.keys(candidateFields).map(k=>[k,(document.getElementById('candidate-'+k)?.value??state.candidateDraft?.[k]??row.values[k])]));
+        if(event.target.tagName==='SELECT')renderDetail();return;
+      }
+      if(['primaryChoice','alternateChoice'].includes(event.target.id)) {
+        const row=state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex];
+        state.candidateDraft=Object.fromEntries(Object.keys(candidateFields).map(k=>[k,(document.getElementById('candidate-'+k)?.value??state.candidateDraft?.[k]??row.values[k])]));
+        rememberPrimaryInputs(row);rowReviewUi(row)[event.target.id]=event.target.value;renderDetail();return;
+      }
       if (event.target.dataset?.packageUse) {
         const pack=unifiedPackageDraft(), doc=pack.documents[state.documentIndex||0], field=event.target.dataset.packageUse;
+        identityChanges[doc.documentId] ||= {type:identityType(doc),otherDescription:doc.identityReview?.otherDescription||''};
         doc[field]=event.target.value;
         if(field==='productionUse' && doc[field]==='PRIMARY_DRAWING') pack.documents.forEach(d=>{if(d!==doc&&d.productionUse==='PRIMARY_DRAWING')d.productionUse='NOT_FOR_PRODUCTION';});
         if(field==='bomUse') {
@@ -155,13 +190,21 @@
       if (updateReviewUpload(event.target)) { if (event.target.tagName === 'SELECT') renderDetail(); return; }
       if (event.target.dataset?.componentRow !== undefined) { void saveComponentType(event.target); return; }
       if (event.target.id === 'flowDrawing') { void workflowAction('SELECT_MANUFACTURING_DRAWING'); return; }
-      if (event.target.dataset?.pnField) { const d=packageDraft().documents[state.documentIndex||0]; d.partNumberReview={...(d.partNumberReview||{}),[event.target.dataset.pnField]:event.target.dataset.pnField==='basis'?event.target.value||null:event.target.value===''?null:event.target.value==='yes',reviewedBy:null,reviewedAtUtc:null}; state.message='Part-number review updated. Save the package to preserve your answers.';renderDetail();return; }
-      if (event.target.dataset?.identityType !== undefined) { const d=packageDraft().documents[state.documentIndex||0]; identityChanges[d.documentId].type=event.target.value; renderDetail(); return; }
+      if (event.target.dataset?.pnField) { const d=packageDraft().documents[state.documentIndex||0]; if(state.selected.record.technicalReview?.workflow)identityChanges[d.documentId] ||= {type:identityType(d),otherDescription:d.identityReview?.otherDescription||''}; d.partNumberReview={...(d.partNumberReview||{}),[event.target.dataset.pnField]:event.target.dataset.pnField==='basis'?event.target.value||null:event.target.value===''?null:event.target.value==='yes',reviewedBy:null,reviewedAtUtc:null}; state.message='Part-number review updated. Save the package to preserve your answers.';renderDetail();return; }
+      if (event.target.dataset?.identityType !== undefined) { const d=packageDraft().documents[state.documentIndex||0]; identityChanges[d.documentId] ||= {type:identityType(d),otherDescription:d.identityReview?.otherDescription||''}; identityChanges[d.documentId].type=event.target.value;
+        if(state.selected.record.technicalReview?.workflow) {
+          d.documentType=({DRAWING:'ASSEMBLY_DRAWING',DRAWING_AND_BOM:'ASSEMBLY_DRAWING',BOM_ONLY:'BOM',GERBER_FILES:'GERBER',DATASHEET:'SUPPORTING_DOCUMENT',SPECIFICATION:'SUPPORTING_DOCUMENT',OTHER:'SUPPORTING_DOCUMENT',UNKNOWN:'UNKNOWN'})[event.target.value];
+          d.embeddedBom=event.target.value==='DRAWING_AND_BOM';d.partNumberReview=null;
+          if(!bomBearing(d)){d.bomUse='NO_BOM_ROLE';if(packageDraft().governingBomDocumentId===d.documentId)packageDraft().governingBomDocumentId=null;}
+          if(d.documentType!=='ASSEMBLY_DRAWING')d.productionUse='NOT_FOR_PRODUCTION';
+        }
+        renderDetail(); return; }
       const field = event.target.dataset?.packageField;
       const pack = packageDraft();
       if (field) {
         const doc = pack.documents[state.documentIndex || 0]; doc[field] = field === 'embeddedBom' ? event.target.checked : event.target.value;
         if (state.selected.record.technicalReview?.workflow) {
+          identityChanges[doc.documentId] ||= {type:identityType(doc),otherDescription:doc.identityReview?.otherDescription||''};
           if(doc.applicability!=='PARENT_ASSEMBLY' && doc.productionUse==='PRIMARY_DRAWING')doc.productionUse='NOT_FOR_PRODUCTION';
           if(doc.applicability!=='PARENT_ASSEMBLY' && doc.bomUse==='GOVERNING_BOM'){doc.bomUse='NO_BOM_ROLE';pack.governingBomDocumentId=null;}
           renderDetail();return;
@@ -183,7 +226,7 @@
 
   const documentTypes = { UNKNOWN: 'Unknown / Needs Classification', BOM: 'BOM', ASSEMBLY_DRAWING: 'Assembly Drawing', SUBASSEMBLY_BOM: 'Referenced / Subassembly BOM', ALTERNATE_PART_APPROVAL: 'Alternate-Part Approval', GERBER: 'Gerber', SUPPORTING_DOCUMENT: 'Supporting Document' };
   const documentRoles = { UNRESOLVED: 'Unresolved', GOVERNING: 'Governing', REFERENCED: 'Referenced', SUPPORTING: 'Supporting' };
-  const applicability = { PARENT_ASSEMBLY: 'Parent assembly', SUBASSEMBLY: 'Subassembly', SUPPORTING_REFERENCE: 'Supporting / Reference' };
+  const applicability = { PARENT_ASSEMBLY: 'Main Assembly', SUBASSEMBLY: 'Subassembly', SUPPORTING_REFERENCE: 'Reference' };
   function isBomSource(doc) { return doc.documentType === 'BOM' || (doc.documentType === 'ASSEMBLY_DRAWING' && doc.embeddedBom === true); }
   function bomSourceLabel(doc) { return doc.documentType === 'ASSEMBLY_DRAWING' ? 'BOM embedded in Assembly Drawing' : 'Standalone BOM'; }
   function packageDraft() {
@@ -241,7 +284,7 @@
   function renderReviewUploads(rowMode=false) {
     if (!addingDocuments && !rowMode) return '';
     const disabled = state.saving ? 'disabled' : '';
-    return '<section class="review-document-upload"><h4>'+ (rowMode?'Attach Technical Files':'Add Package-Level Document') +'</h4><p>'+ (rowMode?'Association comes from this saved BOM row. Save row edits before attaching files.':'For parent assembly and package-wide files. Add component/subassembly files from Candidate BOM row details.') +' Select one or more files and identify each document. Files are preserved with this review; analysis starts only when requested.</p><label class="review-file-drop" data-review-drop-zone aria-disabled="'+(state.saving?'true':'false')+'"><input id="reviewDocumentFiles" type="file" aria-label="Select technical files" multiple '+disabled+'><span>Drop technical files here</span><small>or click to browse</small></label><p>Up to 20 MB per file. Selected files are saved only when you choose '+(rowMode?'Save Files':'Save Documents')+'.</p>' + reviewUploads.map((upload,index) => {
+    return '<section class="review-document-upload"><h4>'+ (rowMode?'Attach Technical Files':'Add Package-Level Document') +'</h4><p>'+ (rowMode?'Association comes from this saved BOM row. Save row edits before attaching files.':'For main assembly and package-wide files. Add component/subassembly files from Candidate BOM row details.') +' Select one or more files and identify each document. Files are preserved with this review; analysis starts only when requested.</p><label class="review-file-drop" data-review-drop-zone aria-disabled="'+(state.saving?'true':'false')+'"><input id="reviewDocumentFiles" type="file" aria-label="Select technical files" multiple '+disabled+'><span>Drop technical files here</span><small>or click to browse</small></label><p>Up to 20 MB per file. Selected files are saved only when you choose '+(rowMode?'Save Files':'Save Documents')+'.</p>' + reviewUploads.map((upload,index) => {
       const select = (label,field,options) => '<label>'+label+'<select aria-label="'+label+' for '+escapeHtml(upload.file.name)+'" data-upload-field="'+field+'" required '+disabled+'><option value="">Select…</option>'+Object.entries(options).map(([key,text])=>'<option value="'+key+'" '+(upload[field]===key?'selected':'')+'>'+text+'</option>').join('')+'</select></label>';
       const input = (label,field,limit,required=false) => '<label>'+label+'<input aria-label="'+label+' for '+escapeHtml(upload.file.name)+'" data-upload-field="'+field+'" maxlength="'+limit+'" '+(required?'required ':'')+disabled+' value="'+escapeHtml(upload[field])+'"></label>';
       return '<fieldset data-upload-index="'+index+'" '+disabled+'><legend>'+escapeHtml(upload.file.name)+'</legend><button type="button" data-technical-review-action="remove-upload" data-upload-remove="'+index+'" aria-label="Remove '+escapeHtml(upload.file.name)+'" '+disabled+'>Remove</button><div class="technical-review-package-fields">'+select('Document type','type',identityLabels)+input('Note / description (optional)','note',500)+'</div></fieldset>';
@@ -292,13 +335,13 @@
     if(doc.documentType!=='ASSEMBLY_DRAWING'&&doc.productionUse==='PRIMARY_DRAWING')doc.productionUse='NOT_FOR_PRODUCTION';
     delete identityChanges[doc.documentId]; state.message='Review updated. Save the package to preserve changes.';renderDetail();
   }
-  const pnLabels={MANUFACTURER:'Manufacturer Part Numbers',CUSTOMER_INTERNAL:'Customer / Internal Part Numbers',MIXED:'Mixed',UNKNOWN:'Unknown / Needs Review'};
+  const pnLabels={MANUFACTURER:'MFG P/N',CUSTOMER_INTERNAL:'Customer P/N',MIXED:'Mixed',UNKNOWN:'Unknown'};
   function bomBearing(doc) { return isBomSource(doc)||doc.documentType==='SUBASSEMBLY_BOM'; }
   function rowAccepted(doc) { return identityReviewed(doc)&&(!bomBearing(doc)||!!doc.partNumberReview?.basis); }
   function pnIssue() {
     const docs=packageDraft().documents,bom=docs.filter(d=>!d.rowAssociation&&bomBearing(d));
-    if(bom.some(d=>!d.partNumberReview?.basis))return 'Review the part-number basis for each BOM-bearing document before continuing.';
-    if(bom.some(d=>d.partNumberReview.basis==='UNKNOWN'))return 'Resolve the unknown part-number basis before continuing, or place the package On Hold.';
+    if(bom.some(d=>!d.partNumberReview?.basis))return 'Review the BOM P/N Type for each document containing a BOM before continuing.';
+    if(bom.some(d=>d.partNumberReview.basis==='UNKNOWN'))return 'Resolve the Unknown BOM P/N Type before continuing, or place the package On Hold.';
     if(bom.some(d=>['CUSTOMER_INTERNAL','MIXED'].includes(d.partNumberReview.basis))&&!docs.some(d=>identityReviewed(d)&&d.partNumberReview?.providesManufacturerPartNumbers===true))return 'This BOM uses customer/internal or mixed part numbers. Identify a reviewed document that provides manufacturer part numbers before continuing.';
     return '';
   }
@@ -321,8 +364,8 @@
     }).join('');
     return '<section class="technical-review-question package-review-table"><h3>Technical Package Review</h3>'+renderReviewUploads()+'<p role="status">'+docs.length+' files received · '+docs.filter(rowAccepted).length+' reviewed · '+docs.filter(d=>!rowAccepted(d)).length+' need review</p><div class="package-table-scroll"><table><thead><tr>'+['Technical Document','Identified As','View File','Review','Status'].map(label=>'<th scope="col">'+label+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+(docs.length?'':'<p>No technical files were received.</p>')+(pnIssue()?'<p role="alert">'+escapeHtml(pnIssue())+'</p>':'')+'<div class="package-page-actions"><button class="technical-review-primary" data-technical-review-action="save-package" '+(state.saving||addingDocuments||docs.some(d=>!rowAccepted(d))||pnIssue()||Object.keys(identityChanges).length?'disabled':'')+'>Save and Continue</button><button class="technical-review-back" data-technical-review-action="history-back">Back to Technical Review</button></div>'+packageMessage()+'</section>';
   }
-  function unifiedPackageDraft() {
-    const pack=packageDraft(), w=state.selected.record.technicalReview.workflow, m=w.manufacturing;
+  function unifiedPackageDraft(pack=packageDraft()) {
+    const w=state.selected.record.technicalReview.workflow, m=w.manufacturing;
     for(const d of pack.documents) {
       d.productionUse ??= (m?.governingDocumentId||w.manufacturingDrawingId)===d.documentId?'PRIMARY_DRAWING':
         [m?.supportingDocumentIds,m?.subassemblyDocumentIds,m?.technicalDocumentIds].some(ids=>ids?.includes(d.documentId))?'SUPPORTING_PRODUCTION':'NOT_FOR_PRODUCTION';
@@ -332,7 +375,7 @@
   }
   function packageAnswers() {
     const w=state.selected.record.technicalReview.workflow;
-    return state.packageAnswers ||= {historyAcknowledged:!!w.historyReviewed, complete:w.sufficient?'yes':w.holdReason?'no':'',missing:w.holdReason||''};
+    return state.packageAnswers ||= {complete:w.sufficient?'yes':w.holdReason?'no':'',missing:w.holdReason||''};
   }
   function packageCanBuild() {
     const p=unifiedPackageDraft(), d=p.documents.find(d=>d.documentId===p.governingBomDocumentId);
@@ -340,57 +383,123 @@
   }
   function unifiedPackageIssue() {
     const docs=unifiedPackageDraft().documents;
-    if(docs.some(d=>!d.rowAssociation&&(!rowAccepted(d)||d.documentType==='UNKNOWN')) || Object.keys(identityChanges).length)return 'Review each document identity and applicable P/N basis.';
+    if(docs.some(d=>!d.rowAssociation&&(!packageRowLocked(d)||d.documentType==='UNKNOWN')) || Object.keys(identityChanges).length)return 'Accept each document row before completing the package.';
     if(pnIssue())return pnIssue();
-    if(docs.filter(d=>d.productionUse==='PRIMARY_DRAWING'&&d.applicability==='PARENT_ASSEMBLY'&&d.documentType==='ASSEMBLY_DRAWING'&&!d.rowAssociation).length!==1)return 'Select one parent Primary Production Drawing.';
-    if(docs.filter(d=>d.bomUse==='GOVERNING_BOM'&&d.applicability==='PARENT_ASSEMBLY'&&isBomSource(d)&&!d.rowAssociation).length!==1)return 'Select one parent Governing BOM.';
-    if(!packageAnswers().historyAcknowledged)return 'Acknowledge the assembly-history context.';
+    if(docs.filter(d=>d.productionUse==='PRIMARY_DRAWING'&&d.applicability==='PARENT_ASSEMBLY'&&d.documentType==='ASSEMBLY_DRAWING'&&!d.rowAssociation).length!==1)return 'Select one Main Production Drawing for the Main Assembly.';
+    if(docs.filter(d=>d.bomUse==='GOVERNING_BOM'&&d.applicability==='PARENT_ASSEMBLY'&&isBomSource(d)&&!d.rowAssociation).length!==1)return 'Select one Main BOM for the Main Assembly.';
     return '';
   }
+  function packageRowIssue(d) {
+    if(d.documentType==='UNKNOWN')return 'Choose a document type.';
+    if(bomBearing(d)&&(!d.partNumberReview?.basis||d.partNumberReview.basis==='UNKNOWN'))return 'Resolve BOM P/N Type.';
+    if(d.partNumberReview?.providesManufacturerPartNumbers==null)return 'Review MFG P/N Source.';
+    if(!applicability[d.applicability])return 'Choose Applies To.';
+    if(d.applicability==='SUBASSEMBLY'&&!d.subassemblyPartNumber?.trim())return 'Enter the subassembly P/N.';
+    return '';
+  }
+  function packageRowLocked(d) {
+    const saved=state.selected.record.technicalReview.technicalPackage?.documents.find(x=>x.documentId===d.documentId);
+    return !!saved && identityReviewed(saved) && !packageRowIssue(saved) && !identityChanges[d.documentId];
+  }
+  async function acceptPackageRow() {
+    if(state.saving||completedReview(state.selected.record))return;
+    const draft=unifiedPackageDraft(), d=draft.documents[state.documentIndex||0];
+    const issue=packageRowIssue(d);
+    if(issue){packageRowErrors[d.documentId]=issue;renderDetail();return;}
+    const choice=identityChanges[d.documentId];
+    const accepted={...d,identityReview:{...(d.identityReview||{}),type:choice?.type||identityType(d),otherDescription:choice?.otherDescription||d.identityReview?.otherDescription||null}};
+    state.saving=true;packageRowErrors[d.documentId]='';renderDetail();
+    try {
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/package-review',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:'UNIFIED_PACKAGE_REVIEW_V2',expectedReviewToken:state.selected.packageReviewToken,documents:[accepted],complete:false,acceptDocumentId:d.documentId})});
+      delete identityChanges[d.documentId];state.packageDraft=null;
+      // Preserve other open row drafts, but never submit them as part of this acceptance.
+      const saved=unifiedPackageDraft();
+      saved.documents=saved.documents.map(x=>identityChanges[x.documentId]?draft.documents.find(old=>old.documentId===x.documentId)||x:x);
+      state.message='Document accepted.';state.messageState='';
+    } catch(error){packageRowErrors[d.documentId]=error.message;}
+    finally{state.saving=false;renderDetail();}
+  }
+  function packageCandidateState() {
+    const review=state.selected.record.technicalReview;
+    const active=['QUEUED','RUNNING','VALIDATING'].includes(state.analysisJob?.status);
+    const saved=review.technicalPackage;
+    const pendingReview=unifiedPackageDraft().documents.some(d=>!packageRowLocked(d));
+    const dirty=pendingReview || Object.keys(identityChanges).length>0 || !!saved && JSON.stringify(unifiedPackageDraft())!==JSON.stringify(unifiedPackageDraft(JSON.parse(JSON.stringify(saved))));
+    return {active, dirty, pendingReview, ready:!!review.candidateBom, stale:!review.candidateBom && !!review.candidateBomVersions?.length};
+  }
+  function packageBuildAction(unsupported, issue) {
+    const c=packageCandidateState();
+    if(c.active || (c.ready && !c.dirty && state.selected.record.technicalReview.workflow.sufficient))return '';
+    const label=unsupported || c.ready ? 'Save Technical Package' : c.stale ? 'Rebuild Candidate BOM' : 'Save &amp; Build Candidate BOM';
+    return '<button class="technical-review-primary" data-technical-review-action="confirm-package" '+(state.saving||addingDocuments||issue?'disabled':'')+'>'+label+'</button>';
+  }
+  let releaseReadiness = null;
+  function renderPackageRelease() {
+    const r=state.selected.record, c=packageCandidateState();
+    if(r.technicalReview.materialsReviewStatus !== 'QUALIFIED' || c.active) return '';
+    if(c.dirty || c.pendingReview) return '<p>Accept and save the package changes before release.</p>';
+    const key=r.intakeId+':'+state.selected.packageReviewToken;
+    if(releaseReadiness?.key !== key) {
+      releaseReadiness={key, pending:true};
+      fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(r.intakeId)+'/release-readiness')
+        .then(result=>{if(releaseReadiness?.key===key)releaseReadiness={key,...result};})
+        .catch(error=>{if(releaseReadiness?.key===key)releaseReadiness={key,ready:false,message:error.message};})
+        .finally(()=>{if(state.selected?.record?.intakeId===r.intakeId && state.step==='inventory')renderDetail();});
+    }
+    const accepted=(r.technicalReview.bomAcceptances || []).findLast(a=>a.candidate.id===r.technicalReview.candidateBom?.id);
+    const bom=accepted ? '<div><h5>Accepted BOM</h5><p class="release-bom-meta">Version '+accepted.version+' · Accepted by '+escapeHtml(accepted.reviewedBy)+' · '+escapeHtml(formatDateTime(accepted.reviewedAtUtc))+'</p><button type="button" class="technical-review-secondary" data-technical-review-action="accepted-bom" data-accepted-version="'+accepted.version+'">View Accepted BOM</button></div>' : '';
+    const ready=releaseReadiness.ready===true;
+    return '<section class="technical-review-card technical-review-release"><h4>'+(ready?'Technical Review Ready':'Technical Review Submission')+'</h4><div class="release-summary">'+bom+'<div><h5>Technical Package</h5><p>'+(ready?'Ready':'Awaiting release validation')+'</p></div></div>'+
+      (releaseReadiness.pending?'<p role="status">Checking release readiness…</p>':!ready?'<p role="alert">'+escapeHtml(releaseReadiness.message)+'</p>':'<p>Submit the reviewed technical package and accepted BOM to the RFQ workspace for Materials and Labor quotation.</p>'+flowButton('Submit to RFQs','COMPLETE'))+'</section>';
+  }
+
   function renderUnifiedPackage() {
     const pack=unifiedPackageDraft(), docs=pack.documents, answers=packageAnswers(), record=state.selected.record;
-    const disabled=state.saving?'disabled':'', history=state.selected.assemblyHistoryContext||record.technicalReview.assemblyHistory;
-    const select=(label,attribute,options,value)=>'<select aria-label="'+escapeHtml(label)+'" '+attribute+' '+disabled+'>'+Object.entries(options).map(([k,v])=>'<option value="'+k+'" '+(k===value?'selected':'')+'>'+v+'</option>').join('')+'</select>';
+    const disabled=state.saving?'disabled':'';
+    const editableSelect=(label,attribute,options,value)=>'<select aria-label="'+escapeHtml(label)+'" '+attribute+' '+disabled+'>'+Object.entries(options).map(([k,v])=>'<option value="'+k+'" '+(k===value?'selected':'')+'>'+v+'</option>').join('')+'</select>';
     const rows=docs.map((d,i)=>{
-      const f=record.technicalFiles.find(f=>f.documentId===d.documentId), choice=identityChanges[d.documentId],reviewed=identityReviewed(d);
+      const f=record.technicalFiles.find(f=>f.documentId===d.documentId), choice=identityChanges[d.documentId],locked=packageRowLocked(d);
+      const select=(label,attribute,options,value)=>locked?escapeHtml(options[value]||'—'):editableSelect(label,attribute,options,value);
       const view=f?.binaryStatus==='VERIFIED'?'<a target="'+(f.type==='application/pdf'?'_blank':'_self')+'" rel="noopener noreferrer" href="/api/sim/rfq-intakes/'+encodeURIComponent(record.intakeId)+'/documents/'+encodeURIComponent(d.documentId)+'">View File</a>':'<small>File unavailable</small>';
-      let identity=choice?select('Classification for '+d.name,'data-identity-type',identityLabels,choice.type)+(choice.type==='OTHER'?'<input aria-label="Other description for '+escapeHtml(d.name)+'" data-identity-other maxlength="500" value="'+escapeHtml(choice.otherDescription)+'">':''):escapeHtml(identityLabels[identityType(d)]);
-      identity+='<div class="package-row-actions">'+(!reviewed||choice?'<button data-technical-review-action="identity-confirm" '+disabled+'>'+(choice?'Accept edit':'Accept')+'</button>':'')+(!choice?'<button data-technical-review-action="identity-change" '+disabled+'>Edit</button>':'')+'</div>';
-      if(bomBearing(d))identity+='<label class="package-pn-question">P/N Basis'+select('Part-number basis for '+d.name,'data-pn-field="basis"',{'':'Select basis',...pnLabels},d.partNumberReview?.basis||'')+'</label>';
-      const production={NOT_FOR_PRODUCTION:'Not for Production',SUPPORTING_PRODUCTION:'Supporting Production Document'};
-      if(!d.rowAssociation&&d.documentType==='ASSEMBLY_DRAWING'&&d.applicability==='PARENT_ASSEMBLY')production.PRIMARY_DRAWING='Primary Production Drawing';
-      const bom={NO_BOM_ROLE:'No BOM Role'};
+      let identity=locked?escapeHtml(identityLabels[identityType(d)]):editableSelect('Classification for '+d.name,'data-identity-type',identityLabels,choice?.type||identityType(d))+((choice?.type||identityType(d))==='OTHER'?'<input aria-label="Other description for '+escapeHtml(d.name)+'" data-identity-other maxlength="500" value="'+escapeHtml(choice?.otherDescription||d.identityReview?.otherDescription||'')+'">':'');
+      if(bomBearing(d))identity+='<label class="package-pn-question" title="What kind of part number is shown in the BOM&#39;s main P/N field?">BOM P/N Type: '+select('BOM P/N Type for '+d.name,'data-pn-field="basis"',{'':'Select type',...pnLabels},d.partNumberReview?.basis||'')+'</label>';
+      const production={NOT_FOR_PRODUCTION:'Not for Production',SUPPORTING_PRODUCTION:'Supporting Production Doc'};
+      if(!d.rowAssociation&&d.documentType==='ASSEMBLY_DRAWING'&&d.applicability==='PARENT_ASSEMBLY')production.PRIMARY_DRAWING='Main Production Drawing';
+      const bom={NO_BOM_ROLE:'Not for Materials'};
       if(bomBearing(d))bom.SUPPORTING_BOM='Supporting BOM';
-      if(!d.rowAssociation&&isBomSource(d)&&d.applicability==='PARENT_ASSEMBLY')bom.GOVERNING_BOM='Governing BOM';
+      if(!d.rowAssociation&&isBomSource(d)&&d.applicability==='PARENT_ASSEMBLY')bom.GOVERNING_BOM='Main BOM';
       const context='<details class="package-row-context"><summary>Details</summary><small>Source: '+(f?.reviewOrigin?'Technical Review':'Intake')+' · '+escapeHtml(d.documentId)+'</small><small>Intake identified: '+escapeHtml(identityLabels[f?.initialIdentification?.type]||'Not provided')+'</small>'+
         (d.identityReview?'<small>'+(d.identityReview.reviewedBy?escapeHtml(d.identityReview.reviewedBy)+' · '+escapeHtml(formatDateTime(d.identityReview.reviewedAtUtc)):'Unsaved review')+'</small>':'')+
         (d.rowAssociation?'<small>Scope inherited from BOM row '+(d.rowAssociation.rowIndex+1)+' · '+escapeHtml(d.rowAssociation.customerBomPartNumber)+'</small>':'')+
-        (d.applicability==='SUBASSEMBLY'?'<label>Customer / BOM P/N<input data-package-field="subassemblyPartNumber" maxlength="120" value="'+escapeHtml(d.subassemblyPartNumber)+'" '+(d.rowAssociation?'readonly':'')+' '+disabled+'></label><label>DLE proposed subassembly identity<input data-package-field="proposedSubassemblyIdentity" maxlength="120" value="'+escapeHtml(d.proposedSubassemblyIdentity)+'" '+(d.rowAssociation?'readonly':'')+' '+disabled+'></label>':'')+
+        (d.applicability==='SUBASSEMBLY'?'<label>Customer / BOM P/N<input data-package-field="subassemblyPartNumber" maxlength="120" value="'+escapeHtml(d.subassemblyPartNumber)+'" '+(d.rowAssociation||locked?'readonly':'')+' '+disabled+'></label><label>DLE proposed subassembly identity<input data-package-field="proposedSubassemblyIdentity" maxlength="120" value="'+escapeHtml(d.proposedSubassemblyIdentity)+'" '+(d.rowAssociation||locked?'readonly':'')+' '+disabled+'></label>':'')+
         (f?.reviewOrigin?'<small>Added by '+escapeHtml(f.reviewOrigin.addedBy)+' · '+escapeHtml(formatDateTime(f.reviewOrigin.addedAtUtc))+'</small><small>'+escapeHtml(f.reviewOrigin.note||'')+'</small>':'')+'</details>';
-      return '<tr data-package-row="'+i+'"><th scope="row"><span>'+escapeHtml(d.name)+'</span><div>'+view+'</div>'+context+'</th><td>'+identity+'</td><td>'+(d.rowAssociation?escapeHtml(applicability[d.applicability]):select('Applies to for '+d.name,'data-package-field="applicability"',applicability,d.applicability))+'</td><td>'+select('Production Use for '+d.name,'data-package-use="productionUse"',production,d.productionUse)+'</td><td>'+select('BOM Use for '+d.name,'data-package-use="bomUse"',bom,d.bomUse)+'</td><td>'+select('Manufacturer P/N source for '+d.name,'data-pn-field="providesManufacturerPartNumbers"',{'':'Not Reviewed',yes:'Yes',no:'No'},d.partNumberReview?.providesManufacturerPartNumbers==null?'':d.partNumberReview.providesManufacturerPartNumbers?'yes':'no')+'</td><td>'+(rowAccepted(d)&&d.documentType!=='UNKNOWN'&&!choice?'Reviewed':'Needs Review')+'</td></tr>';
+      return '<tr data-package-row="'+i+'"><th scope="row"><span>'+escapeHtml(d.name)+'</span><div>'+view+'</div>'+context+'</th><td>'+identity+'</td><td>'+(d.rowAssociation?escapeHtml(applicability[d.applicability]):select('Applies to for '+d.name,'data-package-field="applicability"',applicability,d.applicability))+'</td><td>'+select('Production Use for '+d.name,'data-package-use="productionUse"',production,d.productionUse)+'</td><td>'+select('Materials Use for '+d.name,'data-package-use="bomUse"',bom,d.bomUse)+'</td><td>'+select('Manufacturer P/N source for '+d.name,'data-pn-field="providesManufacturerPartNumbers" title="Does this document show the manufacturer&#39;s P/N in a dedicated field or column?"',{'':'Not Reviewed',yes:'Yes',no:'No'},d.partNumberReview?.providesManufacturerPartNumbers==null?'':d.partNumberReview.providesManufacturerPartNumbers?'yes':'no')+'</td><td>'+(locked?'Accepted':'Needs Review')+'<div class="package-row-actions"><button data-technical-review-action="'+(locked?'identity-change':'accept-package-row')+'" '+disabled+'>'+(locked?'Edit':identityReviewed(d)?'Accept Changes':'Accept')+'</button></div>'+(packageRowErrors[d.documentId]?'<small role="alert">'+escapeHtml(packageRowErrors[d.documentId])+'</small>':'')+'</td></tr>';
     }).join('');
-    const names=predicate=>docs.filter(predicate).map(d=>escapeHtml(d.name)).join(', ')||'None selected';
+    const summary=(heading,rolesFor)=>{
+      const rows=(record.technicalReview.technicalPackage?.documents||[]).filter(d=>identityReviewed(d)&&!packageRowIssue(d)).map(d=>{const roles=rolesFor(unifiedPackageDraft({documents:[{...d}],governingBomDocumentId:record.technicalReview.technicalPackage.governingBomDocumentId}).documents[0]);return roles.length?'<li><span class="package-summary-name">'+escapeHtml(d.name)+'</span><span class="package-summary-roles">'+roles.map(escapeHtml).join(' · ')+'</span></li>':'';}).join('');
+      return '<section><h4>'+heading+'</h4>'+(rows?'<ul class="package-summary-list">'+rows+'</ul>':'<p class="package-summary-empty">None selected</p>')+'</section>';
+    };
     const issue=unifiedPackageIssue(), unsupported=pack.governingBomDocumentId&&!packageCanBuild();
-    return '<section class="technical-review-question package-review-table unified-package-review"><h3>Technical Package Review</h3>'+renderReviewUploads()+'<p>'+docs.length+' files received · '+docs.filter(rowAccepted).length+' reviewed · '+docs.filter(d=>!rowAccepted(d)).length+' need review</p><div class="package-table-scroll"><table><thead><tr>'+['Document','What is it?','Applies To','Production Use','BOM Use','MFG P/N Source','Status'].map(x=>'<th scope="col">'+x+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-      '<div class="package-authority-summary"><section><h4>Production</h4><p>Primary Production Drawing: <strong>'+names(d=>d.productionUse==='PRIMARY_DRAWING')+'</strong></p><p>Supporting Production Documents: '+names(d=>d.productionUse==='SUPPORTING_PRODUCTION')+'</p></section><section><h4>Materials</h4><p>Governing BOM: <strong>'+names(d=>d.bomUse==='GOVERNING_BOM')+'</strong></p><p>Manufacturer P/N Sources: '+names(d=>d.partNumberReview?.providesManufacturerPartNumbers===true)+'</p></section></div>'+
-      '<section class="package-history"><h4>Assembly history</h4><p>'+(history?(history.historyFound?'Previous revisions: '+history.revisionsFound.map(escapeHtml).join(', ')+'. Most recent: '+escapeHtml(history.mostRecentRevision)+'.':'No previous assembly history found.'):'History context is unavailable; reopen the review to load it.')+' SIM synthetic history is context.</p><label><input id="packageHistory" type="checkbox" '+(answers.historyAcknowledged?'checked':'')+' '+(state.saving||!history?'disabled':'')+'> I reviewed the assembly-history context</label></section>'+
+    return '<section class="technical-review-question package-review-table unified-package-review"><div class="package-review-heading"><div><h3>Technical Package Review</h3><p>'+docs.length+' files received · '+docs.filter(packageRowLocked).length+' accepted · '+docs.filter(d=>!packageRowLocked(d)).length+' need review</p></div>'+((window.DleOsCapabilities?.can?.("technical_review.disposition")===true && ['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(record.status))?'<button type="button" class="technical-review-secondary" data-technical-review-action="add-document" '+(state.saving||addingDocuments?'disabled':'')+'>+ Add Document</button>':'')+'</div>'+renderReviewUploads()+'<div class="package-table-scroll"><table><thead><tr>'+['Document','What is it?','Applies To','Production Use','Materials Use','MFG P/N Source','Status'].map(x=>'<th scope="col">'+(x==='MFG P/N Source'?'<span class="package-help" tabindex="0" title="Does this document show the manufacturer&#39;s P/N in a dedicated field or column?">'+x+' <span aria-hidden="true">ⓘ</span><span class="package-help-text" role="tooltip">Does this document show the manufacturer&#39;s P/N in a dedicated field or column?</span></span>':x)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="package-authority-summary">'+summary('Production',d=>d.productionUse==='PRIMARY_DRAWING'?['Main Drawing']:d.productionUse==='SUPPORTING_PRODUCTION'?['Supporting']:[])+summary('Materials',d=>[...(d.bomUse==='GOVERNING_BOM'?['Main BOM']:d.bomUse==='SUPPORTING_BOM'?['Supporting BOM']:[]),...(d.partNumberReview?.providesManufacturerPartNumbers===true?['MFG P/N Source']:[])])+'</div>'+
+      '<section class="package-history"><h4>Assembly History</h4><p>Coming soon</p><button type="button" disabled>View Assembly History</button><p class="technical-review-inline-note">Prior revision and build history will be available here in a future release.</p></section>'+
       '<fieldset class="package-completeness" '+disabled+'><legend>Is the technical package complete enough to proceed, including the documents Production needs?</legend><label><input name="packageComplete" type="radio" value="yes" '+(answers.complete==='yes'?'checked':'')+'> Yes</label><label><input name="packageComplete" type="radio" value="no" '+(answers.complete==='no'?'checked':'')+'> No</label>'+
-      (answers.complete==='no'?'<label class="package-missing">What is missing?<textarea id="packageMissing" maxlength="1000">'+escapeHtml(answers.missing)+'</textarea></label><button class="technical-review-primary" data-technical-review-action="hold-package" '+(state.saving||addingDocuments?'disabled':'')+'>Place On Hold</button>':answers.complete==='yes'?(issue?'<p role="alert">'+escapeHtml(issue)+'</p>':'')+(unsupported?'<p role="note">Package authority can be saved. Candidate BOM extraction currently requires an embedded BOM in a governing parent PDF drawing; standalone governing-XLS extraction is not supported.</p>':'')+'<button class="technical-review-primary" data-technical-review-action="confirm-package" '+(state.saving||addingDocuments||issue?'disabled':'')+'>'+(unsupported?'Save Technical Package':'Save &amp; Build Candidate BOM')+'</button>':'')+'</fieldset>'+packageMessage()+'<button class="technical-review-back" data-technical-review-action="history-back">Back to Technical Review</button></section>';
+      (answers.complete==='no'?'<label class="package-missing">What is missing?<textarea id="packageMissing" maxlength="1000">'+escapeHtml(answers.missing)+'</textarea></label><button class="technical-review-primary" data-technical-review-action="hold-package" '+(state.saving||addingDocuments?'disabled':'')+'>Place On Hold</button>':answers.complete==='yes'?(issue?'<p role="alert">'+escapeHtml(issue)+'</p>':'')+(unsupported?'<p role="note">These document roles can be saved. Candidate BOM extraction currently requires the Main BOM to be embedded in a Main Assembly PDF drawing; extraction from a standalone XLS Main BOM is not supported.</p>':'')+packageBuildAction(unsupported, issue):'')+'</fieldset><div id="technicalReviewAnalysisProgress">'+renderAnalysisProgress()+'</div>'+renderPackageRelease()+packageMessage()+'<button class="technical-review-back" data-technical-review-action="history-back">Back to Technical Review</button></section>';
   }
   async function saveUnifiedPackage(complete) {
-    if(state.saving || (complete&&unifiedPackageIssue()))return;
+    if(state.saving || packageCandidateState().active || (complete&&unifiedPackageIssue()))return;
+    const hadCandidate=!!state.selected.record.technicalReview.candidateBom;
     const p=unifiedPackageDraft(), answers=packageAnswers(), canBuild=packageCanBuild();
     state.saving=true;state.message='';state.messageState='';renderDetail();
     try {
-      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/package-review',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:'UNIFIED_PACKAGE_REVIEW_V2',expectedReviewToken:state.selected.packageReviewToken,documents:p.documents,governingBomDocumentId:p.governingBomDocumentId,complete,historyAcknowledged:answers.historyAcknowledged,missing:answers.missing})});
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/package-review',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:'UNIFIED_PACKAGE_REVIEW_V2',expectedReviewToken:state.selected.packageReviewToken,documents:p.documents,governingBomDocumentId:p.governingBomDocumentId,complete,missing:answers.missing})});
       state.packageDraft=null;state.packageAnswers=null;
       state.message=complete?'Technical package saved.':'On Hold — missing information saved.';
       await refreshQueueModel();
     } catch(error) {state.message=error.message;state.messageState='error';}
     finally {state.saving=false;renderDetail();}
     if(complete&&canBuild&&state.messageState!=='error') {
-      if(state.selected.record.technicalReview.candidateBom) {state.step='candidate';state.candidateIndex=null;renderDetail();}
-      else await buildCandidate();
+      if(!hadCandidate && !state.selected.record.technicalReview.candidateBom) await buildCandidate();
     }
   }
   function packageMessage() { return '<p role="status" class="technical-review-message" data-state="' + escapeHtml(state.messageState) + '">' + escapeHtml(state.message) + '</p>'; }
@@ -477,6 +586,7 @@
     addingDocuments = false; reviewUploads = [];
     state.acceptedVersion = null;
     if (state.saving) return;
+    identityChanges={};packageRowErrors={};state.packageAnswers=null;
     state.guided = false;
     state.materials = false; state.step = ""; state.packageDraft = null; state.documentIndex = 0;
     state.closing = false;
@@ -522,14 +632,15 @@
     const entry = !state.guided && !state.closing && !completedReview(record) && record.status !== "NO_LONGER_REQUIRED";
     mount?.classList.toggle("technical-review-entry", entry);
     if (entry) { mount?.classList.remove("technical-review-guided"); host.innerHTML = renderEntryConfirmation(record, canDisposition); return; }
-    if (completedReview(record)) { host.innerHTML = renderCompletedReview(record); return; }
+    if (completedReview(record)) { host.innerHTML = state.step === 'submitted' ? renderSubmittedReview(record) : renderCompletedReview(record); return; }
     mount?.classList.toggle("technical-review-guided", state.guided);
+    if (state.step === 'accepted-bom') { host.innerHTML = renderAcceptedBom(record); return; }
     host.innerHTML = '<div class="technical-review-context"><div><p class="technical-review-eyebrow">RFQ Review · ' + escapeHtml(record.intakeId) + '</p>' +
       '<h2 id="technicalReviewDetailTitle" tabindex="-1">' + escapeHtml(record.customer?.customerName || "Customer") + '</h2>' +
       (!state.guided && record.intakeType === 'NEW_QUOTE_REQUEST' ? renderIntakeSummary(record) : '<p>' + escapeHtml(assembly.assemblyNumber) + ' · Rev ' + escapeHtml(assembly.revision) + ' · Qty ' + escapeHtml(assembly.quantity) + '</p>') + '</div>' +
       '<span class="technical-review-status-pill">' + escapeHtml(envelope.reviewStatusLabel) + '</span></div>' +
-      (canDisposition && ['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(record.status) ? '<p><button data-technical-review-action="add-document" '+(state.saving||addingDocuments?'disabled':'')+'>Add Technical Document</button></p>' : '') +
-      '<div id="technicalReviewAnalysisProgress">' + renderAnalysisProgress() + '</div>' +
+      (canDisposition && state.step !== 'candidate' && !(record.technicalReview?.workflow && state.step === 'inventory') && ['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(record.status) ? '<p><button data-technical-review-action="add-document" '+(state.saving||addingDocuments?'disabled':'')+'>Add Technical Document</button></p>' : '') +
+      (state.step === 'candidate' || (record.technicalReview?.workflow && state.step === 'inventory') ? '' : '<div id="technicalReviewAnalysisProgress">' + renderAnalysisProgress() + '</div>') +
       (state.guided ? (['sufficiency', 'context', 'definition', 'release'].includes(state.step) ? renderWorkflowStep(record) : state.step === 'labor-first' ? renderLaborFirstEntry(record) : state.step === 'manufacturing' ? renderManufacturingHandoff(record) : state.step === 'accepted-bom' ? renderAcceptedBom(record) : state.step === 'candidate' ? renderCandidate(record) : state.materials ? renderMaterials(record) : state.step === 'inventory' ? renderInventory() : state.step === 'governing' ? renderGoverning() : state.step === 'coverage' ? renderCoverage(record) : renderHistoryQuestion(record, canDisposition)) : renderEntryActions(record, canDisposition));
   }
 
@@ -542,6 +653,9 @@
     if (Array.isArray(value)) return '<ul>' + value.map(v => '<li>' + savedFacts(v) + '</li>').join('') + '</ul>';
     return '<dl>' + Object.entries(value).map(([key,v]) => '<dt>' + escapeHtml(key.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase())) + '</dt><dd>' + savedFacts(v) + '</dd>').join('') + '</dl>';
   }
+  function renderSubmittedReview(record) {
+    return '<section class="technical-review-entry-card"><h2 id="technicalReviewDetailTitle" tabindex="-1">Technical Review Submitted</h2><p class="technical-review-entry-customer">'+escapeHtml(record.intakeId)+' · '+escapeHtml(record.customer?.customerName || '')+'</p><p role="status">The technical package and accepted BOM have been submitted for Materials and Labor quotation.</p><div class="technical-review-entry-actions"><button type="button" class="technical-review-primary" data-technical-review-action="back">Done</button></div></section>';
+  }
   function renderCompletedReview(record) {
     const review = record.technicalReview, w = review.workflow || {}, pack = review.technicalPackage || {documents:[]};
     const section = state.step || 'package';
@@ -553,7 +667,7 @@
     if (section === 'completion') body = '<h3>Completion / review history</h3>' + savedFacts({status:record.status,reviewer:w.outputs?.reviewer,atUtc:w.outputs?.atUtc,events:w.events});
     if (section === 'candidate') body = review.candidateBom ? renderCandidate(record) : '<p>No Candidate BOM recorded.</p>';
     if (section === 'accepted-bom') body = renderAcceptedBom(record);
-    return '<section class="technical-review-completed"><button class="technical-review-back" data-technical-review-action="rfq-back">← Back to RFQ</button><h2 id="technicalReviewDetailTitle" tabindex="-1">Completed Technical Review — Read-only</h2><p>' + escapeHtml(record.intakeId) + ' · ' + escapeHtml(record.customer?.customerName) + '</p><p>Inspection only. The completed review and accepted BOM remain unchanged.</p><nav aria-label="Completed review sections">' + [['package','Package Review'],['history','History Context'],['manufacturing','Manufacturing Definition'],['materials','Materials Definition / Governing BOM'],['candidate','Candidate / Reviewed BOM'],['completion','Completion History']].map(([key,label]) => '<button data-technical-review-action="view-' + key + '" aria-pressed="' + (section === key) + '">' + label + '</button>').join(' ') + '</nav>' + acceptedLinks(record) + '<section class="technical-review-question">' + body + '</section></section>';
+    return '<section class="technical-review-completed"><button class="technical-review-back" data-technical-review-action="rfq-back">← Back to RFQ</button><h2 id="technicalReviewDetailTitle" tabindex="-1">Completed Technical Review — Read-only</h2><p>' + escapeHtml(record.intakeId) + ' · ' + escapeHtml(record.customer?.customerName) + '</p><p>Technical Review complete — released for quotation.</p><p>Inspection only. The completed review and accepted BOM remain unchanged.</p><nav aria-label="Completed review sections">' + [['package','Package Review'],['history','History Context'],['manufacturing','Manufacturing Definition'],['materials','Materials Definition / Governing BOM'],['candidate','Candidate / Reviewed BOM'],['completion','Completion History']].map(([key,label]) => '<button data-technical-review-action="view-' + key + '" aria-pressed="' + (section === key) + '">' + label + '</button>').join(' ') + '</nav>' + acceptedLinks(record) + '<section class="technical-review-question">' + body + '</section></section>';
   }
 
   function renderEntryConfirmation(record, canDisposition) {
@@ -561,14 +675,14 @@
     const action = record.technicalReview?.workflow ? 'flow-START' : manufacturingIsNext(record) ? 'manufacturing' : 'start';
     const disabled = !canDisposition || state.saving ? 'disabled' : '';
     return '<section class="technical-review-entry-card"><h2 id="technicalReviewDetailTitle" tabindex="-1">Technical Review — ' + escapeHtml(record.intakeId) + '</h2>' +
-      '<p class="technical-review-entry-customer">' + escapeHtml(record.customer?.customerName || 'Customer') + '</p>' + renderIntakeSummary(record) +
+      '<p class="technical-review-entry-customer">' + escapeHtml(record.customer?.customerName || 'Customer') + '</p>' + renderIntakeSummary(record, true) +
       (record.status === 'ON_HOLD' ? '<p class="technical-review-source">On Hold</p>' : '') +
       '<div class="technical-review-entry-actions"><button type="button" class="technical-review-primary" data-technical-review-action="' + action + '" ' + disabled + '>' + (started ? 'Continue Technical Review' : 'Start Technical Review') + '</button>' +
       '<button type="button" class="technical-review-back" data-technical-review-action="back" ' + (state.saving ? 'disabled' : '') + '>Back to Queue</button></div>' +
       (!canDisposition ? '<p>Disposition permission required.</p>' : '') + packageMessage() + '</section>';
   }
 
-  function renderIntakeSummary(record) {
+  function renderIntakeSummary(record, compact = false) {
     const assembly = record.assemblies?.[0] || {};
     const scopes = { MATERIAL_AND_LABOR: 'Material + Labor', LABOR_ONLY: 'Labor Only', MATERIAL_ONLY: 'Material Only' };
     const types = { PCB_ASSEMBLY: 'PCB Assembly', CABLE_AND_HARNESS_ASSEMBLY: 'Cable and Harness Assembly', CHASSIS_BOX_BUILD_ASSEMBLY: 'Chassis / Box Build Assembly', OTHER: 'Other' };
@@ -580,7 +694,7 @@
       ['Assembly Type', types[record.technicalReview?.assemblyType || record.preliminaryAssemblyType?.type] || 'Not determined'],
       ['Technical Files Received', (record.technicalFiles?.length || 0) + ' received']
     ];
-    return '<dl class="technical-review-intake-summary" aria-label="Intake facts">' + facts.map(([label, value]) =>
+    return (compact ? '<p class="technical-review-entry-identity">'+escapeHtml(assembly.assemblyNumber || 'Not provided')+' · Rev '+escapeHtml(assembly.revision || 'Not provided')+' · Qty '+escapeHtml(assembly.quantity ?? 'Not provided')+'</p>' : '') + '<dl class="technical-review-intake-summary" aria-label="Intake facts">' + (compact ? facts.slice(3) : facts).map(([label, value]) =>
       '<div><dt>' + label + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('') + '</dl>';
   }
 
@@ -591,7 +705,7 @@
     const r = state.selected.record, w = r.technicalReview.workflow;
     state.guided = true; state.materials = false; state.packageDraft = null;
     state.packageAnswers = null;
-    state.step = r.status === 'ON_HOLD' || !w.packageConfirmed || !w.sufficient || !w.historyReviewed || !w.manufacturing ? 'inventory' : r.technicalReview.materialsReviewStatus === 'QUALIFIED' ? 'release' : r.technicalReview.candidateBom ? 'candidate' : 'inventory';
+    state.step = 'inventory';
     renderDetail();
   }
   function flowButton(label, action) {
@@ -608,15 +722,15 @@
       state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/workflow', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if (action === 'SUFFICIENT' && !state.selected.record.technicalReview.assemblyHistory) state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/assembly-history', {method:'POST'});
       await refreshQueueModel();
-      if (action === 'COMPLETE') { state.guided = false; renderDetail(); } else resumeWorkflow();
-    } catch (error) { state.message = error.message; state.messageState = 'error'; }
+      if (action === 'COMPLETE') { state.guided = false; state.step = 'submitted'; renderDetail(); } else resumeWorkflow();
+    } catch (error) { state.message = error.message; state.messageState = 'error'; if(action === 'COMPLETE') { state.step = 'inventory'; if(releaseReadiness)releaseReadiness={...releaseReadiness,ready:false,message:error.message}; } }
     finally { state.saving = false; renderDetail(); }
   }
   function renderWorkflowLanding(record, canDisposition) {
     const w = record.technicalReview.workflow;
     const phase = (title,status) => '<section class="technical-review-phase"><h4>' + title + '</h4><p>' + status + '</p></section>';
     return '<section class="technical-review-phases" aria-label="Definition progress">' + phase('Manufacturing Definition', w.manufacturing ? 'Complete' : w.packageConfirmed ? 'In Progress' : 'Not Started') + phase('Material / BOM Definition', record.technicalReview.materialsReviewStatus === 'QUALIFIED' ? 'Complete' : record.technicalReview.technicalPackage?.governingBomDocumentId ? 'In Progress' : 'Not Started') + '</section>' + acceptedLinks(record) +
-      (w.outputs ? '<section class="technical-review-card"><h3>Technical Review Complete</h3><p>Materials input ready for Quotation — Materials.</p><p>Manufacturing input ready for Quotation — Labor.</p></section>' : '<section class="technical-review-card">' + (w.holdReason ? '<h3>On Hold</h3><p>Needed: ' + escapeHtml(w.holdReason) + '</p>' : '') +
+      (w.outputs ? '<section class="technical-review-card"><h3>Technical Review Complete</h3><p>Technical Review complete — released for quotation.</p></section>' : '<section class="technical-review-card">' + (w.holdReason ? '<h3>On Hold</h3><p>Needed: ' + escapeHtml(w.holdReason) + '</p>' : '') +
       (canDisposition ? flowButton(w.holdReason ? 'Review hold / resume' : 'Continue Technical Review','START') + '<button class="technical-review-secondary" data-technical-review-action="close">No Longer Required</button>' : '<p>Disposition permission required.</p>') + '</section>') + packageMessage();
   }
   function renderWorkflowStep(record) {
@@ -632,7 +746,7 @@
       const drawings = (pack?.documents || []).filter(d => (state.selected.manufacturingDrawingIds || []).includes(d.documentId));
       body = '<h3>Manufacturing Definition</h3><p>Establish the trusted technical package for future Quotation — Labor.</p><label class="technical-review-field">Governing assembly / manufacturing drawing<select id="flowDrawing" '+(state.saving?'disabled':'')+'><option value="">Select drawing</option>' + drawings.map(d=>'<option value="'+escapeHtml(d.documentId)+'" '+(w.manufacturingDrawingId===d.documentId?'selected':'')+'>'+escapeHtml(d.name)+'</option>').join('') + '</select></label><p>Selecting a drawing saves it as the governing parent assembly drawing.</p><h4>Supporting and manufacturing references</h4><ul>' + (pack?.documents || []).filter(d=>d.role === 'SUPPORTING' || d.role === 'REFERENCED' || d.applicability === 'SUBASSEMBLY' || d.documentType === 'GERBER').map(d=>'<li>'+escapeHtml(d.name)+' · '+escapeHtml(documentTypes[d.documentType])+'</li>').join('') + '</ul><p>Classify schematics and wire lists as Supporting Documents; their staged references are retained.</p><label><input type="checkbox" id="flowNothingMissing"> Nothing obvious remains missing from the manufacturing package</label><p>' + flowButton('Complete Manufacturing Definition','MANUFACTURING') + '</p>' + hold;
     }
-    if (state.step === 'release') body = '<h3>Complete Technical Review</h3><p>Manufacturing Definition and the accepted BOM will become two durable quotation inputs. No quote is created.</p>' + acceptedLinks(record) + flowButton('Complete Technical Review','COMPLETE');
+    if (state.step === 'release') return renderUnifiedPackage();
     return '<section class="technical-review-question">' + body + packageMessage() + '<p><button class="technical-review-back" data-technical-review-action="flow-back-package">Review package</button> <button class="technical-review-back" data-technical-review-action="review-back">Back to Technical Review</button></p></section>';
   }
   function renderUnifiedGoverning(pack) {
@@ -736,7 +850,7 @@
   }
 
   async function buildCandidate() {
-    if (state.saving) return;
+    if (state.saving || ['QUEUED','RUNNING','VALIDATING'].includes(state.analysisJob?.status) || (state.selected.record.technicalReview?.workflow && state.selected.record.technicalReview.candidateBom)) return;
     const intakeId = state.selected.record.intakeId;
     state.saving = true; state.message = 'Preparing analysis…'; state.messageState = ''; renderDetail();
     try {
@@ -762,12 +876,22 @@
   }
   function renderAnalysisProgress() {
     const job = state.analysisJob;
+    const packagePage = state.step === 'inventory' && !!state.selected?.record?.technicalReview?.workflow;
+    const active = job && ['QUEUED','RUNNING','VALIDATING'].includes(job.status);
+    if(packagePage) {
+      const c=packageCandidateState();
+      if(c.active)return '<button disabled>Building Candidate BOM…</button>';
+      if(c.ready && c.pendingReview)return '<p>Accept the document rows before reviewing the Candidate BOM.</p>';
+      if(c.ready && state.selected.record.technicalReview.materialsReviewStatus === 'QUALIFIED') return '';
+      if(c.ready)return c.dirty ? '<p>Save the package changes to check whether the Candidate BOM needs rebuilding.</p>' : '<p>Candidate BOM Ready</p><button type="button" class="technical-review-secondary" data-technical-review-action="candidate">Review Candidate BOM</button>';
+      if(c.stale)return '<p>Candidate BOM Needs Rebuild</p><p>The technical package has changed.</p>'+(job && ['FAILED','TIMED_OUT','CANCELLED'].includes(job.status)?'<p>'+escapeHtml(job.message||'Analysis did not complete. Try rebuilding.')+'</p>':'');
+    }
     if (!job) return '';
     const progress = analysisProgress(job);
     const running = progress.active && !progress.expired && !state.analysisError;
     const message = state.analysisError || (progress.expired ? 'The configured deadline has elapsed. Checking the final job status; analysis is not shown as still running.' : running ? 'Analysis is running in the background. You can leave this review and return later.' : job.message || 'Candidate only; human review is required.');
     const retry = ['FAILED', 'TIMED_OUT', 'CANCELLED', 'STALE'].includes(job.status);
-    return '<section class="technical-review-analysis-progress" aria-label="Analysis progress"><p><span class="analysis-activity ' + (running ? 'is-running' : '') + '" aria-hidden="true"></span><strong>' + escapeHtml(state.analysisError ? 'Analysis status unavailable' : progress.label) + '</strong> · <span aria-label="Elapsed time">' + progress.elapsed + '</span>' + (running ? ' <span class="analysis-running-label">Running</span>' : '') + '</p><p>' + escapeHtml(message) + '</p>' +
+    return '<section class="technical-review-analysis-progress" aria-label="Analysis progress"><p><span class="analysis-activity ' + (running ? 'is-running' : '') + '" aria-hidden="true"></span><strong>' + escapeHtml(state.analysisError ? 'Analysis status unavailable' : packagePage && running ? 'Building Candidate BOM…' : progress.label) + '</strong> · <span aria-label="Elapsed time">' + progress.elapsed + '</span>' + (running ? ' <span class="analysis-running-label">Running</span>' : '') + '</p><p>' + escapeHtml(message) + '</p>' +
       (retry ? '<button class="technical-review-secondary" data-technical-review-action="analysis-retry" ' + (state.saving ? 'disabled' : '') + '>Retry analysis</button>' : '') + '</section>';
   }
   function updateAnalysisProgress() {
@@ -794,8 +918,8 @@
         if (state.selected?.record?.intakeId !== intakeId) return;
         clearInterval(analysisClock);
         state.selected = selected; state.candidateDraft = null; state.candidateIndex = null;
-        state.guided = true; state.step = 'candidate'; state.materials = false;
-        state.message = 'Candidate BOM ready for review'; state.messageState = ''; renderDetail();
+        if (!selected.record.technicalReview?.workflow) { state.guided = true; state.step = 'candidate'; state.materials = false; }
+        state.message = ''; state.messageState = ''; renderDetail();
       } else if (job.status !== 'SUCCEEDED') {
         clearInterval(analysisClock);
         state.message = job.message || 'Analysis did not finish. Use Build Candidate BOM to retry.';
@@ -854,20 +978,45 @@
   function renderCandidate(record) {
     const accepted = (record.technicalReview.bomAcceptances || []).find(a => state.acceptedVersion ? a.version === state.acceptedVersion : a.candidate.id === record.technicalReview.candidateBom?.id);
     const bom = accepted?.candidate || record.technicalReview.candidateBom;
-    const counts = { Match: 0, Conflict: 0, Uncertain: 0, Reviewed: 0, 'Manually Corrected': 0 };
-    bom.rows.forEach(row => counts[candidateStatus(row)]++);
     const fileUrl = '/api/sim/rfq-intakes/' + encodeURIComponent(record.intakeId) + '/documents/' + encodeURIComponent(bom.governingDocumentId) + '#page=' + bom.page;
     const rows = bom.rows.map((row, index) => {
       const status = candidateStatus(row);
       const expanded = state.candidateIndex === index;
       const conflict = status !== 'Conflict' && Object.values(row.comparison || {}).includes('CONFLICT');
-      return '<tr><td>' + escapeHtml(row.values.lineNumber || '—') + '</td><td class="candidate-part">' + escapeHtml(row.values.partNumber || '—') + '</td><td class="manufacturer-summary">' + manufacturerSummary(row) + '</td><td>' + alternateSummary(row) + '</td><td>' + escapeHtml(row.values.quantity || '—') + '</td><td>' + escapeHtml(componentTypes[row.componentType] || componentTypes.STANDARD_COTS) + '</td><td>' + escapeHtml(row.values.designators || '—') + '</td><td>' + escapeHtml(row.values.description || '—') + '</td><td><span class="candidate-status" data-status="' + status + '">' + (row.manufacturerIdentity ? (status === 'Uncertain' || status === 'Conflict' ? 'Needs Review' : 'Reviewed / Accepted') : status) + '</span>' + (conflict ? '<small>Source conflict retained</small>' : '') + renderQuickManufacturer(row, index, !!accepted || completedReview(record)) + '<button class="candidate-details-button" data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" aria-expanded="' + expanded + '" aria-controls="candidate-detail-' + index + '" ' + (state.saving ? 'disabled' : '') + '>' + (expanded ? 'Close Details' : accepted || completedReview(record) ? 'View Details' : 'Edit / Add Details') + '<span class="candidate-sr-only"> for row ' + (index + 1) + '</span></button></td></tr>' +
-        (expanded ? '<tr class="candidate-detail-row"><td colspan="9"><section id="candidate-detail-' + index + '" aria-label="Row ' + (index + 1) + ' details">' + renderCandidateRow(bom, row, index, !!accepted || completedReview(record)) + '</section></td></tr>' : '');
+      const readOnly=!!accepted||completedReview(record), ui=rowReviewUi(row), locked=readOnly||row.reviewState?.reviewed&&!ui.editing;
+      const type=ui.componentType||row.componentType||'STANDARD_COTS';
+      const options='<details class="candidate-options"><summary>Options</summary>'+['edit','alternates','files','history'].map((panel,i)=>'<button data-technical-review-action="worksheet-options" data-candidate-row="'+index+'" data-panel="'+panel+'">'+['Edit Details','Approved Alternates / Add Alternate','Technical Files','Source / History'][i]+'</button>').join('')+'</details>';
+      return '<tr data-worksheet-row="'+index+'"><td>'+escapeHtml(row.values.lineNumber||'—')+'</td><td class="candidate-part">'+escapeHtml(row.values.partNumber||'—')+'</td><td>'+worksheetIdentity(row,index,locked,type)+'</td><td>'+escapeHtml(row.values.description||'—')+'</td><td>'+escapeHtml(row.values.quantity||'—')+'</td><td>'+(locked?escapeHtml(componentTypes[type]):'<select aria-label="Type for row '+(index+1)+'" data-worksheet-field="componentType" data-worksheet-row="'+index+'">'+Object.entries(componentTypes).map(([key,label])=>'<option value="'+key+'" '+(key===type?'selected':'')+'>'+label+'</option>').join('')+'</select>')+'</td><td>'+escapeHtml(row.values.designators||'—')+'</td><td><span class="candidate-status" data-status="'+status+'">'+(locked?'Accepted':'Needs Review')+'</span>'+(!locked?'<button data-technical-review-action="worksheet-accept" data-candidate-row="'+index+'" '+(state.saving?'disabled':'')+'>Accept</button>':'')+'</td><td>'+options+'</td></tr>'+
+        (expanded?'<tr class="candidate-detail-row"><td colspan="9"><section id="candidate-detail-'+index+'" aria-label="Row '+(index+1)+' details">'+(state.rowOption==='alternates'?renderAlternates(row,readOnly):state.rowOption==='files'?renderRowTechnicalFiles(bom,row,readOnly):state.rowOption==='history'?renderCandidateRow(bom,row,index,true):renderCandidateRow(bom,row,index,readOnly))+'</section></td></tr>':'');
     }).join('');
-    return '<section class="technical-review-question technical-review-candidate"><h3>' + (accepted ? 'BOM Review Complete' : bom.label || 'Candidate BOM — Pilot') + '</h3>' + (accepted ? '<p>Materials definition qualified for this RFQ. Accepted version ' + accepted.version + '.</p>' + (completedReview(record) ? '<p>Technical Review complete · Read-only</p>' : record.technicalReview.materialsReviewStatus === 'QUALIFIED' ? (record.technicalReview.workflow ? '<p>Next: Complete Technical Review</p>' : '<p>Next: Manufacturing / Labor Review</p>') : '<p>Historical acceptance. The current source package or candidate requires a new BOM review.</p>') : '') + '<p class="candidate-summary">' + bom.rows.length + ' rows extracted · ' + counts.Match + ' matched · ' + counts.Conflict + ' conflict · ' + counts.Uncertain + ' uncertain · ' + counts['Manually Corrected'] + ' manually corrected' + (counts.Reviewed ? ' · ' + counts.Reviewed + ' reviewed' : '') + '</p>' +
-      manufacturerCounts(bom) + (accepted ? '<p>RFQ materials acceptance only. This is not a production release.</p>' : '<p class="candidate-review-note">Needs Review · Not an approved DLE BOM. Review source conflicts and uncertain rows before proceeding.</p>') + '<a href="' + fileUrl + '" target="_blank" rel="noopener">View governing PDF · page ' + bom.page + '</a>' +
-      '<div class="candidate-table-scroll" role="region" aria-label="Candidate BOM table" tabindex="0"><table class="candidate-table"><caption class="candidate-sr-only">Candidate BOM rows for human review</caption><thead><tr><th scope="col">Line</th><th scope="col">Customer / BOM P/N</th><th scope="col">Proposed MFG P/N</th><th scope="col">Alternate Part(s)</th><th scope="col">Qty / Assy</th><th scope="col">Component Type</th><th scope="col">Designators</th><th scope="col">Description</th><th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><details class="candidate-analysis-details"><summary>Analysis scope and history</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p><p>' + (record.technicalReview.candidateBomVersions || []).length + ' prior versions preserved. No canonical BOM or downstream work is created.</p></details>' + acceptedLinks(record) + (completedReview(record) ? '' : '<div class="candidate-editor-actions"><button class="technical-review-back" data-technical-review-action="governing-back">← Back to Technical Package Review</button>' + (!accepted ? '<button class="technical-review-primary" data-technical-review-action="complete-bom" ' + (state.saving ? 'disabled' : '') + '>Complete BOM Review</button>' : '') + '</div>') + '</section>';
+    return '<section class="technical-review-question technical-review-candidate">' + (record.technicalReview?.workflow && !completedReview(record) ? '<button class="technical-review-back" data-technical-review-action="governing-back">← Back to Technical Package Review</button>' : '') + '<h3>' + (accepted ? 'BOM Review Complete' : 'Candidate BOM') + '</h3>' + (accepted ? '<p>Accepted BOM version ' + accepted.version + '.</p>' + (completedReview(record) ? '<p>Technical Review complete · Read-only</p>' : record.technicalReview.materialsReviewStatus === 'QUALIFIED' ? (record.technicalReview.workflow ? '<p>Return to Technical Package Review to submit to RFQs</p>' : '<p>Next: Manufacturing / Labor Review</p>') : '<p>Historical acceptance. The current source package or candidate requires a new BOM review.</p>') : '') + '<p class="candidate-summary">' + bom.rows.length + ' Part Numbers</p>' +
+      candidateReviewerSummary(bom) + (accepted ? '<p>RFQ materials acceptance only. This is not a production release.</p>' : '<p class="candidate-review-note">Review the BOM below and confirm the part information before approval.</p>') + '<a href="' + fileUrl + '" target="_blank" rel="noopener">View Main BOM · Page ' + bom.page + '</a>' +
+      '<div class="candidate-table-scroll" role="region" aria-label="Candidate BOM table" tabindex="0"><table class="candidate-table"><caption class="candidate-sr-only">Candidate BOM rows for human review</caption><thead><tr><th scope="col">Line</th><th scope="col">Customer / BOM P/N</th><th scope="col">Approved P/N</th><th scope="col">Description</th><th scope="col">Qty / Assy</th><th scope="col">Type</th><th scope="col">Designators</th><th scope="col">Status</th><th scope="col">Options</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><details class="candidate-analysis-details"><summary>Details</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p><p>' + (record.technicalReview.candidateBomVersions || []).length + ' prior versions preserved. No canonical BOM or downstream work is created.</p></details>' + acceptedLinks(record) + (completedReview(record) ? '' : '<div class="candidate-editor-actions">' + (record.technicalReview?.workflow ? '' : '<button class="technical-review-back" data-technical-review-action="governing-back">← Back to Technical Package Review</button>') + (!accepted ? '<button class="technical-review-primary" data-technical-review-action="complete-bom" ' + (state.saving ? 'disabled' : '') + '>Complete BOM Review</button>' : '') + '</div>') + '</section>';
+  }
+  function worksheetIdentity(row,index,locked,type){
+    const ui=rowReviewUi(row),identity=row.manufacturerIdentity;
+    const confirmed=(identity?.proposals||[]).filter(p=>manufacturerDecision(identity,p.id)==='CONFIRMED');
+    const assembly=row.assemblyIdentity?.partNumber||(row.alternates||[]).find(a=>!a.removedAtUtc&&a.origin==='MANUAL'&&a.reviewStatus==='CONFIRMED')?.partNumber||'';
+    if(locked && type==='SUBASSEMBLY')return escapeHtml(assembly||'—');
+    if(locked)return '<details class="worksheet-mfg-list"><summary>'+escapeHtml(confirmed[0]?.partNumber||'Not resolved')+(confirmed.length>1?' <small>+'+(confirmed.length-1)+' more</small>':'')+'</summary>'+confirmed.map(p=>'<div>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+' — Approved</div>').join('')+'</details>';
+    const attr=' data-worksheet-row="'+index+'" '+(state.saving?'disabled':'');
+    if(type==='SUBASSEMBLY')return '<input aria-label="Assembly P/N for row '+(index+1)+'" id="assembly-number-'+index+'" maxlength="200" data-worksheet-field="assemblyNumber" '+attr+' value="'+escapeHtml(ui.assemblyNumber??assembly)+'"><small>Assembly P/N</small>';
+    const proposals=(identity?.proposals||[]).filter(p=>p.partNumber?.trim()&&manufacturerDecision(identity,p.id)!=='REJECTED');
+    const selected=ui.primaryChoice==='MANUAL'||proposals.some(p=>p.id===ui.primaryChoice)?ui.primaryChoice:confirmed[0]?.id??proposals[0]?.id??'';
+    return '<select aria-label="Approved P/N for row '+(index+1)+'" id="approved-choice-'+index+'" data-worksheet-field="primaryChoice" '+attr+'><option value="">Not resolved</option>'+proposals.map(p=>'<option value="'+escapeHtml(p.id)+'" '+(p.id===selected?'selected':'')+'>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</option>').join('')+'<option value="MANUAL" '+(selected==='MANUAL'?'selected':'')+'>Manual Entry…</option></select>'+(proposals.length>1?'<small>+'+(proposals.length-1)+' more</small>':'')+(selected&&selected!=='MANUAL'?'<details class="worksheet-mfg-list"><summary>Review candidate</summary><button data-technical-review-action="worksheet-reject" data-candidate-row="'+index+'" data-proposal-id="'+escapeHtml(selected)+'" '+(state.saving?'disabled':'')+'>Reject this candidate</button></details>':'')+(selected==='MANUAL'?'<input aria-label="Manual MFG P/N for row '+(index+1)+'" id="approved-manual-'+index+'" data-worksheet-field="manualNumber" '+attr+' maxlength="200" value="'+escapeHtml(ui.manualNumber||'')+'">':'');
+  }
+  async function acceptWorksheetRow(index){
+    if(state.saving||completedReview(state.selected.record))return;
+    const bom=state.selected.record.technicalReview.candidateBom,row=bom.rows[index],ui=rowReviewUi(row);
+    const values=state.candidateIndex===index&&document.getElementById('candidate-partNumber')?Object.fromEntries(Object.keys(candidateFields).map(k=>[k,(document.getElementById('candidate-'+k)?.value??state.candidateDraft?.[k]??row.values[k])])):state.candidateIndex===index&&state.candidateDraft?state.candidateDraft:row.values;
+    const selection=document.getElementById('approved-choice-'+index)?.value;
+    if(selection==='MANUAL'&&!document.getElementById('approved-manual-'+index)?.value.trim()){state.message='Enter a manual manufacturer P/N before accepting.';state.messageState='error';renderDetail();return;}
+    const worksheetAcceptance={expectedToken:row.reviewState.token,componentType:ui.componentType||row.componentType||'STANDARD_COTS',assemblyPartNumber:document.getElementById('assembly-number-'+index)?.value||ui.assemblyNumber||row.assemblyIdentity?.partNumber,proposalId:null,manualPartNumber:document.getElementById('approved-manual-'+index)?.value,manufacturerName:ui.manualMaker};
+    state.saving=true;
+    try{state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:index,values,worksheetAcceptance})});delete state.rowReviewUi[bom.id+':'+index];state.candidateDraft=null;state.candidateIndex=null;state.rowOption=null;state.message='Row accepted.';state.messageState='';}
+    catch(error){state.message=error.message;state.messageState='error';}
+    finally{state.saving=false;renderDetail();}
   }
   function manufacturerSummary(row) {
     const identity = row.manufacturerIdentity;
@@ -900,6 +1049,18 @@
     } catch (error) { state.message = error?.message || 'Row approval could not be saved.'; }
     finally { state.saving = false; renderDetail(); }
   }
+  function candidateReviewerSummary(bom) {
+    let proposed=0, choices=0, unresolved=0;
+    for (const row of bom.rows) {
+      if(row.componentType==='SUBASSEMBLY' && (row.assemblyIdentity?.partNumber || (row.alternates||[]).some(a=>!a.removedAtUtc&&a.origin==='MANUAL'&&a.reviewStatus==='CONFIRMED')))continue;
+      const identity=row.manufacturerIdentity;
+      const active=(identity?.proposals || []).filter(p=>p.partNumber?.trim() && manufacturerDecision(identity,p.id)!=='REJECTED');
+      if (!identity || identity.stale || !active.length || identity.state==='UNRESOLVED') { unresolved++; continue; }
+      proposed++;
+      if (active.length>1) choices++;
+    }
+    return '<p class="candidate-review-summary">'+proposed+' with proposed MFG P/Ns · '+choices+' with multiple candidates · '+unresolved+' unresolved</p>';
+  }
   function manufacturerCounts(bom) {
     const rows = bom.rows.filter(r => r.manufacturerIdentity);
     if (!rows.length) return '';
@@ -910,7 +1071,39 @@
   function manufacturerDecision(identity, id) {
     return (identity.history || []).filter(h => h.proposalId === id).at(-1)?.decision || 'PROPOSED';
   }
-  function renderManufacturer(row, readOnly = false) {
+  function rowReviewUi(row) {
+    const key=(state.selected?.record?.technicalReview?.candidateBom?.id||'history')+':'+row.index;
+    state.rowReviewUi ||= {};
+    return state.rowReviewUi[key] ||= {};
+  }
+  function rememberPrimaryInputs(row) {
+    const ui=rowReviewUi(row);
+    if(document.getElementById('primaryManual'))ui.manualNumber=document.getElementById('primaryManual').value;
+    if(document.getElementById('primaryManufacturer'))ui.manualMaker=document.getElementById('primaryManufacturer').value;
+  }
+  function renderManufacturer(row, readOnly=false) {
+    if(readOnly)return renderManufacturerEvidence(row,true);
+    const identity=row.manufacturerIdentity, ui=rowReviewUi(row);
+    const proposals=(identity?.proposals||[]).filter(p=>p.partNumber?.trim()&&manufacturerDecision(identity,p.id)!=='REJECTED');
+    const choice=ui.primaryChoice ?? proposals.find(p=>manufacturerDecision(identity,p.id)==='CONFIRMED')?.id ?? (proposals.length===1?proposals[0].id:'');
+    return '<section class="manufacturer-proposals"><label>MFG P/N<select id="primaryChoice" '+(state.saving||identity?.stale?'disabled':'')+'><option value="">'+(proposals.length?'Select MFG P/N':'Not resolved')+'</option>'+proposals.map(p=>'<option value="'+escapeHtml(p.id)+'" '+(choice===p.id?'selected':'')+'>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</option>').join('')+'<option value="MANUAL" '+(choice==='MANUAL'?'selected':'')+'>Manual Entry…</option></select></label>'+(choice==='MANUAL'?'<label>MFG P/N<input id="primaryManual" maxlength="200" value="'+escapeHtml(ui.manualNumber||'')+'"></label><label>Manufacturer (optional)<input id="primaryManufacturer" maxlength="200" value="'+escapeHtml(ui.manualMaker||'')+'"></label>':'')+'<details><summary>Details</summary>'+renderManufacturerEvidence(row,true)+'</details></section>';
+  }
+  async function acceptPrimaryRow() {
+    if(state.saving)return;
+    const bom=state.selected.record.technicalReview.candidateBom,row=bom.rows[state.candidateIndex];
+    rememberPrimaryInputs(row);
+    const choice=document.getElementById('primaryChoice')?.value;
+    if(!choice){state.message='Choose a primary MFG P/N or Manual Entry.';state.messageState='error';renderDetail();return;}
+    const values=Object.fromEntries(Object.keys(candidateFields).map(k=>[k,(document.getElementById('candidate-'+k)?.value??state.candidateDraft?.[k]??row.values[k])]));
+    const primarySelection={proposalId:choice==='MANUAL'?null:choice,partNumber:document.getElementById('primaryManual')?.value,manufacturerName:document.getElementById('primaryManufacturer')?.value,expectedToken:row.reviewState.token};
+    state.saving=true;
+    try {
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:row.index,values,primarySelection})});
+      state.candidateDraft=null;delete state.rowReviewUi?.[bom.id+':'+row.index];state.message='Row accepted.';state.messageState='';
+    } catch(error){state.message=error.message;state.messageState='error';}
+    finally{state.saving=false;renderDetail();}
+  }
+  function renderManufacturerEvidence(row, readOnly = false) {
     const identity = row.manufacturerIdentity;
     if (!identity) return '';
     const disabled = state.saving || identity.stale ? 'disabled' : '';
@@ -923,7 +1116,7 @@
         '<p>MFG evidence: ' + alternateEvidence(p.evidence) + ' · <a href="' + link + '" target="_blank" rel="noopener">Open enrichment file</a></p>' +
         '<p>Source matching values: ' + escapeHtml(Object.entries(p.sourceValues).map(([k,v]) => k + ': ' + v).join(' · ')) + '</p></details>' +
         (readOnly ? '' : '<button data-technical-review-action="mfg-confirm" data-proposal-id="' + escapeHtml(p.id) + '" ' + disabled + '>Confirm mapping</button> <button data-technical-review-action="mfg-reject" data-proposal-id="' + escapeHtml(p.id) + '" ' + disabled + '>Reject mapping</button>') + '</article>';
-    }).join('') + '<details><summary>Manufacturer history</summary>' + (identity.history || []).map(h => '<small>' + escapeHtml(h.proposalId + ' · ' + h.decision + ' · ' + h.reviewer + ' · ' + h.atUtc) + '</small>').join('') + '</details><small>Identity confirmation does not approve an alternate or purchasing substitution.</small></section>';
+    }).join('') + '<details><summary>Manufacturer history</summary>' + (identity.history || []).map(h => '<small>' + escapeHtml(h.proposalId + ' · ' + h.decision + ' · ' + h.reviewer + ' · ' + h.atUtc) + '</small>').join('') + '</details></section>';
   }
   async function reviewManufacturer(proposalId, decision, rowIndex = state.candidateIndex, confirmAllProposed = false) {
     if (state.saving || state.acceptedVersion || state.step === 'accepted-bom' || completedReview(state.selected?.record)) return;
@@ -953,30 +1146,33 @@
   }
   function renderCandidateRow(bom, row, index, readOnly = false) {
     const disabled = state.saving ? 'disabled' : '';
-    const content = '<div class="candidate-editor-heading"><h4>Row ' + (index + 1) + ' · Edit / Add Details</h4></div><div class="candidate-edit-grid"><label class="technical-review-candidate-field">Component Type' + componentSelect(row, index) + '</label>' + Object.entries(candidateFields).map(([key, label]) => '<label class="technical-review-candidate-field candidate-field-' + key + '">' + ({lineNumber:'Line',partNumber:'Customer / BOM P/N',quantity:'Qty / Assy',designators:'Designators',description:'Description'}[key]) + '<input id="candidate-' + key + '" value="' + escapeHtml((state.candidateDraft || row.values)[key]) + '" maxlength="2000" ' + disabled + '></label>').join('') + '</div>' + renderManufacturer(row) + '<details class="candidate-secondary"><summary>'+ (row.componentType==='SUBASSEMBLY'?'DLE proposed identity / Alternate details':'Alternate details') +'</summary>' + renderAlternates(row) + '</details>' + renderRowTechnicalFiles(bom,row,readOnly) + '<div class="candidate-editor-actions"><button class="technical-review-primary" data-technical-review-action="candidate-confirm" ' + disabled + '>Save Changes</button><button data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" ' + disabled + '>Close</button><small>Component Type saves automatically. Save alternates individually.</small></div>' +
-      '<details class="candidate-evidence"><summary>Source / History</summary>' + (row.reviewer ? '<p>Reviewed by ' + escapeHtml(row.reviewer) + ' · ' + escapeHtml(row.reviewedAtUtc) + '</p>' : '') + renderManufacturer(row, true) + renderAlternates(row, true) + Object.entries(candidateFields).map(([key, label]) => '<div class="candidate-evidence-field"><strong>' + label + '</strong><p>Governing extracted value: ' + escapeHtml(row.extracted[key] || '—') + ' · Supporting relationship: ' + escapeHtml(row.comparison[key]) + '</p>' + analysisEvidence(row.analysisFields?.[key]) + '</div>').join('') +
+    const content = '<div class="candidate-editor-heading"><h4>Row ' + (index + 1) + ' · Edit / Add Details</h4></div><div class="candidate-edit-grid"><label class="technical-review-candidate-field">Component Type' + '<select aria-label="Type in details for row '+(index+1)+'" data-worksheet-field="componentType" data-worksheet-row="'+index+'">'+Object.entries(componentTypes).map(([key,label])=>'<option value="'+key+'" '+(key===(rowReviewUi(row).componentType||row.componentType)?'selected':'')+'>'+label+'</option>').join('')+'</select></label>' + Object.entries(candidateFields).map(([key, label]) => '<label class="technical-review-candidate-field candidate-field-' + key + '">' + ({lineNumber:'Line',partNumber:'Customer / BOM P/N',quantity:'Qty / Assy',designators:'Designators',description:'Description'}[key]) + '<input id="candidate-' + key + '" value="' + escapeHtml((state.candidateDraft || row.values)[key]) + '" maxlength="2000" ' + disabled + '></label>').join('') + '</div>' + '' + '<div class="candidate-editor-actions"><button class="technical-review-primary" data-technical-review-action="worksheet-accept" data-candidate-row="'+index+'" '+disabled+'>Accept</button><button data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" ' + disabled + '>Close</button></div>' +
+      '<details class="candidate-evidence"><summary>Source / History</summary>' + (row.reviewer ? '<p>Reviewed by ' + escapeHtml(row.reviewer) + ' · ' + escapeHtml(row.reviewedAtUtc) + '</p>' : '') + renderManufacturer(row, true) + (row.assemblyIdentityHistory||[row.assemblyIdentity].filter(Boolean)).map(a=>'<p>Assembly P/N: '+escapeHtml(a.partNumber)+' · '+escapeHtml(a.reviewer)+' · '+escapeHtml(a.atUtc)+'</p>').join('') + renderAlternates(row, true) + Object.entries(candidateFields).map(([key, label]) => '<div class="candidate-evidence-field"><strong>' + label + '</strong><p>Governing extracted value: ' + escapeHtml(row.extracted[key] || '—') + ' · Supporting relationship: ' + escapeHtml(row.comparison[key]) + '</p>' + analysisEvidence(row.analysisFields?.[key]) + '</div>').join('') +
       '<p>Governing document: ' + escapeHtml(bom.governingDocumentId) + ' · Page ' + bom.page + ' · Bounds: ' + escapeHtml((row.bounds || []).join(', ')) + '</p><p>SHA-256: ' + escapeHtml(bom.governingSha256) + '</p>' + row.corrections.map(c => '<p>' + escapeHtml(candidateFields[c.field] || (c.field === 'componentType' ? 'Component Type' : c.field)) + ': ' + escapeHtml(c.previous) + ' → ' + escapeHtml(c.value) + ' · ' + escapeHtml(c.reviewer) + ' · ' + escapeHtml(c.atUtc) + '</p>').join('') + '</details>';
     return readOnly ? renderRowTechnicalFiles(bom,row,true)+content.slice(content.indexOf('<details class="candidate-evidence">')) : content;
   }
 
   function renderAcceptedBom(record) {
     const acceptance = (record.technicalReview?.bomAcceptances || []).find(a => Number(a.version) === state.acceptedVersion);
-    const back = '<button type="button" class="technical-review-back" data-technical-review-action="accepted-back">← Back to Technical Review</button>';
+    const back = '<button type="button" class="technical-review-back" data-technical-review-action="accepted-back">← Back to ' + (record.technicalReview?.workflow ? 'Package Review' : 'Technical Review') + '</button>';
     if (!acceptance?.candidate) return '<section class="technical-review-question"><h3 id="acceptedBomTitle" tabindex="-1">Accepted BOM unavailable</h3><p role="alert">The selected accepted version was not found. Return to Technical Review and reopen the saved version.</p>' + back + '</section>';
     const bom = acceptance.candidate;
-    const title = 'Accepted BOM Version ' + acceptance.version;
+    const title = 'Accepted BOM · Version ' + acceptance.version;
     const rows = bom.rows.map((row, index) => {
-      const values = row.values;
-      const status = candidateStatus(row);
-      const alternates = (row.alternates || []).filter(a => !a.removedAtUtc).map(a => escapeHtml(a.partNumber)).join('<br>') || '—';
-      return '<tr><td>' + escapeHtml(values.lineNumber || '—') + '</td><td class="candidate-part">' + escapeHtml(values.partNumber || '—') + '</td><td class="manufacturer-summary">' + manufacturerSummary(row) + '</td><td>' + alternates + '</td><td>' + escapeHtml(values.quantity || '—') + '</td><td>' + escapeHtml(componentTypes[row.componentType] || componentTypes.STANDARD_COTS) + '</td><td>' + escapeHtml(values.designators || '—') + '</td><td>' + escapeHtml(values.description || '—') + '</td><td><span class="candidate-status" data-status="' + status + '">' + status + '</span></td></tr>' +
-        '<tr class="candidate-detail-row"><td colspan="9">' + renderCandidateRow(bom, row, index, true) + '</td></tr>';
+      const v=row.values, identity=row.manufacturerIdentity;
+      const approved=(identity?.proposals||[]).filter(p=>manufacturerDecision(identity,p.id)==='CONFIRMED');
+      const alternates=(row.alternates||[]).filter(a=>!a.removedAtUtc && ['CONFIRMED','APPROVED'].includes(a.reviewStatus));
+      const assembly=row.assemblyIdentity?.partNumber||alternates.find(a=>a.origin==='MANUAL')?.partNumber;
+      const pn=row.componentType==='SUBASSEMBLY'?escapeHtml(assembly||'—'):approved.length?'<details class="worksheet-mfg-list"><summary>'+escapeHtml(approved[0].partNumber)+(approved.length>1?' <small>+'+(approved.length-1)+' more</small>':'')+'</summary>'+approved.map(p=>'<div>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</div>').join('')+'</details>':'—';
+      const files=(acceptance.package?.documents||[]).filter(d=>d.rowAssociation?.rowId===(row.rowId||bom.id+':row:'+row.index));
+      const detail='<details class="accepted-row-details"><summary>Details</summary>'+
+        (alternates.length?'<h4>Approved alternates</h4><ul>'+alternates.map(a=>'<li>'+escapeHtml(a.partNumber)+'</li>').join('')+'</ul>':'')+
+        (assembly?'<p>Assembly P/N: '+escapeHtml(assembly)+'</p>':'')+
+        (files.length?'<details><summary>Technical Files ('+files.length+')</summary>'+files.map(f=>'<p><a target="_blank" rel="noopener" href="/api/sim/rfq-intakes/'+encodeURIComponent(record.intakeId)+'/documents/'+encodeURIComponent(f.documentId)+'">'+escapeHtml(f.name)+'</a></p>').join('')+'</details>':'')+
+        '<details><summary>Source / History</summary><p>Governing document: '+escapeHtml(bom.governingDocumentId)+' · Page '+escapeHtml(bom.page)+'</p><p>SHA-256: '+escapeHtml(bom.governingSha256)+'</p>'+Object.entries(candidateFields).map(([key,label])=>'<p>'+escapeHtml(label)+': '+escapeHtml(row.extracted?.[key]||'—')+'</p>'+analysisEvidence(row.analysisFields?.[key])).join('')+(row.corrections||[]).map(c=>'<p>'+escapeHtml(candidateFields[c.field]||c.field)+': '+escapeHtml(c.previous)+' → '+escapeHtml(c.value)+' · '+escapeHtml(c.reviewer)+' · '+escapeHtml(c.atUtc)+'</p>').join('')+'</details></details>';
+      return '<tr><td>'+escapeHtml(v.lineNumber||'—')+'</td><td class="candidate-part">'+escapeHtml(v.partNumber||'—')+'</td><td>'+pn+'</td><td>'+escapeHtml(v.description||'—')+'</td><td>'+escapeHtml(v.quantity||'—')+'</td><td>'+escapeHtml(componentTypes[row.componentType]||componentTypes.STANDARD_COTS)+'</td><td>'+escapeHtml(v.designators||'—')+'</td><td>'+detail+'</td></tr>';
     }).join('');
-    return '<section class="technical-review-question technical-review-candidate" aria-labelledby="acceptedBomTitle"><h3 id="acceptedBomTitle" tabindex="-1">' + escapeHtml(title) + '</h3>' +
-      '<p>BOM Review Complete · Read-only snapshot</p><p>Accepted by ' + escapeHtml(acceptance.reviewedBy || 'Not recorded') + ' · <time datetime="' + escapeHtml(acceptance.reviewedAtUtc) + '">' + escapeHtml(new Date(acceptance.reviewedAtUtc).toLocaleString()) + '</time></p>' +
-      '<p>This is the BOM accepted at that time. Later Candidate BOM changes do not change this version.</p>' + back +
-      '<div class="candidate-table-scroll" role="region" aria-label="' + escapeHtml(title) + '" tabindex="0"><table class="candidate-table"><caption class="candidate-sr-only">' + escapeHtml(title) + ' · immutable accepted rows</caption><thead><tr><th scope="col">Line</th><th scope="col">Customer / BOM P/N</th><th scope="col">Proposed MFG P/N</th><th scope="col">Alternate Part(s)</th><th scope="col">Qty / Assy</th><th scope="col">Component Type</th><th scope="col">Designators</th><th scope="col">Description</th><th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<details class="candidate-analysis-details"><summary>Analysis scope and history</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p></details>' + acceptedLinks(record) + '</section>';
+    return '<section class="technical-review-question technical-review-candidate accepted-bom-reference" aria-labelledby="acceptedBomTitle">'+back+'<h3 id="acceptedBomTitle" tabindex="-1">'+escapeHtml(title)+'</h3><p>Accepted by '+escapeHtml(acceptance.reviewedBy||'Not recorded')+' · <time datetime="'+escapeHtml(acceptance.reviewedAtUtc)+'">'+escapeHtml(formatDateTime(acceptance.reviewedAtUtc))+'</time></p><p>Read-only snapshot of the accepted BOM.</p><div class="candidate-table-scroll" role="region" aria-label="'+escapeHtml(title)+'" tabindex="0"><table class="candidate-table"><thead><tr>'+['Line','Customer / BOM P/N','Approved P/N','Description','Qty / Assy','Type','Designators','Details'].map(x=>'<th scope="col">'+x+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div></section>';
   }
 
   function acceptedLinks(record) {
@@ -993,8 +1189,8 @@
     state.saving = true;
     try {
       state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/complete-bom-review', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidate:state.selected.record.technicalReview.candidateBom})});
-      state.message = 'BOM Review Complete. Materials definition qualified for this RFQ.';
-      if (state.selected.record.technicalReview?.workflow) { state.step = 'release'; state.candidateIndex = null; }
+      state.message = 'BOM accepted. Review the package, then submit to RFQs.';
+      if (state.selected.record.technicalReview?.workflow) { state.step = 'inventory'; state.candidateIndex = null; state.packageDraft = null; state.packageAnswers = null; releaseReadiness = null; }
     } catch (error) { state.message = error?.message || 'BOM Review could not be completed.'; }
     finally { state.saving = false; renderDetail(); }
   }
@@ -1006,7 +1202,24 @@
   function alternateEvidence(evidence) {
     return evidence ? escapeHtml([evidence.documentId, evidence.page ? 'page ' + evidence.page : '', evidence.sheet, evidence.location].filter(Boolean).join(' · ')) : 'Not supplied';
   }
-  function renderAlternates(row, historyOnly = false) {
+  function renderAlternates(row, historyOnly=false) {
+    if(historyOnly)return renderLegacyAlternates(row,historyOnly);
+    const ui=rowReviewUi(row), selected=ui.alternateChoice||'', entries=(row.alternates||[]).filter(a=>!a.removedAtUtc);
+    const status=a=>a.reviewStatus==='APPROVED'?'Approved':a.reviewStatus==='NOT_APPROVED'?'Not Approved':'Proposed';
+    const current=entries.find(a=>a.id===selected);
+    return '<section class="candidate-alternates"><label>Alternate Parts<select id="alternateChoice" '+(state.saving?'disabled':'')+'><option value="">Select / Add Alternate</option>'+entries.map(a=>'<option value="'+escapeHtml(a.id)+'" '+(selected===a.id?'selected':'')+'>'+escapeHtml(a.partNumber+' — '+status(a))+'</option>').join('')+'<option value="ADD" '+(selected==='ADD'?'selected':'')+'>Add Alternate…</option></select></label>'+(selected?'<div class="candidate-alternate-add"><label>Alternate MFG P/N<input id="compactAlternateNumber" maxlength="200" value="'+escapeHtml(current?.partNumber||'')+'"></label><label>Manufacturer (optional)<input id="compactAlternateManufacturer" maxlength="200" value="'+escapeHtml(current?.manufacturerName||'')+'"></label><label>Note / evidence (optional)<input id="compactAlternateNote" maxlength="2000" value="'+escapeHtml(current?.note||'')+'"></label><button data-technical-review-action="alternate-approve" '+(state.saving?'disabled':'')+'>Approve Alternate</button>'+(current?'<button data-technical-review-action="alternate-not-approved" '+(state.saving?'disabled':'')+'>Not Approved</button>':'')+'</div>':'')+'</section>';
+  }
+  async function saveCompactAlternate(approve=true) {
+    if(state.saving)return;
+    const bom=state.selected.record.technicalReview.candidateBom,row=bom.rows[state.candidateIndex],choice=rowReviewUi(row).alternateChoice;
+    rememberPrimaryInputs(row);
+    const alternateChange={action:approve?'APPROVE':'EDIT',reviewStatus:approve?'APPROVED':'NOT_APPROVED',id:choice==='ADD'?null:choice,expectedRevision:row.alternateRevision||0,partNumber:document.getElementById('compactAlternateNumber').value,manufacturerName:document.getElementById('compactAlternateManufacturer').value,note:document.getElementById('compactAlternateNote').value};
+    state.candidateDraft=Object.fromEntries(Object.keys(candidateFields).map(k=>[k,(document.getElementById('candidate-'+k)?.value??state.candidateDraft?.[k]??row.values[k])]));state.saving=true;
+    try {state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:row.index,alternateChange})});rowReviewUi(row).alternateChoice='';state.message=approve?'Alternate approved.':'Alternate marked Not Approved.';state.messageState='';}
+    catch(error){state.message=error.message;state.messageState='error';}
+    finally{state.saving=false;renderDetail();}
+  }
+  function renderLegacyAlternates(row, historyOnly = false) {
     const disabled = state.saving ? 'disabled' : '';
     const labels = {NEEDS_REVIEW:'Needs Review',CONFIRMED:'Reviewed / Confirmed',UNCERTAIN:'Uncertain'};
     const entries = (row.alternates || []).map(a => {
@@ -1047,6 +1260,7 @@
     const bom = state.selected.record.technicalReview.candidateBom;
     const rowIndex = Math.min(state.candidateIndex || 0, bom.rows.length - 1);
     const values = Object.fromEntries(Object.keys(candidateFields).map(key => [key, document.getElementById('candidate-' + key).value]));
+    if(Object.keys(candidateFields).every(k=>values[k]===bom.rows[rowIndex].values[k])){state.message='No part detail changes. Use Accept Changes to confirm the row.';renderDetail();return;}
     state.candidateDraft = values;
     state.saving = true; state.message = 'Saving candidate review…'; renderDetail();
     try {

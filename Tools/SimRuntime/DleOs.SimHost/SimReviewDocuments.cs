@@ -34,7 +34,7 @@ internal sealed partial class SimRfqIntakeStore
                     throw SimRfqIntakeProblem.Conflict("SIM_ROW_DOCUMENT_STALE", "This row changed. Reopen its details before attaching files.");
                 var parent = record.Assemblies.OrderBy(a => a.LineNumber).First();
                 // Preserve the existing manual row identities as proposals, never as customer P/N replacements.
-                var proposed = row.ComponentType == "SUBASSEMBLY" ? (row.Alternates ?? []).Where(a => a.RemovedAtUtc is null && a.Origin == "MANUAL" && a.ReviewStatus == "CONFIRMED").Select(a => a.PartNumber).Distinct().ToArray() : [];
+                var proposed = row.ComponentType == "SUBASSEMBLY" && row.AssemblyIdentity is {} assemblyIdentity ? new[]{assemblyIdentity.PartNumber} : row.ComponentType == "SUBASSEMBLY" ? (row.Alternates ?? []).Where(a => a.RemovedAtUtc is null && a.Origin == "MANUAL" && a.ReviewStatus == "CONFIRMED").Select(a => a.PartNumber).Distinct().ToArray() : [];
                 association = new(candidate.Id, rowId, row.Index, parent.AssemblyNumber, parent.Revision, row.Values.GetValueOrDefault("partNumber", ""), row.ComponentType, proposed);
                 request = request with { Applicability = row.ComponentType == "SUBASSEMBLY" ? "SUBASSEMBLY" : "SUPPORTING_REFERENCE",
                     SubassemblyPartNumber = association.CustomerBomPartNumber, ProposedSubassemblyIdentity = proposed.Length == 1 ? proposed[0] : null };
