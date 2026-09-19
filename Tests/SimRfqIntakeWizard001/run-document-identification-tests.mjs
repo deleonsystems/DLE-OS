@@ -3,12 +3,12 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('../../SRC/modules/rfq-workspace/intake-wizard.js', import.meta.url), 'utf8');
-const names = ['renderFiles','handleChange','handleInput','setTechnicalFiles','technicalFileIdentity','removeTechnicalFile','formatBytes','escapeHtml'];
+const names = ['renderFiles','handleChange','handleInput','setTechnicalFiles','technicalFileIdentity','removeTechnicalFile','formatBytes','escapeHtml','isPdf','renderReadability','checkReadability','replaceTechnicalFile'];
 const functions = names.map(name => {
   const start = source.search(new RegExp('  (?:async )?function ' + name + '\\('));
   const end = source.indexOf('\n  }', start) + 4;
   // formatBytes is a one-line function.
-  return name === 'formatBytes' ? source.slice(start, source.indexOf('\n', start)) : source.slice(start, end);
+  return ['formatBytes','isPdf'].includes(name) ? source.slice(start, source.indexOf('\n', start)) : source.slice(start, end);
 });
 const context = {state:{technicalFiles:[],submit:{status:'idle'}}, root:{querySelector(){return null}}, render(){}, deleteStagedTechnicalFile:async()=>{}, console};
 vm.createContext(context);

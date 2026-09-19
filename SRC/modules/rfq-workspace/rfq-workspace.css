@@ -200,6 +200,11 @@ body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .intake-convers
 .intake-review dd { margin: 0; font-weight: 800; }
 .intake-inline-error, .intake-submit-error { padding: 11px 13px; border-radius: 9px; color: #8b2f25; background: #fff0ed; font-size: 13px; }
 .intake-complete-mark { display: grid; width: 58px; height: 58px; margin-bottom: 22px; place-items: center; border-radius: 50%; color: #fff; background: #3d7b64; font-size: 28px; }
+.intake-file-list .intake-readability-warning { color: #854b0b; }
+.intake-readability-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 6px; }
+.intake-readability-actions label { position: relative; padding: 6px; color: #2d6570; font-weight: 800; cursor: pointer; }
+.intake-readability-actions label:focus-within { outline: 2px solid var(--intake-accent); outline-offset: 2px; }
+.intake-readability-actions input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .intake-handoff { display: grid; gap: 6px; margin: 24px 0; padding: 16px 18px; border: 1px solid #40556a; border-radius: 10px; color: #f4f7fb; background: #182635; overflow-wrap: anywhere; }
 .intake-handoff strong { color: #b9ccde; font-size: 12px; }
 .intake-handoff span { color: #f4f7fb; font-size: 16px; font-weight: 600; line-height: 1.5; }

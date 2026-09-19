@@ -17,6 +17,80 @@ internal static partial class SimRfqIntakeEndpoints
         SimRfqIntakeStore store, SimPersonaSessionStore personas)
     {
         MapRfqs(app, state, store, personas);
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/scanned-bom-review/candidate", async Task<IResult> (string intakeId, SimScanCandidateRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.BuildScannedCandidate(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "Candidate build could not finish. Your saved worksheet is intact. Reopen to check the build, then retry." }, statusCode: 503); }
+        });
+        app.MapGet("/api/sim/technical-reviews/{intakeId}/scanned-bom-review", async Task<IResult> (string intakeId, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.view");
+            if (denied is not null) return denied;
+            context.Response.Headers["Cache-Control"] = "private, no-store";
+            try { return Results.Json(await store.OpenScannedBomReview(intakeId)); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "The worksheet source could not be verified. Your saved worksheet is unchanged." }, statusCode: 503); }
+        });
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/scanned-bom-review", async Task<IResult> (string intakeId, SimScanReadRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.ReadScannedBom(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "The scanned BOM could not be read locally. Your saved work is unchanged. Try again." }, statusCode: 503); }
+        });
+        app.MapPut("/api/sim/technical-reviews/{intakeId}/scanned-bom-review", async Task<IResult> (string intakeId, SimScanSaveRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.SaveScannedBomReview(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "Review could not be saved. Your edits are still here; try again." }, statusCode: 503); }
+        });
+        app.MapGet("/api/sim/rfq-intakes/{intakeId}/documents/{id}/pages/{page:int}", async Task<IResult> (string intakeId, string id, int page, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.view");
+            if (denied is not null) return denied;
+            try
+            {
+                var document = await store.OpenDocument(intakeId, id);
+                if (document.Document.Type != "application/pdf") return Results.BadRequest();
+                context.Response.Headers["Cache-Control"] = "private, no-store";
+                context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                return Results.File(await SimPdfPagePreview.Render(document.Bytes, page), "image/png");
+            }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "Local page preview unavailable. Open the PDF in a separate tab." }, statusCode: 503); }
+        });
+        app.MapPut("/api/sim/technical-reviews/{intakeId}/scanned-bom-setup", async Task<IResult> (string intakeId, SimScannedBomSetupRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.SaveScannedBomSetup(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "BOM setup could not be saved. Reopen and try again." }, statusCode: 503); }
+        });
+        app.MapPost("/api/sim/pdf-readability", async Task<IResult> (HttpContext context) =>
+        {
+            var denied = Denied(context, state, personas, true); if (denied is not null) return denied;
+            if (!context.Request.Headers.ContainsKey("X-SIM-Document-Upload")) return Results.StatusCode(400);
+            using var memory = new MemoryStream();
+            var buffer = new byte[81920];
+            try
+            {
+                int read;
+                while ((read = await context.Request.Body.ReadAsync(buffer, context.RequestAborted)) > 0)
+                {
+                    if (memory.Length + read > 20 * 1024 * 1024) return Results.Json(SimPdfReadability.Unknown);
+                    memory.Write(buffer, 0, read);
+                }
+                return Results.Json(await SimPdfReadability.Inspect(memory.ToArray()));
+            }
+            catch (IOException) { return Results.Json(SimPdfReadability.Unknown); }
+        });
         app.MapGet("/api/platform/live/v1/customer-directory/search", (HttpContext context) =>
         {
             var denied = Denied(context, state, personas, write: false);

@@ -44,6 +44,7 @@ internal sealed partial class SimRfqIntakeStore
             accepted.Package.GoverningBomDocumentId != review.TechnicalPackage?.GoverningBomDocumentId)
             throw SimRfqIntakeProblem.Conflict("SIM_DEFINITIONS_REQUIRED", "Complete both definitions using the current package before releasing Technical Review.");
         var releaseSources = await AnalysisDocuments(record, accepted.Candidate.Analysis?.SourceSnapshot.SourceSelectionVersion);
+        RequireCurrentScanCandidate(record, accepted.Candidate);
         if (accepted.Candidate.Analysis is { } analysis && !SameAnalysisSources(analysis.SourceSnapshot, record, releaseSources))
             throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "The accepted source snapshot changed. Rebuild and review before release.");
         return accepted;

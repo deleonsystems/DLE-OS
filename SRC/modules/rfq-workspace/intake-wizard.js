@@ -275,8 +275,42 @@
   function renderFiles() {
     if (!state.technicalFiles.length) return '<p class="intake-search-status">No files selected yet.</p>';
     return '<ul class="intake-file-list">' + state.technicalFiles.map((file, index) => '<li><span><strong>' +
-      escapeHtml(file.name) + '</strong><small>' + formatBytes(file.size) + '</small><label class="intake-file-identification">Initial identification<select data-intake-identification="' + index + '" aria-label="Initial identification for ' + escapeHtml(file.name) + '">' + Object.entries(initialDocumentTypes).map(([value,label]) => '<option value="' + value + '" ' + (value === (file.initialIdentification?.type || 'UNKNOWN') ? 'selected' : '') + '>' + label + '</option>').join('') + '</select></label>' + (file.initialIdentification?.type === 'OTHER' ? '<label class="intake-file-identification">Describe this file<input data-intake-identification-description="' + index + '" value="' + escapeHtml(file.initialIdentification.otherDescription || '') + '" maxlength="200"></label>' : '') + '<small>Preliminary — Technical Review will validate.</small></span><button type="button" data-intake-remove-file="' +
+      escapeHtml(file.name) + '</strong><small>' + formatBytes(file.size) + '</small><label class="intake-file-identification">Initial identification<select data-intake-identification="' + index + '" aria-label="Initial identification for ' + escapeHtml(file.name) + '">' + Object.entries(initialDocumentTypes).map(([value,label]) => '<option value="' + value + '" ' + (value === (file.initialIdentification?.type || 'UNKNOWN') ? 'selected' : '') + '>' + label + '</option>').join('') + '</select></label>' + (file.initialIdentification?.type === 'OTHER' ? '<label class="intake-file-identification">Describe this file<input data-intake-identification-description="' + index + '" value="' + escapeHtml(file.initialIdentification.otherDescription || '') + '" maxlength="200"></label>' : '') + '<small>Preliminary — Technical Review will validate.</small><span data-intake-readability="' + index + '">' + renderReadability(file, index) + '</span></span><button type="button" data-intake-remove-file="' +
       index + '">Remove</button></li>').join("") + '</ul>';
+  }
+
+  function isPdf(file) { return /\.pdf$/i.test(file.name) || file.type === "application/pdf"; }
+
+  function renderReadability(file, index) {
+    if (!isPdf(file)) return "";
+    if (!file.readability) return '<small role="status">Checking PDF readability…</small>';
+    const labels = { TEXT_READABLE: '✓ Text-readable', IMAGE_ONLY: '⚠ Scanned / image-only', MIXED: '⚠ Mixed', UNKNOWN: 'Unable to determine — Readability check unavailable' };
+    const status = file.readability.status;
+    const warning = status === 'IMAGE_ONLY' ? 'This PDF appears to be image-only. Technical Review may have difficulty automatically reading BOM data.' : status === 'MIXED' ? 'Some pages may require image/OCR processing.' : '';
+    return '<small role="status">' + escapeHtml(labels[status] || labels.UNKNOWN) + '</small>' +
+      (warning ? '<small class="intake-readability-warning">' + warning + '</small><span class="intake-readability-actions"><button type="button" data-intake-action="continue">Continue Anyway</button><label>Replace File<input type="file" accept=".pdf,application/pdf" data-intake-replace-file="' + index + '" aria-label="Replace ' + escapeHtml(file.name) + '"></label></span>' : '');
+  }
+
+  async function checkReadability(file) {
+    try {
+      const response = await window.fetch('/api/sim/pdf-readability', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/octet-stream', 'X-SIM-Document-Upload': '1' }, body: file.binary });
+      if (!response.ok) throw new Error('Check unavailable');
+      file.readability = await response.json();
+    } catch { file.readability = { status: 'UNKNOWN' }; }
+    const index = state.technicalFiles.indexOf(file);
+    const label = index >= 0 ? root?.querySelector('[data-intake-readability="' + index + '"]') : null;
+    if (label) label.innerHTML = renderReadability(file, index);
+  }
+
+  async function replaceTechnicalFile(file, replacement) {
+    if (!file || !replacement) return;
+    try {
+      await deleteStagedTechnicalFile(file);
+      const index = state.technicalFiles.indexOf(file);
+      if (index < 0) return;
+      state.technicalFiles.splice(index, 1);
+      setTechnicalFiles([replacement]);
+    } catch (error) { showInlineError(error.message); }
   }
 
   function renderAnswers() {
@@ -496,6 +530,10 @@
   }
 
   function handleChange(event) {
+    if (event.target.matches('[data-intake-replace-file]')) {
+      void replaceTechnicalFile(state.technicalFiles[Number(event.target.dataset.intakeReplaceFile)], event.target.files?.[0]);
+      return;
+    }
     if (event.target.matches('[data-intake-identification]')) {
       const file = state.technicalFiles[Number(event.target.dataset.intakeIdentification)];
       if (file && initialDocumentTypes[event.target.value]) {
@@ -549,6 +587,7 @@
     })];
     root.querySelector(".intake-inline-error")?.remove();
     render();
+    for (const file of additions) if (state.technicalFiles.includes(file) && isPdf(file)) void checkReadability(file);
   }
 
   async function removeTechnicalFile(index) {

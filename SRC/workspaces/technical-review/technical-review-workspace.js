@@ -11,6 +11,7 @@
   let reviewUploads = [];
   let reviewUploadRowTarget = null;
   let interactionsBound = false;
+  let scanWorkbenchObserver = null;
 
   async function renderWorkspace() {
     mount = document.querySelector('[data-workspace-mount="' + WORKSPACE_ID + '"]');
@@ -40,6 +41,27 @@
     mount.addEventListener('dragover', reviewDragOver);
     mount.addEventListener('dragleave', reviewDragLeave);
     mount.addEventListener('drop', reviewDrop);
+    mount.addEventListener('input', updateScannedSetup);
+    mount.addEventListener('change', updateScannedSetup);
+    mount.addEventListener('focusin', focusScannedCell);
+    mount.addEventListener('click', focusScannedCell);
+    mount.addEventListener('click', scanSourceActivation);
+    mount.addEventListener('focusin', scanSourceActivation);
+    mount.addEventListener('keydown', scanSourceKey);
+    mount.addEventListener('dblclick', event=>beginScanEdit(event.target));
+    mount.addEventListener('focusout', event=>{if(state.scanEdit?.input===event.target)finishScanEdit(true);});
+    mount.addEventListener('keydown', scanGridKey);
+    mount.addEventListener('pointerdown', startScanColumnResize);
+    mount.addEventListener('pointermove', moveScanColumnResize);
+    mount.addEventListener('pointerup', endScanColumnResize);
+    mount.addEventListener('pointercancel', endScanColumnResize);
+    mount.addEventListener('lostpointercapture', endScanColumnResize);
+    mount.addEventListener('keydown', scanColumnResizeKey);
+    mount.addEventListener('keydown', event=>{
+      if(event.key==='Escape' && state.scanLeavePrompt){event.preventDefault();setScanLeavePrompt(false);}
+    });
+    mount.addEventListener('input', updateScannedWorksheet);
+    mount.addEventListener('change', updateScannedWorksheet);
     mount.addEventListener("click", event => {
       const packageRow = event.target.closest?.("[data-package-row]");
       if (packageRow) state.documentIndex = Number(packageRow.dataset.packageRow);
@@ -50,6 +72,8 @@
         if (action?.startsWith('view-')) { state.step = action.slice(5); state.candidateIndex = null; state.acceptedVersion = null; renderDetail(); return; }
         if (action && !['back','refresh','accepted-bom','accepted-back','candidate-detail','worksheet-options'].includes(action)) return;
       }
+      if (action?.startsWith('scan-sheet-')) { void scannedWorksheetAction(action, actionButton); return; }
+      if (action?.startsWith('scan-')) { void scannedSetupAction(action, actionButton); return; }
       if (state.step === 'accepted-bom' && ['candidate-confirm', 'complete-bom', 'alternate-add', 'alternate-edit', 'alternate-remove'].includes(action)) return;
       if (action === 'add-document' && !state.saving) { reviewUploads=[]; reviewUploadRowTarget=null; addingDocuments = true; state.guided = true; enterPackage(); return; }
       if (action === 'row-add-file' && !state.saving && activeRowDocumentTarget()) { addingDocuments=true; renderDetail(); return; }
@@ -95,6 +119,7 @@
       if (fileButton && !state.saving) { state.documentIndex = Number(fileButton.dataset.packageIndex); renderDetail(); }
       if (action === "materials") void reviewMaterials();
       if (action === "candidate") {
+        if(scannedMainBom()&&(state.step!=='inventory'||state.selected?.scannedCandidate?.status!=='READY'||packageCandidateState().dirty))return;
         state.acceptedVersion = null;
         if (state.selected?.record?.technicalReview?.candidateBom) { state.message = ''; state.messageState = ''; state.candidateIndex = null; state.step = 'candidate'; state.materials = false; renderDetail(); }
         else void buildCandidate();
@@ -360,7 +385,7 @@
         controls+='<label class="package-pn-question">Provides manufacturer P/N information<select aria-label="Manufacturer P/N source for '+escapeHtml(doc.name)+'" data-pn-field="providesManufacturerPartNumbers" '+disabled+'>'+[['','Not reviewed'],['yes','Yes'],['no','No']].map(([k,v])=>'<option value="'+k+'" '+((doc.partNumberReview?.providesManufacturerPartNumbers==null?'':doc.partNumberReview.providesManufacturerPartNumbers?'yes':'no')===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label>';
       }
       const view=source?.binaryStatus==='VERIFIED'?'<a target="'+(source.type==='application/pdf'?'_blank':'_self')+'" rel="noopener noreferrer" href="/api/sim/rfq-intakes/'+encodeURIComponent(state.selected.record.intakeId)+'/documents/'+encodeURIComponent(source.documentId)+'">View File</a>':'<span title="No staged binary is available">File unavailable</span>';
-      return '<tr data-package-row="'+index+'"><th scope="row" title="'+escapeHtml(doc.name)+'">'+escapeHtml(doc.name)+'<small>Source: '+(source?.reviewOrigin?'Technical Review':'Intake')+'</small><small>'+escapeHtml(doc.rowAssociation?'BOM row '+(doc.rowAssociation.rowIndex+1)+' · '+doc.rowAssociation.customerBomPartNumber+' · '+doc.rowAssociation.componentType:applicability[doc.applicability])+(doc.applicability==='SUBASSEMBLY'?' · Customer / BOM P/N: '+escapeHtml(doc.subassemblyPartNumber)+(doc.proposedSubassemblyIdentity?' · DLE proposed: '+escapeHtml(doc.proposedSubassemblyIdentity):''):'')+'</small>'+(source?.reviewOrigin?'<small>Added by '+escapeHtml(source.reviewOrigin.addedBy)+' · '+escapeHtml(formatDateTime(source.reviewOrigin.addedAtUtc))+'</small>'+(source.reviewOrigin.note?'<small>'+escapeHtml(source.reviewOrigin.note)+'</small>':''):'')+'</th><td>'+proposal+'</td><td>'+view+'</td><td>'+controls+'</td><td><strong>'+status+'</strong>'+(doc.identityReview?'<small>'+(doc.identityReview.reviewedBy?escapeHtml(doc.identityReview.reviewedBy)+' · '+escapeHtml(formatDateTime(doc.identityReview.reviewedAtUtc)):'Unsaved')+'</small>':'')+'</td></tr>';
+      return '<tr data-package-row="'+index+'"><th scope="row" title="'+escapeHtml(doc.name)+'">'+escapeHtml(doc.name)+(source?.readability?'<small>Document Readability: '+escapeHtml(({TEXT_READABLE:'Text-readable',IMAGE_ONLY:'Scanned / image-only',MIXED:'Mixed — some pages may require image/OCR processing',UNKNOWN:'Unable to determine — Readability check unavailable'})[source.readability.status] || 'Unable to determine')+'</small>':'')+'<small>Source: '+(source?.reviewOrigin?'Technical Review':'Intake')+'</small><small>'+escapeHtml(doc.rowAssociation?'BOM row '+(doc.rowAssociation.rowIndex+1)+' · '+doc.rowAssociation.customerBomPartNumber+' · '+doc.rowAssociation.componentType:applicability[doc.applicability])+(doc.applicability==='SUBASSEMBLY'?' · Customer / BOM P/N: '+escapeHtml(doc.subassemblyPartNumber)+(doc.proposedSubassemblyIdentity?' · DLE proposed: '+escapeHtml(doc.proposedSubassemblyIdentity):''):'')+'</small>'+(source?.reviewOrigin?'<small>Added by '+escapeHtml(source.reviewOrigin.addedBy)+' · '+escapeHtml(formatDateTime(source.reviewOrigin.addedAtUtc))+'</small>'+(source.reviewOrigin.note?'<small>'+escapeHtml(source.reviewOrigin.note)+'</small>':''):'')+'</th><td>'+proposal+'</td><td>'+view+'</td><td>'+controls+'</td><td><strong>'+status+'</strong>'+(doc.identityReview?'<small>'+(doc.identityReview.reviewedBy?escapeHtml(doc.identityReview.reviewedBy)+' · '+escapeHtml(formatDateTime(doc.identityReview.reviewedAtUtc)):'Unsaved')+'</small>':'')+'</td></tr>';
     }).join('');
     return '<section class="technical-review-question package-review-table"><h3>Technical Package Review</h3>'+renderReviewUploads()+'<p role="status">'+docs.length+' files received · '+docs.filter(rowAccepted).length+' reviewed · '+docs.filter(d=>!rowAccepted(d)).length+' need review</p><div class="package-table-scroll"><table><thead><tr>'+['Technical Document','Identified As','View File','Review','Status'].map(label=>'<th scope="col">'+label+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+(docs.length?'':'<p>No technical files were received.</p>')+(pnIssue()?'<p role="alert">'+escapeHtml(pnIssue())+'</p>':'')+'<div class="package-page-actions"><button class="technical-review-primary" data-technical-review-action="save-package" '+(state.saving||addingDocuments||docs.some(d=>!rowAccepted(d))||pnIssue()||Object.keys(identityChanges).length?'disabled':'')+'>Save and Continue</button><button class="technical-review-back" data-technical-review-action="history-back">Back to Technical Review</button></div>'+packageMessage()+'</section>';
   }
@@ -428,10 +453,510 @@
     return {active, dirty, pendingReview, ready:!!review.candidateBom, stale:!review.candidateBom && !!review.candidateBomVersions?.length};
   }
   function packageBuildAction(unsupported, issue) {
+    if (scannedMainBom()) return scannedSetupPrompt(issue);
     const c=packageCandidateState();
     if(c.active || (c.ready && !c.dirty && state.selected.record.technicalReview.workflow.sufficient))return '';
     const label=unsupported || c.ready ? 'Save Technical Package' : c.stale ? 'Rebuild Candidate BOM' : 'Save &amp; Build Candidate BOM';
     return '<button class="technical-review-primary" data-technical-review-action="confirm-package" '+(state.saving||addingDocuments||issue?'disabled':'')+'>'+label+'</button>';
+  }
+  const scannedFields = { FIND_NUMBER:'Find #', CUSTOMER_PART_NUMBER:'Customer P/N', QUANTITY:'Qty', UNIT:'UoM', REFERENCE_DESIGNATORS:'Ref Des', DESCRIPTION:'Description', MANUFACTURER_1:'MFG 1', MANUFACTURER_PART_NUMBER_1:'MFG P/N 1', MANUFACTURER_2:'MFG 2', MANUFACTURER_PART_NUMBER_2:'MFG P/N 2', MANUFACTURER_3:'MFG 3', MANUFACTURER_PART_NUMBER_3:'MFG P/N 3', MANUFACTURER_IDENTITY_1:'Combined MFG identity 1', MANUFACTURER_IDENTITY_2:'Combined MFG identity 2', MANUFACTURER_IDENTITY_3:'Combined MFG identity 3', IGNORE:'Ignore' };
+  const scanRowTypes={COMPONENT:'Component',NOT_USED:'Not Used',BLANK:'Blank',CONTINUATION:'Continuation',OTHER:'Other'};
+  function scanSheetBase() {
+    const w=state.scanSheet;
+    return '/api/sim/rfq-intakes/'+encodeURIComponent(state.selected.record.intakeId)+'/documents/'+encodeURIComponent(w.setup.documentId);
+  }
+  function scanSheetPayload(savedWorksheet=false) {
+    const setup=savedWorksheet?state.scanSheet.setup:state.selected.scannedBomSource.setup;
+    return {documentId:setup.documentId,sha256:setup.sha256,setupId:setup.id,expectedReviewToken:state.selected.packageReviewToken};
+  }
+  function scannedCandidateToolbar() {
+    const status=state.selected?.scannedCandidate;
+    const source=state.selected?.scannedBomSource;
+    const w=state.scanSheet;
+    const dirty=state.scanSheetDirty||!!state.scanEdit;
+    const sourceMatches=source&&source.documentId===w?.setup.documentId&&source.sha256===w?.setup.sha256;
+    if(state.scanCandidateBuilding)return '<span role="status">Building Candidate BOM…</span>';
+    if(status?.status==='READY'&&!dirty)return '<span role="status">Candidate BOM Ready</span>';
+    const rebuild=status?.status==='NEEDS_REBUILD'||status?.status==='READY';
+    const blocker=state.scanCandidateError||(dirty?'Save Review before submitting.':!sourceMatches?'The exact source must be verified before submitting.':status?.blocker||'');
+    return (rebuild?'<span>Candidate BOM Needs Rebuild</span> ':'')+'<button type="button" class="technical-review-primary" data-technical-review-action="scan-sheet-candidate-submit" '+(state.saving||dirty||!sourceMatches||!status?.canSubmit?'disabled':'')+'>'+(rebuild?'Rebuild Candidate BOM':'Submit to Build Candidate BOM')+'</button>'+(blocker?'<small role="status">'+escapeHtml(blocker)+'</small>':'');
+  }
+  function syncScannedCandidateToolbar() {
+    const toolbar=mount?.querySelector('[data-scan-candidate-toolbar]');if(toolbar)toolbar.innerHTML=scannedCandidateToolbar();
+  }
+  async function submitScannedCandidate() {
+    if(state.scanSheetDirty||state.scanEdit||!state.selected?.scannedCandidate?.canSubmit)return;
+    state.scanCandidateBuilding=true;state.scanCandidateError='';state.saving=true;
+    const controls=Array.from(mount?.querySelectorAll('.scan-review input:not(:disabled), .scan-review select:not(:disabled), .scan-review button:not(:disabled)')||[]);
+    controls.forEach(c=>c.disabled=true);syncScannedCandidateToolbar();
+    try {
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/scanned-bom-review/candidate',{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:state.scanSheet.id,expectedVersion:state.scanSheet.version,expectedReviewToken:state.selected.packageReviewToken})});
+    } catch(error){state.scanCandidateError=error.message;}
+    finally {state.scanCandidateBuilding=false;state.saving=false;controls.forEach(c=>c.disabled=false);syncScannedCandidateToolbar();}
+  }
+  async function scannedWorksheetAction(action,button) {
+    if(state.saving)return;
+    if(action==='scan-sheet-reset-widths'){scanColumnWidths={};saveScanColumnWidths();applyScanColumnWidths();return;}
+    finishScanEdit(true);
+    if(action==='scan-sheet-candidate-submit'){await submitScannedCandidate();return;}
+    if(action==='scan-sheet-row-review') {
+      const row=state.scanSheet.rows.find(r=>r.position===Number(button.dataset.scanPosition));if(!row)return;
+      updateScannedWorksheet({target:{dataset:{scanPosition:String(row.position),scanReviewed:true},checked:!row.reviewed}});
+      syncScanRowReview(row);
+      return;
+    }
+    if(action==='scan-sheet-back') {
+      if(state.scanSheetDirty)setScanLeavePrompt(true);else leaveScannedWorksheet();
+      return;
+    }
+    if(action==='scan-sheet-leave-cancel'){setScanLeavePrompt(false);return;}
+    if(action==='scan-sheet-leave-discard'){leaveScannedWorksheet();return;}
+    if(action==='scan-sheet-source') {
+      showScannedSource(Number(button.dataset.page), null, '');
+      return;
+    }
+    const opening=action==='scan-sheet-open';
+    if(!opening&&!['scan-sheet-save','scan-sheet-leave-save'].includes(action))return;
+    // Keep the worksheet DOM mounted while saving: selection, zoom, pan and table scroll stay intact.
+    const enabledControls=opening?[]:Array.from(mount?.querySelectorAll('.scan-review input:not(:disabled), .scan-review select:not(:disabled), .scan-review button:not(:disabled)')||[]);
+    state.saving=true;state.message=opening?'Opening scanned BOM review…':'Saving review…';state.messageState='';
+    if(opening)renderDetail();
+    else { enabledControls.forEach(c=>c.disabled=true); const label=mount?.querySelector('[data-scan-sheet-save-state]');if(label)label.textContent=state.message; }
+    try {
+      const path='/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId);
+      let payload,existing=false;
+      if(opening) {
+        const fresh=await fetchJson(path);
+        existing=!!fresh.record.technicalReview?.scannedBomReview;
+        if(!existing&&fresh.scannedBomSource?.setup?.id!==state.selected.scannedBomSource?.setup?.id)throw new Error('The saved setup changed. Reopen Technical Review.');
+        state.selected=fresh;if(!existing)payload=scanSheetPayload();
+      } else {
+        const w=state.scanSheet;
+        payload={...scanSheetPayload(true),id:w.id,expectedVersion:w.version,rows:w.rows.map(r=>({position:r.position,rowType:r.rowType,
+          values:Object.fromEntries(Object.entries(r.cells).map(([f,c])=>[f,c.value])),sourceNote:r.sourceNote,reviewed:r.reviewed}))};
+      }
+      state.selected=await fetchJson(path+'/scanned-bom-review',existing?undefined:{method:opening?'POST':'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      state.scanSheet=JSON.parse(JSON.stringify(state.selected.record.technicalReview.scannedBomReview));
+      if(opening) {
+        state.scanManualZoom=null;state.scanSourceSelection=null;state.scanCandidateError='';
+        try { state.scanLayout=await fetchJson('SRC/workspaces/technical-review/scanned-bom-layout.json'); }
+        catch { state.scanLayout=null; }
+      }
+      state.scanSheetDirty=false;state.scanSheetPage=state.scanSheetPage||state.scanSheet.setup.startPage;
+      state.scanLeavePrompt=false;
+      const leavePrompt=mount?.querySelector('[data-scan-leave-prompt]');if(leavePrompt)leavePrompt.hidden=true;
+      state.step='scanned-review';state.guided=true;state.materials=false;
+      state.message=opening?'Worksheet ready. Check the source and correct any values that need review.':'Review saved.';
+      if(action==='scan-sheet-leave-save')leaveScannedWorksheet(false);
+    }catch(error){state.message=error.message;state.messageState='error';}
+    finally{
+      state.saving=false;
+      syncScannedCandidateToolbar();
+      if(opening||state.step!=='scanned-review')renderDetail();
+      else {
+        enabledControls.forEach(c=>c.disabled=false);
+        const label=mount?.querySelector('[data-scan-sheet-save-state]');
+        if(label)label.textContent=state.messageState==='error'?state.message+' Your edits are still here.':
+          'Saved by '+state.scanSheet.savedBy+' · '+formatDateTime(state.scanSheet.savedAtUtc);
+      }
+    }
+  }
+  function setScanLeavePrompt(visible) {
+    state.scanLeavePrompt=visible;
+    window.requestAnimationFrame?.(sizeScanWorkbench);
+    const panel=mount?.querySelector('[data-scan-leave-prompt]');if(panel)panel.hidden=!visible;
+    mount?.querySelector('[data-technical-review-action="'+(visible?'scan-sheet-leave-cancel':'scan-sheet-back')+'"]')?.focus();
+  }
+  function leaveScannedWorksheet(render=true) {
+    state.scanSheetDirty=false;state.scanLeavePrompt=false;state.scanSheet=null;
+    state.packageDraft=null;state.packageAnswers=null;state.materials=false;
+    state.step='inventory';state.message='';state.messageState='';
+    if(render)renderDetail();
+  }
+  // Legacy evidence is reconstructed only from the extraction grid's exact original contract.
+  function scannedCellBounds(row, field) {
+    const w=state.scanSheet, layout=state.scanLayout;
+    let bounds=row.cells[field]?.sourceBounds;
+    if(!bounds && layout && w.setup.sha256===layout.sha256 && w.extractionMethod===layout.extractionMethod &&
+        w.setup.startPage===3 && w.setup.endPage===5 &&
+        JSON.stringify(w.setup.columns.map(c=>c.field))===JSON.stringify(layout.fields)) {
+      const grid=layout.pages[row.page], column=layout.fields.indexOf(field);
+      if(grid && column>=0 && row.position>=grid.first && row.position<grid.first+grid.count) {
+        const i=column<7?column:column+1, a=grid.edges[i], b=grid.edges[i+1];
+        const ya=grid.top+(a-grid.edges[0])*grid.slope+(row.position-grid.first)*grid.step;
+        const yb=grid.top+(b-grid.edges[0])*grid.slope+(row.position-grid.first)*grid.step;
+        bounds={x:a/layout.width,y:Math.min(ya,yb)/layout.height,width:(b-a)/layout.width,height:(grid.step+Math.abs(yb-ya))/layout.height};
+      }
+    }
+    return bounds && [bounds.x,bounds.y,bounds.width,bounds.height].every(Number.isFinite) &&
+      bounds.x>=0 && bounds.y>=0 && bounds.width>0 && bounds.height>0 &&
+      bounds.x+bounds.width<=1 && bounds.y+bounds.height<=1 ? bounds : null;
+  }
+  function beginScanEdit(input, replacement) {
+    if(state.step!=='scanned-review'||state.saving||!input.dataset?.scanField)return;
+    if(state.scanSheet?.rows.find(r=>r.position===Number(input.dataset.scanPosition))?.reviewed)return;
+    if(state.scanEdit?.input===input)return;
+    finishScanEdit(true);
+    state.scanEdit={input,before:input.value};
+    input.readOnly=false;input.classList.add('scan-cell-editing');
+    input.focus({preventScroll:true});
+    if(replacement!==undefined){input.value=replacement;input.setSelectionRange(input.value.length,input.value.length);}
+    else input.select();
+  }
+  function finishScanEdit(commit) {
+    const edit=state.scanEdit;if(!edit)return;
+    state.scanEdit=null;
+    if(!commit)edit.input.value=edit.before;
+    edit.input.readOnly=true;edit.input.classList.remove('scan-cell-editing');
+    if(commit&&edit.input.value!==edit.before)updateScannedWorksheet({target:edit.input});
+  }
+  function scanGridKey(event) {
+    const input=event.target;
+    if(state.step!=='scanned-review'||state.saving||!input.dataset?.scanField||event.isComposing)return;
+    const editing=state.scanEdit?.input===input;
+    if(editing&&event.key==='Escape'){event.preventDefault();finishScanEdit(false);return;}
+    if(!editing&&event.key==='F2'){event.preventDefault();beginScanEdit(input);return;}
+    if(!editing&&event.key.length===1&&!event.ctrlKey&&!event.metaKey&&!event.altKey){event.preventDefault();beginScanEdit(input,event.key);return;}
+    const moves={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+    if(editing&&moves[event.key])return;
+    if(event.ctrlKey||event.metaKey||event.altKey)return;
+    const cells=Array.from(mount.querySelectorAll('input[data-scan-field]'));
+    const index=cells.indexOf(input);if(index<0)return;
+    const columns=state.scanSheet.setup.columns.filter(c=>c.field!=='IGNORE').length;
+    let next=index;
+    if(event.key==='Tab') {
+      next=index+(event.shiftKey?-1:1);
+      if(next<0||next>=cells.length){finishScanEdit(true);return;}
+    }
+    else if(event.key==='Enter')next=index+(event.shiftKey?-columns:columns);
+    else if(moves[event.key]) {
+      const [row,column]=moves[event.key];
+      if(column && (index%columns+column<0||index%columns+column>=columns)){event.preventDefault();return;}
+      next=index+row*columns+column;
+    } else return;
+    event.preventDefault();finishScanEdit(true);
+    if(next<0||next>=cells.length)return;
+    cells[next].focus({preventScroll:true});
+    keepScanCellVisible(cells[next]);
+  }
+  function keepScanCellVisible(input) {
+    const scroll=mount.querySelector('.scan-review-table-scroll');if(!scroll)return;
+    const cell=input.getBoundingClientRect(), area=scroll.getBoundingClientRect();
+    const header=scroll.querySelector('thead').getBoundingClientRect().height;
+    const source=scroll.querySelector('tbody th').getBoundingClientRect().width;
+    if(cell.left<area.left+source)scroll.scrollLeft-=area.left+source-cell.left+8;
+    else if(cell.right>area.right-12)scroll.scrollLeft+=cell.right-area.right+12;
+    if(cell.top<area.top+header)scroll.scrollTop-=area.top+header-cell.top+8;
+    else if(cell.bottom>area.bottom-18)scroll.scrollTop+=cell.bottom-area.bottom+18;
+  }
+  function focusScannedCell(event) {
+    const t=event.target;
+    if(state.step!=='scanned-review'||!t.dataset?.scanField)return;
+    if(state.scanEdit?.input===t)return;
+    const row=state.scanSheet?.rows.find(r=>r.position===Number(t.dataset.scanPosition));if(!row)return;
+    mount?.querySelectorAll('.scan-cell-selected').forEach(cell=>cell.classList.remove('scan-cell-selected'));
+    t.classList.add('scan-cell-selected');
+    const cellKey=row.position+':'+t.dataset.scanField;
+    if(state.scanSourceSelection?.cellKey===cellKey)return;
+    const bounds=scannedCellBounds(row,t.dataset.scanField);
+    showScannedSource(row.page,bounds,bounds?'Position '+row.position+' · '+(scannedFields[t.dataset.scanField]||t.dataset.scanField):'Source location unavailable · Page '+row.page,cellKey);
+  }
+  function scanSourceActivation(event) {
+    if(state.step!=='scanned-review')return;
+    const viewer=mount?.querySelector('.scan-review-source');if(!viewer)return;
+    const active=viewer.contains(event.target);
+    viewer.classList.toggle('scan-source-active',active);
+    const label=viewer.querySelector('[data-scan-source-active]');if(label)label.hidden=!active;
+    if(active&&event.type==='click'&&!event.target.closest('button,select,a,input'))viewer.focus({preventScroll:true});
+  }
+  function scanSourceKey(event) {
+    const viewer=event.target.closest?.('.scan-review-source.scan-source-active');
+    if(state.step!=='scanned-review'||!viewer)return;
+    if(event.key==='Escape'){
+      viewer.classList.remove('scan-source-active');viewer.querySelector('[data-scan-source-active]').hidden=true;
+      event.preventDefault();return;
+    }
+    if(event.target.closest('select,input')||event.ctrlKey||event.metaKey||event.altKey)return;
+    if(event.key==='+'||event.key==='-'||event.key==='='){
+      event.preventDefault();changeScannedZoom(event.key==='-'?-50:50);
+    }
+  }
+  function scanSourceWheel(event) {
+    const viewer=event.currentTarget;
+    if(state.step!=='scanned-review'||!viewer.classList.contains('scan-source-active')||!viewer.contains(event.target))return;
+    const scroll=viewer.querySelector('.scan-review-source-scroll');
+    event.preventDefault();event.stopPropagation();
+    if(event.ctrlKey){if(event.deltaY)changeScannedZoom(event.deltaY<0?50:-50);return;}
+    const scale=event.deltaMode===1?16:event.deltaMode===2?scroll.clientHeight:1;
+    if(event.shiftKey)scroll.scrollLeft+=(event.deltaY||event.deltaX)*scale;
+    else {scroll.scrollTop+=event.deltaY*scale;scroll.scrollLeft+=event.deltaX*scale;}
+  }
+  function changeScannedZoom(delta) {
+    const control=mount?.querySelector('[data-scan-sheet-zoom]');
+    setScannedZoom(Number(control?.value||100)+delta,true);
+  }
+  function setScannedZoom(zoom,preserveRegion=false) {
+    zoom=Math.max(100,Math.min(1000,zoom));
+    if(preserveRegion)state.scanManualZoom=zoom;
+    const image=mount?.querySelector('[data-scan-sheet-image]');
+    const scroll=mount?.querySelector('.scan-review-source-scroll');
+    const bounds=state.scanSourceSelection?.bounds;
+    const center=preserveRegion&&image&&scroll?{
+      x:bounds?bounds.x+bounds.width/2:(scroll.scrollLeft+scroll.clientWidth/2)/(image.clientWidth||1),
+      y:bounds?bounds.y+bounds.height/2:(scroll.scrollTop+scroll.clientHeight/2)/(image.clientHeight||1)
+    }:null;
+    const canvas=mount?.querySelector('[data-scan-source-canvas]');if(canvas)canvas.style.width=zoom+'%';
+    const control=mount?.querySelector('[data-scan-sheet-zoom]');if(control)control.value=String(zoom);
+    if(center){
+      scroll.scrollLeft=center.x*image.clientWidth-scroll.clientWidth/2;
+      scroll.scrollTop=center.y*image.clientHeight-scroll.clientHeight/2;
+    }
+  }
+  function showScannedSource(page,bounds,message,cellKey=null) {
+    const image=mount?.querySelector('[data-scan-sheet-image]');if(!image)return;
+    const changed=state.scanSheetPage!==page;state.scanSheetPage=page;
+    const selection={bounds,cellKey};state.scanSourceSelection=selection;
+    const outline=mount.querySelector('[data-scan-source-outline]');outline.hidden=true;
+    mount.querySelector('[data-scan-source-location]').textContent=message;
+    const link=mount.querySelector('[data-scan-sheet-pdf]');
+    link.href=scanSheetBase()+'#page='+page;link.textContent='Open Page '+page+' in a separate tab';
+    mount.querySelector('[data-scan-sheet-page-label]').textContent='Source · Page '+page;image.alt='Source page '+page;
+    // A newer selection replaces any pending load callback; keyboard focus stays in the input.
+    const position=()=>{
+      if(!bounds)return;
+      const scroll=mount.querySelector('.scan-review-source-scroll');
+      if(state.scanSourceSelection!==selection)return;
+      setScannedZoom(state.scanManualZoom??(bounds.width>.12?300:bounds.width>.06?400:600));
+      Object.assign(outline.style,{left:bounds.x*100+'%',top:bounds.y*100+'%',width:bounds.width*100+'%',height:bounds.height*100+'%'});
+      outline.hidden=false;
+      window.requestAnimationFrame(()=>{
+        if(state.scanSourceSelection!==selection||!image.isConnected)return;
+        scroll.scrollLeft=(bounds.x+bounds.width/2)*image.clientWidth-scroll.clientWidth/2;
+        scroll.scrollTop=(bounds.y+bounds.height/2)*image.clientHeight-scroll.clientHeight/2;
+      });
+    };
+    image.onload=position;
+    image.onerror=()=>{outline.hidden=true;mount.querySelector('[data-scan-source-location]').textContent='Source preview unavailable';};
+    if(changed){setScannedZoom(state.scanManualZoom??100);image.src=scanSheetBase()+'/pages/'+page;}
+    else if(image.complete&&image.naturalWidth)position();
+    if(!bounds){setScannedZoom(state.scanManualZoom??100);const scroll=mount.querySelector('.scan-review-source-scroll');scroll.scrollTop=0;scroll.scrollLeft=0;}
+  }
+  function updateScannedWorksheet(event) {
+    if(state.step!=='scanned-review'||state.saving||!state.scanSheet)return;
+    const t=event.target;
+    if(state.scanEdit?.input===t)return;
+    if(t.dataset.scanSheetZoom){setScannedZoom(Number(t.value),true);return;}
+    if(t.dataset.scanPosition===undefined)return;
+    const row=state.scanSheet.rows.find(r=>r.position===Number(t.dataset.scanPosition));if(!row)return;
+    if(row.reviewed && t.dataset.scanReviewed===undefined)return;
+    if(t.dataset.scanField&&row.cells[t.dataset.scanField]){if(row.cells[t.dataset.scanField].value===t.value)return;row.cells[t.dataset.scanField].value=t.value;row.cells[t.dataset.scanField].status='CORRECTED';row.reviewed=false;}
+    else if(t.dataset.scanRowType!==undefined){if(row.rowType===t.value)return;row.rowType=t.value;row.reviewed=false;}
+    else if(t.dataset.scanNote!==undefined){if(row.sourceNote===t.value)return;row.sourceNote=t.value;row.reviewed=false;}
+    else if(t.dataset.scanReviewed!==undefined){if(row.reviewed===t.checked)return;row.reviewed=t.checked;}
+    else return;
+    state.scanSheetDirty=true;
+    const tr=t.closest?.('tr');const reviewBox=tr?.querySelector('[data-scan-reviewed]');if(reviewBox)reviewBox.checked=row.reviewed;
+    const status=tr?.querySelector('[data-scan-row-status]');if(status)status.textContent=row.reviewed?'Reviewed':'Needs Review';
+    t.classList?.remove('scan-cell-uncertain');
+    syncScannedCandidateToolbar();
+    const saved=mount?.querySelector('[data-scan-sheet-save-state]');if(saved)saved.textContent='Unsaved changes';
+  }
+  function syncScanRowReview(row) {
+    const button=mount?.querySelector('[data-technical-review-action="scan-sheet-row-review"][data-scan-position="'+row.position+'"]');
+    const tr=button?.closest('tr');if(!tr)return;
+    button.textContent=row.reviewed?'Edit':'Accept';
+    button.setAttribute('aria-label',(row.reviewed?'Edit':'Accept')+' transcription row '+row.position);
+    tr.querySelector('[data-scan-row-status]').textContent=row.reviewed?'Reviewed':'Needs Review';
+    tr.querySelectorAll('[data-scan-field]').forEach(input=>{input.readOnly=true;input.classList.toggle('scan-cell-locked',row.reviewed);input.classList.toggle('scan-cell-uncertain',!row.reviewed&&!['CORRECTED','SOURCE_POSITION'].includes(row.cells[input.dataset.scanField].status));input.title=row.reviewed?'Reviewed transcription — use Edit to unlock this row':'Select to compare with source; F2 or double-click to edit';});
+    tr.querySelectorAll('[data-scan-row-type], [data-scan-note]').forEach(input=>input.disabled=row.reviewed);
+  }
+  function sizeScanWorkbench() {
+    if(state.step!=='scanned-review')return;
+    const sheet=mount?.querySelector('.scan-review'), layout=sheet?.querySelector('.scan-review-layout');
+    if(!layout)return;
+    const appHeader=document.querySelector('body > header.dle-app-header');
+    const headerHeight=appHeader?.getBoundingClientRect().height||0;
+    sheet.style.setProperty('--scan-app-header-height',headerHeight+'px');
+    const toolbarHeight=sheet.querySelector('.scan-review-toolbar').getBoundingClientRect().height;
+    sheet.style.setProperty('--scan-toolbar-height',toolbarHeight+'px');
+    sheet.style.setProperty('--scan-work-height',Math.max(240,window.innerHeight-layout.getBoundingClientRect().top-12)+'px');
+  }
+  function watchScanWorkbench() {
+    mount?.querySelector(".scan-review-source")?.addEventListener("wheel",scanSourceWheel,{passive:false});
+    window.requestAnimationFrame?.(sizeScanWorkbench);
+    if(!window.ResizeObserver)return;
+    scanWorkbenchObserver ||= new window.ResizeObserver(sizeScanWorkbench);
+    for(const element of [document.querySelector('body > header.dle-app-header'),...mount.querySelectorAll('.scan-review > header, .scan-review-toolbar, .scan-leave-prompt')]) {
+      if(element)scanWorkbenchObserver.observe(element);
+    }
+  }
+  window.addEventListener?.('resize',sizeScanWorkbench);
+  const scanWidthPreference='dle.scanned-bom.column-widths.v1';
+  let scanColumnWidths=null, scanColumnDrag=null;
+  function scanColumnDefault(field) {
+    return ({FIND_NUMBER:76,QUANTITY:76,UNIT:76,CUSTOMER_PART_NUMBER:173,REFERENCE_DESIGNATORS:178,DESCRIPTION:298,ROW_TYPE:120,SOURCE_NOTE:298})[field]||148;
+  }
+  function scanColumnMinimum(field) {
+    return ['FIND_NUMBER','QUANTITY','UNIT'].includes(field)?64:field==='DESCRIPTION'||field==='SOURCE_NOTE'?160:100;
+  }
+  function scanColumnWidth(field) {
+    if(scanColumnWidths===null){try{scanColumnWidths=JSON.parse(window.localStorage?.getItem(scanWidthPreference)||'{}');}catch{scanColumnWidths={};}
+      if(!scanColumnWidths||typeof scanColumnWidths!=='object'||Array.isArray(scanColumnWidths))scanColumnWidths={};}
+    const value=scanColumnWidths[field];
+    return Number.isFinite(value)?Math.max(scanColumnMinimum(field),Math.min(1200,value)):scanColumnDefault(field);
+  }
+  function saveScanColumnWidths(){try{window.localStorage?.setItem(scanWidthPreference,JSON.stringify(scanColumnWidths));}catch{/* Keep session preferences when storage is unavailable. */}}
+  function scanColumnHeader(field,label) {
+    return '<th scope="col">'+escapeHtml(label)+'<span class="scan-column-resize" data-scan-resize="'+field+'" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize '+escapeHtml(label)+' column" aria-valuemin="'+scanColumnMinimum(field)+'" aria-valuemax="1200" aria-valuenow="'+scanColumnWidth(field)+'" title="Drag to resize; arrow keys adjust width"></span></th>';
+  }
+  function applyScanColumnWidths() {
+    const table=mount?.querySelector('.scan-review-table');if(!table)return;
+    let total=132;
+    table.querySelectorAll('col[data-scan-column]').forEach(col=>{const width=scanColumnWidth(col.dataset.scanColumn);col.style.width=width+'px';total+=width;});
+    table.style.width=total+'px';
+    mount.querySelectorAll('[data-scan-resize]').forEach(handle=>handle.setAttribute('aria-valuenow',scanColumnWidth(handle.dataset.scanResize)));
+  }
+  function startScanColumnResize(event) {
+    const handle=event.target.closest?.('[data-scan-resize]');
+    if(!handle||state.step!=='scanned-review'||event.button!==0)return;
+    event.preventDefault();event.stopPropagation();
+    scanColumnDrag={handle,id:event.pointerId,x:event.clientX,field:handle.dataset.scanResize,width:scanColumnWidth(handle.dataset.scanResize)};
+    handle.setPointerCapture(event.pointerId);
+    mount.querySelector('.scan-review-table').classList.add('scan-column-dragging');
+  }
+  function moveScanColumnResize(event) {
+    const drag=scanColumnDrag;if(!drag||event.pointerId!==drag.id)return;
+    event.preventDefault();
+    scanColumnWidths[drag.field]=Math.max(scanColumnMinimum(drag.field),Math.min(1200,Math.round(drag.width+event.clientX-drag.x)));
+    applyScanColumnWidths();
+  }
+  function endScanColumnResize(event) {
+    const drag=scanColumnDrag;if(!drag||event.pointerId!==drag.id)return;
+    scanColumnDrag=null;
+    if(drag.handle.hasPointerCapture(drag.id))drag.handle.releasePointerCapture(drag.id);
+    mount?.querySelector('.scan-review-table')?.classList.remove('scan-column-dragging');
+    saveScanColumnWidths();
+  }
+  function scanColumnResizeKey(event) {
+    const field=event.target.dataset?.scanResize;if(!field)return;
+    if(!['ArrowLeft','ArrowRight','Home'].includes(event.key))return;
+    event.preventDefault();event.stopPropagation();
+    const width=scanColumnWidth(field);
+    scanColumnWidths[field]=event.key==='Home'?scanColumnDefault(field):Math.max(scanColumnMinimum(field),Math.min(1200,width+(event.key==='ArrowRight'?1:-1)*(event.shiftKey?32:16)));
+    applyScanColumnWidths();saveScanColumnWidths();
+  }
+  function renderScannedWorksheet() {
+    const w=state.scanSheet;if(!w)return '';
+    const disabled=state.saving?'disabled':'';
+    const columns=w.setup.columns.filter(c=>c.field!=='IGNORE');
+    const widthFields=columns.map(c=>c.field);
+    const tableWidth=132+widthFields.reduce((sum,field)=>sum+scanColumnWidth(field),0);
+    const colgroup='<colgroup><col style="width:132px">'+widthFields.map(field=>'<col data-scan-column="'+field+'" style="width:'+scanColumnWidth(field)+'px">').join('')+'</colgroup>';
+    const earlierSetup=w.setup.id!==state.selected.scannedBomSource?.setup?.id;
+    const rows=w.rows.map(r=>'<tr><th scope="row"><strong>'+r.position+'</strong><small data-scan-row-status>'+(r.reviewed?'Reviewed':'Needs Review')+'</small><button type="button" '+disabled+' data-technical-review-action="scan-sheet-row-review" data-scan-position="'+r.position+'" aria-label="'+(r.reviewed?'Edit':'Accept')+' transcription row '+r.position+'" title="Accept means this row was transcribed correctly from the scanned customer BOM.">'+(r.reviewed?'Edit':'Accept')+'</button><details class="scan-row-details"><summary>Details</summary><div><label>Row Type<select '+(state.saving||r.reviewed?'disabled':'')+' aria-label="Position '+r.position+' Row Type" data-scan-position="'+r.position+'" data-scan-row-type>'+Object.entries(scanRowTypes).map(([key,label])=>'<option value="'+key+'" '+(r.rowType===key?'selected':'')+'>'+label+'</option>').join('')+'</select></label><label>Source note<input '+(state.saving||r.reviewed?'disabled':'')+' aria-label="Position '+r.position+' Source note" data-scan-position="'+r.position+'" data-scan-note maxlength="2000" value="'+escapeHtml(r.sourceNote)+'"></label></div></details></th>'+
+      columns.map(c=>{const cell=r.cells[c.field],pending=!r.reviewed&&!['CORRECTED','SOURCE_POSITION'].includes(cell.status);return '<td><input readonly '+disabled+' class="'+(r.reviewed?'scan-cell-locked':pending?'scan-cell-uncertain':'')+'" aria-label="Position '+r.position+' '+escapeHtml(scannedFields[c.field]||c.header)+'" data-scan-position="'+r.position+'" data-scan-field="'+c.field+'" maxlength="1000" value="'+escapeHtml(cell.value)+'" placeholder="Not read" title="'+escapeHtml(r.reviewed?'Reviewed transcription — use Edit to unlock this row':pending?'Needs Review — compare with the source':cell.status==='SOURCE_POSITION'?'Source position verified from the scan; text remains editable':'Reviewer correction')+'"></td>';}).join('')+'</tr>').join('');
+    return '<section class="scan-review"><header><h2>Scanned BOM Review</h2><p class="scan-review-instruction">Copy exactly as written. Fix anything that was not transcribed correctly.</p><p class="scan-review-context">'+escapeHtml(w.intakeId)+' · Pages '+w.setup.startPage+'–'+w.setup.endPage+' · '+w.rows.length+' rows</p></header>'+
+      '<div class="scan-review-toolbar"><button type="button" class="technical-review-primary" data-technical-review-action="scan-sheet-save" '+disabled+'>Save Review</button><button type="button" data-technical-review-action="scan-sheet-back" '+disabled+'>Back</button><button type="button" class="scan-reset-widths" data-technical-review-action="scan-sheet-reset-widths">Reset Widths</button>'+
+      (earlierSetup?'<details class="scan-earlier-setup"><summary>Earlier setup ⓘ</summary><p>This worksheet uses its original saved mapping and source.</p></details>':'')+
+      '<span class="scan-candidate-toolbar" data-scan-candidate-toolbar>'+scannedCandidateToolbar()+'</span><span role="status" data-scan-sheet-save-state>'+(state.scanSheetDirty?'Unsaved changes':'Saved by '+escapeHtml(w.savedBy)+' · '+escapeHtml(formatDateTime(w.savedAtUtc)))+'</span></div>'+
+      '<div class="scan-leave-prompt" data-scan-leave-prompt role="group" aria-label="Unsaved worksheet changes" hidden><p>You have unsaved worksheet changes.</p><button type="button" class="technical-review-primary" data-technical-review-action="scan-sheet-leave-save">Save &amp; Leave</button> <button type="button" data-technical-review-action="scan-sheet-leave-discard">Leave Without Saving</button> <button type="button" data-technical-review-action="scan-sheet-leave-cancel">Cancel</button></div>'+
+      (state.messageState==='error'?packageMessage():'')+
+      '<div class="scan-review-layout"><div class="scan-review-table-scroll" tabindex="0" aria-label="Editable scanned BOM worksheet"><table class="scan-review-table" style="width:'+tableWidth+'px">'+colgroup+'<thead><tr><th scope="col">Source</th>'+columns.map(c=>scanColumnHeader(c.field,scannedFields[c.field]||c.header)).join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<aside class="scan-review-source" tabindex="0" aria-label="Source viewer" title="Click viewer to activate. Ctrl+wheel zooms; Shift+wheel pans horizontally."><span class="scan-source-active-label" data-scan-source-active hidden>Source Viewer Active</span><h3 data-scan-sheet-page-label>Source · Page '+state.scanSheetPage+'</h3><div>'+Array.from({length:w.setup.endPage-w.setup.startPage+1},(_,i)=>'<button type="button" data-technical-review-action="scan-sheet-source" data-page="'+(w.setup.startPage+i)+'">Page '+(w.setup.startPage+i)+'</button>').join(' ')+' <label>Zoom <select data-scan-sheet-zoom="true">'+Array.from({length:19},(_,i)=>'<option>'+(100+i*50)+'</option>').join('')+'</select>%</label></div><p class="scan-review-help" data-scan-source-location role="status">Select a worksheet cell to view its source.</p><div class="scan-review-source-scroll"><div data-scan-source-canvas><img data-scan-sheet-image alt="Source page '+state.scanSheetPage+'" src="'+scanSheetBase()+'/pages/'+state.scanSheetPage+'"><span data-scan-source-outline hidden></span></div></div><a data-scan-sheet-pdf target="_blank" rel="noopener" href="'+scanSheetBase()+'#page='+state.scanSheetPage+'">Open Page '+state.scanSheetPage+' in a separate tab</a></aside></div></section>';
+  }
+  function scannedMainBom() {
+    const record=state.selected?.record;
+    const id=state.packageDraft ? state.packageDraft.governingBomDocumentId : record?.technicalReview?.technicalPackage?.governingBomDocumentId;
+    const file=record?.technicalFiles?.find(f=>f.documentId===id);
+    const source=state.selected?.scannedBomSource;
+    return file?.readability?.status==='IMAGE_ONLY' || (source?.documentId===id && source?.readability?.status==='IMAGE_ONLY');
+  }
+  function scannedSetupPrompt(issue) {
+    const source=state.selected?.scannedBomSource, setup=source?.setup;
+    const selectedId=state.packageDraft ? state.packageDraft.governingBomDocumentId : state.selected?.record?.technicalReview?.technicalPackage?.governingBomDocumentId;
+    const ready=setup && !source.needsConfirmation && source.documentId===selectedId;
+    return '<section class="scanned-bom-notice"><h4>'+(ready?'Scanned BOM Setup Ready':'Scanned BOM — Setup Required')+'</h4><p>'+
+      (ready?'Pages '+setup.startPage+'–'+setup.endPage+' · '+setup.columns.filter(c=>c.field!=='IGNORE').length+' mapped columns':'This PDF is image-based. Identify the BOM table so DLE-OS can read it locally.')+'</p>'+
+      (source?.needsConfirmation?'<p>The source changed. Confirm the pages and columns again before using this setup.</p>':'')+
+      '<button type="button" class="technical-review-primary" data-technical-review-action="scan-open" '+(state.saving||addingDocuments||issue?'disabled':'')+'>'+(ready?'Review BOM Setup':'Set Up BOM Extraction')+'</button>'+
+      (ready?'<p><button type="button" class="technical-review-primary" data-technical-review-action="scan-sheet-open" '+(state.saving||addingDocuments||issue?'disabled':'')+'>'+(state.selected.record.technicalReview?.scannedBomReview?'Open Scanned BOM Review':'Read BOM')+'</button></p>':'')+'</section>';
+  }
+  async function openScannedSetup(savePackage) {
+    if(state.saving)return;
+    if(savePackage) { await saveUnifiedPackage(true,true); if(state.messageState==='error')return; }
+    state.saving=true;
+    try {
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId));
+      const source=state.selected.scannedBomSource;
+      if(source?.readability?.status!=='IMAGE_ONLY')throw new Error('Select and save a scanned Main BOM PDF first.');
+      const saved=source.setup;
+      state.scannedDraft={startPage:saved?.startPage||1,endPage:saved?.endPage||1,columns:saved?JSON.parse(JSON.stringify(saved.columns)):[{header:'',field:''}],page:1,zoom:100};
+      state.scannedSummary=false; state.step='scanned-setup';state.guided=true;state.message='';state.messageState='';
+    }catch(error){state.message=error.message;state.messageState='error';}
+    finally{state.saving=false;renderDetail();}
+  }
+  function scannedViewerUrl() {
+    const r=state.selected.record,d=state.scannedDraft;
+    return '/api/sim/rfq-intakes/'+encodeURIComponent(r.intakeId)+'/documents/'+encodeURIComponent(state.selected.scannedBomSource.documentId)+'#page='+d.page+'&zoom='+d.zoom;
+  }
+  function scannedPageUrl() { return scannedViewerUrl().split('#')[0]+'/pages/'+state.scannedDraft.page; }
+  function scannedSetupIssue() {
+    const d=state.scannedDraft, count=state.selected.scannedBomSource.readability.pageCount;
+    if(!Number.isInteger(d.startPage)||!Number.isInteger(d.endPage)||d.startPage<1||d.endPage<d.startPage||d.endPage>count)return 'Choose a valid start and end page.';
+    if(!d.columns.length || d.columns.some(c=>!c.header.trim()||!scannedFields[c.field]))return 'Give each column a drawing header and a meaning.';
+    const fields=d.columns.filter(c=>c.field!=='IGNORE').map(c=>c.field);
+    if(!fields.includes('CUSTOMER_PART_NUMBER')||!fields.includes('QUANTITY'))return 'Map Customer P/N and Qty before saving.';
+    if(new Set(fields).size!==fields.length)return 'Use each meaning only once, except Ignore.';
+    for(let i=1;i<=3;i++)if(fields.includes('MANUFACTURER_IDENTITY_'+i)&&(fields.includes('MANUFACTURER_'+i)||fields.includes('MANUFACTURER_PART_NUMBER_'+i)))return 'Choose combined or separate manufacturer columns for each source.';
+    return '';
+  }
+  function renderScannedSetup() {
+    const d=state.scannedDraft,source=state.selected.scannedBomSource, disabled=state.saving?'disabled':'';
+    const rows=d.columns.map((c,i)=>'<div class="scanned-column"><span>'+(i+1)+'</span><input aria-label="Drawing header '+(i+1)+'" data-scan-column="'+i+'" data-scan-value="header" maxlength="120" value="'+escapeHtml(c.header)+'" placeholder="Visible drawing header"><select aria-label="What does column '+(i+1)+' mean?" data-scan-column="'+i+'" data-scan-value="field"><option value="">Choose meaning</option>'+Object.entries(scannedFields).map(([key,label])=>'<option value="'+key+'" '+(c.field===key?'selected':'')+'>'+label+'</option>').join('')+'</select><button type="button" aria-label="Remove column '+(i+1)+'" data-technical-review-action="scan-remove" data-column="'+i+'">×</button></div>').join('');
+    const summary='<h3>BOM Setup Ready</h3><p>Pages: '+d.startPage+'–'+d.endPage+' · '+d.columns.filter(c=>c.field!=='IGNORE').length+' mapped columns</p><ol>'+d.columns.map(c=>'<li>'+escapeHtml(c.header)+' → '+escapeHtml(scannedFields[c.field])+'</li>').join('')+'</ol><p>This saves the pages and columns. Next, use Read BOM to open the editable review worksheet.</p><button type="button" class="technical-review-primary" data-technical-review-action="scan-save" '+disabled+'>Save BOM Setup</button> <button type="button" data-technical-review-action="scan-edit" '+disabled+'>Edit setup</button>';
+    return '<section class="scanned-setup"><h2>Set Up BOM Extraction</h2><div class="scanned-setup-layout"><div class="scanned-viewer"><label>View page <input type="number" data-scan-prop="page" min="1" max="'+source.readability.pageCount+'" value="'+d.page+'"></label><span> of '+source.readability.pageCount+'</span> <label>Zoom <select data-scan-prop="zoom">'+[75,100,125,150,200].map(z=>'<option '+(z===d.zoom?'selected':'')+' value="'+z+'">'+z+'%</option>').join('')+'</select></label><div class="scanned-page-scroll"><img alt="Scanned Main BOM PDF page '+d.page+'" src="'+scannedPageUrl()+'" style="width:'+d.zoom+'%"></div><a target="_blank" rel="noopener" href="'+scannedViewerUrl()+'">Open PDF in a separate tab</a></div><div class="scanned-panel"><fieldset '+disabled+'>'+
+      (state.scannedSummary?summary:'<h3>1. Which pages contain the BOM?</h3><label>Start page <input type="number" data-scan-prop="startPage" min="1" max="'+source.readability.pageCount+'" value="'+d.startPage+'"></label><label>End page (same page if no continuation) <input type="number" data-scan-prop="endPage" min="1" max="'+source.readability.pageCount+'" value="'+d.endPage+'"></label><h3>2. Tell DLE-OS what each BOM column means.</h3><p>Add columns from left to right. Repeated headers are allowed. Use Combined MFG identity when manufacturer and P/N share a column.</p>'+rows+'<button type="button" data-technical-review-action="scan-add" '+(d.columns.length>=32?'disabled':'')+'>+ Add column</button><p><button type="button" class="technical-review-primary" data-technical-review-action="scan-review">Review Setup</button></p>')+
+      '</fieldset>'+packageMessage()+'<button type="button" data-technical-review-action="scan-back" '+disabled+'>Back to Technical Package Review</button></div></div></section>';
+  }
+  function updateScannedSetup(event) {
+    if(state.step!=='scanned-setup'||state.saving||!state.scannedDraft)return;
+    const t=event.target,d=state.scannedDraft;
+    if(t.dataset.scanProp) {
+      const prop=t.dataset.scanProp;
+      if(!['startPage','endPage','page','zoom'].includes(prop))return;
+      d[prop]=Number(t.value);
+      if(['page','zoom'].includes(prop)&&d.page>=1&&d.page<=state.selected.scannedBomSource.readability.pageCount) {
+        const image=mount?.querySelector('.scanned-viewer img');if(image){if(prop==='page')image.src=scannedPageUrl();image.style.width=d.zoom+'%';}
+      }
+    }
+    if(t.dataset.scanColumn!==undefined&&['header','field'].includes(t.dataset.scanValue)) {
+      const c=d.columns[Number(t.dataset.scanColumn)];if(c)c[t.dataset.scanValue]=t.value;
+    }
+  }
+  async function scannedSetupAction(action,button) {
+    if(state.saving)return;
+    if(action==='scan-open')return openScannedSetup(!!state.selected.record.technicalReview?.workflow);
+    if(action==='scan-back'){state.scannedDraft=null;enterPackage();return;}
+    const d=state.scannedDraft;if(!d)return;
+    state.message='';state.messageState='';
+    if(action==='scan-add'&&d.columns.length<32)d.columns.push({header:'',field:''});
+    if(action==='scan-remove')d.columns.splice(Number(button.dataset.column),1);
+    if(action==='scan-edit')state.scannedSummary=false;
+    if(action==='scan-review'||action==='scan-save') {
+      const issue=scannedSetupIssue();if(issue){state.message=issue;state.messageState='error';renderDetail();return;}
+      state.scannedSummary=true;
+    }
+    if(action==='scan-save') {
+      state.saving=true;renderDetail();
+      try {
+        const source=state.selected.scannedBomSource;
+        state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/scanned-bom-setup',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({documentId:source.documentId,sha256:source.sha256,expectedReviewToken:state.selected.packageReviewToken,expectedSetupId:source.setup?.id||null,startPage:d.startPage,endPage:d.endPage,columns:d.columns})});
+        state.scannedDraft=null;state.packageDraft=null;state.step='inventory';state.materials=false;state.message='Scanned BOM Setup Ready';
+      }catch(error){state.message=error.message;state.messageState='error';}
+      finally{state.saving=false;}
+    }
+    renderDetail();
   }
   let releaseReadiness = null;
   function renderPackageRelease() {
@@ -468,7 +993,7 @@
       const bom={NO_BOM_ROLE:'Not for Materials'};
       if(bomBearing(d))bom.SUPPORTING_BOM='Supporting BOM';
       if(!d.rowAssociation&&isBomSource(d)&&d.applicability==='PARENT_ASSEMBLY')bom.GOVERNING_BOM='Main BOM';
-      const context='<details class="package-row-context"><summary>Details</summary><small>Source: '+(f?.reviewOrigin?'Technical Review':'Intake')+' · '+escapeHtml(d.documentId)+'</small><small>Intake identified: '+escapeHtml(identityLabels[f?.initialIdentification?.type]||'Not provided')+'</small>'+
+      const context=(f?.readability?'<small>Document Readability: '+escapeHtml(({IMAGE_ONLY:'Scanned / image-only',TEXT_READABLE:'Text-readable',MIXED:'Mixed',UNKNOWN:'Unable to determine'})[f.readability.status]||'Unable to determine')+'</small>':'')+'<details class="package-row-context"><summary>Details</summary><small>Source: '+(f?.reviewOrigin?'Technical Review':'Intake')+' · '+escapeHtml(d.documentId)+'</small><small>Intake identified: '+escapeHtml(identityLabels[f?.initialIdentification?.type]||'Not provided')+'</small>'+
         (d.identityReview?'<small>'+(d.identityReview.reviewedBy?escapeHtml(d.identityReview.reviewedBy)+' · '+escapeHtml(formatDateTime(d.identityReview.reviewedAtUtc)):'Unsaved review')+'</small>':'')+
         (d.rowAssociation?'<small>Scope inherited from BOM row '+(d.rowAssociation.rowIndex+1)+' · '+escapeHtml(d.rowAssociation.customerBomPartNumber)+'</small>':'')+
         (d.applicability==='SUBASSEMBLY'?'<label>Customer / BOM P/N<input data-package-field="subassemblyPartNumber" maxlength="120" value="'+escapeHtml(d.subassemblyPartNumber)+'" '+(d.rowAssociation||locked?'readonly':'')+' '+disabled+'></label><label>DLE proposed subassembly identity<input data-package-field="proposedSubassemblyIdentity" maxlength="120" value="'+escapeHtml(d.proposedSubassemblyIdentity)+'" '+(d.rowAssociation||locked?'readonly':'')+' '+disabled+'></label>':'')+
@@ -486,19 +1011,20 @@
       '<fieldset class="package-completeness" '+disabled+'><legend>Is the technical package complete enough to proceed, including the documents Production needs?</legend><label><input name="packageComplete" type="radio" value="yes" '+(answers.complete==='yes'?'checked':'')+'> Yes</label><label><input name="packageComplete" type="radio" value="no" '+(answers.complete==='no'?'checked':'')+'> No</label>'+
       (answers.complete==='no'?'<label class="package-missing">What is missing?<textarea id="packageMissing" maxlength="1000">'+escapeHtml(answers.missing)+'</textarea></label><button class="technical-review-primary" data-technical-review-action="hold-package" '+(state.saving||addingDocuments?'disabled':'')+'>Place On Hold</button>':answers.complete==='yes'?(issue?'<p role="alert">'+escapeHtml(issue)+'</p>':'')+(unsupported?'<p role="note">These document roles can be saved. Candidate BOM extraction currently requires the Main BOM to be embedded in a Main Assembly PDF drawing; extraction from a standalone XLS Main BOM is not supported.</p>':'')+packageBuildAction(unsupported, issue):'')+'</fieldset><div id="technicalReviewAnalysisProgress">'+renderAnalysisProgress()+'</div>'+renderPackageRelease()+packageMessage()+'<button class="technical-review-back" data-technical-review-action="history-back">Back to Technical Review</button></section>';
   }
-  async function saveUnifiedPackage(complete) {
+  async function saveUnifiedPackage(complete, setupOnly = false) {
     if(state.saving || packageCandidateState().active || (complete&&unifiedPackageIssue()))return;
     const hadCandidate=!!state.selected.record.technicalReview.candidateBom;
     const p=unifiedPackageDraft(), answers=packageAnswers(), canBuild=packageCanBuild();
     state.saving=true;state.message='';state.messageState='';renderDetail();
     try {
       state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/package-review',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:'UNIFIED_PACKAGE_REVIEW_V2',expectedReviewToken:state.selected.packageReviewToken,documents:p.documents,governingBomDocumentId:p.governingBomDocumentId,complete,missing:answers.missing})});
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId));
       state.packageDraft=null;state.packageAnswers=null;
       state.message=complete?'Technical package saved.':'On Hold — missing information saved.';
       await refreshQueueModel();
     } catch(error) {state.message=error.message;state.messageState='error';}
     finally {state.saving=false;renderDetail();}
-    if(complete&&canBuild&&state.messageState!=='error') {
+    if(complete&&canBuild&&!setupOnly&&!scannedMainBom()&&state.messageState!=='error') {
       if(!hadCandidate && !state.selected.record.technicalReview.candidateBom) await buildCandidate();
     }
   }
@@ -634,6 +1160,9 @@
     if (entry) { mount?.classList.remove("technical-review-guided"); host.innerHTML = renderEntryConfirmation(record, canDisposition); return; }
     if (completedReview(record)) { host.innerHTML = state.step === 'submitted' ? renderSubmittedReview(record) : renderCompletedReview(record); return; }
     mount?.classList.toggle("technical-review-guided", state.guided);
+    if (state.step === 'scanned-setup') { host.innerHTML = renderScannedSetup(); return; }
+    scanWorkbenchObserver?.disconnect();
+    if (state.step === 'scanned-review') { host.innerHTML = renderScannedWorksheet(); watchScanWorkbench(); return; }
     if (state.step === 'accepted-bom') { host.innerHTML = renderAcceptedBom(record); return; }
     host.innerHTML = '<div class="technical-review-context"><div><p class="technical-review-eyebrow">RFQ Review · ' + escapeHtml(record.intakeId) + '</p>' +
       '<h2 id="technicalReviewDetailTitle" tabindex="-1">' + escapeHtml(record.customer?.customerName || "Customer") + '</h2>' +
@@ -721,6 +1250,8 @@
     try {
       state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/workflow', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if (action === 'SUFFICIENT' && !state.selected.record.technicalReview.assemblyHistory) state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId) + '/assembly-history', {method:'POST'});
+      // Workflow responses omit verified scanned-source context. Resume from the persisted full review.
+      state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId));
       await refreshQueueModel();
       if (action === 'COMPLETE') { state.guided = false; state.step = 'submitted'; renderDetail(); } else resumeWorkflow();
     } catch (error) { state.message = error.message; state.messageState = 'error'; if(action === 'COMPLETE') { state.step = 'inventory'; if(releaseReadiness)releaseReadiness={...releaseReadiness,ready:false,message:error.message}; } }
@@ -844,12 +1375,13 @@
       content += '</div>';
       content += '<button class="technical-review-primary" data-technical-review-action="coverage">Continue to Subassembly Coverage</button><p class="technical-review-source">Synthetic SIM BOM comparison · uploaded file contents are not parsed.</p><p class="technical-review-inline-note">Materials Definition saved. Continue to check subassembly coverage. The RFQ remains active and is not qualified.</p>';
     } else if (!state.saving && state.messageState === 'error') content = '<button type="button" class="technical-review-secondary" data-technical-review-action="materials">Retry materials review</button>';
-    const candidateAction = '<p><button class="technical-review-primary" data-technical-review-action="candidate" ' + (state.saving ? 'disabled' : '') + '>' + (record.technicalReview?.candidateBom ? 'Resume Candidate BOM — Pilot' : 'Build Candidate BOM') + '</button></p><p>Extract up to 10 rows from the staged governing PDF, page 2. Candidate only; human review required.</p>';
+    const candidateAction = scannedMainBom() ? scannedSetupPrompt() : '<p><button class="technical-review-primary" data-technical-review-action="candidate" ' + (state.saving ? 'disabled' : '') + '>' + (record.technicalReview?.candidateBom ? 'Resume Candidate BOM — Pilot' : 'Build Candidate BOM') + '</button></p><p>Extract up to 10 rows from the staged governing PDF, page 2. Candidate only; human review required.</p>';
     return '<section class="technical-review-question" aria-labelledby="technicalReviewMaterials"><div class="technical-review-question-progress">History ✓ → Technical Package Review ✓ → BOM Review → Subassemblies</div><h3 id="technicalReviewMaterials">Let’s review the BOM ' + escapeHtml(record.customer?.customerName) + ' provided for this Rev ' + escapeHtml(assembly.revision) + ' request.</h3>' + candidateAction + content +
       '<p class="technical-review-message" data-state="' + escapeHtml(state.messageState) + '" role="status">' + escapeHtml(state.message) + '</p><button type="button" class="technical-review-back" data-technical-review-action="governing-back" ' + (state.saving ? 'disabled' : '') + '>← Back to Technical Package Review</button></section>';
   }
 
   async function buildCandidate() {
+    if (scannedMainBom()) { await openScannedSetup(false); return; }
     if (state.saving || ['QUEUED','RUNNING','VALIDATING'].includes(state.analysisJob?.status) || (state.selected.record.technicalReview?.workflow && state.selected.record.technicalReview.candidateBom)) return;
     const intakeId = state.selected.record.intakeId;
     state.saving = true; state.message = 'Preparing analysis…'; state.messageState = ''; renderDetail();
@@ -874,24 +1406,32 @@
     return { active, expired, label: expired ? 'Analysis deadline reached' : labels[job.status] || 'Analysis status unavailable',
       elapsed: String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0') };
   }
+  function renderCandidateCard() {
+    const c=packageCandidateState(), scanned=scannedMainBom();
+    const scan=state.selected?.scannedCandidate;
+    const building=scanned?!!state.scanCandidateBuilding:c.active;
+    const stale=scanned?scan?.status==='NEEDS_REBUILD':c.stale;
+    const ready=scanned?scan?.status==='READY'&&c.ready:c.ready;
+    const accepted=state.selected.record.technicalReview.materialsReviewStatus==='QUALIFIED';
+    const enabled=ready&&!building&&!stale&&!c.dirty&&!state.saving&&!accepted;
+    const label=building?'Building Candidate BOM…':stale?'Candidate BOM Needs Rebuild':ready?'Candidate BOM Ready':'Candidate BOM Not Ready';
+    let detail=stale?(scanned?'Open Scanned BOM Review to rebuild from the saved transcription.':'The technical package has changed.'):
+      ready&&c.dirty?'Save and accept the package changes before reviewing Candidate BOM.':accepted?'BOM Review is complete. The accepted BOM remains available below.':'';
+    if(!building&&state.analysisJob&&['FAILED','TIMED_OUT','CANCELLED'].includes(state.analysisJob.status)&&!ready&&!scanned)detail=state.analysisJob.message||'The build did not complete. Try again.';
+    const retry=!scanned&&!building&&!ready&&['FAILED','TIMED_OUT','CANCELLED'].includes(state.analysisJob?.status)?'<button type="button" class="technical-review-secondary" data-technical-review-action="analysis-retry" '+(state.saving?'disabled':'')+'>Retry analysis</button>':'';
+    return '<section class="scanned-bom-notice candidate-bom-card" aria-labelledby="candidateBomCardTitle"><h4 id="candidateBomCardTitle">Candidate BOM</h4><p role="status">'+label+'</p>'+
+      (detail?'<p>'+escapeHtml(detail)+'</p>':'')+'<button type="button" class="technical-review-primary" data-technical-review-action="candidate" '+(enabled?'':'disabled')+'>Review Candidate BOM</button>'+retry+'</section>';
+  }
   function renderAnalysisProgress() {
+    if(state.step==='inventory'&&state.selected?.record?.technicalReview?.workflow)return renderCandidateCard();
+    if(scannedMainBom())return '';
     const job = state.analysisJob;
-    const packagePage = state.step === 'inventory' && !!state.selected?.record?.technicalReview?.workflow;
-    const active = job && ['QUEUED','RUNNING','VALIDATING'].includes(job.status);
-    if(packagePage) {
-      const c=packageCandidateState();
-      if(c.active)return '<button disabled>Building Candidate BOM…</button>';
-      if(c.ready && c.pendingReview)return '<p>Accept the document rows before reviewing the Candidate BOM.</p>';
-      if(c.ready && state.selected.record.technicalReview.materialsReviewStatus === 'QUALIFIED') return '';
-      if(c.ready)return c.dirty ? '<p>Save the package changes to check whether the Candidate BOM needs rebuilding.</p>' : '<p>Candidate BOM Ready</p><button type="button" class="technical-review-secondary" data-technical-review-action="candidate">Review Candidate BOM</button>';
-      if(c.stale)return '<p>Candidate BOM Needs Rebuild</p><p>The technical package has changed.</p>'+(job && ['FAILED','TIMED_OUT','CANCELLED'].includes(job.status)?'<p>'+escapeHtml(job.message||'Analysis did not complete. Try rebuilding.')+'</p>':'');
-    }
     if (!job) return '';
     const progress = analysisProgress(job);
     const running = progress.active && !progress.expired && !state.analysisError;
     const message = state.analysisError || (progress.expired ? 'The configured deadline has elapsed. Checking the final job status; analysis is not shown as still running.' : running ? 'Analysis is running in the background. You can leave this review and return later.' : job.message || 'Candidate only; human review is required.');
     const retry = ['FAILED', 'TIMED_OUT', 'CANCELLED', 'STALE'].includes(job.status);
-    return '<section class="technical-review-analysis-progress" aria-label="Analysis progress"><p><span class="analysis-activity ' + (running ? 'is-running' : '') + '" aria-hidden="true"></span><strong>' + escapeHtml(state.analysisError ? 'Analysis status unavailable' : packagePage && running ? 'Building Candidate BOM…' : progress.label) + '</strong> · <span aria-label="Elapsed time">' + progress.elapsed + '</span>' + (running ? ' <span class="analysis-running-label">Running</span>' : '') + '</p><p>' + escapeHtml(message) + '</p>' +
+    return '<section class="technical-review-analysis-progress" aria-label="Analysis progress"><p><span class="analysis-activity ' + (running ? 'is-running' : '') + '" aria-hidden="true"></span><strong>' + escapeHtml(state.analysisError ? 'Analysis status unavailable' : progress.label) + '</strong> · <span aria-label="Elapsed time">' + progress.elapsed + '</span>' + (running ? ' <span class="analysis-running-label">Running</span>' : '') + '</p><p>' + escapeHtml(message) + '</p>' +
       (retry ? '<button class="technical-review-secondary" data-technical-review-action="analysis-retry" ' + (state.saving ? 'disabled' : '') + '>Retry analysis</button>' : '') + '</section>';
   }
   function updateAnalysisProgress() {
@@ -1443,6 +1983,17 @@
   function formatDateTime(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? value || "—" : date.toLocaleString([], { dateStyle: "short", timeStyle: "short" }); }
   function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character])); }
 
+  window.addEventListener?.('beforeunload', event => {
+    if(state.scanSheetDirty||(state.scanEdit&&state.scanEdit.input.value!==state.scanEdit.before)){event.preventDefault();event.returnValue='';}
+  });
+  document.addEventListener('click', event => {
+    if(!state.scanSheetDirty||state.step!=='scanned-review')return;
+    const target=event.target;
+    if(target.closest?.('.scan-review')||!target.closest?.('a,button'))return;
+    event.preventDefault();event.stopImmediatePropagation();
+    const message=mount?.querySelector('[data-scan-sheet-save-state]');
+    if(message)message.textContent='Save Review before leaving this worksheet.';
+  },true);
   document.addEventListener("dle:workspace-navigation", event => {
     if (event.detail?.workspace?.id !== WORKSPACE_ID || !event.detail?.requestedState?.intakeId) return;
     void openReview(event.detail.requestedState.intakeId);

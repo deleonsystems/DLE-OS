@@ -8,9 +8,17 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.29" />
     <InternalsVisibleTo Include="SimAnalysis001" />
+    <InternalsVisibleTo Include="SimPdfReadability001" />
+    <InternalsVisibleTo Include="SimScannedBomSetup001" />
+    <InternalsVisibleTo Include="SimScannedBomReview001" />
+    <Content Include="../../../SRC/workspaces/technical-review/scanned-bom-layout.json" Link="scanned-bom-layout.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="sim_scanned_bom.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="sim_scanned_bom_ocr.ps1" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_quotation_pdf.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Quotation\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_candidate_bom.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="sim_pdf_readability.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="sim_pdf_page_preview.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_bom_enrichment.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Analysis\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

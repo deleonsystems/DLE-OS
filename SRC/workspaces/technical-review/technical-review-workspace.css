@@ -228,3 +228,134 @@
 @media(max-width:600px){.technical-review-workspace:has(.technical-review-entry-card){padding:16px 8px 28px}.technical-review-entry-card{padding:16px}.technical-review-entry-card .technical-review-intake-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.technical-review-entry-card h2{font-size:20px;overflow-wrap:anywhere}.technical-review-entry-actions>button{max-width:100%}}
 
 .accepted-bom-reference .candidate-table th:nth-child(8){width:10%}.accepted-bom-reference .candidate-table th:nth-child(4){width:23%}.accepted-row-details>summary{cursor:pointer;color:#bfdbfe}.accepted-row-details{font-size:13px;overflow-wrap:anywhere}.accepted-row-details h4{font-size:13px}.accepted-row-details details{margin-top:10px}
+.scanned-bom-notice { padding: 16px; margin: 12px 0; border: 1px solid #526b84; border-radius: 10px; background: #172536; }
+.scanned-setup-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(340px, 1fr); gap: 20px; align-items: start; }
+.scanned-viewer { position: sticky; top: 12px; }
+.scanned-page-scroll { display: block; overflow: auto; width: 100%; height: 72vh; margin: 12px 0; border: 1px solid #526b84; background: #fff; }
+.scanned-viewer input { width: 70px; }
+.scanned-panel fieldset { min-width: 0; border: 0; padding: 0; }
+.scanned-panel label { display: block; margin: 10px 0; }
+.scanned-panel input[type=number] { width: 80px; margin-left: 8px; }
+.scanned-column { display: grid; grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) 30px; gap: 6px; align-items: center; margin: 8px 0; }
+.scanned-column input, .scanned-column select { width: 100%; min-width: 0; box-sizing: border-box; padding: 8px 5px; }
+@media (max-width: 900px) { .scanned-setup-layout { grid-template-columns: 1fr; } .scanned-viewer { position: static; } .scanned-page-scroll { height: 55vh; } }
+
+.scanned-page-scroll img { display: block; max-width: none; height: auto; }
+/* Pre-Candidate scanned transcription: fixed source positions, editable text. */
+.scan-review { width:100%; min-width:0; }
+.scan-review h2 { margin:.3rem 0; }
+.scan-review-instruction { margin:.6rem 0; font-size:1.1rem; font-weight:600; line-height:1.5; color:#edf3fc; }
+.scan-review-context { margin:.4rem 0; font-size:.82rem; line-height:1.4; color:#afbdd0; }
+.scan-review-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; margin:1rem 0; }
+.scan-review-toolbar [data-scan-sheet-save-state], .scan-review-help { font-size:.85rem; color:#afbdd0; }
+.scan-review-layout { display:grid; grid-template-columns:minmax(0, 3fr) minmax(300px, 2fr); gap:1rem; align-items:start; }
+.scan-review-table-scroll { overflow:auto; max-height:65vh; border:1px solid #34475e; border-radius:8px; }
+.scan-review-table { border-collapse:separate; border-spacing:0; width:max-content; font-size:.82rem; }
+.scan-review-table td, .scan-review-table th { padding:3px; border-bottom:1px solid #2d4055; border-right:1px solid #2d4055; }
+.scan-review-table thead th { position:sticky; top:0; z-index:3; background:#172638; padding:9px 6px; text-align:left; }
+.scan-review-table tbody th { position:sticky; left:0; z-index:2; background:#172638; min-width:95px; }
+.scan-review-table thead th:first-child { left:0; z-index:4; }
+.scan-review-table tbody th small { display:block; font-size:.68rem; font-weight:400; color:#d9bd7b; }
+.scan-review-table tbody th button { display:block; font-size:.7rem; padding:2px 5px; margin:3px auto; }
+.scan-review-table input:not([type=checkbox]), .scan-review-table select { box-sizing:border-box; width:140px; min-height:32px; padding:5px; color:#edf3fc; background:#101c2c; border:1px solid transparent; border-radius:3px; }
+.scan-review-table input[data-scan-field=DESCRIPTION], .scan-review-table input[data-scan-note] { width:290px; }
+.scan-review-table input[data-scan-field=REFERENCE_DESIGNATORS] { width:170px; }
+.scan-review-table input[data-scan-field=FIND_NUMBER], .scan-review-table input[data-scan-field=QUANTITY], .scan-review-table input[data-scan-field=UNIT] { width:68px; }
+.scan-review-table input.scan-cell-uncertain { background:#302b24; border-bottom-color:#806a43; }
+.scan-review-table input::placeholder { color:#b9afa0; font-size:.72rem; }
+.scan-review-table input:focus, .scan-review-table select:focus { outline:2px solid #7dbafb; outline-offset:-1px; }
+.scan-review-source { background:#132032; border:1px solid #34475e; border-radius:8px; padding:10px; min-width:0; }
+.scan-review-source h3 { margin:0 0 .5rem; }
+.scan-review-source-scroll { overflow:auto; max-height:55vh; margin:.7rem 0; background:white; }
+.scan-review-source-scroll img { display:block; width:100%; max-width:none; }
+@media (max-width:1050px) { .scan-review-layout { grid-template-columns:minmax(0,1fr); } .scan-review-source-scroll { max-height:40vh; } }
+
+/* Expand only the scanned worksheet. */
+#home:has(.scan-review), .technical-review-workspace:has(.scan-review), .technical-review-question:has(.scan-review) { width:100%; max-width:none; min-width:0; box-sizing:border-box; }
+@media(min-width:1051px) {
+ body>main:has(.scan-review) { max-width:none; padding-inline:16px; }
+ .technical-review-workspace:has(.scan-review) { padding-inline:0; }
+ .scan-review-layout { grid-template-columns:minmax(0,7fr) minmax(320px,3fr); gap:12px; }
+}
+.scan-review-table input[data-scan-field=CUSTOMER_PART_NUMBER] { width:165px; }
+.scan-review-table select[data-scan-row-type] { width:112px; }
+.scan-review-source-scroll { height:55vh; }
+[data-scan-source-canvas] { position:relative; width:100%; }
+[data-scan-source-canvas] img { width:100%; height:auto; }
+[data-scan-source-outline] { position:absolute; box-sizing:border-box; border:0; outline:3px solid #171717; outline-offset:2px; background:rgba(230,159,0,.30); box-shadow:0 0 0 2px #ffbf32, 0 0 0 6px #fff; pointer-events:none; }
+.scan-review-table input.scan-cell-selected { outline:2px solid #7dbafb; outline-offset:-2px; box-shadow:inset 0 0 0 3px rgba(125,186,251,.18); }
+[data-scan-source-outline][hidden] { display:none; }
+[data-scan-source-location] { min-height:2.4em; margin:.6rem 0; }
+
+.scan-review-source-scroll { overflow-anchor:none; }
+.scan-review-table-scroll { scroll-padding:44px 0 0 104px; }
+
+.scan-review-table input.scan-cell-selected { outline:3px solid #ffbf32; outline-offset:-3px; box-shadow:inset 0 0 0 4px #171717; }
+.scan-leave-prompt { margin:12px 0; padding:14px; border:1px solid #64748b; border-left:4px solid #ffbf32; border-radius:8px; background:#172638; }
+.scan-leave-prompt[hidden] { display:none; }
+.scan-leave-prompt p { margin:0 0 10px; }
+
+.scan-review-table input[data-scan-field][readonly] { caret-color:transparent; cursor:cell; user-select:none; }
+.scan-review-table input.scan-cell-editing { caret-color:auto; cursor:text; outline:2px solid #fff; outline-offset:-2px; }
+
+/* Compact workbench: command bar and source stay available while the grid scrolls. */
+.scan-review > header { display:flex; flex-wrap:wrap; align-items:baseline; column-gap:18px; row-gap:3px; padding:0; }
+.scan-review > header h2 { margin:0; font-size:1.25rem; }
+.scan-review-instruction { margin:0; font-size:1rem; }
+.scan-review-context { margin:0; font-size:.76rem; }
+.scan-review-toolbar { position:sticky; top:var(--scan-app-header-height,0px); z-index:10; background:#101c2c; border-bottom:1px solid #34475e; margin:8px 0; padding:7px 8px; gap:8px; }
+.scan-review-toolbar button { padding:7px 12px; font-size:.85rem; min-height:34px; }
+.scan-review-toolbar [data-scan-sheet-save-state] { margin-left:auto; text-align:right; font-size:.76rem; }
+.scan-earlier-setup { position:relative; font-size:.76rem; color:#c6cbd3; }
+.scan-earlier-setup summary { cursor:pointer; }
+.scan-earlier-setup p { position:absolute; top:100%; left:0; width:240px; padding:12px; margin:8px 0; border:1px solid #64748b; border-radius:6px; background:#172638; box-shadow:0 4px 12px #0008; }
+.scan-review-source h3 { font-size:.95rem; }
+.scan-review-source button, .scan-review-source select { font-size:.75rem; padding:5px; }
+.scan-review-source > a { font-size:.76rem; }
+[data-scan-source-location] { min-height:1.3em; margin:5px 0; font-size:.76rem; }
+@media(min-width:1051px) {
+ body>main:has(.scan-review) { padding:8px 12px 12px; }
+ .technical-review-workspace:has(.scan-review) { padding:8px 0 0; }
+ .scan-review-layout { grid-template-columns:minmax(0,73fr) minmax(290px,27fr); gap:10px; }
+ .scan-review-table-scroll { height:var(--scan-work-height,72vh); max-height:none; box-sizing:border-box; }
+ .scan-review-source { position:sticky; top:calc(var(--scan-app-header-height,0px) + var(--scan-toolbar-height,48px) + 8px); height:var(--scan-work-height,72vh); box-sizing:border-box; display:flex; flex-direction:column; padding:8px; }
+ .scan-review-source-scroll { flex:1; min-height:0; height:auto; max-height:none; margin:6px 0; }
+ .scan-review-table tbody th { min-width:76px; }
+ .scan-review-table tbody th button { display:inline-block; margin:1px 0 1px 4px; }
+ .scan-review-table tbody th small { font-size:.62rem; line-height:1.2; }
+ .scan-review-table td, .scan-review-table th { padding:2px 3px; }
+}
+
+.scan-review .scan-review-table { table-layout:fixed; }
+.scan-review .scan-review-table td { overflow:hidden; }
+.scan-review .scan-review-table input:not([type=checkbox]), .scan-review .scan-review-table select { width:100%; min-width:0; max-width:none; }
+.scan-review-table thead th { padding-right:12px; overflow-wrap:anywhere; }
+.scan-column-resize { position:absolute; right:0; top:0; bottom:0; width:9px; cursor:col-resize; touch-action:none; user-select:none; z-index:5; }
+.scan-column-resize:hover, .scan-column-resize:focus-visible { background:#ffbf3280; outline:1px solid #ffbf32; }
+.scan-column-dragging, .scan-column-dragging * { cursor:col-resize!important; user-select:none!important; }
+.scan-review-toolbar .scan-reset-widths { font-size:.75rem; padding:5px 8px; background:transparent; color:#afbdd0; border:1px solid #34475e; }
+
+/* The desktop work area stays stationary; rows and columns scroll inside the grid. */
+@media(min-width:1051px) {
+ .scan-review-toolbar { position:relative; top:auto; }
+ .scan-review .scan-review-table-scroll { height:var(--scan-work-height,72vh); max-height:none; overflow:auto; overscroll-behavior:contain; }
+ .scan-review-source { position:relative; top:auto; height:var(--scan-work-height,72vh); }
+}
+
+.scan-review-table tbody th { text-align:left; }
+.scan-review-table tbody th strong { float:left; margin-right:6px; }
+.scan-review-table tbody th small { line-height:1.2; }
+.scan-review-table tbody th:has(.scan-row-details[open]) { z-index:8; }
+.scan-row-details { display:inline-block; font-size:.65rem; font-weight:400; margin-left:4px; }
+.scan-row-details summary { cursor:pointer; }
+.scan-row-details > div { position:absolute; left:100%; top:0; width:260px; padding:10px; background:#172638; border:1px solid #64748b; box-shadow:0 3px 10px #0008; }
+.scan-row-details label { display:block; margin:5px 0; }
+.scan-review-table input.scan-cell-locked { color:#cbd5e1; background:#152632; }
+
+.scan-review-source.scan-source-active { outline:4px solid #ffbf32; outline-offset:-2px; box-shadow:0 0 0 3px #171717; }
+.scan-source-active-label { color:#ffcf60; font-size:.7rem; font-weight:800; }
+.scan-source-active-label[hidden] { display:block; visibility:hidden; }
+.scan-review-source-scroll { overscroll-behavior:contain; }
+.scan-candidate-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:.8rem; }
+.scan-candidate-toolbar small { max-width:380px; color:#cbd5e1; }
+.candidate-bom-card .technical-review-primary:disabled { background:#475569; border-color:#64748b; color:#cbd5e1; opacity:1; cursor:not-allowed; }

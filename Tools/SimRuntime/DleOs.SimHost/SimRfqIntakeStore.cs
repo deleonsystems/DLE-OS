@@ -6,7 +6,8 @@ internal sealed record SimRfqIntakeDocument(
     string Type,
     long LastModified, string? DocumentId = null, string? BinaryStatus = null, string? DocumentReference = null, DateTimeOffset? StagedAtUtc = null,
     SimIntakeDocumentIdentification? InitialIdentification = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimReviewDocumentOrigin? ReviewOrigin = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimReviewDocumentOrigin? ReviewOrigin = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimPdfReadabilityResult? Readability = null);
 
 internal sealed record SimIntakeDocumentIdentification(string Type, string? OtherDescription = null,
     string? IdentifiedBy = null, DateTimeOffset? IdentifiedAtUtc = null);
@@ -133,7 +134,9 @@ internal sealed record SimTechnicalReviewResult(
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     string? ManufacturingReviewStatus = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    SimReviewWorkflow? Workflow = null);
+    SimReviewWorkflow? Workflow = null,
+    SimScannedBomSetup? ScannedBomSetup = null,
+    SimScannedBomReview? ScannedBomReview = null);
 
 internal sealed class SimRfqIntakeProblem : Exception
 {
@@ -200,7 +203,7 @@ internal sealed partial class SimRfqIntakeStore
                 if (file.DocumentId is not null) verified = await documents.Verify(correlationId, file, persona.DisplayName);
                 else if (file.BinaryStatus is not null || file.DocumentReference is not null || file.StagedAtUtc is not null)
                     throw SimRfqIntakeProblem.BadRequest("SIM_DOCUMENT_REFERENCE_INVALID", "Verified binary state requires a governed staged document.");
-                else verified = file;
+                else verified = file with { Readability = null };
                 // Preliminary intake context only. Classification remains owned by Technical Review.
                 verifiedFiles.Add(verified with { InitialIdentification = new(initialType,
                     initialType == "OTHER" ? identification?.OtherDescription?.Trim() : null,
@@ -347,6 +350,8 @@ internal sealed partial class SimRfqIntakeStore
             deletionEligibility = new { allowed = DeletionBlockReason(record) is null, reason = DeletionBlockReason(record) },
             manufacturingDrawingIds = ManufacturingDrawingIds(record),
             packageReviewToken = PackageReviewToken(record),
+            scannedBomSource = await ScannedBomSource(record),
+            scannedCandidate = ScanCandidateState(record),
             assemblyHistoryContext = record.TechnicalReview?.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record),
             record
         };
@@ -515,12 +520,14 @@ internal sealed partial class SimRfqIntakeStore
             if (file is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_BINARY_REQUIRED", "The governing PDF must have a verified SIM staged binary.");
             var bytes = await documents.Bytes(record.RequestCorrelationId, file.DocumentId!);
             RequireWorkflowMaterials(record);
+            if (request is null) await RequireTextBom(record);
             var candidate = review!.CandidateBom;
             if (candidate is not null && (candidate.GoverningDocumentId != file.DocumentId || candidate.GoverningSha256 != Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant()))
                 throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_CHANGED", "The governing source changed. Reconfirm the package before building a new candidate.");
             if (request is not null)
             {
                 if (candidate is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_REQUIRED", "Build the candidate before reviewing rows.");
+                RequireCurrentScanCandidate(record, candidate);
                 if ((review.BomAcceptances ?? []).Any(a => a.Candidate.Id == candidate.Id))
                     throw SimRfqIntakeProblem.Conflict("SIM_BOM_ACCEPTED", "This accepted BOM is read-only. Build a new candidate version before making changes.");
                 if (request.WholeRowApproval is not null)

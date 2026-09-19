@@ -19,5 +19,6 @@ console.log('PASS: package release hides before acceptance/during analysis/dirty
 
 state.selected.packageReviewToken='three';result={ready:true};context.renderPackageRelease();await new Promise(setImmediate);
 const card=context.renderPackageRelease();assert.match(card,/technical-review-release/);assert.match(card,/Version 2 · Accepted by Synthetic reviewer/);assert.match(card,/class="technical-review-secondary"[^>]*data-accepted-version="2">View Accepted BOM/);assert.doesNotMatch(card,/data-accepted-version="1"/);
-assert.match(source,/materialsReviewStatus === 'QUALIFIED'\) return ''/);
+assert.match(source,/const accepted=state.selected.record.technicalReview.materialsReviewStatus==='QUALIFIED'/);
+assert.match(source,/const enabled=.*!accepted/);
 console.log('PASS: release card contains current immutable BOM version, reviewer/date and styled secondary access; primary label uses existing COMPLETE action.');

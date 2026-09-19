@@ -40,7 +40,9 @@ internal sealed record SimCandidateRow(int Index, Dictionary<string,string> Extr
 internal sealed record SimCandidateBom(string Id, string Label, string GoverningDocumentId, string GoverningSha256,
     int Page, string Parser, bool Synthetic, DateTimeOffset ExtractedAtUtc, string RequestedBy,
     string[] SupportingDocumentIds, string SupportingComparison, SimCandidateRow[] Rows, DleCandidateAnalysis? Analysis = null,
-    string ContractVersion = "DLE_CANDIDATE_BOM_V1");
+    string ContractVersion = "DLE_CANDIDATE_BOM_V1",
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    SimReviewedScanSource? ReviewedScanSource = null);
 internal sealed record SimPrimarySelection(string? ProposalId, string? PartNumber, string? ManufacturerName, string ExpectedToken);
 internal sealed record SimCandidateReviewRequest(string CandidateId, int RowIndex, Dictionary<string,string>? Values,
     SimCandidateAlternateChange? AlternateChange = null, SimCandidateComponentChange? ComponentChange = null,
@@ -177,7 +179,9 @@ internal static partial class SimCandidateBomProvider
         var corrections = row.Corrections.Concat(Fields.Where(f => row.Values[f] != request.Values[f])
             .Select(f => new SimCandidateCorrection(f, row.Values[f], request.Values[f], persona.DisplayName, now))).ToArray();
         var rows = bom.Rows.ToArray();
-        rows[request.RowIndex] = row with { Values = new(request.Values), Confirmed = true, Reviewer = persona.DisplayName, ReviewedAtUtc = now, Corrections = corrections,
+        var reviewedValues = new Dictionary<string,string>(row.Values);
+        foreach (var field in request.Values) reviewedValues[field.Key] = field.Value;
+        rows[request.RowIndex] = row with { Values = reviewedValues, Confirmed = true, Reviewer = persona.DisplayName, ReviewedAtUtc = now, Corrections = corrections,
             ManufacturerIdentity = row.ManufacturerIdentity is { } correctedIdentity && Fields.Any(f => row.Values[f] != request.Values[f])
                 ? correctedIdentity with { Stale = true, Revision = correctedIdentity.Revision + 1, Uncertainty = "Governing row was edited. Rebuild to reconcile manufacturer identities against the source." } : row.ManufacturerIdentity };
         return bom with { Rows = rows };

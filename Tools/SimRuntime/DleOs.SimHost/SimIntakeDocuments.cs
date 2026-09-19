@@ -49,6 +49,7 @@ internal sealed partial class SimIntakeDocuments(string stateRoot)
             var type = extension == ".pdf" && bytes.AsSpan().StartsWith("%PDF-"u8) ? "application/pdf" : extension == ".xls" ? "application/vnd.ms-excel" :
                 extension == ".xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/octet-stream";
             var doc = new SimRfqIntakeDocument(name, bytes.Length, type, lastModified, id, "VERIFIED", $"sim-document:{draft}:{id}", DateTimeOffset.UtcNow);
+            if (extension == ".pdf") doc = doc with { Readability = await SimPdfReadability.Inspect(bytes) };
             var manifestPath = FilePath(draft, id, ".json");
             var manifest = new Manifest(owner, doc, hash);
             await File.WriteAllTextAsync(manifestPath, JsonSerializer.Serialize(manifest, json));

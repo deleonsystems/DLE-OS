@@ -1,0 +1,91 @@
+{
+  "sha256": "26423130598d77611b5aef4ace057cef889d452d152a73611887c76203c638db",
+  "extractionMethod": "LOCAL_WINDOWS_OCR_VERIFIED_LAYOUT_V1",
+  "width": 1836,
+  "height": 1188,
+  "fields": [
+    "FIND_NUMBER",
+    "CUSTOMER_PART_NUMBER",
+    "REFERENCE_DESIGNATORS",
+    "QUANTITY",
+    "UNIT",
+    "DESCRIPTION",
+    "MANUFACTURER_1",
+    "MANUFACTURER_PART_NUMBER_1",
+    "MANUFACTURER_2",
+    "MANUFACTURER_PART_NUMBER_2",
+    "MANUFACTURER_3",
+    "MANUFACTURER_PART_NUMBER_3"
+  ],
+  "pages": {
+    "3": {
+      "edges": [
+        85,
+        117,
+        201,
+        313,
+        374,
+        416,
+        761,
+        896,
+        923,
+        1085,
+        1245,
+        1406,
+        1567,
+        1727
+      ],
+      "top": 119,
+      "slope": -0.0036540803897685747,
+      "step": 19.83,
+      "first": 1,
+      "count": 48
+    },
+    "4": {
+      "edges": [
+        90,
+        121,
+        206,
+        318,
+        378,
+        422,
+        766,
+        900,
+        927,
+        1090,
+        1251,
+        1412,
+        1573,
+        1733
+      ],
+      "top": 117,
+      "slope": 0,
+      "step": 19.81,
+      "first": 49,
+      "count": 48
+    },
+    "5": {
+      "edges": [
+        92,
+        123,
+        208,
+        320,
+        380,
+        424,
+        768,
+        902,
+        929,
+        1091,
+        1253,
+        1414,
+        1575,
+        1735
+      ],
+      "top": 120,
+      "slope": 0,
+      "step": 19.85,
+      "first": 97,
+      "count": 10
+    }
+  }
+}

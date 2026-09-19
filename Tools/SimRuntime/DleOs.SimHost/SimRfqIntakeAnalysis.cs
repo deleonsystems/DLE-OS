@@ -61,6 +61,7 @@ internal sealed partial class SimRfqIntakeStore
             var record = dataset.Records.SingleOrDefault(r => r.IntakeId == intakeId && IsTechnicalReviewRecord(r))
                 ?? throw SimRfqIntakeProblem.NotFound("ANALYSIS_REVIEW_MISSING", "Review not found.");
             var sources = await AnalysisDocuments(record, DleAnalysisContract.SourceSelectionVersion);
+            await RequireTextBom(record);
             var route = DleAnalysisPolicy.Select(sources);
             var enriched = route == DleAnalysisPolicy.Local && sources.Any(s => s.Source.Profile?.DerivedAnalysisPurpose == "MANUFACTURER_ENRICHMENT");
             var instructionVersion = enriched ? DleAnalysisContract.EnrichedInstructionVersion : DleAnalysisContract.InstructionVersion;
