@@ -29,7 +29,7 @@ internal static class ScannedCandidateTests
         var result=built.GetProperty("record").Deserialize<SimRfqIntakeRecord>(options)!;
         var bom=result.TechnicalReview!.CandidateBom!;
         Check(built.GetProperty("scannedCandidate").GetProperty("status").GetString()=="READY","build ready");
-        Check(bom.Rows.Length==edits.Count(r=>r.RowType=="COMPONENT") && bom.Rows[0].Values["designators"]=="CORRECTED-U1" && bom.Rows[0].Values["unit"]=="EA","component-only mapping consumes corrected values and UoM");
+        Check(bom.Rows.Length==edits.Count(r=>r.RowType!="CONTINUATION") && bom.Rows[0].Values["designators"]=="CORRECTED-U1" && bom.Rows[0].Values["unit"]=="EA","positional mapping consumes corrected values and UoM");
         Check(bom.Rows.Single(r=>r.RowId!.EndsWith("-41")).ManufacturerIdentity!.Proposals.Length==3 && bom.Rows.All(r=>r.Alternates is null && !r.Confirmed),"three identities are proposals, no alternates or technical approvals inferred");
         Check(bom.ReviewedScanSource!.Worksheet.Rows.Length==106 && bom.ReviewedScanSource.Worksheet.Setup.Id==original.Setup.Id && bom.Rows[0].AnalysisFields!["designators"].Evidence.Page==3,"all excluded rows, original setup/hash/cell evidence retained");
         var before=await File.ReadAllTextAsync(dataPath);
@@ -51,6 +51,7 @@ internal static class ScannedCandidateTests
         var rebuilt=rebuiltEnvelope.GetProperty("record").Deserialize<SimRfqIntakeRecord>(options)!;
         Check(rebuilt.TechnicalReview!.CandidateBomVersions!.Length==1 && rebuilt.TechnicalReview.CandidateBom!.Rows[0].Values["description"]=="Updated after build","rebuild archives exactly one prior candidate and uses latest correction");
         var fresh=rebuilt.TechnicalReview!.CandidateBom!;
+        Check(fresh.Rows[0].Extracted["description"]=="Updated after build" && fresh.Rows[0].Values["description"]==fresh.Rows[0].Extracted["description"],"fresh rebuild initializes both descriptions from latest source");
         Check(fresh.Id!=bom.Id && fresh.Rows[0].ComponentType=="STANDARD_COTS" && fresh.Rows[0].ComponentTypeRevision==0 && fresh.Rows.All(r=>!r.Confirmed && r.Corrections.Length==0 && r.ManufacturerIdentity!.History.Length==0 && r.Alternates is null),"fresh build carries no previous candidate decisions");
         Check(fresh.Rows.Single(r=>r.RowId!.EndsWith("-27")).Values["designators"]==original.Rows[26].Cells["REFERENCE_DESIGNATORS"].Value && fresh.ReviewedScanSource!.Worksheet.Rows[27].RowType=="CONTINUATION","latest merged Find 27 value mapped; empty continuation retained only as evidence");
         Check(rebuiltEnvelope.GetProperty("scannedCandidate").GetProperty("status").GetString()=="READY","fresh candidate ready");

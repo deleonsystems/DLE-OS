@@ -1,14 +1,37 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+try
+{
 var repository = Path.GetFullPath(args[0]);
 var root = Path.Combine(Path.GetTempPath(), "dle-scan-review-test-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(Path.Combine(root, "data"));
 var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+if (args.Contains("--identity-browser")) {
+    var browserStore=new SimRfqIntakeStore(args[^1]);
+    try {
+        var input=JsonNode.Parse(Console.In.ReadToEnd())!;var id=(string)input["intakeId"]!;
+        object? response=(string?)input["action"] switch {
+            "review"=>await browserStore.CandidateBomAsync(id,new SimPersona("test","test","Browser Reviewer","ACTIVE",[],[],true,"SIM"),input["request"]!.Deserialize<SimCandidateReviewRequest>(options)),
+            "readiness"=>await browserStore.BomCompletionReadiness(id,input["request"]!.Deserialize<SimBomCompletionRequest>(options)!),
+            _=>await browserStore.ReadTechnicalReviewAsync(id)
+        };
+        Console.WriteLine(JsonSerializer.Serialize(response,options));
+    } catch(SimRfqIntakeProblem e){Console.WriteLine(JsonSerializer.Serialize(new {message=e.Message,code=e.Code},options));Environment.ExitCode=1;}
+    return;
+}
+if (args.Contains("--row-current-state")) { await CandidateCurrentStateTests.Run(repository, options); return; }
+if (args.Contains("--positions")) { await PositionCoverageTests.Run(repository, options, args[^1]); return; }
+if (args.Contains("--dnp")) { await DnpTests.Run(repository, options); return; }
+if (args.Contains("--customer-identity")) { await CustomerIdentityTests.Run(repository, options); return; }
+if (args.Contains("--approved-parts")) { await ApprovedPartManagerTests.Run(repository, options); return; }
+if (args.Contains("--progress")) { await CandidateProgressTests.Run(repository, options); return; }
+if (args.Contains("--inline-description")) { await InlineDescriptionTests.Run(repository, args[^1], options); return; }
 var dataset = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(repository, ".sim-state/data/rfq-intakes.json")))!;
 var recordNode = dataset["records"]!.AsArray().Single(n => (string?)n!["intakeId"] == "RFQI-SIM-0041")!.DeepClone();
 if (!args.Contains("--preserved") && !args.Contains("--candidate")) recordNode["technicalReview"]!.AsObject().Remove("scannedBomReview");
 // Candidate lifecycle qualification starts without derived history, regardless of the local scenario's progress.
+if (args.Contains("--candidate")) { recordNode["status"]="TECHNICAL_REVIEW_IN_PROGRESS"; recordNode["technicalReview"]!["workflow"]!["outputs"]=null; }
 if (args.Contains("--candidate"))
     foreach (var field in new[] { "candidateBom", "candidateBomVersions", "bomAcceptances", "materialsReviewStatus", "nextReviewPhase" })
         recordNode["technicalReview"]!.AsObject().Remove(field);
@@ -68,3 +91,6 @@ Check(reused.TechnicalReview!.ScannedBomReview!.Version == 2 && reused.Technical
 await Reject(async () => { await store.SubmitAnalysis(record.IntakeId,persona); }, "SCANNED_BOM_SETUP_REQUIRED");
 Check((await store.ScannedBomSource(textRecord))!.Readability.Status == "TEXT_READABLE", "Scenario 1 still selects normal text PDF path");
 Console.WriteLine("Disposable test state: " + root);
+
+}
+catch (Exception error) { Console.Error.WriteLine(error); Environment.ExitCode=1; }

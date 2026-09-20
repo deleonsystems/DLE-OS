@@ -23,12 +23,14 @@ internal static class SimCandidateRowReview
         var blockers = new List<string>();
         if (SimCandidateBomProvider.Fields.Any(f => !row.Values.TryGetValue(f, out var v) || v is null || v.Length > 2000) ||
             !int.TryParse(row.Values.GetValueOrDefault("lineNumber"), out var line) || line < 1 ||
-            !decimal.TryParse(row.Values.GetValueOrDefault("quantity"), NumberStyles.Number, CultureInfo.InvariantCulture, out var qty) || qty <= 0 ||
-            string.IsNullOrWhiteSpace(row.Values.GetValueOrDefault("partNumber")))
+            !SimCandidateBomProvider.ValidQuantity(row.Values.GetValueOrDefault("quantity"),row.ComponentType=="DNP") ||
+            (row.ComponentType!="DNP" && string.IsNullOrWhiteSpace(row.Values.GetValueOrDefault("partNumber"))))
             blockers.Add("Required BOM values are missing or invalid; correct them in details.");
         // A reviewed DLE build identity satisfies identity review for subassemblies only.
         // Keep the manufacturer evidence/stale flag intact; all other row and source guards still apply.
-        if (!HasConfirmedSubassemblyIdentity(row) && row.ManufacturerIdentity is { } m)
+        if (row.IdentityBasis == "CUSTOMER_PN" && !SimCandidateBomProvider.HasCustomerIdentity(row))
+            blockers.Add("Customer P/N identity is missing or changed; confirm it in Approved P/Ns.");
+        if (row.ComponentType!="DNP" && !HasConfirmedSubassemblyIdentity(row) && row.IdentityBasis != "CUSTOMER_PN" && row.ManufacturerIdentity is { } m)
         {
             if (m.Stale) blockers.Add("Manufacturer reconciliation is stale after a governing edit; rebuild/review the candidate.");
             if (m.Proposals.Any(p => m.Decision(p.Id) == "PROPOSED")) reasons.Add("Manufacturer identity proposals need review.");
@@ -41,6 +43,8 @@ internal static class SimCandidateRowReview
         }
         if ((row.Alternates ?? []).Any(a => a.RemovedAtUtc is null && a.ReviewStatus is not ("CONFIRMED" or "APPROVED" or "NOT_APPROVED")))
             blockers.Add("An alternate requires individual review in details.");
+        if(row.ComponentType=="DNP"&&!row.Confirmed)reasons.Add("DNP disposition needs explicit row Accept.");
+        if(row.WorkingState is not null) blockers.Add("Saved working changes need row Accept before completion.");
         var fieldsNeedReview = !row.Confirmed && (SimCandidateBomProvider.Fields.Any(f => !row.Comparison.TryGetValue(f, out var c) || c != "MATCH") ||
             (row.AnalysisFields?.Values.Any(f => HasUncertainty(f.Uncertainty)) ?? false));
         if (fieldsNeedReview) reasons.Add("Governing BOM fields have not been accepted as reviewed.");
@@ -53,7 +57,11 @@ internal static class SimCandidateRowReview
         var tokenData = new { row.Index, row.Values, row.Extracted, row.Comparison, row.AnalysisFields, row.Confirmed, row.Reviewer,
             row.ReviewedAtUtc, row.Corrections, row.ManufacturerIdentity, row.Alternates, row.AlternateRevision,
             row.ComponentType, row.ComponentTypeRevision, row.WholeRowHistory, row.AssemblyIdentity, row.AssemblyIdentityHistory };
-        var token = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Canonical(JsonSerializer.SerializeToNode(tokenData))!.ToJsonString()))).ToLowerInvariant();
+        var tokenNode=JsonSerializer.SerializeToNode(tokenData)!;
+        if(row.PrimaryIdentity is not null)tokenNode["PrimaryIdentity"]=JsonSerializer.SerializeToNode(row.PrimaryIdentity);
+        if(row.ComponentType=="DNP"&&!row.Confirmed)reasons.Add("DNP disposition needs explicit row Accept.");
+        if(row.WorkingState is not null)tokenNode["WorkingState"]=JsonSerializer.SerializeToNode(row.WorkingState);
+        var token = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Canonical(tokenNode)!.ToJsonString()))).ToLowerInvariant();
         return new(reasons.Count == 0, reasons.Count != 0 && blockers.Count == 0, reasons.Distinct().ToArray(), blockers.Distinct().ToArray(), token);
     }
     private static bool HasUncertainty(string? text) => !string.IsNullOrWhiteSpace(text) && !Regex.IsMatch(text.Trim(), "^none[.!]?$", RegexOptions.IgnoreCase);

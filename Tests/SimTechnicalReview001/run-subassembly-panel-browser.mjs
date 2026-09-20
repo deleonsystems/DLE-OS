@@ -1,0 +1,67 @@
+// Real store behind the browser; all writes are confined to a temporary copy.
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import http from 'node:http';
+import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
+import {createRequire} from 'node:module';
+const {chromium}=createRequire(import.meta.url)('playwright');
+const repository=process.cwd(), before=fs.readFileSync('.sim-state/data/rfq-intakes.json');
+const root=fs.mkdtempSync(path.join(os.tmpdir(),'dle-customer-browser-'));
+const data=JSON.parse(before.toString().replace(/^\uFEFF/,''));
+
+const record=structuredClone(data.records.find(r=>r.intakeId==='RFQI-SIM-0041'));
+record.status='TECHNICAL_REVIEW_IN_PROGRESS';record.technicalReview.workflow=null;record.technicalReview.bomAcceptances=[];
+const textRecord=structuredClone(data.records.find(r=>r.intakeId==='RFQI-SIM-0035'));textRecord.status='TECHNICAL_REVIEW_IN_PROGRESS';textRecord.technicalReview.workflow=null;textRecord.technicalReview.bomAcceptances=[];
+fs.cpSync(path.join(repository,'.sim-state/intake-documents',textRecord.requestCorrelationId),path.join(root,'intake-documents',textRecord.requestCorrelationId),{recursive:true});
+const startingRow=record.technicalReview.candidateBom.rows.find(r=>r.values.partNumber==='N4-243');startingRow.componentType='STANDARD_COTS';startingRow.confirmed=false;delete startingRow.assemblyIdentity;delete startingRow.primaryIdentity;delete startingRow.workingState;
+fs.mkdirSync(path.join(root,'data'));fs.writeFileSync(path.join(root,'data/rfq-intakes.json'),JSON.stringify({schema:data.schema,records:[record,textRecord]}));
+fs.cpSync(path.join(repository,'.sim-state/intake-documents',record.requestCorrelationId),path.join(root,'intake-documents',record.requestCorrelationId),{recursive:true});
+const dll=process.argv[2]||path.join(os.tmpdir(),'dle-dnp-build/SimScannedBomReview001.dll');
+const api=(action,request,intakeId=record.intakeId)=>{const r=spawnSync('dotnet',[dll,repository,'--identity-browser',root],{input:JSON.stringify({intakeId,action,request}),encoding:'utf8',maxBuffer:32*1024*1024});assert(!r.error,r.error?.message);assert(r.stdout,r.stderr);return {status:r.status===0?200:409,body:JSON.parse(r.stdout)};};
+const source=fs.readFileSync('SRC/workspaces/technical-review/technical-review-workspace.js','utf8').replace('  window.DleWorkspaces =','  window.identityTest={state,renderCandidate,renderDetail,renderAcceptedBom,bindInteractions,watchCandidateWorkbench,candidateProgressRows,candidateCompletionKey,setMount:x=>mount=x};\n  window.DleWorkspaces =');
+const shell=fs.readFileSync('DLE_Work_Center_v4.0.0.html','utf8');
+const styles=[...shell.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m=>m[1]).join('\n')+fs.readFileSync('SRC/workspaces/technical-review/technical-review-workspace.css','utf8');
+const html=`<!doctype html><style>${styles}</style><main><div id="home"><div data-workspace-mount="technical-review" class="technical-review-guided"><div class="technical-review-workspace"><div id="technicalReviewDetail"></div></div></div></div></main>`;
+const server=http.createServer(async(req,res)=>{if(!req.url.startsWith('/api/')){res.end(html);return;}let body='';for await(const chunk of req)body+=chunk;const response=api(req.url.endsWith('/bom-completion-readiness')?'readiness':req.method==='PUT'?'review':'read',body?JSON.parse(body):undefined,req.url.split('/')[4]);res.writeHead(response.status,{'Content-Type':'application/json'});res.end(JSON.stringify(response.body));});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
+try{
+ browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1440,height:950}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(`http://127.0.0.1:${server.address().port}`);await page.addScriptTag({content:source});
+ await page.evaluate(envelope=>{const t=window.identityTest;t.setMount(document.querySelector('[data-workspace-mount]'));t.bindInteractions();t.state.selected=envelope;t.state.step='candidate';t.state.candidateIndex=null;t.state.guided=true;t.renderDetail();},api('read').body);
+
+ const index=record.technicalReview.candidateBom.rows.findIndex(r=>r.values.partNumber==='N4-243');
+ const row=page.locator(`tr[data-worksheet-row="${index}"]`),type=row.locator('[data-worksheet-field=componentType]');
+ await row.locator('.candidate-options > summary').click();await row.getByRole('button',{name:'BOM Fields',exact:true}).click();
+ await page.locator('#candidate-lineNumber').fill('105');
+ await type.selectOption('SUBASSEMBLY');
+ await row.locator('.candidate-options > summary').click();await row.getByRole('button',{name:'Approved P/Ns',exact:true}).click();
+ const panel=page.locator('.approved-part-manager');
+ assert.equal(await panel.getByRole('textbox',{name:'Assembly P/N',exact:true}).inputValue(),'N4-243');
+ assert.equal(await panel.getByRole('button',{name:'Use Customer P/N'}).count(),0);
+ assert.equal(await panel.getByRole('button',{name:'Add Manufacturer P/N'}).count(),0);
+ await type.selectOption('STANDARD_COTS');assert.equal(await panel.getByRole('button',{name:'Use Customer P/N'}).count(),1);assert.equal(await panel.getByRole('textbox',{name:'Assembly P/N',exact:true}).count(),0);
+ await type.selectOption('DNP');assert.match(await page.locator('.candidate-row-inspector').innerText(),/No Approved P.N is required/);
+ await type.selectOption('SUBASSEMBLY');await panel.getByRole('button',{name:'Save changes',exact:true}).click();await page.waitForFunction(()=>!window.identityTest.state.saving);
+ assert.match(await row.locator('.candidate-status').innerText(),/Needs Review/);assert.equal(await row.locator('[data-approved-part]').innerText(),'N4-243');
+ let saved=api('read').body.record.technicalReview.candidateBom.rows[index];assert.equal(saved.componentType,'SUBASSEMBLY');assert.equal(saved.workingState.assemblyPartNumber,'N4-243');assert.equal(saved.reviewState.reviewed,false);assert.equal(saved.primaryIdentity,undefined);
+ await row.locator('[data-technical-review-action=worksheet-accept]').click();await page.waitForFunction(()=>!window.identityTest.state.saving);assert.match(await row.locator('.candidate-status').innerText(),/Accepted/);
+ saved=api('read').body.record.technicalReview.candidateBom.rows[index];assert.equal(saved.assemblyIdentity.partNumber,'N4-243');assert(saved.assemblyIdentity.reviewer);assert(saved.assemblyIdentity.atUtc);assert.equal(saved.identityBasis,'ASSEMBLY_PN');assert.equal(saved.workingState,undefined);
+ await page.evaluate(envelope=>{const t=window.identityTest;t.state.selected=envelope;t.state.rowReviewUi={};t.state.candidateIndex=null;t.renderDetail();},api('read').body);assert.equal(await row.locator('[data-approved-part]').innerText(),'N4-243');
+ await row.getByRole('button',{name:'Edit',exact:true}).click();await row.locator('.candidate-options > summary').click();await row.getByRole('button',{name:'Approved P/Ns',exact:true}).click();
+ await panel.getByRole('textbox',{name:'Assembly P/N',exact:true}).fill('N4-243-REVIEW');await panel.getByRole('button',{name:'Save changes',exact:true}).click();await page.waitForFunction(()=>!window.identityTest.state.saving);assert.match(await row.locator('.candidate-status').innerText(),/Needs Review/);assert.equal(await row.locator('[data-approved-part]').innerText(),'N4-243-REVIEW');
+ await row.locator('[data-technical-review-action=worksheet-accept]').click();await page.waitForFunction(()=>!window.identityTest.state.saving);assert.equal(api('read').body.record.technicalReview.candidateBom.rows[index].assemblyIdentity.partNumber,'N4-243-REVIEW');
+ console.log('PASS line 105: working Type drives panel; prefill; Save remains Needs Review; Accept/audit/reopen; edited Assembly P/N replaces prior value; switching away and DNP');
+ const envelope=api('read',undefined,textRecord.intakeId).body;
+ const subIndex=envelope.record.technicalReview.candidateBom.rows.findIndex(r=>r.componentType==='SUBASSEMBLY');
+ await page.evaluate(envelope=>{const t=window.identityTest;t.state.selected=envelope;t.state.rowReviewUi={};t.state.candidateIndex=null;t.renderDetail();},envelope);
+ const sub=page.locator(`tr[data-worksheet-row="${subIndex}"]`);if(await sub.getByRole('button',{name:'Edit',exact:true}).count())await sub.getByRole('button',{name:'Edit',exact:true}).click();
+ await sub.locator('.candidate-options > summary').click();await sub.getByRole('button',{name:'Approved P/Ns',exact:true}).click();
+ const number=await panel.getByRole('textbox',{name:'Assembly P/N',exact:true}).inputValue();assert(number);
+ await panel.getByRole('button',{name:'Save changes',exact:true}).click();await page.waitForFunction(()=>!window.identityTest.state.saving);assert.match(await sub.locator('.candidate-status').innerText(),/Needs Review/);
+ await sub.locator('[data-technical-review-action=worksheet-accept]').click();await page.waitForFunction(()=>!window.identityTest.state.saving);assert.match(await sub.locator('.candidate-status').innerText(),/Accepted/);
+ assert.equal(api('read',undefined,textRecord.intakeId).body.record.technicalReview.candidateBom.rows[subIndex].assemblyIdentity.partNumber,number);
+ console.log('PASS B11283-17 existing Subassembly panel / Save / Accept identity preservation');
+ assert.deepEqual(errors,[]);assert(fs.readFileSync('.sim-state/data/rfq-intakes.json').equals(before));console.log('PASS active SIM data unchanged');
+}finally{await browser?.close();server.close();}

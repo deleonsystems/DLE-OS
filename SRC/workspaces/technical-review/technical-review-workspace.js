@@ -12,6 +12,8 @@
   let reviewUploadRowTarget = null;
   let interactionsBound = false;
   let scanWorkbenchObserver = null;
+  let candidateWorkbenchObserver = null;
+  let showCandidateDnps = false;
 
   async function renderWorkspace() {
     mount = document.querySelector('[data-workspace-mount="' + WORKSPACE_ID + '"]');
@@ -57,6 +59,19 @@
     mount.addEventListener('pointercancel', endScanColumnResize);
     mount.addEventListener('lostpointercapture', endScanColumnResize);
     mount.addEventListener('keydown', scanColumnResizeKey);
+    mount.addEventListener('pointerdown', startCandidateColumnResize);
+    mount.addEventListener('pointermove', moveCandidateColumnResize);
+    mount.addEventListener('pointerup', endCandidateColumnResize);
+    mount.addEventListener('pointercancel', endCandidateColumnResize);
+    mount.addEventListener('lostpointercapture', endCandidateColumnResize);
+    mount.addEventListener('keydown', candidateColumnResizeKey);
+    mount.addEventListener('dblclick', beginCandidateDescriptionEdit);
+    mount.addEventListener('keydown', candidateDescriptionKey);
+    mount.addEventListener('copy', copyCandidatePartNumber);
+    mount.addEventListener('focusout', event=>{if(event.target.matches?.('[data-inline-description]')&&event.target.isConnected&&!event.target.dataset.finishing)candidateDescriptionKey({target:event.target,key:'Enter',type:'focusout',preventDefault(){},stopPropagation(){}});});
+    mount.addEventListener('click', selectCandidateCell);
+    mount.addEventListener('input',()=>window.queueMicrotask?.(updateCandidateProgressStatus));
+    mount.addEventListener('change',()=>window.queueMicrotask?.(updateCandidateProgressStatus));
     mount.addEventListener('keydown', event=>{
       if(event.key==='Escape' && state.scanLeavePrompt){event.preventDefault();setScanLeavePrompt(false);}
     });
@@ -67,10 +82,25 @@
       if (packageRow) state.documentIndex = Number(packageRow.dataset.packageRow);
       const actionButton = event.target.closest?.("[data-technical-review-action]");
       const action = actionButton?.dataset.technicalReviewAction;
+      if(state.step==='candidate'&&state.saving&&action)return;
+      if(action==='complete-bom'&&!candidateCompletionEnabled())return;
+      if(action==='assembly-pn-save'){const index=Number(actionButton.dataset.candidateRow),row=state.selected.record.technicalReview.candidateBom.rows[index];const ui=rowReviewUi(row);if((ui.componentType||row.componentType)!=='SUBASSEMBLY')return;ui.assemblyNumber=document.getElementById('assembly-panel-'+index)?.value??ui.assemblyNumber;if(!ui.assemblyNumber?.trim()){state.message='Enter the approved Assembly P/N.';state.messageState='error';renderDetail();return;}ui.editing=true;void saveCandidateProgress(false,index);return;}
+      if(action==='candidate-save-progress'){void saveCandidateProgress();return;}
+      if(action==='candidate-leave-cancel'){state.candidateLeaveIntent=null;renderDetail();return;}
+      if(action==='candidate-leave-discard'){const intent=state.candidateLeaveIntent;clearCandidateDrafts();state.candidateLeaveIntent=null;renderDetail();continueCandidateAction(intent);return;}
+      if(action==='candidate-leave-save'){void saveCandidateProgress(true);return;}
+      if(state.step==='candidate' && action && candidateProgressRows().length && (['back','governing-back','refresh','complete-bom','accepted-bom','candidate-detail'].includes(action) || (actionButton.dataset.candidateRow!==undefined&&Number(actionButton.dataset.candidateRow)!==state.candidateIndex&&state.candidateDraft))) {
+        state.candidateLeaveIntent={...actionButton.dataset};renderDetail();return;
+      }
+      if(action==='candidate-row-edit') {
+        const row=state.selected.record.technicalReview.candidateBom.rows[Number(actionButton.dataset.candidateRow)];
+        if(!state.saving&&!completedReview(state.selected.record)&&!state.acceptedVersion){rowReviewUi(row).editing=true;renderDetail();}return;
+      }
+      if (action === 'candidate-reset-widths') { candidateColumnWidths={}; saveCandidateColumnWidths(); applyCandidateColumnWidths(); return; }
       if (completedReview(state.selected?.record)) {
         if (action === 'rfq-back') { window.DleWorkspaceShell.navigate({workspaceId:'rfqs',requestedState:{intakeId:state.selected.record.intakeId}}); return; }
         if (action?.startsWith('view-')) { state.step = action.slice(5); state.candidateIndex = null; state.acceptedVersion = null; renderDetail(); return; }
-        if (action && !['back','refresh','accepted-bom','accepted-back','candidate-detail','worksheet-options'].includes(action)) return;
+        if (action && !['back','refresh','accepted-bom','accepted-back','candidate-detail','worksheet-options','candidate-panel-close'].includes(action)) return;
       }
       if (action?.startsWith('scan-sheet-')) { void scannedWorksheetAction(action, actionButton); return; }
       if (action?.startsWith('scan-')) { void scannedSetupAction(action, actionButton); return; }
@@ -121,12 +151,13 @@
       if (action === "candidate") {
         if(scannedMainBom()&&(state.step!=='inventory'||state.selected?.scannedCandidate?.status!=='READY'||packageCandidateState().dirty))return;
         state.acceptedVersion = null;
-        if (state.selected?.record?.technicalReview?.candidateBom) { state.message = ''; state.messageState = ''; state.candidateIndex = null; state.step = 'candidate'; state.materials = false; renderDetail(); }
+        if (state.selected?.record?.technicalReview?.candidateBom) void reopenCandidate();
         else void buildCandidate();
       }
       if (action === 'analysis-retry') void buildCandidate();
       if (action === 'candidate-detail' && !state.saving) {
         const index = Number(event.target.closest('[data-candidate-row]').dataset.candidateRow);
+        if(state.inlineDescriptionDirty&&state.candidateIndex===index){state.candidateInlineRow=index;renderDetail();return;}
         reviewUploads=[];reviewUploadRowTarget=null;addingDocuments=false; const row=state.selected.record.technicalReview.candidateBom?.rows[index];if(row)rowReviewUi(row).editing=false; state.candidateDraft = null; state.candidateIndex = state.candidateIndex === index ? null : index; renderDetail();
       }
       if (action === "candidate-from-source") void savePackage(false).then(() => { if (state.messageState !== 'error') return buildCandidate(); });
@@ -147,15 +178,26 @@
       if (action === "candidate-confirm") void confirmCandidate();
       if (action === 'mfg-confirm' || action === 'mfg-reject') void reviewManufacturer(actionButton.dataset.proposalId, action === 'mfg-confirm' ? 'CONFIRMED' : 'REJECTED');
       if (action === 'mfg-approve') void quickApproveManufacturer(Number(actionButton.dataset.candidateRow));
+      if(action?.startsWith('identity-basis-')){void identityBasisAction(action,actionButton);return;}
+      if(action?.startsWith('approved-pn-')){void approvedPartAction(action,actionButton);return;}
       if(action==='worksheet-reject'){void reviewManufacturer(actionButton.dataset.proposalId,'REJECTED',Number(actionButton.dataset.candidateRow));return;}
       if(action==='worksheet-accept'){void acceptWorksheetRow(Number(actionButton.dataset.candidateRow));return;}
+      if(action==='candidate-panel-close'&&!state.saving){state.rowOption='closed';if(!candidateProgressRows().length&&!reviewUploads.length&&!rowReviewUi(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]).alternateDraft)state.candidateIndex=null;renderDetail();return;}
       if(action==='worksheet-options'){
+        if(state.saving)return;
+        if(state.candidateIndex!=null&&state.candidateIndex!==Number(actionButton.dataset.candidateRow)&&(reviewUploads.length||rowReviewUi(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]).alternateDraft)){state.message='Save or cancel pending file or alternate changes before switching rows.';renderDetail();return;}
+        state.candidateInlineRow=null;
         if(state.candidateIndex!==Number(actionButton.dataset.candidateRow))state.candidateDraft=null;
         state.candidateIndex=Number(actionButton.dataset.candidateRow);state.rowOption=actionButton.dataset.panel;
         const review=state.selected.record.technicalReview;const row=(review.bomAcceptances?.find(a=>state.acceptedVersion?a.version===state.acceptedVersion:a.candidate.id===review.candidateBom?.id)?.candidate||review.candidateBom).rows[state.candidateIndex];
         if(state.rowOption==='edit')rowReviewUi(row).editing=true;
-        renderDetail();return;
+        renderDetail();
+        const selectedRow=mount?.querySelector?.('tr[data-worksheet-row="'+state.candidateIndex+'"]');
+        const viewport=mount?.querySelector?.('.candidate-table-scroll');
+        if(selectedRow&&viewport){const r=selectedRow.getBoundingClientRect(),v=viewport.getBoundingClientRect();if(r.top<v.top+40||r.bottom>v.bottom)viewport.scrollTop+=r.top-v.top-40;}
+        return;
       }
+      if(action==='alternate-draft-cancel'&&!state.saving){const ui=rowReviewUi(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]);delete ui.alternateDraft;ui.alternateChoice='';renderDetail();return;}
       if (action === 'alternate-approve') void saveCompactAlternate();
       if (action === 'alternate-not-approved') void saveCompactAlternate(false);
       if (action === 'primary-accept') void acceptPrimaryRow();
@@ -176,6 +218,13 @@
         const row=state.selected?.record?.technicalReview?.candidateBom?.rows[Number(event.target.dataset.worksheetRow)];
         if(row)rowReviewUi(row)[event.target.dataset.worksheetField]=event.target.value;
       }
+      if(event.target.dataset?.identityBasisField&&!state.saving&&state.candidateIndex!=null){const draft=rowReviewUi(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]).identityBasisDraft;if(draft){draft.partNumber=event.target.value;updateCandidateProgressStatus();}}
+      if(event.target.dataset?.approvedPartField&&!state.saving&&state.candidateIndex!=null) {
+        const row=state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex];
+        const draft=rowReviewUi(row).approvedPartDraft;if(draft){draft[event.target.dataset.approvedPartField]=event.target.value;updateCandidateProgressStatus();}
+      }
+      if(['primaryManual','primaryManufacturer','primaryAssembly'].includes(event.target.id)&&state.candidateIndex!=null&&!state.saving)rememberPrimaryInputs(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]);
+      if(['compactAlternateNumber','compactAlternateManufacturer','compactAlternateNote'].includes(event.target.id)&&state.candidateIndex!=null){const ui=rowReviewUi(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]);ui.alternateDraft={partNumber:document.getElementById('compactAlternateNumber').value,manufacturerName:document.getElementById('compactAlternateManufacturer').value,note:document.getElementById('compactAlternateNote').value};}
       if (event.target.id === 'packageMissing') { packageAnswers().missing = event.target.value; return; }
       if (updateReviewUpload(event.target)) return;
       if (event.target.id?.startsWith('candidate-') && state.candidateIndex != null && !state.saving) { const field=event.target.id.slice(10); if(candidateFields[field])state.candidateDraft={...(state.candidateDraft||state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex].values),[field]:event.target.value}; }
@@ -184,19 +233,27 @@
       if (!completedReview(state.selected?.record) && !state.saving && ['subassemblyPartNumber','proposedSubassemblyIdentity'].includes(event.target.dataset?.packageField)) packageDraft().documents[state.documentIndex || 0][event.target.dataset.packageField] = event.target.value;
     });
     mount.addEventListener('change', event => {
+      if(event.target.matches?.('[data-candidate-show-dnps]')) {
+        showCandidateDnps=event.target.checked;
+        mount.querySelectorAll('[data-candidate-dnp]').forEach(row=>{row.hidden=!showCandidateDnps;});
+        return;
+      }
       const packageRow=event.target.closest?.('[data-package-row]'); if(packageRow)state.documentIndex=Number(packageRow.dataset.packageRow);
       if (completedReview(state.selected?.record) || state.saving || !state.selected || state.step === 'accepted-bom') return;
       if (event.target.name === 'packageComplete') { packageAnswers().complete = event.target.value; renderDetail(); return; }
       if(event.target.dataset?.worksheetField){
         const index=Number(event.target.dataset.worksheetRow),row=state.selected.record.technicalReview.candidateBom.rows[index];
         const ui=rowReviewUi(row);ui[event.target.dataset.worksheetField]=event.target.value;
+        if(event.target.dataset.worksheetField==='primaryChoice')rememberCandidateDisplayChoice(row,event.target.value);
         if(state.candidateIndex===index && document.getElementById('candidate-partNumber'))state.candidateDraft=Object.fromEntries(Object.keys(candidateFields).map(k=>[k,(document.getElementById('candidate-'+k)?.value??state.candidateDraft?.[k]??row.values[k])]));
-        if(event.target.tagName==='SELECT')renderDetail();return;
+        if(event.target.tagName==='SELECT')renderDetail();
+        else {const choice=event.target.closest?.('.candidate-identity-choice');if(choice){choice.querySelector('[data-approved-part]').textContent=event.target.value||'Not resolved';choice.open=false;}}
+        return;
       }
       if(['primaryChoice','alternateChoice'].includes(event.target.id)) {
         const row=state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex];
         state.candidateDraft=Object.fromEntries(Object.keys(candidateFields).map(k=>[k,(document.getElementById('candidate-'+k)?.value??state.candidateDraft?.[k]??row.values[k])]));
-        rememberPrimaryInputs(row);rowReviewUi(row)[event.target.id]=event.target.value;renderDetail();return;
+        rememberPrimaryInputs(row);if(event.target.id==='alternateChoice'&&rowReviewUi(row).alternateDraft){state.message='Save the pending alternate before choosing another.';renderDetail();return;}rowReviewUi(row)[event.target.id]=event.target.value;renderDetail();return;
       }
       if (event.target.dataset?.packageUse) {
         const pack=unifiedPackageDraft(), doc=pack.documents[state.documentIndex||0], field=event.target.dataset.packageUse;
@@ -792,6 +849,89 @@
     }
   }
   window.addEventListener?.('resize',sizeScanWorkbench);
+  const candidateWidthPreference='dle.candidate-bom.column-widths.v1';
+  let candidateColumnWidths=null, candidateColumnDrag=null;
+  const candidateColumns = [['line','Line',68,56],['status','Status',132,120],['customer','Customer / BOM P/N',175,130],['approved','Approved P/N',240,160],['description','Description',300,160],['quantity','Qty / Assy',90,80],['type','Type',160,130],['designators','Designators',180,120],['options','Options',110,100]];
+  function candidateColumnDefault(field) { return candidateColumns.find(c=>c[0]===field)?.[2]||150; }
+  function candidateColumnMinimum(field) { return candidateColumns.find(c=>c[0]===field)?.[3]||100; }
+  function candidateColumnWidth(field) {
+    if(candidateColumnWidths===null){try{candidateColumnWidths=JSON.parse(window.localStorage?.getItem(candidateWidthPreference)||'{}');}catch{candidateColumnWidths={};}
+      if(!candidateColumnWidths||typeof candidateColumnWidths!=='object'||Array.isArray(candidateColumnWidths))candidateColumnWidths={};}
+    const value=candidateColumnWidths[field];
+    return Number.isFinite(value)?Math.max(candidateColumnMinimum(field),Math.min(1200,value)):candidateColumnDefault(field);
+  }
+  function saveCandidateColumnWidths(){try{window.localStorage?.setItem(candidateWidthPreference,JSON.stringify(candidateColumnWidths));}catch{/* Keep session preferences when storage is unavailable. */}}
+  function candidateColumnHeader(field,label) {
+    return '<th scope="col" data-candidate-heading="'+field+'">'+escapeHtml(label)+'<span class="candidate-column-resize" data-candidate-resize="'+field+'" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize '+escapeHtml(label)+' column" aria-valuemin="'+candidateColumnMinimum(field)+'" aria-valuemax="1200" aria-valuenow="'+candidateColumnWidth(field)+'" title="Drag to resize; arrow keys adjust width"></span></th>';
+  }
+  function applyCandidateColumnWidths() {
+    const table=mount?.querySelector('.candidate-workbench-table');if(!table)return;
+    let total=0;
+    table.querySelectorAll('col[data-candidate-column]').forEach(col=>{const width=candidateColumnWidth(col.dataset.candidateColumn);col.style.width=width+'px';total+=width;});
+    table.style.width=total+'px';
+    table.style.setProperty('--candidate-line-width',candidateColumnWidth('line')+'px');
+    mount.querySelectorAll('[data-candidate-resize]').forEach(handle=>handle.setAttribute('aria-valuenow',candidateColumnWidth(handle.dataset.candidateResize)));
+  }
+  function startCandidateColumnResize(event) {
+    const handle=event.target.closest?.('[data-candidate-resize]');
+    if(!handle||state.step!=='candidate'||event.button!==0)return;
+    event.preventDefault();event.stopPropagation();
+    candidateColumnDrag={handle,id:event.pointerId,x:event.clientX,field:handle.dataset.candidateResize,width:candidateColumnWidth(handle.dataset.candidateResize)};
+    handle.setPointerCapture(event.pointerId);
+    mount.querySelector('.candidate-workbench-table').classList.add('candidate-column-dragging');
+  }
+  function moveCandidateColumnResize(event) {
+    const drag=candidateColumnDrag;if(!drag||event.pointerId!==drag.id)return;
+    event.preventDefault();
+    candidateColumnWidths[drag.field]=Math.max(candidateColumnMinimum(drag.field),Math.min(1200,Math.round(drag.width+event.clientX-drag.x)));
+    applyCandidateColumnWidths();
+  }
+  function endCandidateColumnResize(event) {
+    const drag=candidateColumnDrag;if(!drag||event.pointerId!==drag.id)return;
+    candidateColumnDrag=null;
+    if(drag.handle.hasPointerCapture(drag.id))drag.handle.releasePointerCapture(drag.id);
+    mount?.querySelector('.candidate-workbench-table')?.classList.remove('candidate-column-dragging');
+    saveCandidateColumnWidths();
+  }
+  function candidateColumnResizeKey(event) {
+    const field=event.target.dataset?.candidateResize;if(!field)return;
+    if(!['ArrowLeft','ArrowRight','Home'].includes(event.key))return;
+    event.preventDefault();event.stopPropagation();
+    const width=candidateColumnWidth(field);
+    candidateColumnWidths[field]=event.key==='Home'?candidateColumnDefault(field):Math.max(candidateColumnMinimum(field),Math.min(1200,width+(event.key==='ArrowRight'?1:-1)*(event.shiftKey?32:16)));
+    applyCandidateColumnWidths();saveCandidateColumnWidths();
+  }
+  function sizeCandidateWorkbench() {
+    const sheet=mount?.querySelector('.candidate-workbench');
+    const scroll=sheet?.querySelector('.candidate-table-scroll');
+    if(!scroll)return;
+    const footer=sheet.querySelector('.candidate-workbench-footer');
+    sheet.style.setProperty('--candidate-work-height',Math.max(200,window.innerHeight-scroll.getBoundingClientRect().top-(footer?.getBoundingClientRect().height||0)-24)+'px');
+  }
+  function watchCandidateWorkbench() {
+    const sheet=mount?.querySelector('.candidate-workbench');if(!sheet)return;
+    sizeCandidateWorkbench();
+    if(!window.ResizeObserver)return;
+    candidateWorkbenchObserver ||= new window.ResizeObserver(sizeCandidateWorkbench);
+    for(const element of [document.querySelector('body > header.dle-app-header'),sheet.querySelector('.candidate-workbench-toolbar'),sheet.querySelector('.candidate-workbench-footer')])if(element)candidateWorkbenchObserver.observe(element);
+  }
+  window.addEventListener?.('resize',sizeCandidateWorkbench);
+  window.addEventListener?.('beforeunload',event=>{if(state.step==='candidate'&&candidateProgressRows().length){event.preventDefault();event.returnValue='';}});
+  function captureCandidatePosition() {
+    const scroll=mount?.querySelector('.candidate-workbench .candidate-table-scroll');if(!scroll)return null;
+    const active=document.activeElement, activeRow=active?.closest?.('tr[data-worksheet-row]');
+    const top=scroll.getBoundingClientRect().top;
+    const row=activeRow||Array.from(scroll.querySelectorAll('tr[data-worksheet-row]')).find(r=>r.getBoundingClientRect().bottom>top+40);
+    return {id:scroll.dataset.candidateId,top:scroll.scrollTop,left:scroll.scrollLeft,row:row?.dataset.worksheetRow,offset:row?row.getBoundingClientRect().top-top:null,focus:!!activeRow};
+  }
+  function restoreCandidatePosition(position) {
+    if(!position)return;
+    const scroll=mount?.querySelector('.candidate-workbench .candidate-table-scroll');if(!scroll||scroll.dataset.candidateId!==position.id)return;
+    scroll.scrollTop=position.top;scroll.scrollLeft=position.left;
+    const row=Array.from(scroll.querySelectorAll('tr[data-worksheet-row]')).find(r=>r.dataset.worksheetRow===position.row);
+    if(row&&position.offset!==null)scroll.scrollTop+=row.getBoundingClientRect().top-scroll.getBoundingClientRect().top-position.offset;
+    if(position.focus)row?.querySelector('.candidate-row-controls button')?.focus({preventScroll:true});
+  }
   const scanWidthPreference='dle.scanned-bom.column-widths.v1';
   let scanColumnWidths=null, scanColumnDrag=null;
   function scanColumnDefault(field) {
@@ -1112,6 +1252,7 @@
     addingDocuments = false; reviewUploads = [];
     state.acceptedVersion = null;
     if (state.saving) return;
+    clearCandidateDrafts();state.candidateLeaveIntent=null;
     identityChanges={};packageRowErrors={};state.packageAnswers=null;
     state.guided = false;
     state.materials = false; state.step = ""; state.packageDraft = null; state.documentIndex = 0;
@@ -1155,6 +1296,8 @@
     const assembly = record.assemblies?.[0] || {};
     const canDisposition = window.DleOsCapabilities?.can?.("technical_review.disposition") === true;
     if (!host) return;
+    const candidatePosition=captureCandidatePosition();
+    candidateWorkbenchObserver?.disconnect();
     const entry = !state.guided && !state.closing && !completedReview(record) && record.status !== "NO_LONGER_REQUIRED";
     mount?.classList.toggle("technical-review-entry", entry);
     if (entry) { mount?.classList.remove("technical-review-guided"); host.innerHTML = renderEntryConfirmation(record, canDisposition); return; }
@@ -1171,6 +1314,9 @@
       (canDisposition && state.step !== 'candidate' && !(record.technicalReview?.workflow && state.step === 'inventory') && ['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(record.status) ? '<p><button data-technical-review-action="add-document" '+(state.saving||addingDocuments?'disabled':'')+'>Add Technical Document</button></p>' : '') +
       (state.step === 'candidate' || (record.technicalReview?.workflow && state.step === 'inventory') ? '' : '<div id="technicalReviewAnalysisProgress">' + renderAnalysisProgress() + '</div>') +
       (state.guided ? (['sufficiency', 'context', 'definition', 'release'].includes(state.step) ? renderWorkflowStep(record) : state.step === 'labor-first' ? renderLaborFirstEntry(record) : state.step === 'manufacturing' ? renderManufacturingHandoff(record) : state.step === 'accepted-bom' ? renderAcceptedBom(record) : state.step === 'candidate' ? renderCandidate(record) : state.materials ? renderMaterials(record) : state.step === 'inventory' ? renderInventory() : state.step === 'governing' ? renderGoverning() : state.step === 'coverage' ? renderCoverage(record) : renderHistoryQuestion(record, canDisposition)) : renderEntryActions(record, canDisposition));
+    watchCandidateWorkbench();
+    void checkCandidateCompletion();
+    restoreCandidatePosition(candidatePosition);
   }
 
   function completedReview(record) {
@@ -1480,7 +1626,7 @@
   }
 
   const candidateFields = { lineNumber: 'BOM line number', partNumber: 'Part number', quantity: 'Quantity per assembly', designators: 'Designator(s)', description: 'Description' };
-  const componentTypes = {STANDARD_COTS:'Standard / COTS',SUBASSEMBLY:'Subassembly',REFERENCE_ONLY:'Reference Only',OTHER:'Other'};
+  const componentTypes = {STANDARD_COTS:'Standard / COTS',SUBASSEMBLY:'Subassembly',DNP:'DNP / Do Not Populate',OTHER:'Other',REFERENCE_ONLY:'Reference Only'};
   function componentSelect(row, index) {
     const value = componentTypes[row.componentType] ? row.componentType : 'STANDARD_COTS';
     return '<select class="candidate-component-type" aria-label="Component Type for row ' + (index + 1) + '" data-component-row="' + index + '" ' + (state.saving ? 'disabled' : '') + '>' + Object.entries(componentTypes).map(([key,label]) => '<option value="' + key + '" ' + (key === value ? 'selected' : '') + '>' + label + '</option>').join('') + '</select>';
@@ -1519,42 +1665,286 @@
     const accepted = (record.technicalReview.bomAcceptances || []).find(a => state.acceptedVersion ? a.version === state.acceptedVersion : a.candidate.id === record.technicalReview.candidateBom?.id);
     const bom = accepted?.candidate || record.technicalReview.candidateBom;
     const fileUrl = '/api/sim/rfq-intakes/' + encodeURIComponent(record.intakeId) + '/documents/' + encodeURIComponent(bom.governingDocumentId) + '#page=' + bom.page;
-    const rows = bom.rows.map((row, index) => {
+    const entries=bom.rows.map((row,index)=>({row,index}));
+    const sourceOnly=(bom.reviewedScanSource?.worksheet?.rows||[]).filter(r=>r.rowType==='CONTINUATION');
+    for(const source of sourceOnly)entries.push({source});
+    const sourcePositions=new Map((bom.reviewedScanSource?.worksheet?.rows||[]).map(r=>['scan-'+bom.reviewedScanSource.worksheet.id+'-'+r.position,r.position]));
+    if(sourceOnly.length)entries.sort((a,b)=>(a.source?.position??sourcePositions.get(a.row.rowId)??a.index)-(b.source?.position??sourcePositions.get(b.row.rowId)??b.index));
+    const rows = entries.map(({row,index,source}) => {
+      if(source)return '<tr data-candidate-dnp'+(showCandidateDnps?'':' hidden')+'><td class="candidate-line">'+escapeHtml(source.cells?.FIND_NUMBER?.value||'—')+'</td><td colspan="8">Resolved continuation · Source evidence only · <a target="_blank" rel="noopener" href="'+fileUrl.split('#')[0]+'#page='+source.page+'">View source · Page '+source.page+'</a></td></tr>';
+      const unusedSource=['NOT_USED','BLANK'].includes(row.sourcePositionKind)||(row.sourcePositionKind==='OTHER'&&!row.manufacturerIdentity?.proposals?.some(p=>p.partNumber?.trim()&&p.partNumber.trim()!=='-')&&!row.values.partNumber?.trim());
+      const dnpVisibility=!accepted&&!completedReview(record)&&(row.componentType==='DNP'||unusedSource&&!row.reviewState?.reviewed)?' data-candidate-dnp'+(showCandidateDnps?'':' hidden'):'';
       const status = candidateStatus(row);
-      const expanded = state.candidateIndex === index;
+      const expanded = state.candidateIndex === index && state.candidateInlineRow !== index && state.rowOption !== 'closed';
       const conflict = status !== 'Conflict' && Object.values(row.comparison || {}).includes('CONFLICT');
       const readOnly=!!accepted||completedReview(record), ui=rowReviewUi(row), locked=readOnly||row.reviewState?.reviewed&&!ui.editing;
       const type=ui.componentType||row.componentType||'STANDARD_COTS';
-      const options='<details class="candidate-options"><summary>Options</summary>'+['edit','alternates','files','history'].map((panel,i)=>'<button data-technical-review-action="worksheet-options" data-candidate-row="'+index+'" data-panel="'+panel+'">'+['Edit Details','Approved Alternates / Add Alternate','Technical Files','Source / History'][i]+'</button>').join('')+'</details>';
-      return '<tr data-worksheet-row="'+index+'"><td>'+escapeHtml(row.values.lineNumber||'—')+'</td><td class="candidate-part">'+escapeHtml(row.values.partNumber||'—')+'</td><td>'+worksheetIdentity(row,index,locked,type)+'</td><td>'+escapeHtml(row.values.description||'—')+'</td><td>'+escapeHtml(row.values.quantity||'—')+'</td><td>'+(locked?escapeHtml(componentTypes[type]):'<select aria-label="Type for row '+(index+1)+'" data-worksheet-field="componentType" data-worksheet-row="'+index+'">'+Object.entries(componentTypes).map(([key,label])=>'<option value="'+key+'" '+(key===type?'selected':'')+'>'+label+'</option>').join('')+'</select>')+'</td><td>'+escapeHtml(row.values.designators||'—')+'</td><td><span class="candidate-status" data-status="'+status+'">'+(locked?'Accepted':'Needs Review')+'</span>'+(!locked?'<button data-technical-review-action="worksheet-accept" data-candidate-row="'+index+'" '+(state.saving?'disabled':'')+'>Accept</button>':'')+'</td><td>'+options+'</td></tr>'+
-        (expanded?'<tr class="candidate-detail-row"><td colspan="9"><section id="candidate-detail-'+index+'" aria-label="Row '+(index+1)+' details">'+(state.rowOption==='alternates'?renderAlternates(row,readOnly):state.rowOption==='files'?renderRowTechnicalFiles(bom,row,readOnly):state.rowOption==='history'?renderCandidateRow(bom,row,index,true):renderCandidateRow(bom,row,index,readOnly))+'</section></td></tr>':'');
+      const sectionSelector=(panel,label)=>'<button type="button" class="candidate-section-selector" aria-label="'+label+'" aria-expanded="'+(expanded&&(state.rowOption||'edit')===panel)+'" aria-controls="candidate-detail-'+index+'" data-technical-review-action="worksheet-options" data-candidate-row="'+index+'" data-panel="'+panel+'">'+label+'</button>';
+      const options='<details class="candidate-options"><summary>Options</summary>'+['edit','approved-pns','files','history'].map((panel,i)=>sectionSelector(panel,['BOM Fields','Approved P/Ns','Technical Files','Source / Evidence'][i])).join('')+'<details class="candidate-advanced"><summary>Advanced</summary>'+sectionSelector('alternates','Technical Alternates')+'</details></details>';
+      return '<tr'+dnpVisibility+' data-worksheet-row="'+index+'" class="'+(locked?'candidate-row-locked':'')+'"><td class="candidate-line">'+escapeHtml(row.values.lineNumber||'—')+'</td><td class="candidate-row-controls"><span class="candidate-status" data-status="'+status+'">'+(locked?'Accepted':'Needs Review')+'</span>'+(!readOnly?'<button data-technical-review-action="'+(locked?'candidate-row-edit':'worksheet-accept')+'" data-panel="edit" data-candidate-row="'+index+'" '+(state.saving?'disabled':'')+'>'+(locked?'Edit':'Accept')+'</button>':'')+'</td><td class="candidate-part">'+escapeHtml(row.values.partNumber||'—')+'</td><td tabindex="0" data-candidate-copy="'+index+'" aria-label="Approved P/N for row '+(index+1)+'; Ctrl+C to copy">'+worksheetIdentity(row,index,locked,type)+'</td>'+candidateDescriptionCell(row,index,locked)+'<td>'+escapeHtml(row.values.quantity||'—')+'</td><td>'+(locked?escapeHtml(componentTypes[type]):'<select aria-label="Type for row '+(index+1)+'" data-worksheet-field="componentType" data-worksheet-row="'+index+'">'+Object.entries(componentTypes).map(([key,label])=>'<option value="'+key+'" '+(key===type?'selected':'')+'>'+label+'</option>').join('')+'</select>')+'</td>'+candidateDescriptionCell(row,index,locked,'designators')+'<td>'+options+'</td></tr>'+
+        (expanded?'<tr'+dnpVisibility+' class="candidate-detail-row"><td colspan="9"><section id="candidate-detail-'+index+'" aria-label="Row '+(index+1)+' details">'+renderCandidateInspector(bom,row,index,readOnly)+'</section></td></tr>':'');
     }).join('');
-    return '<section class="technical-review-question technical-review-candidate">' + (record.technicalReview?.workflow && !completedReview(record) ? '<button class="technical-review-back" data-technical-review-action="governing-back">← Back to Technical Package Review</button>' : '') + '<h3>' + (accepted ? 'BOM Review Complete' : 'Candidate BOM') + '</h3>' + (accepted ? '<p>Accepted BOM version ' + accepted.version + '.</p>' + (completedReview(record) ? '<p>Technical Review complete · Read-only</p>' : record.technicalReview.materialsReviewStatus === 'QUALIFIED' ? (record.technicalReview.workflow ? '<p>Return to Technical Package Review to submit to RFQs</p>' : '<p>Next: Manufacturing / Labor Review</p>') : '<p>Historical acceptance. The current source package or candidate requires a new BOM review.</p>') : '') + '<p class="candidate-summary">' + bom.rows.length + ' Part Numbers</p>' +
+    return '<section class="technical-review-question technical-review-candidate candidate-workbench"><div class="candidate-workbench-toolbar">' + (record.technicalReview?.workflow && !completedReview(record) ? '<button class="technical-review-back" data-technical-review-action="governing-back">← Back to Technical Package Review</button>' : '') + '<h3>' + (accepted ? 'BOM Review Complete' : 'Candidate BOM') + '</h3>' + (accepted ? '<p>Accepted BOM version ' + accepted.version + '.</p>' + (completedReview(record) ? '<p>Technical Review complete · Read-only</p>' : record.technicalReview.materialsReviewStatus === 'QUALIFIED' ? (record.technicalReview.workflow ? '<p>Return to Technical Package Review to submit to RFQs</p>' : '<p>Next: Manufacturing / Labor Review</p>') : '<p>Historical acceptance. The current source package or candidate requires a new BOM review.</p>') : '') + '<p class="candidate-summary">' + bom.rows.length + ' review rows'+(sourceOnly.length?' · '+sourceOnly.length+' source-only':'')+'</p>' +
       candidateReviewerSummary(bom) + (accepted ? '<p>RFQ materials acceptance only. This is not a production release.</p>' : '<p class="candidate-review-note">Review the BOM below and confirm the part information before approval.</p>') + '<a href="' + fileUrl + '" target="_blank" rel="noopener">View Main BOM · Page ' + bom.page + '</a>' +
-      '<div class="candidate-table-scroll" role="region" aria-label="Candidate BOM table" tabindex="0"><table class="candidate-table"><caption class="candidate-sr-only">Candidate BOM rows for human review</caption><thead><tr><th scope="col">Line</th><th scope="col">Customer / BOM P/N</th><th scope="col">Approved P/N</th><th scope="col">Description</th><th scope="col">Qty / Assy</th><th scope="col">Type</th><th scope="col">Designators</th><th scope="col">Status</th><th scope="col">Options</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><details class="candidate-analysis-details"><summary>Details</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p><p>' + (record.technicalReview.candidateBomVersions || []).length + ' prior versions preserved. No canonical BOM or downstream work is created.</p></details>' + acceptedLinks(record) + (completedReview(record) ? '' : '<div class="candidate-editor-actions">' + (record.technicalReview?.workflow ? '' : '<button class="technical-review-back" data-technical-review-action="governing-back">← Back to Technical Package Review</button>') + (!accepted ? '<button class="technical-review-primary" data-technical-review-action="complete-bom" ' + (state.saving ? 'disabled' : '') + '>Complete BOM Review</button>' : '') + '</div>') + '</section>';
+      (accepted||completedReview(record)?'':'<button type="button" class="technical-review-primary" data-technical-review-action="candidate-save-progress" '+(state.saving?'disabled':'')+'>Save Progress</button><span class="candidate-progress-status" role="status" data-candidate-progress-status>'+candidateProgressStatus()+'</span>')+'<button type="button" data-technical-review-action="candidate-reset-widths">Reset Widths</button>'+(accepted||completedReview(record)?'':'<label class="candidate-dnp-toggle"><input type="checkbox" data-candidate-show-dnps '+(showCandidateDnps?'checked':'')+'> Show DNPs</label>')+candidateLeavePrompt()+'</div><div class="candidate-table-scroll" data-candidate-id="'+escapeHtml(bom.id||'')+'" role="region" aria-label="Candidate BOM table" tabindex="0"><table class="candidate-table candidate-workbench-table" style="width:'+candidateColumns.reduce((n,c)=>n+candidateColumnWidth(c[0]),0)+'px;--candidate-line-width:'+candidateColumnWidth('line')+'px"><caption class="candidate-sr-only">Candidate BOM rows for human review</caption><colgroup>'+candidateColumns.map(c=>'<col data-candidate-column="'+c[0]+'" style="width:'+candidateColumnWidth(c[0])+'px">').join('')+'</colgroup><thead><tr>'+candidateColumns.map(c=>candidateColumnHeader(c[0],c[1])).join('')+'</tr></thead><tbody>' + rows + '</tbody></table></div><div class="candidate-workbench-footer">' +
+      '<p class="technical-review-message" role="status">' + escapeHtml(state.message) + '</p><details class="candidate-analysis-details"><summary>Details</summary><p>' + escapeHtml(bom.analysis?.coverageReason || bom.supportingComparison) + '</p><p>' + (record.technicalReview.candidateBomVersions || []).length + ' prior versions preserved. No canonical BOM or downstream work is created.</p></details>' + acceptedLinks(record) + (completedReview(record) ? '' : '<div class="candidate-editor-actions">' + (record.technicalReview?.workflow ? '' : '<button class="technical-review-back" data-technical-review-action="governing-back">← Back to Technical Package Review</button>') + (!accepted ? '<button class="technical-review-primary" data-technical-review-action="complete-bom" ' + (candidateCompletionEnabled() ? '' : 'disabled') + '>Complete BOM Review</button>' : '') + '</div>') + '</div></section>';
+  }
+  function candidateCompletionKey() { return JSON.stringify(state.selected?.record?.technicalReview?.candidateBom); }
+  function candidateCompletionEnabled() {
+    const bom=state.selected?.record?.technicalReview?.candidateBom;
+    return !state.saving && !!bom?.rows?.length && bom.rows.every(r=>r.reviewState?.reviewed&&!rowReviewUi(r).editing) &&
+      !candidateProgressRows().length && state.completionReadiness?.key===candidateCompletionKey() && state.completionReadiness.ready===true;
+  }
+  function updateCandidateCompletionButton() {
+    const button=mount?.querySelector?.('[data-technical-review-action="complete-bom"]');if(!button)return;
+    button.disabled=!candidateCompletionEnabled();
+    button.title=button.disabled?(state.completionReadiness?.message||'Accept every required row before completing BOM Review.'):'Complete BOM Review';
+  }
+  async function checkCandidateCompletion() {
+    if(state.step!=='candidate'||state.acceptedVersion||completedReview(state.selected?.record))return;
+    const bom=state.selected?.record?.technicalReview?.candidateBom;
+    updateCandidateCompletionButton();
+    if(state.saving||!bom?.rows?.length||!bom.rows.every(r=>r.reviewState?.reviewed&&!rowReviewUi(r).editing)||candidateProgressRows().length)return;
+    const key=candidateCompletionKey();if(state.completionReadiness?.key===key)return;
+    state.completionReadiness={key,ready:false,message:'Checking completion readiness…'};
+    try {
+      const result=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/bom-completion-readiness',
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidate:bom})});
+      if(candidateCompletionKey()===key)state.completionReadiness={key,ready:result.ready===true,message:result.message};
+    } catch(error){if(candidateCompletionKey()===key)state.completionReadiness={key,ready:false,message:error.message};}
+    updateCandidateCompletionButton();
+  }
+  async function reopenCandidate() {
+    if(state.saving)return;
+    state.saving=true;
+    try {
+      const latest=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId));
+      state.selected=latest;state.completionReadiness=null;clearCandidateDrafts();state.candidateLeaveIntent=null;
+      state.message='';state.messageState='';state.candidateIndex=null;state.step='candidate';state.materials=false;
+    } catch(error){state.message=error.message;state.messageState='error';}
+    finally{state.saving=false;renderDetail();}
+  }
+  function candidateProgressRows() {
+    const bom=state.selected?.record?.technicalReview?.candidateBom;if(!bom||state.acceptedVersion||completedReview(state.selected.record))return [];
+    return bom.rows.flatMap((row,index)=>{
+      const ui=rowReviewUi(row),working=row.workingState||{};
+      let values=state.candidateIndex===index&&state.candidateDraft?state.candidateDraft:row.values;
+      const input=mount?.querySelector?.('[data-inline-description="'+index+'"]');if(input)values={...values,[input.dataset.candidateField||'description']:input.value};
+      const type=ui.componentType||row.componentType||'STANDARD_COTS';
+      if(type==='DNP'&&row.componentType!=='DNP')values={...values,description:'DO NOT POPULATE'};
+      const assembly=ui.assemblyNumber??working.assemblyPartNumber??row.assemblyIdentity?.partNumber;
+      const manual=ui.manualNumber??working.manualPartNumber, maker=ui.manualMaker??working.manufacturerName;
+      const primaryAllowed=!['SUBASSEMBLY','DNP'].includes(type);
+      const changed=Object.keys(candidateFields).some(k=>values[k]!==row.values[k])||type!==(row.componentType||'STANDARD_COTS')||
+        (assembly??'')!==(working.assemblyPartNumber??row.assemblyIdentity?.partNumber??'')||(manual??'')!==(working.manualPartNumber??'')||(maker??'')!==(working.manufacturerName??'')||
+        (ui.editing&&row.reviewState?.reviewed)||primaryAllowed&&(approvedPartDirty(row)||!!ui.identityBasisDraft);
+      return changed?[{rowIndex:index,expectedToken:row.reviewState.token,values:Object.fromEntries(Object.keys(candidateFields).map(k=>[k,values[k]])),componentType:type,assemblyPartNumber:assembly,manualPartNumber:!primaryAllowed||ui.identityBasisDraft?null:manual,manufacturerName:!primaryAllowed||ui.identityBasisDraft?null:maker,...(primaryAllowed&&ui.identityBasisDraft?{identityBasisChange:{...ui.identityBasisDraft,expectedToken:row.reviewState.token}}:{}),...(primaryAllowed&&approvedPartDirty(row)?{approvedPartChange:{...ui.approvedPartDraft,expectedToken:row.reviewState.token}}:{})}]:[];
+    });
+  }
+  function candidateProgressStatus() {
+    if(state.saving)return 'Saving…';
+    if(candidateProgressRows().length)return 'Unsaved changes';
+    const stamp=state.selected?.record?.technicalReview?.candidateBom?.progress;
+    return stamp?'Saved by '+escapeHtml(stamp.savedBy)+' · '+escapeHtml(formatDateTime(stamp.savedAtUtc)):'No unsaved changes';
+  }
+  function updateCandidateProgressStatus() {
+    const label=mount?.querySelector?.('[data-candidate-progress-status]');if(label)label.innerHTML=candidateProgressStatus();
+    updateCandidateCompletionButton();
+  }
+  function clearCandidateDrafts() {state.candidateDraft=null;state.candidateInlineRow=null;state.inlineDescriptionDirty=false;state.rowReviewUi={};}
+  function candidateLeavePrompt() {
+    return state.candidateLeaveIntent?'<div class="scan-leave-prompt candidate-leave-prompt" role="group" aria-label="Unsaved Candidate changes"><p>You have unsaved Candidate changes.</p><button data-technical-review-action="candidate-leave-save">Save &amp; Leave</button> <button data-technical-review-action="candidate-leave-discard">Leave Without Saving</button> <button data-technical-review-action="candidate-leave-cancel">Cancel</button></div>':'';
+  }
+  function continueCandidateAction(intent) {
+    if(!intent)return;
+    // Reuse the existing action routing and guards after the leave decision.
+    const button=document.createElement('button');Object.assign(button.dataset,intent);button.hidden=true;mount.append(button);button.click();button.remove();
+  }
+  async function saveCandidateProgress(leave=false,onlyIndex=null) {
+    if(state.saving||state.acceptedVersion||completedReview(state.selected?.record))return;
+    const bom=state.selected.record.technicalReview.candidateBom,rows=candidateProgressRows().filter(r=>onlyIndex===null||r.rowIndex===onlyIndex),intent=state.candidateLeaveIntent;
+    // Capture the active inline input before disabling the workbench.
+    if(state.candidateIndex!=null){const input=mount?.querySelector?.('[data-inline-description="'+state.candidateIndex+'"]');if(input)state.candidateDraft={...(state.candidateDraft||bom.rows[state.candidateIndex].values),[input.dataset.candidateField||'description']:input.value};}
+    state.saving=true;renderDetail();
+    try {
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:-1,values:null,progressRows:rows})});
+      if(onlyIndex===null)clearCandidateDrafts();else{delete state.rowReviewUi[bom.id+':'+onlyIndex];if(state.candidateIndex===onlyIndex){state.candidateDraft=null;state.candidateInlineRow=null;state.inlineDescriptionDirty=false;}}state.candidateLeaveIntent=null;state.message=onlyIndex===null?'Progress saved. Candidate review is not complete.':'Assembly P/N changes saved. Accept the row to confirm.';state.messageState='';
+      state.saving=false;renderDetail();if(leave)continueCandidateAction(intent);
+    } catch(error){state.message=error.message;state.messageState='error';state.saving=false;renderDetail();}
+  }
+  function candidateDescriptionCell(row,index,locked,field="description") {
+    const label=field==='description'?'Description':'Ref Des';
+    const value=field==='description'&&rowReviewUi(row).componentType==='DNP'&&row.componentType!=='DNP'?'DO NOT POPULATE':state.candidateIndex===index&&state.candidateDraft?state.candidateDraft[field]:row.values[field];
+    const pending=state.candidateIndex===index&&state.inlineDescriptionDirty&&state.candidateDraft?.[field]!==row.values[field];
+    return '<td tabindex="0" data-candidate-'+field+'="'+index+'" data-candidate-field="'+field+'" data-description-locked="'+locked+'" aria-label="'+label+' for row '+(index+1)+'" title="'+(locked?'Use row Edit to unlock':'Double-click or press F2 to edit; Enter commits; Save Progress or Accept saves')+'"><span>'+escapeHtml(value||'—')+'</span>'+(pending?'<small class="candidate-description-pending">Unsaved · Save Progress or Accept</small>':'')+'</td>';
+  }
+  function selectCandidateCell(event) {
+    const cell=event.target.closest?.('[data-candidate-description], [data-candidate-designators], [data-candidate-copy]');if(!cell)return;
+    mount.querySelectorAll('.candidate-cell-selected').forEach(c=>c.classList.remove('candidate-cell-selected'));
+    cell.classList.add('candidate-cell-selected');
+    if(!event.target.closest('input,select,button,a,summary'))cell.focus({preventScroll:true});
+  }
+  function beginCandidateDescriptionEdit(event) {
+    const cell=event.target.closest?.('[data-candidate-description], [data-candidate-designators]');
+    if(!cell||cell.dataset.descriptionLocked==='true'||state.saving||cell.querySelector('input')||completedReview(state.selected?.record)||state.acceptedVersion)return;
+    const field=cell.dataset.candidateField||'description',index=Number(cell.dataset.candidateDescription??cell.dataset.candidateDesignators);
+    if(state.inlineDescriptionDirty&&state.candidateIndex!==index){state.message='Save Progress or Accept the pending edit before editing another row.';renderDetail();return;}
+    const row=state.selected.record.technicalReview.candidateBom.rows[index];
+    const value=field==='description'&&rowReviewUi(row).componentType==='DNP'&&row.componentType!=='DNP'?'DO NOT POPULATE':state.candidateIndex===index&&state.candidateDraft?state.candidateDraft[field]:row.values[field];
+    cell.innerHTML='<input class="candidate-description-input" data-inline-description="'+index+'" data-candidate-field="'+field+'" aria-label="Edit '+(field==='description'?'Description':'Ref Des')+' for row '+(index+1)+'" maxlength="2000" value="'+escapeHtml(value)+'">';
+    const input=cell.querySelector('input');input.focus({preventScroll:true});input.select();
+  }
+  function candidateDescriptionKey(event) {
+    const input=event.target.closest?.('[data-inline-description]');
+    if(!input){if(event.key==='F2'&&event.target.matches?.('[data-candidate-description], [data-candidate-designators]')){event.preventDefault();beginCandidateDescriptionEdit(event);}return;}
+    if(event.isComposing||!['Enter','Escape'].includes(event.key))return;
+    event.preventDefault();event.stopPropagation();
+    const field=input.dataset.candidateField||'description',index=Number(input.dataset.inlineDescription),row=state.selected.record.technicalReview.candidateBom.rows[index],cell=input.closest('td');
+    if(event.key==='Enter'){
+      const draft=state.candidateIndex===index&&state.candidateDraft?state.candidateDraft:row.values;
+      state.candidateDraft=Object.fromEntries(Object.keys(candidateFields).map(k=>[k,k===field?input.value:draft[k]]));state.candidateIndex=index;state.candidateInlineRow=index;
+      state.inlineDescriptionDirty=Object.keys(candidateFields).some(k=>state.candidateDraft[k]!==row.values[k]);
+    }
+    input.dataset.finishing='true';
+    cell.outerHTML=candidateDescriptionCell(row,index,false,field);
+    const restored=mount.querySelector('[data-candidate-'+field+'="'+index+'"]');restored.classList.add('candidate-cell-selected');if(event.type!=='focusout')restored.focus({preventScroll:true});updateCandidateProgressStatus();
+  }
+  function copyCandidatePartNumber(event) {
+    // Text selections and input editing retain native clipboard behavior.
+    if(event.target.closest?.('input,textarea')||window.getSelection?.()?.toString())return;
+    const cell=event.target.closest?.('[data-candidate-copy]');if(!cell||!event.clipboardData)return;
+    const value=cell.querySelector('[data-approved-part]')?.textContent;
+    if(value&&value!=='Not resolved'&&value!=='—'){event.preventDefault();event.clipboardData.setData('text/plain',value);}
+  }
+  const candidateDisplayPreference='dle.candidate-bom.display-choices.v1';
+  let candidateDisplayChoices=null;
+  function candidateDisplayKey(row) { return (state.selected?.record?.intakeId||'')+':'+(state.selected?.record?.technicalReview?.candidateBom?.id||'')+':'+row.index; }
+  function loadCandidateDisplayChoices() {
+    if(candidateDisplayChoices!==null)return;
+    try{candidateDisplayChoices=JSON.parse(window.localStorage?.getItem(candidateDisplayPreference)||'{}');}catch{candidateDisplayChoices={};}
+    if(!candidateDisplayChoices||typeof candidateDisplayChoices!=='object'||Array.isArray(candidateDisplayChoices))candidateDisplayChoices={};
+  }
+  function rememberCandidateDisplayChoice(row,id) {
+    loadCandidateDisplayChoices();
+    const proposal=row.manufacturerIdentity?.proposals?.find(p=>p.id===id);
+    if(proposal)candidateDisplayChoices[candidateDisplayKey(row)]={id,partNumber:proposal.partNumber,manufacturerName:proposal.manufacturerName};
+    else delete candidateDisplayChoices[candidateDisplayKey(row)];
+    try{window.localStorage?.setItem(candidateDisplayPreference,JSON.stringify(candidateDisplayChoices));}catch{/* Session-only preference if storage is unavailable. */}
+  }
+  function preferredCandidateDisplay(row,eligible) {
+    loadCandidateDisplayChoices();const saved=candidateDisplayChoices[candidateDisplayKey(row)];
+    if(!saved)return null;
+    return eligible.find(p=>p.id===saved.id)||eligible.find(p=>p.partNumber===saved.partNumber&&p.manufacturerName===saved.manufacturerName)||null;
+  }
+  function candidateIdentityChoice(number,count,content,open=false) {
+    return '<details class="candidate-identity-choice" '+(open?'open':'')+'><summary title="Inspect or change candidate identity"><span data-approved-part>'+escapeHtml(number||'Not resolved')+'</span>'+(count>1?' <small aria-label="'+(count-1)+' more manufacturer identities">+'+(count-1)+'</small>':'')+'</summary><div class="candidate-identity-controls">'+content+'</div></details>';
+  }
+  function approvedPartDirty(row) {
+    const draft=rowReviewUi(row).approvedPartDraft;if(!draft)return false;
+    const original=currentCandidateIdentities(row).find(p=>p.id===draft.id);
+    return draft.partNumber!==(original?.partNumber||'')||draft.manufacturerName!==(original?.manufacturerName||'');
+  }
+  function customerIdentity(row){return !['SUBASSEMBLY','DNP'].includes(row.componentType)&&row.primaryIdentity?.basis==='CUSTOMER_PN';}
+  async function identityBasisAction(action,button){
+    if(state.saving||state.acceptedVersion||completedReview(state.selected?.record))return;
+    const bom=state.selected.record.technicalReview.candidateBom,index=Number(button.dataset.candidateRow),row=bom.rows[index],ui=rowReviewUi(row);
+    if(['SUBASSEMBLY','DNP'].includes(ui.componentType||row.componentType)||(state.selected.record.technicalReview.bomAcceptances||[]).some(a=>a.candidate.id===bom.id))return;
+    if(action==='identity-basis-cancel'){delete ui.identityBasisDraft;renderDetail();return;}
+    if(action==='identity-basis-customer'||action==='identity-basis-manufacturer'){
+      if(approvedPartDirty(row)){state.message='Save or cancel the current P/N edit first.';renderDetail();return;}
+      ui.identityBasisDraft={basis:action==='identity-basis-customer'?'CUSTOMER_PN':'MANUFACTURER_PN',partNumber:action==='identity-basis-customer'?(row.primaryIdentity?.partNumber||row.values.partNumber):null};
+      renderDetail();return;
+    }
+    if(action!=='identity-basis-save'||!ui.identityBasisDraft)return;
+    if(state.candidateDraft&&state.candidateDraft.partNumber!==row.values.partNumber||ui.componentType&&ui.componentType!==row.componentType){state.message='Save BOM P/N or type changes before changing identity basis.';renderDetail();return;}
+    state.saving=true;state.message='';renderDetail();
+    try{state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:index,values:null,identityBasisChange:{...ui.identityBasisDraft,expectedToken:row.reviewState.token}})});delete ui.identityBasisDraft;delete ui.approvedPartDraft;delete ui.primaryChoice;delete ui.manualNumber;delete ui.manualMaker;state.message='Identity saved. Review and Accept the row.';state.messageState='';}
+    catch(error){state.message=error.message;state.messageState='error';}finally{state.saving=false;renderDetail();}
+  }
+  function renderIdentityBasis(row,index,readOnly){
+    const ui=rowReviewUi(row),draft=ui.identityBasisDraft,disabled=state.saving?'disabled':'';
+    const action=(name,label)=>'<button data-technical-review-action="identity-basis-'+name+'" data-candidate-row="'+index+'" '+disabled+'>'+label+'</button>';
+    if(draft)return '<section class="identity-basis-form"><p>Approved P/N Basis: <strong>'+(draft.basis==='CUSTOMER_PN'?'Customer P/N':'Manufacturer P/N')+'</strong></p>'+(draft.basis==='CUSTOMER_PN'?'<label>Approved P/N<input aria-label="Customer approved P/N" data-identity-basis-field="partNumber" maxlength="200" value="'+escapeHtml(draft.partNumber||'')+'"></label><p>Confirms the customer-controlled identifier only. Supply responsibility is unchanged.</p>':'<p>Use manufacturer identities for this row. Existing manufacturer records are retained; review them before accepting.</p>')+action('save','Save')+action('cancel','Cancel')+'</section>';
+    if(customerIdentity(row))return '<p>Approved P/N Basis: <strong>Customer P/N</strong></p><p>'+escapeHtml(row.primaryIdentity.partNumber)+'</p>'+(readOnly?'':action('customer','Edit Customer P/N')+'<details><summary>Change identity basis</summary>'+action('manufacturer','Use Manufacturer P/N')+'</details>');
+    if(readOnly)return '';
+    if(!currentCandidateIdentities(row).length)return '<p>No manufacturer P/N is available.</p><button data-technical-review-action="approved-pn-add" data-candidate-row="'+index+'" '+disabled+'>Add Manufacturer P/N</button>'+action('customer','Use Customer P/N');
+    return '<details><summary>Change identity basis</summary><p>Existing manufacturer identities will be retained but will not be the active primary identity.</p>'+action('customer','Use Customer P/N')+'</details>';
+  }
+  function renderApprovedPartManager(row,index,readOnly=false) {
+    if((rowReviewUi(row).componentType||row.componentType)==='DNP')return '<p>DNP / Do Not Populate. No Approved P/N is required. Existing identity evidence is retained.</p>';
+    const ui=rowReviewUi(row),type=ui.componentType||row.componentType;
+    if(type==='SUBASSEMBLY'){
+      const number=ui.assemblyNumber??row.assemblyIdentity?.partNumber??(row.alternates||[]).find(a=>!a.removedAtUtc&&a.origin==='MANUAL'&&a.reviewStatus==='CONFIRMED')?.partNumber??row.values.partNumber??'';
+      return '<section class="approved-part-manager"><h4>Approved P/Ns</h4><p>Identity type: Assembly P/N</p><label>Assembly P/N<input id="assembly-panel-'+index+'" aria-label="Assembly P/N" data-worksheet-field="assemblyNumber" data-worksheet-row="'+index+'" maxlength="200" value="'+escapeHtml(number)+'" '+(readOnly||state.saving?'disabled':'')+'></label>'+(readOnly?'':'<p>Save changes, then Accept the row to confirm this assembly identifier.</p><button data-technical-review-action="assembly-pn-save" data-candidate-row="'+index+'" '+(state.saving?'disabled':'')+'>Save changes</button>')+'</section>';
+    }
+    row={...row,componentType:type};
+    if(customerIdentity(row)||rowReviewUi(row).identityBasisDraft)return '<section class="approved-part-manager" aria-label="Approved P/N manager">'+renderIdentityBasis(row,index,readOnly)+'</section>';
+    const entries=currentCandidateIdentities(row),draft=rowReviewUi(row).approvedPartDraft,disabled=state.saving?'disabled':'';
+    return '<section class="approved-part-manager" aria-label="Approved P/N manager"><h4>Approved P/Ns</h4><table><thead><tr><th>Approved P/N</th><th>Manufacturer</th><th>Action</th></tr></thead><tbody>'+entries.map(p=>'<tr><td>'+escapeHtml(p.partNumber)+'</td><td>'+escapeHtml(p.manufacturerName||'—')+'</td><td>'+(readOnly?'':'<button data-technical-review-action="approved-pn-edit" data-candidate-row="'+index+'" data-proposal-id="'+escapeHtml(p.id)+'" '+disabled+'>Edit</button>')+'</td></tr>').join('')+'</tbody></table>'+(draft?'':renderIdentityBasis(row,index,readOnly))+(readOnly?'':draft?'<div class="approved-part-form"><label>P/N<input aria-label="Approved P/N" data-approved-part-field="partNumber" maxlength="200" value="'+escapeHtml(draft.partNumber)+'" '+disabled+'></label><label>Manufacturer<input aria-label="Approved P/N manufacturer" data-approved-part-field="manufacturerName" maxlength="200" value="'+escapeHtml(draft.manufacturerName)+'" '+disabled+'></label><button class="technical-review-primary" data-technical-review-action="approved-pn-save" data-candidate-row="'+index+'" '+disabled+'>Save</button><button data-technical-review-action="approved-pn-cancel" data-candidate-row="'+index+'" '+disabled+'>Cancel</button></div>':entries.length?'<button data-technical-review-action="approved-pn-add" data-candidate-row="'+index+'" '+disabled+'>Add Approved P/N</button>':'')+'</section>';
+  }
+  async function approvedPartAction(action,button) {
+    if(state.saving||state.acceptedVersion||completedReview(state.selected?.record))return;
+    const bom=state.selected.record.technicalReview.candidateBom,index=Number(button.dataset.candidateRow),row=bom.rows[index],ui=rowReviewUi(row);
+    if((state.selected.record.technicalReview.bomAcceptances||[]).some(a=>a.candidate.id===bom.id)||['SUBASSEMBLY','DNP'].includes(ui.componentType||row.componentType))return;
+    if(action==='approved-pn-cancel'){delete ui.approvedPartDraft;renderDetail();return;}
+    if(action==='approved-pn-edit'||action==='approved-pn-add') {
+      if(approvedPartDirty(row)){state.message='Save or cancel the current P/N edit first.';renderDetail();return;}
+      const part=currentCandidateIdentities(row).find(p=>p.id===button.dataset.proposalId);
+      ui.approvedPartDraft={id:part?.id||null,partNumber:part?.partNumber||'',manufacturerName:part?.manufacturerName||''};renderDetail();return;
+    }
+    if(action!=='approved-pn-save'||!ui.approvedPartDraft)return;
+    const draft={...ui.approvedPartDraft};if(!draft.partNumber.trim()){state.message='Enter an approved P/N.';state.messageState='error';renderDetail();return;}
+    state.saving=true;state.message='';renderDetail();
+    try {
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',
+        {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:index,values:null,approvedPartChange:{...draft,expectedToken:row.reviewState.token}})});
+      delete ui.approvedPartDraft;delete ui.manualNumber;delete ui.manualMaker;
+      const saved=state.selected.record.technicalReview.candidateBom.rows[index];
+      const part=currentCandidateIdentities(saved).find(p=>p.partNumber===draft.partNumber.trim()&&(p.manufacturerName||'')===draft.manufacturerName.trim());
+      if(part&&draft.id){rememberCandidateDisplayChoice(saved,part.id);ui.primaryChoice=part.id;}
+      state.message='Approved P/N saved. Accept the row after reviewing it.';state.messageState='';
+    } catch(error){state.message=error.message;state.messageState='error';}
+    finally{state.saving=false;renderDetail();}
+  }
+  function currentCandidateIdentities(row) {
+    const identity=row.manufacturerIdentity, distinct=new Map();
+    for(const proposal of identity?.proposals||[]) {
+      const decision=manufacturerDecision(identity,proposal.id);
+      if(!proposal.partNumber?.trim()||!['CONFIRMED','PROPOSED'].includes(decision))continue;
+      // Presentation only: keep a real proposal ID for the existing decision actions.
+      const key=JSON.stringify([proposal.partNumber.trim(),(proposal.manufacturerName||'').trim()]);
+      const previous=distinct.get(key);
+      if(!previous||decision==='CONFIRMED'&&manufacturerDecision(identity,previous.id)!=='CONFIRMED')distinct.set(key,proposal);
+    }
+    return [...distinct.values()];
   }
   function worksheetIdentity(row,index,locked,type){
     const ui=rowReviewUi(row),identity=row.manufacturerIdentity;
-    const confirmed=(identity?.proposals||[]).filter(p=>manufacturerDecision(identity,p.id)==='CONFIRMED');
+    if(type==='DNP')return '<span data-approved-part>DNP</span>';
+    if(type!=='SUBASSEMBLY'&&customerIdentity({...row,componentType:type}))return '<span data-approved-part>'+escapeHtml(row.primaryIdentity.partNumber||'Not resolved')+'</span>';
+    const current=currentCandidateIdentities(row),confirmed=current.filter(p=>manufacturerDecision(identity,p.id)==='CONFIRMED');
     const assembly=row.assemblyIdentity?.partNumber||(row.alternates||[]).find(a=>!a.removedAtUtc&&a.origin==='MANUAL'&&a.reviewStatus==='CONFIRMED')?.partNumber||'';
-    if(locked && type==='SUBASSEMBLY')return escapeHtml(assembly||'—');
-    if(locked)return '<details class="worksheet-mfg-list"><summary>'+escapeHtml(confirmed[0]?.partNumber||'Not resolved')+(confirmed.length>1?' <small>+'+(confirmed.length-1)+' more</small>':'')+'</summary>'+confirmed.map(p=>'<div>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+' — Approved</div>').join('')+'</details>';
+    if(locked && type==='SUBASSEMBLY')return '<span data-approved-part>'+escapeHtml(assembly||'—')+'</span>';
+    if(locked){const choices=confirmed;return candidateIdentityChoice((preferredCandidateDisplay(row,confirmed)||confirmed[0])?.partNumber,choices.length,choices.map(p=>'<div>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+' — '+escapeHtml(manufacturerDecision(identity,p.id)==='CONFIRMED'?'Approved':manufacturerDecision(identity,p.id))+'</div>').join(''));}
     const attr=' data-worksheet-row="'+index+'" '+(state.saving?'disabled':'');
-    if(type==='SUBASSEMBLY')return '<input aria-label="Assembly P/N for row '+(index+1)+'" id="assembly-number-'+index+'" maxlength="200" data-worksheet-field="assemblyNumber" '+attr+' value="'+escapeHtml(ui.assemblyNumber??assembly)+'"><small>Assembly P/N</small>';
-    const proposals=(identity?.proposals||[]).filter(p=>p.partNumber?.trim()&&manufacturerDecision(identity,p.id)!=='REJECTED');
-    const selected=ui.primaryChoice==='MANUAL'||proposals.some(p=>p.id===ui.primaryChoice)?ui.primaryChoice:confirmed[0]?.id??proposals[0]?.id??'';
-    return '<select aria-label="Approved P/N for row '+(index+1)+'" id="approved-choice-'+index+'" data-worksheet-field="primaryChoice" '+attr+'><option value="">Not resolved</option>'+proposals.map(p=>'<option value="'+escapeHtml(p.id)+'" '+(p.id===selected?'selected':'')+'>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</option>').join('')+'<option value="MANUAL" '+(selected==='MANUAL'?'selected':'')+'>Manual Entry…</option></select>'+(proposals.length>1?'<small>+'+(proposals.length-1)+' more</small>':'')+(selected&&selected!=='MANUAL'?'<details class="worksheet-mfg-list"><summary>Review candidate</summary><button data-technical-review-action="worksheet-reject" data-candidate-row="'+index+'" data-proposal-id="'+escapeHtml(selected)+'" '+(state.saving?'disabled':'')+'>Reject this candidate</button></details>':'')+(selected==='MANUAL'?'<input aria-label="Manual MFG P/N for row '+(index+1)+'" id="approved-manual-'+index+'" data-worksheet-field="manualNumber" '+attr+' maxlength="200" value="'+escapeHtml(ui.manualNumber||'')+'">':'');
+    if(type==='SUBASSEMBLY')return candidateIdentityChoice(ui.assemblyNumber??assembly,1,'<input aria-label="Assembly P/N for row '+(index+1)+'" id="assembly-number-'+index+'" maxlength="200" data-worksheet-field="assemblyNumber" '+attr+' value="'+escapeHtml(ui.assemblyNumber??assembly)+'"><small>Assembly P/N</small>');
+    const proposals=current;
+    const selected=ui.primaryChoice==='MANUAL'||proposals.some(p=>p.id===ui.primaryChoice)?ui.primaryChoice:preferredCandidateDisplay(row,proposals)?.id??confirmed[0]?.id??proposals[0]?.id??'';
+    const number=selected==='MANUAL'?ui.manualNumber:proposals.find(p=>p.id===selected)?.partNumber;
+    const controls='<select aria-label="Approved P/N for row '+(index+1)+'" id="approved-choice-'+index+'" data-worksheet-field="primaryChoice" '+attr+'><option value="">Not resolved</option>'+proposals.map(p=>'<option value="'+escapeHtml(p.id)+'" '+(p.id===selected?'selected':'')+'>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</option>').join('')+'<option value="MANUAL" '+(selected==='MANUAL'?'selected':'')+'>Manual Entry…</option></select>'+(selected&&selected!=='MANUAL'?'<button data-technical-review-action="worksheet-reject" data-candidate-row="'+index+'" data-proposal-id="'+escapeHtml(selected)+'" '+(state.saving?'disabled':'')+'>Reject this candidate</button>':'')+(selected==='MANUAL'?'<input aria-label="Manual MFG P/N for row '+(index+1)+'" id="approved-manual-'+index+'" data-worksheet-field="manualNumber" '+attr+' maxlength="200" value="'+escapeHtml(ui.manualNumber||'')+'">':'');
+    return candidateIdentityChoice(number,proposals.length,controls,selected==='MANUAL'&&!ui.manualNumber);
   }
   async function acceptWorksheetRow(index){
     if(state.saving||completedReview(state.selected.record))return;
     const bom=state.selected.record.technicalReview.candidateBom,row=bom.rows[index],ui=rowReviewUi(row);
+    if(approvedPartDirty(row)||ui.identityBasisDraft){state.message='Save or cancel the Approved P/N changes before accepting this row.';state.messageState='error';renderDetail();return;}
     const values=state.candidateIndex===index&&document.getElementById('candidate-partNumber')?Object.fromEntries(Object.keys(candidateFields).map(k=>[k,(document.getElementById('candidate-'+k)?.value??state.candidateDraft?.[k]??row.values[k])])):state.candidateIndex===index&&state.candidateDraft?state.candidateDraft:row.values;
+    const acceptedValues=Object.fromEntries(Object.keys(candidateFields).map(k=>[k,values[k]]));
     const selection=document.getElementById('approved-choice-'+index)?.value;
     if(selection==='MANUAL'&&!document.getElementById('approved-manual-'+index)?.value.trim()){state.message='Enter a manual manufacturer P/N before accepting.';state.messageState='error';renderDetail();return;}
-    const worksheetAcceptance={expectedToken:row.reviewState.token,componentType:ui.componentType||row.componentType||'STANDARD_COTS',assemblyPartNumber:document.getElementById('assembly-number-'+index)?.value||ui.assemblyNumber||row.assemblyIdentity?.partNumber,proposalId:null,manualPartNumber:document.getElementById('approved-manual-'+index)?.value,manufacturerName:ui.manualMaker};
+    const worksheetAcceptance={expectedToken:row.reviewState.token,componentType:ui.componentType||row.componentType||'STANDARD_COTS',assemblyPartNumber:ui.assemblyNumber??document.getElementById('assembly-number-'+index)?.value??row.assemblyIdentity?.partNumber,proposalId:null,manualPartNumber:document.getElementById('approved-manual-'+index)?.value,manufacturerName:ui.manualMaker};
     state.saving=true;
-    try{state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:index,values,worksheetAcceptance})});delete state.rowReviewUi[bom.id+':'+index];state.candidateDraft=null;state.candidateIndex=null;state.rowOption=null;state.message='Row accepted.';state.messageState='';}
+    try{state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:index,values:acceptedValues,worksheetAcceptance})});delete state.rowReviewUi[bom.id+':'+index];state.candidateDraft=null;state.inlineDescriptionDirty=false;state.candidateInlineRow=null;state.candidateIndex=null;state.rowOption=null;state.message='Row accepted.';state.messageState='';}
     catch(error){state.message=error.message;state.messageState='error';}
     finally{state.saving=false;renderDetail();}
   }
@@ -1592,6 +1982,8 @@
   function candidateReviewerSummary(bom) {
     let proposed=0, choices=0, unresolved=0;
     for (const row of bom.rows) {
+      if(row.componentType==='DNP')continue;
+      if(customerIdentity(row)){if(!row.primaryIdentity.partNumber?.trim()||row.primaryIdentity.customerBomPartNumber!==row.values.partNumber)unresolved++;continue;}
       if(row.componentType==='SUBASSEMBLY' && (row.assemblyIdentity?.partNumber || (row.alternates||[]).some(a=>!a.removedAtUtc&&a.origin==='MANUAL'&&a.reviewStatus==='CONFIRMED')))continue;
       const identity=row.manufacturerIdentity;
       const active=(identity?.proposals || []).filter(p=>p.partNumber?.trim() && manufacturerDecision(identity,p.id)!=='REJECTED');
@@ -1614,7 +2006,7 @@
   function rowReviewUi(row) {
     const key=(state.selected?.record?.technicalReview?.candidateBom?.id||'history')+':'+row.index;
     state.rowReviewUi ||= {};
-    return state.rowReviewUi[key] ||= {};
+    return state.rowReviewUi[key] ||= {primaryChoice:row.workingState?.manualPartNumber!=null?'MANUAL':undefined,assemblyNumber:row.workingState?.assemblyPartNumber,manualNumber:row.workingState?.manualPartNumber,manualMaker:row.workingState?.manufacturerName};
   }
   function rememberPrimaryInputs(row) {
     const ui=rowReviewUi(row);
@@ -1684,12 +2076,34 @@
       return '<div class="row-technical-file"><strong>'+escapeHtml(f.name)+'</strong><small>'+escapeHtml(identityLabels[doc?.identityReview?.type]||doc?.documentType)+'</small>'+(origin.note?'<p>'+escapeHtml(origin.note)+'</p>':'')+'<a target="_blank" rel="noopener" href="/api/sim/rfq-intakes/'+encodeURIComponent(record.intakeId)+'/documents/'+encodeURIComponent(f.documentId)+'">View File</a><details><summary>Provenance</summary><small>'+escapeHtml(origin.addedBy)+' · '+escapeHtml(formatDateTime(origin.addedAtUtc))+'</small><small>Customer / BOM P/N: '+escapeHtml(origin.rowContext.customerBomPartNumber)+' · DLE proposed: '+escapeHtml((origin.rowContext.proposedSubassemblyIdentities||[]).join(' · ')||'None')+'</small></details></div>';
     }).join('')+'</details>':'')+(readOnly?'':addingDocuments?renderReviewUploads(true):'<button class="row-add-file" data-technical-review-action="row-add-file" '+(state.saving?'disabled':'')+'>Add File</button>')+'</section>';
   }
+  function descriptionProvenance(row) {
+    const customer=row.extracted?.description,reviewed=row.values?.description;
+    const correction=[...(row.corrections||[])].reverse().find(c=>c.field==='description'&&c.value===reviewed);
+    return '<section class="candidate-description-provenance" aria-label="Description provenance"><dl><dt>Customer Description</dt><dd>'+escapeHtml(customer??'Not recorded')+'</dd><dt>Reviewed Description</dt><dd>'+escapeHtml(reviewed??'Not recorded')+'</dd></dl>'+
+      (customer!==reviewed&&correction?'<small>Updated by '+escapeHtml(correction.reviewer)+' · '+escapeHtml(formatDateTime(correction.atUtc))+'</small>':'')+analysisEvidence(row.analysisFields?.description)+'</section>';
+  }
+  function renderCandidateInspector(bom,row,index,readOnly) {
+    const titles={'approved-pns':'Approved P/Ns',edit:'BOM Fields',files:'Technical Files',history:'Source / Evidence',alternates:'Technical Alternates'};
+    const panel=state.rowOption||'edit';
+    const body=panel==='approved-pns'?renderApprovedPartManager(row,index,readOnly):panel==='alternates'?renderAlternates(row,readOnly):panel==='files'?renderRowTechnicalFiles(bom,row,readOnly):panel==='history'?renderCandidateEvidence(bom,row):renderCandidateRow(bom,row,index,readOnly);
+    return '<div class="candidate-row-inspector"><div class="candidate-inspector-heading"><h4>Line '+escapeHtml(row.values.lineNumber)+' · '+escapeHtml(titles[panel]||titles.edit)+'</h4><button data-technical-review-action="candidate-panel-close" '+(state.saving?'disabled':'')+'>Close</button></div>'+body+'</div>';
+  }
+  function renderCandidateEvidence(bom,row) {
+    const url='/api/sim/rfq-intakes/'+encodeURIComponent(state.selected?.record?.intakeId||'')+'/documents/';
+    const evidence=e=>e?'<a target="_blank" rel="noopener" href="'+url+encodeURIComponent(e.documentId)+'#page='+(e.page||bom.page)+'">View source'+(e.page?' · Page '+escapeHtml(e.page):'')+(e.sheet?' · sheet '+escapeHtml(e.sheet):'')+'</a>':'';
+    return '<section class="candidate-source-evidence">'+(['SUBASSEMBLY','DNP'].includes(row.componentType)?'':'<p>Approved P/N Basis: '+(customerIdentity(row)?'Customer P/N':'Manufacturer P/N')+'</p>')+evidence({documentId:bom.governingDocumentId,page:bom.page})+
+      '<table><thead><tr><th>Field</th><th>Source value</th><th>Reviewed value</th></tr></thead><tbody>'+Object.entries(candidateFields).map(([key,label])=>'<tr><th>'+escapeHtml(label)+'</th><td>'+escapeHtml(row.extracted[key]||'—')+'</td><td>'+escapeHtml(row.values[key]||'—')+'</td></tr>').join('')+'</tbody></table>'+
+      (row.reviewer?'<p>Reviewed by '+escapeHtml(row.reviewer)+' · '+escapeHtml(formatDateTime(row.reviewedAtUtc))+'</p>':'')+
+      Object.entries(row.analysisFields||{}).map(([key,f])=>'<p>'+escapeHtml(candidateFields[key]||key)+': '+evidence(f.evidence)+(f.supportingEvidence?' · Supporting: '+evidence(f.supportingEvidence):'')+(row.comparison[key]==='CONFLICT'?' · Conflicting source values':'')+(f.uncertainty?' · '+escapeHtml(f.uncertainty):'')+'</p>').join('')+
+      (row.manufacturerIdentity?.proposals||[]).map(p=>'<p>'+escapeHtml(p.partNumber)+' · '+escapeHtml(p.manufacturerName||'Manufacturer not supplied')+' · '+escapeHtml(manufacturerDecision(row.manufacturerIdentity,p.id))+' '+evidence(p.evidence)+(p.conflicts?.length?' · '+escapeHtml(p.conflicts.join('; ')):'')+'</p>').join('')+
+      (row.alternates||[]).filter(a=>!a.removedAtUtc).map(a=>'<p>Alternate: '+escapeHtml(a.partNumber)+' · '+escapeHtml(a.reviewStatus)+(a.note?' · '+escapeHtml(a.note):'')+'</p>').join('')+
+      '<details><summary>Review records</summary><p>Retained decisions and corrections; not a complete edit history.</p>'+(row.manufacturerIdentity?.history||[]).map(h=>'<p>'+escapeHtml(row.manufacturerIdentity.proposals.find(p=>p.id===h.proposalId)?.partNumber||'Identity')+' · '+escapeHtml(h.decision)+' · '+escapeHtml(h.reviewer||'')+' · '+escapeHtml(h.atUtc?formatDateTime(h.atUtc):'')+'</p>').join('')+(row.corrections||[]).map(c=>'<p>'+escapeHtml(candidateFields[c.field]||c.field)+': '+escapeHtml(c.previous)+' → '+escapeHtml(c.value)+' · '+escapeHtml(c.reviewer)+'</p>').join('')+(row.assemblyIdentityHistory||[]).map(a=>'<p>Assembly P/N: '+escapeHtml(a.partNumber)+' · '+escapeHtml(a.reviewer)+'</p>').join('')+'</details>'+
+      '<details class="candidate-technical-details"><summary>Technical details</summary><p>Document: '+escapeHtml(bom.governingDocumentId)+' · Bounds: '+escapeHtml((row.bounds||[]).join(', '))+'</p><p>SHA-256: '+escapeHtml(bom.governingSha256)+'</p>'+renderManufacturer(row,true)+renderAlternates(row,true)+'</details></section>';
+  }
   function renderCandidateRow(bom, row, index, readOnly = false) {
-    const disabled = state.saving ? 'disabled' : '';
-    const content = '<div class="candidate-editor-heading"><h4>Row ' + (index + 1) + ' · Edit / Add Details</h4></div><div class="candidate-edit-grid"><label class="technical-review-candidate-field">Component Type' + '<select aria-label="Type in details for row '+(index+1)+'" data-worksheet-field="componentType" data-worksheet-row="'+index+'">'+Object.entries(componentTypes).map(([key,label])=>'<option value="'+key+'" '+(key===(rowReviewUi(row).componentType||row.componentType)?'selected':'')+'>'+label+'</option>').join('')+'</select></label>' + Object.entries(candidateFields).map(([key, label]) => '<label class="technical-review-candidate-field candidate-field-' + key + '">' + ({lineNumber:'Line',partNumber:'Customer / BOM P/N',quantity:'Qty / Assy',designators:'Designators',description:'Description'}[key]) + '<input id="candidate-' + key + '" value="' + escapeHtml((state.candidateDraft || row.values)[key]) + '" maxlength="2000" ' + disabled + '></label>').join('') + '</div>' + '' + '<div class="candidate-editor-actions"><button class="technical-review-primary" data-technical-review-action="worksheet-accept" data-candidate-row="'+index+'" '+disabled+'>Accept</button><button data-technical-review-action="candidate-detail" data-candidate-row="' + index + '" ' + disabled + '>Close</button></div>' +
-      '<details class="candidate-evidence"><summary>Source / History</summary>' + (row.reviewer ? '<p>Reviewed by ' + escapeHtml(row.reviewer) + ' · ' + escapeHtml(row.reviewedAtUtc) + '</p>' : '') + renderManufacturer(row, true) + (row.assemblyIdentityHistory||[row.assemblyIdentity].filter(Boolean)).map(a=>'<p>Assembly P/N: '+escapeHtml(a.partNumber)+' · '+escapeHtml(a.reviewer)+' · '+escapeHtml(a.atUtc)+'</p>').join('') + renderAlternates(row, true) + Object.entries(candidateFields).map(([key, label]) => '<div class="candidate-evidence-field"><strong>' + label + '</strong><p>Governing extracted value: ' + escapeHtml(row.extracted[key] || '—') + ' · Supporting relationship: ' + escapeHtml(row.comparison[key]) + '</p>' + analysisEvidence(row.analysisFields?.[key]) + '</div>').join('') +
-      '<p>Governing document: ' + escapeHtml(bom.governingDocumentId) + ' · Page ' + bom.page + ' · Bounds: ' + escapeHtml((row.bounds || []).join(', ')) + '</p><p>SHA-256: ' + escapeHtml(bom.governingSha256) + '</p>' + row.corrections.map(c => '<p>' + escapeHtml(candidateFields[c.field] || (c.field === 'componentType' ? 'Component Type' : c.field)) + ': ' + escapeHtml(c.previous) + ' → ' + escapeHtml(c.value) + ' · ' + escapeHtml(c.reviewer) + ' · ' + escapeHtml(c.atUtc) + '</p>').join('') + '</details>';
-    return readOnly ? renderRowTechnicalFiles(bom,row,true)+content.slice(content.indexOf('<details class="candidate-evidence">')) : content;
+    if(readOnly)return renderCandidateEvidence(bom,row);
+    const disabled=state.saving?'disabled':'';
+    return '<div class="candidate-edit-grid">'+['lineNumber','partNumber','quantity'].map(key=>'<label>'+({lineNumber:'Line / Find #',partNumber:'Customer / BOM P/N',quantity:'Qty / Assy'}[key])+'<input id="candidate-'+key+'" value="'+escapeHtml((state.candidateDraft||row.values)[key])+'" maxlength="2000" '+disabled+'></label>').join('')+'</div><div class="candidate-editor-actions"><button class="technical-review-primary" data-technical-review-action="worksheet-accept" data-candidate-row="'+index+'" '+disabled+'>Accept</button></div>';
   }
 
   function renderAcceptedBom(record) {
@@ -1703,13 +2117,13 @@
       const approved=(identity?.proposals||[]).filter(p=>manufacturerDecision(identity,p.id)==='CONFIRMED');
       const alternates=(row.alternates||[]).filter(a=>!a.removedAtUtc && ['CONFIRMED','APPROVED'].includes(a.reviewStatus));
       const assembly=row.assemblyIdentity?.partNumber||alternates.find(a=>a.origin==='MANUAL')?.partNumber;
-      const pn=row.componentType==='SUBASSEMBLY'?escapeHtml(assembly||'—'):approved.length?'<details class="worksheet-mfg-list"><summary>'+escapeHtml(approved[0].partNumber)+(approved.length>1?' <small>+'+(approved.length-1)+' more</small>':'')+'</summary>'+approved.map(p=>'<div>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</div>').join('')+'</details>':'—';
+      const pn=row.componentType==='DNP'?'DNP':row.componentType==='SUBASSEMBLY'?escapeHtml(assembly||'—'):customerIdentity(row)?escapeHtml(row.primaryIdentity.partNumber):approved.length?'<details class="worksheet-mfg-list"><summary>'+escapeHtml(approved[0].partNumber)+(approved.length>1?' <small>+'+(approved.length-1)+' more</small>':'')+'</summary>'+approved.map(p=>'<div>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</div>').join('')+'</details>':'—';
       const files=(acceptance.package?.documents||[]).filter(d=>d.rowAssociation?.rowId===(row.rowId||bom.id+':row:'+row.index));
-      const detail='<details class="accepted-row-details"><summary>Details</summary>'+
+      const detail='<details class="accepted-row-details"><summary>Details</summary>'+(['SUBASSEMBLY','DNP'].includes(row.componentType)?'':'<p>Approved P/N Basis: '+(customerIdentity(row)?'Customer P/N':'Manufacturer P/N')+'</p>')+descriptionProvenance(row)+
         (alternates.length?'<h4>Approved alternates</h4><ul>'+alternates.map(a=>'<li>'+escapeHtml(a.partNumber)+'</li>').join('')+'</ul>':'')+
         (assembly?'<p>Assembly P/N: '+escapeHtml(assembly)+'</p>':'')+
         (files.length?'<details><summary>Technical Files ('+files.length+')</summary>'+files.map(f=>'<p><a target="_blank" rel="noopener" href="/api/sim/rfq-intakes/'+encodeURIComponent(record.intakeId)+'/documents/'+encodeURIComponent(f.documentId)+'">'+escapeHtml(f.name)+'</a></p>').join('')+'</details>':'')+
-        '<details><summary>Source / History</summary><p>Governing document: '+escapeHtml(bom.governingDocumentId)+' · Page '+escapeHtml(bom.page)+'</p><p>SHA-256: '+escapeHtml(bom.governingSha256)+'</p>'+Object.entries(candidateFields).map(([key,label])=>'<p>'+escapeHtml(label)+': '+escapeHtml(row.extracted?.[key]||'—')+'</p>'+analysisEvidence(row.analysisFields?.[key])).join('')+(row.corrections||[]).map(c=>'<p>'+escapeHtml(candidateFields[c.field]||c.field)+': '+escapeHtml(c.previous)+' → '+escapeHtml(c.value)+' · '+escapeHtml(c.reviewer)+' · '+escapeHtml(c.atUtc)+'</p>').join('')+'</details></details>';
+        '<details><summary>Source / History</summary><p>Governing document: '+escapeHtml(bom.governingDocumentId)+' · Page '+escapeHtml(bom.page)+'</p><p>SHA-256: '+escapeHtml(bom.governingSha256)+'</p>'+Object.entries(candidateFields).filter(([key])=>key!=='description').map(([key,label])=>'<p>'+escapeHtml(label)+': '+escapeHtml(row.extracted?.[key]||'—')+'</p>'+analysisEvidence(row.analysisFields?.[key])).join('')+(row.corrections||[]).map(c=>'<p>'+escapeHtml(candidateFields[c.field]||c.field)+': '+escapeHtml(c.previous)+' → '+escapeHtml(c.value)+' · '+escapeHtml(c.reviewer)+' · '+escapeHtml(c.atUtc)+'</p>').join('')+'</details></details>';
       return '<tr><td>'+escapeHtml(v.lineNumber||'—')+'</td><td class="candidate-part">'+escapeHtml(v.partNumber||'—')+'</td><td>'+pn+'</td><td>'+escapeHtml(v.description||'—')+'</td><td>'+escapeHtml(v.quantity||'—')+'</td><td>'+escapeHtml(componentTypes[row.componentType]||componentTypes.STANDARD_COTS)+'</td><td>'+escapeHtml(v.designators||'—')+'</td><td>'+detail+'</td></tr>';
     }).join('');
     return '<section class="technical-review-question technical-review-candidate accepted-bom-reference" aria-labelledby="acceptedBomTitle">'+back+'<h3 id="acceptedBomTitle" tabindex="-1">'+escapeHtml(title)+'</h3><p>Accepted by '+escapeHtml(acceptance.reviewedBy||'Not recorded')+' · <time datetime="'+escapeHtml(acceptance.reviewedAtUtc)+'">'+escapeHtml(formatDateTime(acceptance.reviewedAtUtc))+'</time></p><p>Read-only snapshot of the accepted BOM.</p><div class="candidate-table-scroll" role="region" aria-label="'+escapeHtml(title)+'" tabindex="0"><table class="candidate-table"><thead><tr>'+['Line','Customer / BOM P/N','Approved P/N','Description','Qty / Assy','Type','Designators','Details'].map(x=>'<th scope="col">'+x+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div></section>';
@@ -1746,8 +2160,8 @@
     if(historyOnly)return renderLegacyAlternates(row,historyOnly);
     const ui=rowReviewUi(row), selected=ui.alternateChoice||'', entries=(row.alternates||[]).filter(a=>!a.removedAtUtc);
     const status=a=>a.reviewStatus==='APPROVED'?'Approved':a.reviewStatus==='NOT_APPROVED'?'Not Approved':'Proposed';
-    const current=entries.find(a=>a.id===selected);
-    return '<section class="candidate-alternates"><label>Alternate Parts<select id="alternateChoice" '+(state.saving?'disabled':'')+'><option value="">Select / Add Alternate</option>'+entries.map(a=>'<option value="'+escapeHtml(a.id)+'" '+(selected===a.id?'selected':'')+'>'+escapeHtml(a.partNumber+' — '+status(a))+'</option>').join('')+'<option value="ADD" '+(selected==='ADD'?'selected':'')+'>Add Alternate…</option></select></label>'+(selected?'<div class="candidate-alternate-add"><label>Alternate MFG P/N<input id="compactAlternateNumber" maxlength="200" value="'+escapeHtml(current?.partNumber||'')+'"></label><label>Manufacturer (optional)<input id="compactAlternateManufacturer" maxlength="200" value="'+escapeHtml(current?.manufacturerName||'')+'"></label><label>Note / evidence (optional)<input id="compactAlternateNote" maxlength="2000" value="'+escapeHtml(current?.note||'')+'"></label><button data-technical-review-action="alternate-approve" '+(state.saving?'disabled':'')+'>Approve Alternate</button>'+(current?'<button data-technical-review-action="alternate-not-approved" '+(state.saving?'disabled':'')+'>Not Approved</button>':'')+'</div>':'')+'</section>';
+    const current=ui.alternateDraft||entries.find(a=>a.id===selected);
+    return '<section class="candidate-alternates"><label>Alternate Parts<select id="alternateChoice" '+(state.saving?'disabled':'')+'><option value="">Select / Add Alternate</option>'+entries.map(a=>'<option value="'+escapeHtml(a.id)+'" '+(selected===a.id?'selected':'')+'>'+escapeHtml(a.partNumber+' — '+status(a))+'</option>').join('')+'<option value="ADD" '+(selected==='ADD'?'selected':'')+'>Add Alternate…</option></select></label>'+(selected?'<div class="candidate-alternate-add"><label>Alternate MFG P/N<input id="compactAlternateNumber" maxlength="200" value="'+escapeHtml(current?.partNumber||'')+'"></label><label>Manufacturer (optional)<input id="compactAlternateManufacturer" maxlength="200" value="'+escapeHtml(current?.manufacturerName||'')+'"></label><label>Note / evidence (optional)<input id="compactAlternateNote" maxlength="2000" value="'+escapeHtml(current?.note||'')+'"></label><button data-technical-review-action="alternate-approve" '+(state.saving?'disabled':'')+'>Approve Alternate</button>'+(entries.some(a=>a.id===selected)?'<button data-technical-review-action="alternate-not-approved" '+(state.saving?'disabled':'')+'>Not Approved</button>':'')+'<button data-technical-review-action="alternate-draft-cancel" '+(state.saving?'disabled':'')+'>Cancel</button></div>':'')+'</section>';
   }
   async function saveCompactAlternate(approve=true) {
     if(state.saving)return;
@@ -1755,7 +2169,7 @@
     rememberPrimaryInputs(row);
     const alternateChange={action:approve?'APPROVE':'EDIT',reviewStatus:approve?'APPROVED':'NOT_APPROVED',id:choice==='ADD'?null:choice,expectedRevision:row.alternateRevision||0,partNumber:document.getElementById('compactAlternateNumber').value,manufacturerName:document.getElementById('compactAlternateManufacturer').value,note:document.getElementById('compactAlternateNote').value};
     state.candidateDraft=Object.fromEntries(Object.keys(candidateFields).map(k=>[k,(document.getElementById('candidate-'+k)?.value??state.candidateDraft?.[k]??row.values[k])]));state.saving=true;
-    try {state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:row.index,alternateChange})});rowReviewUi(row).alternateChoice='';state.message=approve?'Alternate approved.':'Alternate marked Not Approved.';state.messageState='';}
+    try {state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:row.index,alternateChange})});delete rowReviewUi(row).alternateDraft;rowReviewUi(row).alternateChoice='';state.message=approve?'Alternate approved.':'Alternate marked Not Approved.';state.messageState='';}
     catch(error){state.message=error.message;state.messageState='error';}
     finally{state.saving=false;renderDetail();}
   }

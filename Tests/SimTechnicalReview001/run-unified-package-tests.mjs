@@ -51,6 +51,7 @@ await t.pollAnalysis('SYN',true);
 assert.equal(t.state.step,'inventory');assert.match(t.renderAnalysisProgress(),/Candidate BOM Ready/);assert.match(t.renderAnalysisProgress(),/Review Candidate BOM/);
 const beforeCandidate=JSON.stringify(envelope.record.technicalReview.candidateBom);
 handlers.click({target:{closest:s=>s==='[data-technical-review-action]'?{dataset:{technicalReviewAction:'candidate'}}:null}});
+await new Promise(resolve=>setImmediate(resolve));
 assert.equal(t.state.step,'candidate');assert.equal(JSON.stringify(envelope.record.technicalReview.candidateBom),beforeCandidate);
 t.state.step='inventory';t.state.packageAnswers={complete:'yes'};t.state.packageDraft=JSON.parse(JSON.stringify(envelope.record.technicalReview.technicalPackage));
 t.state.packageDraft.documents.forEach(d=>{d.productionUse='NOT_FOR_PRODUCTION';d.bomUse='NO_BOM_ROLE';});t.state.packageDraft.documents[0].productionUse='PRIMARY_DRAWING';t.state.packageDraft.documents[0].bomUse='GOVERNING_BOM';t.state.packageDraft.governingBomDocumentId='pdf';

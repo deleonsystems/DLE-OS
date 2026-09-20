@@ -34,7 +34,8 @@ internal sealed partial class SimRfqIntakeStore
             return "A continuation row still contains transcription content. Resolve that content in the reviewed worksheet before building.";
         if (sheet.Rows.Any(r=>r.Cells.Any(c=>c.Key.StartsWith("MANUFACTURER_IDENTITY_") && !string.IsNullOrWhiteSpace(c.Value.Value))))
             return "Separate combined manufacturer identities into manufacturer and part-number columns before submitting.";
-        if (!sheet.Rows.Any(r=>r.RowType=="COMPONENT")) return "No component rows are available to build.";
+        if (!sheet.Rows.Any(r=>r.RowType=="COMPONENT" || (r.RowType!="CONTINUATION" && !string.IsNullOrWhiteSpace(r.Cells.GetValueOrDefault("FIND_NUMBER")?.Value))))
+            return "No numbered review positions are available to build.";
         return null;
     }
     private static SimScanCandidateState ScanCandidateState(SimRfqIntakeRecord record)
@@ -68,7 +69,7 @@ internal sealed partial class SimRfqIntakeStore
             if(review.CandidateBom?.ReviewedScanSource is null || !ScanCandidateCurrent(record,review.CandidateBom))
             {
                 if(PackageReviewToken(record)!=request.ExpectedReviewToken) throw SimRfqIntakeProblem.Conflict("SCAN_REVIEW_STALE","Technical Review changed. Reopen before submitting.");
-                var rows=sheet.Rows.Where(r=>r.RowType=="COMPONENT").Select((r,index)=>{
+                var rows=sheet.Rows.Where(r=>r.RowType=="COMPONENT" || (r.RowType!="CONTINUATION" && !string.IsNullOrWhiteSpace(r.Cells.GetValueOrDefault("FIND_NUMBER")?.Value))).Select((r,index)=>{
                     string Value(string field)=>r.Cells.GetValueOrDefault(field)?.Value??"";
                     DleAnalysisEvidence Evidence(string field)=>new(sheet.Setup.DocumentId,r.Page,null,$"Reviewed worksheet {sheet.Id} v{sheet.Version}, source row {r.Position}, {field}");
                     var mapping=new Dictionary<string,string>{{"lineNumber","FIND_NUMBER"},{"partNumber","CUSTOMER_PART_NUMBER"},{"quantity","QUANTITY"},{"designators","REFERENCE_DESIGNATORS"},{"description","DESCRIPTION"},{"unit","UNIT"}};
@@ -77,11 +78,12 @@ internal sealed partial class SimRfqIntakeStore
                     var proposals=Enumerable.Range(1,3).Where(n=>!string.IsNullOrWhiteSpace(Value("MANUFACTURER_PART_NUMBER_"+n))).Select(n=>new DleManufacturerProposal(
                         $"scan-{r.Position}-mfg-{n}",Value("MANUFACTURER_"+n),Value("MANUFACTURER_PART_NUMBER_"+n),Evidence("MANUFACTURER_PART_NUMBER_"+n),Evidence("CUSTOMER_PART_NUMBER"),Evidence("MANUFACTURER_PART_NUMBER_"+n),
                         "Reviewed scanned BOM",["SAME_SOURCE_ROW"],[],new(){{"manufacturer",Value("MANUFACTURER_"+n)},{"partNumber",Value("MANUFACTURER_PART_NUMBER_"+n)}},"REVIEWED_TRANSCRIPTION","Technical identity requires review.")).ToArray();
-                    return new SimCandidateRow(index,values,new(values),[],mapping.ToDictionary(p=>p.Key,_=>"GOVERNING"),false,null,null,[], $"scan-{sheet.Id}-{r.Position}",analysis,ManufacturerIdentity:new(proposals,"Review manufacturer identities from the saved transcription.",[]));
+                    return new SimCandidateRow(index,values,new(values),[],mapping.ToDictionary(p=>p.Key,_=>"GOVERNING"),false,null,null,[], $"scan-{sheet.Id}-{r.Position}",analysis,ManufacturerIdentity:new(proposals,"Review manufacturer identities from the saved transcription.",[]),
+                        SourcePositionKind:r.RowType=="COMPONENT"?null:r.RowType);
                 }).ToArray();
                 var candidate=new SimCandidateBom(Guid.NewGuid().ToString("D"),"Candidate BOM",sheet.Setup.DocumentId,sheet.Setup.Sha256,sheet.Setup.StartPage,
                     "SAVED_REVIEWED_SCANNED_BOM",false,DateTimeOffset.UtcNow,persona.DisplayName,[],
-                    "Built locally from saved reviewed transcription. Non-component rows and all original cell evidence are retained in the worksheet snapshot. Supporting documents were not re-extracted.",rows,
+                    "Built locally from saved reviewed transcription. Numbered non-component positions require technical disposition. Resolved continuations and all original cell evidence are retained in the worksheet snapshot. Supporting documents were not re-extracted.",rows,
                     ContractVersion:SimCandidateBomProvider.ContractVersion,ReviewedScanSource:new(ScanFingerprint(sheet),MaterialPackageSignature(review.TechnicalPackage),sheet));
                 data.Records[data.Records.IndexOf(record)]=record with {TechnicalReview=review with {CandidateBom=candidate,
                     CandidateBomVersions=review.CandidateBom is null?review.CandidateBomVersions:(review.CandidateBomVersions??[]).Append(review.CandidateBom).ToArray(),MaterialsReviewStatus=null,NextReviewPhase=null}};

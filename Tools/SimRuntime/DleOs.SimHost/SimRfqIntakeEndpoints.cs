@@ -287,6 +287,14 @@ internal static partial class SimRfqIntakeEndpoints
             }
         });
 
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/bom-completion-readiness", async Task<IResult> (string intakeId, SimBomCompletionRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.BomCompletionReadiness(intakeId, request)); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "Completion readiness could not be checked. Reopen before retrying." }, statusCode: 503); }
+        });
         app.MapPost("/api/sim/technical-reviews/{intakeId}/complete-bom-review", async Task<IResult> (string intakeId, SimBomCompletionRequest request, HttpContext context) =>
         {
             var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");

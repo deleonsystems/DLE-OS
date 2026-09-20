@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const nodes = new Map();
 const node = id => {
-  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', dataset: {}, hidden: false, focus() {}, classList: { toggle() {}, remove() {} } });
+  if (!nodes.has(id)) nodes.set(id, { querySelector() { return null; }, innerHTML: '', dataset: {}, hidden: false, focus() {}, classList: { toggle() {}, remove() {} } });
   return nodes.get(id);
 };
 const mount = node('mount');
@@ -102,11 +102,11 @@ assert.match(node('technicalReviewDetail').innerHTML, /Materials Definition save
 await click('candidate');
 assert.match(node('technicalReviewDetail').innerHTML, /Candidate BOM/);
 assert.match(node('technicalReviewDetail').innerHTML, /EXTRACTED-PART/);
-assert.match(node('technicalReviewDetail').innerHTML, /<table class="candidate-table">/);
+assert.match(node('technicalReviewDetail').innerHTML, /<table class="candidate-table candidate-workbench-table"/);
 assert.match(node('technicalReviewDetail').innerHTML, /1 unresolved/);
 assert.doesNotMatch(node('technicalReviewDetail').innerHTML, /id="candidate-partNumber"/);
 handlers.click({ target: { closest: selector => selector === '[data-technical-review-action]' ? { dataset: { technicalReviewAction: 'candidate-detail' } } : selector === '[data-candidate-row]' ? { dataset: {candidateRow:'0'} } : null } });
-assert.match(node('technicalReviewDetail').innerHTML, /Source \/ History/);
+assert.match(node('technicalReviewDetail').innerHTML, /Source \/ Evidence/);
 for (const [key,value] of Object.entries(record.technicalReview.candidateBom.rows[0].values)) node('candidate-' + key).value = value;
 node('candidate-partNumber').value = 'REVIEWER-CORRECTION';
 await click('candidate-confirm');

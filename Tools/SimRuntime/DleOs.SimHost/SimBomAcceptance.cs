@@ -18,6 +18,38 @@ internal sealed partial class SimRfqIntakeStore
             return JsonValue.Create(date.UtcDateTime.ToString("O"));
         return node?.DeepClone();
     }
+    internal async Task<object> BomCompletionReadiness(string intakeId, SimBomCompletionRequest request)
+    {
+        await gate.WaitAsync();
+        try {
+            var dataset = await ReadDatasetAsync();
+            var record = dataset.Records.FirstOrDefault(r => r.IntakeId == intakeId && IsTechnicalReviewRecord(r));
+            if(record is null)throw SimRfqIntakeProblem.NotFound("SIM_REVIEW_NOT_FOUND", "Technical Review was not found.");
+            try { await RequireBomCompletionReady(dataset, record, request); return new { ready = true, message = "All completion checks passed." }; }
+            catch(SimRfqIntakeProblem problem) { return new { ready = false, message = problem.Message }; }
+        } finally { gate.Release(); }
+    }
+    private async Task RequireBomCompletionReady(SimRfqIntakeDataset dataset, SimRfqIntakeRecord record, SimBomCompletionRequest request)
+    {
+        var review=record.TechnicalReview;
+        var bom=review?.CandidateBom;
+        if (bom is null || bom.Rows.Length == 0)
+            throw SimRfqIntakeProblem.Conflict("SIM_BOM_MISSING", "Build a Candidate BOM before completing BOM Review.");
+        if (request.Candidate is null || !JsonNode.DeepEquals(ComparableSnapshot(JsonSerializer.SerializeToNode(request.Candidate, jsonOptions)), ComparableSnapshot(JsonSerializer.SerializeToNode(bom, jsonOptions))))
+            throw SimRfqIntakeProblem.Conflict("SIM_BOM_CHANGED", "The candidate changed. Reopen and review the latest version before completing BOM Review.");
+        var sources = await AnalysisDocuments(record, bom.Analysis?.SourceSnapshot.SourceSelectionVersion);
+        RequireCurrentScanCandidate(record, bom);
+        if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == record.IntakeId && DleAnalysisContract.Active(j.Status)))
+            throw SimRfqIntakeProblem.Conflict("SIM_BOM_ANALYZING", "Wait for the current analysis to finish before completing BOM Review.");
+        var governing = sources.Single(s => s.Source.DocumentId == review!.TechnicalPackage!.GoverningBomDocumentId).Source;
+        if (bom.GoverningDocumentId != governing.DocumentId || bom.GoverningSha256 != governing.Sha256 ||
+            (bom.Analysis is not null && !SameAnalysisSources(bom.Analysis.SourceSnapshot, record, sources)))
+            throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "The source package changed. Build and review a new candidate before completing BOM Review.");
+        var blockers = bom.Rows.Where(row => !row.ReviewState.Reviewed)
+            .Select(row => "Row " + (row.Index + 1) + ": " + string.Join(" ", row.ReviewState.Reasons)).ToArray();
+        if (blockers.Length > 0)
+            throw SimRfqIntakeProblem.Conflict("SIM_BOM_UNRESOLVED", string.Join("; ", blockers));
+    }
     internal async Task<object> CompleteBomReview(string intakeId, SimBomCompletionRequest request, SimPersona persona)
     {
         await gate.WaitAsync();
@@ -29,24 +61,9 @@ internal sealed partial class SimRfqIntakeStore
             var record = dataset.Records[index];
             var review = record.TechnicalReview;
             var bom = review?.CandidateBom;
-            if (bom is null || bom.Rows.Length == 0)
-                throw SimRfqIntakeProblem.Conflict("SIM_BOM_MISSING", "Build a Candidate BOM before completing BOM Review.");
-            if (request.Candidate is null || !JsonNode.DeepEquals(ComparableSnapshot(JsonSerializer.SerializeToNode(request.Candidate, jsonOptions)), ComparableSnapshot(JsonSerializer.SerializeToNode(bom, jsonOptions))))
-                throw SimRfqIntakeProblem.Conflict("SIM_BOM_CHANGED", "The candidate changed. Reopen and review the latest version before completing BOM Review.");
-            var sources = await AnalysisDocuments(record, bom.Analysis?.SourceSnapshot.SourceSelectionVersion);
-            RequireCurrentScanCandidate(record, bom);
-            if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status)))
-                throw SimRfqIntakeProblem.Conflict("SIM_BOM_ANALYZING", "Wait for the current analysis to finish before completing BOM Review.");
-            var governing = sources.Single(s => s.Source.DocumentId == review!.TechnicalPackage!.GoverningBomDocumentId).Source;
-            if (bom.GoverningDocumentId != governing.DocumentId || bom.GoverningSha256 != governing.Sha256 ||
-                (bom.Analysis is not null && !SameAnalysisSources(bom.Analysis.SourceSnapshot, record, sources)))
-                throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "The source package changed. Build and review a new candidate before completing BOM Review.");
-            var blockers = bom.Rows.Where(row => !row.ReviewState.Reviewed)
-                .Select(row => "Row " + (row.Index + 1) + ": " + string.Join(" ", row.ReviewState.Reasons)).ToArray();
-            if (blockers.Length > 0)
-                throw SimRfqIntakeProblem.Conflict("SIM_BOM_UNRESOLVED", string.Join("; ", blockers));
+            await RequireBomCompletionReady(dataset, record, request);
             var acceptances = review!.BomAcceptances ?? [];
-            if (!acceptances.Any(a => a.Candidate.Id == bom.Id))
+            if (!acceptances.Any(a => a.Candidate.Id == bom!.Id))
             {
                 // Full immutable snapshot includes corrections, alternate tombstones and evidence.
                 var snapshot = JsonSerializer.Deserialize<SimCandidateBom>(JsonSerializer.Serialize(bom, jsonOptions), jsonOptions)!;

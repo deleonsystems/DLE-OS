@@ -24,7 +24,7 @@ let persisted = fixture;
 const before = JSON.stringify(fixture);
 const nodes = new Map();
 const node = id => {
-  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', dataset: {}, hidden: false, focus() {}, classList: { toggle() {}, remove() {} } });
+  if (!nodes.has(id)) nodes.set(id, { querySelector() { return null; }, innerHTML: '', dataset: {}, hidden: false, focus() {}, classList: { toggle() {}, remove() {} } });
   return nodes.get(id);
 };
 const handlers = {};
