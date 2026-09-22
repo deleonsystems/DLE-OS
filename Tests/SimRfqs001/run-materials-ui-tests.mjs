@@ -5,18 +5,19 @@ const rfq={intakeId:'SYNTHETIC',customer:{customerName:'Synthetic'},assemblies:[
 rfq.inputs.materials.candidate.rows[0].manufacturerIdentity={proposals:[{id:'a',partNumber:'MFG-A'},{id:'b',partNumber:'MFG-B'},{id:'c',partNumber:'PENDING'},{id:'d',partNumber:'REJECTED'}],history:[{proposalId:'a',decision:'CONFIRMED'},{proposalId:'b',decision:'CONFIRMED'},{proposalId:'d',decision:'REJECTED'}]};
 let copied;
 let saved={rfq,plan:{revision:0,rows:[row],versions:[]},rows:[{quote:row,requiredQuantity:10,extendedCost:null,issues:['Vendor required']}],linesQuoted:0,totalCost:0,longestLeadDays:null},fail=false,writes=0,back=false;
-const cells=new Map();const root={focus(){},querySelector:selector=>{if(!cells.has(selector))cells.set(selector,{textContent:'',focus(){this.focused=true;}});return cells.get(selector);}};const mount={innerHTML:'',querySelector:()=>root};
+const cells=new Map();const root={focus(){},querySelector:selector=>{if(!cells.has(selector))cells.set(selector,{textContent:'',closest(){return null;},focus(){this.focused=true;}});return cells.get(selector);}};const mount={innerHTML:'',querySelector:()=>root};
 const window={crypto:{randomUUID},navigator:{clipboard:{writeText:async v=>{copied=v;}}},DleOsCapabilities:{can:()=>true},confirm:()=>true,fetch:async(url,options)=>{
  if(options.method){writes++;if(fail)return{ok:false,json:async()=>({message:'Test rejected write'})};const body=JSON.parse(options.body);saved.plan={...saved.plan,revision:saved.plan.revision+1,rows:body.rows,markupPercent:body.markupPercent};saved.rfq.lanes.materials.status='IN_PROGRESS';}
  return{ok:true,json:async()=>structuredClone(saved)};
 }};
-vm.runInNewContext(source,{window,document:{}});
+let dismissChooser;let openChoosers=[];
+vm.runInNewContext(source,{window,document:{addEventListener:(type,handler,capture)=>{assert.equal(type,'click');assert.equal(capture,true);dismissChooser=handler;},querySelectorAll:()=>openChoosers}});
 await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{back=true;});
 assert.match(mount.innerHTML,/Material Quotation/);assert.match(mount.innerHTML,/Required Qty/);assert.doesNotMatch(mount.innerHTML,/Open Labor/);
 root.oninput({target:{dataset:{row:'0',field:'vendor'},type:'text',value:'Synthetic Vendor'}});
 const click=action=>root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:action,index:'0'}})}});
-await click('details');assert.match(mount.innerHTML,/ALT/);assert.match(mount.innerHTML,/Component Type/);
-assert.deepEqual([...mount.innerHTML.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map(m=>m[1].replace('<small class="material-fee-legend">+ fee</small>','')),['Find #','Customer / BOM P/N','MFG / Approved P/N','Description','Ref Des','Qty / Unit','UoM','Unit Cost','Ext Cost','Order Qty','Total Cost','Vendor','Vendor P/N','Lead Time','Options']);
+assert.doesNotMatch(mount.innerHTML,/data-material-action="details"|material-detail-row/);assert.match(mount.innerHTML,/title="Required Qty:/);
+assert.deepEqual([...mount.innerHTML.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map(m=>m[1].replace('<small class="material-fee-legend">+ fee</small>','')),['Find #','Customer / BOM P/N','MFG / Approved P/N','Description','Ref Des','Qty / Unit','UoM','Unit Cost','Ext Cost','Order Qty','Total Cost','Vendor','Vendor P/N','Lead Time','Status / Options']);
 const choose=value=>root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:'confirmed-mfg',index:'0',choice:value.split(':')[1]}})}});
 assert.match(mount.innerHTML,/Not resolved/);
 assert.match(mount.innerHTML,/MFG-A <small>Approved/);assert.doesNotMatch(mount.innerHTML,/<option[^>]*>(PENDING|REJECTED|ALT)/);
@@ -63,8 +64,8 @@ let sourcingClass=false;root.classList={toggle:(name,on)=>{assert.equal(name,'ma
 for(const selector of ['[data-material-action="full-view"]','[data-material-action="sourcing-view"]'])root.querySelector(selector).setAttribute=function(k,v){this[k]=v;};
 const unchangedHtml=mount.innerHTML,unchangedWrites=writes;
 root.oninput({target:{dataset:{row:'0',field:'vendor'},type:'text',value:'UNSAVED SOURCING VENDOR'}});
-await click('sourcing-view');assert.equal(sourcingClass,true);assert.match(mount.innerHTML,/data-status-heading>Options/);assert.equal(mount.innerHTML,unchangedHtml,'toggle does not reconstruct inputs');assert.equal(writes,unchangedWrites);
-await click('full-view');assert.equal(sourcingClass,false);assert.match(mount.innerHTML,/data-status-heading>Options/);await click('save');assert.equal(saved.plan.rows[0].vendor,'UNSAVED SOURCING VENDOR');assert.equal(saved.plan.rows[0].mfgPartNumberSource,'MANUAL_QUOTE_ONLY');
+await click('sourcing-view');assert.equal(sourcingClass,true);assert.match(mount.innerHTML,/data-status-heading>Status \/ Options/);assert.equal(mount.innerHTML,unchangedHtml,'toggle does not reconstruct inputs');assert.equal(writes,unchangedWrites);
+await click('full-view');assert.equal(sourcingClass,false);assert.match(mount.innerHTML,/data-status-heading>Status \/ Options/);await click('save');assert.equal(saved.plan.rows[0].vendor,'UNSAVED SOURCING VENDOR');assert.equal(saved.plan.rows[0].mfgPartNumberSource,'MANUAL_QUOTE_ONLY');
 await click('sourcing-view');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/materials-workbench materials-sourcing/);assert.match(mount.innerHTML,/data-material-action="sourcing-view" aria-pressed="true"/);
 console.log('PASS: Full/Sourcing toggle retains live inputs, quotation edits and P/N source without auto-save; page-session reopen preference retained.');
 
@@ -94,7 +95,19 @@ const vendor=choice=>root.onclick({stopPropagation(){},target:{closest:()=>({dat
 await vendor('Digi-Key');await click('save');assert.equal(saved.plan.rows[0].vendorSource,'SIM_LIST');
 await vendor('customer');await click('save');assert.equal(saved.plan.rows[0].customerSupplied,true);assert.equal(saved.plan.rows[0].vendor,'');
 const newVendorPanel={querySelector:()=>({value:'Synthetic New Vendor'})};await root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:'vendor-use',index:'0'},closest:()=>newVendorPanel})}});root.oninput({target:{dataset:{row:'0',field:'notes'},type:'text',value:'Synthetic note'}});assert.match(mount.innerHTML,/Not Approved · Quote Only/);await click('save');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.equal(saved.plan.rows[0].notes,'Synthetic note');assert.equal(saved.plan.rows[0].vendorSource,'MANUAL_QUOTE_ONLY');assert.equal(saved.plan.rows[0].customerSupplied,false);
-const options=[{dataset:{vendorOption:'digi-key'}},{dataset:{vendorOption:'mouser'}}];root.oninput({target:{dataset:{vendorSearch:''},value:'dig',closest:()=>({querySelectorAll:()=>options})}});assert.equal(options[0].hidden,false);assert.equal(options[1].hidden,true);
+const options=['digi-key','mouser','arrow','avnet'].map(name=>({dataset:{vendorOption:name},classList:{toggle(name,active){this.active=active;},contains(){return !!this.active;}}}));
+const search={dataset:{vendorSearch:''},value:'DIG'},vendorPanel={querySelector:()=>search,querySelectorAll:selector=>selector==='[data-vendor-option]'?options:[]};search.closest=()=>vendorPanel;
+const searchWrites=writes;root.oninput({target:search});assert.equal(options[0].hidden,false);assert.equal(options[1].hidden,true);assert.equal(options[0].classList.active,true);
+search.value='a';root.oninput({target:search});assert.equal(options[2].hidden,false);assert.equal(options[3].hidden,false);assert.equal(options[0].hidden,true);
+search.value='zzz';root.oninput({target:search});assert.ok(options.every(o=>o.hidden));assert.equal(writes,searchWrites);
+vendorPanel.dataset={vendorPanel:'0'};for(const option of options)option.scrollIntoView=()=>{};
+search.matches=selector=>selector==='[data-vendor-search]';
+search.value='a';root.oninput({target:search});
+const vendorKey=key=>root.onkeydown({target:search,key,preventDefault(){}});
+vendorKey('ArrowDown');assert.equal(options[3].classList.active,true);
+vendorKey('ArrowUp');assert.equal(options[2].classList.active,true);
+search.value='no-match';root.oninput({target:search});vendorKey('Enter');assert.equal(writes,searchWrites);assert.ok(options.every(o=>!o.classList.active));
+console.log('PASS: case-insensitive prefix filtering, best-match highlight, Up/Down navigation and invalid Enter without writes.');
 console.log('PASS: SIM vendor search, customer supply, manual quote-only vendor and shared Notes save/reopen.');
 
 const notesBeforeWrites=writes;
@@ -140,7 +153,7 @@ const persistedBeforeToggle=JSON.stringify(saved.plan),toggleWrites=writes;
 await click('toggle-fees');assert.doesNotMatch(mount.innerHTML,/material-charge-row/);assert.match(mount.innerHTML,/3 charges/);assert.match(mount.innerHTML,/aria-expanded="false">▸/);assert.equal(writes,toggleWrites);
 await click('sourcing-view');assert.doesNotMatch(mount.innerHTML,/material-charge-row/);await click('full-view');assert.doesNotMatch(mount.innerHTML,/material-charge-row/);assert.equal(JSON.stringify(saved.plan),persistedBeforeToggle);
 await click('toggle-fees');assert.match(mount.innerHTML,/material-charge-row/);assert.match(mount.innerHTML,/Vendor NRE|Tariff/);
-await click('toggle-fees');await click('add-charge');assert.match(mount.innerHTML,/material-charge-row/);assert.match(mount.innerHTML,/4 charges/);assert.match(mount.innerHTML,/aria-expanded="true">▾/);assert.ok([...cells.values()].some(c=>c.focused));assert.equal(writes,toggleWrites);
+await click('toggle-fees');await click('add-charge');assert.match(mount.innerHTML,/material-charge-row/);assert.match(mount.innerHTML,/4 charges/);assert.match(mount.innerHTML,/aria-expanded="true">▾/);assert.match(source,/feeFocus=\{id,key:'category'\};draw\(\);return;/);assert.equal(writes,toggleWrites);
 console.log('PASS: fee collapse removes child rows without writes, survives view toggle, retains counts and values, and add expands/focuses Category.');
 
 edit(newId,'rawCost','200');assert.equal(root.querySelector('[data-charge-ext="'+newId+'"]').textContent,'$200.00');edit(newId,'rawCost','');assert.equal(root.querySelector('[data-charge-ext="'+newId+'"]').textContent,'');
@@ -154,3 +167,73 @@ markup('38');
 for(const [qty,cost,mode,rate,ext,sell] of [['1','200','MATERIAL',null,'$200.00','$276.00'],['3','200','MATERIAL',null,'$600.00','$828.00'],['2','100','CUSTOM','10','$200.00','$220.00'],['5','20','NONE',null,'$100.00','$100.00']]){edit(newId,'quantity',qty);edit(newId,'rawCost',cost);edit(newId,'markupTreatment',mode);if(rate)edit(newId,'customMarkupPercent',rate);assert.equal(root.querySelector('[data-charge-ext="'+newId+'"]').textContent,ext);assert.equal(root.querySelector('[data-charge-sell="'+newId+'"]').textContent,sell);}
 edit(newId,'quantity','');assert.equal(root.querySelector('[data-charge-ext="'+newId+'"]').textContent,'');assert.equal(root.querySelector('[data-charge-sell="'+newId+'"]').textContent,'\u2014');edit(newId,'quantity','5');
 console.log('PASS: requested Qty/Cost/Ext/Sell examples A-D and blank Qty clears calculations instead of reverting to 1.');
+
+// Chooser disclosure changes are presentation-only, including outside the workspace.
+const writesBeforeChooser=writes;
+const targetA={},targetB={},outside={};
+const menuA={open:true,contains:t=>t===targetA};
+const menuB={open:true,contains:t=>t===targetB};
+openChoosers=[menuA,menuB];dismissChooser({target:targetB});
+assert.equal(menuA.open,false);assert.equal(menuB.open,true);
+dismissChooser({target:outside});assert.equal(menuB.open,false);
+let focusReturned=false,prevented=false,stopped=false;
+const chooserCell={colSpan:1,classList:{add(){},remove(){}},querySelector:()=>null,querySelectorAll:()=>[],closest:s=>s==='td'?chooserCell:null,setAttribute(){},removeAttribute(){},focus(){focusReturned=true;}};
+window.getComputedStyle=()=>({display:'table-cell'});
+root.querySelectorAll=()=>[{cells:[chooserCell]}];
+menuA.open=true;menuA.closest=()=>chooserCell;menuA.querySelectorAll=()=>[];
+cells.set('.material-mfg-menu[open]',menuA);
+for(const count of [2,3]){let selected=-1,chosen=-1;menuA.querySelectorAll=()=>Array.from({length:count},(_,i)=>({focus(){selected=i;},click(){chosen=i;}}));
+ root.onkeydown({target:targetA,key:'ArrowDown',preventDefault(){}});assert.equal(selected,0,'single/multi P/N keyboard options');
+ root.onkeydown({target:targetA,key:'Enter',preventDefault(){}});assert.equal(chosen,0);
+}
+root.onkeydown({target:targetA,key:'Escape',preventDefault:()=>{prevented=true;},stopPropagation:()=>{stopped=true;}});
+assert.equal(menuA.open,false);assert.ok(focusReturned&&prevented&&stopped);
+delete root.querySelectorAll;
+assert.equal(writes,writesBeforeChooser);
+assert.match(source,/material-mfg-count/);assert.match(source,/material-mfg-chevron/);
+console.log('PASS: exclusive chooser dismissal, outside click, Escape focus return and no persistence writes.');
+
+cells.delete('.material-mfg-menu[open]');
+await root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:'sourcing-issue',index:'0',sourcingValue:'UNABLE_TO_SOURCE'}})}});
+assert.equal(saved.plan.rows[0].sourcingStatus,'UNABLE_TO_SOURCE');assert.match(mount.innerHTML,/sourcing-reopen/);
+const priceBeforeReopen=saved.plan.rows[0].unitPrice;
+await click('sourcing-reopen');assert.equal(saved.plan.rows[0].sourcingStatus,'OPEN');assert.equal(saved.plan.rows[0].unitPrice,priceBeforeReopen);
+await root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:'sourcing-issue',index:'0',sourcingValue:'NEEDS_ALTERNATE'}})}});
+assert.equal(saved.plan.rows[0].sourcingStatus,'NEEDS_ALTERNATE');await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});assert.match(mount.innerHTML,/Needs Alternate/);
+console.log('PASS: sourcing exception save/reopen and explicit Reopen retain prices and row values.');
+
+fail=true;await click('sourcing-reopen');assert.match(mount.innerHTML,/data-sourcing-state="NEEDS_ALTERNATE"/);assert.match(mount.innerHTML,/Test rejected write/);fail=false;
+console.log('PASS: failed sourcing transition retains prior lock/status and reports the write failure.');
+
+// Completing the fields never persists or locks until the explicit Complete action.
+const autoTasks=[];window.setTimeout=fn=>{autoTasks.push(fn);};root.isConnected=true;
+saved.plan.rows[0]={...saved.plan.rows[0],sourcingStatus:'OPEN',customerSupplied:false,vendor:'Digi-Key',vendorSource:'SIM_LIST',unitPrice:null,orderQuantity:75,leadTimeMode:'STOCK',leadTimeValue:null,leadDays:null,mfgPartNumber:'MFG-A',mfgPartNumberSource:'CONFIRMED_ACCEPTED_BOM',vendorPartNumber:''};
+await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});
+const autoPrice=value=>({dataset:{row:'0',field:'unitPrice'},type:'number',value,setCustomValidity(){}});
+let finalField=autoPrice('2');const beforeAuto=writes;root.oninput({target:finalField});assert.equal(writes,beforeAuto);
+await root.onchange({target:finalField});assert.equal(autoTasks.length,0);assert.equal(saved.plan.rows[0].sourcingStatus,'OPEN');await root.onchange({target:{dataset:{materialComplete:'0'},checked:true}});assert.equal(saved.plan.rows[0].sourcingStatus,'SOURCED');assert.equal(saved.plan.rows[0].vendorPartNumber,'');assert.match(mount.innerHTML,/material-complete-checkbox[^>]*checked/);assert.doesNotMatch(mount.innerHTML,/>Edit</);
+await click('sourcing-reopen');assert.equal(saved.plan.rows[0].sourcingStatus,'OPEN');assert.equal(autoTasks.length,0);
+finalField=autoPrice('');root.oninput({target:finalField});await root.onchange({target:finalField});assert.equal(autoTasks.length,0);assert.match(mount.innerHTML,/data-sourcing-state="OPEN"/);
+finalField=autoPrice('2.5');root.oninput({target:finalField});await root.onchange({target:finalField});assert.equal(autoTasks.length,0);await root.onchange({target:{dataset:{materialComplete:'0'},checked:true}});assert.equal(saved.plan.rows[0].sourcingStatus,'SOURCED');assert.equal(saved.plan.rows[0].unitPrice,2.5);
+console.log('PASS: final-field commit stays editable with Vendor P/N blank; explicit Complete saves/locks; Edit and corrections never auto-lock.');
+
+await root.onchange({target:{dataset:{materialComplete:'0'},checked:false}});assert.equal(saved.plan.rows[0].sourcingStatus,'OPEN');
+finalField=autoPrice('');root.oninput({target:finalField});const rejected={dataset:{materialComplete:'0'},checked:true};const priorWrites=writes;await root.onchange({target:rejected});assert.equal(rejected.checked,false);assert.equal(writes,priorWrites);assert.match(root.querySelector('.materials-message').textContent,/Unit Cost/);
+console.log('PASS: checkbox unchecks to edit; incomplete checking stays unchecked with specific feedback and no write.');
+
+price('12');order('250');
+await root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{materialAction:'sourcing-issue',index:'0',sourcingValue:'CUSTOMER_SUPPLIED'}})}});
+assert.equal(saved.plan.rows[0].sourcingStatus,'CUSTOMER_SUPPLIED');assert.equal(saved.plan.rows[0].customerSupplied,true);assert.equal(saved.plan.rows[0].unitPrice,null);assert.match(mount.innerHTML,/Customer Supplied/);assert.equal(saved.plan.rows[0].orderQuantity,saved.rows[0].requiredQuantity);assert.equal(saved.plan.rows[0].orderQuantityMode,'AUTO');
+await click('sourcing-reopen');assert.equal(saved.plan.rows[0].customerSupplied,false);assert.equal(saved.plan.rows[0].unitPrice,null);assert.equal(saved.plan.rows[0].sourcingStatus,'OPEN');
+console.log('PASS: Customer Supplied issue persists existing supply flag, preserves blank cost, and clears back to normal sourcing.');
+
+// Completing a parent collapses fees only after a successful save, with no extra writes.
+saved.plan.rows[0]={...saved.plan.rows[0],sourcingStatus:'OPEN',customerSupplied:false,vendor:'Digi-Key',unitPrice:2,leadTimeMode:'STOCK',leadTimeValue:null,charges:[{id:'inspect-a',category:'OTHER',description:'Synthetic A',quantity:1,rawCost:2,treatment:'BLEND',markupTreatment:'NONE',notes:''},{id:'inspect-b',category:'OTHER',description:'Synthetic B',quantity:1,rawCost:3,treatment:'BLEND',markupTreatment:'NONE',notes:''}]};
+await window.DleMaterialsWorkbench.open(mount,rfq,async()=>{});
+const feesBefore=JSON.stringify(saved.plan.rows[0].charges),beforeComplete=writes;
+fail=true;await root.onchange({target:{dataset:{materialComplete:'0'},checked:true}});assert.match(mount.innerHTML,/material-charge-row/);fail=false;
+await root.onchange({target:{dataset:{materialComplete:'0'},checked:true}});assert.equal(writes,beforeComplete+2);assert.doesNotMatch(mount.innerHTML,/class="material-charge-row"/);
+const afterComplete=writes;await click('toggle-fees');assert.equal(writes,afterComplete);assert.match(mount.innerHTML,/class="material-charge-row" data-sourcing-state="SOURCED"/);assert.match(mount.innerHTML,/data-charge="inspect-a" data-charge-field="rawCost"[^>]*disabled/);assert.match(mount.innerHTML,/data-material-action="remove-charge"[^>]*disabled/);
+await click('toggle-fees');await root.onchange({target:{dataset:{materialComplete:'0'},checked:false}});assert.doesNotMatch(mount.innerHTML,/class="material-charge-row"/);
+await click('toggle-fees');assert.match(mount.innerHTML,/class="material-charge-row" data-sourcing-state="OPEN"/);assert.doesNotMatch(mount.innerHTML,/data-charge="inspect-a" data-charge-field="rawCost"[^>]*disabled/);assert.equal(JSON.stringify(saved.plan.rows[0].charges),feesBefore);
+console.log('PASS: successful completion collapses fees once; failure retains expansion; read-only inspection, collapsed reopening and fee data preservation.');

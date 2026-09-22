@@ -161,8 +161,18 @@ assert.doesNotMatch(html,/Assembly P\/N for row 1/);
 console.log('PASS: worksheet typed inline identities, multiple MFG choices, secondary options and settled accepted rows.');
 worksheet.manufacturerIdentity={proposals:Array.from({length:5},(_,i)=>({id:'multi-'+i,partNumber:'SYN-MFG-'+i,manufacturerName:'Synthetic maker '+i})),history:[]};
 html=renderCandidate(worksheetRecord);
-assert.match(html,/\+4<\/small>/);assert.match(html,/<option value="multi-0" selected/);assert.doesNotMatch(html,/Select MFG P\/N/);
+assert.doesNotMatch(html,/more manufacturer identities/);assert.match(html,/<option value="multi-0" selected/);assert.doesNotMatch(html,/Select MFG P\/N/);
 assert.match(html,/worksheet-reject/);
 worksheet.manufacturerIdentity.history=worksheet.manufacturerIdentity.proposals.map(p=>({proposalId:p.id,decision:'CONFIRMED'}));worksheet.reviewState.reviewed=true;
 html=renderCandidate(worksheetRecord);assert.match(html,/\+4<\/small>/);assert.match(html,/SYN-MFG-4 — Synthetic maker 4 — Approved/);assert.doesNotMatch(html,/worksheet-reject/);
 console.log('PASS: five candidates auto-display first plus four; accepted identities remain inspectable.');
+
+for(const count of [1,2,3,4]){
+ worksheet.manufacturerIdentity={proposals:Array.from({length:count},(_,i)=>({id:'p'+i,partNumber:'SYN-'+i,manufacturerName:'Maker'})),history:Array.from({length:count},(_,i)=>({proposalId:'p'+i,decision:'CONFIRMED'}))};
+ worksheet.manufacturerIdentity.proposals.push({id:'dup',partNumber:'SYN-0',manufacturerName:'Maker'},{id:'old',partNumber:'OLD',manufacturerName:'Maker'});
+ worksheet.manufacturerIdentity.history.push({proposalId:'dup',decision:'CONFIRMED'},{proposalId:'old',decision:'CONFIRMED'},{proposalId:'old',decision:'NOT_SELECTED'});
+ html=renderCandidate(worksheetRecord);
+ if(count===1)assert.doesNotMatch(html,/more manufacturer identities|▾ \+/);else assert.ok(html.includes('▾ +'+(count-1)+'</small>'));
+ assert.equal((html.match(/SYN-0 — Maker — Approved/g)||[]).length,1);
+}
+console.log('PASS: plain single identity, accurate +1/+2/+3 indicators; duplicate identity and superseded NOT_SELECTED history excluded.');

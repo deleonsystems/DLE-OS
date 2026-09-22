@@ -1,6 +1,17 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+if(args.Length>1 && args[0]=="--sourcing-copy")
+{
+ var isolated=Path.Combine(Path.GetTempPath(),"material-sourcing-copy-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(Path.Combine(isolated,"data"));
+ foreach(var name in new[]{"rfq-intakes.json","rfq-lanes.json"})File.Copy(Path.Combine(args[1],"data",name),Path.Combine(isolated,"data",name));
+ var isolatedStore=new SimRfqIntakeStore(isolated);var reviewer=new SimPersona("fixture","fixture","Isolated sourcing test","ACTIVE",[],[],true,"test");
+ var material=await isolatedStore.ReadMaterials("RFQI-SIM-0035");material=await isolatedStore.SaveMaterials("RFQI-SIM-0035",new(material.Plan.Revision,material.Plan.Rows.Select(r=>r.Index==4?r with{SourcingStatus="OPEN"}:r).ToArray(),false,material.Plan.MarkupPercent,2,1),reviewer);var sourceRow=material.Plan.Rows.Single(r=>r.Index==4);
+ var seeded=material.Plan.Rows.Select(r=>r.Index==sourceRow.Index?r with{Vendor="Digi-Key",VendorSource="SIM_LIST",VendorPartNumber="",UnitPrice=2,OrderQuantity=material.Rows.Single(r=>r.Quote.Index==4).RequiredQuantity,LeadDays=null,LeadTimeMode="STOCK",LeadTimeValue=null,SourcingStatus="OPEN",CustomerSupplied=false}:r).ToArray();
+ await isolatedStore.SaveMaterials("RFQI-SIM-0035",new(material.Plan.Revision,seeded,false,material.Plan.MarkupPercent,2,1),reviewer);
+ await MaterialSourcingChecks.Run(isolatedStore,"RFQI-SIM-0035",reviewer,4);
+ Console.WriteLine("PASS: RFQI-SIM-0035 Find 5 isolated-copy qualification; original files untouched.");return;
+}
 PackageIdentityChecks.Run();
 var root = Path.Combine(Path.GetTempPath(), "dle-analysis-tests-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(Path.Combine(root, "data"));

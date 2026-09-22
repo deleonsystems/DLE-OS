@@ -41,6 +41,8 @@
 .material-grid .material-mfg { flex-wrap:nowrap; gap:3px; }
 .material-grid .material-mfg-value { flex:1 1 auto; min-width:0; }
 .material-mfg-menu summary { list-style:none; padding:3px; }
+.material-mfg-count { margin-left:6px; color:#2563eb; font-size:11px; font-weight:500; }
+.material-mfg-chevron { margin-left:6px; color:#64748b; font-size:11px; }
 .material-mfg-menu summary::-webkit-details-marker { display:none; }
 .material-mfg-menu > div { position:absolute; z-index:5; right:0; min-width:230px; padding:4px; background:#fff; border:1px solid #94a3b8; box-shadow:0 3px 8px #0002; }
 .material-mfg-menu > div > button { display:block; width:100%; text-align:left; white-space:nowrap; border:0; padding:5px; }
@@ -250,3 +252,42 @@
 .material-columns-checklist label { display:flex; align-items:center; gap:6px; padding:3px; white-space:nowrap; }
 .material-columns-checklist input { margin:0; }
 .materials-workbench .material-grid .material-column-hide { position:absolute; right:8px; bottom:0; width:13px; height:13px; padding:0; border:0; background:#dce7ee; color:#527086; font:12px/12px sans-serif; cursor:pointer; }
+
+.materials-workbench input.material-cell-editing { outline:2px solid #167b98; outline-offset:-2px; background:#fff; }
+
+.material-lead-smart{display:flex;flex-direction:column;align-items:flex-end;gap:3px}.material-lead-smart input{width:100%;box-sizing:border-box;text-align:right}.material-lead-smart span{font-size:12px}.material-lead-smart span[data-valid=true]{background:#d1fae5;color:#065f46;padding:2px 5px;border-radius:3px;font-weight:600}
+
+.material-vendor button.material-vendor-active { background:#dbeafe; color:#1e40af; outline:1px solid #93c5fd; }
+
+.material-sourcing-status { display:flex; flex-wrap:wrap; gap:3px; justify-content:flex-end; font-size:10px; margin:0 0 3px; }
+.material-sourcing-status small { width:100%; color:#64748b; }
+.material-sourcing-status select { max-width:100%; font-size:10px; }
+.material-grid-row[data-sourcing-state="SOURCED"] { box-shadow:inset 3px 0 #729cbd; }
+.material-grid-row[data-sourcing-state="UNABLE_TO_SOURCE"],.material-grid-row[data-sourcing-state="NEEDS_ALTERNATE"] { box-shadow:inset 3px 0 #b29d78; }
+.material-grid-row input:disabled,.material-grid-row select:disabled,.material-grid-row button:disabled { opacity:1; color:#526375; }
+
+.material-grid-row:not([data-sourcing-state="OPEN"]) .material-notes-cell { white-space:normal; }
+.material-grid-row:not([data-sourcing-state="OPEN"]) .material-sourcing-status { display:inline-flex; flex-wrap:nowrap; align-items:center; margin:0 4px 0 0; vertical-align:middle; }
+.material-grid-row:not([data-sourcing-state="OPEN"]) .material-sourcing-status small { display:none; }
+.material-sourcing-status [data-material-action="sourcing-reopen"] { padding:1px 3px; min-height:0; font-size:10px; border:0; background:transparent; color:#2563eb; text-decoration:underline; }
+
+.material-notes-cell .material-sourcing-status { display:inline-flex; flex-wrap:nowrap; align-items:center; gap:4px; margin:0 4px 0 0; vertical-align:middle; }
+.material-sourcing-status button { padding:1px 3px; min-height:0; font-size:10px; }
+.material-sourcing-issue { display:inline-block; position:relative; }
+.material-sourcing-issue summary { list-style:none; cursor:pointer; white-space:nowrap; }
+.material-sourcing-issue summary::-webkit-details-marker { display:none; }
+.material-sourcing-issue > div { position:absolute; right:0; z-index:8; background:white; border:1px solid #94a3b8; padding:4px; min-width:120px; box-shadow:0 3px 8px #0002; }
+.material-sourcing-issue > div button { display:block; white-space:nowrap; width:100%; text-align:left; }
+.materials-workbench .material-grid td:has(.material-sourcing-issue[open]) { overflow:visible; }
+
+.material-notes-cell .material-complete-checkbox { width:13px; height:13px; min-height:0; margin:0 4px 0 0; padding:0; vertical-align:middle; accent-color:#2563eb; }
+.material-options-menu .material-sourcing-issue { display:block; text-align:left; }
+
+/* Completed parent rows remain readable across sticky and editable columns. */
+.materials-workbench .material-grid .material-grid-row[data-sourcing-state="SOURCED"] > td { background:#c9dff1; }
+.materials-workbench .material-grid .material-grid-row[data-sourcing-state="SOURCED"] :is(input:not([type=checkbox]),select) { background:transparent; color:#183247; opacity:1; }
+
+.material-grid .material-fee-control-selected { outline:2px solid #287da4; outline-offset:-2px; }
+.material-fee-picker { margin:0; padding:3px; border:1px solid #94a3b8; box-shadow:0 3px 8px #0002; min-width:190px; max-height:70vh; overflow:auto; background:white; color:#183247; }
+.material-fee-picker button { display:block; width:100%; text-align:left; padding:5px 8px; border:0; background:white; color:inherit; font:12px sans-serif; }
+.material-fee-picker button[aria-selected="true"] { background:#dbeafe; outline:1px solid #287da4; outline-offset:-1px; }

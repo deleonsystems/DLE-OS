@@ -1837,7 +1837,8 @@
     return eligible.find(p=>p.id===saved.id)||eligible.find(p=>p.partNumber===saved.partNumber&&p.manufacturerName===saved.manufacturerName)||null;
   }
   function candidateIdentityChoice(number,count,content,open=false) {
-    return '<details class="candidate-identity-choice" '+(open?'open':'')+'><summary title="Inspect or change candidate identity"><span data-approved-part>'+escapeHtml(number||'Not resolved')+'</span>'+(count>1?' <small aria-label="'+(count-1)+' more manufacturer identities">+'+(count-1)+'</small>':'')+'</summary><div class="candidate-identity-controls">'+content+'</div></details>';
+    const value='<span data-approved-part>'+escapeHtml(number||'Not resolved')+'</span>';
+    return '<details class="candidate-identity-choice" '+(open?'open':'')+'><summary title="Inspect or change candidate identity">'+value+(count>1?' <small aria-label="'+(count-1)+' more manufacturer identities">▾ +'+(count-1)+'</small>':'')+'</summary><div class="candidate-identity-controls">'+content+'</div></details>';
   }
   function approvedPartDirty(row) {
     const draft=rowReviewUi(row).approvedPartDraft;if(!draft)return false;
@@ -1932,7 +1933,7 @@
     const selected=ui.primaryChoice==='MANUAL'||proposals.some(p=>p.id===ui.primaryChoice)?ui.primaryChoice:preferredCandidateDisplay(row,proposals)?.id??confirmed[0]?.id??proposals[0]?.id??'';
     const number=selected==='MANUAL'?ui.manualNumber:proposals.find(p=>p.id===selected)?.partNumber;
     const controls='<select aria-label="Approved P/N for row '+(index+1)+'" id="approved-choice-'+index+'" data-worksheet-field="primaryChoice" '+attr+'><option value="">Not resolved</option>'+proposals.map(p=>'<option value="'+escapeHtml(p.id)+'" '+(p.id===selected?'selected':'')+'>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</option>').join('')+'<option value="MANUAL" '+(selected==='MANUAL'?'selected':'')+'>Manual Entry…</option></select>'+(selected&&selected!=='MANUAL'?'<button data-technical-review-action="worksheet-reject" data-candidate-row="'+index+'" data-proposal-id="'+escapeHtml(selected)+'" '+(state.saving?'disabled':'')+'>Reject this candidate</button>':'')+(selected==='MANUAL'?'<input aria-label="Manual MFG P/N for row '+(index+1)+'" id="approved-manual-'+index+'" data-worksheet-field="manualNumber" '+attr+' maxlength="200" value="'+escapeHtml(ui.manualNumber||'')+'">':'');
-    return candidateIdentityChoice(number,proposals.length,controls,selected==='MANUAL'&&!ui.manualNumber);
+    return candidateIdentityChoice(number,confirmed.length,controls,selected==='MANUAL'&&!ui.manualNumber);
   }
   async function acceptWorksheetRow(index){
     if(state.saving||completedReview(state.selected.record))return;

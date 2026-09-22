@@ -3,6 +3,7 @@ internal static class MaterialsCompletionChecks
     internal static async Task Run(SimRfqIntakeStore store,string id,SimPersona persona)
     {
         void Check(bool ok,string label){if(!ok)throw new Exception(label);Console.WriteLine("PASS: Materials completion "+label);}
+        await MaterialSourcingChecks.Run(store,id,persona);
         var v=await store.ReadMaterials(id);var count=v.Plan.Versions.Length;
         var history=System.Text.Json.JsonSerializer.Serialize(v.Plan.Versions);
         var labor=System.Text.Json.JsonSerializer.Serialize(v.Rfq.Lanes.LaborQuote);

@@ -2,7 +2,13 @@
   'use strict';
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money=v=>v==null?'—':Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const columns=['Find #','Customer / BOM P/N','MFG / Approved P/N','Description','Ref Des','Qty / Unit','UoM','Unit Cost','Ext Cost','Order Qty','Total Cost','Vendor','Vendor P/N','Lead Time','Options'];
+  // Presentation-only dismissal; capture also sees clicks stopped by workspace handlers.
+  document.addEventListener?.('click',event=>{
+    for(const menu of document.querySelectorAll('.material-mfg-menu[open]')){
+      if(!menu.contains(event.target))menu.open=false;
+    }
+  },true);
+  const columns=['Find #','Customer / BOM P/N','MFG / Approved P/N','Description','Ref Des','Qty / Unit','UoM','Unit Cost','Ext Cost','Order Qty','Total Cost','Vendor','Vendor P/N','Lead Time','Status / Options'];
   // Decimal coefficients avoid binary floating-point multiplication and match
   // the server's positive-value MidpointRounding.AwayFromZero cent rounding.
   function decimalCostPreview(quantity,price,excluded,maxQuantity=1000000){
@@ -26,6 +32,18 @@
   const chargeMoney=c=>c==null?'—':'$'+(c/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+(c%100n).toString().padStart(2,'0');
   function chargeSell(c,markup){const raw=chargeDecimal(c.rawCost),qty=chargeDecimal(c.quantity??1),rate=chargeDecimal(c.markupTreatment==='MATERIAL'?markup:c.markupTreatment==='CUSTOM'?c.customMarkupPercent:0);return raw==null||qty==null||rate==null?null:roundPositive(raw*qty*((100n*10n**28n)+rate),(10n**84n));}
   // Browser-local, per-user presentation only; never part of a quotation payload.
+  // Browser-local presentation preference; never part of a Materials save.
+  // Index is the persisted row identity within an immutable Candidate/BOM snapshot,
+  // not the visual position of either the parent or its supplemental children.
+  function materialFeeDisclosure(rfq,plan){
+    const user=window.DleOsSession?.user?.userName;
+    const key=user&&rfq.intakeId&&plan.candidateId&&plan.bomVersion!=null
+      ?'DLE_OS_MATERIAL_FEE_DISCLOSURE_V1:'+encodeURIComponent(JSON.stringify([user,rfq.intakeId,plan.candidateId,plan.bomVersion])):null;
+    const valid=new Set(plan.rows.map(r=>r.index));let collapsed=new Set();
+    try{const saved=JSON.parse(key?window.localStorage.getItem(key):'null');if(Array.isArray(saved))collapsed=new Set(saved.filter(i=>Number.isInteger(i)&&valid.has(i)));}catch{}
+    function persist(){try{if(key)window.localStorage.setItem(key,JSON.stringify([...collapsed]));}catch{}}
+    return {has:index=>collapsed.has(index),add(index){if(valid.has(index)&&!collapsed.has(index)){collapsed.add(index);persist();}},delete(index){if(collapsed.delete(index))persist();}};
+  }
   function materialColumnWidths(root,onLayout=()=>{}){
     const table=root.querySelector('.material-grid'),cols=[...(root.querySelectorAll?.('.material-grid col')||[])],headers=[...(root.querySelectorAll?.('.material-grid th')||[])];
     if(!cols.length)return {view(){},reset(){}};
@@ -73,16 +91,105 @@
     return {view,reset(){onLayout();widths=null;hidden.clear();persist();apply();menu.open=false;}};
   }
   // Presentation-only selection. Never writes quote state or intercepts editor copy.
-  function materialTableSelection(root){
-    const selected=new Set();let anchor=null,focused=null,drag=null,ignoreClick=false,feedbackTimer=null;
+  function materialTableSelection(root,commitEdit=()=>{}){
+    let edit=null,feeControl=null,feeReady=false,feePicker=null;
+    const feeFields=cell=>[...(cell?.querySelectorAll?.('[data-charge-field]')||[])].filter(e=>!e.disabled&&!e.readOnly&&!e.hidden&&window.getComputedStyle(e).display!=='none');
+    function selectFee(field,ready=false){
+      click({target:field.closest('td'),dragRange:true,preventDefault(){}});
+      feeControl?.classList.remove('material-fee-control-selected');feeControl=field;feeReady=ready;
+      field.classList.add('material-fee-control-selected');
+    }
+    function closeFeePicker(){if(feePicker){feePicker.remove();feePicker=null;}}
+    function openFeePicker(field){
+      if(field.disabled||!finish(true))return;
+      selectFee(field);closeFeePicker();
+      for(const menu of root.querySelectorAll?.('.material-mfg-menu[open]')||[])menu.open=false;
+      const panel=document.createElement('div');panel.className='material-fee-picker';panel.setAttribute('popover','auto');panel.setAttribute('role','listbox');panel.setAttribute('aria-label',field.getAttribute('aria-label'));
+      const options=[...field.options].filter(o=>!o.disabled&&!o.hidden);let active=Math.max(0,options.findIndex(o=>o.value===field.value));
+      const paint=()=>[...panel.children].forEach((b,i)=>{b.setAttribute('aria-selected',String(i===active));if(i===active)b.focus({preventScroll:true});});
+      const choose=()=>{const value=options[active].value;closeFeePicker();selectFee(field,true);if(value!==field.value){field.value=value;commitEdit(field);}};
+      for(const [i,o] of options.entries()){const b=document.createElement('button');b.type='button';b.setAttribute('role','option');b.textContent=o.textContent;b.onclick=e=>{e.stopPropagation();active=i;choose();};panel.appendChild(b);}
+      panel.onkeydown=e=>{if(!['ArrowUp','ArrowDown','Enter','Escape','Tab'].includes(e.key))return;e.preventDefault();e.stopPropagation();if(e.key==='Escape'||e.key==='Tab'){closeFeePicker();selectFee(field);return;}if(e.key==='Enter'){choose();return;}active=(active+(e.key==='ArrowDown'?1:-1)+options.length)%options.length;paint();};
+      root.appendChild(panel);feePicker=panel;const rect=field.getBoundingClientRect();panel.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-250))+'px';panel.style.top=Math.max(4,Math.min(rect.bottom,window.innerHeight-options.length*30-12))+'px';panel.showPopover();paint();
+      panel.addEventListener('toggle',()=>{if(!panel.matches(':popover-open')){panel.remove();if(feePicker===panel)feePicker=null;}});
+    }
+
+    function parseLead(text){
+      const value=text.trim().toLowerCase();
+      if(['s','st','stock'].includes(value))return {mode:'STOCK',value:null,label:'Stock'};
+      const match=value.match(/^(\d+)([dw])$/);
+      if(!match||Number(match[1])<1||Number(match[1])>36500)return null;
+      const n=Number(match[1]),days=match[2]==='d';
+      return {mode:days?'DAYS':'WEEKS',value:n,label:n+' '+(days?'Day':'Week')+(n===1?'':'s')};
+    }
+    function preview(){
+      if(!edit?.lead)return;
+      const result=parseLead(edit.input.value);
+      edit.preview.textContent=result?result.label:'Use s, 10d or 3w';
+      edit.preview.dataset.valid=String(!!result);edit.input.setCustomValidity('');
+    }
+    const editable=cell=>[...(cell?.querySelectorAll?.('input[data-field],input[data-charge-field]')||[])].find(e=>!e.disabled&&!e.readOnly&&!e.hidden&&['text','number'].includes(e.type)&&window.getComputedStyle(e).display!=='none'&&!e.closest('[popover]'));
+    function finish(commit){
+      if(!edit)return true;
+      const {input,before,type,cell,initial}=edit;
+      if(edit.lead){
+        const current=edit,result=parseLead(input.value);
+        if(commit&&!result){input.setCustomValidity('Enter Stock, or a positive whole number followed by d or w (maximum 36500).');input.reportValidity();input.focus({preventScroll:true});return false;}
+        edit=null;current.panel.remove();current.lead.hidden=false;
+        if(commit){
+          const selector=current.lead.querySelector('select'),number=current.lead.querySelector('input');
+          if(selector.value!==result.mode||String(number.value)!==String(result.value??'')){
+            selector.value=result.mode;number.value=result.value??'';commitEdit(number);
+          }
+        }
+        return true;
+      }
+      if(commit){
+        const key=input.dataset.chargeField||input.dataset.field,v=input.value;
+        let valid=true;
+        if(['unitPrice','orderQuantity','rawCost','quantity','customMarkupPercent'].includes(key)){
+          const positive=['orderQuantity','quantity'].includes(key),fee=input.dataset.chargeField!==undefined;
+          valid=v===''?key!=='quantity':/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(v)&&Number.isFinite(Number(v))&&Number(v)<=(key==='quantity'?1000000:key==='customMarkupPercent'?10000:1000000000)&&(!positive||Number(v)>0)&&(!fee||/^(?:\d+(?:\.\d{0,6})?|\.\d{1,6})$/.test(v));
+        }
+        if(key==='leadTimeValue')valid=/^\d+$/.test(v)&&Number(v)>0&&Number(v)<=36500;
+        input.setCustomValidity(valid?'':'Enter a valid value before leaving this cell.');
+        if(!valid||!input.checkValidity()){input.reportValidity();input.focus({preventScroll:true});return false;}
+      }
+      edit=null;input.classList.remove('material-cell-editing');
+      if(!commit)input.value=before;
+      input.setCustomValidity('');input.type=type;
+      if(commit&&input.value!==initial)commitEdit(input);
+      return true;
+    }
+    function begin(cell,mode,character){
+      const lead=cell?.querySelector?.('.material-lead');
+      if(lead&&!lead.querySelector('select').disabled&&character!==undefined){
+        if(!finish(true))return true;
+        const panel=document.createElement('div'),input=document.createElement('input'),hint=document.createElement('span');
+        panel.className='material-lead-smart';input.type='text';input.className='material-cell-editing';input.setAttribute('aria-label','Lead Time shorthand');hint.setAttribute('role','status');
+        panel.append(input,hint);lead.hidden=true;cell.appendChild(panel);
+        edit={input,cell,lead,panel,preview:hint,mode:'replace'};input.value=character;preview();input.focus({preventScroll:true});return true;
+      }
+      if(feeControl?.tagName==='SELECT')return false;
+      const input=feeControl?.closest('td')===cell&&feeControl.tagName==='INPUT'?feeControl:editable(cell);if(!input)return false;
+      if(edit?.input===input)return true;
+      if(!finish(true))return true;
+      edit={input,cell,before:input.value,type:input.type,mode};input.type='text';input.classList.add('material-cell-editing');input.focus({preventScroll:true});edit.initial=input.value;
+      if(character!==undefined)input.value=character;
+      input.setSelectionRange?.(input.value.length,input.value.length);return true;
+    }
+    function draft(target){return edit?.input===target;}
+    function doubleClick(event){if(event.target.closest('.material-lead'))return;const cell=event.target.closest('td')||focused;if(begin(cell,'inplace'))event.preventDefault();}
+    const selected=new Set();let anchor=null,focused=null,drag=null,ignoreClick=false,feedbackTimer=null,navigationColumn=null;
     const control='input,select,textarea,button,a,summary,label,[contenteditable]:not([contenteditable="false"]),[role="button"]';
     const cells=()=>{
       const result=[];
       for(const [r,row] of [...(root.querySelectorAll?.('.material-grid-row,.material-charge-row')||[])].entries()){
+        if(row.hidden||window.getComputedStyle(row).display==='none')continue;
         let c=0;for(const cell of row.cells){if(window.getComputedStyle(cell).display==='none')continue;const span=cell.colSpan||1;result.push({cell,r,c,end:c+span-1});c+=span;}
       }return result;
     };
-    function clear(){for(const cell of selected){cell.classList.remove('material-cell-selected');cell.removeAttribute('aria-selected');}selected.clear();anchor=null;focused=null;}
+    function clear(){closeFeePicker();feeControl?.classList.remove('material-fee-control-selected');feeControl=null;feeReady=false;for(const cell of selected){cell.classList.remove('material-cell-selected');cell.removeAttribute('aria-selected');}selected.clear();anchor=null;focused=null;navigationColumn=null;}
     function feedback(count){
       const status=root.querySelector('[data-material-copy-status]');if(!status)return;
       window.clearTimeout(feedbackTimer);status.textContent=count===1?'Copied':'Copied '+count+' cells';
@@ -106,7 +213,13 @@
     }
     function click(event){
       if(ignoreClick){ignoreClick=false;return true;}
-      if(event.target.closest(control))return false;
+      if(event.target.closest('.material-lead'))return false;
+      if(edit?.input===event.target)return false;
+      if(!finish(true))return true;
+      const fee=event.target.matches?.('[data-charge-field]')?event.target:null;
+      if(fee&&!fee.disabled){event.preventDefault();selectFee(fee);if(fee.tagName==='SELECT')openFeePicker(fee);return true;}
+      const field=editable(event.target.closest('td'));
+      if(event.target.closest(control)&&event.target!==field)return false;
       const cell=event.target.closest('td'),grid=cells(),hit=grid.find(x=>x.cell===cell);if(!hit){clear();return false;}
       event.preventDefault();
       const rowMode=!event.dragRange&&hit.c===0,toggle=event.ctrlKey||event.metaKey,from=grid.find(x=>x.cell===anchor)||hit;
@@ -116,12 +229,21 @@
       const remove=toggle&&targets.every(x=>selected.has(x.cell));
       if(!toggle){for(const x of selected){x.classList.remove('material-cell-selected');x.removeAttribute('aria-selected');}selected.clear();}
       for(const x of targets){if(remove){selected.delete(x.cell);x.cell.classList.remove('material-cell-selected');x.cell.removeAttribute('aria-selected');}else{selected.add(x.cell);x.cell.classList.add('material-cell-selected');x.cell.setAttribute('aria-selected','true');}}
-      if(!event.shiftKey)anchor=cell;focused=cell;cell.tabIndex=-1;cell.focus({preventScroll:true});return true;
+      feeControl?.classList.remove('material-fee-control-selected');feeControl=null;feeReady=false;
+      if(selected.size===1&&selected.has(cell)){feeControl=feeFields(cell)[0]||null;feeControl?.classList.add('material-fee-control-selected');}
+      if(!event.shiftKey)anchor=cell;focused=cell;navigationColumn=hit.c;cell.tabIndex=-1;cell.focus({preventScroll:true});return true;
     }
     function endDrag(){const previous=drag;drag=null;root.classList.remove('material-grid-dragging');if(previous&&root.hasPointerCapture?.(previous.id))root.releasePointerCapture(previous.id);}
     function down(event){
       ignoreClick=false;
-      if(event.button!==0||event.isPrimary===false||event.target.closest(control))return;
+      if(event.target.matches?.('select[data-charge-field]')&&!event.target.disabled){event.preventDefault();return;}
+      if(event.target.closest('.material-lead'))return;
+      if(edit?.input===event.target)return;
+      if(!finish(true)){event.preventDefault();return;}
+      const field=editable(event.target.closest('td'));
+      if(event.button!==0||event.isPrimary===false||(event.target.closest(control)&&event.target!==field))return;
+      // Native input double-click needs both clicks to retain their input target.
+      if(field===event.target){event.preventDefault();click(event);return;}
       const cell=event.target.closest('td');if(!cells().some(x=>x.cell===cell))return;
       event.preventDefault(); // Only background gestures suppress native selection.
       drag={id:event.pointerId,start:cell,last:cell,moved:false,shiftKey:event.shiftKey,ctrlKey:event.ctrlKey,metaKey:event.metaKey};
@@ -142,20 +264,104 @@
     }
     function cancel(event){if(drag&&event.pointerId===drag.id)endDrag();}
     function key(event){
+      if(event.isComposing)return false;
+      if(edit){
+        if(event.key==='Escape'){event.preventDefault();const cell=edit.cell,field=feeControl;finish(false);if(field)selectFee(field);else click({target:cell,dragRange:true,preventDefault(){}});return true;}
+        const arrow=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key);
+        if(event.key==='Enter'||(arrow&&edit.mode==='replace')){
+          event.preventDefault();const cell=edit.cell,field=feeControl;if(!finish(true))return true;
+          if(field)selectFee(field);else click({target:cell,dragRange:true,preventDefault(){}});
+          return key({target:cell,key:event.key,shiftKey:event.shiftKey,preventDefault(){}});
+        }
+        return false;
+      }
+      // Space activates only the selected cell's primary control. Native focused
+      // controls and active text editors retain their own keyboard semantics.
+      if(event.key===' '&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&event.target===focused&&document.activeElement===focused){
+        if(feeControl?.tagName==='SELECT'){event.preventDefault();openFeePicker(feeControl);return true;}
+        if(!feeControl){
+          const action=focused.querySelector('summary:not([aria-disabled="true"]),button[data-material-action="add-charge"]:not(:disabled),button[data-material-action="vendor-open"]:not(:disabled),button[data-material-action="toggle-fees"]:not(:disabled),button[data-material-action="evidence-options"]:not(:disabled),input[data-material-complete]:not(:disabled)');
+          if(action){event.preventDefault();closeFeePicker();action.click();return true;}
+        }
+      }
+      if(event.key==='Enter'&&!event.shiftKey&&feeControl?.tagName==='SELECT'&&!feeReady){event.preventDefault();openFeePicker(feeControl);return true;}
+      if(event.target===focused&&event.key.length===1&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&begin(focused,'replace',event.key)){event.preventDefault();return true;}
+      if(event.key==='Escape'&&feeControl){event.preventDefault();selectFee(feeControl);return true;}
       if(event.key==='Escape'&&selected.size){clear();if(event.target.closest(control))return false;event.preventDefault();return true;}
-      if(event.target.closest(control)||!selected.size||event.target!==focused||document.activeElement!==event.target)return false;
+      const enter=event.key==='Enter'&&!event.ctrlKey&&!event.metaKey&&!event.altKey;
+      const input=enter&&event.target.matches?.('input[data-field],input[data-charge-field]')&&!event.target.disabled&&!event.target.readOnly;
+      if(!input&&(event.target.closest(control)||!selected.size||event.target!==focused||document.activeElement!==event.target))return false;
+      if(input&&event.target.checkValidity&&!event.target.checkValidity()){event.preventDefault();event.target.reportValidity();return true;}
       if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='c'){
         event.preventDefault();const count=selected.size;window.navigator.clipboard.writeText(text()).then(()=>feedback(count)).catch(()=>{root.querySelector('.materials-message').textContent='Clipboard unavailable. Allow clipboard access and try again.';});return true;
-      }return false;
+      }
+      const moves={ArrowUp:-1,ArrowDown:1,ArrowLeft:-1,ArrowRight:1};
+      if(!enter&&(!(event.key in moves)||event.ctrlKey||event.metaKey||event.altKey))return false;
+      const grid=cells(),current=grid.find(x=>x.cell===(input?event.target.closest('td'):focused));if(!current)return false;
+      event.preventDefault();
+      const vertical=event.key==='ArrowUp'||event.key==='ArrowDown',direction=moves[event.key];
+      const column=navigationColumn??current.c;
+      let next;
+      if(enter){
+        const usable=grid.filter(x=>x.c!==0&&(!x.cell.parentElement?.dataset?.sourcingState||x.cell.parentElement.dataset.sourcingState==='OPEN'||x.cell.querySelector('[data-material-complete]'))&&(!x.cell.querySelector('.material-evidence-options')||x.cell.querySelector('[data-material-complete]'))&&
+          (value(x.cell)!==''||x.cell.querySelector('input:not(:disabled):not([readonly]),select:not(:disabled),.material-lead,.material-vendor-trigger')));
+        // Enter follows each visible material group, inserting fees at the + fee boundary.
+        // Arrow movement continues to use physical grid order.
+        const sequence=[];let parent=[],children=[];
+        function flushGroup(){
+          const row=parent[0]?.cell.parentElement;
+          const boundary=row?.querySelector?.('[data-material-action="add-charge"]')?.closest('td');
+          const split=boundary&&row?Array.from(row.cells).indexOf(boundary):-1;
+          if(split<0)sequence.push(...parent,...children);
+          else sequence.push(...parent.filter(x=>Array.from(row.cells).indexOf(x.cell)<=split),...children,...parent.filter(x=>Array.from(row.cells).indexOf(x.cell)>split));
+          parent=[];children=[];
+        }
+        for(const r of [...new Set(grid.map(x=>x.r))]){
+          const entries=grid.filter(x=>x.r===r);
+          if(entries[0]?.cell.parentElement?.classList?.contains('material-charge-row'))children.push(...entries);
+          else {flushGroup();parent=entries;}
+        }
+        flushGroup();
+        const logical=sequence.flatMap(x=>x.cell.parentElement?.classList?.contains('material-charge-row')?feeFields(x.cell).map(field=>({...x,field})):usable.includes(x)?[x]:[]);
+        let index=logical.findIndex(x=>x.cell===current.cell&&(!feeControl||x.field===feeControl));
+        const direction=event.shiftKey?-1:1;
+        if(index<0){const physical=sequence.indexOf(current);next=direction>0?logical.find(x=>sequence.indexOf(grid.find(g=>g.cell===x.cell))>physical):logical.findLast(x=>sequence.indexOf(grid.find(g=>g.cell===x.cell))<physical);}
+        else next=logical[index+direction];
+      }else if(vertical){
+        const rows=[...new Set(grid.map(x=>x.r))],r=rows[rows.indexOf(current.r)+direction];
+        next=grid.find(x=>x.r===r&&x.c<=column&&x.end>=column);
+      }else{
+        const row=grid.filter(x=>x.r===current.r);next=row[row.indexOf(current)+direction];
+      }
+      if(!next){if(input){click({target:current.cell,dragRange:true,preventDefault(){}});}return true;}
+      // Reuse range selection; arrows into Find # select a cell, not the whole row.
+      click({target:next.cell,shiftKey:!enter&&event.shiftKey,dragRange:true,preventDefault(){}});
+      if(next.field)selectFee(next.field);
+      navigationColumn=vertical?column:next.c;
+      next.cell.querySelector('[data-material-complete]:not(:disabled)')?.focus({preventScroll:true});
+      const scroll=root.querySelector('.material-grid-scroll');
+      if(scroll){
+        const rect=next.cell.getBoundingClientRect(),area=scroll.getBoundingClientRect();
+        const header=scroll.querySelector('thead')?.getBoundingClientRect().height||0;
+        const frozen=next.c===0?0:(scroll.querySelector('.material-find')?.getBoundingClientRect().width||0);
+        const left=area.left+scroll.clientLeft+frozen,top=area.top+scroll.clientTop+header;
+        const right=area.left+scroll.clientLeft+scroll.clientWidth,bottom=area.top+scroll.clientTop+scroll.clientHeight;
+        if(rect.left<left)scroll.scrollLeft-=left-rect.left;
+        else if(rect.right>right)scroll.scrollLeft+=Math.min(rect.right-right,rect.left-left);
+        if(rect.top<top)scroll.scrollTop-=top-rect.top;
+        else if(rect.bottom>bottom)scroll.scrollTop+=Math.min(rect.bottom-bottom,rect.top-top);
+      }
+      return true;
     }
     function copy(event){const active=document.activeElement;if(!selected.size||active!==focused||active.closest(control)||!event.clipboardData)return;event.clipboardData.setData('text/plain',text());event.preventDefault();feedback(selected.size);}
-    return {click,key,copy,clear,text,down,move,up,cancel};
+    return {click,key,copy,clear,text,down,move,up,cancel,draft,finish,doubleClick,preview,parseLead,selectFee};
   }
   let sourcingView=false; // Page-session preference; quotation state is shared between views.
   async function open(mount,rfq,back){
-    let view,dirty=false,busy=false,message='',evidencePanel=null;
-    const expanded=new Set();
-    const collapsedFees=new Set();
+    let view,dirty=false,busy=false,message='',evidencePanel=null,vendorAdvance=null,completionFocus=null,mfgFocus=null,feeFocus=null;
+
+
+    let collapsedFees;
     const newCharges=new Set(), pricingOverrides=new Set();
     const chargeCategories=[['TARIFF','Tariff / Duty'],['FREIGHT','Freight / Handling'],['COD','COD / Processing'],['SETUP','Vendor NRE / Setup'],['TOOLING','Tooling'],['OTHER','Other']];
     const manualRows=new Set();
@@ -166,8 +372,28 @@
     const url='/api/sim/rfqs/'+encodeURIComponent(rfq.intakeId)+'/materials';
     async function fetchView(options){const response=await window.fetch(url,{credentials:'include',cache:'no-store',...options});const body=await response.json();if(!response.ok)throw new Error(body.message||'Material Quotation Workspace unavailable');return body;}
     view=await fetchView();
+    collapsedFees=materialFeeDisclosure(view.rfq,view.plan);
+    const sourcingLabels={OPEN:'OPEN',SOURCED:'Complete',UNABLE_TO_SOURCE:'Unable to Source',NEEDS_ALTERNATE:'Needs Alternate',CUSTOMER_SUPPLIED:'Customer Supplied'};
+    const locked=row=>(row.sourcingStatus||'OPEN')!=='OPEN';
+    async function setSourcing(index,status){if(readOnly||busy)return;const row=view.plan.rows.find(r=>r.index===index);if(!row||!sourcingLabels[status])return;if(invalidInputs.size){message='Correct invalid values before changing sourcing status.';draw();return;}const previous=row.sourcingStatus||'OPEN',previousSupply=row.customerSupplied,previousPrice=row.unitPrice,previousQuantity=row.orderQuantity,previousMode=row.orderQuantityMode;row.sourcingStatus=status;if(status==='CUSTOMER_SUPPLIED'){row.customerSupplied=true;row.unitPrice=null;row.orderQuantity=view.rows.find(r=>r.quote.index===index).requiredQuantity;row.orderQuantityMode='AUTO';}else if(previous==='CUSTOMER_SUPPLIED'&&status==='OPEN')row.customerSupplied=false;dirty=true;const root=mount.querySelector('.materials-workbench');await root.onclick({stopPropagation(){},target:{closest:selector=>selector==='button'?{dataset:{materialAction:'save'}}:null}});if(dirty){row.sourcingStatus=previous;row.customerSupplied=previousSupply;row.unitPrice=previousPrice;row.orderQuantity=previousQuantity;row.orderQuantityMode=previousMode;draw();}}
+    function sourcingControl(row){
+      const status=row.sourcingStatus||'OPEN';
+      if(status==='UNABLE_TO_SOURCE'||status==='NEEDS_ALTERNATE'||status==='CUSTOMER_SUPPLIED')return '<span class="material-sourcing-status">'+sourcingLabels[status]+'</span>';
+      return '<span class="material-sourcing-status"><input type="checkbox" class="material-complete-checkbox" data-material-complete="'+row.index+'" aria-label="Complete sourcing for line '+(row.index+1)+'" title="Check to complete; uncheck to edit" '+(status==='SOURCED'?'checked ':'')+(busy||readOnly?'disabled':'')+'></span>';
+    }
+    function missingSourcing(row){
+      const source=view.rfq.inputs.materials.candidate.rows.find(r=>r.index===row.index),required=view.rows.find(r=>r.quote.index===row.index)?.requiredQuantity,missing=[];
+      if(source.componentType==='REFERENCE_ONLY')return missing;
+      if(required==null||required<=0)missing.push('BOM quantity');
+      if(row.customerSupplied){if(!row.notes?.trim()&&!row.evidence?.notes?.some(n=>n.purpose==='SOURCING_PURCHASING'))missing.push('customer-supply note');return missing;}
+      if(!row.vendor?.trim())missing.push('Vendor');if(row.unitPrice==null||row.unitPrice===''||Number(row.unitPrice)<0)missing.push('Unit Cost');
+      if(row.orderQuantity==null||row.orderQuantity===''||Number(row.orderQuantity)<=0||Number(row.orderQuantity)<required)missing.push('Order Qty covering required quantity');
+      if(!(row.leadTimeMode==='STOCK'||(['DAYS','WEEKS'].includes(row.leadTimeMode)&&Number(row.leadTimeValue)>0)||(!row.leadTimeMode&&row.leadDays!=null)))missing.push('Lead Time');
+      return missing;
+    }
+    function updateSourcing(root,row){const cell=root.querySelector('[data-material-action="vendor-open"][data-index="'+row.index+'"]')?.closest?.('tr')?.cells[14],status=cell?.querySelector('.material-sourcing-status');if(status)status.outerHTML=sourcingControl(row);}
     function input(row,key,label,type='text'){
-      const html='<input aria-label="'+label+' for line '+(row.index+1)+'" data-row="'+row.index+'" data-field="'+key+'" type="'+type+'" '+(type==='number'?'min="0" step="'+(key==='leadDays'?'1':'any')+'"':'')+' value="'+esc(key==='unitPrice'&&row[key]!=null?Number(row[key]).toFixed(2):row[key])+'" '+(invalidInputs.has(row.index+':'+key)?'aria-invalid="true" ':'')+(busy||readOnly?'disabled':'')+'>';
+      const html='<input '+(key==='orderQuantity'?'title="Required Qty: '+esc(view.rows.find(r=>r.quote.index===row.index)?.requiredQuantity??'Review Qty / Unit')+'" ':'')+'aria-label="'+label+' for line '+(row.index+1)+'" data-row="'+row.index+'" data-field="'+key+'" type="'+type+'" '+(type==='number'?'min="0" step="'+(key==='leadDays'?'1':'any')+'"':'')+' value="'+esc(key==='unitPrice'&&row[key]!=null?Number(row[key]).toFixed(2):row[key])+'" '+(invalidInputs.has(row.index+':'+key)?'aria-invalid="true" ':'')+(busy||readOnly?'disabled':'')+'>';
       return key==='unitPrice'?'<span class="material-money-input"><span>$</span>'+html+'</span>':html;
     }
     function orderWarning(row,calculated){return !row.customerSupplied&&calculated.required!==false&&row.orderQuantity!=null&&calculated.requiredQuantity!=null&&Number(row.orderQuantity)<calculated.requiredQuantity?'Below required qty · Minimum '+calculated.requiredQuantity:'';}
@@ -191,8 +417,16 @@
       const value=row.customerSupplied?'Customer Supplied':row.vendor||'—';
       return '<button class="material-vendor-trigger" data-material-action="vendor-open" data-index="'+row.index+'" '+(readOnly||busy?'disabled':'')+'>'+esc(value)+'</button><small data-vendor-status="'+row.index+'">'+(!row.customerSupplied&&row.vendor&&row.vendorSource!=='SIM_LIST'?'Not Approved · Quote Only':'')+'</small><div class="material-vendor" popover="auto" data-vendor-panel="'+row.index+'">'+vendorList(row)+'</div>';
     }
+    function filterVendors(panel){
+      const query=panel.querySelector('[data-vendor-search]').value.trim().toLowerCase();
+      const options=[...panel.querySelectorAll('[data-vendor-option]')];
+      const prefix=options.filter(o=>o.dataset.vendorOption.startsWith(query));
+      const matches=prefix.length?prefix:options.filter(o=>o.dataset.vendorOption.includes(query));
+      for(const option of options){option.hidden=!matches.includes(option);option.classList.toggle('material-vendor-active',option===matches[0]);}
+      for(const option of panel.querySelectorAll('[data-vendor-choice-extra]'))option.hidden=!!query;
+    }
     function vendorList(row){
-      return '<input aria-label="Search SIM vendors for line '+(row.index+1)+'" data-vendor-search placeholder="Search vendors…"><small>SIM list only</small>'+[['','—'],['customer','Customer Supplied'],['manual','New Vendor…'],...simVendors.map(v=>[v,v])].map(([v,l])=>'<button data-material-action="vendor-choice" data-index="'+row.index+'" data-vendor="'+esc(v)+'" '+(simVendors.includes(v)?'data-vendor-option="'+esc(v.toLowerCase())+'"':'')+'>'+esc(l)+'</button>').join('');
+      return '<input aria-label="Search SIM vendors for line '+(row.index+1)+'" data-vendor-search placeholder="Search vendors…"><small>SIM list only</small>'+[['','—'],['customer','Customer Supplied'],['manual','New Vendor…'],...simVendors.map(v=>[v,v])].map(([v,l])=>'<button data-material-action="vendor-choice" data-index="'+row.index+'" data-vendor="'+esc(v)+'" '+(simVendors.includes(v)?'data-vendor-option="'+esc(v.toLowerCase())+'"':'data-vendor-choice-extra')+'>'+esc(l)+'</button>').join('');
     }
     function positionVendor(panel,button){
       const r=button.getBoundingClientRect(),width=panel.offsetWidth,height=panel.offsetHeight;
@@ -215,6 +449,7 @@
         editor.outerHTML=leadControl(row);
       }else editor.open=false;
       leadBefore.delete(index);
+      updateSourcing(mount.querySelector('.materials-workbench'),row);
     }
     function confirmedParts(source){
       const identity=source.manufacturerIdentity;
@@ -223,25 +458,24 @@
     function manufacturerSelect(row,source){
       const parts=confirmedParts(source),disabled=busy||readOnly?'disabled':'';
       const approved=row.mfgPartNumberSource==='CONFIRMED_ACCEPTED_BOM';
-      return '<div class="material-mfg"><span class="material-mfg-value" data-mfg-value="'+row.index+'">'+esc(row.mfgPartNumber||row.assemblyPartNumber||'Not resolved')+'</span>'+(!readOnly?'<details class="material-mfg-menu"><summary title="Choose quotation P/N" aria-label="Choose quotation P/N for line '+(row.index+1)+'">▾</summary><div>'+parts.map((part,i)=>'<button data-material-action="confirmed-mfg" data-index="'+row.index+'" data-choice="'+i+'" '+disabled+'>'+ (approved&&part===row.mfgPartNumber?'✓ ':'')+esc(part)+' <small>Approved</small></button>').join('')+'<button data-material-action="manual-mfg" data-index="'+row.index+'" '+disabled+'>Manual Entry…</button></div></details>':'')+'</div><small class="material-mfg-status" data-mfg-status="'+row.index+'">'+(row.mfgPartNumber&&!approved?'Not Approved · Quote Only':'')+'</small>'+(manualRows.has(row.index)?'<div class="material-mfg-entry">'+input(row,'mfgPartNumber','Manual MFG / Approved P/N')+'<button data-material-action="done-mfg" data-index="'+row.index+'">Done</button></div>':'');
-    }
-    function alternateDetails(source){
-      return '<details><summary>Available alternates and provenance</summary>'+((source.alternates||[]).map(a=>'<p><strong>'+esc(a.partNumber)+'</strong> · '+esc(a.removedAtUtc?'Removed':a.reviewStatus||'Review status not recorded')+' · '+esc(a.origin||'Origin not recorded')+'</p><p>'+esc(a.uncertainty||'')+'</p><pre>'+esc(JSON.stringify({sourceEvidence:a.sourceEvidence,sourceContext:a.sourceContext,supportingEvidence:a.supportingEvidence,approvalEvidence:a.approvalEvidence,history:a.history},null,2))+'</pre>').join('')||'<p>No structured alternates recorded.</p>')+'</details>';
+      const identity=source.manufacturerIdentity;
+      const count=source.componentType==='SUBASSEMBLY'||source.primaryIdentity?.basis==='CUSTOMER_PN'?0:new Set((identity?.proposals||[]).filter(p=>p.partNumber?.trim()&&(identity.history||[]).filter(h=>h.proposalId===p.id).at(-1)?.decision==='CONFIRMED').map(p=>JSON.stringify([p.partNumber.trim(),(p.manufacturerName||'').trim()]))).size;
+      const number='<span class="material-mfg-value" data-mfg-value="'+row.index+'">'+esc(row.mfgPartNumber||row.assemblyPartNumber||'Not resolved')+'</span>';
+      return '<div class="material-mfg">'+(!readOnly?'<details class="material-mfg-menu"><summary title="Choose quotation P/N" aria-label="Choose quotation P/N for line '+(row.index+1)+'">'+number+(count>1?'<span class="material-mfg-count">+'+(count-1)+'</span>':'')+'<span class="material-mfg-chevron" aria-hidden="true">▾</span>'+'</summary><div>'+parts.map((part,i)=>'<button data-material-action="confirmed-mfg" data-index="'+row.index+'" data-choice="'+i+'" '+disabled+'>'+ (approved&&part===row.mfgPartNumber?'✓ ':'')+esc(part)+' <small>Approved</small></button>').join('')+'<button data-material-action="manual-mfg" data-index="'+row.index+'" '+disabled+'>Manual Entry…</button></div></details>':number)+'</div><small class="material-mfg-status" data-mfg-status="'+row.index+'">'+(row.mfgPartNumber&&!approved?'Not Approved · Quote Only':'')+'</small>'+(manualRows.has(row.index)?'<div class="material-mfg-entry">'+input(row,'mfgPartNumber','Manual MFG / Approved P/N')+'<button data-material-action="done-mfg" data-index="'+row.index+'">Done</button></div>':'');
     }
     function chargeRows(row,find){return (row.charges||[]).map((c,i)=>{
-      const disabled=busy||readOnly?'disabled':'';
+      const disabled=busy||readOnly||row.sourcingStatus==='SOURCED'?'disabled':'';
       const select=(key,label,options)=>'<label>'+label+'<select aria-label="'+label+' charge '+(i+1)+' line '+(row.index+1)+'" data-charge="'+c.id+'" data-charge-field="'+key+'" '+disabled+'>'+options.map(([v,l])=>'<option value="'+v+'" '+(c[key]===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label>';
       const field=(key,label,numeric=false)=>'<label>'+label+'<input placeholder="'+label+'" title="'+label+'" aria-label="'+label+' charge '+(i+1)+' line '+(row.index+1)+'" data-charge="'+c.id+'" data-charge-field="'+key+'" value="'+esc(key==='quantity'?(c.quantity??1):c[key])+'" '+(numeric?'inputmode="decimal" ':'maxlength="'+(key==='notes'?2000:200)+'" ')+disabled+'></label>';
-      return '<tr class="material-charge-row"><td class="material-fee-sequence" title="Charge sequence only; not a BOM Find number">↳ '+esc(find)+'.'+(i+1)+'</td><td colspan="'+4+'" class="material-fee-category"><div class="material-charge-fields">'+select('category','Category',chargeCategories)+(c.category==='OTHER'?field('description','Description'):'')+select('treatment','Customer Pricing',[['BLEND','Include in Unit Price'],['SEPARATE','Show Separately'],['NRE','Show as NRE']])+select('markupTreatment','Markup',[['MATERIAL','Std '+esc(view.plan.markupPercent??0)+'%'],['CUSTOM','Custom'],['NONE','None']])+(c.markupTreatment==='CUSTOM'?field('customMarkupPercent','Custom Markup %',true):'')+'</div></td><td class="material-number material-fee-qty"><div class="material-charge-fields">'+field('quantity','Fee Qty',true)+'</div></td><td class="material-fee-uom">EA</td><td class="material-fee-cost"><div class="material-charge-fields">'+field('rawCost','Cost',true)+'</div></td><td class="material-number material-fee-ext" data-charge-ext="'+c.id+'">'+decimalCostPreview(c.quantity??1,c.rawCost,false)+'</td><td></td><td class="material-number material-fee-sell">Sell <b data-charge-sell="'+c.id+'">'+chargeMoney(chargeSell(c,view.plan.markupPercent??0))+'</b></td><td colspan="4" class="material-fee-notes"><div class="material-charge-fields">'+evidenceOptions(row,c)+'<button data-material-action="remove-charge" data-index="'+row.index+'" data-charge-id="'+c.id+'" '+disabled+' aria-label="Remove charge '+(i+1)+' line '+(row.index+1)+'">×</button></div></td></tr>';
+      return '<tr class="material-charge-row" data-sourcing-state="'+(row.sourcingStatus==='SOURCED'?'SOURCED':'OPEN')+'"><td class="material-fee-sequence" title="Charge sequence only; not a BOM Find number">↳ '+esc(find)+'.'+(i+1)+'</td><td colspan="'+4+'" class="material-fee-category"><div class="material-charge-fields">'+select('category','Category',chargeCategories)+(c.category==='OTHER'?field('description','Description'):'')+select('treatment','Customer Pricing',[['BLEND','Include in Unit Price'],['SEPARATE','Show Separately'],['NRE','Show as NRE']])+select('markupTreatment','Markup',[['MATERIAL','Std '+esc(view.plan.markupPercent??0)+'%'],['CUSTOM','Custom'],['NONE','None']])+(c.markupTreatment==='CUSTOM'?field('customMarkupPercent','Custom Markup %',true):'')+'</div></td><td class="material-number material-fee-qty"><div class="material-charge-fields">'+field('quantity','Fee Qty',true)+'</div></td><td class="material-fee-uom">EA</td><td class="material-fee-cost"><div class="material-charge-fields">'+field('rawCost','Cost',true)+'</div></td><td class="material-number material-fee-ext" data-charge-ext="'+c.id+'">'+decimalCostPreview(c.quantity??1,c.rawCost,false)+'</td><td></td><td class="material-number material-fee-sell">Sell <b data-charge-sell="'+c.id+'">'+chargeMoney(chargeSell(c,view.plan.markupPercent??0))+'</b></td><td colspan="4" class="material-fee-notes"><div class="material-charge-fields">'+evidenceOptions(row,c)+'<button data-material-action="remove-charge" data-index="'+row.index+'" data-charge-id="'+c.id+'" '+disabled+' aria-label="Remove charge '+(i+1)+' line '+(row.index+1)+'">×</button></div></td></tr>';
     }).join('');}
-    function editCharge(t,root){if(t.dataset.chargeField===undefined)return false;const c=view.plan.rows.flatMap(r=>r.charges||[]).find(c=>c.id===t.dataset.charge);if(!c)return true;const key=t.dataset.chargeField,numeric=['rawCost','customMarkupPercent','quantity'].includes(key),amount=chargeDecimal(t.value),valid=!numeric||(t.value===''&&key!=='quantity')||(amount!=null&&/^(?:\d+(?:\.\d{0,6})?|\.\d{1,6})$/.test(t.value)&&amount<=(key==='rawCost'?1000000000n:key==='quantity'?1000000n:10000n)*10n**28n&&(key!=='quantity'||amount>0n));const id=c.id+':'+key;valid?invalidInputs.delete(id):invalidInputs.add(id);t.setCustomValidity(valid?'':'Enter a nonnegative decimal with at most six decimal places.');const previous=c[key];c[key]=numeric?(t.value===''?(key==='quantity'?'':null):t.value.replace(/^\./,'0.')):t.value;if(key==='treatment')pricingOverrides.add(c.id);if(key==='category'&&previous!==c.category){c.description=c.category==='OTHER'?'':chargeCategories.find(([v])=>v===c.category)[1];if(newCharges.has(c.id)&&!pricingOverrides.has(c.id))c.treatment=['SETUP','TOOLING'].includes(c.category)?'NRE':'BLEND';}if(key==='markupTreatment'&&c.markupTreatment!=='CUSTOM'){c.customMarkupPercent=null;invalidInputs.delete(c.id+':customMarkupPercent');}dirty=true;root.querySelector('.materials-message').textContent=valid?'Unsaved supplemental charge.':'Correct invalid charge amount.';updateSummary(root);return true;}
+    function editCharge(t,root){if(t.dataset.chargeField===undefined)return false;const c=view.plan.rows.flatMap(r=>r.charges||[]).find(c=>c.id===t.dataset.charge);if(!c||view.plan.rows.some(r=>r.sourcingStatus==='SOURCED'&&r.charges?.includes(c)))return true;const key=t.dataset.chargeField,numeric=['rawCost','customMarkupPercent','quantity'].includes(key),amount=chargeDecimal(t.value),valid=!numeric||(t.value===''&&key!=='quantity')||(amount!=null&&/^(?:\d+(?:\.\d{0,6})?|\.\d{1,6})$/.test(t.value)&&amount<=(key==='rawCost'?1000000000n:key==='quantity'?1000000n:10000n)*10n**28n&&(key!=='quantity'||amount>0n));const id=c.id+':'+key;valid?invalidInputs.delete(id):invalidInputs.add(id);t.setCustomValidity(valid?'':'Enter a nonnegative decimal with at most six decimal places.');const previous=c[key];c[key]=numeric?(t.value===''?(key==='quantity'?'':null):t.value.replace(/^\./,'0.')):t.value;if(key==='treatment')pricingOverrides.add(c.id);if(key==='category'&&previous!==c.category){c.description=c.category==='OTHER'?'':chargeCategories.find(([v])=>v===c.category)[1];if(newCharges.has(c.id)&&!pricingOverrides.has(c.id))c.treatment=['SETUP','TOOLING'].includes(c.category)?'NRE':'BLEND';}if(key==='markupTreatment'&&c.markupTreatment!=='CUSTOM'){c.customMarkupPercent=null;invalidInputs.delete(c.id+':customMarkupPercent');}dirty=true;root.querySelector('.materials-message').textContent=valid?'Unsaved supplemental charge.':'Correct invalid charge amount.';updateSummary(root);return true;}
     function rowHtml(row,source){
-      if(row.orderQuantityMode==='AUTO'){const result=view.rows.find(r=>r.quote.index===row.index);row.orderQuantity=row.customerSupplied||result.required===false?null:result.requiredQuantity;}
+      if(row.orderQuantityMode==='AUTO'&&row.sourcingStatus!=='CUSTOMER_SUPPLIED'){const result=view.rows.find(r=>r.quote.index===row.index);row.orderQuantity=row.customerSupplied||result.required===false?null:result.requiredQuantity;}
       const s=source.candidate.rows.find(s=>s.index===row.index),c=view.rows.find(r=>r.quote.index===row.index);
       const status=c.issues.length?'Needs attention':c.required===false?'Reference only':row.customerSupplied?'Customer supplied':'Quoted';
       const cell=(v,cls='')=>'<td class="'+cls+'" title="'+esc(v)+'">'+esc(v)+'</td>';
-      let html='<tr class="material-grid-row">'+'<td class="material-find">'+(row.charges?.length?'<button class="material-fee-toggle" data-material-action="toggle-fees" data-index="'+row.index+'" aria-label="'+(collapsedFees.has(row.index)?'Expand':'Collapse')+' supplemental fees for line '+(row.index+1)+'" aria-expanded="'+!collapsedFees.has(row.index)+'">'+(collapsedFees.has(row.index)?'▸':'▾')+'</button>':'')+esc(s.values.lineNumber??row.index+1)+'</td>'+cell(s.values.partNumber,'material-customer-part')+'<td>'+manufacturerSelect(row,s)+'</td>'+cell(s.values.description,'material-description')+cell(s.values.designators)+cell(s.values.quantity,'material-number')+'<td>'+uomControl(row)+'</td><td>'+input(row,'unitPrice','Unit Cost','number')+'</td>'+'<td class="material-number" data-assembly-cost="'+row.index+'">'+decimalCostPreview(s.values.quantity,row.unitPrice,c.required===false||row.customerSupplied)+'</td>'+'<td>'+input(row,'orderQuantity','Order Qty','number')+'<small class="material-order-warning" data-order-warning="'+row.index+'">'+orderWarning(row,c)+'</small></td>'+'<td class="material-number material-total-with-charge"><span data-total-cost="'+row.index+'">'+decimalCostPreview(row.orderQuantity,row.unitPrice,c.required===false||row.customerSupplied,1000000000)+'</span>'+'<button class="material-add-charge" data-material-action="add-charge" data-index="'+row.index+'" aria-label="Add supplemental fee" title="Add supplemental fee" '+(busy||readOnly?'disabled':'')+'>+</button>'+(row.charges?.length?'<small>'+row.charges.length+(row.charges.length===1?' charge':' charges')+'</small>':'')+'</td>'+'<td>'+vendorControl(row)+'</td><td>'+input(row,'vendorPartNumber','Vendor P/N')+'</td><td>'+leadControl(row)+'</td><td class="material-notes-cell">'+evidenceOptions(row)+'<button class="material-row-toggle" data-material-action="details" data-index="'+row.index+'" aria-expanded="'+expanded.has(row.index)+'" aria-label="Details for line '+(row.index+1)+'" title="'+esc(c.issues.join('; ')||status)+'">'+(expanded.has(row.index)?'Hide details':'Details')+'</button></td></tr>';
-      if(expanded.has(row.index))html+='<tr class="material-detail-row"><td colspan="15"><div><section><strong>Accepted BOM v'+source.version+' · Find '+esc(s.values.lineNumber??row.index+1)+'</strong><p>Required Qty: '+esc(c.requiredQuantity??'Review Qty / Unit')+' · Component Type: '+esc(s.componentType||'STANDARD_COTS')+'</p><p>Alternates: '+((s.alternates||[]).filter(a=>!a.removedAtUtc).map(a=>esc(a.partNumber)).join(', ')||'—')+'</p><p>Candidate: '+esc(source.candidate.id)+'</p>'+alternateDetails(s)+'<p>Selection sets a quotation basis, not alternate approval. Customer / BOM P/N is unchanged.</p></section><section><label>Customer supplied <input aria-label="Customer supplied for line '+(row.index+1)+'" data-row="'+row.index+'" data-field="customerSupplied" type="checkbox" '+(row.customerSupplied?'checked':'')+' '+(readOnly||busy?'disabled':'')+'></label><p>'+esc(c.issues.join('; ')||status)+'</p></section></div></td></tr>';
+      let html='<tr class="material-grid-row" data-sourcing-state="'+(row.sourcingStatus||'OPEN')+'">'+'<td class="material-find">'+(row.charges?.length?'<button class="material-fee-toggle" data-material-action="toggle-fees" data-index="'+row.index+'" aria-label="'+(collapsedFees.has(row.index)?'Expand':'Collapse')+' supplemental fees for line '+(row.index+1)+'" aria-expanded="'+!collapsedFees.has(row.index)+'">'+(collapsedFees.has(row.index)?'▸':'▾')+'</button>':'')+esc(s.values.lineNumber??row.index+1)+'</td>'+cell(s.values.partNumber,'material-customer-part')+'<td data-material-mfg-cell="'+row.index+'">'+manufacturerSelect(row,s)+'</td>'+cell(s.values.description,'material-description')+cell(s.values.designators)+cell(s.values.quantity,'material-number')+'<td>'+uomControl(row)+'</td><td>'+input(row,'unitPrice','Unit Cost','number')+'</td>'+'<td class="material-number" data-assembly-cost="'+row.index+'">'+decimalCostPreview(s.values.quantity,row.unitPrice,c.required===false||row.customerSupplied)+'</td>'+'<td>'+input(row,'orderQuantity','Order Qty','number')+'<small class="material-order-warning" data-order-warning="'+row.index+'">'+orderWarning(row,c)+'</small></td>'+'<td class="material-number material-total-with-charge"><span data-total-cost="'+row.index+'">'+decimalCostPreview(row.orderQuantity,row.unitPrice,c.required===false||row.customerSupplied,1000000000)+'</span>'+'<button class="material-add-charge" data-material-action="add-charge" data-index="'+row.index+'" aria-label="Add supplemental fee" title="Add supplemental fee" '+(busy||readOnly?'disabled':'')+'>+</button>'+(row.charges?.length?'<small>'+row.charges.length+(row.charges.length===1?' charge':' charges')+'</small>':'')+'</td>'+'<td>'+vendorControl(row)+'</td><td>'+input(row,'vendorPartNumber','Vendor P/N')+'</td><td>'+leadControl(row)+'</td><td class="material-notes-cell">'+sourcingControl(row)+evidenceOptions(row)+'</td></tr>';
       return html+(collapsedFees.has(row.index)?'':chargeRows(row,s.values.lineNumber??row.index+1));
     }
     const evidenceCategories=[['VENDOR_QUOTE','Vendor Quote'],['DATASHEET','Datasheet'],['SPECIFICATION','Specification'],['SUPPORTING_DOCUMENT','Supporting Document'],['OTHER','Other']];
@@ -250,22 +484,22 @@
     function evidenceOptions(row,fee){
       const target=fee||row,e=target.evidence,notes=(e?.notes?.length||0)+(target.notes?1:0),files=(e?.attachments||[]).filter(a=>!a.removed).length;
       const attrs=' data-index="'+row.index+'" data-fee-id="'+esc(fee?.id||'')+'"',id='material-options-'+row.index+'-'+(fee?.id||'parent');
-      return '<span class="material-evidence-options"><small>'+(notes?notes+'n ':'')+(files?files+'a':'')+'</small><button data-material-action="evidence-options"'+attrs+' aria-label="Options for line '+(row.index+1)+(fee?' fee '+esc(fee.description):'')+'" aria-haspopup="menu" title="Notes, visuals and files">⋯</button><div class="material-options-menu" popover="auto" id="'+id+'" role="menu">'+[['add-note','Add Note'],['view-notes','View Notes'],['add-visual','Add Visual'],['view-visuals','View Visuals'],['add-file','Add File'],['view-files','View Files']].map(([action,label])=>'<button role="menuitem" data-material-action="evidence-'+action+'"'+attrs+' '+(readOnly&&action.startsWith('add')?'disabled':'')+'>'+label+'</button>').join('')+'</div></span>';
+      return '<span class="material-evidence-options"><small>'+(notes?notes+'n ':'')+(files?files+'a':'')+'</small><button data-material-action="evidence-options"'+attrs+' aria-label="Options for line '+(row.index+1)+(fee?' fee '+esc(fee.description):'')+'" aria-haspopup="menu" title="Notes, visuals and files">⋯</button><div class="material-options-menu" popover="auto" id="'+id+'" role="menu">'+[['add-note','Add Note'],['view-notes','View Notes'],['add-visual','Add Visual'],['view-visuals','View Visuals'],['add-file','Add File'],['view-files','View Files']].map(([action,label])=>'<button role="menuitem" data-material-action="evidence-'+action+'"'+attrs+' '+((readOnly||(fee&&row.sourcingStatus==='SOURCED'))&&action.startsWith('add')?'disabled':'')+'>'+label+'</button>').join('')+(!fee?'<hr><details class="material-sourcing-issue"><summary>Sourcing Issue ▸</summary>'+['UNABLE_TO_SOURCE','NEEDS_ALTERNATE','CUSTOMER_SUPPLIED'].map(value=>'<button role="menuitem" data-material-action="sourcing-issue" data-sourcing-value="'+value+'"'+attrs+' '+(busy||readOnly||locked(row)?'disabled':'')+'>'+sourcingLabels[value]+'</button>').join('')+'</details>'+(['UNABLE_TO_SOURCE','NEEDS_ALTERNATE','CUSTOMER_SUPPLIED'].includes(row.sourcingStatus)?'<button role="menuitem" data-material-action="sourcing-reopen"'+attrs+' '+(busy||readOnly?'disabled':'')+'>Clear sourcing issue</button>':''):'')+'</div></span>';
     }
     function renderEvidencePanel(){
       if(!evidencePanel)return '';
       const target=evidenceTarget();if(!target){evidencePanel=null;return '';}
-      const e=target.evidence||{notes:[],attachments:[]},kind=evidencePanel.kind,disabled=busy||readOnly?'disabled':'';
+      const e=target.evidence||{notes:[],attachments:[]},kind=evidencePanel.kind,panelReadOnly=readOnly||(!evidencePanel.feeId&&locked(target))||(evidencePanel.feeId&&view.plan.rows.find(r=>r.index===evidencePanel.index)?.sourcingStatus==='SOURCED'),disabled=busy||panelReadOnly?'disabled':'';
       const title=kind==='NOTE'?'Notes':kind==='VISUAL'?'Visuals':'Files';
       let body='';
       if(kind==='NOTE'){
         body=(target.notes?'<article><small>Existing Material note</small><p>'+esc(target.notes)+'</p></article>':'')+e.notes.map(n=>'<article><small>'+esc(n.purpose==='SOURCING_PURCHASING'?'Sourcing / Purchasing':'Internal Quote')+' · '+esc(n.author||'Pending save')+' · '+esc(n.createdAt||'')+'</small><p>'+esc(n.text)+'</p></article>').join('');
         if(!e.notes.length&&!target.notes)body='<p>No notes yet.</p>';
-        if(evidencePanel.add&&!readOnly)body+='<label>Purpose<select data-evidence-purpose><option value="SOURCING_PURCHASING">Sourcing / Purchasing</option><option value="INTERNAL_QUOTE">Internal Quote</option></select></label><label>Note<textarea data-evidence-text maxlength="2000" aria-label="Material note" '+disabled+'></textarea></label><button data-material-action="evidence-note-apply" '+disabled+'>Add Note</button>';
+        if(evidencePanel.add&&!panelReadOnly)body+='<label>Purpose<select data-evidence-purpose><option value="SOURCING_PURCHASING">Sourcing / Purchasing</option><option value="INTERNAL_QUOTE">Internal Quote</option></select></label><label>Note<textarea data-evidence-text maxlength="2000" aria-label="Material note" '+disabled+'></textarea></label><button data-material-action="evidence-note-apply" '+disabled+'>Add Note</button>';
       }else{
         const attachments=e.attachments.filter(a=>a.kind===kind&&!a.removed);
-        body=attachments.length?attachments.map(a=>{const href=url+'/attachments/'+encodeURIComponent(a.documentId);return '<article class="material-evidence-attachment">'+(kind==='VISUAL'?'<a href="'+href+'" target="_blank" rel="noopener"><img src="'+href+'" alt="'+esc(a.name)+'"></a>':'')+'<div><a href="'+href+'" target="_blank" rel="noopener">View '+esc(a.name)+'</a><small>'+esc(a.category.replaceAll('_',' '))+' · '+esc(a.addedBy)+' · '+esc(a.addedAt)+'</small><small title="SHA-256 '+esc(a.sha256)+'">Verified · '+esc(a.size)+' bytes</small></div>'+(!readOnly?'<button data-material-action="evidence-remove" data-document-id="'+esc(a.documentId)+'" '+disabled+'>Remove</button>':'')+'</article>';}).join(''):'<p>No '+title.toLowerCase()+' yet.</p>';
-        if(evidencePanel.add&&!readOnly)body+=(kind==='FILE'?'<label>File type<select data-evidence-category>'+evidenceCategories.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('')+'</select></label>':'<p>Paste a screenshot here or choose PNG / JPEG (up to 8 MB).</p>')+'<label>Choose '+(kind==='VISUAL'?'visuals':'files')+'<input type="file" data-evidence-upload multiple accept="'+(kind==='VISUAL'?'image/png,image/jpeg':'.pdf,.xls,.xlsx,.doc,.docx,.txt,.csv,.png,.jpg,.jpeg')+'" '+disabled+'></label>';
+        body=attachments.length?attachments.map(a=>{const href=url+'/attachments/'+encodeURIComponent(a.documentId);return '<article class="material-evidence-attachment">'+(kind==='VISUAL'?'<a href="'+href+'" target="_blank" rel="noopener"><img src="'+href+'" alt="'+esc(a.name)+'"></a>':'')+'<div><a href="'+href+'" target="_blank" rel="noopener">View '+esc(a.name)+'</a><small>'+esc(a.category.replaceAll('_',' '))+' · '+esc(a.addedBy)+' · '+esc(a.addedAt)+'</small><small title="SHA-256 '+esc(a.sha256)+'">Verified · '+esc(a.size)+' bytes</small></div>'+(!panelReadOnly?'<button data-material-action="evidence-remove" data-document-id="'+esc(a.documentId)+'" '+disabled+'>Remove</button>':'')+'</article>';}).join(''):'<p>No '+title.toLowerCase()+' yet.</p>';
+        if(evidencePanel.add&&!panelReadOnly)body+=(kind==='FILE'?'<label>File type<select data-evidence-category>'+evidenceCategories.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('')+'</select></label>':'<p>Paste a screenshot here or choose PNG / JPEG (up to 8 MB).</p>')+'<label>Choose '+(kind==='VISUAL'?'visuals':'files')+'<input type="file" data-evidence-upload multiple accept="'+(kind==='VISUAL'?'image/png,image/jpeg':'.pdf,.xls,.xlsx,.doc,.docx,.txt,.csv,.png,.jpg,.jpeg')+'" '+disabled+'></label>';
       }
       return '<aside class="material-evidence-panel" tabindex="-1" aria-label="Material '+title+'"><div class="material-evidence-heading"><h2>'+title+' · Line '+(evidencePanel.index+1)+(evidencePanel.feeId?' · '+esc(target.description):'')+'</h2><button data-material-action="evidence-close" '+(busy?'disabled':'')+'>Close</button></div><p class="material-evidence-boundary">Internal sourcing / quotation evidence. Save Materials to persist references. Not included in customer quotations.</p>'+body+'</aside>';
     }
@@ -291,26 +525,57 @@
       evidencePanel={index:Number(button.dataset.index),feeId:button.dataset.feeId||null,kind,add:action.includes('-add-')&&!readOnly};draw();mount.querySelector('.material-evidence-panel')?.focus();return true;
     }
     function draw(){
+      if(!busy&&!dirty&&completionFocus!==null&&view.plan.rows.find(r=>r.index===completionFocus)?.sourcingStatus==='SOURCED')collapsedFees.add(completionFocus);
       const previousGrid=mount.querySelector('.material-grid-scroll'),left=previousGrid?.scrollLeft||0,top=previousGrid?.scrollTop||0;
       const source=view.rfq.inputs.materials,a=view.rfq.assemblies[0];
-      mount.innerHTML='<section class="rfqs-workspace materials-workbench'+(sourcingView?' materials-sourcing':'')+'"><div class="material-toolbar"><button data-material-action="back">← Back to RFQ</button><h1>Material Quotation<span class="material-copy-status" data-material-copy-status role="status" aria-live="polite"></span></h1><div class="material-view-toggle" role="group" aria-label="Materials view"><button data-material-action="full-view" aria-pressed="'+!sourcingView+'">Full View</button><button data-material-action="sourcing-view" aria-pressed="'+sourcingView+'">Sourcing View</button></div><button data-material-action="reset-layout" hidden>Reset Layout</button><button data-material-action="save" '+(busy||readOnly?'disabled':'')+'>Save Materials</button><button data-material-action="complete" '+(busy||readOnly?'disabled':'')+'>Complete Materials Quote</button></div><p class="material-context">'+esc(view.rfq.customer.customerName)+' · '+esc(a.assemblyNumber)+' · Rev '+esc(a.revision)+' · Qty Quoted '+a.quantity+'</p><p class="materials-message" role="status">'+esc(message||'Quote totals update live. Save Materials before leaving.')+'</p><div class="material-grid-scroll"><table class="material-grid"><colgroup>'+columns.map((_,i)=>'<col class="material-col-'+i+'">').join('')+'</colgroup><thead><tr>'+columns.map((h,i)=>'<th scope="col"'+(i===14?' data-status-heading':'')+'>'+ (h)+(i===10?'<small class="material-fee-legend">+ fee</small>':'')+'</th>').join('')+'</tr></thead><tbody>'+view.plan.rows.map(r=>rowHtml(r,source)).join('')+'</tbody></table></div><div class="material-commercial-footer"><span>BOM Material Cost <b data-live-total>'+liveSummary().total+'</b></span><label>Markup <input aria-label="Markup percent" data-markup type="text" inputmode="decimal" value="'+esc(view.plan.markupPercent??0)+'" '+(readOnly||busy?'disabled':'')+'> %</label><span>Material Unit Sale Price <b data-live-sale>'+liveSummary().sale+'</b></span><span>Blended Supplemental Cost <b data-live-blended>'+liveSummary().blended+'</b></span><span>Recurring Material Cost Basis <b data-live-basis>'+liveSummary().basis+'</b></span><span>Separate Flow-Down Charges <b data-live-separate>'+liveSummary().separate+'</b></span><span>Material NRE / One-Time <b data-live-nre>'+liveSummary().nre+'</b></span><span>Longest Lead <b data-live-lead>'+liveSummary().lead+'</b></span></div><div class="material-footer"><small>'+(view.plan.revision?'Saved by '+esc(view.plan.updatedBy)+' · '+esc(view.plan.atUtc):'No saved quotation work yet.')+'</small><details><summary>Quantity / cost basis · USD</summary><p>Qty / Unit is the accepted BOM quantity per assembly. Required Qty = Qty / Unit × RFQ quantity (shown in row details). Ext Cost = Qty / Unit × Unit Cost. Total Cost = Order Qty × Unit Cost. Costs round to cents per line. Customer-supplied and reference-only lines contribute zero.</p><p>Lead Time preserves Stock, Days or Weeks. Longest lead compares calendar days. UoM defaults to EA; no unit conversion is performed. Pricing quantities must use the BOM unit.</p></details><details><summary>Completed versions ('+view.plan.versions.length+')</summary>'+view.plan.versions.map(v=>'<p>v'+v.version+' · $'+money(v.totalCost)+' · '+esc(v.updatedBy)+' · '+esc(v.atUtc)+'</p>').join('')+'</details></div>'+renderEvidencePanel()+'</section>';
+      mount.innerHTML='<section class="rfqs-workspace materials-workbench'+(sourcingView?' materials-sourcing':'')+'"><div class="material-toolbar"><button data-material-action="back">← Back to RFQ</button><h1>Material Quotation<span class="material-copy-status" data-material-copy-status role="status" aria-live="polite"></span></h1><div class="material-view-toggle" role="group" aria-label="Materials view"><button data-material-action="full-view" aria-pressed="'+!sourcingView+'">Full View</button><button data-material-action="sourcing-view" aria-pressed="'+sourcingView+'">Sourcing View</button></div><button data-material-action="reset-layout" hidden>Reset Layout</button><button data-material-action="save" '+(busy||readOnly?'disabled':'')+'>Save Materials</button><button data-material-action="complete" '+(busy||readOnly?'disabled':'')+'>Complete Materials Quote</button></div><p class="material-context">'+esc(view.rfq.customer.customerName)+' · '+esc(a.assemblyNumber)+' · Rev '+esc(a.revision)+' · Qty Quoted '+a.quantity+'</p><p class="materials-message" role="status">'+esc(message||'Quote totals update live. Save Materials before leaving.')+'</p><div class="material-grid-scroll"><table class="material-grid"><colgroup>'+columns.map((_,i)=>'<col class="material-col-'+i+'">').join('')+'</colgroup><thead><tr>'+columns.map((h,i)=>'<th scope="col"'+(i===14?' data-status-heading':'')+'>'+ (h)+(i===10?'<small class="material-fee-legend">+ fee</small>':'')+'</th>').join('')+'</tr></thead><tbody>'+view.plan.rows.map(r=>rowHtml(r,source)).join('')+'</tbody></table></div><div class="material-commercial-footer"><span>BOM Material Cost <b data-live-total>'+liveSummary().total+'</b></span><label>Markup <input aria-label="Markup percent" data-markup type="text" inputmode="decimal" value="'+esc(view.plan.markupPercent??0)+'" '+(readOnly||busy?'disabled':'')+'> %</label><span>Material Unit Sale Price <b data-live-sale>'+liveSummary().sale+'</b></span><span>Blended Supplemental Cost <b data-live-blended>'+liveSummary().blended+'</b></span><span>Recurring Material Cost Basis <b data-live-basis>'+liveSummary().basis+'</b></span><span>Separate Flow-Down Charges <b data-live-separate>'+liveSummary().separate+'</b></span><span>Material NRE / One-Time <b data-live-nre>'+liveSummary().nre+'</b></span><span>Longest Lead <b data-live-lead>'+liveSummary().lead+'</b></span></div><div class="material-footer"><small>'+(view.plan.revision?'Saved by '+esc(view.plan.updatedBy)+' · '+esc(view.plan.atUtc):'No saved quotation work yet.')+'</small><details><summary>Quantity / cost basis · USD</summary><p>Qty / Unit is the accepted BOM quantity per assembly. Required Qty = Qty / Unit × RFQ quantity (available on the Order Qty tooltip). Ext Cost = Qty / Unit × Unit Cost. Total Cost = Order Qty × Unit Cost. Costs round to cents per line. Customer-supplied and reference-only lines contribute zero.</p><p>Lead Time preserves Stock, Days or Weeks. Longest lead compares calendar days. UoM defaults to EA; no unit conversion is performed. Pricing quantities must use the BOM unit.</p></details><details><summary>Completed versions ('+view.plan.versions.length+')</summary>'+view.plan.versions.map(v=>'<p>v'+v.version+' · $'+money(v.totalCost)+' · '+esc(v.updatedBy)+' · '+esc(v.atUtc)+'</p>').join('')+'</details></div>'+renderEvidencePanel()+'</section>';
       const root=mount.querySelector('.materials-workbench');
       const evidenceDrawer=root.querySelector('.material-evidence-panel');if(evidencePanel&&evidenceDrawer?.style)evidenceDrawer.style.top=Math.max(80,(document.querySelector('.dle-app-header')?.getBoundingClientRect().bottom||0)+8)+'px';
+      for(const row of root.querySelectorAll?.('.material-grid-row[data-sourcing-state]:not([data-sourcing-state="OPEN"])')||[]){for(const control of row.querySelectorAll('input,select,button')){if(!control.matches('[data-material-complete],[data-material-action="sourcing-reopen"],[data-material-action="toggle-fees"],[data-material-action="details"],[data-material-action="evidence-options"],[data-material-action^="evidence-view"]'))control.disabled=true;}for(const summary of row.querySelectorAll('summary')){summary.tabIndex=-1;summary.setAttribute('aria-disabled','true');}}
+      for(const control of root.querySelectorAll?.('[data-row][data-field]')||[]){if(locked(view.plan.rows.find(r=>r.index===Number(control.dataset.row))||{}))control.disabled=true;}
       const grid=root.querySelector('.material-grid-scroll');if(grid){grid.scrollLeft=left;grid.scrollTop=top;grid.onscroll=()=>{for(const panel of root.querySelectorAll('.material-vendor:popover-open,.material-note-panel:popover-open,.material-options-menu:popover-open'))panel.hidePopover();};}
       root.onfocusin=event=>{const t=event.target;if(t.dataset?.field==='unitPrice'){const row=view.plan.rows.find(r=>r.index===Number(t.dataset.row));t.value=row.unitPrice??'';}};
-      root.onfocusout=event=>{const t=event.target;if(t.dataset?.field==='unitPrice'&&!invalidInputs.has(t.dataset.row+':unitPrice')&&t.value!=='')t.value=Number(t.value).toFixed(2);const editor=event.target.closest?.('.material-lead');if(editor&&!editor.contains(event.relatedTarget))closeLead(editor);updateSummary(root);};
+      root.onfocusout=event=>{const t=event.target;if(tableSelection.draft(t)&&!tableSelection.finish(true))return;if(t.dataset?.field==='unitPrice'&&!invalidInputs.has(t.dataset.row+':unitPrice')&&t.value!=='')t.value=Number(t.value).toFixed(2);const editor=event.target.closest?.('.material-lead');if(editor&&!editor.contains(event.relatedTarget))closeLead(editor);updateSummary(root);};
       root.addEventListener?.('focusin',root.onfocusin);root.addEventListener?.('focusout',root.onfocusout);
-      const tableSelection=materialTableSelection(root);
+      const tableSelection=materialTableSelection(root,t=>{if(t.tagName==='SELECT'&&t.dataset.chargeField!==undefined)root.onchange({target:t});else root.oninput({target:t});});
+      if(vendorAdvance!==null){const trigger=root.querySelector('[data-material-action="vendor-open"][data-index="'+vendorAdvance+'"]');vendorAdvance=null;if(trigger){const cell=trigger.closest('td');tableSelection.click({target:cell,dragRange:true,preventDefault(){}});tableSelection.key({target:cell,key:'Enter',preventDefault(){}});const next=document.activeElement;if(next?.querySelector('input[data-field="vendorPartNumber"]')?.value==='')tableSelection.key({target:next,key:'Enter',preventDefault(){}});}}
+
+      root.ondblclick=event=>tableSelection.doubleClick(event);
       const columnWidths=materialColumnWidths(root,()=>tableSelection.clear());columnWidths.view(sourcingView);
+      if(!busy&&completionFocus!==null){const checkbox=root.querySelector('[data-material-complete="'+completionFocus+'"]');if(checkbox){const cell=checkbox.closest('td');if(cell)tableSelection.click({target:cell,dragRange:true,preventDefault(){}});checkbox.focus({preventScroll:true});}completionFocus=null;}
+      if(mfgFocus!==null){const cell=root.querySelector('[data-material-mfg-cell="'+mfgFocus+'"]');if(cell?.closest?.('td'))tableSelection.click({target:cell,dragRange:true,preventDefault(){}});mfgFocus=null;}
+      if(feeFocus){const field=root.querySelector('[data-charge="'+feeFocus.id+'"][data-charge-field="'+feeFocus.key+'"]');if(field?.closest?.('td'))tableSelection.selectFee(field,true);feeFocus=null;}
       root.oncopy=event=>tableSelection.copy(event);
       root.onpointerdown=event=>tableSelection.down(event);root.onpointermove=event=>tableSelection.move(event);root.onpointerup=event=>tableSelection.up(event);root.onpointercancel=event=>tableSelection.cancel(event);root.onlostpointercapture=event=>tableSelection.cancel(event);
-      root.onkeydown=event=>{if(tableSelection.key(event))return;const editor=event.target.closest?.('.material-lead');if(!editor)return;if(event.key==='Escape'){event.preventDefault();closeLead(editor,true);updateSummary(root);}else if(event.key==='Enter'){event.preventDefault();if(!invalidInputs.has(Number(editor.querySelector('select').dataset.row)+':leadTime'))closeLead(editor);else editor.querySelector('input').reportValidity();}};
+      root.onkeydown=event=>{
+        const checkbox=event.target.matches?.('[data-material-complete]')?event.target:event.target.tagName==='TD'?event.target.querySelector('[data-material-complete]'):null;
+        if(checkbox&&event.key===' '&&event.target!==checkbox){event.preventDefault();checkbox.focus();checkbox.click();return;}
+        if(checkbox&&['Enter','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();const cell=checkbox.closest('td');tableSelection.click({target:cell,dragRange:true,preventDefault(){}});tableSelection.key({target:cell,key:event.key,shiftKey:event.shiftKey,preventDefault(){}});return;}
+        const vendorPanel=event.target.closest?.('.material-vendor');
+        if(vendorPanel?.dataset?.vendorPanel!==undefined&&vendorPanel.querySelector('[data-vendor-search]')){
+          const options=[...vendorPanel.querySelectorAll('[data-vendor-option]')].filter(o=>!o.hidden),active=options.findIndex(o=>o.classList.contains('material-vendor-active'));
+          if(event.key==='Escape'){event.preventDefault();event.stopPropagation();const trigger=root.querySelector('[data-material-action="vendor-open"][data-index="'+vendorPanel.dataset.vendorPanel+'"]');vendorPanel.hidePopover();tableSelection.click({target:trigger.closest('td'),dragRange:true,preventDefault(){}});}
+          else if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const next=options.length?(active+(event.key==='ArrowDown'?1:-1)+options.length)%options.length:-1;options.forEach((o,i)=>o.classList.toggle('material-vendor-active',i===next));options[next]?.scrollIntoView({block:'nearest'});}
+          else if(event.key==='Enter'&&event.target.matches('[data-vendor-search]')){event.preventDefault();if(active>=0){vendorAdvance=Number(vendorPanel.dataset.vendorPanel);options[active].click();}}
+          return;
+        }
+        const vendorTrigger=event.target.tagName==='TD'&&event.target.querySelector('.material-vendor-trigger');
+        if(vendorTrigger&&!vendorTrigger.disabled&&event.key!==' '&&event.key.length===1&&!event.ctrlKey&&!event.metaKey&&!event.altKey){event.preventDefault();vendorTrigger.click();const panel=root.querySelector('[data-vendor-panel="'+vendorTrigger.dataset.index+'"]'),search=panel.querySelector('[data-vendor-search]');search.value=event.key;filterVendors(panel);return;}
+        const chooser=root.querySelector?.('.material-mfg-menu[open]');if(chooser?.open&&chooser.contains(event.target)){
+          const choices=[...chooser.querySelectorAll('button:not(:disabled)')];
+          if(event.key==='Escape'){event.preventDefault();event.stopPropagation();chooser.open=false;tableSelection.click({target:chooser.closest('td'),dragRange:true,preventDefault(){}});}
+          else if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const i=choices.indexOf(document.activeElement),step=event.key==='ArrowDown'?1:-1;choices[(i+step+choices.length)%choices.length]?.focus({preventScroll:true});}
+          else if(event.key==='Enter'&&event.target.tagName!=='BUTTON'){event.preventDefault();choices[0]?.click();}
+          return;
+        }if(tableSelection.key(event))return;const editor=event.target.closest?.('.material-lead');if(!editor)return;if(event.key==='Escape'){event.preventDefault();closeLead(editor,true);updateSummary(root);}else if(event.key==='Enter'&&event.target.tagName!=='SELECT'){event.preventDefault();if(!invalidInputs.has(Number(editor.querySelector('select').dataset.row)+':leadTime'))closeLead(editor);else editor.querySelector('input').reportValidity();}};
       root.onpaste=event=>{if(evidencePanel?.kind==='VISUAL'&&!busy&&!readOnly&&event.target.closest?.('.material-evidence-panel')){const files=[...(event.clipboardData?.items||[])].filter(i=>i.kind==='file'&&i.type.startsWith('image/')).map(i=>i.getAsFile()).filter(Boolean);if(files.length){event.preventDefault();uploadEvidence(files);}}};
-      root.onchange=event=>{
+      root.onchange=async event=>{
+        if(event.target.dataset.materialComplete!==undefined){const index=Number(event.target.dataset.materialComplete),row=view.plan.rows.find(r=>r.index===index);completionFocus=index;if(event.target.checked){const missing=missingSourcing(row);if(missing.length||invalidInputs.size){event.target.checked=false;message=missing.length?'Missing: '+missing.join(', ')+'.':'Correct invalid sourcing values before completing.';root.querySelector('.materials-message').textContent=message;completionFocus=null;return;}}await setSourcing(index,event.target.checked?'SOURCED':'OPEN');return;}
+        if(tableSelection.draft(event.target)){tableSelection.preview();return;}
         if(event.target.dataset.evidenceUpload!==undefined){uploadEvidence([...event.target.files]);return;}
-        const t=event.target;if(t.dataset.chargeField!==undefined){if(!readOnly){editCharge(t,root);if(['markupTreatment','category'].includes(t.dataset.chargeField))draw();}return;}if(t.dataset.mfgSelection===undefined||readOnly)return;
+        const t=event.target;if(t.dataset.chargeField!==undefined){if(!readOnly){editCharge(t,root);if(['markupTreatment','category'].includes(t.dataset.chargeField)){feeFocus={id:t.dataset.charge,key:t.dataset.chargeField};draw();}}return;}if(t.dataset.mfgSelection===undefined||readOnly)return;
         const index=Number(t.dataset.mfgSelection),row=view.plan.rows.find(r=>r.index===index),source=view.rfq.inputs.materials.candidate.rows.find(r=>r.index===index);
-        if(t.value==='manual'){manualRows.add(index);expanded.add(index);draw();return;}
+        if(t.value==='manual'){manualRows.add(index);draw();return;}
         if(t.value==='saved')return;
         manualRows.delete(index);
         const alternatives=confirmedParts(source);
@@ -319,7 +584,8 @@
         dirty=true;message='Unsaved quotation-basis selection. Customer / BOM P/N is unchanged.';draw();
       };
       root.oninput=event=>{
-        const t=event.target;if(readOnly)return;if(editCharge(t,root))return;if(t.dataset.markup!==undefined){const valid=/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(t.value)&&Number(t.value)<=10000;valid?invalidInputs.delete('markup'):invalidInputs.add('markup');t.setCustomValidity(valid?'':'Enter a markup from 0 to 10000 percent.');if(valid)view.plan.markupPercent=t.value.startsWith('.')?'0'+t.value:t.value;dirty=true;root.querySelector('.materials-message').textContent=valid?'Unsaved markup.':'Correct markup before saving.';updateSummary(root);return;}if(t.dataset.newVendor!==undefined){t.setCustomValidity('');return;}if(t.dataset.vendorSearch!==undefined){for(const option of t.closest('.material-vendor').querySelectorAll('[data-vendor-option]'))option.hidden=!option.dataset.vendorOption.includes(t.value.trim().toLowerCase());return;}if(!t.dataset.field)return;
+        if(tableSelection.draft(event.target)){tableSelection.preview();return;}
+        const t=event.target;if(readOnly)return;if(editCharge(t,root))return;if(t.dataset.markup!==undefined){const valid=/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(t.value)&&Number(t.value)<=10000;valid?invalidInputs.delete('markup'):invalidInputs.add('markup');t.setCustomValidity(valid?'':'Enter a markup from 0 to 10000 percent.');if(valid)view.plan.markupPercent=t.value.startsWith('.')?'0'+t.value:t.value;dirty=true;root.querySelector('.materials-message').textContent=valid?'Unsaved markup.':'Correct markup before saving.';updateSummary(root);return;}if(t.dataset.newVendor!==undefined){t.setCustomValidity('');return;}if(t.dataset.vendorSearch!==undefined){filterVendors(t.closest('.material-vendor'));return;}if(!t.dataset.field)return;
         const row=view.plan.rows.find(r=>r.index===Number(t.dataset.row));
         if(t.dataset.field==='leadTimeMode'||t.dataset.field==='leadTimeValue'){
           const container=t.closest('.material-lead'),modeInput=container.querySelector('select'),valueInput=container.querySelector('input');
@@ -331,7 +597,7 @@
           const key=row.index+':leadTime';invalid?invalidInputs.add(key):invalidInputs.delete(key);
           valueInput.setCustomValidity(invalid?'Enter a positive whole number up to 36500.':'');
           container.querySelector('summary').textContent=container.querySelector('small').textContent=!row.leadTimeMode?'—':row.leadTimeMode==='STOCK'?'Stock':invalid?'':row.leadTimeValue+(row.leadTimeMode==='DAYS'?' Days':' Weeks');
-          dirty=true;root.querySelector('.materials-message').textContent=invalid?'Enter a positive whole-number lead time.':'Unsaved changes.';if(!row.leadTimeMode||row.leadTimeMode==='STOCK'){container.open=false;leadBefore.delete(row.index);}updateSummary(root);return;
+          dirty=true;root.querySelector('.materials-message').textContent=invalid?'Enter a positive whole-number lead time.':'Unsaved changes.';if(!row.leadTimeMode||row.leadTimeMode==='STOCK'){container.open=false;leadBefore.delete(row.index);}updateSummary(root);updateSourcing(root,row);return;
         }
         let invalid=false;
         if(t.dataset?.field==='unitPrice'||t.dataset.field==='orderQuantity'){
@@ -352,23 +618,22 @@
         if(t.dataset.field==='vendor'){row.vendorSource='MANUAL_QUOTE_ONLY';row.customerSupplied=false;const status=root.querySelector('[data-vendor-status="'+row.index+'"]');if(status)status.textContent=row.vendor?'Not Approved · Quote Only':'';}
         if(t.dataset.field==='notes'){const icon=root.querySelector('[data-material-action="note-open"][data-index="'+row.index+'"]');if(icon){icon.textContent=row.notes?'▣':'+';icon.setAttribute?.('aria-label',(row.notes?'Edit':'Add')+' note for line '+(row.index+1));icon.title=row.notes?'Edit note':'Add note';}}
         for(const peer of root.querySelectorAll?.('[data-row="'+row.index+'"][data-field="'+t.dataset.field+'"]')||[])if(peer!==t)peer.value=t.value;
-        dirty=true;message=invalidInputs.size?'Correct invalid price, quantity, lead time or markup before saving.':'Unsaved changes. Quote totals update live; save to validate and persist.';root.querySelector('.materials-message').textContent=message;updateSummary(root);
+        dirty=true;message=invalidInputs.size?'Correct invalid price, quantity, lead time or markup before saving.':'Unsaved changes. Quote totals update live; save to validate and persist.';root.querySelector('.materials-message').textContent=message;updateSummary(root);updateSourcing(root,row);
       };
-      root.onclick=async event=>{event.stopPropagation();if(tableSelection.click(event))return;const cell=event.target.closest?.('td'),opening=cell?.querySelector?.('.material-lead');if(opening&&!opening.open&&event.target.closest?.('summary')){event.preventDefault();const index=Number(opening.querySelector('select').dataset.row),row=view.plan.rows.find(r=>r.index===index);leadBefore.set(index,{leadTimeMode:row.leadTimeMode,leadTimeValue:row.leadTimeValue,leadDays:row.leadDays});opening.open=true;opening.querySelector('select').focus();}for(const editor of root.querySelectorAll?.('.material-lead[open]')||[]){if(!editor.contains(event.target))closeLead(editor);}const button=event.target.closest('button'),action=button?.dataset.materialAction;if(!action||busy)return;
+      root.onclick=async event=>{event.stopPropagation();if(event.target.closest?.('summary')?.getAttribute?.('aria-disabled')==='true'){event.preventDefault();return;}const mfgSummary=event.target.closest?.('.material-mfg-menu summary')||(event.target.tagName==='TD'?event.target.querySelector('.material-mfg-menu summary'):null);if(mfgSummary?.matches?.('summary')&&mfgSummary.getAttribute('aria-disabled')!=='true'){event.preventDefault();const menu=mfgSummary.closest('details'),opening=!menu.open;tableSelection.click({target:mfgSummary.closest('td'),dragRange:true,preventDefault(){}});menu.open=opening;if(opening)menu.querySelector('button:not(:disabled)')?.focus({preventScroll:true});return;}if(tableSelection.click(event))return;const cell=event.target.closest?.('td'),opening=cell?.querySelector?.('.material-lead');if(opening&&!opening.open&&event.target.closest?.('summary')){event.preventDefault();const index=Number(opening.querySelector('select').dataset.row),row=view.plan.rows.find(r=>r.index===index);leadBefore.set(index,{leadTimeMode:row.leadTimeMode,leadTimeValue:row.leadTimeValue,leadDays:row.leadDays});opening.open=true;opening.querySelector('select').focus();}for(const editor of root.querySelectorAll?.('.material-lead[open]')||[]){if(!editor.contains(event.target))closeLead(editor);}const button=event.target.closest('button'),action=button?.dataset.materialAction;if(!action||busy)return;
         if(action.startsWith('evidence-')){await evidenceAction(action,button,root);return;}
         if(action==='reset-layout'){columnWidths.reset();return;}
-        if(action==='full-view'||action==='sourcing-view'){tableSelection.clear();for(const panel of root.querySelectorAll?.('.material-vendor:popover-open')||[])panel.hidePopover();sourcingView=action==='sourcing-view';root.classList.toggle('materials-sourcing',sourcingView);columnWidths.view(sourcingView);root.querySelector('[data-material-action="full-view"]').setAttribute('aria-pressed',String(!sourcingView));root.querySelector('[data-material-action="sourcing-view"]').setAttribute('aria-pressed',String(sourcingView));return;}
+        if(action==='sourcing-issue'){await setSourcing(Number(button.dataset.index),button.dataset.sourcingValue);return;}if(action==='sourcing-reopen'){await setSourcing(Number(button.dataset.index),'OPEN');return;}if(action==='full-view'||action==='sourcing-view'){tableSelection.clear();for(const panel of root.querySelectorAll?.('.material-vendor:popover-open')||[])panel.hidePopover();sourcingView=action==='sourcing-view';root.classList.toggle('materials-sourcing',sourcingView);columnWidths.view(sourcingView);root.querySelector('[data-material-action="full-view"]').setAttribute('aria-pressed',String(!sourcingView));root.querySelector('[data-material-action="sourcing-view"]').setAttribute('aria-pressed',String(sourcingView));return;}
         if(action==='toggle-fees'){const index=Number(button.dataset.index);collapsedFees.has(index)?collapsedFees.delete(index):collapsedFees.add(index);draw();return;}
-        if(action==='add-charge'&&!readOnly){const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index));const id=window.crypto.randomUUID();newCharges.add(id);(row.charges??=[]).push({id,description:'Tariff / Duty',category:'TARIFF',quantity:1,rawCost:null,treatment:'BLEND',markupTreatment:'MATERIAL',customMarkupPercent:null,notes:''});collapsedFees.delete(row.index);dirty=true;draw();mount.querySelector('.materials-workbench').querySelector('[data-charge="'+id+'"][data-charge-field="category"]')?.focus();return;}
-        if(action==='remove-charge'&&!readOnly){const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index));row.charges=row.charges.filter(c=>c.id!==button.dataset.chargeId);for(const key of [...invalidInputs])if(key.startsWith(button.dataset.chargeId+':'))invalidInputs.delete(key);dirty=true;draw();return;}
-        if(action==='vendor-open'&&!readOnly){const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index)),panel=root.querySelector('[data-vendor-panel="'+row.index+'"]');panel.innerHTML=vendorList(row);panel.showPopover();positionVendor(panel,button);panel.querySelector('input').focus();return;}
+        if(action==='add-charge'&&!readOnly){const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index));const id=window.crypto.randomUUID();newCharges.add(id);(row.charges??=[]).push({id,description:'Tariff / Duty',category:'TARIFF',quantity:1,rawCost:null,treatment:'BLEND',markupTreatment:'MATERIAL',customMarkupPercent:null,notes:''});collapsedFees.delete(row.index);dirty=true;feeFocus={id,key:'category'};draw();return;}
+        if(action==='remove-charge'&&!readOnly){const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index));if(row.sourcingStatus==='SOURCED')return;row.charges=row.charges.filter(c=>c.id!==button.dataset.chargeId);for(const key of [...invalidInputs])if(key.startsWith(button.dataset.chargeId+':'))invalidInputs.delete(key);dirty=true;draw();return;}
+        if(action==='vendor-open'&&!readOnly){const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index)),panel=root.querySelector('[data-vendor-panel="'+row.index+'"]');panel.innerHTML=vendorList(row);filterVendors(panel);panel.showPopover();positionVendor(panel,button);panel.querySelector('input').focus();return;}
         if(action==='vendor-cancel'){button.closest('.material-vendor').hidePopover();return;}
         if(action==='vendor-choice'&&!readOnly){const index=Number(button.dataset.index),row=view.plan.rows.find(r=>r.index===index),choice=button.dataset.vendor;if(choice==='manual'){const panel=button.closest('.material-vendor');panel.innerHTML='<label>Vendor name<input maxlength="200" aria-label="New Vendor for line '+(index+1)+'" data-new-vendor></label><button data-material-action="vendor-use" data-index="'+index+'">Use for Quote</button><button data-material-action="vendor-cancel">Cancel</button>';positionVendor(panel,root.querySelector('[data-material-action="vendor-open"][data-index="'+index+'"]'));panel.querySelector('input').focus();return;}row.customerSupplied=choice==='customer';row.vendor=row.customerSupplied?'':choice;row.vendorSource=simVendors.includes(choice)?'SIM_LIST':null;dirty=true;message='Unsaved vendor selection.';draw();return;}
         if(action==='vendor-use'&&!readOnly){const panel=button.closest('.material-vendor'),field=panel.querySelector('[data-new-vendor]'),name=field.value.trim();if(!name){field.setCustomValidity('Enter a vendor name.');field.reportValidity();return;}const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index));row.vendor=name;row.vendorSource='MANUAL_QUOTE_ONLY';row.customerSupplied=false;dirty=true;message='Unsaved quote-only vendor.';draw();return;}
-        if(action==='confirmed-mfg'&&!readOnly){const i=Number(button.dataset.index),row=view.plan.rows.find(r=>r.index===i),part=confirmedParts(view.rfq.inputs.materials.candidate.rows.find(r=>r.index===i))[Number(button.dataset.choice)];if(!part)return;row.mfgPartNumber=part;row.mfgPartNumberSource='CONFIRMED_ACCEPTED_BOM';manualRows.delete(i);dirty=true;draw();return;}
-        if(action==='done-mfg'){manualRows.delete(Number(button.dataset.index));draw();return;}
-        if(action==='manual-mfg'&&!readOnly){const i=Number(button.dataset.index);manualRows.add(i);draw();return;}
-        if(action==='details'){const i=Number(button.dataset.index);expanded.has(i)?expanded.delete(i):expanded.add(i);draw();return;}
+        if(action==='confirmed-mfg'&&!readOnly){const i=Number(button.dataset.index),row=view.plan.rows.find(r=>r.index===i),part=confirmedParts(view.rfq.inputs.materials.candidate.rows.find(r=>r.index===i))[Number(button.dataset.choice)];if(!part)return;row.mfgPartNumber=part;row.mfgPartNumberSource='CONFIRMED_ACCEPTED_BOM';manualRows.delete(i);mfgFocus=i;dirty=true;draw();return;}
+        if(action==='done-mfg'){mfgFocus=Number(button.dataset.index);manualRows.delete(mfgFocus);draw();return;}
+        if(action==='manual-mfg'&&!readOnly){const i=Number(button.dataset.index);manualRows.add(i);mfgFocus=i;draw();return;}
         if(action==='back'){if(dirty&&!window.confirm('Leave without saving these quotation edits?'))return;await back();return;}
         if((action==='save'||action==='complete')&&!readOnly){if(invalidInputs.size){message='Correct invalid price, quantity or lead time values before saving.';root.querySelector('.materials-message').textContent=message;return;}const completedBefore=view.plan.versions.length;busy=true;message='Saving…';draw();try{view=await fetchView({method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({chargeContractVersion:2,evidenceContractVersion:1,expectedRevision:view.plan.revision,rows:view.plan.rows,markupPercent:Number(view.plan.markupPercent??0),complete:action==='complete'})});dirty=false;message=action==='complete'?(view.plan.versions.length===completedBefore?'Materials quotation complete. Content unchanged; existing completed version retained.':'Materials quotation complete. A durable version was saved.'):'Material quotation saved.';}catch(e){message=e.message;}finally{busy=false;draw();}}
       };

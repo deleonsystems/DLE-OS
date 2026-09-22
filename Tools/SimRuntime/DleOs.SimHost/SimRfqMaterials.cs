@@ -13,7 +13,7 @@ internal sealed record SimMaterialRow(int Index, string Vendor = "", decimal? Un
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? OrderQuantityMode = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialCharge[]? Charges = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialEvidence? Evidence = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? AssemblyPartNumber = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? AssemblyPartNumber = null, string SourcingStatus = "OPEN");
 internal sealed record SimMaterialResultRow(SimMaterialRow Quote, decimal? RequiredQuantity, decimal? ExtendedCost, string[] Issues, bool Required = true,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? AssemblyCost = null);
 internal sealed record SimMaterialSnapshot(int Version, int BomVersion, string CandidateId, int RfqQuantity,
@@ -35,7 +35,7 @@ internal sealed partial class SimRfqIntakeStore
             Markup=Number(s.MarkupPercent ?? 0), Total=Number(s.TotalCost),
             Sale=Number(s.MaterialUnitSalePrice ?? MaterialUnitSale(s.TotalCost,s.MarkupPercent ?? 0,s.RfqQuantity)),
             Rows=s.Rows.OrderBy(r=>r.Quote.Index).Select(r=>new {
-                r.Quote.Index, Evidence=MaterialEvidenceContent(r.Quote.Evidence), Charges=(r.Quote.Charges ?? []).OrderBy(c=>c.Id).Select(c=>new {c.Id, Description=c.Description.Trim(),c.Category,RawCost=Number(c.RawCost),Quantity=Number(c.Quantity ?? 1),c.Treatment,c.MarkupTreatment,CustomMarkup=c.MarkupTreatment=="CUSTOM"?Number(c.CustomMarkupPercent):null,Notes=c.Notes.Trim(),Evidence=MaterialEvidenceContent(c.Evidence)}).ToArray(), Vendor=(r.Quote.Vendor ?? "").Trim(), UnitPrice=Number(r.Quote.UnitPrice),
+                r.Quote.Index, SourcingStatus=r.Quote.SourcingStatus ?? "OPEN", Evidence=MaterialEvidenceContent(r.Quote.Evidence), Charges=(r.Quote.Charges ?? []).OrderBy(c=>c.Id).Select(c=>new {c.Id, Description=c.Description.Trim(),c.Category,RawCost=Number(c.RawCost),Quantity=Number(c.Quantity ?? 1),c.Treatment,c.MarkupTreatment,CustomMarkup=c.MarkupTreatment=="CUSTOM"?Number(c.CustomMarkupPercent):null,Notes=c.Notes.Trim(),Evidence=MaterialEvidenceContent(c.Evidence)}).ToArray(), Vendor=(r.Quote.Vendor ?? "").Trim(), UnitPrice=Number(r.Quote.UnitPrice),
                 OrderQuantity=Number(r.Quote.OrderQuantity), LeadDays=MaterialLeadDays(r.Quote),
                 Notes=(r.Quote.Notes ?? "").Trim(), r.Quote.CustomerSupplied,
                 AssemblyPartNumber=r.Quote.AssemblyPartNumber, MfgPartNumber=(r.Quote.MfgPartNumber ?? "").Trim(), VendorPartNumber=(r.Quote.VendorPartNumber ?? "").Trim(),
@@ -47,6 +47,7 @@ internal sealed partial class SimRfqIntakeStore
         };
         return JsonSerializer.Serialize(Canonical(a)) == JsonSerializer.Serialize(Canonical(b));
     }
+    private static string MaterialSourcingContent(SimMaterialRow row) => JsonSerializer.Serialize(new {row.Vendor,row.UnitPrice,row.OrderQuantity,row.LeadDays,row.Notes,row.CustomerSupplied,row.MfgPartNumber,row.VendorPartNumber,row.Uom,row.MfgPartNumberSource,row.LeadTimeMode,row.LeadTimeValue,row.VendorSource,row.OrderQuantityMode,row.AssemblyPartNumber});
     internal static decimal MaterialUnitSale(decimal total, decimal markup, int quantity) => decimal.Round(total * (1 + markup / 100) / quantity, 2, MidpointRounding.AwayFromZero);
     internal static int? MaterialLeadDays(SimMaterialRow row) => row.LeadTimeMode switch { "STOCK" => 0, "DAYS" => row.LeadTimeValue, "WEEKS" => row.LeadTimeValue * 7, _ => row.LeadDays };
     internal static SimMaterialResultRow CalculateMaterial(SimMaterialRow row, SimCandidateRow source, int quantity)
@@ -55,7 +56,7 @@ internal sealed partial class SimRfqIntakeStore
         if (source.ComponentType == "REFERENCE_ONLY") return new(row, required, 0, [], false, 0);
         var issues = new List<string>();
         if (required is null) issues.Add("Qty / Assy needs review");
-        if (row.CustomerSupplied) { if (string.IsNullOrWhiteSpace(row.Notes) && !(row.Evidence?.Notes.Any(n=>n.Purpose=="SOURCING_PURCHASING") ?? false)) issues.Add("Identify customer-supply assumption in Notes"); }
+        if (row.CustomerSupplied) { if (row.SourcingStatus!="CUSTOMER_SUPPLIED" && string.IsNullOrWhiteSpace(row.Notes) && !(row.Evidence?.Notes.Any(n=>n.Purpose=="SOURCING_PURCHASING") ?? false)) issues.Add("Identify customer-supply assumption in Notes"); }
         else
         {
             if (string.IsNullOrWhiteSpace(row.Vendor)) issues.Add("Vendor required");
@@ -70,7 +71,7 @@ internal sealed partial class SimRfqIntakeStore
     internal static SimMaterialRow DefaultMaterialQuantity(SimMaterialRow row, SimCandidateRow source, int quantity)
     {
         var mode=row.OrderQuantityMode ?? (row.OrderQuantity is null ? "AUTO" : "MANUAL");
-        if(mode=="MANUAL")return row with{OrderQuantityMode=mode};
+        if(mode=="MANUAL"||row.SourcingStatus=="CUSTOMER_SUPPLIED")return row with{OrderQuantityMode=mode};
         var required=CalculateMaterial(row,source,quantity).RequiredQuantity;
         return row with{OrderQuantityMode="AUTO",OrderQuantity=row.CustomerSupplied||source.ComponentType=="REFERENCE_ONLY"?null:required};
     }
@@ -119,8 +120,27 @@ internal sealed partial class SimRfqIntakeStore
             if (request.ExpectedRevision != view.Plan.Revision) throw SimRfqIntakeProblem.Conflict("MATERIALS_STALE", "Another user saved this plan. Reopen Materials before saving again.");
             if (request.Rows is null || request.Rows.Length != view.Plan.Rows.Length || request.Rows.Select(r => r.Index).Distinct().Count() != request.Rows.Length || request.Rows.Any(r => !view.Plan.Rows.Any(p => p.Index == r.Index)))
                 throw SimRfqIntakeProblem.Conflict("MATERIALS_ROWS", "Quotation rows must match the accepted BOM.");
+            request=request with {Rows=request.Rows.Select(r=>r with {SourcingStatus=r.SourcingStatus ?? "OPEN",CustomerSupplied=r.SourcingStatus=="CUSTOMER_SUPPLIED" || (view.Plan.Rows.Single(p=>p.Index==r.Index).SourcingStatus=="CUSTOMER_SUPPLIED" && r.SourcingStatus=="OPEN" ? false:r.CustomerSupplied)}).ToArray()};
+            foreach(var row in request.Rows)
+            {
+                if(row.SourcingStatus is not ("OPEN" or "SOURCED" or "UNABLE_TO_SOURCE" or "NEEDS_ALTERNATE" or "CUSTOMER_SUPPLIED"))
+                    throw SimRfqIntakeProblem.Conflict("MATERIALS_SOURCING_STATUS","Choose a valid sourcing status.");
+                var prior=view.Plan.Rows.Single(r=>r.Index==row.Index);
+                if((prior.SourcingStatus ?? "OPEN")!="OPEN" &&
+                    (MaterialSourcingContent(prior.SourcingStatus=="CUSTOMER_SUPPLIED" && row.SourcingStatus=="OPEN"?prior with{CustomerSupplied=false}:prior)!=MaterialSourcingContent(row) || (row.SourcingStatus!=prior.SourcingStatus && row.SourcingStatus!="OPEN")))
+                    throw SimRfqIntakeProblem.Conflict("MATERIALS_ROW_LOCKED","Reopen the sourcing row before editing its values.");
+                if(row.SourcingStatus=="SOURCED")
+                {
+                    var source=view.Rfq.Inputs.Materials.Candidate.Rows.Single(s=>s.Index==row.Index);
+                    if(CalculateMaterial(row,source,view.Rfq.Assemblies[0].Quantity).Issues.Length>0)
+                        throw SimRfqIntakeProblem.Conflict("MATERIALS_SOURCING_INCOMPLETE","Complete the sourcing fields before accepting the row, or choose a sourcing exception.");
+                }
+            }
             ValidateMaterialCharges(request,view.Plan);
             request=request with {Rows=await ValidateMaterialEvidence(record,view.Plan,request,persona)};
+            // Reset purchase inputs only when entering customer supply; reuse the Materials quantity basis.
+            request=request with {Rows=request.Rows.Select(r=>r.SourcingStatus=="CUSTOMER_SUPPLIED" && view.Plan.Rows.Single(p=>p.Index==r.Index).SourcingStatus!="CUSTOMER_SUPPLIED"
+                ? r with {UnitPrice=null,OrderQuantity=CalculateMaterial(r,view.Rfq.Inputs.Materials.Candidate.Rows.Single(s=>s.Index==r.Index),view.Rfq.Assemblies[0].Quantity).RequiredQuantity,OrderQuantityMode="AUTO"} : r).ToArray()};
             foreach (var row in request.Rows)
             {
                 if(row.OrderQuantityMode is not (null or "AUTO" or "MANUAL"))throw SimRfqIntakeProblem.Conflict("MATERIALS_ORDER_MODE","Invalid Order Qty mode.");
