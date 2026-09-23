@@ -46,6 +46,12 @@ internal static class SimPersonaCatalog
 
     internal static readonly IReadOnlyList<SimPersona> All = new[]
     {
+        new SimPersona("order-entry-operator", "sim.orderentry", "SIM Order Entry", "ACTIVE",
+            ["SIM_ORDER_ENTRY"], ["order_entry.view", "order_entry.manage"], false,
+            "Manual synthetic VPRO bridge work; no commercial acceptance or Operations release authority."),
+        new SimPersona("order-reviewer", "sim.orderreview", "SIM Order Reviewer", "ACTIVE",
+            ["SIM_ORDER_REVIEWER"], ["order_entry.view", "order_entry.accept", "rfq.intake.create"], false,
+            "Explicit New Order acceptance; no ERP or Operations writes."),
         new SimPersona(DefaultPersonaId, "sim.admin", "SIM Administrator", "ACTIVE",
             ["SUPER_ADMIN"], [], true,
             "Safe default with full authority inside the isolated SIM runtime."),

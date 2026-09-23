@@ -58,6 +58,18 @@ internal sealed class SimStateStore
     private readonly string metadataPath;
     private readonly string generationPath;
     private readonly SemaphoreSlim resetGate = new(1, 1);
+    // Keep a scoped developmental import and its acknowledgment in one runtime
+    // generation. Reset uses this same gate before deleting owned data.
+    internal async Task<T> WithStableRuntime<T>(Func<SimStateMetadata, Task<T>> action)
+    {
+        await resetGate.WaitAsync();
+        try {
+            var current=Current;
+            if(!current.IsHealthy || current.Metadata is not {Environment:"SIM"} metadata)
+                throw new InvalidOperationException("A healthy SIM runtime is required.");
+            return await action(metadata);
+        } finally { resetGate.Release(); }
+    }
     private readonly ConcurrentDictionary<string, SimResetResult> completedRequests =
         new(StringComparer.Ordinal);
     private readonly object snapshotGate = new();

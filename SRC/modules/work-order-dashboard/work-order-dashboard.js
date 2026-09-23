@@ -49,13 +49,17 @@
   let kittingCaseSubmissions = [];
   const kittedBomEndpoint = '/api/development/kitting-documents/v1/work-orders/';
   const assemblyDrawingEndpoint = '/api/development/drawing-prints/v1/resolve';
-  const releasedBomPrototypeWorkOrder = '0115621';
-  const releasedBomPrototypePath = '/Artifacts/WorkOrderReleasedBom004/WORKORDER-RELEASED-BOM-004/index.html';
-  const releasedBomPrototypeDataPath = '/Artifacts/WorkOrderReleasedBom004/WORKORDER-RELEASED-BOM-004/work-order-0115621.json';
+  let releasedRequirements = null;
+  let kittingCapabilities = { supported: false, canEdit: false };
+  let releasedRequirementsError = '';
+  let activeKittingDirty = false;
+  let activeKittingDraftVersion = null;
+  let activeKittingPendingSaves = 0;
+  let poTraceabilityAmendmentContext = null;
+  let poTraceabilityAmendmentPending = false;
   const isDevelopmentRuntime =
     window.DleOsRuntimeConfig?.environment === 'ISOLATED_DEVELOPMENT';
   const isSimRuntime = window.DleOsRuntimeConfig?.environment === 'SIMULATION';
-  const kittingEditingTemporarilyAvailable = false;
   const kittingEditingDeferredMessage =
     'Kitting editing temporarily unavailable. Saved Kitting information remains available read-only.';
 
@@ -309,9 +313,15 @@
     );
   }
 
-  function isReleasedBomPrototypeAvailable() {
-    return isDevelopmentRuntime && isKittingWorkflowPresentation() &&
-      getSelectedReleasedBomWorkOrder() === releasedBomPrototypeWorkOrder;
+  function isReleasedBomAvailable() {
+    return (isDevelopmentRuntime || isSimRuntime) && isKittingWorkflowPresentation() &&
+      !!getSelectedReleasedBomWorkOrder() &&
+      !!(activeKittingTrialDraft || kittingCaseReview?.draft || releasedRequirements?.draft);
+  }
+
+  function isKittingEditingAvailable() {
+    return isSimRuntime && kittingCapabilities.supported === true && kittingCapabilities.canEdit === true &&
+      window.DleOsCapabilities?.can('kitting.disposition') !== false;
   }
 
   function isSimKitIdLabelAvailable() {
@@ -324,8 +334,8 @@
     const kitButton = document.getElementById('workOrderDashboardKitReleasedBom');
     const printTarget = document.getElementById('kittingJobPrintLabelsAction');
     if (!button && !kitButton && !printTarget) return;
-    const inDevelopmentKittingWorkspace = isDevelopmentRuntime && isKittingWorkflowPresentation();
-    const available = isReleasedBomPrototypeAvailable();
+    const inDevelopmentKittingWorkspace = (isDevelopmentRuntime || isSimRuntime) && isKittingWorkflowPresentation();
+    const available = isReleasedBomAvailable();
     const labelAvailable = available || isSimKitIdLabelAvailable();
     const printAllAction = '<details class="kitting-label-menu" ontoggle="handleKittingJobPrintLabelsToggle(this)"><summary>Print Labels' +
       '<span aria-hidden="true">&#9662;</span></summary><div class="kitting-label-menu-options" role="menu">' +
@@ -342,17 +352,23 @@
     if (kitButton) {
       const canKit = window.DleOsCapabilities?.can('kitting.disposition') !== false;
       const canStart = !!kittingCaseReview || materialStatusReview?.machineValue === 'NEEDS_KITTING';
+      kitButton.dataset.kittingEditSupported = String(isKittingEditingAvailable());
       kitButton.hidden = !inDevelopmentKittingWorkspace || !canKit;
-      kitButton.disabled = !kittingEditingTemporarilyAvailable || !available || !canKit ||
+      kitButton.disabled = !isKittingEditingAvailable() || !available || !canKit ||
         kittingCaseState === 'loading' || !canStart;
     }
+    ['activeKittingSave', 'activeKittingSaveExit'].forEach(id => {
+      const control = document.getElementById(id);
+      if (control) control.dataset.kittingEditSupported = String(isKittingEditingAvailable());
+    });
     setText('workOrderDashboardReleasedBomLabel', available
-      ? 'View Released BOM' : 'Released BOM prototype not yet available');
+      ? 'View Released BOM' : 'Released BOM not available');
     setText('workOrderDashboardReleasedBomMessage', available
-      ? 'WO 0115621 · 52 components · 48 messages · read only'
-      : 'Available only for canonical WO 0115621 in development Kitting view.');
-    const actionLabel = !kittingEditingTemporarilyAvailable
-      ? 'Kitting Editing Unavailable'
+      ? 'WO ' + getSelectedReleasedBomWorkOrder() + ' · ' +
+        (activeKittingTrialDraft || kittingCaseReview?.draft || releasedRequirements?.draft).groups.length + ' requirements · read only'
+      : releasedRequirementsError || 'No governed released requirements are available for this Work Order.');
+    const actionLabel = !isKittingEditingAvailable()
+      ? 'Kitting Read Only'
       : !kittingCaseReview
       ? (materialStatusReview?.machineValue === 'NEEDS_KITTING' ? 'Start Kitting' : 'Needs Kitting Required')
       : kittingCaseReview.state === 'KIT_COMPLETE' ? 'View Kit Complete'
@@ -366,12 +382,7 @@
     setText('kittingJobMaterialStatus', compactStatusLabel);
     const compactStatusBadge = document.getElementById('kittingJobMaterialStatus');
     if (compactStatusBadge) compactStatusBadge.dataset.status = compactStatus;
-    const compactTraceability = kittingCaseReview
-      ? (kittingCaseReview.poTraceabilityRequired ? 'REQUIRED' : 'OPTIONAL')
-      : 'NOT SET';
-    setText('kittingJobPoTraceability', compactTraceability);
-    const compactTraceabilityValue = document.getElementById('kittingJobPoTraceability');
-    if (compactTraceabilityValue) compactTraceabilityValue.dataset.policy = compactTraceability.replace(' ', '_');
+    renderPoTraceabilityControls();
     const summary = document.getElementById('workOrderDashboardKittingCaseSummary');
     if (summary) {
       const hasSubmissionHistory = kittingCaseSubmissions.length > 0;
@@ -384,7 +395,8 @@
           String(kittingCaseReview.runNumber || 1).padStart(3, '0')) + '</strong><span>' +
         escapeDashboardHtml(kittingCaseReview.completedCount + ' / ' + kittingCaseReview.actionableCount +
           ' requirements · last operator ' + kittingCaseReview.lastOperator) + '</span>' +
-        '<span>P.O. Traceability: <b>' + (kittingCaseReview.poTraceabilityRequired ? 'REQUIRED' : 'OPTIONAL') + '</b></span>' +
+        '<span>P.O. Traceability: <b>' + poTraceabilityLabel(kittingCaseReview.poTraceabilityRequired) + '</b>' +
+        (kittingCaseReview.poTraceabilityAmendment ? ' · Amended' : '') + '</span>' +
         (kittingCaseReview.state === 'KIT_SHORT' ? '<span>' + escapeDashboardHtml(
           kittingCaseReview.shortRequirementCount + ' short requirement(s)') + '</span>' : '')
         : '<strong>' + (hasSubmissionHistory ? 'Archived Kitting runs' : 'Released BOM bag labels') +
@@ -412,22 +424,23 @@
   }
 
   function renderKitReleasedBomMessage() {
-    setText('workOrderDashboardKitReleasedBomMessage', !kittingEditingTemporarilyAvailable
+    setText('workOrderDashboardKitReleasedBomMessage', !isKittingEditingAvailable()
       ? kittingEditingDeferredMessage
-      : isReleasedBomPrototypeAvailable()
-      ? (!kittingCaseReview ? 'Start a fresh governed Kitting run for WO 0115621.'
+      : isReleasedBomAvailable()
+      ? (!kittingCaseReview ? 'Start a governed Kitting run for WO ' + getSelectedReleasedBomWorkOrder() + '.'
         : kittingCaseReview.state === 'KIT_COMPLETE'
           ? 'Terminal persistent case · read only · working version ' + kittingCaseReview.workingVersion
         : kittingCaseReview.isEditing && !activeKittingEditable
           ? kittingLeaseReadOnlyMessage(kittingCaseReview)
           : 'Persistent case · working version ' + kittingCaseReview.workingVersion)
-      : 'Available only for canonical WO 0115621 in development Kitting view.');
+      : releasedRequirementsError || 'No governed released requirements are available for this Work Order.');
   }
 
-  function openReleasedBomPrototype() {
-    if (!isReleasedBomPrototypeAvailable() || !window.ActiveKittingTrial?.releasedBomDocument) return false;
+  function openReleasedBom() {
+    if (!isReleasedBomAvailable() || !window.ActiveKittingTrial?.releasedBomDocument) return false;
     const draft = activeKittingTrialDraft ? structuredClone(activeKittingTrialDraft) :
-      kittingCaseReview?.draft ? structuredClone(kittingCaseReview.draft) : null;
+      kittingCaseReview?.draft ? structuredClone(kittingCaseReview.draft) :
+        releasedRequirements?.draft ? structuredClone(releasedRequirements.draft) : null;
     if (!draft) return false;
     const handoff = {
       ...selectedWorkOrder,
@@ -463,6 +476,15 @@
     kittingCaseState = 'idle';
     activeKittingEditable = false;
     activeKittingSaveState = '';
+    activeKittingDirty = false;
+    activeKittingDraftVersion = null;
+    activeKittingPendingSaves = 0;
+    poTraceabilityAmendmentContext = null;
+    poTraceabilityAmendmentPending = false;
+    document.getElementById('activeKittingPoAmendmentDialog')?.close();
+    releasedRequirements = null;
+    releasedRequirementsError = '';
+    kittingCapabilities = { supported: false, canEdit: false };
     activeKittingSaveQueue = Promise.resolve(false);
     acceptedMaterialLabelState.clear();
     acceptedMaterialLookupTimers.forEach(timer => window.clearTimeout(timer));
@@ -474,17 +496,37 @@
   }
 
   async function ensureKittingCase(force = false) {
-    if (!isReleasedBomPrototypeAvailable() || !window.DleApiClient?.getKittingCase) return null;
+    if (!(isDevelopmentRuntime || isSimRuntime) || !isKittingWorkflowPresentation() ||
+        !getSelectedReleasedBomWorkOrder() || !window.DleApiClient?.getKittingCase) return null;
     if (!force && ['loading', 'loaded'].includes(kittingCaseState)) return kittingCaseReview;
     const requestId = ++kittingCaseRequestId;
+    const workOrderNumber = getSelectedReleasedBomWorkOrder();
     kittingCaseState = 'loading';
     renderReleasedBomControl();
     try {
-      const response = await window.DleApiClient.getKittingCase(releasedBomPrototypeWorkOrder);
+      const response = await window.DleApiClient.getKittingCase(workOrderNumber);
       if (requestId !== kittingCaseRequestId) return null;
       kittingCaseReview = response?.kittingCase || null;
+      kittingCapabilities = response?.capabilities || { supported: !!kittingCaseReview?.draft, canEdit: false };
+      if (isSimRuntime && window.DleApiClient.getKittingReleasedRequirements && !kittingCaseReview?.draft) {
+        try {
+          const release = await window.DleApiClient.getKittingReleasedRequirements(workOrderNumber);
+          if (requestId !== kittingCaseRequestId) return null;
+          if (release?.supported && release?.draft &&
+              normalizeReleasedBomWorkOrder(release.draft.workOrder) === workOrderNumber) {
+            releasedRequirements = release;
+            kittingCapabilities = { ...kittingCapabilities, supported: true, canEdit: release.canEdit === true && kittingCapabilities.canEdit === true };
+          } else {
+            releasedRequirementsError = release?.message || 'Released requirements are not supported for this Work Order.';
+            kittingCapabilities = { supported: false, canEdit: false };
+          }
+        } catch (error) {
+          releasedRequirementsError = error?.message || 'Released requirements are unavailable.';
+          kittingCapabilities = { supported: false, canEdit: false };
+        }
+      }
       try {
-        const history = await window.DleApiClient.getKittingCaseSubmissions?.(releasedBomPrototypeWorkOrder);
+        const history = await window.DleApiClient.getKittingCaseSubmissions?.(workOrderNumber);
         if (requestId !== kittingCaseRequestId) return null;
         kittingCaseSubmissions = Array.isArray(history?.submissions) ? history.submissions : [];
       } catch (error) {
@@ -505,10 +547,13 @@
   function hydratePersistedKittingCaseForReadOnly(review) {
     if (!isKittingWorkflowPresentation() || activeKittingTrialOpen || !review?.draft) return false;
     activeKittingTrialDraft = structuredClone(review.draft);
+    activeKittingDraftVersion = review.workingVersion;
     activeKittingEditable = false;
     activeKittingRecovery = review.state === 'KIT_COMPLETE' ? null : {
       kind: review.isEditing ? 'LEASE_RECONNECT_REQUIRED' : 'LEASE_EXPIRED',
-      message: kittingEditingDeferredMessage,
+      message: isKittingEditingAvailable()
+        ? 'Saved Kitting information is read only until you Resume / Reconnect Kitting.'
+        : kittingEditingDeferredMessage,
       code: review.isEditing ? 'same_user_reconnect_required' : 'editing_lease_required',
       status: review.isEditing ? 0 : 409,
       editingSessionId: review.editingSessionId || '',
@@ -539,7 +584,7 @@
   }
 
   function ownsKittingLease() {
-    return !!(!activeKittingRecovery && activeKittingEditable && kittingCaseReview?.editingSessionId &&
+    return !!(!activeKittingRecovery && activeKittingEditable && isKittingEditingAvailable() && kittingCaseReview?.editingSessionId &&
       activeKittingTrialDraft && kittingCaseReview.state !== 'KIT_COMPLETE');
   }
 
@@ -556,13 +601,24 @@
 
   async function verifyActiveKittingAfterBrowserResume() {
     if (!activeKittingTrialOpen || activeKittingTrialState !== 'loaded' || !activeKittingTrialDraft ||
-        activeKittingRecovery || !kittingCaseReview?.editingSessionId) return false;
+        activeKittingRecovery || poTraceabilityAmendmentPending || !kittingCaseReview?.editingSessionId) return false;
     const expectedSessionId = kittingCaseReview.editingSessionId;
+    const expectedWorkOrder = getSelectedReleasedBomWorkOrder();
+    const expectedCaseId = kittingCaseReview.caseId;
+    const expectedWorkingVersion = kittingCaseReview.workingVersion;
     try {
-      const response = await window.DleApiClient.getKittingCase(releasedBomPrototypeWorkOrder);
+      const response = await window.DleApiClient.getKittingCase(expectedWorkOrder);
       const current = response?.kittingCase || null;
+      if (poTraceabilityAmendmentPending || expectedWorkOrder !== getSelectedReleasedBomWorkOrder() ||
+          expectedCaseId !== kittingCaseReview?.caseId || expectedSessionId !== kittingCaseReview?.editingSessionId ||
+          (current && current.workingVersion < kittingCaseReview.workingVersion)) return false;
       if (!current) return stopActiveKittingEditing('RECONNECT_FAILED',
         'Kitting Case state is unavailable. Resume / Reconnect Kitting to continue.');
+      if (activeKittingDirty && activeKittingDraftVersion !== current.workingVersion) {
+        kittingCaseReview = current;
+        return stopActiveKittingEditing('STALE_DRAFT',
+          'A newer saved Kitting version exists. Reload this job and review the saved evidence before resuming; unsaved local entries have not overwritten it.');
+      }
       if (current.state === 'KIT_COMPLETE') {
         kittingCaseReview = current;
         activeKittingEditable = false;
@@ -576,11 +632,16 @@
           'Kitting editing lease needs reconnection after the iPad was idle. Resume / Reconnect Kitting to continue.');
       }
       kittingCaseReview = current;
+      if (!activeKittingDirty && current.draft) activeKittingTrialDraft = structuredClone(current.draft);
+      activeKittingDraftVersion = current.workingVersion;
       activeKittingEditable = true;
       activeKittingSaveState = 'Kitting lease verified after resume.';
       renderActiveKittingTrial();
       return true;
     } catch (error) {
+      if (poTraceabilityAmendmentPending || expectedWorkOrder !== getSelectedReleasedBomWorkOrder() ||
+          expectedCaseId !== kittingCaseReview?.caseId || expectedSessionId !== kittingCaseReview?.editingSessionId ||
+          expectedWorkingVersion !== kittingCaseReview?.workingVersion) return false;
       return handleActiveKittingApiFailure(error, 'Kitting state could not be verified after resume.');
     }
   }
@@ -660,19 +721,20 @@
   }
 
   async function loadReleasedBomDraft() {
-    const response = await fetch(releasedBomPrototypeDataPath, {
-      credentials: 'same-origin', headers: { Accept: 'application/json' }
-    });
-    if (!response.ok) throw new Error('Released BOM source returned HTTP ' + response.status + '.');
-    const report = await response.json();
-    if (normalizeReleasedBomWorkOrder(report?.header?.workOrder) !== releasedBomPrototypeWorkOrder) {
-      throw new Error('Released BOM source did not match WO 0115621.');
-    }
-    return { report, draft: window.ActiveKittingTrial.createDraft(report, currentEmployeeName()) };
+    const workOrderNumber = getSelectedReleasedBomWorkOrder();
+    if (kittingCaseReview?.draft) return { draft: structuredClone(kittingCaseReview.draft), releasedBomIdentity: kittingCaseReview.releasedBomIdentity };
+    if (!isSimRuntime || !window.DleApiClient?.getKittingReleasedRequirements)
+      throw new Error('No retained released requirements are available for this Work Order.');
+    const release = await window.DleApiClient.getKittingReleasedRequirements(workOrderNumber);
+    if (workOrderNumber !== getSelectedReleasedBomWorkOrder() || !release?.supported || !release?.draft ||
+        normalizeReleasedBomWorkOrder(release.draft.workOrder) !== workOrderNumber || !release.releasedBomIdentity)
+      throw new Error('Released requirements do not match the selected Work Order.');
+    releasedRequirements = release;
+    return { draft: structuredClone(release.draft), releasedBomIdentity: release.releasedBomIdentity };
   }
 
   async function startOrResumeActiveKitting() {
-    if (!kittingEditingTemporarilyAvailable) {
+    if (!isKittingEditingAvailable()) {
       activeKittingEditable = false;
       activeKittingSaveState = kittingEditingDeferredMessage;
       renderActiveKittingTrial();
@@ -685,7 +747,7 @@
       scrollActiveKittingTrialIntoView();
       return true;
     }
-    if (!isReleasedBomPrototypeAvailable() || window.DleOsCapabilities?.can('kitting.disposition') === false) return false;
+    if (!isReleasedBomAvailable() || window.DleOsCapabilities?.can('kitting.disposition') === false) return false;
     window.KittingJobWorkspace?.setPrimaryTool?.('kitting', true);
     if (activeKittingTrialState === 'loaded' && activeKittingTrialDraft && kittingCaseReview &&
         (activeKittingEditable || kittingCaseReview.isEditing || kittingCaseReview.state === 'KIT_COMPLETE')) {
@@ -702,41 +764,33 @@
     renderActiveKittingTrial();
     await ensureKittingCase();
     try {
-      let currentReleasedBomDraft = null;
       if (!kittingCaseReview) {
-        const { report, draft } = await loadReleasedBomDraft();
-        currentReleasedBomDraft = draft;
-        kittingCaseReview = await window.DleApiClient.startKittingCase(releasedBomPrototypeWorkOrder, {
+        const { draft, releasedBomIdentity } = await loadReleasedBomDraft();
+        kittingCaseReview = await window.DleApiClient.startKittingCase(getSelectedReleasedBomWorkOrder(), {
           customerNumber: selectedWorkOrder?.customerNumber || selectedWorkOrder?.originCustomerNumber ||
             selectedWorkOrder?.originRow?.official?.customerNumber || selectedWorkOrder?.official?.customerNumber,
           originSalesOrderNumber: selectedWorkOrder?.salesOrderNumber || selectedWorkOrder?.originSalesOrderNumber ||
             selectedWorkOrder?.originRow?.official?.salesOrder || selectedWorkOrder?.official?.salesOrder,
           originSalesOrderLineNumber: selectedWorkOrder?.salesOrderLineNumber || selectedWorkOrder?.originSalesOrderLine ||
             selectedWorkOrder?.originRow?.official?.sequenceLine || selectedWorkOrder?.official?.sequenceLine,
-          assemblyItemNumber: report.header.billNumber,
-          revision: report.header.revision,
-          releasedBomIdentity: [report.header.workOrder, report.header.billNumber, report.header.revision,
-            report.generatedAt, report.sourceIdentity?.sizeAfter, report.sourceIdentity?.timestampAfterUtc].join('|'),
-          draft
+          assemblyItemNumber: draft.header.billNumber,
+          revision: draft.header.revision,
+          releasedBomIdentity
         });
-        materialStatusReview = window.MaterialStatus?.publish(releasedBomPrototypeWorkOrder, kittingCaseReview) ||
+        materialStatusReview = window.MaterialStatus?.publish(getSelectedReleasedBomWorkOrder(), kittingCaseReview) ||
           materialStatusReview;
       } else if (kittingCaseReview.state === 'KIT_COMPLETE') {
         activeKittingEditable = false;
       } else if (!kittingCaseReview.isEditing) {
-        const releasedBom = await loadReleasedBomDraft();
-        currentReleasedBomDraft = releasedBom.draft;
-        kittingCaseReview = await window.DleApiClient.resumeKittingCase(releasedBomPrototypeWorkOrder, {
+        kittingCaseReview = await window.DleApiClient.resumeKittingCase(getSelectedReleasedBomWorkOrder(), {
           expectedWorkingVersion: kittingCaseReview.workingVersion
         });
       } else if (!activeKittingEditable) {
         activeKittingEditable = false;
       }
       activeKittingTrialDraft = structuredClone(kittingCaseReview.draft);
-      if (currentReleasedBomDraft) {
-        window.ActiveKittingTrial.refreshReleasedBomMessageProjection(
-          activeKittingTrialDraft, currentReleasedBomDraft);
-      }
+      activeKittingDirty = false;
+      activeKittingDraftVersion = kittingCaseReview.workingVersion;
       activeKittingEditable = kittingCaseReview.state !== 'KIT_COMPLETE' && isCurrentKittingEditor(kittingCaseReview);
       if (activeKittingEditable) activeKittingTrialDraft.employeeName = currentEmployeeName();
       activeKittingTrialState = 'loaded';
@@ -772,16 +826,17 @@
   }
 
   async function reconnectActiveKitting() {
-    if (!kittingEditingTemporarilyAvailable) {
+    if (!isKittingEditingAvailable()) {
       activeKittingEditable = false;
       activeKittingSaveState = kittingEditingDeferredMessage;
       renderActiveKittingTrial();
       return false;
     }
-    if (!isReleasedBomPrototypeAvailable() || window.DleOsCapabilities?.can('kitting.disposition') === false) return false;
-    const retainedDraft = activeKittingRecovery?.draft
-      ? structuredClone(activeKittingRecovery.draft)
-      : activeKittingTrialDraft ? structuredClone(activeKittingTrialDraft) : null;
+    if (!isReleasedBomAvailable() || window.DleOsCapabilities?.can('kitting.disposition') === false) return false;
+    const retainedDraft = activeKittingDirty
+      ? structuredClone(activeKittingRecovery?.draft || activeKittingTrialDraft)
+      : null;
+    const retainedWorkingVersion = activeKittingDraftVersion;
     activeKittingRecovery = null;
     activeKittingEditable = false;
     activeKittingSaveState = 'Reconnecting Kitting...';
@@ -791,8 +846,12 @@
     try {
       await ensureKittingCase(true);
       if (!kittingCaseReview) throw new Error('No Kitting Case exists for this Work Order.');
+      if (!isKittingEditingAvailable()) throw new Error(kittingEditingDeferredMessage);
+      if (activeKittingDirty && retainedWorkingVersion !== kittingCaseReview.workingVersion)
+        throw new Error('A newer saved Kitting version exists. Reload this job and review the saved evidence before resuming; unsaved local entries have not overwritten it.');
       if (kittingCaseReview.state === 'KIT_COMPLETE') {
         activeKittingTrialDraft = structuredClone(kittingCaseReview.draft);
+        activeKittingDraftVersion = kittingCaseReview.workingVersion;
         activeKittingTrialState = 'loaded';
         activeKittingSaveState = 'Kit Complete is read only.';
         renderActiveKittingTrial();
@@ -800,6 +859,7 @@
       }
       if (kittingCaseReview.isEditing && isSameKittingOperator(kittingCaseReview.editingOwner)) {
         activeKittingTrialDraft = retainedDraft || structuredClone(kittingCaseReview.draft);
+        activeKittingDraftVersion = kittingCaseReview.workingVersion;
         activeKittingEditable = true;
         activeKittingTrialState = 'loaded';
         activeKittingSaveState = 'Kitting reconnected. Review retained entries and continue.';
@@ -823,13 +883,11 @@
         renderActiveKittingTrial();
         return false;
       }
-      const { draft: currentReleasedBomDraft } = await loadReleasedBomDraft();
-      kittingCaseReview = await window.DleApiClient.resumeKittingCase(releasedBomPrototypeWorkOrder, {
+      kittingCaseReview = await window.DleApiClient.resumeKittingCase(getSelectedReleasedBomWorkOrder(), {
         expectedWorkingVersion: kittingCaseReview.workingVersion
       });
       activeKittingTrialDraft = retainedDraft || structuredClone(kittingCaseReview.draft);
-      window.ActiveKittingTrial.refreshReleasedBomMessageProjection(
-        activeKittingTrialDraft, currentReleasedBomDraft);
+      activeKittingDraftVersion = kittingCaseReview.workingVersion;
       activeKittingEditable = !!kittingCaseReview.editingSessionId && kittingCaseReview.state !== 'KIT_COMPLETE';
       if (activeKittingEditable) activeKittingTrialDraft.employeeName = currentEmployeeName();
       activeKittingTrialState = 'loaded';
@@ -949,28 +1007,131 @@
     if (acceptedMaterialTrialEnabledInKitting) scheduleAcceptedMaterialLookup(sequence, '');
   }
 
-  async function setActiveKittingPoTraceability(value) {
-    if (!ownsKittingLease() || !window.DleApiClient?.setKittingCasePoTraceability) return false;
-    const required = value !== 'optional';
-    if (required === !!kittingCaseReview.poTraceabilityRequired) return true;
-    if (activeKittingAutosaveTimer) window.clearTimeout(activeKittingAutosaveTimer);
-    activeKittingAutosaveTimer = null;
-    await activeKittingSaveQueue.catch(() => false);
-    activeKittingSaveState = 'Saving traceability policy…';
-    renderActiveKittingTrial();
+  function poTraceabilityLabel(required) {
+    return required === true ? 'REQUIRED' : required === false ? 'NOT REQUIRED' : 'Not Recorded';
+  }
+
+  function hasPoTraceabilityAmendmentCapability() {
+    const allowed = typeof kittingCaseReview?.canAmendPoTraceability === 'boolean'
+      ? kittingCaseReview.canAmendPoTraceability : kittingCapabilities.canAmendPoTraceability;
+    return isSimRuntime && allowed === true && isKittingEditingAvailable() &&
+      window.DleOsCapabilities?.can('kitting.traceability.amend') !== false &&
+      typeof kittingCaseReview?.poTraceabilityRequired === 'boolean';
+  }
+
+  function canAmendPoTraceability() {
+    return hasPoTraceabilityAmendmentCapability() && ownsKittingLease() &&
+      !activeKittingDirty && !activeKittingPendingSaves && !poTraceabilityAmendmentPending;
+  }
+
+  function renderPoTraceabilityControls() {
+    const label = poTraceabilityLabel(kittingCaseReview?.poTraceabilityRequired);
+    const amendment = kittingCaseReview?.poTraceabilityAmendment;
+    for (const id of ['activeKittingPoTraceability', 'kittingJobPoTraceability']) {
+      const control = document.getElementById(id);
+      if (control) { control.textContent = label; control.dataset.policy = label.toUpperCase().replaceAll(' ', '_'); }
+      const indicator = document.getElementById(id + 'Amended');
+      if (indicator) {
+        indicator.hidden = !amendment;
+        indicator.title = amendment ? [
+          poTraceabilityLabel(amendment.previousEffectiveRequired) + ' → ' + poTraceabilityLabel(amendment.newEffectiveRequired),
+          amendment.actor, amendment.atUtc, amendment.reason
+        ].filter(Boolean).join(' · ') : '';
+        indicator.setAttribute('aria-label', amendment ? 'Amended: ' + indicator.title : '');
+      }
+    }
+    const action = document.getElementById('activeKittingAmendPoTraceability');
+    if (action) {
+      action.hidden = !hasPoTraceabilityAmendmentCapability() || !ownsKittingLease();
+      action.disabled = !canAmendPoTraceability();
+      action.title = activeKittingDirty || activeKittingPendingSaves
+        ? 'Save all Kitting changes before amending the requirement.' : '';
+    }
+  }
+
+  function openPoTraceabilityAmendment() {
+    const dialog = document.getElementById('activeKittingPoAmendmentDialog');
+    if (!dialog || !canAmendPoTraceability()) return false;
+    poTraceabilityAmendmentContext = {
+      workOrderNumber: getSelectedReleasedBomWorkOrder(), caseId: kittingCaseReview.caseId,
+      expectedWorkingVersion: kittingCaseReview.workingVersion, editingSessionId: kittingCaseReview.editingSessionId,
+      currentRequired: kittingCaseReview.poTraceabilityRequired
+    };
+    setText('activeKittingPoAmendmentWorkOrder', poTraceabilityAmendmentContext.workOrderNumber);
+    setText('activeKittingPoAmendmentCurrent', poTraceabilityLabel(poTraceabilityAmendmentContext.currentRequired));
+    document.getElementById('activeKittingPoAmendmentValue').value = poTraceabilityAmendmentContext.currentRequired ? 'required' : 'not-required';
+    document.getElementById('activeKittingPoAmendmentReason').value = '';
+    setText('activeKittingPoAmendmentError', '');
+    updatePoTraceabilityAmendment();
+    dialog.showModal();
+    return true;
+  }
+
+  function updatePoTraceabilityAmendment() {
+    const value = document.getElementById('activeKittingPoAmendmentValue');
+    const reason = document.getElementById('activeKittingPoAmendmentReason');
+    const apply = document.getElementById('activeKittingPoAmendmentApply');
+    if (value) value.disabled = poTraceabilityAmendmentPending;
+    if (reason) reason.disabled = poTraceabilityAmendmentPending;
+    const changed = ['required', 'not-required'].includes(value?.value) &&
+      (value.value === 'required') !== poTraceabilityAmendmentContext?.currentRequired;
+    const reasonLength = (reason?.value || '').trim().length;
+    if (apply) apply.disabled = !canAmendPoTraceability() || !changed || !reasonLength || reasonLength > 4000;
+    const cancel = document.getElementById('activeKittingPoAmendmentCancel');
+    if (cancel) cancel.disabled = poTraceabilityAmendmentPending;
+  }
+
+  function closePoTraceabilityAmendment(event) {
+    if (poTraceabilityAmendmentPending) { event?.preventDefault(); return false; }
+    document.getElementById('activeKittingPoAmendmentDialog')?.close();
+    poTraceabilityAmendmentContext = null;
+    return true;
+  }
+
+  async function applyPoTraceabilityAmendment() {
+    const context = poTraceabilityAmendmentContext;
+    if (!context || !canAmendPoTraceability() || !window.DleApiClient?.amendKittingCasePoTraceability) return false;
+    const value = document.getElementById('activeKittingPoAmendmentValue')?.value;
+    const reason = (document.getElementById('activeKittingPoAmendmentReason')?.value || '').trim();
+    if (!['required', 'not-required'].includes(value) || !reason || reason.length > 4000 ||
+        (value === 'required') === context.currentRequired) {
+      setText('activeKittingPoAmendmentError', 'Choose a different requirement and enter a reason (up to 4000 characters).');
+      return false;
+    }
+    if (context.workOrderNumber !== getSelectedReleasedBomWorkOrder() || context.caseId !== kittingCaseReview.caseId ||
+        context.expectedWorkingVersion !== kittingCaseReview.workingVersion || context.editingSessionId !== kittingCaseReview.editingSessionId) {
+      setText('activeKittingPoAmendmentError', 'The case changed. Close this dialog and review its latest saved state.');
+      return false;
+    }
+    poTraceabilityAmendmentPending = true;
+    setText('activeKittingPoAmendmentError', '');
+    renderPoTraceabilityControls(); updatePoTraceabilityAmendment();
     try {
-      kittingCaseReview = await window.DleApiClient.setKittingCasePoTraceability(releasedBomPrototypeWorkOrder, {
-        expectedWorkingVersion: kittingCaseReview.workingVersion,
-        editingSessionId: kittingCaseReview.editingSessionId,
-        poTraceabilityRequired: required
+      const saved = await window.DleApiClient.amendKittingCasePoTraceability(context.workOrderNumber, {
+        caseId: context.caseId, expectedWorkingVersion: context.expectedWorkingVersion,
+        editingSessionId: context.editingSessionId, poTraceabilityRequired: value === 'required', reason
       });
-      activeKittingSaveState = 'P.O. traceability ' + (required ? 'REQUIRED' : 'OPTIONAL');
-      renderReleasedBomControl();
-      renderKitReleasedBomMessage();
-      renderActiveKittingTrial();
+      if (context.workOrderNumber !== getSelectedReleasedBomWorkOrder() || context.caseId !== kittingCaseReview?.caseId) return true;
+      kittingCaseReview = saved;
+      activeKittingDraftVersion = saved.workingVersion;
+      // The case policy is effective; the released draft and its original policy stay frozen.
+      activeKittingSaveState = 'P.O. traceability amended: ' + poTraceabilityLabel(saved.poTraceabilityRequired);
+      poTraceabilityAmendmentPending = false;
+      closePoTraceabilityAmendment();
+      renderReleasedBomControl(); renderKitReleasedBomMessage(); renderActiveKittingTrial();
       return true;
     } catch (error) {
-      return handleActiveKittingApiFailure(error, 'Traceability policy change failed.');
+      if (context.workOrderNumber !== getSelectedReleasedBomWorkOrder() || context.caseId !== kittingCaseReview?.caseId) return false;
+      setText('activeKittingPoAmendmentError', error?.message || 'The amendment could not be saved.');
+      if (error?.status === 409 && ['kitting_case_version_changed', 'kitting_case_identity_changed'].includes(error.code)) {
+        return stopActiveKittingEditing('STALE_DRAFT', 'The case changed. Reload its latest saved state before amending the requirement.', error);
+      }
+      return handleActiveKittingApiFailure(error, 'The amendment could not be saved.');
+    } finally {
+      if (context.workOrderNumber === getSelectedReleasedBomWorkOrder() && context.caseId === kittingCaseReview?.caseId) {
+        poTraceabilityAmendmentPending = false;
+        renderPoTraceabilityControls(); updatePoTraceabilityAmendment();
+      }
     }
   }
 
@@ -1122,7 +1283,7 @@
   }
 
   async function printAllKittingBagLabels() {
-    if (!isReleasedBomPrototypeAvailable() || !window.KittingBagLabel?.avery5163Document) return false;
+    if (!isReleasedBomAvailable() || !window.KittingBagLabel?.avery5163Document) return false;
     const preview = window.open('', '_blank');
     if (!preview) return false;
     preview.document.open();
@@ -1286,7 +1447,7 @@
     return true;
   }
 
-  function submitActiveKittingRow(sequence) {
+  async function submitActiveKittingRow(sequence) {
     if (activeKittingTrialState !== 'loaded' || !ownsKittingLease()) return false;
     const submitted = window.ActiveKittingTrial.submitGroup(activeKittingTrialDraft, sequence,
       !!kittingCaseReview?.poTraceabilityRequired);
@@ -1297,6 +1458,11 @@
     activeKittingDialogSequence = '';
     activeKittingDetailSequence = '';
     activeKittingSubmissionPreview = '';
+    activeKittingDirty = true;
+    activeKittingSaveState = 'Unsaved row result — saving…';
+    renderActiveKittingTrial();
+    const saved = await persistActiveKittingDraft(false);
+    if (!saved) return false;
     renderActiveKittingTrial();
     positionNextActiveKittingRow(sequence);
     return true;
@@ -1315,29 +1481,42 @@
   function scheduleActiveKittingAutosave() {
     if (!ownsKittingLease()) return;
     activeKittingAutosavePausedForNavigation = false;
-    activeKittingSaveState = 'Saving…';
+    activeKittingDirty = true;
+    activeKittingSaveState = 'Unsaved changes — saving…';
+    setText('activeKittingTrialStatus', activeKittingSaveState);
+    renderPoTraceabilityControls();
     if (activeKittingAutosaveTimer) window.clearTimeout(activeKittingAutosaveTimer);
     activeKittingAutosaveTimer = window.setTimeout(() => void persistActiveKittingDraft(false), 500);
   }
 
   function persistActiveKittingDraft(release) {
-    if (!ownsKittingLease()) return false;
+    if (!ownsKittingLease() || poTraceabilityAmendmentPending) return false;
+    const workOrderNumber = getSelectedReleasedBomWorkOrder();
+    const caseId = kittingCaseReview.caseId;
     if (activeKittingAutosaveTimer) window.clearTimeout(activeKittingAutosaveTimer);
     activeKittingAutosaveTimer = null;
+    activeKittingPendingSaves += 1;
+    renderPoTraceabilityControls();
     activeKittingSaveQueue = activeKittingSaveQueue.catch(() => false).then(async () => {
-      if (!ownsKittingLease()) return false;
+      if (!ownsKittingLease() || workOrderNumber !== getSelectedReleasedBomWorkOrder() || caseId !== kittingCaseReview.caseId) return false;
       const blockers = getActiveKittingRequiredPoBlockers();
       if (blockers.length) return blockActiveKittingRequiredPoExit(blockers[0].sequence);
     try {
+      const savedDraft = structuredClone(activeKittingTrialDraft);
       const request = {
         expectedWorkingVersion: kittingCaseReview.workingVersion,
         editingSessionId: kittingCaseReview.editingSessionId,
-        draft: activeKittingTrialDraft
+        draft: savedDraft
       };
-      kittingCaseReview = release
-        ? await window.DleApiClient.saveAndExitKittingCase(releasedBomPrototypeWorkOrder, request)
-        : await window.DleApiClient.saveKittingCaseDraft(releasedBomPrototypeWorkOrder, request);
-      activeKittingSaveState = release ? 'Saved and editing released.' : 'Saved';
+      const saved = release
+        ? await window.DleApiClient.saveAndExitKittingCase(workOrderNumber, request)
+        : await window.DleApiClient.saveKittingCaseDraft(workOrderNumber, request);
+      if (workOrderNumber !== getSelectedReleasedBomWorkOrder() || caseId !== kittingCaseReview?.caseId) return true;
+      kittingCaseReview = saved;
+      activeKittingDraftVersion = saved.workingVersion;
+      activeKittingDirty = !release && JSON.stringify(activeKittingTrialDraft) !== JSON.stringify(savedDraft);
+      if (!release && !activeKittingDirty && saved.draft) activeKittingTrialDraft = structuredClone(saved.draft);
+      activeKittingSaveState = release ? 'Saved and editing released.' : activeKittingDirty ? 'Unsaved changes — save pending' : 'Saved';
       if (release) {
         activeKittingAutosavePausedForNavigation = false;
         activeKittingEditable = false;
@@ -1350,12 +1529,20 @@
       if (release) renderActiveKittingTrial();
       else setText('activeKittingTrialStatus', window.ActiveKittingTrial.getSummary(activeKittingTrialDraft).completedCount +
         ' of ' + window.ActiveKittingTrial.getSummary(activeKittingTrialDraft).actionableCount +
-        ' actionable requirements dispositioned · ' + activeKittingSaveState);
+        ' actionable requirements dispositioned · working version ' + kittingCaseReview.workingVersion + ' · ' + activeKittingSaveState);
       if (release) window.KittingJobWorkspace?.setPrimaryTool?.('kitting', false);
       return true;
     } catch (error) {
-      return handleActiveKittingApiFailure(error, 'Autosave failed.');
+      const result = handleActiveKittingApiFailure(error, 'Autosave failed.');
+      if (activeKittingDirty) activeKittingSaveState = 'Unsaved changes — ' + activeKittingSaveState;
+      renderActiveKittingTrial();
+      return result;
     }
+    }).finally(() => {
+      if (workOrderNumber === getSelectedReleasedBomWorkOrder() && caseId === kittingCaseReview?.caseId) {
+        activeKittingPendingSaves = Math.max(0, activeKittingPendingSaves - 1);
+        renderPoTraceabilityControls();
+      }
     });
     return activeKittingSaveQueue;
   }
@@ -1388,7 +1575,7 @@
     activeKittingSaveState = 'Releasing editing...';
     renderActiveKittingTrial();
     try {
-      kittingCaseReview = await window.DleApiClient.abandonKittingCase(releasedBomPrototypeWorkOrder, {
+      kittingCaseReview = await window.DleApiClient.abandonKittingCase(getSelectedReleasedBomWorkOrder(), {
         expectedWorkingVersion: kittingCaseReview.workingVersion,
         editingSessionId: kittingCaseReview.editingSessionId
       });
@@ -1457,19 +1644,19 @@
     activeKittingSubmissionPreview = 'Creating immutable ' + summary.resultingDisposition + ' evidence…';
     renderActiveKittingTrial();
     try {
-      kittingCaseReview = await window.DleApiClient.submitKittingCase(releasedBomPrototypeWorkOrder, {
+      kittingCaseReview = await window.DleApiClient.submitKittingCase(getSelectedReleasedBomWorkOrder(), {
         expectedWorkingVersion: kittingCaseReview.workingVersion,
         editingSessionId: kittingCaseReview.editingSessionId,
         draft: activeKittingTrialDraft
       });
-      materialStatusReview = window.MaterialStatus?.publish(releasedBomPrototypeWorkOrder, kittingCaseReview) ||
+      materialStatusReview = window.MaterialStatus?.publish(getSelectedReleasedBomWorkOrder(), kittingCaseReview) ||
         materialStatusReview;
       activeKittingEditable = false;
       activeKittingTrialOpen = false;
       activeKittingTrialState = 'idle';
       activeKittingTrialDraft = null;
       activeKittingSubmissionPreview = kittingCaseReview.state + ' submitted.';
-      const history = await window.DleApiClient.getKittingCaseSubmissions?.(releasedBomPrototypeWorkOrder);
+      const history = await window.DleApiClient.getKittingCaseSubmissions?.(getSelectedReleasedBomWorkOrder());
       kittingCaseSubmissions = Array.isArray(history?.submissions) ? history.submissions : [];
       renderWorkOrderDashboardModule();
       return true;
@@ -1504,7 +1691,7 @@
   function openKittingSubmissionPdf(submissionId) {
     const id = cleanText(submissionId);
     if (!/^[0-9a-f-]{36}$/i.test(id)) return false;
-    const path = '/api/kitting-cases/v1/work-orders/' + encodeURIComponent(releasedBomPrototypeWorkOrder) +
+    const path = '/api/kitting-cases/v1/work-orders/' + encodeURIComponent(getSelectedReleasedBomWorkOrder()) +
       '/submissions/' + encodeURIComponent(id) + '/pdf';
     window.open(path, '_blank', 'noopener');
     return true;
@@ -1514,7 +1701,7 @@
     if (!isDevelopmentRuntime) return false;
     const id = cleanText(submissionId);
     if (!/^[0-9a-f-]{36}$/i.test(id)) return false;
-    const path = '/api/kitting-cases/v1/work-orders/' + encodeURIComponent(releasedBomPrototypeWorkOrder) +
+    const path = '/api/kitting-cases/v1/work-orders/' + encodeURIComponent(getSelectedReleasedBomWorkOrder()) +
       '/submissions/' + encodeURIComponent(id) + '/layout-preview.pdf';
     window.open(path, '_blank', 'noopener');
     return true;
@@ -1534,11 +1721,11 @@
     const root = document.getElementById('workOrderDashboardActiveKitting');
     const body = document.getElementById('activeKittingTrialBody');
     if (!root || !body) return;
-    const visible = activeKittingTrialOpen && isKittingWorkflowPresentation() && isReleasedBomPrototypeAvailable();
+    const visible = activeKittingTrialOpen && isKittingWorkflowPresentation() && isReleasedBomAvailable();
     root.hidden = !visible;
     if (!visible) return;
     if (activeKittingTrialState === 'loading') {
-      setText('activeKittingTrialStatus', 'Loading the qualified WO 0115621 released BOM...');
+      setText('activeKittingTrialStatus', 'Loading released requirements for WO ' + getSelectedReleasedBomWorkOrder() + '...');
       body.innerHTML = '<div class="active-kitting-trial-loading">Preparing active Kitting rows...</div>';
       return;
     }
@@ -1569,12 +1756,9 @@
       (activeKittingSaveState || 'Persistent case current'));
     const saveExit = document.getElementById('activeKittingSaveExit');
     if (saveExit) saveExit.disabled = !ownsKittingLease();
-    const poPolicy = document.getElementById('activeKittingPoTraceability');
-    if (poPolicy) {
-      poPolicy.value = poRequired ? 'required' : 'optional';
-      poPolicy.disabled = !ownsKittingLease() || window.DleOsCapabilities?.can('kitting.disposition') === false;
-      poPolicy.title = poPolicy.disabled ? 'Visible to all operators; an authorized Kitting editor is required to change it.' : '';
-    }
+    const save = document.getElementById('activeKittingSave');
+    if (save) save.disabled = !ownsKittingLease();
+    renderPoTraceabilityControls();
     body.innerHTML = renderActiveKittingContext(draft, summary) +
       renderActiveKittingRecovery() +
       renderActiveKittingInstructions(draft.assemblyInstructions) +
@@ -1588,7 +1772,7 @@
       (terminal ? 'KIT_COMPLETE is terminal and read only.' :
         summary.canSubmit ? 'All actionable requirements are ready. Result: ' + summary.resultingDisposition + '.' :
         summary.remainingCount + ' actionable requirement' + (summary.remainingCount === 1 ? '' : 's') + ' remaining.') +
-      '</span><small>' + (canModify ? 'Draft changes autosave to the governed DEV operational Kitting Case.' :
+      '</span><small>' + (canModify ? 'Draft changes autosave to the governed Kitting Case.' :
         'This view cannot modify the governed Kitting Case.') + '</small></div>' +
       '<button id="activeKittingTrialSubmit" type="button" onclick="submitWorkOrderDashboardActiveKitting()"' +
       (summary.canSubmit && canModify ? '' : ' disabled') + '>Submit Kitting</button></footer>' +
@@ -1600,7 +1784,7 @@
   function renderActiveKittingRecovery() {
     if (!activeKittingRecovery) return '';
     const signIn = activeKittingRecovery.kind === 'AUTHENTICATION_REQUIRED';
-    if (!signIn && !kittingEditingTemporarilyAvailable) {
+    if (!signIn && !isKittingEditingAvailable()) {
       return '<section class="active-kitting-recovery" role="status"><div><strong>Kitting read-only</strong>' +
         '<span>' + escapeDashboardHtml(kittingEditingDeferredMessage) + '</span></div></section>';
     }
@@ -2583,7 +2767,7 @@
   }
 
   function formatQuantity(value) {
-    return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+    return window.KittingQuantity?.format(value) ?? String(Number(value));
   }
 
   function getNextDueDate(rows) {
@@ -2700,7 +2884,7 @@
   window.WorkOrderDashboardModule.openProductionKittedBom = openProductionKittedBomEvidence;
   window.WorkOrderDashboardModule.openAssemblyDrawing = openAssemblyDrawing;
   window.WorkOrderDashboardModule.openKittingDisposition = openKittingDispositionDialog;
-  window.WorkOrderDashboardModule.openReleasedBom = openReleasedBomPrototype;
+  window.WorkOrderDashboardModule.openReleasedBom = openReleasedBom;
   window.WorkOrderDashboardModule.openActiveKitting = openActiveKittingTrial;
   window.WorkOrderDashboardModule.getActiveKittingDraft = () => activeKittingTrialDraft;
   window.WorkOrderDashboardModule.isActiveKittingEditing = isActiveKittingEditing;
@@ -2727,12 +2911,13 @@
   window.openWorkOrderDashboardProductionKittedBom = openProductionKittedBomEvidence;
   window.openWorkOrderDashboardAssemblyDrawing = openAssemblyDrawing;
   window.closeWorkOrderDashboardAssemblyDrawing = closeAssemblyDrawingDialog;
-  window.openWorkOrderDashboardReleasedBom = openReleasedBomPrototype;
+  window.openWorkOrderDashboardReleasedBom = openReleasedBom;
   window.openWorkOrderDashboardActiveKitting = openActiveKittingTrial;
   window.startOrResumeWorkOrderDashboardKitting = startOrResumeActiveKitting;
   window.reconnectWorkOrderDashboardKitting = reconnectActiveKitting;
   window.signInAgainWorkOrderDashboardKitting = signInAgainActiveKitting;
   window.saveAndExitWorkOrderDashboardKitting = saveAndExitActiveKitting;
+  window.saveWorkOrderDashboardKitting = () => persistActiveKittingDraft(false);
   window.closeWorkOrderDashboardActiveKitting = closeActiveKittingTrial;
   window.openWorkOrderDashboardKittingResultDialog = openActiveKittingResultDialog;
   window.closeWorkOrderDashboardKittingResultDialog = closeActiveKittingResultDialog;
@@ -2751,7 +2936,11 @@
   window.viewWorkOrderDashboardKittingBagLabel = viewKittingBagLabel;
   window.printAllWorkOrderDashboardKittingBagLabels = printAllKittingBagLabels;
   window.printWorkOrderDashboardKittingKitIdLabel = printKittingKitIdLabel;
-  window.setWorkOrderDashboardKittingPoTraceability = setActiveKittingPoTraceability;
+  window.openWorkOrderDashboardPoTraceabilityAmendment = openPoTraceabilityAmendment;
+  window.updateWorkOrderDashboardPoTraceabilityAmendment = updatePoTraceabilityAmendment;
+  window.applyWorkOrderDashboardPoTraceabilityAmendment = applyPoTraceabilityAmendment;
+  window.closeWorkOrderDashboardPoTraceabilityAmendment = closePoTraceabilityAmendment;
+  window.cancelWorkOrderDashboardPoTraceabilityAmendment = closePoTraceabilityAmendment;
   window.handleWorkOrderDashboardKittingCountKeydown = handleActiveKittingCountKeydown;
   window.submitWorkOrderDashboardKittingRow = submitActiveKittingRow;
   window.editWorkOrderDashboardKittingRow = editActiveKittingRow;

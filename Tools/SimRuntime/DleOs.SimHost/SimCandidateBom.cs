@@ -36,9 +36,10 @@ internal sealed record SimCandidateRow(int Index, Dictionary<string,string> Extr
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimAssemblyPartIdentity[]? AssemblyIdentityHistory = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidateWorkingState? WorkingState = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidatePrimaryIdentity? PrimaryIdentity = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? SourcePositionKind = null)
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? SourcePositionKind = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimSourcePartNumberReview? SourcePartNumberReview = null)
 {
-    public string IdentityBasis => ComponentType == "DNP" ? "DNP" : ComponentType == "SUBASSEMBLY" ? "ASSEMBLY_PN" : PrimaryIdentity?.Basis ?? "MANUFACTURER_PN";
+    public string IdentityBasis => ComponentType == "DNP" ? "DNP" : SourcePartNumberReview?.Current.Status == "CONFIRMED" ? SourcePartNumberReview.Current.Basis switch { "MFG" => "MANUFACTURER_PN", "CUSTOMER" => "CUSTOMER_PN", "ASSEMBLY" => "ASSEMBLY_PN", _ => "UNRESOLVED" } : SourcePartNumberReview is not null && PrimaryIdentity is not null ? PrimaryIdentity.Basis : ComponentType == "SUBASSEMBLY" ? "ASSEMBLY_PN" : PrimaryIdentity?.Basis ?? "MANUFACTURER_PN";
     public SimRowReviewState ReviewState => SimCandidateRowReview.Evaluate(this);
 }
 internal sealed record SimCandidateBom(string Id, string Label, string GoverningDocumentId, string GoverningSha256,
@@ -51,7 +52,7 @@ internal sealed record SimCandidateBom(string Id, string Label, string Governing
 internal sealed record SimPrimarySelection(string? ProposalId, string? PartNumber, string? ManufacturerName, string ExpectedToken);
 internal sealed record SimCandidateReviewRequest(string CandidateId, int RowIndex, Dictionary<string,string>? Values,
     SimCandidateAlternateChange? AlternateChange = null, SimCandidateComponentChange? ComponentChange = null,
-    SimManufacturerChange? ManufacturerChange = null, SimWholeRowApproval? WholeRowApproval = null, SimPrimarySelection? PrimarySelection = null, SimWorksheetAcceptance? WorksheetAcceptance = null, SimCandidateProgressRow[]? ProgressRows = null, SimApprovedPartChange? ApprovedPartChange = null, SimIdentityBasisChange? IdentityBasisChange = null);
+    SimManufacturerChange? ManufacturerChange = null, SimWholeRowApproval? WholeRowApproval = null, SimPrimarySelection? PrimarySelection = null, SimWorksheetAcceptance? WorksheetAcceptance = null, SimCandidateProgressRow[]? ProgressRows = null, SimApprovedPartChange? ApprovedPartChange = null, SimIdentityBasisChange? IdentityBasisChange = null, SimSourcePartNumberChange? SourcePartNumberChange = null);
 
 internal static partial class SimCandidateBomProvider
 {
@@ -107,8 +108,20 @@ internal static partial class SimCandidateBomProvider
         }
     }
 
-    internal static SimCandidateBom Review(SimCandidateBom bom, SimCandidateReviewRequest request, SimPersona persona)
+    internal static SimCandidateBom Review(SimCandidateBom bom, SimCandidateReviewRequest request, SimPersona persona, string? documentBasis = null)
     {
+        var result = ReviewCore(bom, request, persona, documentBasis);
+        return ReconcileSourceReviews(bom, result, persona);
+    }
+
+    private static SimCandidateBom ReviewCore(SimCandidateBom bom, SimCandidateReviewRequest request, SimPersona persona, string? documentBasis = null)
+    {
+        if (request.SourcePartNumberChange is not null) {
+            if (request.CandidateId != bom.Id || request.RowIndex < 0 || request.RowIndex >= bom.Rows.Length ||
+                request.Values is not null || request.ProgressRows is not null || request.WorksheetAcceptance is not null || request.PrimarySelection is not null || request.WholeRowApproval is not null || request.ComponentChange is not null || request.ManufacturerChange is not null || request.AlternateChange is not null || request.ApprovedPartChange is not null || request.IdentityBasisChange is not null)
+                throw SimRfqIntakeProblem.BadRequest("SIM_SOURCE_PN_INVALID", "Confirm source P/N identity independently on the current candidate.");
+            return ReviewSourcePartNumber(bom, request.RowIndex, request.SourcePartNumberChange, persona, documentBasis);
+        }
         if(request.ProgressRows is not null) {
             if(request.CandidateId!=bom.Id || request.Values is not null || request.WorksheetAcceptance is not null || request.PrimarySelection is not null || request.WholeRowApproval is not null || request.ComponentChange is not null || request.ManufacturerChange is not null || request.AlternateChange is not null || request.ApprovedPartChange is not null || request.IdentityBasisChange is not null)
                 throw SimRfqIntakeProblem.Conflict("SIM_PROGRESS_INVALID","Reopen the current Candidate before saving progress.");
@@ -210,7 +223,7 @@ internal static partial class SimCandidateBomProvider
                 ? correctedIdentity with { Stale = true, Revision = correctedIdentity.Revision + 1, Uncertainty = "Governing row was edited. Rebuild to reconcile manufacturer identities against the source." } : row.ManufacturerIdentity };
         return bom with { Rows = rows };
     }
-    private static SimCandidateBom ReviewAlternate(SimCandidateBom bom, SimCandidateReviewRequest request, SimPersona persona)
+    private static SimCandidateBom ReviewAlternate(SimCandidateBom bom, SimCandidateReviewRequest request, SimPersona persona, string? documentBasis = null)
     {
         var change = request.AlternateChange!;
         var approving = change.Action == "APPROVE";

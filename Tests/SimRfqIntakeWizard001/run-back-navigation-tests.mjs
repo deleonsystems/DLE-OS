@@ -60,7 +60,7 @@ function submit(field, value) {
     dataset: { intakeForm: field },
     querySelector() { return { value: String(value) }; }
   };
-  listeners.get("submit")({ target: { closest: () => form }, preventDefault() {} });
+  listeners.get("submit")({ target: { closest: selector => selector === "[data-intake-form]" ? form : null }, preventDefault() {} });
 }
 
 function back() {

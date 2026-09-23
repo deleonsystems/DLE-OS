@@ -200,6 +200,7 @@ body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .intake-convers
 .intake-review dd { margin: 0; font-weight: 800; }
 .intake-inline-error, .intake-submit-error { padding: 11px 13px; border-radius: 9px; color: #8b2f25; background: #fff0ed; font-size: 13px; }
 .intake-complete-mark { display: grid; width: 58px; height: 58px; margin-bottom: 22px; place-items: center; border-radius: 50%; color: #fff; background: #3d7b64; font-size: 28px; }
+.intake-complete-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .intake-file-list .intake-readability-warning { color: #854b0b; }
 .intake-readability-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 6px; }
 .intake-readability-actions label { position: relative; padding: 6px; color: #2d6570; font-weight: 800; cursor: pointer; }
@@ -1605,3 +1606,78 @@ body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .intake-handoff
     grid-template-columns: 1fr;
   }
 }
+
+/* New Order facts and frozen quotation comparison use the intake theme. */
+.intake-order-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.intake-order-fields label, [data-order-form="search"] label { display:flex; flex-direction:column; gap:6px; }
+.intake-order-fields input, [data-order-form="search"] input { background:#101b2b; color:#e8eef7; border:1px solid #40516a; border-radius:6px; padding:9px; min-width:0; }
+.intake-order-tabs, .intake-order-save { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:16px 0; }
+.intake-order-tabs [aria-pressed="true"] { border-color:#63b3ff; color:#a5d4ff; }
+.intake-order-save span { font-size:12px; }
+.intake-order-baseline { padding:14px; border:1px solid #40516a; border-radius:8px; margin-bottom:16px; overflow-wrap:anywhere; }
+.intake-order-table { overflow-x:auto; margin:16px 0; }
+.intake-order-table table { border-collapse:collapse; width:100%; font-size:13px; }
+.intake-order-table th,.intake-order-table td { padding:9px; border-bottom:1px solid #40516a; text-align:left; vertical-align:top; }
+.intake-order-table small { display:block; max-width:280px; margin-top:6px; }
+@media(max-width:700px) { .intake-order-fields { grid-template-columns:1fr; } }
+.intake-order-draft {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #111827;
+}
+
+.intake-quoted-documents a { color:#8dccff; text-decoration:underline; }
+.intake-quoted-documents a:hover { color:#c6e7ff; }
+
+.due-review { max-width:760px; }
+.due-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; margin:0; padding:18px; border:1px solid #40516a; border-radius:10px; background:#152131; }
+.due-summary dt { color:#afbdce; font-size:12px; margin-bottom:5px; }
+.due-summary dd { margin:0; color:#f0f5fc; font-weight:600; }
+.due-review .due-comparison { padding:12px 14px; border-left:3px solid #87b3da; background:#182637; margin:0; color:#e0edfa; }
+.due-review small { color:#afbdce; line-height:1.5; }
+.due-review .due-po-link { display:inline-block; margin:8px 8px 0 0; padding:10px 16px; border:1px solid #6084a5; border-radius:8px; color:#c8e6ff; background:#192c3e; text-decoration:none; font-weight:600; }
+.due-review .due-po-link:hover { background:#26415a; }
+.due-actions { display:grid; grid-template-columns:1fr; gap:10px; }
+.due-actions button { min-height:48px; width:100%; margin:0; text-align:left; }
+.due-actions .due-exception { background:#202938; border:1px solid #64748b; color:#e8edf5; }
+.due-actions .due-exception:hover { background:#303d50; }
+.due-note { padding:16px; border:1px solid #64748b; border-radius:8px; }
+.due-note textarea { min-height:76px; }
+@media(max-width:600px) { .due-summary { grid-template-columns:1fr; } }
+
+.intake-po-evidence { margin:16px 0; }
+.intake-po-evidence-item { display:flex; flex-wrap:wrap; align-items:center; gap:12px 20px; padding:14px; border:1px solid #40516a; border-radius:8px; background:#152131; margin-bottom:8px; }
+.intake-po-evidence-item small { display:block; color:#b8c8da; margin-bottom:5px; }
+.intake-po-evidence-item span { color:#edf4fc; overflow-wrap:anywhere; }
+.intake-po-evidence-item > div { flex:1; min-width:180px; }
+.intake-po-evidence .intake-po-view { display:inline-block; padding:10px 16px; border:1px solid #6084a5; border-radius:8px; color:#c8e6ff; background:#192c3e; font-weight:600; text-decoration:none; }
+.intake-po-evidence .intake-po-view:hover { background:#26415a; color:#fff; }
+.intake-po-evidence .intake-po-view:focus-visible { outline:2px solid #a5d4ff; outline-offset:3px; }
+
+/* Contract review: compact ruled form inspired by QF-7.2.2.3; layout only. */
+.intake-layout:has(.contract-review-form) { grid-template-columns:1fr; }
+.intake-layout:has(.contract-review-form) .intake-answers { display:none; }
+.intake-conversation-card:has(.contract-review-form) { padding:18px; }
+.contract-review-form { max-width:1000px; margin:0 auto; color:#e7eef6; font-size:12px; line-height:1.35; }
+.contract-review-form header { display:flex; justify-content:space-between; padding:10px 12px; border:1px solid #637387; background:#192635; }
+.contract-review-form h2 { font-size:19px; text-align:center; margin:12px 0 3px; color:#f3f6fa; }
+.contract-review-form .cr-status { text-align:center; font-size:11px; color:#b9c8d7; margin:0 0 10px; }
+.contract-review-form section { border:1px solid #526479; margin-top:7px; }
+.contract-review-form h3 { display:flex; align-items:center; justify-content:space-between; margin:0; padding:4px 9px; font-size:12px; background:#223347; color:#f2f6fb; }
+.contract-review-form h3 button { padding:1px 8px; min-height:22px; border:1px solid #7a91aa; border-radius:3px; background:#182839; color:#d6ebff; font-size:11px; }
+.contract-review-form dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); margin:0; }
+.contract-review-form dl > div { display:grid; grid-template-columns:minmax(100px,36%) 1fr; border-top:1px solid #45576b; padding:4px 9px; gap:8px; }
+.contract-review-form dt { color:#bdccdc; font-weight:600; }
+.contract-review-form dd { margin:0; overflow-wrap:anywhere; white-space:pre-wrap; }
+.contract-review-form table { width:100%; border-collapse:collapse; font-size:11px; }
+.contract-review-form td { padding:4px 9px; border-top:1px solid #45576b; overflow-wrap:anywhere; }
+.contract-review-form a { color:#b8dfff; font-weight:600; text-decoration:underline; white-space:nowrap; }
+.contract-review-form .cr-attention { padding:5px 9px; }
+.contract-review-form ul { padding-left:17px; margin:0; }
+.contract-review-form .cr-ack { display:flex; align-items:center; gap:8px; padding:7px 9px; }
+.contract-review-form .cr-notice { font-size:11px; color:#bdccdc; margin:7px 0; }
+.contract-review-form .cr-actions { display:flex; justify-content:space-between; gap:12px; }
+.contract-review-form .cr-actions button { font-size:12px; padding:8px 12px; min-height:36px; }
+@media(max-width:700px) { .contract-review-form dl { grid-template-columns:1fr; } .contract-review-form header { flex-direction:column; } .contract-review-form .cr-actions { flex-wrap:wrap; } }

@@ -117,7 +117,7 @@
         </button>
         <button id="workOrderDashboardReleasedBom" type="button" onclick="openWorkOrderDashboardReleasedBom()" hidden disabled>
           <strong id="workOrderDashboardReleasedBomLabel">View Released BOM</strong>
-          <span id="workOrderDashboardReleasedBomMessage">Released BOM prototype not yet available.</span>
+          <span id="workOrderDashboardReleasedBomMessage">Released requirements are not yet available.</span>
         </button>
         <button id="workOrderDashboardKitReleasedBom" type="button" onclick="startOrResumeWorkOrderDashboardKitting()" hidden disabled>
           <strong id="workOrderDashboardKitReleasedBomLabel">Start Kitting</strong>
@@ -171,18 +171,40 @@
             <p id="activeKittingFocusedIdentity" class="active-kitting-focused-identity">Preparing focused Kitting context...</p>
           </div>
           <div class="active-kitting-header-actions">
-            <label class="active-kitting-traceability-control">P.O. Traceability
-              <select id="activeKittingPoTraceability" onchange="setWorkOrderDashboardKittingPoTraceability(this.value)">
-                <option value="required">REQUIRED</option>
-                <option value="optional">OPTIONAL</option>
-              </select>
-            </label>
+            <div class="active-kitting-traceability-control">P.O. Traceability
+              <strong id="activeKittingPoTraceability">Not Recorded</strong>
+              <span id="activeKittingPoTraceabilityAmended" class="active-kitting-amendment-indicator" hidden>Amended</span>
+            </div>
+            <button id="activeKittingAmendPoTraceability" type="button" onclick="openWorkOrderDashboardPoTraceabilityAmendment()" hidden disabled>Amend PO Traceability Requirement</button>
+            <button id="activeKittingSave" type="button" onclick="saveWorkOrderDashboardKitting()">Save</button>
             <button id="activeKittingSaveExit" type="button" onclick="saveAndExitWorkOrderDashboardKitting()">Save &amp; Exit</button>
           </div>
         </header>
         <div id="activeKittingTrialStatus" class="active-kitting-trial-status" role="status" aria-live="polite">Ready to load.</div>
       </div>
       <div id="activeKittingTrialBody"></div>
+
+    <dialog id="activeKittingPoAmendmentDialog" class="active-kitting-po-amendment-dialog" aria-labelledby="activeKittingPoAmendmentTitle" oncancel="return cancelWorkOrderDashboardPoTraceabilityAmendment(event)">
+      <form onsubmit="event.preventDefault(); applyWorkOrderDashboardPoTraceabilityAmendment()">
+        <h3 id="activeKittingPoAmendmentTitle">Amend PO Traceability Requirement</h3>
+        <p>Record a reviewed correction to this Kitting case. The original requirement and existing material evidence are retained.</p>
+        <dl><div><dt>Work Order</dt><dd id="activeKittingPoAmendmentWorkOrder"></dd></div><div><dt>Current requirement</dt><dd id="activeKittingPoAmendmentCurrent"></dd></div></dl>
+        <label>New requirement
+          <select id="activeKittingPoAmendmentValue" required onchange="updateWorkOrderDashboardPoTraceabilityAmendment()">
+            <option value="required">Required</option>
+            <option value="not-required">Not Required</option>
+          </select>
+        </label>
+        <label>Reason for reviewed amendment
+          <textarea id="activeKittingPoAmendmentReason" rows="3" maxlength="4000" required oninput="updateWorkOrderDashboardPoTraceabilityAmendment()"></textarea>
+        </label>
+        <p id="activeKittingPoAmendmentError" role="alert"></p>
+        <div class="active-kitting-po-amendment-actions">
+          <button id="activeKittingPoAmendmentCancel" type="button" onclick="closeWorkOrderDashboardPoTraceabilityAmendment()">Cancel</button>
+          <button id="activeKittingPoAmendmentApply" type="submit" disabled>Apply Amendment</button>
+        </div>
+      </form>
+    </dialog>
     </section>
 
     <section class="work-order-dashboard-module-workspace-card" data-work-order-dashboard-section="kitting-workspace" aria-label="Kitting Workspace" hidden>

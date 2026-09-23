@@ -40,7 +40,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT
 IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'operational.KittingCaseEvent') AND name=N'CK_KittingCaseEvent_Type')
     ALTER TABLE operational.KittingCaseEvent DROP CONSTRAINT CK_KittingCaseEvent_Type;
 ALTER TABLE operational.KittingCaseEvent WITH CHECK ADD CONSTRAINT CK_KittingCaseEvent_Type CHECK
-    (EventType IN ('STARTED','EDITING_ACQUIRED','AUTOSAVED','SAVE_EXIT','STALE_LEASE_RECOVERED',
+    (EventType IN ('STARTED','EDITING_ACQUIRED','EDITING_ABANDONED','AUTOSAVED','SAVE_EXIT','STALE_LEASE_RECOVERED',
                    'PO_TRACEABILITY_CHANGED','SUBMITTED_KIT_SHORT','SUBMITTED_KIT_COMPLETE',
                    'QUALIFICATION_RUN_ARCHIVED'));
 

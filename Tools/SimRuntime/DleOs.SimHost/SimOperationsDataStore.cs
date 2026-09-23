@@ -58,17 +58,19 @@ internal sealed class SimVerifiedStatusProblem : Exception
         new(StatusCodes.Status404NotFound, code, message);
 }
 
-internal sealed class SimOperationsDataStore
+internal sealed partial class SimOperationsDataStore
 {
     internal const int DatabaseSchemaVersion = 4;
     internal const string FixtureRelativePath = "Tools/SimRuntime/Scenarios/baseline.operations-center.v1.json";
 
     private readonly string databasePath;
     private readonly string fixturePath;
+    private readonly string packetStateRoot;
     private readonly SemaphoreSlim gate = new(1, 1);
 
     internal SimOperationsDataStore(string repositoryRoot, string stateRoot)
     {
+        packetStateRoot = Path.GetFullPath(stateRoot);
         databasePath = SimRuntimeOptions.ResolveStatePath(stateRoot, "data", "dle-os-sim.db");
         fixturePath = Path.GetFullPath(Path.Combine(repositoryRoot,
             FixtureRelativePath.Replace('/', Path.DirectorySeparatorChar)));
@@ -247,11 +249,43 @@ internal sealed class SimOperationsDataStore
         EnsureHealthy();
         await using var connection = OpenReadOnly();
         await connection.OpenAsync();
+        var activeCase=await ReadSimKittingCase(connection,null,workOrderNumber,generation);
+        if(activeCase is not null)return new{
+            workOrderNumber,kittingCase=SimKittingCases.Contract(activeCase,DateTimeOffset.UtcNow),
+            legacyMaterialStatus=(object?)null,hasPersistentKittingHistory=true,
+            capabilities=new{supported=true,canEdit=false},readOnly=true,synthetic=true,environment="SIM",generation};
         var command = connection.CreateCommand();
         command.CommandText = "SELECT PayloadJson FROM KittingReadState WHERE WorkOrderNumber=@workOrder LIMIT 1;";
         command.Parameters.AddWithValue("@workOrder", workOrderNumber);
         var value = await command.ExecuteScalarAsync();
-        if (value is not string json) return null;
+        if (value is not string json)
+        {
+            // A newly imported, eligible canonical WO has no case yet. Return the
+            // normal empty read contract so MaterialStatus applies its existing
+            // KITTING_ELIGIBILITY default without creating persistent Kitting state.
+            command.CommandText = """
+SELECT EXISTS(
+ SELECT 1 FROM WorkOrder w
+ JOIN SalesOrderWorkOrderRelationship r ON r.ActionableWorkOrderNumber=w.WorkOrderNumber
+ JOIN SalesOrderLine s ON s.CustomerNumber=r.CustomerNumber
+  AND s.SalesOrderNumber=r.SalesOrderNumber AND s.LineNumber=r.SalesOrderLineNumber
+ WHERE w.WorkOrderNumber=@workOrder AND r.ResolutionStatus='EXACT_LINE_UNIQUE'
+  AND s.QuantityOrdered>0 AND CAST(json_extract(s.PayloadJson,'$.erpQuantityOpen') AS REAL)>0
+);
+""";
+            if (Convert.ToInt64(await command.ExecuteScalarAsync()) != 1) return null;
+            return new
+            {
+                workOrderNumber,
+                kittingCase = (object?)null,
+                legacyMaterialStatus = (object?)null,
+                hasPersistentKittingHistory = false,
+                readOnly = true,
+                synthetic = true,
+                environment = "SIM",
+                generation
+            };
+        }
         using var document = JsonDocument.Parse(json);
         var materialStatus = document.RootElement.GetProperty("materialStatus");
         var kittingCase = materialStatus.GetProperty("kittingCase");
@@ -462,9 +496,14 @@ FROM WorkOrderVerifiedStatusEvent WHERE RequestCorrelationId=@correlation LIMIT 
             var line = item["lineNumber"]?.ToString() ?? "";
             var command = connection.CreateCommand();
             command.CommandText = """
-SELECT r.ActionableWorkOrderNumber,k.PayloadJson
+SELECT r.ActionableWorkOrderNumber,k.PayloadJson,
+ CASE WHEN w.WorkOrderNumber IS NOT NULL AND s.QuantityOrdered>0
+  AND CAST(json_extract(s.PayloadJson,'$.erpQuantityOpen') AS REAL)>0 THEN 1 ELSE 0 END
 FROM SalesOrderWorkOrderRelationship r
 LEFT JOIN KittingReadState k ON k.WorkOrderNumber=r.ActionableWorkOrderNumber
+LEFT JOIN WorkOrder w ON w.WorkOrderNumber=r.ActionableWorkOrderNumber
+JOIN SalesOrderLine s ON s.CustomerNumber=r.CustomerNumber
+ AND s.SalesOrderNumber=r.SalesOrderNumber AND s.LineNumber=r.SalesOrderLineNumber
 WHERE r.CustomerNumber=@customer AND r.SalesOrderNumber=@salesOrder
   AND r.SalesOrderLineNumber=@line AND r.ResolutionStatus='EXACT_LINE_UNIQUE'
 LIMIT 1;
@@ -475,13 +514,23 @@ LIMIT 1;
             await using var reader = await command.ExecuteReaderAsync();
             item["rmaReworkMembership"] = null;
             item["workOrderApprovalReview"] = null;
-            if (await reader.ReadAsync() && !reader.IsDBNull(0) && !reader.IsDBNull(1))
+            if (await reader.ReadAsync() && !reader.IsDBNull(0))
             {
                 var workOrder = reader.GetString(0);
-                using var document = JsonDocument.Parse(reader.GetString(1));
-                item["materialStatusWorkOrderNumber"] = workOrder;
-                item["materialStatus"] = JsonSerializer.Deserialize<object>(
-                    document.RootElement.GetProperty("materialStatus").GetRawText());
+                if (!reader.IsDBNull(1))
+                {
+                    using var document = JsonDocument.Parse(reader.GetString(1));
+                    item["materialStatusWorkOrderNumber"] = workOrder;
+                    item["materialStatus"] = JsonSerializer.Deserialize<object>(
+                        document.RootElement.GetProperty("materialStatus").GetRawText());
+                }
+                else
+                {
+                    // Expose eligibility, not an invented stored disposition. The
+                    // shared MaterialStatus read resolves the normal no-case default.
+                    item["materialStatusWorkOrderNumber"] = reader.GetInt64(2) == 1 ? workOrder : "";
+                    item["materialStatus"] = null;
+                }
             }
             else
             {

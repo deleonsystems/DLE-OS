@@ -216,7 +216,8 @@ internal static class KittingCasePdfWriter
     private static string Escape(string value)=>Clean(value).Replace("\\","\\\\").Replace("(","\\(").Replace(")","\\)");
     private static string Clip(string value,int length)=>Clean(value).Length<=length?Clean(value):Clean(value)[..Math.Max(1,length-1)]+"~";
     private static string Dash(string? value)=>string.IsNullOrWhiteSpace(value)?"-":Clean(value);
-    private static string Qty(decimal value)=>value.ToString("0.####",CultureInfo.InvariantCulture);
+    // Quantities are decimal evidence: retain meaningful fractions and omit only trailing zeros.
+    private static string Qty(decimal value)=>value.ToString("0.############################",CultureInfo.InvariantCulture);
     private static string FormatTimestamp(string value)=>DateTimeOffset.TryParse(value,CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal,out var parsed)?parsed.ToString("yyyy-MM-dd HH:mm 'UTC'",CultureInfo.InvariantCulture):Dash(value);
     private static string Text(JsonElement e,string name)=>e.ValueKind==JsonValueKind.Object&&e.TryGetProperty(name,out var value)&&value.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined?Clean(value.ToString()):"";
     private static bool Bool(JsonElement e,string name)=>e.TryGetProperty(name,out var value)&&value.ValueKind==JsonValueKind.True;

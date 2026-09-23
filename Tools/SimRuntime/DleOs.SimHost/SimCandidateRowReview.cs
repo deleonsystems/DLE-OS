@@ -12,7 +12,7 @@ internal sealed record SimRowReviewState(bool Reviewed, bool CanApprove, string[
 internal static class SimCandidateRowReview
 {
     internal static bool HasConfirmedSubassemblyIdentity(SimCandidateRow row) =>
-        row.ComponentType == "SUBASSEMBLY" && (row.AssemblyIdentity is {PartNumber.Length: > 0, Reviewer.Length: > 0} || (row.Alternates ?? []).Any(a =>
+        row.IdentityBasis == "ASSEMBLY_PN" && (row.AssemblyIdentity is {PartNumber.Length: > 0, Reviewer.Length: > 0} || (row.Alternates ?? []).Any(a =>
             a.RemovedAtUtc is null && a.Origin == "MANUAL" && a.ReviewStatus == "CONFIRMED" &&
             !string.IsNullOrWhiteSpace(a.PartNumber) && a.History.LastOrDefault() is { ReviewStatus: "CONFIRMED" } h &&
             !string.IsNullOrWhiteSpace(h.Reviewer)));
@@ -21,6 +21,15 @@ internal static class SimCandidateRowReview
     {
         var reasons = new List<string>();
         var blockers = new List<string>();
+        if (row.SourcePartNumberReview?.Current.Status == "CONFIRMED" && !row.Confirmed)
+            reasons.Add("Source P/N identity is confirmed; the whole row still requires Accept.");
+        if (row.SourcePartNumberReview?.Current is { Status: "CONFIRMED", Basis: "MFG" } && row.ManufacturerIdentity is { } sourceIdentity &&
+            sourceIdentity.Proposals.Any(p => sourceIdentity.Decision(p.Id) == "PROPOSED"))
+            blockers.Add("Resolve pending manufacturer proposals individually before accepting this source identity.");
+        if (row.SourcePartNumberReview?.Current.Status is "UNRESOLVED" or "INVALIDATED")
+            blockers.Add("Source P/N basis is unresolved; confirm an identity before accepting.");
+        if (row.SourcePartNumberReview?.Current.Status == "CONFIRMED" && !SimCandidateBomProvider.SourceIdentityMatches(row))
+            blockers.Add("Source P/N identity changed; confirm it again before accepting.");
         if (SimCandidateBomProvider.Fields.Any(f => !row.Values.TryGetValue(f, out var v) || v is null || v.Length > 2000) ||
             !int.TryParse(row.Values.GetValueOrDefault("lineNumber"), out var line) || line < 1 ||
             !SimCandidateBomProvider.ValidQuantity(row.Values.GetValueOrDefault("quantity"),row.ComponentType=="DNP") ||
@@ -59,6 +68,7 @@ internal static class SimCandidateRowReview
             row.ComponentType, row.ComponentTypeRevision, row.WholeRowHistory, row.AssemblyIdentity, row.AssemblyIdentityHistory };
         var tokenNode=JsonSerializer.SerializeToNode(tokenData)!;
         if(row.PrimaryIdentity is not null)tokenNode["PrimaryIdentity"]=JsonSerializer.SerializeToNode(row.PrimaryIdentity);
+        if(row.SourcePartNumberReview is not null)tokenNode["SourcePartNumberReview"]=JsonSerializer.SerializeToNode(row.SourcePartNumberReview);
         if(row.ComponentType=="DNP"&&!row.Confirmed)reasons.Add("DNP disposition needs explicit row Accept.");
         if(row.WorkingState is not null)tokenNode["WorkingState"]=JsonSerializer.SerializeToNode(row.WorkingState);
         var token = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Canonical(tokenNode)!.ToJsonString()))).ToLowerInvariant();

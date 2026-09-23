@@ -3,7 +3,8 @@ using Microsoft.Data.Sqlite;
 internal static class SimOperationsEndpoints
 {
     internal static void Map(WebApplication app, SimStateStore state,
-        SimOperationsDataStore data, SimPersonaSessionStore personas, SimFaultStore faults)
+        SimOperationsDataStore data, SimPersonaSessionStore personas, SimFaultStore faults,
+        SimOperationsHandoffService? commercialContext = null)
     {
         app.MapPost("/api/operations-center/v1/verified-statuses/latest",
             (SimLineVerifiedStatusLatestRequest request, HttpContext context) =>
@@ -81,9 +82,7 @@ internal static class SimOperationsEndpoints
                 return Results.Json(new { masterRecordKey = Uri.UnescapeDataString(masterRecordKey), records = Array.Empty<object>() });
             });
 
-        app.MapGet("/api/kitting-cases/v1/work-orders/{workOrderNumber}",
-            async Task<IResult> (string workOrderNumber, HttpContext context) =>
-                await KittingCase(context, state, data, personas, workOrderNumber));
+        // SIM Kitting GET/write contracts are registered together by SimKittingEndpoints.
 
         app.MapGet("/api/platform/live/v1/invoice-history/metadata",
             async Task<IResult> (HttpContext context) =>
@@ -130,12 +129,16 @@ internal static class SimOperationsEndpoints
         app.MapGet("/api/platform/live/v1/sales-orders",
             async Task<IResult> (HttpContext context) =>
                 await List(context, state, data, personas, "kitting.view",
-                    (query, generation) => data.ReadSalesOrderLinesAsync(query, generation)));
+                    (query, generation) => commercialContext is null ? data.ReadSalesOrderLinesAsync(query, generation) :
+                        state.WithStableRuntime(async runtime => await commercialContext.ProjectSalesOrderCommercialContext(
+                            await data.ReadSalesOrderLinesAsync(query,runtime.Generation),runtime))));
 
         app.MapGet("/api/platform/live/v1/sales-orders/{salesOrderLineId}",
             async Task<IResult> (string salesOrderLineId, HttpContext context) =>
                 await Record(context, state, data, personas, "kitting.view",
-                    () => data.ReadRecordAsync("SalesOrderLine", "SalesOrderLineId", salesOrderLineId)));
+                    () => commercialContext is null ? data.ReadRecordAsync("SalesOrderLine", "SalesOrderLineId", salesOrderLineId) :
+                        state.WithStableRuntime(async runtime => await commercialContext.ProjectSalesOrderCommercialContext(
+                            await data.ReadRecordAsync("SalesOrderLine","SalesOrderLineId",salesOrderLineId),runtime))));
 
         app.MapGet("/api/platform/live/v1/work-orders",
             async Task<IResult> (HttpContext context) =>

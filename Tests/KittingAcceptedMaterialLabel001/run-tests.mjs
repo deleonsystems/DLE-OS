@@ -12,6 +12,7 @@ const styles = read('SRC/modules/work-order-dashboard/work-order-dashboard.css')
 const shell = read('DLE_Work_Center_v4.0.0.html');
 const api = read('SRC/api/dle-api-client.js');
 const control = read('Tools/LiveSnapshotRefresh/ControlHost/KittingCaseCenter.cs');
+const draftRules = read('Tools/KittingCase/Shared/KittingDraftValidator.cs');
 const report = JSON.parse(read(
   'Artifacts/WorkOrderReleasedBom004/WORKORDER-RELEASED-BOM-004/work-order-0115621.json'));
 
@@ -65,7 +66,7 @@ assert.match(control, /accepted-material-label/);
 assert.match(control, /quantityAccepted/);
 assert.match(control, /matches\.Count>1/);
 assert.match(control, /physicalLabelIdAvailable=false,lotIdentityAvailable=false/);
-assert.match(control, /accepted_material_source_mismatch/);
+assert.match(draftRules, /accepted_material_source_mismatch/);
 assert.match(control, /ValidateCanonicalAcceptedMaterialAsync/);
 assert.match(control, /receiving-history\/"\+/,
   '5054 re-reads the exact canonical receipt identity before persisting it');

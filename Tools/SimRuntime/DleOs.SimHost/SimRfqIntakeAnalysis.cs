@@ -36,8 +36,10 @@ internal sealed partial class SimRfqIntakeStore
         var governing = package?.Documents.SingleOrDefault(d => d.DocumentId == package.GoverningBomDocumentId);
         if (record.Environment != "SIM" || record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" ||
             EffectiveAssemblyClassification(record) is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
-            governing is not { DocumentType: "ASSEMBLY_DRAWING", EmbeddedBom: true, Applicability: "PARENT_ASSEMBLY", Role: "GOVERNING" })
-            throw SimRfqIntakeProblem.Conflict("ANALYSIS_SOURCE_REQUIRED", "Confirm assembly history and select the governing parent assembly drawing first.");
+            !SimTechnicalPackageProvider.IsGoverningCandidateSource(governing))
+            throw SimRfqIntakeProblem.Conflict("ANALYSIS_SOURCE_REQUIRED", "Confirm assembly history and select a governing parent BOM: a standalone BOM PDF or an assembly PDF with an embedded BOM.");
+        if (!record.TechnicalFiles.Any(f => f.DocumentId == governing!.DocumentId && f.Type == "application/pdf" && f.BinaryStatus == "VERIFIED"))
+            throw SimRfqIntakeProblem.Conflict("ANALYSIS_BINARY_REQUIRED", "The governing BOM source must be a verified staged PDF.");
         var selected = SimAnalysisSourceSelection.Select(package!, selectionVersion);
         var output = new List<DleAnalysisDocument>();
         foreach (var selectedDocument in selected)
@@ -62,8 +64,11 @@ internal sealed partial class SimRfqIntakeStore
                 ?? throw SimRfqIntakeProblem.NotFound("ANALYSIS_REVIEW_MISSING", "Review not found.");
             var sources = await AnalysisDocuments(record, DleAnalysisContract.SourceSelectionVersion);
             await RequireTextBom(record);
-            var route = DleAnalysisPolicy.Select(sources);
-            var enriched = route == DleAnalysisPolicy.Local && sources.Any(s => s.Source.Profile?.DerivedAnalysisPurpose == "MANUFACTURER_ENRICHMENT");
+            var standalone = sources.Any(s => s.Source.Profile?.DerivedAnalysisPurpose == "GOVERNING_BOM" && s.Source.DocumentType == "BOM");
+            // The hosted pilot is page-2/ten-row only. Standalone BOMs use the existing full-table local contract.
+            var route = standalone ? DleAnalysisPolicy.Local : DleAnalysisPolicy.Select(sources);
+            var enriched = route == DleAnalysisPolicy.Local && (standalone ||
+                sources.Any(s => s.Source.Profile?.DerivedAnalysisPurpose == "MANUFACTURER_ENRICHMENT"));
             var instructionVersion = enriched ? DleAnalysisContract.EnrichedInstructionVersion : DleAnalysisContract.InstructionVersion;
             var existing = dataset.AnalysisJobs.LastOrDefault(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status));
             if (existing is not null) return existing;

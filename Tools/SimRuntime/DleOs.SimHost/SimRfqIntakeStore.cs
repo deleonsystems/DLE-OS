@@ -47,7 +47,8 @@ internal sealed record SimContractReviewRequest(
     string? PoFlowdowns,
     string? AdditionalContractQualityRequirements,
     string? SpecialRequirements,
-    bool RequirementsIdentifiedOnAttachedDocument);
+    bool RequirementsIdentifiedOnAttachedDocument,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? OtherCustomerRequirements = null);
 
 internal sealed record SimContractReview(
     string CustomerPoNumber,
@@ -181,6 +182,8 @@ internal sealed partial class SimRfqIntakeStore
         SimPersona persona,
         SimStateMetadata metadata)
     {
+        if (request.IntakeType == "NEW_ORDER")
+            throw SimRfqIntakeProblem.BadRequest("ORDER_CANONICAL_FLOW", "Use the New Order start/resume flow and submit its structured package for Contract Review.");
         Validate(request);
         await gate.WaitAsync();
         try
@@ -287,7 +290,7 @@ internal sealed partial class SimRfqIntakeStore
         await gate.WaitAsync();
         try
         {
-            if ((await ReadDatasetAsync()).Records.Any(r => r.RequestCorrelationId == draft)) throw SimRfqIntakeProblem.Conflict("SIM_INTAKE_ALREADY_SUBMITTED", "This intake has already been submitted.");
+            if ((await ReadDatasetAsync()).Records.Any(r => r.RequestCorrelationId == draft && r.OrderIntake?.ReviewStatus != "DRAFT")) throw SimRfqIntakeProblem.Conflict("SIM_INTAKE_ALREADY_SUBMITTED", "This intake has already been submitted.");
             return await documents.Stage(draft, name, modified, stream, persona.DisplayName);
         }
         finally { gate.Release(); }
@@ -305,7 +308,7 @@ internal sealed partial class SimRfqIntakeStore
     internal async Task<(SimRfqIntakeDocument Document, byte[] Bytes)> OpenDocument(string intakeId, string id)
     {
         var record = (await ReadDatasetAsync()).Records.SingleOrDefault(r => r.IntakeId == intakeId);
-        var doc = record?.TechnicalFiles.SingleOrDefault(d => d.DocumentId == id && d.BinaryStatus == "VERIFIED");
+        var doc = record?.TechnicalFiles.Concat(record.OrderIntake?.PoEvidence.Select(e => e.Document) ?? []).Concat(record.OrderIntake?.TechnicalSource?.Documents.Select(e => e.Document) ?? []).SingleOrDefault(d => d.DocumentId == id && d.BinaryStatus == "VERIFIED");
         if (doc is null) throw SimRfqIntakeProblem.NotFound("SIM_DOCUMENT_NOT_FOUND", "No staged document with this ID belongs to the intake.");
         return (doc, await documents.Bytes(record!.RequestCorrelationId,id));
     }
@@ -514,14 +517,16 @@ internal sealed partial class SimRfqIntakeStore
             var package = review?.TechnicalPackage;
             var governing = package?.Documents.SingleOrDefault(d => d.DocumentId == package.GoverningBomDocumentId);
             if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || EffectiveAssemblyClassification(record) is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
-                governing is not { DocumentType: "ASSEMBLY_DRAWING", EmbeddedBom: true, Applicability: "PARENT_ASSEMBLY", Role: "GOVERNING" })
-                throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_REQUIRED", "Start review, confirm assembly history, and explicitly select a governing parent assembly drawing with an embedded BOM.");
-            var file = record.TechnicalFiles.SingleOrDefault(d => d.DocumentId == governing.DocumentId && d.BinaryStatus == "VERIFIED" && d.Type == "application/pdf");
+                !SimTechnicalPackageProvider.IsGoverningCandidateSource(governing))
+                throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_REQUIRED", "Start review, confirm assembly history, and select a governing parent BOM PDF, standalone or embedded in an assembly drawing.");
+            var file = record.TechnicalFiles.SingleOrDefault(d => d.DocumentId == governing!.DocumentId && d.BinaryStatus == "VERIFIED" && d.Type == "application/pdf");
             if (file is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_BINARY_REQUIRED", "The governing PDF must have a verified SIM staged binary.");
             var bytes = await documents.Bytes(record.RequestCorrelationId, file.DocumentId!);
             RequireWorkflowMaterials(record);
             if (request is null) await RequireTextBom(record);
             var candidate = review!.CandidateBom;
+            if (request is null && candidate is null && governing!.DocumentType == "BOM")
+                throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_ANALYSIS_REQUIRED", "Build a standalone BOM through the Technical Review analysis job for full-table extraction.");
             if (candidate is not null && (candidate.GoverningDocumentId != file.DocumentId || candidate.GoverningSha256 != Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant()))
                 throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_CHANGED", "The governing source changed. Reconfirm the package before building a new candidate.");
             if (request is not null)
@@ -530,7 +535,7 @@ internal sealed partial class SimRfqIntakeStore
                 RequireCurrentScanCandidate(record, candidate);
                 if ((review.BomAcceptances ?? []).Any(a => a.Candidate.Id == candidate.Id))
                     throw SimRfqIntakeProblem.Conflict("SIM_BOM_ACCEPTED", "This accepted BOM is read-only. Build a new candidate version before making changes.");
-                if (request.WholeRowApproval is not null)
+                if (request.WholeRowApproval is not null || request.SourcePartNumberChange is not null)
                 {
                     if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status)))
                         throw SimRfqIntakeProblem.Conflict("SIM_BOM_ANALYZING", "Wait for analysis to finish before approving rows.");
@@ -538,7 +543,7 @@ internal sealed partial class SimRfqIntakeStore
                     if (candidate.Analysis is not null && !SameAnalysisSources(candidate.Analysis.SourceSnapshot,record,sources))
                         throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "Source package changed. Rebuild/review before approving rows.");
                 }
-                candidate = SimCandidateBomProvider.Review(candidate, request, persona);
+                candidate = SimCandidateBomProvider.Review(candidate, request, persona, governing?.PartNumberReview?.Basis);
             }
             else candidate ??= await SimCandidateBomProvider.Extract(bytes, package!, persona);
             record = record with { TechnicalReview = review with { CandidateBom = candidate } };
@@ -568,12 +573,14 @@ internal sealed partial class SimRfqIntakeStore
                     blockedReason + " Nothing was deleted.");
 
             foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Verify(record.RequestCorrelationId, file, file.ReviewOrigin?.AddedBy ?? record.CreatedBy);
+            foreach (var request in record.CustomerRequestDocuments ?? []) await documents.Verify(record.RequestCorrelationId, request.Document, request.AddedBy);
             // Own only this record, embedded review, and verified SIM copies.
             // Never interpret source filenames as paths or delete source/master data.
             dataset.Records.Remove(record);
             dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await WriteVerifiedAsync(dataset);
             foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Remove(record.RequestCorrelationId,file.DocumentId!,file.ReviewOrigin?.AddedBy ?? record.CreatedBy);
+            foreach (var request in record.CustomerRequestDocuments ?? []) await documents.Remove(record.RequestCorrelationId,request.Document.DocumentId!,request.AddedBy);
             return new { deleted = true, intakeId = record.IntakeId, environment = "SIM" };
         }
         finally
@@ -615,7 +622,7 @@ internal sealed partial class SimRfqIntakeStore
 
     private static bool IsTechnicalReviewRecord(SimRfqIntakeRecord record) =>
         string.Equals(record.Schema, "DLE_RFQ_INTAKE_V1", StringComparison.Ordinal) &&
-        record.IntakeType is "NEW_QUOTE_REQUEST" or "NEW_ORDER";
+        record.OrderIntake is null && record.IntakeType is "NEW_QUOTE_REQUEST" or "NEW_ORDER";
 
     private static object BuildTechnicalReviewQueueItem(SimRfqIntakeRecord record)
     {
@@ -904,4 +911,7 @@ internal sealed record SimRfqIntakeRecord(
     string Environment,
     SimTechnicalReviewResult? TechnicalReview = null,
     SimContractReview? ContractReview = null,
-    SimIntakeAssemblyIdentification? PreliminaryAssemblyType = null);
+    SimIntakeAssemblyIdentification? PreliminaryAssemblyType = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerRequestDocument[]? CustomerRequestDocuments = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimNewOrderPackage? OrderIntake = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimOrderEntry? OrderEntry = null);

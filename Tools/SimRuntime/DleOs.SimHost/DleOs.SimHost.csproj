@@ -6,6 +6,8 @@
     <AssemblyName>DleOs.SimHost</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\KittingCase\Shared\KittingDraftValidator.cs" Link="Shared\KittingDraftValidator.cs" />
+    <Compile Include="..\..\LiveSnapshotRefresh\ControlHost\KittingCasePdfWriter.cs" Link="Shared\KittingCasePdfWriter.cs" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.29" />
     <InternalsVisibleTo Include="SimAnalysis001" />
     <InternalsVisibleTo Include="SimPdfReadability001" />
@@ -15,9 +17,11 @@
     <Content Include="sim_scanned_bom.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_scanned_bom_ocr.ps1" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_quotation_pdf.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="sim_contract_review_pdf.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Quotation\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_candidate_bom.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_pdf_readability.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="sim_order_po.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_pdf_page_preview.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_bom_enrichment.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Analysis\**\*" CopyToOutputDirectory="PreserveNewest" />

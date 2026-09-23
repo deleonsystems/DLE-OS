@@ -45,8 +45,11 @@
     },
     {
       id: "order-entry",
-      label: "Order Entry",
-      purpose: "New customer orders, sales order processing, and initial job creation."
+      label: "Order Entry (VPRO 5 Bridge)", simOnly: true,
+      purpose: "Accepted New Orders and manual VPRO setup, awaiting Operations recognition.",
+      modulePath: "SRC/workspaces/order-entry/order-entry-workspace.js",
+      stylePath: "SRC/workspaces/order-entry/order-entry-workspace.css",
+      home: Object.freeze({label:"Order Entry (VPRO 5 Bridge)",description:"Final Acceptance • VPRO Setup • Sync Handoff",mark:"OE",requiredPermission:"order_entry.view",preserveLabelCase:true})
     },
     {
       id: "contract-review",

@@ -27,7 +27,7 @@ assert.match(html, /id="kittingJobSalesOrder"/);
 assert.match(html, /id="kittingJobCustomerPo"/);
 assert.match(html, /id="kittingJobMaterialStatus"/);
 assert.match(html, /class="kitting-job-state-context"/);
-assert.match(html, /id="kittingJobPoTraceability"[^>]*data-policy="NOT_SET"/);
+assert.match(html, /id="kittingJobPoTraceability"[^>]*data-policy="NOT_RECORDED"/);
 assert.ok(html.indexOf('kitting-job-state-context') < html.indexOf('kitting-job-releases'),
   'compact Kitting state context appears immediately before Scheduled Releases');
 assert.doesNotMatch(html, /Governing evidence|kitting-job-evidence|kittingJobCanonicalAnchor|kittingJobRelationship|kittingJobGoverningSource/);
@@ -96,7 +96,7 @@ assert.match(dashboard, /renderKittingSubmissionHistory\(false, 'operator'\)/);
 assert.match(dashboard, /renderKittingSubmissionHistory\(false, 'development'\)/);
 assert.match(dashboard, /setText\('kittingJobLegacyKittedBomStatus', evidenceStatus\)/);
 assert.match(dashboard, /setText\('kittingJobMaterialStatus', compactStatusLabel\)/);
-assert.match(dashboard, /setText\('kittingJobPoTraceability', compactTraceability\)/);
+assert.match(dashboard, /function renderPoTraceabilityControls\(\)[\s\S]*'kittingJobPoTraceability'[\s\S]*control.textContent = label/);
 assert.match(dashboard, /summary\.hidden = dedicatedWorkspace \|\| !available/);
 assert.match(dashboard, /summary\.innerHTML = dedicatedWorkspace \? '' : currentStatus \+ printAllAction/);
 assert.match(dashboard, /hydratePersistedKittingCaseForReadOnly\(kittingCaseReview\)/);
@@ -104,16 +104,14 @@ assert.match(dashboard, /function hydratePersistedKittingCaseForReadOnly\(review
   'an existing governed case hydrates directly from its persisted draft without acquiring a lease');
 assert.match(dashboard, /activeKittingTrialOpen && \(activeKittingEditable \|\| kittingCaseReview\?\.isEditing/,
   'the explicit action remains available to resume a read-only case after its lease is absent');
-const resumePreflight = dashboard.indexOf('const releasedBom = await loadReleasedBomDraft()');
-const resumeWrite = dashboard.indexOf('window.DleApiClient.resumeKittingCase', resumePreflight);
-assert.ok(resumePreflight >= 0 && resumeWrite > resumePreflight,
-  'the released-BOM edit prerequisite is validated before the write-capable resume request');
-assert.match(dashboard, /const kittingEditingTemporarilyAvailable = false/,
-  'Kitting editing is explicitly deferred in the stable DEV baseline');
-assert.match(dashboard, /kitButton\.disabled = !kittingEditingTemporarilyAvailable/,
-  'the write-capable Kitting tile is visibly disabled in the stable DEV baseline');
+assert.match(dashboard, /isSimRuntime && kittingCapabilities\.supported === true && kittingCapabilities\.canEdit === true/,
+  'editing requires selected-WO server capabilities and remains disabled for DEV');
+assert.doesNotMatch(dashboard, /refreshReleasedBomMessageProjection\(/,
+  'saved requirements never refresh from a mutable or retired BOM source');
+assert.match(dashboard, /kitButton\.disabled = !isKittingEditingAvailable\(\)/,
+  'the write-capable Kitting tile follows the selected-WO server capability');
 const stableStart = extractFunction(dashboard, 'startOrResumeActiveKitting');
-assert.ok(stableStart.indexOf('if (!kittingEditingTemporarilyAvailable)') <
+assert.ok(stableStart.indexOf('if (!isKittingEditingAvailable())') <
   stableStart.indexOf('if (activeKittingRecovery)'),
   'the stable-mode guard prevents the top-level Kitting action from reaching reconnect logic');
 assert.match(dashboard, />Bag Labels<\/button>/);

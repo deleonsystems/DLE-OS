@@ -1,0 +1,41 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const detail=JSON.parse(fs.readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,''));
+const queue=JSON.parse(fs.readFileSync(process.argv[3],'utf8').replace(/^\uFEFF/,''));
+const calls=[];
+const mount={innerHTML:''};
+const panel={innerHTML:'Future intake queue',dataset:{workspaceHome:'order-entry'},classList:{toggle(){}},querySelector(){return this.innerHTML.includes('data-workspace-mount')?mount:null;}};
+const definition={id:'order-entry',label:'Order Entry (VPRO 5 Bridge)',modulePath:'SRC/workspaces/order-entry/order-entry-workspace.js',stylePath:'SRC/workspaces/order-entry/order-entry-workspace.css'};
+let context;
+const document={body:{dataset:{simRuntime:'true'}},getElementById:()=>null,addEventListener(){},dispatchEvent(){},createElement:()=>({dataset:{}}),querySelectorAll:()=>[panel],querySelector(s){if(s.includes('data-workspace-home'))return panel;if(s.includes('data-workspace-mount'))return panel.querySelector(s);return null;},head:{appendChild(el){if(el.src){vm.runInContext(fs.readFileSync(el.src,'utf8'),context);el.onload();}}}};
+const window={DleWorkspaceRegistry:{resolve:()=>definition},DleOsCapabilities:{can:()=>true},fetch:async(path,options)=>{calls.push({path,options});return {ok:true,json:async()=>path==='/api/sim/order-entry'?queue:detail};}};
+context=vm.createContext({window,document,CustomEvent:class{},console});
+vm.runInContext(fs.readFileSync('SRC/shell/workspace-shell.js','utf8'),context);
+window.DleWorkspaceShell.setWorkspaceView('order-entry');
+await new Promise(resolve=>setImmediate(resolve));
+assert.match(panel.innerHTML,/data-workspace-mount="order-entry"/);
+assert.doesNotMatch(panel.innerHTML,/Future intake queue/);
+assert.match(mount.innerHTML,/Order Entry Queue/);
+assert.equal((mount.innerHTML.match(/data-id="RFQI-SIM-0043"/g)||[]).length,1);
+for(const value of ['DLE-SIM-CUSTOMER','SIM-E2E-001-PO','SIM-ASSY-001 / A','10/14/2026','Ready for Operations Sync'])assert.ok(mount.innerHTML.includes(value),value);
+await mount.onclick({target:{closest:()=>({dataset:{id:'RFQI-SIM-0043'}})}});
+assert.match(mount.innerHTML,/Order identity/);
+assert.match(mount.innerHTML,/Approved DLE-OS BOM · 12 rows/);
+assert.ok(calls.every(c=>!c.options.method));
+// Active queue includes all three working states and excludes canonical release.
+queue.items.push(...['READY_FOR_VPRO','IN_PROGRESS','RELEASED_TO_OPERATIONS'].map(status=>({...queue.items[0],intakeId:status,status})));
+await mount.onclick({target:{closest:()=>({dataset:{action:'back'}})}});
+assert.match(mount.innerHTML,/Active · 3/);
+assert.match(mount.innerHTML,/data-id="READY_FOR_VPRO"/);
+assert.match(mount.innerHTML,/data-id="IN_PROGRESS"/);
+assert.doesNotMatch(mount.innerHTML,/data-id="RELEASED_TO_OPERATIONS"/);
+// Re-entry retains the mount rather than replacing an already running module.
+panel.innerHTML='<div data-workspace-mount="order-entry">preserved</div>';
+window.DleWorkspaceShell.setWorkspaceView('order-entry');
+assert.ok(panel.innerHTML.includes('preserved'));
+// SIM-only replacement must not alter the non-SIM legacy panel.
+document.body.dataset.simRuntime='false';panel.innerHTML='legacy placeholder';
+window.DleWorkspaceShell.setWorkspaceView('order-entry');
+assert.equal(panel.innerHTML,'legacy placeholder');
+console.log('PASS shell-to-live-queue integration: legacy mount replacement, one real row, identity, BOM, read-only requests, repeated activation, non-SIM preservation.');

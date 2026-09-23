@@ -68,6 +68,35 @@ assert.equal(formatQueueDueDate('2025-01-27'), '01/27/2025');
 assert.equal(formatQueueDueDate(''), 'N/A');
 assert.equal(formatQueueDueDate('not-a-date'), 'not-a-date');
 assert.equal(formatQueueDueDate('2026-02-30'), '2026-02-30');
+
+const statusLookups = [];
+const resolveEmbeddedStatuses = vm.runInNewContext(
+  `async ${extractFunction(script, 'buildEmbeddedMaterialStatuses')}\nbuildEmbeddedMaterialStatuses`,
+  {
+    normalizeWorkOrderNumber: value => String(value || '').padStart(7, '0'),
+    loadMaterialStatuses: async numbers => {
+      statusLookups.push([...numbers]);
+      return new Map(numbers.map(workOrderNumber => [workOrderNumber, {
+        workOrderNumber, machineValue: 'KITTING_IN_PROGRESS', label: 'Kitting In Progress',
+        source: 'KITTING_CASE', kittingCase: { state: 'KITTING_IN_PROGRESS', workingVersion: 4 }
+      }]));
+    }
+  }
+);
+const embeddedComplete = { machineValue: 'KIT_COMPLETE', source: 'KITTING_CASE' };
+const resolvedStatuses = await resolveEmbeddedStatuses([
+  { materialStatusWorkOrderNumber: '0888888', materialStatus: null },
+  { materialStatusWorkOrderNumber: '0777777', materialStatus: embeddedComplete },
+  { materialStatusWorkOrderNumber: '0666666', materialStatus: null }
+], ['0888888', '0777777']);
+assert.deepEqual(statusLookups, [['0888888']], 'only missing actionable material status is looked up');
+assert.equal(resolvedStatuses.get('0888888').machineValue, 'KITTING_IN_PROGRESS',
+  'a persisted case does not fall back to NEW when the canonical embedded projection is null');
+assert.equal(resolvedStatuses.get('0777777'), embeddedComplete, 'nonnull embedded states remain authoritative');
+assert.equal(resolvedStatuses.has('0666666'), false, 'unrelated or nonactionable WO is not projected');
+await resolveEmbeddedStatuses([{ materialStatusWorkOrderNumber: '0777777', materialStatus: embeddedComplete }], ['0777777']);
+assert.equal(statusLookups.length, 1, 'complete embedded statuses avoid unnecessary lookups');
+
 assert.match(styles, /grid-template-columns:minmax\(118px,.7fr\).*minmax\(70px,.4fr\).*minmax\(112px,.55fr\)/);
 assert.match(styles, /minmax\(170px,1fr\) 98px 24px/);
 assert.match(styles, /\.kitting-compact-state\{[^}]*text-align:center/);

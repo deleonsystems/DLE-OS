@@ -1,0 +1,22 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const root=new URL('../../',import.meta.url);
+const source=fs.readFileSync(new URL('SRC/workspaces/technical-review/technical-review-workspace.js',root),'utf8')
+  .replace('  window.DleWorkspaces = window.DleWorkspaces || {};','  window.blockerCheck={state,renderInventory,packageCanBuild};\n  window.DleWorkspaces = window.DleWorkspaces || {};');
+const document={addEventListener(){},getElementById(){return null;}};
+const window={document};
+vm.runInNewContext(source,{window,document,setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){}});
+const t=window.blockerCheck;
+t.state.selected=JSON.parse(fs.readFileSync(new URL('output/E2E-SIM-001-blocker-001/review-after.json',root),'utf8').replace(/^\uFEFF/,''));
+t.state.step='inventory';
+assert.equal(t.packageCanBuild(),true);
+const html=t.renderInventory();
+assert.match(html,/Review Candidate BOM/);
+assert.match(html,/Candidate BOM Ready/);
+const reviewButton=html.match(/<button[^>]*data-technical-review-action="candidate"[^>]*>/)?.[0];
+assert.ok(reviewButton && !reviewButton.includes('disabled'),'Review Candidate BOM is enabled');
+assert.doesNotMatch(html,/Candidate BOM Not Ready|requires the Main BOM to be embedded/);
+assert.match(html,/03_SIM-ASSY-001_Technical_A.pdf/);
+assert.match(html,/02_SIM-ASSY-001_BOM_A.pdf/);
+console.log('PASS: current UI rendered from live RFQI-SIM-0042 response exposes Review Candidate BOM and preserves separate drawing/BOM. No browser action performed.');

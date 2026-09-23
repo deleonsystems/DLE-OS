@@ -1,0 +1,71 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+var source=Path.GetFullPath(args[0]);var output=Path.GetFullPath(args[1]);Directory.CreateDirectory(output);
+var persona=new SimPersona("test","test","Commercial test reviewer","ACTIVE",[],[],true,"isolated test");
+var id="RFQI-SIM-0042";var now=DateTimeOffset.Parse("2026-09-22T10:15:00-07:00");int count=0;
+void Check(bool ok,string name){if(!ok)throw new Exception(name);count++;Console.WriteLine("PASS: "+name);}
+async Task Reject(Func<Task> action,string code){try{await action();}catch(SimRfqIntakeProblem p){Check(p.Code==code,code);return;}throw new Exception("Expected "+code);}
+(string Root,SimRfqIntakeStore Store) Copy(){var root=Path.Combine(output,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(Path.Combine(root,"data"));foreach(var f in new[]{"rfq-intakes.json","rfq-lanes.json"})File.Copy(Path.Combine(source,"data",f),Path.Combine(root,"data",f));return(root,new(root));}
+var (root,store)=Copy();var before=File.ReadAllText(Path.Combine(root,"data","rfq-lanes.json"));var intakeBefore=File.ReadAllText(Path.Combine(root,"data","rfq-intakes.json"));
+var review=await store.ReadFinalReview(id);var approval=review.Approvals.Single();
+var list=await store.ReadRfqCommercialList(now);var row=list.Single(r=>r.IntakeId==id);
+Check(row.Status=="Approved — Not Submitted"&&row.Commercial.SubmittedAt is null&&row.Commercial.ExpiresAt is null&&row.Commercial.Revision==0,"legacy approval has no invented submission");
+Check(list.Length> (await store.ReadRfqs()).Length&&list.Any(r=>!r.WorkbenchEligible),"early-stage RFQs visible without workbench eligibility");
+Check(list.Select(r=>r.IntakeId).Distinct().Count()==list.Length,"one row per RFQ");
+Check(File.ReadAllText(Path.Combine(root,"data","rfq-lanes.json"))==before,"list is read-only");
+var submit=new SimRfqCommercialRequest(Guid.NewGuid().ToString(),0,"SUBMIT",approval.Id,approval.Version,"Explicit fixture submission");
+await Reject(()=>store.TransitionRfqCommercial(id,submit with{ApprovalVersion=99},persona,now),"COMMERCIAL_APPROVAL");
+row=await store.TransitionRfqCommercial(id,submit,persona,now);
+Check(row.Status=="Submitted"&&row.Bucket=="SUBMITTED"&&row.Commercial.Status=="SUBMITTED"&&row.Commercial.Revision==1,"submitted has dedicated bucket");
+Check(row.Commercial.SubmittedAt==now&&row.Commercial.ExpiresAt==DateTimeOffset.Parse("2026-10-22T10:15:00-07:00"),"actual submit time plus 30 calendar days");
+Check(row.QuoteNumber=="SIM-Q-0042-R01"&&row.QuoteTotal==706.4m&&row.Commercial.ApprovalId==approval.Id,"exact approved quote linkage and pricing");
+Check(row.Commercial.OrderLinks?.Length==0&&row.Commercial.History?.Single().ActorId==persona.Id,"audited transition with no fabricated order");
+var written=File.ReadAllText(Path.Combine(root,"data","rfq-lanes.json"));
+await store.TransitionRfqCommercial(id,submit,persona,now.AddHours(1));
+Check(File.ReadAllText(Path.Combine(root,"data","rfq-lanes.json"))==written,"duplicate submission is byte-for-byte no-op");
+await Reject(()=>store.TransitionRfqCommercial(id,submit with{Reason="different"},persona,now),"COMMERCIAL_REQUEST_REUSED");
+await Reject(()=>store.TransitionRfqCommercial(id,submit with{RequestId=Guid.NewGuid().ToString()},persona,now),"COMMERCIAL_STALE");
+await Reject(()=>store.TransitionRfqCommercial(id,submit with{RequestId=Guid.NewGuid().ToString(),ExpectedRevision=1},persona,now),"COMMERCIAL_TRANSITION");
+row=(await store.ReadRfqCommercialList(DateTimeOffset.Parse("2026-10-15T10:15:00-07:00"))).Single(r=>r.IntakeId==id);
+Check(row.Bucket=="SUBMITTED"&&row.Status=="Expiring Soon"&&row.Commercial.Status=="SUBMITTED","7-day boundary warning is derived only");
+Check((await store.ReadRfqCommercialList(DateTimeOffset.Parse("2026-10-15T10:14:59-07:00"))).Single(r=>r.IntakeId==id).Status=="Submitted","before warning boundary remains submitted");
+var expiry=row.Commercial.ExpiresAt!.Value;
+row=(await store.ReadRfqCommercialList(expiry)).Single(r=>r.IntakeId==id);
+Check(row.Status=="Expired"&&row.Bucket=="HISTORY"&&row.Commercial.Status=="SUBMITTED","overdue read recognized without mutating state");
+var expire=new SimRfqCommercialRequest(Guid.NewGuid().ToString(),1,"EXPIRE",approval.Id,1,"Quote validity elapsed");
+await Reject(()=>store.TransitionRfqCommercial(id,expire,persona,expiry.AddSeconds(-1)),"COMMERCIAL_NOT_DUE");
+await Reject(()=>store.TransitionRfqCommercial(id,expire with{Action="AWARD",Reason="customer award"},persona,expiry),"COMMERCIAL_CLOSED");
+row=await store.TransitionRfqCommercial(id,expire,persona,expiry);
+Check(row.Commercial.Status=="EXPIRED"&&row.Commercial.ClosedAt==expiry&&row.Commercial.History?.Length==2,"explicit audited expiration");
+await store.TransitionRfqCommercial(id,expire,persona,expiry.AddDays(1));
+Check((await store.ReadRfqCommercialList(expiry)).Single(r=>r.IntakeId==id).Commercial.History?.Length==2,"expiration retry adds no history");
+Check((await store.ReadFinalReview(id)).SourceToken==review.SourceToken,"commercial transitions do not invalidate approval");
+var old=JsonNode.Parse(before)!.AsObject();var after=JsonNode.Parse(File.ReadAllText(Path.Combine(root,"data","rfq-lanes.json")))!.AsObject();
+after[id]!.AsObject().Remove("commercial");Check(JsonNode.DeepEquals(old,after),"all original lane fields and unrelated RFQs unchanged");
+Check(File.ReadAllText(Path.Combine(root,"data","rfq-intakes.json"))==intakeBefore,"Intake/BOM/Technical Review untouched");
+Check(SimRfqCommercialClock.AddCalendarDays(DateTimeOffset.Parse("2026-10-22T10:15:00-07:00"),30)==DateTimeOffset.Parse("2026-11-21T10:15:00-08:00"),"30 calendar days preserves Pacific local time across DST");
+foreach(var action in new[]{"AWARD","LOSE","CLOSE"}){
+ var fixture=Copy();var st=fixture.Store;await st.TransitionRfqCommercial(id,submit,persona,now);
+ var close=new SimRfqCommercialRequest(Guid.NewGuid().ToString(),1,action,approval.Id,1,"Fixture decision");
+ if(action=="AWARD")await Reject(()=>st.TransitionRfqCommercial(id,close with{ApprovalId="wrong"},persona,now),"COMMERCIAL_APPROVAL");
+ var closed=await st.TransitionRfqCommercial(id,close,persona,now.AddDays(1));
+ Check(closed.Bucket=="HISTORY"&&closed.Commercial.ClosedAt is not null&&closed.Commercial.OrderLinks!.Length==0,action+" closes RFQ without creating execution records");
+ await Reject(()=>st.TransitionRfqCommercial(id,close with{RequestId=Guid.NewGuid().ToString()},persona,now),"COMMERCIAL_STALE");
+}
+var revisionFixture=Copy();await revisionFixture.Store.TransitionRfqCommercial(id,submit,persona,now);
+var dataPath=Path.Combine(revisionFixture.Root,"data","rfq-intakes.json");var dataset=JsonNode.Parse(File.ReadAllText(dataPath))!;
+dataset["records"]!.AsArray().Single(r=>r!["intakeId"]!.GetValue<string>()==id)!["assemblies"]![0]!["quantity"]=99;
+File.WriteAllText(dataPath,dataset.ToJsonString());
+var revised=(await revisionFixture.Store.ReadRfqCommercialList(now)).Single(r=>r.IntakeId==id);
+Check(revised.RevisionNeeded&&revised.Commercial.ApprovalId==approval.Id&&revised.QuoteTotal==706.4m&&revised.Assemblies[0].Quantity==10,"changed work retains submitted snapshot identity/qty/price and flags revision");
+var resubmitFixture=Copy();await resubmitFixture.Store.TransitionRfqCommercial(id,submit,persona,now);
+var lanePath=Path.Combine(resubmitFixture.Root,"data","rfq-lanes.json");var laneData=JsonNode.Parse(File.ReadAllText(lanePath))!;
+laneData[id]!["laborQuote"]!["updatedBy"]="Changed working fixture";File.WriteAllText(lanePath,laneData.ToJsonString());
+var newReview=await resubmitFixture.Store.ReadFinalReview(id);
+var newApproval=(await resubmitFixture.Store.ApproveFinalReview(id,new(newReview.SourceToken,1,approval.Answers),persona)).Approvals.Last();
+var resubmitted=await resubmitFixture.Store.TransitionRfqCommercial(id,new(Guid.NewGuid().ToString(),1,"SUBMIT",newApproval.Id,2,"Revised submission"),persona,now.AddDays(1));
+Check(resubmitted.Commercial.ApprovalVersion==2&&resubmitted.Commercial.History![0].ApprovalId==approval.Id&&resubmitted.Commercial.History[0].SubmittedAt==now&&resubmitted.Commercial.History[0].ExpiresAt==expiry,"resubmission appends history and retains original version/deadline");
+var concurrent=Copy();await concurrent.Store.TransitionRfqCommercial(id,submit,persona,now);
+async Task<bool> Compete(string action){try{await concurrent.Store.TransitionRfqCommercial(id,new(Guid.NewGuid().ToString(),1,action,approval.Id,1,"Concurrent fixture"),persona,now);return true;}catch(SimRfqIntakeProblem p)when(p.Code=="COMMERCIAL_STALE"){return false;}}
+var winners=await Task.WhenAll(Compete("AWARD"),Compete("LOSE"));Check(winners.Count(v=>v)==1,"concurrent transitions have one winner");
+Console.WriteLine($"PASS: {count} commercial lifecycle assertions; source state never mutated.");

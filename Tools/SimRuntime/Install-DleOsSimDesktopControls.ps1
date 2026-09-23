@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([string] $OpenShortcutPath)
 $ErrorActionPreference = 'Stop'
 $source = Join-Path $PSScriptRoot 'DesktopControls'
 $destination = Join-Path $env:LOCALAPPDATA 'DLE-OS\SIM\Controls'
@@ -9,7 +9,7 @@ if (-not (Test-Path (Join-Path (Split-Path $destination) 'sim-profile.json'))) {
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 $backup = Join-Path $destination ('backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
 New-Item -ItemType Directory -Path $backup | Out-Null
-$manifest = foreach ($name in 'Start-DleOsSimServer.ps1','Stop-DleOsSimServer.ps1') {
+$manifest = foreach ($name in 'Start-DleOsSimServer.ps1','Stop-DleOsSimServer.ps1','Open-DleOsSimServer.ps1') {
     $target = Join-Path $destination $name
     if (Test-Path $target) { Copy-Item -LiteralPath $target -Destination $backup }
     Copy-Item -LiteralPath (Join-Path $source $name) -Destination $target -Force
@@ -21,3 +21,17 @@ $manifest = foreach ($name in 'Start-DleOsSimServer.ps1','Stop-DleOsSimServer.ps
     files = @($manifest)
 } | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $destination 'installation.json')
 $manifest
+if ($OpenShortcutPath) {
+    if (-not (Test-Path -LiteralPath $OpenShortcutPath -PathType Leaf) -or
+        [IO.Path]::GetExtension($OpenShortcutPath) -ne '.lnk') {
+        throw 'Provide the existing Open SIM .lnk path.'
+    }
+    Copy-Item -LiteralPath $OpenShortcutPath -Destination $backup
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($OpenShortcutPath)
+    $shortcut.TargetPath = Join-Path $PSHOME 'pwsh.exe'
+    $shortcut.Arguments = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + (Join-Path $destination 'Open-DleOsSimServer.ps1') + '"'
+    $shortcut.WorkingDirectory = $destination
+    $shortcut.Description = 'Start or verify DLE-OS SIM, then open it in Edge'
+    $shortcut.Save()
+}

@@ -33,6 +33,7 @@ assert.match(caseSql,/UNIQUE \(WorkOrderNumber,RunNumber\)/); assert.match(caseS
 assert.match(caseSql,/EXEC\(N'CREATE UNIQUE INDEX UQ_KittingCase_ActiveWorkOrder/);
 assert.match(caseSql,/INSTEAD OF UPDATE, DELETE/); assert.match(caseSql,/KITTING_IN_PROGRESS/);
 const caseApi=fs.readFileSync('Tools/LiveSnapshotRefresh/ControlHost/KittingCaseCenter.cs','utf8');
+const draftRules=fs.readFileSync('Tools/KittingCase/Shared/KittingDraftValidator.cs','utf8');
 const caseSchemaInitializer=fs.readFileSync('Tools/LiveSnapshotRefresh/ControlHost/KittingCaseSchema.cs','utf8');
 assert.ok(caseSchemaInitializer.indexOf('KittingCaseMigration.sql') < caseSchemaInitializer.indexOf('KittingCaseRunMigration.sql'));
 assert.match(caseSchemaInitializer,/foreach \(var migrationPath in migrationPaths\)/);
@@ -46,7 +47,7 @@ assert.match(caseApi,/poTraceabilityRequired=current\.PoTraceabilityRequired/);
 assert.match(caseApi,/WHERE WorkOrderNumber=@WorkOrder AND IsActive=1/);
 assert.match(caseApi,/RUN\{current\.RunNumber:000\}/);
 assert.match(caseApi,/runNumber=current\.RunNumber/);
-assert.match(caseApi,/quantity>0&&!HasPoEvidence/); assert.match(caseApi,/po_traceability_required/);
+assert.match(draftRules,/quantity>0&&!HasPoEvidence/); assert.match(draftRules,/po_traceability_required/);
 assert.match(caseApi,/SELECT s\.SubmissionType,s\.VersionNumber,s\.SnapshotJson/);
 const pdfWriter=fs.readFileSync('Tools/LiveSnapshotRefresh/ControlHost/KittingCasePdfWriter.cs','utf8');
 for (const label of ['KITTING SUBMISSION','ASSEMBLY INSTRUCTIONS','MAIN PART / RELATED','P.O. TRACEABILITY','REMAINING SHORT','IMMUTABLE DLE-OS KITTING SUBMISSION SNAPSHOT']) assert.match(pdfWriter,new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));

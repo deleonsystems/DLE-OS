@@ -20,7 +20,7 @@ internal static partial class SimCandidateBomProvider
                 new[]{edit.AssemblyPartNumber,edit.ManualPartNumber,edit.ManufacturerName}.Any(v=>v?.Length>200))
                 throw SimRfqIntakeProblem.BadRequest("SIM_PROGRESS_INVALID","Review the Candidate field values before saving progress.");
             if(edit.IdentityBasisChange is not null) {
-                if(edit.ApprovedPartChange is not null||edit.ComponentType is "SUBASSEMBLY" or "DNP"||edit.Values["partNumber"]!=row.Values["partNumber"]||!string.IsNullOrWhiteSpace(edit.ManualPartNumber))
+                if(edit.ApprovedPartChange is not null||(edit.ComponentType=="DNP" || edit.ComponentType=="SUBASSEMBLY" && row.SourcePartNumberReview is null)||edit.Values["partNumber"]!=row.Values["partNumber"]||!string.IsNullOrWhiteSpace(edit.ManualPartNumber))
                     throw SimRfqIntakeProblem.BadRequest("SIM_IDENTITY_BASIS_INVALID","Save BOM P/N or type changes before changing identity basis.");
                 row=ReviewIdentityBasis(bom with {Rows=rows},edit.RowIndex,edit.IdentityBasisChange,persona).Rows[edit.RowIndex];
             }

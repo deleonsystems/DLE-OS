@@ -80,9 +80,9 @@
 
   function getOperationsCenterSearchText(record) {
     const official = [
-      'orderDate', 'customerNumber', 'customer', 'customerPo', 'salesOrder',
+      'orderDate', 'customerNumber', 'customer', 'customerPo', 'poDate', 'salesOrder',
       'sequenceLine', 'workOrder', 'partNumber', 'description',
-      'opQtyOpen', 'dueDate', 'price', 'extendedPrice', 'materialStatus'
+      'opQtyOpen', 'customerDueDate', 'dueDate', 'price', 'extendedPrice', 'materialStatus'
     ].map(field => getOfficialField(record, field));
     const latestStatus = getVerifiedStatusPresentation(record);
     const presentation = getWorkOrderPresentation(record);
@@ -408,13 +408,23 @@
     return Number.isInteger(value) ? String(value) : String(value);
   }
 
+  function formatOperationsDateOnly(value) {
+    const text = normalizeOperationsValue(value);
+    const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    // Contractual and ERP date-only facts must not pass through Date/timezone conversion.
+    if (iso) return iso[2] + '/' + iso[3] + '/' + iso[1];
+    return text || 'Not set';
+  }
+
   function getOfficialField(record, field) {
     const projectedValue = getOperationalProjectionField(record, field);
     if (projectedValue !== '') return projectedValue;
 
     const vpro5 = record?.vpro5 || {};
     const fieldMap = {
-      orderDate: vpro5.orderDate,
+      orderDate: formatOperationsDateOnly(record?.orderDate ?? record?.canonical?.orderDate ?? vpro5.orderDate),
+      poDate: formatOperationsDateOnly(record?.customerPoDate ?? record?.canonical?.customerPoDate ?? vpro5.poDate),
+      customerDueDate: formatOperationsDateOnly(record?.customerDueDate ?? record?.canonical?.customerDueDate ?? vpro5.customerDueDate),
       customerNumber: vpro5.customerNumber,
       customer: vpro5.customer,
       customerPo: vpro5.customerPo,
@@ -424,7 +434,7 @@
       qtyOpen: vpro5.qtyOpen,
       partNumber: vpro5.partNumber,
       description: vpro5.description,
-      dueDate: vpro5.dueDate,
+      dueDate: formatOperationsDateOnly(record?.estimatedShipDate ?? record?.canonical?.estimatedShipDate ?? vpro5.dueDate),
       price: vpro5.price,
       extendedPrice: vpro5.extendedPrice
     };

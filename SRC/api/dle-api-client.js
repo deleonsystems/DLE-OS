@@ -1350,6 +1350,9 @@
     getKittingCase(workOrderNumber, options = {}) {
       return requestKittingCase(workOrderNumber, '', options);
     },
+    getKittingReleasedRequirements(workOrderNumber, options = {}) {
+      return requestKittingCase(workOrderNumber, '/released-requirements', options);
+    },
     getKittingCaseSubmissions(workOrderNumber, options = {}) {
       return requestKittingCase(workOrderNumber, '/submissions', options);
     },
@@ -1375,6 +1378,11 @@
       requireDevelopmentCapability('kitting.disposition');
       return requestKittingCase(workOrderNumber, '/po-traceability',
         { ...options, method: 'PUT', body: request });
+    },
+    amendKittingCasePoTraceability(workOrderNumber, request, options = {}) {
+      requireDevelopmentCapability('kitting.traceability.amend');
+      return requestKittingCase(workOrderNumber, '/po-traceability-amendment',
+        { ...options, method: 'POST', body: request });
     },
     saveKittingCaseDraft(workOrderNumber, request, options = {}) {
       requireDevelopmentCapability('kitting.disposition');

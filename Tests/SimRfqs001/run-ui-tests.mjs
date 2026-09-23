@@ -4,11 +4,13 @@ import assert from 'node:assert/strict';
 const source = fs.readFileSync(new URL('../../SRC/workspaces/rfqs/rfqs-workspace.js', import.meta.url), 'utf8');
 const registry = fs.readFileSync(new URL('../../SRC/shell/workspace-registry.js', import.meta.url), 'utf8');
 const fixture = {intakeId:'RFQI-FIXTURE', customer:{customerName:'Synthetic <RFQs>'}, assemblies:[{assemblyNumber:'TEST',revision:'A',quantity:2}],scope:'MATERIAL_AND_LABOR',status:'READY_TO_WORK',lanes:{materials:{status:'NOT_STARTED'},labor:{status:'NOT_STARTED'}},inputs:{materials:{version:1,candidate:{rows:[{values:{lineNumber:'1',partNumber:'TEST',quantity:'1',description:'Synthetic'},componentType:'STANDARD_COTS',alternates:[{partNumber:'ALT-TEST'}]}]},package:{documents:[]}},manufacturing:{id:'MFG-TEST',governingDocumentId:'DOC-TEST',package:{documents:[{documentId:'DOC-TEST',name:'synthetic.pdf',role:'GOVERNING',documentType:'ASSEMBLY_DRAWING'}]}}}};
+Object.assign(fixture,{bucket:'ACTIVE',status:'Ready to Quote',workbenchEligible:true,intakeStatus:'READY_FOR_RFQ_WORKING_QUEUE',commercial:{status:'OPEN',revision:0,history:[],orderLinks:[]}});
 let requested = null, rejectWrite = false, status = 'IN_PROGRESS';
 const mount = {innerHTML:'',dataset:{workspaceLoaded:'true'},querySelector:()=>({value:status})};
 let navigationListener;
 const document = {addEventListener:(name,fn)=>{navigationListener=fn;},body:{dataset:{simRuntime:'true'}},querySelector:()=>mount};
 const window = {document,DleOsCapabilities:{can:()=>true},DleWorkspaceShell:{navigate:r=>{requested=r;}},fetch:async(url,options)=>{
+  if(url.endsWith('/final-review'))return{ok:true,json:async()=>({approvals:[],approvalCurrent:false})};
   if(options.method){requested={url,...JSON.parse(options.body)}; if(rejectWrite)return{ok:false,json:async()=>({message:'Write rejected'})};fixture.lanes[url.endsWith('materials')?'materials':'labor'].status=requested.status;fixture.status='IN_PROGRESS';}
   return{ok:true,json:async()=>options.method?structuredClone(fixture):{items:[structuredClone(fixture)]}};
 }};
@@ -16,12 +18,15 @@ const context=vm.createContext({window,document}); vm.runInContext(registry,cont
 assert.ok(window.DleWorkspaceRegistry.all().some(w=>w.id==='rfqs'));
 document.body.dataset.simRuntime='false';assert.equal(window.DleWorkspaceRegistry.getById('rfqs'),null);document.body.dataset.simRuntime='true';
 await window.DleWorkspaces.rfqs.render();
-assert.match(mount.innerHTML,/Overall RFQ Status/); assert.match(mount.innerHTML,/Synthetic &lt;RFQs&gt;/);
+assert.match(mount.innerHTML,/RFQ \/ Quote Number/); assert.match(mount.innerHTML,/Synthetic &lt;RFQs&gt;/);
 const click=dataset=>mount.onclick({target:{closest:()=>({dataset})}});
-await click({rfq:fixture.intakeId});assert.match(mount.innerHTML,/View Technical Review/);assert.match(mount.innerHTML,/Open Materials/);assert.match(mount.innerHTML,/Open Labor/);
+await click({rfq:fixture.intakeId});assert.match(mount.innerHTML,/View Intake \/ Technical Review/);assert.match(mount.innerHTML,/Open Materials/);assert.match(mount.innerHTML,/Open Labor/);
+assert.match(mount.innerHTML,/data-open="intake-documents"/);
+let documentTarget;window.DleCustomerRequestDocuments={open:async(host,id)=>{documentTarget=id;}};
+await click({open:'intake-documents'});assert.equal(documentTarget,fixture.intakeId);
 let dedicated=false;window.DleMaterialsWorkbench={open:async()=>{dedicated=true;}};await click({open:'materials'});assert.ok(dedicated);assert.doesNotMatch(mount.innerHTML,/Save Materials status/);
 let laborDedicated=false;window.DleLaborWorkbench={open:async()=>{laborDedicated=true;}};await click({open:'labor'});assert.ok(laborDedicated);assert.doesNotMatch(mount.innerHTML,/Save Labor status/);
 window.DleWorkspaces['technical-review']={openReview:async id=>{requested=id;}};
 await click({action:'source'});assert.equal(requested,fixture.intakeId);
-navigationListener({detail:{workspace:{id:'rfqs'},requestedState:{intakeId:fixture.intakeId}}});await window.DleWorkspaces.rfqs.render();assert.match(mount.innerHTML,/View Technical Review/);
-console.log('PASS: RFQs SIM-only registry, escaped queue, shared lanes, immutable input views, document references, independent status writes, rejected-write preservation and Technical Review navigation.');
+navigationListener({detail:{workspace:{id:'rfqs'},requestedState:{intakeId:fixture.intakeId}}});await window.DleWorkspaces.rfqs.render();assert.match(mount.innerHTML,/View Intake \/ Technical Review/);
+console.log('PASS: RFQs SIM-only registry, escaped queue, qualified lane opening, lifecycle queue compatibility and Technical Review navigation.');

@@ -1,7 +1,7 @@
 # SIM Desktop controls
 
-These scripts are the authoritative source for the existing user-local Start and
-Stop helpers. Install explicitly with PowerShell 7:
+These scripts are the authoritative source for the user-local Start, Stop and
+Open helpers. Install explicitly with PowerShell 7:
 
 ```powershell
 & .\Tools\SimRuntime\Install-DleOsSimDesktopControls.ps1
@@ -9,8 +9,15 @@ Stop helpers. Install explicitly with PowerShell 7:
 
 The installer backs up the installed helpers and writes `installation.json` with
 source and SHA256 hashes. It preserves the profile, shortcuts, certificates,
-access code and SIM business state. Open SIM continues to use the existing Edge
-shortcut. Nothing automatically installs on login, reboot, startup or checkout.
+access code and SIM business state. To upgrade an existing browser-only Open SIM
+shortcut, pass `-OpenShortcutPath` with its absolute `.lnk` path. The original link
+is backed up before it is pointed at the Open helper. Open invokes the verified
+Start helper before opening Edge, recovering a stopped server even when old
+runtime metadata still reports that it started. Nothing automatically installs
+on login, reboot, startup or checkout.
+Open requests a visible new Edge window even though its PowerShell shortcut is
+hidden. This leaves existing form tabs intact. `open-status.json` records browser
+launch dispatch or failure; dispatch alone does not assert that a page loaded.
 Changing branches does not overwrite the installed snapshot; runtime source still
 comes from the repository selected in the local profile.
 

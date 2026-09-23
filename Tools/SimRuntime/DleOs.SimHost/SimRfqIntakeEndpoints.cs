@@ -10,6 +10,15 @@ internal static partial class SimRfqIntakeEndpoints
             aliases = new[] { "Abbott Laboratories" },
             sources = new[] { "SIM Qualification Fixture" },
             synthetic = true
+        },
+        new
+        {
+            customerId = "SIM-CUSTOMER-E2E-001",
+            customerNumber = "990901",
+            customerName = "DLE-SIM-CUSTOMER",
+            aliases = new[] { "E2E-SIM-001", "Synthetic Electronics Lab" },
+            sources = new[] { "E2E-SIM-001 synthetic fixture" },
+            synthetic = true
         }
     ];
 
@@ -17,6 +26,8 @@ internal static partial class SimRfqIntakeEndpoints
         SimRfqIntakeStore store, SimPersonaSessionStore personas)
     {
         MapRfqs(app, state, store, personas);
+        MapNewOrders(app, state, store, personas);
+        MapOrderEntry(app, state, store, personas);
         app.MapPost("/api/sim/technical-reviews/{intakeId}/scanned-bom-review/candidate", async Task<IResult> (string intakeId, SimScanCandidateRequest request, HttpContext context) =>
         {
             var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
@@ -113,6 +124,33 @@ internal static partial class SimRfqIntakeEndpoints
             });
         });
 
+        app.MapPost("/api/sim/rfq-intakes/{intakeId}/customer-request-documents", async Task<IResult> (string intakeId, HttpContext context) =>
+        {
+            var denied = Denied(context, state, personas, true); if (denied is not null) return denied;
+            if (!context.Request.Headers.ContainsKey("X-SIM-Document-Upload")) return Results.StatusCode(400);
+            try {
+                if (context.Request.ContentLength > 20 * 1024 * 1024) return Results.StatusCode(413);
+                return Results.Json(await store.AddCustomerRequestDocument(intakeId, context.Request.Query["name"].ToString(),
+                    long.TryParse(context.Request.Query["lastModified"], out var modified) ? modified : 0,
+                    context.Request.Body, personas.Resolve(context)));
+            }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { message = p.Message, code = p.Code }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "Customer request storage is unavailable. Reopen the intake before retrying." }, statusCode: 503); }
+        });
+        app.MapGet("/api/sim/rfq-intakes/{intakeId}/customer-request-documents/{id}", async Task<IResult> (string intakeId, string id, HttpContext context) =>
+        {
+            var denied = Denied(context, state, personas, false); if (denied is not null) return denied;
+            try {
+                var result = await store.OpenCustomerRequestDocument(intakeId, id);
+                context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                context.Response.Headers["Cache-Control"] = "private, no-store";
+                context.Response.Headers["Content-Disposition"] = new System.Net.Http.Headers.ContentDispositionHeaderValue(
+                    result.Document.Type == "application/pdf" && context.Request.Query["download"] != "true" ? "inline" : "attachment") { FileNameStar = result.Document.Name }.ToString();
+                return Results.File(result.Bytes, result.Document.Type, enableRangeProcessing: true);
+            }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { message = p.Message, code = p.Code }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "Customer request storage is unavailable." }, statusCode: 503); }
+        });
         app.MapPost("/api/sim/intake-drafts/{draft}/documents", async Task<IResult> (string draft, HttpContext context) =>
         {
             var denied = Denied(context, state, personas, true); if (denied is not null) return denied;

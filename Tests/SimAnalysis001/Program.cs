@@ -13,6 +13,7 @@ if(args.Length>1 && args[0]=="--sourcing-copy")
  Console.WriteLine("PASS: RFQI-SIM-0035 Find 5 isolated-copy qualification; original files untouched.");return;
 }
 PackageIdentityChecks.Run();
+SourcePartNumberChecks.Run();
 var root = Path.Combine(Path.GetTempPath(), "dle-analysis-tests-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(Path.Combine(root, "data"));
 var json = DleAnalysisContract.Json;
@@ -62,6 +63,7 @@ try {
 } finally { await File.WriteAllTextAsync(dataPath,beforePnReview); }
 await AnalysisMetadataChecks.Run(root, dataPath, persona);
 await SourceSelectionChecks.Run(root, dataPath, persona);
+await StandaloneBomChecks.Run(root, dataPath, persona, fixtureFolder);
 await EnrichmentChecks.Run(root, dataPath, persona);
 var job = await store.SubmitAnalysis(record.intakeId, persona);
 Check(job.Status == "QUEUED" && (await new SimRfqIntakeStore(root).LatestAnalysis(record.intakeId))?.Input.JobId == job.Input.JobId, "queued job survives new store instance");

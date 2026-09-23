@@ -8,16 +8,18 @@
   window.OperationsCenter = window.OperationsCenter || {};
 
   window.OperationsCenter.officialColumns = [
-    { key: 'orderDate', label: 'Order Date' },
+    { key: 'orderDate', label: 'ERP Order Date' },
     { key: 'customer', label: 'Customer' },
     { key: 'customerPo', label: 'Customer P.O.' },
+    { key: 'poDate', label: 'PO Date' },
     { key: 'salesOrder', label: 'Sales Order' },
     { key: 'sequenceLine', label: 'Line' },
     { key: 'workOrder', label: 'Work Order' },
     { key: 'partNumber', label: 'Item Number', className: 'operations-center-item-number-cell' },
     { key: 'description', label: 'Description', className: 'operations-center-description-cell' },
     { key: 'opQtyOpen', label: 'Qty Open', numeric: true },
-    { key: 'dueDate', label: 'Due / Estimated Ship Date' },
+    { key: 'customerDueDate', label: 'Customer Due Date' },
+    { key: 'dueDate', label: 'Estimated Ship Date' },
     { key: 'price', label: 'Unit Price', numeric: true },
     { key: 'extendedPrice', label: 'Extended Price', numeric: true },
     {

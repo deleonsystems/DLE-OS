@@ -6,7 +6,7 @@ internal static partial class SimCandidateBomProvider
         var original=bom.Rows[index];
         if(original.ComponentType=="DNP")throw SimRfqIntakeProblem.BadRequest("SIM_APPROVED_PART_TYPE","DNP needs no approved P/N.");
         if(original.IdentityBasis=="CUSTOMER_PN")throw SimRfqIntakeProblem.BadRequest("SIM_IDENTITY_BASIS_INVALID","Change identity basis before editing manufacturer P/Ns.");
-        if(original.ComponentType=="SUBASSEMBLY")throw SimRfqIntakeProblem.BadRequest("SIM_APPROVED_PART_TYPE","Use Assembly P/N for a Subassembly row.");
+        if(original.IdentityBasis=="ASSEMBLY_PN")throw SimRfqIntakeProblem.BadRequest("SIM_APPROVED_PART_TYPE","Use Assembly P/N for this row.");
         if(change.ExpectedToken!=original.ReviewState.Token||original.ManufacturerIdentity?.Stale==true)
             throw SimRfqIntakeProblem.Conflict("SIM_APPROVED_PART_STALE","This row changed. Reopen before saving its approved P/Ns.");
         var number=change.PartNumber?.Trim();var maker=change.ManufacturerName?.Trim();

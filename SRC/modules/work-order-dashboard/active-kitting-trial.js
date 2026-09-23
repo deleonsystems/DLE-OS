@@ -394,9 +394,8 @@
     })[character]);
     const quantity = value => {
       const number = Number(value);
-      return Number.isFinite(number)
-        ? number.toFixed(4).replace(/\.0+$|(?<=\.[0-9]*?)0+$/g, '').replace(/\.$/, '')
-        : clean(value) || '\u2014';
+      return window.KittingQuantity?.format(value) ??
+        (Number.isFinite(number) ? String(number) : clean(value) || '\u2014');
     };
     const workOrder = clean(draft.workOrder || header.workOrder);
     const returnValue = clean(navigation.returnUrl);
@@ -444,7 +443,7 @@
       '</span><div class="toolbar-actions"><a id="backToKittingJob" href="' + escapeHtml(returnUrl) +
       '" onclick="if(window.opener&&!window.opener.closed){window.opener.focus();window.close();if(window.closed)return false}">\u2190 Back to Kitting Job</a>' +
       '<button id="printReleasedBom" type="button" onclick="window.print()">Print Released BOM</button></div></header><main>' +
-      '<h1>WORK ORDER RELEASED BOM</h1><p class="subtitle">Governed persisted Kitting material source \u00b7 read only</p><section class="identity">' +
+      '<h1>WORK ORDER RELEASED BOM</h1><p class="subtitle">Governed released Kitting requirements \u00b7 read only</p><section class="identity">' +
       field('Work Order', workOrder) + field('Assembly', header.billNumber) + field('Revision', header.revision) +
       field('Build Quantity', quantity(header.scheduledProduction) + ' ' + clean(header.unitOfMeasure)) +
       field('Customer', header.customer) + field('Sales Order', header.salesOrder) + field('SO Line', header.salesOrderLine) +

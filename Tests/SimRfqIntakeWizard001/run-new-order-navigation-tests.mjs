@@ -1,92 +1,232 @@
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import vm from "node:vm";
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const source=fs.readFileSync(new URL('../../SRC/modules/rfq-workspace/intake-wizard.js',import.meta.url),'utf8').replace('  window.DleIntakeWizard = Object.freeze',`  window.test={get:()=>state,setRoot:r=>root=r,savedOrderStep,quotedDateComparison,parseManualDate,displayOrderDate,captureDeliveryReview,handleInput,handleSubmit,captureOtherRequirements,renderStep,steps,renderNewOrderStep,renderNewOrderReview,renderNewOrderAnswers,isSkippedNewOrderStep,selectChoice,goBack,searchOrderQuotes,previewOrder,orderActionClick,submitOrderForm,resumeOrderByPo,restoreOrder,saveOrder};\n  window.DleIntakeWizard = Object.freeze`);
+const host={innerHTML:'',insertAdjacentHTML(where,text){this.innerHTML+=text},style:{}};
+const root={querySelectorAll:()=>[],querySelector:s=>s==='#intakeConversation'||s==='#intakeAnswers'||s==='#intakeProgressBar'?host:null};
+const quote={reference:{intakeId:'RFQI-SIM-0042',quoteNumber:'SIM-Q-0042-R01',approvalId:'approval-1',approvalVersion:1},customer:{customerId:'C-1',customerName:'DLE-SIM-CUSTOMER'},approval:{summary:{assembly:'SIM-ASSY-001',revision:'A',quantity:10,currency:'USD',combinedUnitPrice:70.64,total:706.4},answers:{delivery:'3 Weeks'}},commercialStatus:'SUBMITTED'};
+const calls=[];let failure=false;
+const window={setTimeout(){},crypto:{randomUUID:()=>crypto.randomUUID()},fetch:async(url,options)=>{calls.push({url,options});const body=options?.body?JSON.parse(options.body):null;return{ok:!failure,json:async()=>failure?{message:'offline'}:url.includes('/quotes?')?{items:[quote]}:url.endsWith('/po-extraction')?{status:'UNAVAILABLE',fields:{},facts:{lines:[{}]}}:url.endsWith('/preview')?{baseline:body.previouslyQuoted?quote:null,comparison:[{field:'Quantity',actual:null,quoted:'10',result:body.previouslyQuoted?'MISSING':'NOT_APPLICABLE'}]}:{items:[]}}}};
+// Read-only projection responses are supplied by the server in production.
+let underlyingFetch=window.fetch;
+Object.defineProperty(window,'fetch',{get:()=>async(url,options)=>{
+  if(url.endsWith('/contract-review-preview')) {
+    calls.push({url,options}); const q=JSON.parse(options.body).questionnaire;
+    return {ok:true,json:async()=>({title:'NEW ORDER FINAL REVIEW - DRAFT',intakeId:'RFQI-SIM-TEST',packageRevision:1,
+      sections:[{title:'Other Customer Requirements',editStep:'additional-requirements',fields:[{label:'Requirements',value:q.additionalContractQualityRequirements || q.otherCustomerRequirements || q.specialRequirements || ''}]}],
+      poDocuments:[],technicalDocuments:[],attention:[],acknowledged:q.requirementsIdentifiedOnAttachedDocument,reviewer:'Test reviewer',reviewedDate:'Not recorded',notice:'Preview only'})};
+  }
+  return underlyingFetch(url,options);
+},set:value=>underlyingFetch=value});
+async function review(){ t.renderNewOrderReview(); await new Promise(r=>setImmediate(r)); return t.renderNewOrderReview(); }
+const document={addEventListener(){}};vm.runInNewContext(source,{window,document,URLSearchParams});
+const t=window.test;t.setRoot(root);const s=t.get();s.intakeType='NEW_ORDER';s.customer=quote.customer;
+s.technicalFiles=[{name:'customer-po.pdf',size:100,type:'application/pdf',documentId:'verified-po',binaryStatus:'VERIFIED',readability:{status:'TEXT_READABLE'}}];
+const poScreen=t.renderNewOrderStep('po-attachment');
+assert.match(poScreen,/Customer PO · Owned by Intake/);assert.match(poScreen,/Verified copy/);assert.match(poScreen,/Text-readable/);
+assert.doesNotMatch(poScreen,/data-intake-identification|Initial identification|BOM Only|Preliminary/);
+const gate=t.renderNewOrderStep('technical-source');
+assert.match(gate,/Did the customer provide new or revised technical documents with this order\?/);
+assert.match(gate,/No — Use the documents from the quoted job/);assert.match(gate,/Yes — Customer provided new or revised documents/);
+assert.ok(t.steps().indexOf('technical-source')>t.steps().indexOf('order-comparison'));
+assert.ok(t.steps().indexOf('technical-source')<t.steps().indexOf('payment-terms'));
+s.order.technicalBaseline={quote:quote.reference,definition:{manufacturing:{id:'accepted-definition'}}};s.order.baseline=quote;
+s.currentStep=t.steps().indexOf('technical-source');t.selectChoice('technical-source','QUOTED_DEFINITION');
+assert.equal(t.steps()[s.currentStep],'payment-terms');assert.equal(s.order.technicalSourceChoice,'QUOTED_DEFINITION');
+s.currentStep=t.steps().indexOf('technical-source');t.selectChoice('technical-source','NEW_DOCUMENTS');
+assert.equal(t.steps()[s.currentStep],'order-technical-files');assert.match(t.renderNewOrderStep('order-technical-files'),/not accepted technical authorities/);
+assert.equal(s.technicalFiles[0].name,'customer-po.pdf');
+assert.ok(!t.steps().includes('price-match'));assert.ok(!t.steps().includes('price-note'));assert.ok(t.steps().indexOf('order-facts')<t.steps().indexOf('delivery-date'));
+for(const name of ['poDate','assembly','revision','quantity','currency','unitPrice','extendedValue','nre','separateCharges','requestedDelivery'])assert.ok(t.renderNewOrderStep('order-facts').includes('name="'+name+'"'));
+await t.searchOrderQuotes();assert.match(calls.at(-1).url,/bucket=SUBMITTED/);assert.match(t.renderNewOrderStep('quote-search'),/SIM-Q-0042-R01/);
+const before=JSON.stringify(s.order.facts);
+await t.orderActionClick({dataset:{orderAction:'select',index:'0'}});
+assert.equal(JSON.stringify(s.order.facts),before);assert.equal(s.order.quote.approvalId,'approval-1');
+assert.match(t.renderNewOrderStep('order-comparison'),/70.64/);assert.match(t.renderNewOrderStep('order-comparison'),/706.40/);assert.match(t.renderNewOrderStep('order-comparison'),/3 Weeks/);assert.match(t.renderNewOrderStep('order-comparison'),/MISSING/);
+assert.ok(calls.every(c=>!c.options?.method||c.url.endsWith('/preview')||c.url.endsWith('/po-extraction')),'search/selection only GET or read-only preview/extraction');
+await t.orderActionClick({dataset:{orderAction:'bucket',bucket:'HISTORY'}});assert.match(calls.at(-1).url,/bucket=HISTORY/);
+const fields={poDate:'09/22/2026',assembly:'ACTUAL-PO-PART',revision:'B',quantity:'5',currency:'USD',unitPrice:'2',extendedValue:'10',nre:'0',separateCharges:'0',requestedDelivery:'2026-10-30'};
+s.currentStep=t.steps().indexOf('order-facts');
+await t.submitOrderForm({dataset:{orderForm:'facts'},elements:Object.fromEntries(Object.entries(fields).map(([k,value])=>[k,{value}]).concat([['poDateVerified',{checked:true}]]))});
+assert.equal(s.order.facts.lines[0].assembly,'ACTUAL-PO-PART');assert.equal(s.order.facts.lines[0].quantity,5);
+t.selectChoice('previously-quoted','no');await new Promise(r=>setImmediate(r));assert.equal(s.order.quote,null);assert.ok(t.isSkippedNewOrderStep('quote-search'));assert.match(t.renderNewOrderStep('order-comparison'),/N\/A/);
+for(const [field,step] of [['paymentTermsMatch','payment-terms-note'],['billingMatchesShipTo','shipping-note']]){s.contractReview[field]=true;assert.ok(t.isSkippedNewOrderStep(step));s.contractReview[field]=false;assert.ok(!t.isSkippedNewOrderStep(step));}
+s.contractReview.shippingMethod='UPS_CHARGE';assert.ok(t.isSkippedNewOrderStep('ups-account'));s.contractReview.shippingMethod='UPS_COLLECT';assert.ok(!t.isSkippedNewOrderStep('ups-account'));
+s.contractReview.traceabilityRequired=false;assert.ok(t.isSkippedNewOrderStep('traceability-records'));s.contractReview.traceabilityRequired=true;assert.ok(!t.isSkippedNewOrderStep('traceability-records'));
+s.currentStep=t.steps().indexOf('order-classification');s.contractReview.shippingMethod='UPS_CHARGE';t.goBack();assert.equal(t.steps()[s.currentStep],'shipping-method');
+s.contractReview.customerPoNumber='PO-1';s.contractReview.additionalContractQualityRequirements='<unsafe>';assert.match(await review(),/Submit for Contract Review/);assert.doesNotMatch(await review(),/Submit for Technical Review|Reviewed By/);assert.match(await review(),/&lt;unsafe&gt;/);
+failure=true;await t.searchOrderQuotes();assert.equal(s.order.results.length,0);assert.equal(s.order.message,'offline');
+const record={intakeId:'RFQI-SIM-TEST',requestCorrelationId:'correlation',customer:quote.customer,orderIntake:{reviewStatus:'DRAFT',revision:3,facts:s.order.facts,previouslyQuoted:true,quote,comparison:[],questionnaire:s.contractReview,poNumber:'PO-1',poEvidence:[{document:{name:'evidence.txt',documentId:'doc'}}],wizardStep:5}};
+t.restoreOrder(record);assert.equal(s.order.id,record.intakeId);assert.equal(s.order.revision,3);assert.equal(s.technicalFiles[0].documentId,'doc');assert.equal(t.steps()[s.currentStep],'order-facts');
+t.restoreOrder({...record,orderIntake:{...record.orderIntake,wizardStep:9}});assert.equal(t.steps()[s.currentStep],'order-facts','legacy later step requires PO facts confirmation');
+t.restoreOrder({...record,orderIntake:{...record.orderIntake,wizardStepKey:'technical-source',technicalSource:{choice:'NEW_DOCUMENTS',baseline:null,documents:[{document:{name:'new-drawing.pdf',documentId:'tech-doc'}}]}}});
+assert.equal(t.steps()[s.currentStep],'order-facts');assert.equal(s.order.incomingTechnicalDocuments[0].documentId,'tech-doc');assert.equal(s.technicalFiles[0].documentId,'doc');
+failure=false;const callCount=calls.length;const poBefore=JSON.stringify(s.technicalFiles);
+await t.saveOrder(false);
+assert.match(s.order.message,/server needs the technical-source update/);
+assert.equal(JSON.stringify(s.technicalFiles),poBefore);
+assert.ok(calls.slice(callCount).every(c=>c.url.endsWith('/preview')),'an old server cannot silently discard the technical-source decision on save');
+console.log('PASS: quoted New Order fields, read-only exact selection, baseline, Submitted/History, separate actual facts, no-quote N/A, conditional questionnaire, Back navigation, distinct handoff, escaping, failure and durable resume.');
+const savedRecord=structuredClone(record);savedRecord.orderIntake.wizardStep=4;
+window.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>url.endsWith('/preview')?{baseline:quote,comparison:[],technicalBaseline:{quote:quote.reference,definition:{manufacturing:{id:'accepted-definition'}}}}:url.endsWith('/drafts')?{items:[{intakeId:record.intakeId,customer:quote.customer,poNumber:'PO-1',quoteNumber:'SIM-Q-0042-R01',assembly:'SIM-ASSY-001',revision:'A',lastSavedAt:'2026-09-22T20:00:00Z',wizardStep:4,poAttached:true}]}:url.includes('/drafts/')?{record:savedRecord}:{items:[savedRecord]}}};
+let entrySearches=0;window.DleApiClient={searchCanonicalCustomers:async()=>{entrySearches++;return {items:[]}}};
+s.currentStep=0;t.selectChoice('intake-type','NEW_ORDER');
+assert.equal(entrySearches,0,'Start/Resume does not trigger customer suggestions');assert.doesNotMatch(t.renderStep(),/undefined/);
+assert.match(t.renderStep(),/Start New Order/);assert.match(t.renderStep(),/Resume Order in Progress/);
+const resumeCalls=calls.length;
+await t.orderActionClick({dataset:{orderAction:'list-drafts'}});
+assert.match(t.renderStep(),/PO-1/);assert.match(t.renderStep(),/SIM-Q-0042-R01/);assert.match(t.renderStep(),/Last saved/);
+await t.orderActionClick({dataset:{orderAction:'resume-draft',id:record.intakeId}});
+assert.equal(s.contractReview.customerPoNumber,'PO-1');assert.equal(s.customer.customerId,quote.customer.customerId);
+assert.equal(s.order.revision,3);assert.equal(s.order.quote.reference,undefined);assert.equal(s.order.quote.approvalId,'approval-1');
+assert.equal(s.technicalFiles[0].documentId,'doc');assert.equal(t.steps()[s.currentStep],'po-attachment');
+assert.ok(calls.slice(resumeCalls).every(c=>!c.options?.method || c.url.endsWith('/preview')),'list and resume only read the draft and resolve its preview');
+await t.resumeOrderByPo();assert.match(t.renderStep(),/An order intake is already in progress/);assert.match(t.renderStep(),/Resume existing draft/);
+window.DleApiClient={searchCanonicalCustomers:async()=>({items:[]})};
+await t.orderActionClick({dataset:{orderAction:'start-new'}});
+assert.equal(t.get().order.id,null);assert.equal(t.get().contractReview.customerPoNumber,'');assert.equal(t.steps()[t.get().currentStep],'customer');
+console.log('PASS: Start/Resume entry, server list, fresh ID retrieval, full restoration, explicit duplicate choice and fresh start.');
+const live=t.get();live.customer=quote.customer;live.requestCorrelationId='existing';live.technicalFiles=[{documentId:'po-doc',name:'customer.pdf'}];live.order.previouslyQuoted=false;
+const suggestions={poDate:'2026-09-22',lines:[{assembly:'FROM-PO',revision:'B',quantity:7,currency:'USD',unitPrice:2,extendedValue:14}],nre:0,separateCharges:0,requestedDelivery:'After acknowledgement'};
+window.fetch=async(url,options)=>({ok:true,json:async()=>url.endsWith('/po-extraction')?{status:'SUGGESTED',fields:{assembly:{value:'FROM-PO',page:1,evidence:'source excerpt',confidence:'EXPLICIT_TEXT'}},facts:suggestions}:{baseline:null,comparison:[]}});
+await t.orderActionClick({dataset:{orderAction:'extract-po'}});
+assert.equal(live.order.facts.lines[0].assembly,'FROM-PO');assert.equal(live.order.facts.lines[0].quantity,7);assert.notEqual(live.order.poFactsConfirmed,true);
+live.order.facts.lines[0].quantity=9;await t.orderActionClick({dataset:{orderAction:'extract-po'}});assert.equal(live.order.facts.lines[0].quantity,9,'manual values are not overwritten');
+live.order.poFactsConfirmed=true;live.order.facts.lines[0].assembly='CONFIRMED';await t.orderActionClick({dataset:{orderAction:'extract-po'}});assert.equal(live.order.facts.lines[0].assembly,'CONFIRMED');
+window.fetch=async()=>{throw new Error('Parser unavailable')};await t.orderActionClick({dataset:{orderAction:'extract-po'}});assert.equal(live.order.facts.lines[0].assembly,'CONFIRMED');assert.match(live.order.extractionMessage,/Manual entry remains available/);
+assert.ok(t.steps().indexOf('previously-quoted')<t.steps().indexOf('order-facts'));assert.ok(t.steps().indexOf('order-facts')<t.steps().indexOf('order-comparison'));
+console.log('PASS: quote-first flow, independent PO suggestions, explicit confirmation, corrections preserved and manual fallback.');
+const requirementText='Include a serial list and completed functional-test results for cases T1–T6 for each unit. Serial range: SIM001-A-001 through SIM001-A-010. Source: customer PO, page 1.';
+assert.ok(!t.steps().includes('po-flowdowns'));
+assert.equal((t.renderNewOrderStep('additional-requirements').match(/<textarea/g)||[]).length,1);
+assert.doesNotMatch(t.renderNewOrderStep('additional-requirements'),/type="checkbox"|name="qualityRequirements"|name="specialRequirements"/);
+live.contractReview.requirementsIdentifiedOnAttachedDocument=false;
+t.captureOtherRequirements({elements:{otherRequirements:{value:requirementText}}});
+assert.equal(live.contractReview.specialRequirements,requirementText);
+assert.match(await review(),/I reviewed the customer PO and captured its requirements\./);
+assert.match(await review(),/data-intake-action="submit" disabled/);
+live.contractReview.requirementsIdentifiedOnAttachedDocument=true;
+assert.doesNotMatch(await review(),/data-intake-action="submit" disabled/);
+t.captureOtherRequirements({elements:{otherRequirements:{value:requirementText+' Edited.'}}});assert.equal(live.contractReview.requirementsIdentifiedOnAttachedDocument,false);
+const legacyRecord=structuredClone(savedRecord);Object.assign(legacyRecord.orderIntake,{poFactsConfirmed:true,wizardStepKey:'po-flowdowns',flowVersion:2});
+Object.assign(legacyRecord.orderIntake.questionnaire,{poFlowdowns:' Clause Q1 ',additionalContractQualityRequirements:'Customer inspection',specialRequirements:'Keep upright',requirementsIdentifiedOnAttachedDocument:false});
+t.restoreOrder(legacyRecord);
+assert.equal(t.steps()[live.currentStep],'additional-requirements');
+assert.match(t.renderNewOrderStep('additional-requirements'),/Legacy notes/);assert.match(t.renderNewOrderStep('additional-requirements'),/Prior special requirements/);
+t.captureOtherRequirements({elements:{otherRequirements:{value:requirementText}}});
+assert.equal(live.contractReview.poFlowdowns,' Clause Q1 ');assert.equal(live.contractReview.additionalContractQualityRequirements,'Customer inspection');assert.equal(live.contractReview.specialRequirements,'Keep upright');assert.equal(live.contractReview.otherCustomerRequirements,requirementText);
+const consolidatedIndex=t.steps().indexOf('additional-requirements');
+for (const p of [{wizardStepKey:'po-flowdowns'},{flowVersion:2,wizardStep:consolidatedIndex},{wizardStep:consolidatedIndex-2}]) assert.equal(t.savedOrderStep(p),'additional-requirements');
+assert.equal(t.savedOrderStep({flowVersion:2,wizardStep:consolidatedIndex+2}),'review');
+console.log('PASS: one optional field, exact legacy preservation, explicit final acknowledgment, reconfirmation after edits and v1/v2/v3 step mapping.');
 
-const repository = path.resolve(import.meta.dirname, "..", "..");
-const source = fs.readFileSync(path.join(repository, "SRC/modules/rfq-workspace/intake-wizard.js"), "utf8");
-const listeners = new Map();
-const progress = { style: {} };
-const answers = { innerHTML: "" };
-const conversation = { innerHTML: "" };
-const inlineErrors = [];
-const answerControl = { insertAdjacentHTML(_position, html) { inlineErrors.push(html); } };
-const root = {
-  html: "",
-  set innerHTML(value) { this.html = value; }, get innerHTML() { return this.html; },
-  addEventListener(type, listener) { listeners.set(type, listener); },
-  querySelector(selector) {
-    if (selector === "[data-intake-wizard]") return this.html.includes("data-intake-wizard") ? this : null;
-    if (selector === "#intakeProgressBar") return progress;
-    if (selector === "#intakeAnswers") return answers;
-    if (selector === "#intakeConversation") return conversation;
-    if (selector === ".intake-answer-control") return answerControl;
-    return null;
-  },
-  querySelectorAll() { return []; }
-};
-const window = {
-  DleOsSession: { user: { displayName: "Adan Mena" } },
-  DleApiClient: { async searchCanonicalCustomers() { return { items: [{ customerId: "C-001", customerNumber: "00001", customerName: "Abbott" }] }; } },
-  clearTimeout() {}, setTimeout(callback) { callback(); return 1; }
-};
-vm.runInNewContext(source, { window, document: {} }, { filename: "intake-wizard.js" });
-window.DleIntakeWizard.mount(root);
+// A draft saved at the gate has no source choice yet, but its exact quote can resolve.
+const gateRecord=structuredClone(savedRecord);
+Object.assign(gateRecord.orderIntake,{poFactsConfirmed:true,wizardStepKey:'technical-source',technicalSource:null});
+const resolved={quote:quote.reference,definition:{manufacturing:{id:'accepted-definition'}}};
+window.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>url.includes('/drafts/')?{record:gateRecord}:url.endsWith('/preview')?{baseline:quote,comparison:[],technicalBaseline:resolved,technicalSourceContractVersion:1,requirementsUiVersion:3,manualDateVersion:1}:{resumed:false,record:gateRecord}}};
+await t.orderActionClick({dataset:{orderAction:'resume-draft',id:gateRecord.intakeId}});
+assert.equal(t.get().order.technicalBaseline.definition.manufacturing.id,'accepted-definition');
+assert.doesNotMatch(t.renderNewOrderStep('technical-source'),/No verified quoted technical definition available/);
+await t.saveOrder(false);
+assert.equal(t.get().order.technicalBaseline.definition.manufacturing.id,'accepted-definition','saving without a choice retains the server-verified available definition');
+t.selectChoice('technical-source','QUOTED_DEFINITION');
+assert.equal(t.get().order.technicalSourceChoice,'QUOTED_DEFINITION');
+assert.equal(t.steps()[t.get().currentStep],'payment-terms');
+console.log('PASS: saved gate resolves exact quote on resume, retains verified baseline after draft save, and permits quoted-source selection.');
+const displayBaseline=t.get().order.technicalBaseline;
+displayBaseline.definition.manufacturing.package={documents:[
+ {documentId:'drawing-id',name:'03_SIM-ASSY-001_Technical_A.pdf',identityReview:{type:'DRAWING'}},
+ {documentId:'bom-id',name:'02_SIM-ASSY-001_BOM_A.pdf',identityReview:{type:'BOM_ONLY'}}
+]};
+const displayBefore=JSON.stringify(t.get().order);
+const documentScreen=t.renderNewOrderStep('technical-source');
+assert.match(documentScreen,/Quoted technical documents/);
+assert.match(documentScreen,/Using documents from quote SIM-Q-0042-R01/);
+assert.match(documentScreen,/02_SIM-ASSY-001_BOM_A.pdf<\/td><td>BOM/);
+assert.match(documentScreen,/03_SIM-ASSY-001_Technical_A.pdf<\/td><td>Technical Drawing/);
+assert.match(documentScreen,/\/api\/sim\/rfq-intakes\/RFQI-SIM-0042\/documents\/bom-id/);
+assert.match(documentScreen,/\/api\/sim\/rfq-intakes\/RFQI-SIM-0042\/documents\/drawing-id/);
+assert.doesNotMatch(documentScreen,/accepted-definition|QUOTED_DEFINITION_LINKED|approval v/);
+assert.equal(JSON.stringify(t.get().order),displayBefore,'document rendering never mutates the baseline');
+console.log('PASS: compact quoted document list, friendly types, existing source retrieval links, hidden audit IDs and read-only rendering.');
 
-function click(candidate) { listeners.get("click")({ target: { closest(selector) { return candidate[selector] || null; } } }); }
-function choose(field, value) { click({ "[data-intake-choice]": { dataset: { intakeChoice: field, intakeValue: value } } }); }
-function chooseCustomer(value) { click({ "[data-intake-customer]": { dataset: { intakeCustomer: value } } }); }
-function action(value) { click({ "[data-intake-action]": { dataset: { intakeAction: value } } }); }
-function submit(field, value) {
-  const form = { dataset: { intakeForm: field }, querySelector() { return { value: String(value) }; } };
-  listeners.get("submit")({ target: { closest(selector) { return selector === "[data-intake-form]" ? form : null; } }, preventDefault() {} });
-}
-function multi(field, values) {
-  const form = { dataset: { intakeMultiselect: field }, querySelectorAll() { return values.map(value => ({ value })); } };
-  listeners.get("submit")({ target: { closest(selector) { return selector === "[data-intake-multiselect]" ? form : null; } }, preventDefault() {} });
-}
-function additional() {
-  const form = { dataset: { intakeAdditionalRequirements: "true" }, elements: {
-    qualityRequirements: { value: "Quality note" }, specialRequirements: { value: "Special note" }, identifiedOnDocument: { checked: true }
-  } };
-  listeners.get("submit")({ target: { closest(selector) { return selector === "[data-intake-additional-requirements]" ? form : null; } }, preventDefault() {} });
-}
-function expectStep(text, message) { assert.match(conversation.innerHTML, new RegExp(text), message); }
+assert.equal(t.parseManualDate('09/22/2026'),'2026-09-22');
+assert.equal(t.parseManualDate('02/29/2028'),'2028-02-29');
+assert.throws(()=>t.parseManualDate('02/29/2026'));
+assert.throws(()=>t.parseManualDate('2026-09-22'));
+assert.equal(t.displayOrderDate('2026-10-14'),'10/14/2026');
+t.restoreOrder(gateRecord);
+assert.equal(t.get().order.poDateVerified,false,'legacy date is preserved but not silently verified');
+assert.equal(t.get().order.dueDateDecision,null);
+assert.match(t.renderNewOrderStep('order-facts'),/I verified the PO Date/);
+const delivery=t.renderNewOrderStep('delivery-date');
+assert.match(delivery,/Customer Due Date \(MM\/DD\/YYYY\)/);
+assert.match(delivery,/3 Weeks/);
+assert.match(delivery,/Needs Customer Clarification/);
+assert.match(delivery,/Cannot Meet/);
+assert.match(delivery,/name="customerDueDate"[^>]*value=""/);
+t.get().order.facts.lines[0].customerDueDate='2026-10-14';
+t.get().order.dueDateDecision={disposition:'ACCEPT',note:null};
+t.captureDeliveryReview({elements:{customerDueDate:{value:'10/15/2026'},dueDateNote:{value:'Discuss delivery'}}});
+assert.equal(t.get().order.dueDateDecision,null);
+assert.equal(t.get().order.facts.lines[0].customerDueDate,'2026-10-15');
+const manual=t.get();manual.order.facts.poDate='';manual.order.facts.lines[0].customerDueDate=null;manual.order.poFactsConfirmed=false;
+window.fetch=async()=>({ok:true,json:async()=>({status:'SUGGESTED',fields:{},facts:{poDate:'2026-09-22',lines:[{customerDueDate:'2026-10-14'}]}})});
+await t.orderActionClick({dataset:{orderAction:'extract-po'}});
+assert.equal(manual.order.facts.poDate,'');assert.equal(manual.order.facts.lines[0].customerDueDate,null);
+console.log('PASS: manual MM/DD/YYYY date validation, blank legacy due date, PO verification, invalidation and contractual-date autofill exclusion.');
 
-expectStep("New Quote Request[\\s\\S]*New Order", "scenario screen places New Order below New Quote Request");
-choose("intake-type", "NEW_ORDER"); await new Promise(resolve => setImmediate(resolve));
-expectStep("Who did you get it from", "New Order reuses governed customer selection");
-chooseCustomer("00001"); submit("customer-po-number", "PO-100");
-expectStep("Customer PO[\\s\\S]*Verbal PO", "Customer PO is available and Verbal PO is visible");
-assert.match(conversation.innerHTML, /intake-choice-disabled" disabled aria-disabled="true"[\s\S]*Verbal PO/, "Verbal PO cannot be selected");
-choose("customer-po-type", "CUSTOMER_PO");
-action("continue");
-assert.match(inlineErrors.pop(), /Attach the customer PO/, "attachment is required before continuing");
-listeners.get("change")({ target: { matches: selector => selector === "[data-intake-files]", files: [{ name: "po.pdf", size: 12, type: "application/pdf", lastModified: 1 }], value: "x" } });
-action("continue"); choose("payment-terms", "yes");
-expectStep("billing address", "matching payment terms skips the action note");
-action("back"); expectStep("payment terms", "Back skips hidden payment note and returns to payment terms");
-choose("payment-terms", "no"); expectStep("Notify A/R Department", "payment mismatch triggers A/R action");
-submit("payment-terms-note", "A/R note"); choose("address-match", "no");
-expectStep("Verify and highlight the Ship To address", "address mismatch triggers Ship To action");
-submit("shipping-note", "Verified"); choose("shipping-method", "UPS_CHARGE");
-expectStep("classified", "non-Collect shipping skips UPS account");
-action("back"); expectStep("shipping method", "Back skips hidden UPS account step");
-choose("shipping-method", "UPS_COLLECT"); expectStep("UPS account number", "UPS Collect requires account number");
-submit("ups-account", "UPS-100"); choose("order-classification", "NEW_ASSEMBLY");
-choose("delivery-date", "no"); expectStep("Contact customer", "unmet delivery date triggers action");
-submit("delivery-date-note", "Delivery note"); choose("price-match", "no");
-expectStep("Review the quote", "price mismatch triggers action"); submit("price-note", "Price note");
-choose("traceability", "true");
-// The UI sends yes/no values; correct the deliberate branch through the visible choice contract.
-action("back"); choose("traceability", "yes");
-expectStep("traceability records", "traceability Yes opens deliverable selection");
-multi("traceability-records", ["TRAVELER", "MATERIAL_CERTS"]);
-multi("aerospace-requirements", ["FAIR", "ITAR"]);
-submit("po-flowdowns", "Clause A"); additional();
-expectStep("New Order Contract Review", "completed answers reach the Contract Review summary");
-for (const value of ["Notify A/R Department", "Verify and highlight the Ship To address", "Contact customer", "Review the quote", "FAIR", "ITAR", "Reviewed By", "Adan Mena"])
-  assert.ok(conversation.innerHTML.includes(value), `summary includes ${value}`);
-assert.match(answers.innerHTML, /New Order/, "Answers So Far reflects the selected scenario");
+assert.equal(t.quotedDateComparison('2026-09-22','3 Weeks','10/14/2026').reference,'2026-10-13');
+assert.equal(t.quotedDateComparison('2026-09-22','3 Weeks','10/14/2026').text,'Customer due date is 1 day after the quoted lead-time date.');
+assert.match(t.quotedDateComparison('2026-09-22','3 Weeks','10/08/2026').text,/5 days earlier/);
+assert.equal(t.quotedDateComparison('2026-09-22','3 Weeks','10/13/2026').text,'Matches quoted lead-time date.');
+assert.equal(t.quotedDateComparison('2028-02-28','2 Days','03/01/2028').reference,'2028-03-01');
+assert.equal(t.quotedDateComparison('2026-12-31','1 Day','01/01/2027').reference,'2027-01-01');
+assert.equal(t.quotedDateComparison('2026-09-22','3 Business Days','10/14/2026').reference,'');
+const ux=t.get();ux.order.baseline=quote;ux.order.facts.poDate='2026-09-22';ux.order.facts.lines[0].customerDueDate='2026-10-14';ux.order.dueNoteMode=null;ux.currentStep=t.steps().indexOf('delivery-date');
+const beforeUX=JSON.stringify(ux.order.facts);
+assert.doesNotMatch(t.renderNewOrderStep('delivery-date'),/textarea|Customer delivery instruction:/);
+assert.match(t.renderNewOrderStep('delivery-date'),/10\/13\/2026/);
+const oldQuery=root.querySelector;
+const dueForm={elements:{customerDueDate:{value:'10/14/2026'},dueDateNote:{value:''}}};
+root.querySelector=selector=>selector==='[data-order-delivery]'?dueForm:oldQuery(selector);
+await t.orderActionClick({dataset:{orderAction:'due-select-CLARIFICATION'}});
+assert.match(t.renderNewOrderStep('delivery-date'),/Why does this date need clarification/);
+assert.equal(ux.order.dueDateDecision,null);
+await t.orderActionClick({dataset:{orderAction:'due-CLARIFICATION'}});
+assert.equal(t.steps()[ux.currentStep],'delivery-date','empty exception note cannot advance');
+dueForm.elements.dueDateNote.value='Confirm customer arrival requirement';
+await t.orderActionClick({dataset:{orderAction:'due-CLARIFICATION'}});
+assert.equal(ux.order.dueDateDecision.disposition,'CLARIFICATION');
+ux.currentStep=t.steps().indexOf('delivery-date');
+await t.orderActionClick({dataset:{orderAction:'due-select-CANNOT_MEET'}});
+assert.match(t.renderNewOrderStep('delivery-date'),/Why can.t we meet this date/);
+dueForm.elements.dueDateNote.value='';
+await t.orderActionClick({dataset:{orderAction:'due-ACCEPT'}});
+assert.equal(ux.order.dueDateDecision.disposition,'ACCEPT');
+assert.equal(ux.order.dueDateDecision.note,null);
+assert.equal(JSON.stringify(ux.order.facts),beforeUX,'reference calculation never writes into contractual facts');
+root.querySelector=oldQuery;
+console.log('PASS: reference-only Gregorian date comparison, leap/year boundaries, no initial note, conditional exception notes and note-free Accept.');
 
-console.log("PASS: 27 New Order guided-navigation and summary checks.");
+// Question 24 may request a read-only projection, but cannot save or submit.
+const q24=t.get();q24.intakeType='NEW_ORDER';q24.status='DRAFT';q24.currentStep=t.steps().indexOf('additional-requirements');
+q24.order.id='RFQI-SIM-0043';q24.order.revision=5;
+q24.technicalFiles=[{name:'SIM-E2E-001-PO.pdf',documentId:'po-doc'}];
+let q24Requests=0;window.fetch=async()=>{q24Requests++;throw new Error('Question 24 must not call the server')};
+const q24Facts=JSON.stringify(q24.order.facts);
+const additionalForm={dataset:{intakeAdditionalRequirements:'true'},elements:{otherRequirements:{value:'Retain requested serial list'}}};
+let prevented=false;
+t.handleSubmit({target:{closest:selector=>selector==='[data-intake-additional-requirements]'?additionalForm:null},preventDefault(){prevented=true}});
+assert.ok(prevented);
+assert.equal(t.steps()[q24.currentStep],'review');assert.equal(q24Requests,0);
+assert.equal(q24.status,'DRAFT');assert.equal(q24.order.revision,5);assert.equal(JSON.stringify(q24.order.facts),q24Facts);
+const finalScreen=await review();
+assert.match(finalScreen,/NEW ORDER FINAL REVIEW - DRAFT/);assert.match(finalScreen,/Submit for Contract Review/);
+assert.match(finalScreen,/I reviewed the customer PO and captured its requirements/);
+const q24Screen=t.renderNewOrderStep('additional-requirements');
+assert.match(q24Screen,/class="intake-po-view"/);assert.match(q24Screen,/>View Customer PO<\/a>/);
+assert.match(q24Screen,/href="\/api\/sim\/new-orders\/RFQI-SIM-0043\/documents\/po-doc"/);
+assert.match(q24Screen,/target="_blank" rel="noopener noreferrer"/);
+console.log('PASS: Q24 Continue requests only a read-only projection; no save/status transition; PO retrieval unchanged.');

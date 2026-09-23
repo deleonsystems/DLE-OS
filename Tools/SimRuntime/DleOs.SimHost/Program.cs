@@ -271,8 +271,14 @@ app.MapGet("/site.webmanifest", () => Results.File(
     Path.Combine(runtime.RepositoryRoot, "ASSETS", "ICONS", "site.webmanifest"),
     "application/manifest+json"));
 
-SimOperationsEndpoints.Map(app, simState, operationsData, personaSessions, simFaults);
+var operationsHandoff=new SimOperationsHandoffService(simState,rfqIntakes,operationsData,
+    string.Equals(Environment.GetEnvironmentVariable("DLE_OS_SIM_OPERATIONS_IMPORT"),"true",StringComparison.Ordinal));
+SimOperationsEndpoints.Map(app, simState, operationsData, personaSessions, simFaults,operationsHandoff);
 SimRfqIntakeEndpoints.Map(app, simState, rfqIntakes, personaSessions);
+SimRfqIntakeEndpoints.MapOperationsHandoff(app,simState,personaSessions,operationsHandoff);
+var kittingRequirements=new SimKittingRequirementsProvider(rfqIntakes,operationsData);
+var simKittingCases=new SimKittingCases(simState,operationsData,kittingRequirements);
+SimKittingEndpoints.Map(app,simState,personaSessions,simKittingCases);
 SimDocumentEndpoints.Map(app, simState, personaSessions, simDocuments);
 
 app.MapMethods("/api/{**path}",

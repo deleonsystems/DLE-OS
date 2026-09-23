@@ -251,7 +251,7 @@
     const [workOrdersByNumber, materialStatusesByWorkOrder] = await Promise.all([
       loadCanonicalWorkOrders(workOrderNumbers),
       hasEmbeddedProjections && !forceMaterialStatus
-        ? Promise.resolve(buildEmbeddedMaterialStatuses(lines, workOrderNumbers))
+        ? buildEmbeddedMaterialStatuses(lines, workOrderNumbers)
         : loadMaterialStatuses(workOrderNumbers, { force: forceMaterialStatus })
     ]);
     workspaceState.canonicalRows = canonicalRows;
@@ -340,7 +340,7 @@
     return new Map(lines.map(line => [line.lineKey, line.workOrderApprovalReview || {}]));
   }
 
-  function buildEmbeddedMaterialStatuses(lines, workOrderNumbers) {
+  async function buildEmbeddedMaterialStatuses(lines, workOrderNumbers) {
     const actionable = new Set(workOrderNumbers);
     const statuses = new Map();
     lines.forEach(line => {
@@ -349,6 +349,13 @@
         statuses.set(workOrderNumber, line.materialStatus || null);
       }
     });
+    // A null embedded projection says nothing about a persisted Kitting case.
+    // Resolve missing actionable statuses before applying the Needs Kitting default.
+    const missing = workOrderNumbers.filter(workOrderNumber => !statuses.get(workOrderNumber));
+    if (missing.length) {
+      const resolved = await loadMaterialStatuses(missing);
+      resolved.forEach((status, workOrderNumber) => statuses.set(workOrderNumber, status));
+    }
     return statuses;
   }
 

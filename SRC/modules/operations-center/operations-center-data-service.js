@@ -93,7 +93,17 @@
     const controller = new AbortController();
     activeControllers.set(requestScope, controller);
     if (hasEmbeddedGovernedProjections(sourceRows)) {
-      const rows = sourceRows.map(source => ({ ...source }));
+      // A governed embedded read can establish an eligible WO without a case.
+      // Resolve only those missing statuses through the same projection Kitting
+      // uses; retain existing embedded case/legacy dispositions unchanged.
+      const missing = sourceRows.filter(row => row.materialStatus == null &&
+        Number(row.quantityOrdered) > 0 && Number(row.erpQuantityOpen) > 0 &&
+        cleanText(row.materialStatusWorkOrderNumber) &&
+        normalizeWorkOrderNumber(row.materialStatusWorkOrderNumber) === resolveMaterialStatusWorkOrder(row));
+      const projected = missing.length ? await applyMaterialStatusProjection(missing, controller.signal) : [];
+      const byId = new Map(projected.map(row => [row.salesOrderLineId, row]));
+      const rows = sourceRows.map(source => byId.get(source.salesOrderLineId) || { ...source });
+      if (controller.signal.aborted) throw new DOMException('Stale Operations Center enrichment request.', 'AbortError');
       validateUniqueIdentities(rows);
       return {
         ...canonicalResult,
@@ -152,8 +162,9 @@
     const operational = row?.workOrderApprovalReview?.operationalRelationship;
     const route = cleanText(operational?.operationalRoute);
     const active = cleanText(operational?.activeWorkOrderNumber);
+    if (row?.rmaReworkMembership || ['RMA_REWORK', 'RETURN_RMA_REVIEW_REQUIRED'].includes(route)) return '';
+    if (route === 'DIRECT_FULFILLMENT' && cleanText(operational?.operationalStatus) === 'NO_WORK_ORDER_REQUIRED') return '';
     if (route === 'NORMAL_PRODUCTION' && active) return normalizeWorkOrderNumber(active);
-    if (['RMA_REWORK', 'RETURN_RMA_REVIEW_REQUIRED'].includes(route)) return '';
     const approved = cleanText(row?.workOrderApprovalReview?.currentApproval?.approvedWorkOrderNumber);
     if (approved) return normalizeWorkOrderNumber(approved);
     return row?.workOrderRelationship?.status === 'EXACT_LINE_UNIQUE'
@@ -320,6 +331,8 @@
     const itemNumber = cleanText(source.itemNumber);
     const description = cleanText(source.description);
     const orderDate = cleanText(source.orderDate);
+    const customerPoDate = cleanText(source.customerPoDate);
+    const customerDueDate = cleanText(source.customerDueDate);
     const dueDate = cleanText(source.estimatedShipDate);
 
     return {
@@ -327,6 +340,8 @@
       masterRecordKey,
       compatibilityKey: masterRecordKey,
       orderDate,
+      customerPoDate,
+      customerDueDate,
       customerNumber,
       customerName: cleanText(source.customerName),
       customerPurchaseOrderNumber: cleanText(source.customerPurchaseOrderNumber),
@@ -357,6 +372,8 @@
       id: masterRecordKey,
       vpro5: {
         orderDate: formatLegacyDate(orderDate),
+        poDate: formatLegacyDate(customerPoDate),
+        customerDueDate: formatLegacyDate(customerDueDate),
         customerNumber,
         customer: cleanText(source.customerName),
         customerPo: cleanText(source.customerPurchaseOrderNumber),

@@ -9,6 +9,33 @@ internal static partial class SimCandidateBomProvider
             throw SimRfqIntakeProblem.BadRequest("SIM_ROW_APPROVAL_INVALID","Accept the worksheet row independently.");
         var typed=Review(bom,new(bom.Id,request.RowIndex,null,ComponentChange:new(accept.ComponentType,original.ComponentTypeRevision)),persona);
         var row=typed.Rows[request.RowIndex];
+        if (row.SourcePartNumberReview?.Current.Status == "CONFIRMED" && accept.ComponentType != "DNP") {
+            if (row.IdentityBasis == "MANUFACTURER_PN" && row.ManufacturerIdentity is { } sourceIdentity &&
+                sourceIdentity.Proposals.Any(p => sourceIdentity.Decision(p.Id) == "PROPOSED"))
+                throw SimRfqIntakeProblem.Conflict("SIM_SOURCE_PN_CONFLICT", "Resolve pending manufacturer proposals individually before accepting.");
+            if (!string.IsNullOrWhiteSpace(accept.ManualPartNumber)) {
+                var manualRows = typed.Rows.ToArray();
+                manualRows[request.RowIndex] = InvalidateSourceReview(row, persona, "Explicit manual P/N override.", "OVERRIDDEN") with {
+                    PrimaryIdentity = new("MANUFACTURER_PN", null, null, persona.DisplayName, DateTimeOffset.UtcNow) };
+                return ReviewPrimary(typed with { Rows = manualRows }, request with { WorksheetAcceptance = null,
+                    PrimarySelection = new(null, accept.ManualPartNumber, accept.ManufacturerName, manualRows[request.RowIndex].ReviewState.Token) }, persona, true);
+            }
+            if (!SourceIdentityMatches(row) || request.Values?.GetValueOrDefault("partNumber") != row.Values["partNumber"])
+                throw SimRfqIntakeProblem.Conflict("SIM_SOURCE_PN_STALE", "Save source P/N changes and confirm identity before accepting.");
+            if (row.IdentityBasis == "ASSEMBLY_PN" && !string.IsNullOrWhiteSpace(accept.AssemblyPartNumber) && accept.AssemblyPartNumber.Trim() != row.AssemblyIdentity?.PartNumber) {
+                var assemblyRows = typed.Rows.ToArray();
+                assemblyRows[request.RowIndex] = InvalidateSourceReview(row, persona, "Explicit assembly P/N override.", "OVERRIDDEN") with {
+                    PrimaryIdentity = new("ASSEMBLY_PN", null, null, persona.DisplayName, DateTimeOffset.UtcNow) };
+                var assemblyBom = typed with { Rows = assemblyRows };
+                return ReviewWorksheet(assemblyBom, request with { WorksheetAcceptance = accept with { ExpectedToken = assemblyRows[request.RowIndex].ReviewState.Token } }, persona);
+            }
+            var reviewed = Review(typed, request with { WorksheetAcceptance = null }, persona);
+            var updated = reviewed.Rows[request.RowIndex] with { WorkingState = null };
+            if (!updated.ReviewState.Reviewed) throw SimRfqIntakeProblem.Conflict("SIM_ROW_APPROVAL_BLOCKED", string.Join(" ", updated.ReviewState.Reasons));
+            var acceptedRows = reviewed.Rows.ToArray();
+            acceptedRows[request.RowIndex] = updated with { WholeRowHistory = (updated.WholeRowHistory ?? []).Append(new(persona.DisplayName, DateTimeOffset.UtcNow, accept.ExpectedToken)).ToArray() };
+            return reviewed with { Rows = acceptedRows };
+        }
         if(accept.ComponentType=="DNP") {
             var dnpValues=request.Values is null?null:new Dictionary<string,string>(request.Values);
             if(dnpValues is not null&&original.ComponentType!="DNP")dnpValues["description"]="DO NOT POPULATE";
@@ -18,7 +45,7 @@ internal static partial class SimCandidateBomProvider
             var rows=reviewed.Rows.ToArray();rows[request.RowIndex]=updated with {WholeRowHistory=[new(persona.DisplayName,DateTimeOffset.UtcNow,accept.ExpectedToken)]};
             return reviewed with {Rows=rows};
         }
-        if(accept.ComponentType=="SUBASSEMBLY")
+        if(row.IdentityBasis=="ASSEMBLY_PN")
         {
             var number=accept.AssemblyPartNumber?.Trim();
             if(string.IsNullOrWhiteSpace(number)||number.Length>200)

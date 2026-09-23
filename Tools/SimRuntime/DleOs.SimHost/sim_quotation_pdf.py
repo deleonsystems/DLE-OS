@@ -67,6 +67,15 @@ def render(data, logo, output):
     story.append(KeepTogether(totals))
     def footer(canvas, document):
         canvas.saveState()
+        if data.get('preview', False):
+            canvas.saveState()
+            canvas.setFillColor(colors.HexColor('#D2D9DE'))
+            canvas.translate(306,396);canvas.rotate(35)
+            canvas.setFont('Helvetica-Bold',46)
+            canvas.drawCentredString(0,0,'PREVIEW ONLY')
+            canvas.restoreState()
+            canvas.setFillColor(colors.HexColor('#9B2532'));canvas.setFont('Helvetica-Bold',10)
+            canvas.drawCentredString(306,65,'NOT APPROVED - NOT FOR CUSTOMER USE')
         canvas.setStrokeColor(colors.HexColor('#CFD9DF'));canvas.line(46,51,566,51)
         canvas.setFont('Helvetica',8);canvas.setFillColor(grey)
         canvas.drawString(46,37,'Thank you for the opportunity to quote.')
@@ -77,4 +86,22 @@ def render(data, logo, output):
 
 if __name__ == '__main__':
     with open(sys.argv[1],encoding='utf-8-sig') as source:
-        render(json.load(source),sys.argv[2],sys.argv[3])
+        data = json.load(source)
+    if '--pages' in sys.argv[4:]:
+        # Display the exact PDF pages, never a second commercial layout.
+        import base64
+        import io
+        import pdfplumber
+        pdf = io.BytesIO()
+        render(data,sys.argv[2],pdf)
+        pdf.seek(0)
+        pages = []
+        with pdfplumber.open(pdf) as document:
+            for page in document.pages:
+                png = io.BytesIO()
+                page.to_image(resolution=144).original.save(png,format='PNG')
+                pages.append('data:image/png;base64,'+base64.b64encode(png.getvalue()).decode('ascii'))
+        with open(sys.argv[3],'w',encoding='utf-8') as output:
+            json.dump({'pages':pages},output)
+    else:
+        render(data,sys.argv[2],sys.argv[3])

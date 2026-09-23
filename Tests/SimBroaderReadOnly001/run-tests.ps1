@@ -9,6 +9,7 @@ $project = Join-Path $repository 'Tools\SimRuntime\DleOs.SimHost\DleOs.SimHost.c
 $fixturePath = Join-Path $repository 'Tools\SimRuntime\Scenarios\baseline.operations-center.v1.json'
 $dataSource = Join-Path $repository 'Tools\SimRuntime\DleOs.SimHost\SimOperationsDataStore.cs'
 $endpointSource = Join-Path $repository 'Tools\SimRuntime\DleOs.SimHost\SimOperationsEndpoints.cs'
+$kittingEndpointSource = Join-Path $repository 'Tools\SimRuntime\DleOs.SimHost\SimKittingEndpoints.cs'
 $rendererSource = Join-Path $repository 'Tools\SimRuntime\DleOs.SimHost\SimShellRenderer.cs'
 $normalizerSource = Join-Path $repository 'SRC\modules\operations-center\operations-center-data-service.js'
 $kittingSource = Join-Path $repository 'SRC\workspaces\kitting\kitting-workspace.js'
@@ -81,6 +82,7 @@ $workOrderNumbers = @($fixture.workOrders.workOrderNumber)
 $registryText = Read-Text $registrySource
 $dataText = Read-Text $dataSource
 $endpointText = Read-Text $endpointSource
+$kittingEndpointText = Read-Text $kittingEndpointSource
 $rendererText = Read-Text $rendererSource
 $normalizerText = Read-Text $normalizerSource
 $kittingText = Read-Text $kittingSource
@@ -96,11 +98,11 @@ Require (($states | Where-Object workOrderNumber -eq '9700003').materialStatus.m
 Require (@($states | Where-Object { -not $_.materialStatus.workOrderNumber -or $_.materialStatus.workOrderNumber -ne $_.workOrderNumber }).Count -eq 0) 'material projections have no orphan Work Order identity'
 Require ($dataText -match 'CREATE TABLE KittingReadState' -and $dataText -match 'FOREIGN KEY\(WorkOrderNumber\) REFERENCES WorkOrder') 'SQLite adds one narrow Work Order-linked Kitting read-state table'
 Require ($dataText -match 'SqliteOpenMode\.ReadOnly' -and $dataText -match 'AddEmbeddedKittingProjectionsAsync') 'business reads remain SQLite read-only and provide shared embedded projections'
-Require ($endpointText -match '/api/kitting-cases/v1/work-orders/\{workOrderNumber\}') 'established Kitting Case read contract is implemented'
+Require ($kittingEndpointText -match '/api/kitting-cases/v1/work-orders/\{workOrderNumber\}' -and $kittingEndpointText -match 'app.MapGet\(route,') 'established Kitting Case read contract is implemented'
 Require ($endpointText -match '\["kitting\.view"\]' -and $endpointText -match 'alternativePermissions') 'Kitting Home permission authorizes its required canonical Work Order reads'
 Require ($normalizerText -match "source\.materialStatus" -and $normalizerText -match 'source\.materialStatusWorkOrderNumber') 'shared canonical normalization preserves authoritative embedded read projections'
 Require ($kittingText -match 'resolveOpenQuantity' -and $kittingText -match 'record\?\.erpQuantityOpen') 'Kitting falls back to canonical ERP open quantity when optional operational enrichment is unavailable'
-Require ($rendererText -match '#workOrderDashboardKitReleasedBom' -and $rendererText -match '#workOrderDashboardSetDisposition' -and $rendererText -match '#activeKittingSaveExit') 'SIM hides governed Kitting mutation controls'
+Require ($rendererText.Contains('#workOrderDashboardKitReleasedBom:not([data-kitting-edit-supported="true"])') -and $rendererText -match '#workOrderDashboardSetDisposition' -and $rendererText.Contains('#activeKittingSaveExit:not([data-kitting-edit-supported="true"])')) 'SIM hides unsupported Kitting mutation controls; supported selected cases use the server capability gate'
 foreach ($workspace in @('purchasing','kitting','production')) {
     Require ($registryText -match "id: `"$workspace`"[\s\S]*?home: Object\.freeze\([\s\S]*?requiredPermission: `"kitting\.view`"") "$workspace is a current Home-backed kitting.view workspace"
 }
@@ -172,15 +174,18 @@ try {
     Require ((Invoke-SimHttp $session 'GET' '/api/kitting-cases/v1/work-orders/9700002' $null).Status -eq 200) 'Kitting Operator can read material status evidence'
     $beforeMutation = (Invoke-SimHttp $session 'GET' '/api/kitting-cases/v1/work-orders/9700002' $null).Body | ConvertTo-Json -Compress -Depth 20
     $unsupportedMutation = Invoke-SimHttp $session 'POST' '/api/kitting-cases/v1/work-orders/9700002/submit' @{}
-    Require ($unsupportedMutation.Status -eq 501 -and $unsupportedMutation.Body.code -eq 'DLE_OS_SIM_BUSINESS_CONTRACT_UNAVAILABLE') 'authorized Kitting mutation fails locally with HTTP 501'
+    Require ($unsupportedMutation.Status -eq 404 -and $unsupportedMutation.Body.code -eq 'kitting_case_not_found') 'baseline-only Kitting mutation is rejected because no editable persisted case exists'
     $afterMutation = (Invoke-SimHttp $session 'GET' '/api/kitting-cases/v1/work-orders/9700002' $null).Body | ConvertTo-Json -Compress -Depth 20
     Require ($afterMutation -eq $beforeMutation) 'failed Kitting mutation cannot alter the read baseline'
 
     Select-Persona $session 'read-only-viewer'
     Require ((Invoke-SimHttp $session 'GET' '/api/platform/live/v1/sales-orders?pageSize=1' $null).Status -eq 200) 'Read-Only Viewer can see Home-backed operational queues'
     Require ((Invoke-SimHttp $session 'GET' '/api/kitting-cases/v1/work-orders/9700001' $null).Status -eq 200) 'Read-Only Viewer can inspect Kitting material state'
+    $viewerBefore = (Invoke-SimHttp $session 'GET' '/api/kitting-cases/v1/work-orders/9700001' $null).Body | ConvertTo-Json -Compress -Depth 20
     $viewerMutation = Invoke-SimHttp $session 'PUT' '/api/kitting-cases/v1/work-orders/9700001/draft' @{}
-    Require ($viewerMutation.Status -eq 403 -and $viewerMutation.Body.requiredPermission -eq 'kitting.disposition') 'Read-Only Viewer is denied Kitting mutation server-side'
+    Require ($viewerMutation.Status -eq 403) 'Read-Only Viewer is denied Kitting mutation server-side'
+    $viewerAfter = (Invoke-SimHttp $session 'GET' '/api/kitting-cases/v1/work-orders/9700001' $null).Body | ConvertTo-Json -Compress -Depth 20
+    Require ($viewerAfter -eq $viewerBefore) 'permission-denied Kitting mutation leaves the baseline unchanged'
 
     Select-Persona $session 'no-access'
     Require ((Invoke-SimHttp $session 'GET' '/api/platform/live/v1/sales-orders?pageSize=1' $null).Status -eq 403) 'No-Access User is denied Home queue source data'

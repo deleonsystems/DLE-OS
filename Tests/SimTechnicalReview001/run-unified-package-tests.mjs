@@ -21,7 +21,17 @@ assert.equal(t.packageCanBuild(),true);assert.match(t.unifiedPackageIssue(),/Acc
 handlers.change({target:{id:'packageHistory',checked:true}});handlers.change({target:{name:'packageComplete',value:'yes'}});
 assert.equal(t.unifiedPackageIssue(),'');html=t.renderInventory();assert.match(html,/Save &amp; Build Candidate BOM/);assert.doesNotMatch(html,/flow-MANUFACTURING|candidate-from-source|flow-HISTORY/);
 change(1,{packageUse:'productionUse'},'PRIMARY_DRAWING');assert.equal(t.unifiedPackageDraft().documents[0].productionUse,'NOT_FOR_PRODUCTION');assert.equal(t.unifiedPackageDraft().governingBomDocumentId,'pdf','production selection never changes BOM authority');
-change(2,{packageUse:'bomUse'},'GOVERNING_BOM');assert.equal(t.unifiedPackageDraft().documents[1].productionUse,'PRIMARY_DRAWING');assert.equal(t.packageCanBuild(),false);html=t.renderInventory();assert.match(html,/extraction from a standalone XLS Main BOM is not supported/);assert.match(html,/>Save Technical Package</);
+change(2,{packageUse:'bomUse'},'GOVERNING_BOM');assert.equal(t.unifiedPackageDraft().documents[1].productionUse,'PRIMARY_DRAWING');assert.equal(t.packageCanBuild(),false);html=t.renderInventory();assert.match(html,/A spreadsheet Main BOM is not supported/);assert.match(html,/>Save Technical Package</);
+envelope.record.technicalFiles[2].type='application/pdf';
+assert.equal(t.packageCanBuild(),true,'verified standalone BOM PDF can build');
+assert.equal(t.unifiedPackageDraft().documents[1].productionUse,'PRIMARY_DRAWING','standalone BOM keeps separate production drawing');
+t.resetEdits();
+assert.match(t.renderInventory(),/Save &amp; Build Candidate BOM/);
+assert.doesNotMatch(t.renderInventory(),/requires the Main BOM to be embedded/);
+envelope.record.technicalFiles[2].binaryStatus='UNVERIFIED';
+assert.equal(t.packageCanBuild(),false,'unverified standalone PDF cannot build');
+envelope.record.technicalFiles[2].binaryStatus='VERIFIED';
+envelope.record.technicalFiles[2].type='application/vnd.ms-excel';
 change(2,{pnField:'basis'},'UNKNOWN');assert.match(t.unifiedPackageIssue(),/Accept each document row/);
 handlers.change({target:{name:'packageComplete',value:'no'}});handlers.input({target:{id:'packageMissing',value:'Need resolved P/N basis'}});html=t.renderInventory();assert.match(html,/Place On Hold/);assert.doesNotMatch(html,/Save &amp; Build/);
 await t.saveUnifiedPackage(false);

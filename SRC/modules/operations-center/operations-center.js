@@ -330,7 +330,7 @@
         escapeOptionText(viewModel.getOfficialField(primary, 'opQtyOpen')) + '</span>' +
         '<small>SO ' + escapeOptionText(viewModel.getOfficialField(primary, 'salesOrder').replace(/^0+/, '') ||
           viewModel.getOfficialField(primary, 'salesOrder')) + ' · Line ' +
-        escapeOptionText(viewModel.getOfficialField(primary, 'sequenceLine')) + ' · Due ' +
+        escapeOptionText(viewModel.getOfficialField(primary, 'sequenceLine')) + ' · Est. Ship ' +
         escapeOptionText(viewModel.getOfficialField(primary, 'dueDate')) + '</small>' +
         '<small>' + escapeOptionText(viewModel.getOfficialField(primary, 'customer')) + '</small>' +
         statusBadge + '</button>';
@@ -342,7 +342,7 @@
       ' · ' + escapeOptionText(viewModel.getOfficialField(primary, 'partNumber')) + '</strong>' +
       '<span>Qty ' + escapeOptionText(group.groupedOpenQuantity) +
       ' · ' + escapeOptionText(group.lineCount + ' line' + (group.lineCount === 1 ? '' : 's')) +
-      ' · Next ' + escapeOptionText(viewModel.getOfficialField(primary, 'dueDate')) +
+      ' · Next Est. Ship ' + escapeOptionText(viewModel.getOfficialField(primary, 'dueDate')) +
       (group.hasQuantityException ? ' · RMA/MIXED qty' : '') + '</span>' +
       '<small>' + escapeOptionText(viewModel.getOfficialField(primary, 'customer')) +
       ' · PO ' + escapeOptionText(viewModel.getOfficialField(primary, 'customerPo')) + '</small>' +
@@ -361,7 +361,7 @@
       escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) + '</strong>' +
       '<span>' + escapeOptionText(viewModel.getOfficialField(record, 'partNumber')) + ' · ERP Qty Open ' +
       escapeOptionText(viewModel.getOfficialField(record, 'erpQtyOpen')) + '</span>' +
-      '<small>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + ' · Due ' +
+      '<small>' + escapeOptionText(viewModel.getOfficialField(record, 'customer')) + ' · Est. Ship ' +
       escapeOptionText(viewModel.getOfficialField(record, 'dueDate')) + '</small>' +
       '<small class="operations-center-mobile-unavailable">Operational routing unavailable</small></button>';
     return renderMobileResultItem(group, card, inline, expanded);
@@ -399,7 +399,7 @@
         mobileFact('Customer P.O.', viewModel.getOfficialField(primary, 'customerPo')) +
         mobileFact('ERP Qty Open', viewModel.getOfficialField(primary, 'erpQtyOpen')) +
         mobileFact('SO / Line', viewModel.getOfficialField(primary, 'salesOrder') + ' / ' + viewModel.getOfficialField(primary, 'sequenceLine')) +
-        mobileFact('Due', viewModel.getOfficialField(primary, 'dueDate')) +
+        mobileDateFacts(primary) +
         mobileFact('Operational Work Order', 'Unavailable') +
         mobileFact('Material Status', 'Unavailable') +
         mobileFact('Verified Status', 'Unavailable') +
@@ -414,7 +414,7 @@
         mobileFact('Customer P.O.', viewModel.getOfficialField(primary, 'customerPo')) +
         mobileFact('Qty Open', viewModel.getOfficialField(primary, 'opQtyOpen')) +
         mobileFact('SO / Line', viewModel.getOfficialField(primary, 'salesOrder') + ' / ' + viewModel.getOfficialField(primary, 'sequenceLine')) +
-        mobileFact('Due', viewModel.getOfficialField(primary, 'dueDate')) +
+        mobileDateFacts(primary) +
         mobileFact('Material', viewModel.getOfficialField(primary, 'materialStatus')) +
         '</dl>' +
         '<div class="operations-center-mobile-latest"><strong>Last Verified Status</strong><span>' +
@@ -432,7 +432,7 @@
       mobileFact('Customer P.O.', viewModel.getOfficialField(primary, 'customerPo')) +
       mobileFact('Grouped Qty', group.groupedOpenQuantity + (group.hasQuantityException ? ' + exception lines' : '')) +
       mobileFact('Lines', group.lineCount) +
-      mobileFact('Next Due', viewModel.getOfficialField(primary, 'dueDate')) +
+      mobileDateFacts(primary) +
       mobileFact('Default Line', viewModel.getOfficialField(primary, 'salesOrder') + ' / ' + viewModel.getOfficialField(primary, 'sequenceLine')) +
       mobileFact('Material', viewModel.getOfficialField(primary, 'materialStatus')) +
       '</dl>' +
@@ -451,7 +451,8 @@
       escapeOptionText(viewModel.getMasterRecordKey(record)) + '" onclick="openOperationsCenterLineVerifiedStatusLogger(event)">' +
       '<strong>SO ' + escapeOptionText(viewModel.getOfficialField(record, 'salesOrder')) +
       ' / Line ' + escapeOptionText(viewModel.getOfficialField(record, 'sequenceLine')) + '</strong>' +
-      '<span>Due ' + escapeOptionText(viewModel.getOfficialField(record, 'dueDate')) +
+      '<span>Customer Due ' + escapeOptionText(viewModel.getOfficialField(record, 'customerDueDate')) +
+      ' · Est. Ship ' + escapeOptionText(viewModel.getOfficialField(record, 'dueDate')) +
       ' · Qty ' + escapeOptionText(viewModel.getOfficialField(record, 'opQtyOpen')) +
       ' · ' + escapeOptionText(inherited) + '</span>' +
       '<small>' + escapeOptionText(status.statusText || 'No status logged yet.') + '</small></button>';
@@ -459,6 +460,14 @@
 
   function mobileFact(label, value) {
     return '<dt>' + escapeOptionText(label) + '</dt><dd>' + escapeOptionText(value || '-') + '</dd>';
+  }
+
+  function mobileDateFacts(record) {
+    const viewModel = window.OperationsCenter.viewModel;
+    return mobileFact('PO Date', viewModel.getOfficialField(record, 'poDate')) +
+      mobileFact('ERP Order Date', viewModel.getOfficialField(record, 'orderDate')) +
+      mobileFact('Customer Due Date', viewModel.getOfficialField(record, 'customerDueDate')) +
+      mobileFact('Estimated Ship Date', viewModel.getOfficialField(record, 'dueDate'));
   }
 
   function escapeOptionText(value) {

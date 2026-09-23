@@ -14,6 +14,8 @@ internal sealed record SimSubassemblyCoverage(string PartNumber, decimal Quantit
 internal static class SimTechnicalPackageProvider
 {
     internal static bool IsBomSource(SimPackageDocument doc) => doc.RowAssociation is null && (doc.DocumentType == "BOM" || (doc.DocumentType == "ASSEMBLY_DRAWING" && doc.EmbeddedBom));
+    internal static bool IsGoverningCandidateSource(SimPackageDocument? doc) =>
+        doc is { Applicability: "PARENT_ASSEMBLY", Role: "GOVERNING" } && IsBomSource(doc);
     internal static bool BomBearing(SimPackageDocument doc) => IsBomSource(doc) || doc.DocumentType == "SUBASSEMBLY_BOM";
     internal static void RequirePartNumberReview(SimPackageDocument[] docs)
     {

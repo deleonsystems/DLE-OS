@@ -52,7 +52,7 @@
   function formatQuantity(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) return clean(value) || '\u2014';
-    return number.toLocaleString('en-US', { maximumFractionDigits: 4 });
+    return window.KittingQuantity?.format(value) ?? String(number);
   }
 
   function governedLocation(row) {

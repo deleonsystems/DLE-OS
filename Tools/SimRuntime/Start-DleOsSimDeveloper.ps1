@@ -6,6 +6,8 @@ $module = Join-Path $PSScriptRoot 'Developer\SimDeveloperTools.psm1'
 Import-Module $module -Force
 
 $profile = Get-DleOsSimProfile $ProfilePath
+# Explicit per-profile opt-in; ordinary SIM profiles keep the adapter disabled.
+$env:DLE_OS_SIM_OPERATIONS_IMPORT = if ($profile.PSObject.Properties['developmentalOperationsImport'] -and $profile.developmentalOperationsImport -eq $true) { 'true' } else { 'false' }
 $runtime = Get-DleOsSimRuntimeStatus $profile
 if ($runtime.running -and $runtime.binding -eq $profile.url) {
     [pscustomobject]@{

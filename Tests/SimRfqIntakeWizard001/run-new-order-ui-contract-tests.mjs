@@ -12,17 +12,17 @@ function check(condition, message) { assert.ok(condition, message); checks.push(
 
 check(wizard.indexOf('choice("New Order", "NEW_ORDER", "intake-type")') > wizard.indexOf('choice("New Quote Request", "NEW_QUOTE_REQUEST", "intake-type")'), "New Order follows New Quote Request");
 for (const text of [
-  "Customer PO", "Verbal PO", "Planned for a future release", "Do the payment terms match the customer’s current terms?",
+  "Do we have a customer PO for this order?", "Yes — Customer PO", "No — Verbal / Informal Order", "Planned for a future release", "Do the payment terms match the customer’s current terms?",
   "Notify A/R Department", "Is the billing address the same as the ship-to address?", "Verify and highlight the Ship To address",
   "Will Call", "DLE Delivery", "UPS Charge", "UPS Collect", "Repeat Order", "New Assembly", "New Revision",
   "Create new BOM/router and check FAIR requirement", "Update BOM/router and check FAIR requirement",
-  "Can we meet the delivery date?", "Contact customer to discuss the delivery date",
-  "Does the price match the price quoted?", "Review the quote and contact the customer",
+  "How should this customer due date be handled?", "Contact customer to discuss the delivery date",
+  "Compare the customer PO with the quotation", "Submit for Contract Review",
   "Is traceability required?", "Traveler", "Material Certs", "Certificate of Conformance", "FAIR", "ITAR", "DPAS Rated",
-  "PO flowdowns and quality clauses", "Additional contract quality requirements", "Special requirements",
-  "Requirements identified on attached document", "Reviewed By", "Review date"
+  "Anything else from the customer’s PO that DLE needs to honor?", "Other customer requirements", "Enter any customer requirement not already captured above.",
+  "I reviewed the customer PO and captured its requirements.", "SUBMITTED FOR CONTRACT REVIEW — PENDING ACCEPTANCE"
 ]) check(wizard.includes(text), `New Order UI includes: ${text}`);
-check(/intake-choice-disabled[^>]*" disabled aria-disabled="true"/.test(wizard), "Verbal PO is visibly disabled");
+check(/intake-choice-disabled[^>]*" disabled aria-disabled="true"/.test(wizard), "Verbal / Informal remains visibly disabled");
 check(wizard.includes("Attach the customer PO before continuing."), "Customer PO attachment is required in the guided flow");
 check(wizard.includes('shippingMethod !== "UPS_COLLECT"'), "UPS account step is conditional");
 check(wizard.includes("isSkippedNewOrderStep"), "hidden conditional steps do not block forward or Back navigation");
@@ -38,5 +38,8 @@ for (const code of [
 check(css.includes(".intake-choice-disabled"), "disabled option uses existing Intake visual language");
 check(css.includes(".intake-triggered-summary"), "triggered actions use scoped Intake styling");
 check(!/fetch\([^)]*(email|notification)/i.test(wizard), "New Order adds no email or notification automation");
+
+check(!wizard.includes("How was the order received?"), "old communication-method wording removed");
+check(wizard.includes('choice("Yes — Customer PO", "CUSTOMER_PO", "customer-po-type")'), "formal PO keeps existing stored value and path");
 
 console.log(`PASS: ${checks.length} New Order Intake UI and contract checks.`);

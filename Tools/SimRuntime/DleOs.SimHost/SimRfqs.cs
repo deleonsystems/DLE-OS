@@ -4,7 +4,8 @@ internal sealed record SimRfqLane(string Status = "NOT_STARTED", string? Updated
 internal sealed record SimRfqLanes(SimRfqLane Materials, SimRfqLane Labor,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialPlan? MaterialsQuote = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborPlan? LaborQuote = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimFinalApproval[]? FinalReviews = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimFinalApproval[]? FinalReviews = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimRfqCommercial? Commercial = null);
 internal sealed record SimRfqLaneRequest(string Status);
 internal sealed record SimRfqWorkspace(string IntakeId, SimRfqIntakeCustomer Customer, SimRfqIntakeAssembly[] Assemblies,
     string Scope, SimRfqLanes Lanes, string Status, SimQuotationInputs Inputs, string? AssemblyType = null);
@@ -40,6 +41,7 @@ internal static partial class SimRfqIntakeEndpoints
 {
     private static void MapRfqs(WebApplication app, SimStateStore state, SimRfqIntakeStore store, SimPersonaSessionStore personas)
     {
+        MapRfqCommercial(app,state,store,personas);
         MapMaterials(app, state, store, personas);
         MapLabor(app, state, store, personas);
         MapFinalReview(app, state, store, personas);

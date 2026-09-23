@@ -176,12 +176,13 @@ internal static class UnifiedPackageChecks
         Check(Current().TechnicalReview!.CandidateBom is null && Current().TechnicalReview!.CandidateBomVersions!.Any(c=>c.Id==candidate.Id),"source change archives candidate and clears current qualification");
         Check(Current().TechnicalReview!.Workflow!.Manufacturing!.Id==current.TechnicalReview.Workflow.Manufacturing.Id,"BOM metadata change preserves Labor source identity");
         Check(JsonSerializer.Serialize(Current().TechnicalReview!.BomAcceptances,json)==accepted,"source change does not rewrite old acceptance");
-        // A standalone BOM can be authoritative independently of Production, but extraction remains unsupported.
+        // A standalone PDF BOM is authoritative independently of Production and uses full-table extraction.
         docs[0]=docs[0] with {BomUse="NO_BOM_ROLE"};
         docs[2]=docs[2] with {DocumentType="BOM",EmbeddedBom=false,IdentityReview=new("BOM_ONLY"),PartNumberReview=new("MANUFACTURER",false),BomUse="GOVERNING_BOM"};
         await store.SaveUnifiedPackage(record.IntakeId,Request() with {GoverningBomDocumentId=files[2].DocumentId},persona);
-        Check(Current().TechnicalReview!.TechnicalPackage!.GoverningBomSourceKind=="STANDALONE_BOM" && Current().TechnicalReview!.Workflow!.Manufacturing!.GoverningDocumentId==files[1].DocumentId,"standalone authority represented without claiming extraction support");
-        await Block(()=>store.SubmitAnalysis(record.IntakeId,persona),"ANALYSIS_SOURCE_REQUIRED");
+        Check(Current().TechnicalReview!.TechnicalPackage!.GoverningBomSourceKind=="STANDALONE_BOM" && Current().TechnicalReview!.Workflow!.Manufacturing!.GoverningDocumentId==files[1].DocumentId,"standalone authority preserves separate production drawing");
+        var standaloneJob=await store.SubmitAnalysis(record.IntakeId,persona);
+        Check(standaloneJob.Input.GoverningDocumentId==files[2].DocumentId && standaloneJob.Input.ResultVersion==DleAnalysisContract.EnrichedResultVersion,"accepted standalone PDF submits full-table analysis through normal package workflow");
         await File.WriteAllTextAsync(path,saved);store=new SimRfqIntakeStore(root);docs=Current().TechnicalReview!.TechnicalPackage!.Documents;
         var staleJob=await store.SubmitAnalysis(record.IntakeId,persona);await store.ClaimAnalysisJob();
         docs[0]=docs[0] with {PartNumberReview=new("MANUFACTURER",false)};

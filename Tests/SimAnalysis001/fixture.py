@@ -20,3 +20,14 @@ for supporting in [False, True]:
     table.wrapOn(canvas, 530, 700)
     table.drawOn(canvas, 35, 480)
     canvas.save()
+
+# Standalone BOM is deliberately on page 1 and has more than ten rows.
+canvas = Canvas(str(folder / 'standalone.pdf'), invariant=1)
+rows = [['Line #', 'P/N', 'Quantity', 'Designator', 'Desc.']]
+for i in range(1, 13):
+    rows.append([str(i), 'SOLO-PART-' + str(i), '2', 'R' + str(i * 2 - 1) + ' R' + str(i * 2), 'Synthetic pair ' + str(i)])
+table = Table(rows, colWidths=[45, 115, 55, 80, 170], rowHeights=30)
+table.setStyle(TableStyle([('GRID', (0, 0), (-1, -1), .5, 'black')]))
+table.wrapOn(canvas, 530, 700)
+table.drawOn(canvas, 35, 300)
+canvas.save()

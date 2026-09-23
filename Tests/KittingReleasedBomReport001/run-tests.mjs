@@ -35,7 +35,7 @@ assert.doesNotMatch(report, /<input|<textarea|<select|contenteditable|saveKittin
   'the current Released BOM document is read only');
 
 const openReleasedBom = dashboard.slice(
-  dashboard.indexOf('function openReleasedBomPrototype'),
+  dashboard.indexOf('function openReleasedBom'),
   dashboard.indexOf('function resetActiveKittingTrial'));
 assert.match(openReleasedBom, /activeKittingTrialDraft[\s\S]*kittingCaseReview\?\.draft/,
   'the current governed persisted Kitting draft is the report source');

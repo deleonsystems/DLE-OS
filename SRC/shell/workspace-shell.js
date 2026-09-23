@@ -18,6 +18,13 @@
 
   function ensureWorkspacePanel(workspace) {
     let panel = document.querySelector('[data-workspace-home="' + workspace.id + '"]');
+    // The legacy Order Entry panel predates the SIM bridge module. Replace its
+    // placeholder tiles with the module mount, retaining the existing panel.
+    if (panel && workspace.id === "order-entry" && workspace.modulePath &&
+        document.body.dataset.simRuntime === "true" &&
+        !panel.querySelector('[data-workspace-mount="order-entry"]')) {
+      panel.innerHTML = '<div data-workspace-mount="order-entry"></div>';
+    }
     if (panel || !workspace.modulePath) return panel;
     const home = document.getElementById("home");
     if (!home) return null;
