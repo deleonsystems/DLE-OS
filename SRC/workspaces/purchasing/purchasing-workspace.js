@@ -6,10 +6,28 @@
   const JOB_WORKSPACE_MODULE_PATH = "SRC/workspaces/purchasing/purchasing-job-workspace.js";
   const state = { loading: false, model: null, rowsByKey: new Map(), loadError: "" };
   let jobWorkspaceModulePromise = null;
+  let buyerModulePromise = null;
+
+  function isSim() { return document.body?.dataset?.simRuntime === "true"; }
+  async function ensureBuyerModule() {
+    if (window.SimPurchasingWorkspace) return window.SimPurchasingWorkspace;
+    if (!buyerModulePromise) buyerModulePromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "SRC/workspaces/purchasing/purchasing-buyer-workspace.js";
+      script.onload = () => resolve(window.SimPurchasingWorkspace);
+      script.onerror = () => reject(new Error("Unable to load Purchasing buyer workspace."));
+      document.head.appendChild(script);
+    }).catch(error => { buyerModulePromise = null; throw error; });
+    return buyerModulePromise;
+  }
 
   async function renderPurchasingWorkspace() {
     const mount = ensureMount();
     if (!mount) return;
+    if (isSim()) {
+      try { return await (await ensureBuyerModule()).render(mount); }
+      catch (error) { mount.innerHTML = '<p role="alert">' + escapeHtml(error.message) + '</p>'; return; }
+    }
     if (mount.dataset.workspaceLoaded !== "true") {
       mount.innerHTML = '<div class="workspace-dashboard-card"><h3>Loading Purchasing Workspace</h3><p>Preparing governed material shortages...</p></div>';
       try {
@@ -52,6 +70,7 @@
   }
 
   async function refreshPurchasingWorkspace(options = {}) {
+    if (isSim()) return (await ensureBuyerModule()).refresh();
     if (state.loading) return state.model;
     state.loading = true;
     state.loadError = "";
@@ -134,6 +153,11 @@
   }
 
   async function openShortageDetail(row) {
+    if (isSim() && row?.workOrderNumber) {
+      const buyer = await ensureBuyerModule();
+      await buyer.render(ensureMount());
+      return buyer.openWorkOrder(row.workOrderNumber);
+    }
     if (!row?.actionable || !row.workOrderNumber || !row.canonicalWorkOrder) return false;
     const controller = await ensureJobWorkspaceModule();
     if (typeof controller?.open !== "function") return false;
@@ -203,6 +227,6 @@
     refresh: refreshPurchasingWorkspace,
     buildViewModel,
     openShortageDetail,
-    getModel: () => state.model
+    getModel: () => isSim() ? window.SimPurchasingWorkspace?.getModel() || null : state.model
   });
 })(window, document);

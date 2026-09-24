@@ -46,6 +46,12 @@ internal static class SimPersonaCatalog
 
     internal static readonly IReadOnlyList<SimPersona> All = new[]
     {
+        new SimPersona("purchasing-buyer", "sim.purchasing", "SIM Purchasing Buyer", "ACTIVE",
+            ["SIM_PURCHASING_BUYER"], ["purchasing.view", "purchasing.manage", "receiving.view", "kitting.view"], false,
+            "Synthetic buying decisions and expected supply only; no real supplier orders or physical receiving."),
+        new SimPersona("receiving-viewer", "sim.receiving", "SIM Receiving Viewer", "ACTIVE",
+            ["SIM_RECEIVING_VIEWER"], ["receiving.view"], false,
+            "Read-only expected incoming developmental PO lines; no receipt commands."),
         new SimPersona("order-entry-operator", "sim.orderentry", "SIM Order Entry", "ACTIVE",
             ["SIM_ORDER_ENTRY"], ["order_entry.view", "order_entry.manage"], false,
             "Manual synthetic VPRO bridge work; no commercial acceptance or Operations release authority."),
@@ -69,7 +75,7 @@ internal static class SimPersonaCatalog
             "Shipment visibility and staging capability without confirmation or reconciliation authority."),
         new SimPersona("read-only-viewer", "sim.viewer", "Read-Only Viewer", "ACTIVE",
             ["SIM_READ_ONLY"],
-            ["work_orders.view", "kitting.view", "rma_rework.view", "shipments.view"], false,
+            ["work_orders.view", "kitting.view", "rma_rework.view", "shipments.view", "purchasing.view", "receiving.view"], false,
             "Repository-qualified cross-workspace read permissions with no write grants."),
         new SimPersona("no-access", "sim.noaccess", "No-Access User", "ACTIVE",
             ["SIM_NO_ACCESS"], [], false,

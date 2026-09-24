@@ -279,6 +279,7 @@ SimRfqIntakeEndpoints.MapOperationsHandoff(app,simState,personaSessions,operatio
 var kittingRequirements=new SimKittingRequirementsProvider(rfqIntakes,operationsData);
 var simKittingCases=new SimKittingCases(simState,operationsData,kittingRequirements);
 SimKittingEndpoints.Map(app,simState,personaSessions,simKittingCases);
+SimPurchasingEndpoints.Map(app,simState,personaSessions,new SimPurchasingService(simState,operationsData));
 SimDocumentEndpoints.Map(app, simState, personaSessions, simDocuments);
 
 app.MapMethods("/api/{**path}",

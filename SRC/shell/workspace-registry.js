@@ -96,6 +96,16 @@
       })
     },
     {
+      id: "receiving", label: "Receiving", simOnly: true,
+      purpose: "Expected purchased PO lines and read-only incoming material context.",
+      modulePath: "SRC/workspaces/receiving/receiving-workspace.js",
+      stylePath: "SRC/workspaces/receiving/receiving-workspace.css",
+      home: Object.freeze({
+        label: "Receiving", description: "Expected Material \u2022 PO Lines \u2022 Job Coverage",
+        mark: "RC", requiredPermission: "receiving.view"
+      })
+    },
+    {
       id: "kitting",
       label: "Kitting",
       purpose: "Kit preparation, kit shortages, and material issue to production.",

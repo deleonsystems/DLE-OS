@@ -1,5 +1,6 @@
 @import url("../production/production-workspace.css");
 @import url("purchasing-job-workspace.css");
+@import url("purchasing-buyer-workspace.css");
 
 body[data-workspace-view="purchasing"] main{margin-top:12px}
 .purchasing-lifecycle-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
