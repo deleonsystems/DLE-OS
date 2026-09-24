@@ -3,7 +3,7 @@
 
   const ENDPOINT = '/api/sim/receiving/expected';
   const state = {
-    items: [], selectedId: null, busy: false, error: '', request: 0,
+    items: [], planning: null, selectedId: null, busy: false, error: '', request: 0,
     sort: 'expectedDate', direction: 'asc',
     filters: { search: '', expectedFrom: '', expectedTo: '', workOrder: '', supplier: '', po: '', part: '', status: '' }
   };
@@ -135,7 +135,7 @@
         ['Open', quantity(item.openQuantity)], ['Unit cost / ' + text(item.purchasingUom), money(item.unitCost, item.currency)],
         ['Extended cost', money(item.extendedCost, item.currency)], ['PO / Order date', date(item.orderDate)],
         ['Supplier requested date', date(item.requestedDate)], ['Supplier promised / expected date', date(item.expectedDate)],
-        ['Material need-by', date(item.materialNeedBy)], ['Acknowledgment / Confirmation', item.confirmation], ['Buyer', item.buyer],
+        ['Material need-by', (state.planning?.workOrders || []).flatMap(w => w.demands || []).filter(d => jobs.some(j => j.demandId === d.demandId)).map(d => 'WO ' + d.workOrderNumber + ': ' + date(d.schedule?.materialNeedBy)).join(' · ') || 'Not established'], ['Acknowledgment / Confirmation', item.confirmation], ['Buyer', item.buyer],
         ['Excess / stock quantity', quantity(extra)], ['Excess purpose', item.excessPurpose], ['Purchase notes', item.notes]]) +
       '<h3>Demand / job coverage</h3><div class="receiving-table-scroll"><table><thead><tr><th>WO</th><th>SO / Line</th><th>Customer</th>' +
       '<th>Assembly / Rev</th><th>Customer Due</th><th>Coverage</th></tr></thead><tbody>' + jobs.map(job => '<tr><td>' + esc(job.workOrderNumber) +
@@ -169,6 +169,10 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Expected material could not be loaded.');
       if (request !== state.request) return;
+      let planning = null;
+      try { planning = await window.MaterialStatus?.getSupplyProgress(); } catch (_) { /* Expected receipt remains available. */ }
+      if (request !== state.request) return;
+      state.planning = planning;
       state.items = list(result.items);
       if (!state.items.some(item => item.expectedReceiptId === state.selectedId)) state.selectedId = null;
     } catch (error) {

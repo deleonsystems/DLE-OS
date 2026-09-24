@@ -302,7 +302,7 @@
       stagedQuantity: shipmentProjection?.stagedQuantity || 0,
       shipmentOperationalRoute: shipmentProjection?.operationalRoute || "",
       shipmentOperationalStatus: shipmentProjection?.operationalStatus || "",
-      dueDate: cleanText(record?.estimatedShipDate || record?.vpro5?.dueDate),
+      dueDate: cleanText(record?.customerDueDate || record?.estimatedShipDate || record?.vpro5?.dueDate),
       relationship: record?.workOrderRelationship || {},
       rmaReworkMembership: record?.rmaReworkMembership || null,
       workOrderApprovalReview: record?.workOrderApprovalReview || null,

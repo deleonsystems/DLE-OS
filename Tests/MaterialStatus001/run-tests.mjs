@@ -83,3 +83,12 @@ assert.match(workOrderHtml, /Legacy Manual Kitting Disposition History/);
 assert.match(workOrderHtml, /Legacy events remain read-only/);
 assert.doesNotMatch(workOrder, /Manual disposition is authoritative/);
 console.log('Material Status shared projection and four-surface contracts: PASS');
+
+let supplyCalls=0;
+window.fetch=async(url,options)=>{supplyCalls++;assert.equal(url,'/api/sim/material-planning');assert.equal(options.cache,'no-store');assert.equal(options.method,undefined);return {ok:true,json:async()=>({workOrders:[{workOrderNumber:'0999999',compactText:'Ordered'}]})};};
+await projection.getSupplyProgress();assert.equal(supplyCalls,0,'Non-SIM has no supply endpoint calls');
+window.DleOsRuntimeConfig={environment:'SIMULATION'};
+assert.equal((await projection.getSupplyProgress()).workOrders[0].compactText,'Ordered');
+assert.equal(projection.project('0999999',{state:'KIT_SHORT'}).machineValue,'KIT_SHORT');
+window.fetch=async()=>({ok:false});await assert.rejects(()=>projection.getSupplyProgress());
+console.log('Read-only SIM supply fetch and unchanged material readiness: PASS');

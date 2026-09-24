@@ -25,7 +25,8 @@ const elements=new Map(),mount=new Node(),workspace=new Node(),fieldset=new Node
 for(const name of ['#buyerRows','#buyerDetails','#buyerBomDialog','#buyerBomContent','.buyer-status'])elements.set(name,new Node());
 elements.set('.buyer-workspace',workspace);
 class FakeFormData {constructor(form){this.fields=form.fields;} get(key){return this.fields.get(key)??null;} entries(){return this.fields.entries();}}
-const window={crypto:{randomUUID},confirm:()=>true,fetch:async(url,options={})=>{
+const planning={workOrders:[{workOrderNumber:'0999999',demands:[{demandId:'demand-5',workOrderNumber:'0999999',schedule:{customerDueDate:'2026-10-14',materialNeedBy:'2026-10-09',lead:{value:3,unit:'DAYS'}},orders:[{purchaseId:'purchase-one',expectedDate:'2026-10-07',risk:{bufferWorkingDays:2,status:'On Time'}}]}]}]};
+const window={MaterialStatus:{getSupplyProgress:async()=>clone(planning)},crypto:{randomUUID},confirm:()=>true,fetch:async(url,options={})=>{
   const method=options.method||'GET',body=options.body?JSON.parse(options.body):null;
   calls.push({url,method,body});
   const response=(data,status=200)=>({ok:status===200,status,headers:{get:()=> 'application/json'},json:async()=>clone(data)});
@@ -77,6 +78,8 @@ check(model.demands[0].state==='ACCEPTED'&&html('#buyerRows').includes('Create B
 await click('create','demand-5');
 check(html('#buyerDetails').includes('name="buyQuantity" type="number" value="8"'),'Buy quantity defaults to shortage, not build quantity10 or required20');
 check(html('#buyerDetails').includes('name="expectedDate" type="date" value=""'),'Expected date is not silently copied from customer due');
+check(html('#buyerDetails').includes('10/09/2026')&&html('#buyerDetails').includes('3 Days'),'Frozen manufacturing planning shown on plan');
+check(!html('#buyerDetails').includes('name="materialNeedBy"'),'Need-by cannot be edited by buyer');
 const fields={supplier:'DLE-SIM-SUPPLIER',vendorPartNumber:'SIM-OPTO-4',buyQuantity:'8',purchasingUom:'EA',unitCost:'0.50',currency:'USD',requestedDate:'2026-10-05',expectedDate:'2026-10-07',materialNeedBy:'',notes:'SIM scenario dates',excessPurpose:'','coverage-demand-5':'8'};
 await submit(form('buyerPlanForm',fields));
 check(model.plans[0].buyQuantity===8&&model.plans[0].coverage[0].quantity===8&&model.plans[0].coverage[0].expectedDemandVersion===1,'Plan carries buy quantity and versioned coverage separately');
@@ -91,6 +94,7 @@ check(model.purchases[0].receivedQuantity===0&&model.purchases[0].openQuantity==
 check(model.plans.length===1&&model.demands.length===1&&model.purchases.length===1,'One demand, one plan, one purchase after flow');
 await click('purchase','purchase-one');
 check(html('#buyerDetails').includes('Customer Due')&&html('#buyerDetails').includes('10/14/2026'),'Purchase retains job due date and coverage');
+check(html('#buyerDetails').includes('2 working days')&&html('#buyerDetails').includes('On Time')&&html('#buyerDetails').includes('10/09/2026'),'Purchase shows derived need-by, buffer and status');
 check(calls.filter(c=>c.method!=='GET').length===4,'Exactly Accept, Save Plan, Ready, Record commands');
 check(calls.every(c=>!/(kitting-cases|receipts|rfqs|canonical)/.test(c.url)),'No unrelated execution endpoints');
 

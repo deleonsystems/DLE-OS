@@ -277,6 +277,7 @@ SimOperationsEndpoints.Map(app, simState, operationsData, personaSessions, simFa
 SimRfqIntakeEndpoints.Map(app, simState, rfqIntakes, personaSessions);
 SimRfqIntakeEndpoints.MapOperationsHandoff(app,simState,personaSessions,operationsHandoff);
 var kittingRequirements=new SimKittingRequirementsProvider(rfqIntakes,operationsData);
+SimMaterialPlanning.Map(app,simState,personaSessions,new SimMaterialPlanning(simState,operationsData,rfqIntakes,kittingRequirements));
 var simKittingCases=new SimKittingCases(simState,operationsData,kittingRequirements);
 SimKittingEndpoints.Map(app,simState,personaSessions,simKittingCases);
 SimPurchasingEndpoints.Map(app,simState,personaSessions,new SimPurchasingService(simState,operationsData));

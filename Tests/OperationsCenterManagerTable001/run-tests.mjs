@@ -211,3 +211,9 @@ assert.doesNotMatch(kittingWorkspace, /OperationsCenter\?\.documentLinks|getDocu
   'Kitting no longer couples its read model to the removed browser folder index');
 
 console.log('Operations Center manager-first table contracts: PASS');
+
+assert.equal(oc.viewModel.getOfficialField({...record, materialStatus:{label:'Kit Short',machineValue:'KIT_SHORT'}, supplyProgress:{compactText:'Ordered \u00b7 ETA 10/07/2026'}},'materialStatus'), 'Kit Short \u00b7 Ordered \u00b7 ETA 10/07/2026');
+assert.equal(oc.officialColumns.filter(c=>c.key==='materialStatus').length,1);
+assert.equal(oc.officialColumns.some(c=>/supply/i.test(c.key)),false);
+assert.equal(oc.viewModel.getOfficialField({...record, materialStatus:{label:'Kit Complete',machineValue:'KIT_COMPLETE'}, supplyProgress:{compactText:'Ordered'}},'materialStatus'),'Kit Complete');
+console.log('Operations single-cell supply progress preserves separate material readiness: PASS');

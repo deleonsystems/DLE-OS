@@ -345,7 +345,9 @@
       erpQtyOpen: item => formatOperationsQuantity(item?.erpQuantityOpen),
       pendingInvoiceQty: item => formatOperationsQuantity(getShipmentProjection(item).stagedQuantity),
       opQtyOpen: getOperationalQuantityOpen,
-      materialStatus: item => item?.materialStatus?.label || ''
+      materialStatus: item => (item?.materialStatus?.label || '') +
+        (item?.materialStatus?.machineValue === 'KIT_SHORT' && item?.supplyProgress?.compactText
+          ? ' · ' + item.supplyProgress.compactText : '')
     };
     return projectionMap[field] ? projectionMap[field](record) : '';
   }

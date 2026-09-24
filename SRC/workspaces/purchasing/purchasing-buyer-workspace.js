@@ -3,7 +3,7 @@
 
   const API = "/api/sim/purchasing";
   const stages = [["shortages", "Material Shortages"], ["sorting", "Sorting"], ["shop", "Shop List"], ["purchased", "Purchased"]];
-  const state = { mount: null, model: null, history: [], stage: "shortages", search: "", busy: false, message: "", error: false, selected: null, dirty: false };
+  const state = { mount: null, model: null, history: [], planning: null, stage: "shortages", search: "", busy: false, message: "", error: false, selected: null, dirty: false };
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const qty = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(Number(value)) : "—";
   const date = value => { const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "")); return match ? `${match[2]}/${match[3]}/${match[1]}` : "Not Established"; };
@@ -58,10 +58,27 @@
     state.busy = true;
     state.message = "Loading buyer workflow…";
     draw();
-    try { [state.model, state.history] = await Promise.all([request(), request("/history")]); state.message = "Purchasing current"; state.error = false; }
+    try { [state.model, state.history] = await Promise.all([request(), request("/history")]); await loadPlanning(); state.message = "Purchasing current"; state.error = false; }
     catch (error) { state.message = error.message; state.error = true; }
     finally { state.busy = false; draw(); }
     return state.model;
+  }
+  async function loadPlanning() {
+    try { state.planning = await window.MaterialStatus?.getSupplyProgress(); }
+    catch (_) { state.planning = null; }
+  }
+  function planningFor(item) {
+    const ids = item.demandId ? [item.demandId] : (item.coverage || []).map(c => c.demandId);
+    return (state.planning?.workOrders || []).flatMap(w => w.demands || []).filter(d => ids.includes(d.demandId));
+  }
+  function needBy(item) {
+    const dates = [...new Set(planningFor(item).map(d => d.schedule?.materialNeedBy).filter(Boolean))];
+    return dates.length ? dates.map(date).join(" / ") : "Not Established";
+  }
+  function planningFacts(item) {
+    const demands = planningFor(item);
+    if (!demands.length) return '<p class="buyer-muted">Material planning unavailable.</p>';
+    return demands.map(d => `<div class="buyer-facts" aria-label="Read-only material planning">${fact("WO", d.workOrderNumber)}${fact("Customer Due", date(d.schedule?.customerDueDate))}${fact("Manufacturing Lead", d.schedule ? d.schedule.lead.value + " " + (d.schedule.lead.unit === "DAYS" ? "Days" : "Weeks") : "Not Established")}${fact("Material Need-By", date(d.schedule?.materialNeedBy))}${(d.orders || []).filter(p => !item.purchaseId || p.purchaseId === item.purchaseId).map(p => fact("Supplier ETA", date(p.expectedDate)) + fact("Buffer", p.risk.bufferWorkingDays == null ? "Not Established" : p.risk.bufferWorkingDays + " working days") + fact("Supply Status", p.risk.status)).join("")}${d.unavailableReason ? fact("Review", d.unavailableReason) : ""}</div>`).join("");
   }
   function button(action, label, id = "", attributes = "") {
     return `<button type="button" class="buyer-button" data-buyer-action="${action}" data-id="${esc(id)}"${attributes}>${esc(label)}</button>`;
@@ -82,7 +99,7 @@
     return table(["Find", "DLE P/N / Approved P/N", "Description", "Required", "Kitted", "Short", "UOM", "Customer Due", "Material Need-By", "WO / SO", "Customer / Assembly", "Buyer State", "Action"], rows.map(d => `<tr>
       <td>${esc(d.findNumber)}</td><td><strong>${esc(d.partNumber)}</strong><small>${esc(d.approvedPartNumber || d.partNumber)}</small></td><td class="buyer-description">${esc(d.description)}</td>
       <td class="buyer-number">${qty(d.requiredQuantity)}</td><td class="buyer-number">${qty(d.kittedQuantity)}</td><td class="buyer-number buyer-short">${qty(d.shortQuantity)}</td><td>${esc(d.uom)}</td>
-      <td>${date(d.customerDueDate)}</td><td>${date(d.materialNeedBy)}</td><td>WO ${esc(d.workOrderNumber)}<small>SO ${esc(d.salesOrderNumber)} / ${esc(d.salesOrderLineNumber)}</small></td>
+      <td>${date(d.customerDueDate)}</td><td>${needBy(d)}</td><td>WO ${esc(d.workOrderNumber)}<small>SO ${esc(d.salesOrderNumber)} / ${esc(d.salesOrderLineNumber)}</small></td>
       <td>${esc(d.customer)}<small>${esc(d.assemblyItemNumber)} / ${esc(d.revision)}</small></td><td>${badge(d.sourceCurrent === false ? "Source changed" : "Incoming", d.sourceCurrent === false ? "buyer-warning" : "")}</td>
       <td class="buyer-actions">${button("accept", "Accept", d.demandId, disabled() || (d.sourceCurrent === false ? " disabled" : ""))}${button("demand", "Details", d.demandId)}</td></tr>`), "No incoming material shortages. Accepted demand appears in Sorting.");
   }
@@ -93,7 +110,7 @@
       return `<tr><td><strong>${esc(item.partNumber)}</strong><small>${esc(item.approvedPartNumber || item.partNumber)}</small></td><td class="buyer-description">${esc(item.description)}</td>
         <td>${esc(item.supplier || "Not Set")}<small>${esc(item.vendorPartNumber || "")}</small></td><td class="buyer-number">${qty(unplanned ? item.uncoveredQuantity : demands.reduce((sum, d) => sum + Number(d.quantity || 0), 0))}${unplanned && item.uncoveredQuantity < item.shortQuantity ? `<small>Unplanned · Source short ${qty(item.shortQuantity)}</small>` : ""}</td>
         <td class="buyer-number">${unplanned ? "Not Set" : qty(item.buyQuantity)}</td><td>${esc(item.purchasingUom || item.uom || "—")}</td><td class="buyer-number">${money(item.unitCost, item.currency)}</td><td class="buyer-number">${unplanned ? "—" : money(item.extendedCost, item.currency)}</td>
-        <td>${unplanned ? date(item.customerDueDate) : customerDates(item)}</td><td>${date(item.materialNeedBy)}</td><td>${date(item.expectedDate)}</td><td>${unplanned ? esc(item.workOrderNumber) : esc(works(item))}</td>
+        <td>${unplanned ? date(item.customerDueDate) : customerDates(item)}</td><td>${needBy(item)}</td><td>${date(item.expectedDate)}</td><td>${unplanned ? esc(item.workOrderNumber) : esc(works(item))}</td>
         <td class="buyer-actions">${badge(demands.some(d => d.sourceCurrent === false) ? "Source changed · Review required" : shop ? "Ready for PO" : unplanned ? "Accepted" : "Sorting")}${button(unplanned ? "create" : "plan", unplanned ? "Create Buying Plan" : "Open Plan", unplanned ? item.demandId : item.planId, unplanned ? disabled() || (item.sourceCurrent === false ? " disabled" : "") : "")}</td></tr>`;
     }), shop ? "No plans are ready for PO entry." : "Accept a material shortage to begin Sorting.");
   }
@@ -142,7 +159,7 @@
     return `<details class="buyer-audit"><summary>Reviewed receiving requirements</summary><div class="buyer-facts">${fact("Material / PO Traceability", known(q.poTraceabilityRequired) + (q.traceabilityAmendmentId ? " · Amended" : ""))}${fact("CoC", known(q.cocRequired))}${fact("Material Cert", known(q.materialCertRequired))}${fact("Inspection", known(q.inspectionRequired))}</div>${q.specialReceivingNotes ? `<p>${esc(q.specialReceivingNotes)}</p>` : ""}<p>Requirements are inherited read-only from reviewed source evidence.</p></details>`;
   }
   function demandDetail(d) {
-    return `<h2>${esc(d.partNumber)} <span class="buyer-muted">${esc(d.description)}</span></h2><div class="buyer-context">${context(d)}</div><div class="buyer-facts">${fact("Required", qty(d.requiredQuantity))}${fact("Kitted", qty(d.kittedQuantity))}${fact("Short", qty(d.shortQuantity))}${fact("Customer Due", date(d.customerDueDate))}${fact("Material Need-By", date(d.materialNeedBy))}${fact("Material Status", "KIT SHORT")}</div>
+    return `<h2>${esc(d.partNumber)} <span class="buyer-muted">${esc(d.description)}</span></h2><div class="buyer-context">${context(d)}</div><div class="buyer-facts">${fact("Required", qty(d.requiredQuantity))}${fact("Kitted", qty(d.kittedQuantity))}${fact("Short", qty(d.shortQuantity))}${fact("Customer Due", date(d.customerDueDate))}${fact("Material Need-By", needBy(d))}${fact("Material Status", "KIT SHORT")}</div>${planningFacts(d)}
       <p class="buyer-muted">Accept assigns buyer ownership. The submitted shortage remains unchanged until material is received and applied through Kitting.</p><div class="buyer-actions">${d.state === "INCOMING" ? button("accept", "Accept", d.demandId, disabled() || (d.sourceCurrent === false ? " disabled" : "")) : ""}${button("bom", "View Kitted BOM", d.demandId)}</div>${quality(d)}${audit(d)}`;
   }
   function field(label, name, value, type = "text", extra = "") {
@@ -158,11 +175,11 @@
     const p = plan || { partNumber: demand.partNumber, approvedPartNumber: demand.approvedPartNumber, description: demand.description, buyQuantity: unplanned, purchasingUom: demand.uom, currency: "USD" };
     const readOnly = !canManage() || p.state === "ORDERED" || state.busy;
     return `<h2>${isNew ? "Buying Plan" : p.state === "READY_FOR_PO" ? "Shop List · Ready for PO" : "Buying Plan"} <span class="buyer-muted">${esc(p.partNumber)}</span></h2><p class="buyer-muted">${esc(p.description)} · Approved P/N ${esc(p.approvedPartNumber || p.partNumber)}</p>
-      <form id="buyerPlanForm"><fieldset${readOnly ? " disabled" : ""}><div class="buyer-form-grid">
+      ${planningFacts(isNew ? demand : plan)}<form id="buyerPlanForm"><fieldset${readOnly ? " disabled" : ""}><div class="buyer-form-grid">
       ${field("Supplier", "supplier", p.supplier, "text", ' maxlength="160" required placeholder="Synthetic supplier for this SIM"')}${field("Vendor P/N", "vendorPartNumber", p.vendorPartNumber, "text", ' maxlength="160" required')}
       ${field("Proposed Buy Qty", "buyQuantity", p.buyQuantity, "number", ' min="0.000001" step="any" required')}${field("Purchasing UOM", "purchasingUom", p.purchasingUom, "text", ' maxlength="20" required')}
       ${field("Unit Cost / Purchasing UOM", "unitCost", p.unitCost, "number", ' min="0" step="any" required')}${field("Currency", "currency", p.currency || "USD", "text", ' minlength="3" maxlength="3" required')}
-      ${field("Supplier Requested Date", "requestedDate", p.requestedDate, "date")}${field("Supplier Promised / Expected", "expectedDate", p.expectedDate, "date")}${field("Material Need-By (if established)", "materialNeedBy", p.materialNeedBy, "date")}
+      ${field("Supplier Requested Date", "requestedDate", p.requestedDate, "date")}${field("Supplier Promised / Expected", "expectedDate", p.expectedDate, "date")}
       </div><div class="buyer-plan-preview" id="buyerPlanPreview">${fact("Extended Cost", money(p.extendedCost, p.currency))}${fact("Excess", qty(p.excessQuantity || 0))}</div>
       <h3>Demand Coverage</h3>${coverageTable(links, true)}<div class="buyer-form-grid buyer-notes-grid"><label>Excess purpose (required when buying extra)<input name="excessPurpose" maxlength="1000" value="${esc(p.excessPurpose || "")}"></label><label>Buyer notes<textarea name="notes" rows="2" maxlength="4000">${esc(p.notes || "")}</textarea></label></div>
       <p class="buyer-muted">Expected date is required before moving to Shop List. Other blank dates remain Not Established. Price is per purchasing UOM; no pack conversion is inferred. Source shortage quantities are read-only.</p>
@@ -175,8 +192,8 @@
       <form id="buyerPurchaseForm"><fieldset${disabled()}><div class="buyer-form-grid">${field("Synthetic PO Number", "poNumber", "", "text", ' required maxlength="40"')}${field("PO Line", "poLine", "010", "text", ' required maxlength="10"')}${field("Order Date", "orderDate", "", "date", " required")}${field("Confirmation / Acknowledgment", "confirmation", "", "text", ' maxlength="200"')}</div><label class="buyer-wide-label">Purchase notes<textarea name="notes" rows="2" maxlength="4000" placeholder="Scenario date and supplier context"></textarea></label><h3>Demand Coverage</h3>${coverageTable(coverage(plan))}<div class="buyer-actions"><button class="buyer-button buyer-primary" type="submit">Record SIM Purchase</button>${button("plan", "Back to Plan", plan.planId)}</div></fieldset></form>`;
   }
   function purchaseDetail(p) {
-    return `<h2>PO ${esc(p.poNumber)} / ${esc(p.poLine)} ${badge("Ordered / Awaiting Receipt")}</h2><p>${esc(p.partNumber)} · ${esc(p.description)}</p><div class="buyer-facts">${fact("Supplier", p.supplier)}${fact("Vendor P/N", p.vendorPartNumber)}${fact("Ordered", `${qty(p.orderedQuantity)} ${p.purchasingUom}`)}${fact("Received", qty(p.receivedQuantity))}${fact("Open", qty(p.openQuantity))}${fact("Unit Cost", money(p.unitCost, p.currency))}${fact("Extended", money(p.extendedCost, p.currency))}${fact("Order Date", date(p.orderDate))}${fact("Supplier Requested", date(p.requestedDate))}${fact("Supplier Expected", date(p.expectedDate))}${fact("Material Need-By", date(p.materialNeedBy))}${fact("Acknowledgment", p.confirmation || "Not recorded")}</div>
-      <p class="buyer-warning">SIMULATED DEVELOPMENTAL · No physical receipt. Covered work orders remain Kit Short.</p><h3>Demand Coverage</h3>${coverageTable(coverage(p))}${p.excessQuantity ? `<p>Excess ${qty(p.excessQuantity)} · ${esc(p.excessPurpose)}</p>` : ""}${p.notes ? `<p>${esc(p.notes)}</p>` : ""}${quality(p)}${audit(p)}`;
+    return `<h2>PO ${esc(p.poNumber)} / ${esc(p.poLine)} ${badge("Ordered / Awaiting Receipt")}</h2><p>${esc(p.partNumber)} · ${esc(p.description)}</p><div class="buyer-facts">${fact("Supplier", p.supplier)}${fact("Vendor P/N", p.vendorPartNumber)}${fact("Ordered", `${qty(p.orderedQuantity)} ${p.purchasingUom}`)}${fact("Received", qty(p.receivedQuantity))}${fact("Open", qty(p.openQuantity))}${fact("Unit Cost", money(p.unitCost, p.currency))}${fact("Extended", money(p.extendedCost, p.currency))}${fact("Order Date", date(p.orderDate))}${fact("Supplier Requested", date(p.requestedDate))}${fact("Supplier Expected", date(p.expectedDate))}${fact("Material Need-By", needBy(p))}${fact("Acknowledgment", p.confirmation || "Not recorded")}</div>
+      ${planningFacts(p)}<p class="buyer-warning">SIMULATED DEVELOPMENTAL · No physical receipt. Covered work orders remain Kit Short.</p><h3>Demand Coverage</h3>${coverageTable(coverage(p))}${p.excessQuantity ? `<p>Excess ${qty(p.excessQuantity)} · ${esc(p.excessPurpose)}</p>` : ""}${p.notes ? `<p>${esc(p.notes)}</p>` : ""}${quality(p)}${audit(p)}`;
   }
   function drawDetail() {
     const target = state.mount?.querySelector("#buyerDetails");
@@ -256,7 +273,7 @@
     return { expectedVersion: plan?.version || 0,
       supplier: String(fields.get("supplier") || "").trim(), vendorPartNumber: String(fields.get("vendorPartNumber") || "").trim(),
       buyQuantity: Number(fields.get("buyQuantity")), purchasingUom: String(fields.get("purchasingUom") || "").trim(), unitCost: fields.get("unitCost") === "" ? null : Number(fields.get("unitCost")),
-      currency: String(fields.get("currency") || "").trim().toUpperCase(), requestedDate: fields.get("requestedDate") || "", expectedDate: fields.get("expectedDate") || "", materialNeedBy: fields.get("materialNeedBy") || "", notes: fields.get("notes") || "", excessPurpose: fields.get("excessPurpose") || "",
+      currency: String(fields.get("currency") || "").trim().toUpperCase(), requestedDate: fields.get("requestedDate") || "", expectedDate: fields.get("expectedDate") || "", materialNeedBy: plan?.materialNeedBy || "", notes: fields.get("notes") || "", excessPurpose: fields.get("excessPurpose") || "",
       coverage: links.map(d => ({ demandId: d.demandId, quantity: Number(fields.get("coverage-" + d.demandId)), expectedDemandVersion: byId(d.demandId)?.version ?? d.version })) };
   }
   async function handleSubmit(event) {

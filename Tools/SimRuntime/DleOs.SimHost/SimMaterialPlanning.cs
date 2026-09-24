@@ -1,0 +1,137 @@
+using System.Globalization;
+using System.Text.Json;
+
+// Read model only: no planning result is written back into an accepted package,
+// Kitting case, buying plan, purchase or expected receipt.
+internal sealed record SimMaterialSchedule(string CustomerDueDate, SimManufacturingLead Lead,
+    string MaterialNeedBy, int WorkingDays, object Provenance);
+internal sealed record SimSupplyRisk(int? BufferWorkingDays, bool? ProductionAtRisk, bool? SupplierLate, string Status);
+internal sealed record SimSupplyOrder(Guid PurchaseId, string PoNumber, string PoLine, decimal Ordered,
+    decimal? Received, decimal? Open, string ExpectedDate, SimSupplyRisk Risk);
+internal sealed record SimSupplyDemand(string DemandId, string WorkOrderNumber, string SourceRowId,
+    string PartNumber, decimal Short, string Progress, SimMaterialSchedule? Schedule,
+    SimSupplyOrder[] Orders, string? UnavailableReason);
+internal sealed record SimSupplyWorkOrder(string WorkOrderNumber, string CompactText, SimSupplyDemand[] Demands);
+internal sealed record SimMaterialPlanningView(string Rule, string AsOfDate, SimSupplyWorkOrder[] WorkOrders);
+
+internal sealed class SimMaterialPlanning(SimStateStore state, SimOperationsDataStore operations,
+    SimRfqIntakeStore intakes, SimKittingRequirementsProvider requirements)
+{
+    internal const string Rule = "ACCEPTED_DUE_MINUS_FROZEN_MANUFACTURING_MON_FRI_V1";
+    internal Func<DateTimeOffset> UtcNow { get; set; } = () => DateTimeOffset.UtcNow;
+    internal static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    internal static bool TryDate(string? value, out DateOnly date) => DateOnly.TryParseExact(value,
+        "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
+    internal static bool Working(DateOnly date) => date.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday;
+    internal static DateOnly Subtract(DateOnly date, int days)
+    {
+        if (days < 0 || days > 10000) throw new InvalidOperationException("Unsupported manufacturing lead.");
+        while (days > 0) { date = date.AddDays(-1); if (Working(date)) days--; }
+        return date;
+    }
+    internal static int Buffer(DateOnly eta, DateOnly need)
+    {
+        if (eta > need) return -Buffer(need, eta);
+        var days = 0;
+        while (eta < need) { eta = eta.AddDays(1); if (Working(eta)) days++; }
+        return days;
+    }
+    internal static SimSupplyRisk Risk(string? needBy, string? expected, DateOnly today, decimal open)
+    {
+        if (!TryDate(expected, out var eta)) return new(null, null, null, "Expected Date Missing");
+        bool late = open > 0 && eta < today;
+        if (!TryDate(needBy, out var need)) return new(null, null, late, "Planning Unavailable");
+        var buffer = Buffer(eta, need);
+        // Calendar ordering also catches weekend promises after a Friday need-by.
+        bool atRisk = open > 0 && (eta > need || today > need);
+        return new(buffer, atRisk, late, open <= 0 ? "Received · Awaiting Re-kit" : late ? "Late" : atRisk ? "At Risk" : eta == today ? "Expected Today" : "On Time");
+    }
+    internal static SimMaterialSchedule Derive(SimNewOrderPackage package, object provenance)
+    {
+        var baseline = package.TechnicalSource?.Baseline;
+        var quote = package.Quote;
+        var due = package.Facts.Lines.SingleOrDefault()?.CustomerDueDate;
+        var review = package.ContractDates?.DueDateReview;
+        var lead = baseline?.Labor.ManufacturingLead;
+        if (package.TechnicalSource?.Status != "QUOTED_DEFINITION_LINKED" || baseline is null || quote is null ||
+            baseline.Quote != quote.Reference || baseline.Labor.Version != quote.Approval.Summary.LaborVersion ||
+            baseline.Labor.DefinitionId != quote.Approval.Summary.ManufacturingDefinitionId ||
+            review?.Disposition != "ACCEPT" || review.Date != due || !TryDate(due, out var date) ||
+            lead?.Value is not int value || value < 0 || value > 2000 || lead.Unit is not ("DAYS" or "WEEKS"))
+            throw new InvalidOperationException("Accepted due-date review or frozen approved manufacturing lead is unavailable.");
+        var days = checked(value * (lead.Unit == "WEEKS" ? 5 : 1));
+        return new(due!, lead, Iso(Subtract(date, days)), days, new { acceptance = provenance,
+            quote = quote.Reference, laborVersion = baseline.Labor.Version, definitionId = baseline.Labor.DefinitionId,
+            technicalSourceToken = baseline.SourceToken, dueDateReview = review, rule = Rule });
+    }
+    internal Task<SimMaterialPlanningView> Read(SimPersona actor) => state.WithStableRuntime<SimMaterialPlanningView>(async runtime =>
+    {
+        if (!new[] { "kitting.view", "purchasing.view", "receiving.view", "sync.operations" }.Any(actor.Can))
+            throw new SimOrderEntryPermissionException();
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(UtcNow(),
+            TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles")).DateTime);
+        var view = await operations.ReadPurchasing(runtime, false);
+        var result = new List<SimSupplyWorkOrder>();
+        foreach (var group in view.Demands.GroupBy(d => d.WorkOrderNumber))
+        {
+            SimMaterialSchedule? schedule = null;
+            string? unavailable = null;
+            try
+            {
+                schedule = await requirements.WithReleasedRequirements(group.Key, runtime, async released =>
+                {
+                    var source = released.Lineage.GetProperty("source");
+                    var intake = (SimRfqIntakeRecord)(await intakes.ReadAsync(source.GetProperty("intakeId").GetString()!))!;
+                    var accepted = intake.OrderEntry!.Acceptance;
+                    return Derive(accepted.Package, new { intake.IntakeId, accepted.Id, accepted.PackageRevision, accepted.SourceToken,
+                        workOrderNumber = group.Key, released.ReleasedBomIdentity });
+                });
+            }
+            catch (Exception e) when (e is InvalidOperationException or ArgumentException or SimRfqIntakeProblem)
+            { unavailable = "Accepted manufacturing planning source requires review."; }
+            var demands = group.Select(d =>
+            {
+                var current = d.SourceCurrent ? schedule : null;
+                var orders = view.Purchases.Where(p => p.Coverage.Any(c => c.DemandId == d.DemandId)).Select(p =>
+                {
+                    var c = p.Coverage.Single(c => c.DemandId == d.DemandId);
+                    // Physical receipts cannot be assigned across grouped demands without allocation evidence.
+                    decimal? received = p.ReceivedQuantity == 0 ? 0 : p.Coverage.Length == 1 && p.ExcessQuantity == 0 ? p.ReceivedQuantity : null;
+                    return new SimSupplyOrder(p.PurchaseId, p.PoNumber, p.PoLine, c.Quantity, received,
+                        received is null ? null : Math.Max(0, c.Quantity - received.Value), p.ExpectedDate,
+                        Risk(current?.MaterialNeedBy, p.ExpectedDate, today, p.OpenQuantity));
+                }).ToArray();
+                var ordered = orders.Sum(p => p.Ordered);
+                var plans = view.Plans.Where(p => p.State != "ORDERED" && p.Coverage.Any(c => c.DemandId == d.DemandId)).ToArray();
+                var progress = orders.Length > 0 && orders.All(p => p.Received is not null) && orders.Sum(p => p.Received ?? 0) >= d.ShortQuantity
+                    ? "Received · Awaiting Re-kit" : ordered >= d.ShortQuantity ? "Ordered" : ordered > 0 ? "Part Ordered" :
+                    plans.Any(p => p.State == "READY_FOR_PO") ? "Ready for PO" : plans.Length > 0 ? "Buying Plan" :
+                    d.State == "ACCEPTED" ? "Accepted by Purchasing" : "Needs Buyer";
+                return new SimSupplyDemand(d.DemandId, group.Key, d.SourceRowId, d.PartNumber, d.ShortQuantity,
+                    progress, current, orders, d.SourceCurrent ? unavailable : "Shortage source changed; review required.");
+            }).ToArray();
+            var stages = demands.Select(d => d.Progress).Distinct().ToArray();
+            var text = stages.Length == 1 ? stages[0] : "Mixed Supply";
+            var dates = demands.SelectMany(d => d.Orders).Select(o => o.ExpectedDate).Distinct().ToArray();
+            if (dates.Length == 1 && TryDate(dates[0], out var eta)) text += " · ETA " + eta.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture);
+            if (demands.Any(d => d.Schedule is null)) text += " · Planning Unavailable";
+            else if (demands.SelectMany(d => d.Orders).Any(o => o.Risk.SupplierLate == true)) text += " · Late";
+            else if (demands.SelectMany(d => d.Orders).Any(o => o.Risk.ProductionAtRisk == true)) text += " · At Risk";
+            result.Add(new(group.Key, text, demands));
+        }
+        return new(Rule, Iso(today), result.ToArray());
+    });
+
+    internal static void Map(WebApplication app, SimStateStore state, SimPersonaSessionStore personas, SimMaterialPlanning service)
+    {
+        app.MapGet("/api/sim/material-planning", async (HttpContext context) =>
+        {
+            context.Response.Headers.CacheControl = "private, no-store";
+            if (!state.Current.IsHealthy) return Results.StatusCode(503);
+            try { return Results.Json(await service.Read(personas.Resolve(context))); }
+            catch (SimOrderEntryPermissionException) { return Results.StatusCode(403); }
+            catch (Exception e) when (e is InvalidOperationException or IOException or Microsoft.Data.Sqlite.SqliteException)
+            { return Results.Json(new { message = "Material planning is unavailable. Refresh before relying on supply dates." }, statusCode: 503); }
+        });
+    }
+}

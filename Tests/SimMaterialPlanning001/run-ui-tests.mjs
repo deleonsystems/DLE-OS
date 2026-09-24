@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {load,fixture,copy,persistent,wo} from '../SimKitting001/ui-test-harness.mjs';
+const draft=copy(fixture);draft.groups[4].sourceRowId='row-five';draft.groups[4].partNumber='SIM-OPTO-4';
+const record={caseId:'case-one',state:'KIT_SHORT',workingVersion:50,releasedBomIdentity:'release-v1',isEditing:false,completedCount:12,actionableCount:12,draft};
+const before=JSON.stringify(record);
+const supply={workOrders:[{workOrderNumber:wo,demands:[{sourceRowId:'row-five',short:8,progress:'Ordered',schedule:{materialNeedBy:'2026-10-09'},orders:[{ordered:8,received:0,poNumber:'SIM-PO-0001',poLine:'010',expectedDate:'2026-10-07',risk:{status:'On Time'}}]}]}]};
+const app=await load({record,supply});
+const html=app.elements.get('activeKittingTrialBody').innerHTML;
+for(const text of ['Short 8','Ordered 8','SIM-PO-0001 / 010','10/07/2026','10/09/2026','Received 0 / 8','On Time'])assert.ok(html.includes(text),text);
+assert.equal(JSON.stringify(persistent.record),before);
+assert.ok(persistent.calls.every(c=>['GET','RELEASE','HISTORY'].includes(c[0])),JSON.stringify(persistent.calls));
+assert.equal(app.elements.get('activeKittingSave').disabled,true);
+console.log('PASS Kitting supply visible read-only; no commands, counts, resume, or state changes');

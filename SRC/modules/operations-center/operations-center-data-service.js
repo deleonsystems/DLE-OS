@@ -103,6 +103,7 @@
       const projected = missing.length ? await applyMaterialStatusProjection(missing, controller.signal) : [];
       const byId = new Map(projected.map(row => [row.salesOrderLineId, row]));
       const rows = sourceRows.map(source => byId.get(source.salesOrderLineId) || { ...source });
+      await applySupplyProgress(rows, controller.signal);
       if (controller.signal.aborted) throw new DOMException('Stale Operations Center enrichment request.', 'AbortError');
       validateUniqueIdentities(rows);
       return {
@@ -126,6 +127,7 @@
       };
     });
     const rows = await applyMaterialStatusProjection(operationalRows, controller.signal);
+    await applySupplyProgress(rows, controller.signal);
     validateUniqueIdentities(rows);
     return {
       ...canonicalResult,
@@ -133,6 +135,19 @@
       recordCount: rows.length,
       loadedAt: new Date().toISOString()
     };
+  }
+
+  async function applySupplyProgress(rows, signal) {
+    if (window.DleOsRuntimeConfig?.environment !== 'SIMULATION') return;
+    try {
+      const supply = await window.MaterialStatus?.getSupplyProgress({ signal });
+      if (signal.aborted) throw new DOMException('Stale supply projection.', 'AbortError');
+      for (const row of rows) row.supplyProgress = supply?.workOrders?.find(
+        item => item.workOrderNumber === resolveMaterialStatusWorkOrder(row)) || null;
+    } catch (error) {
+      if (signal.aborted) throw error;
+      for (const row of rows) row.supplyProgress = { compactText: 'Supply Unavailable' };
+    }
   }
 
   function hasEmbeddedGovernedProjections(rows) {

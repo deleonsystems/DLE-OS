@@ -36,6 +36,7 @@
   let activeKittingRecovery = null;
   let activeKittingResumeVerification = null;
   let kittingCaseReview = null;
+  let kittingSupplyProgress = null;
   let kittingCaseState = 'idle';
   let kittingCaseRequestId = 0;
   let activeKittingEditable = false;
@@ -473,6 +474,7 @@
     activeKittingRecovery = null;
     kittingCaseRequestId += 1;
     kittingCaseReview = null;
+    kittingSupplyProgress = null;
     kittingCaseState = 'idle';
     activeKittingEditable = false;
     activeKittingSaveState = '';
@@ -532,6 +534,14 @@
       } catch (error) {
         kittingCaseSubmissions = [];
       }
+      if (isSimRuntime) {
+        try {
+          const supply = await window.MaterialStatus?.getSupplyProgress();
+          if (requestId !== kittingCaseRequestId) return null;
+          kittingSupplyProgress = supply?.workOrders?.find(item => item.workOrderNumber === workOrderNumber) || null;
+        } catch (_) { if (requestId === kittingCaseRequestId) kittingSupplyProgress = { unavailable: true }; }
+      }
+      if (requestId !== kittingCaseRequestId) return null;
       kittingCaseState = 'loaded';
       hydratePersistedKittingCaseForReadOnly(kittingCaseReview);
     } catch (error) {
@@ -1835,7 +1845,7 @@
       (group.relatedParts.length ? '<small>' + group.relatedParts.map(part => 'Seq ' + escapeDashboardHtml(part.row.sequence)).join('<br>') + '</small>' : '') + '</td>' +
       '<td>' + escapeDashboardHtml(group.findNumber ?? '-') + '</td><td><strong>' + escapeDashboardHtml(group.partNumber) + '</strong>' +
       (group.relatedParts.length ? '<small>Related: ' + group.relatedParts.map(part => escapeDashboardHtml(part.row.itemNumber)).join(' - ') + '</small>' : '') + '</td>' +
-      '<td>' + escapeDashboardHtml(group.description) + renderActiveKittingReferences(group) + '</td>' +
+      '<td>' + escapeDashboardHtml(group.description) + renderActiveKittingReferences(group) + renderKittingSupply(group) + '</td>' +
       '<td class="active-kitting-required"><small>' + escapeDashboardHtml(formatQuantity(group.requiredEach)) + ' / assy</small><strong>' +
       escapeDashboardHtml(formatQuantity(group.requiredQuantity)) + ' ' + escapeDashboardHtml(group.unitOfMeasure) + '</strong></td>' +
       '<td class="active-kitting-result-cell"><button type="button" class="active-kitting-result-trigger" data-active-kitting-result="' +
@@ -1998,6 +2008,17 @@
     return '<span class="active-kitting-count-preview"><strong>Kitted ' +
       escapeDashboardHtml(formatQuantity(entry.pickedQuantity)) + ' / ' + escapeDashboardHtml(formatQuantity(group?.requiredQuantity ?? 0)) + '</strong><span>' +
       escapeDashboardHtml(interpretation) + '</span></span>';
+  }
+
+  function renderKittingSupply(group) {
+    const d = kittingSupplyProgress?.demands?.find(item => item.sourceRowId === group.sourceRowId);
+    if (!d) return kittingSupplyProgress?.unavailable ? '<small>Supply context unavailable</small>' : '';
+    const date = value => /^(\d{4})-(\d{2})-(\d{2})$/.test(value || '') ? value.slice(5,7) + '/' + value.slice(8,10) + '/' + value.slice(0,4) : 'Not Established';
+    const lines = ['Short ' + d.short + ' · ' + d.progress, 'Need By ' + date(d.schedule?.materialNeedBy)];
+    for (const p of d.orders || []) lines.push('Ordered ' + p.ordered + ' · PO ' + p.poNumber + ' / ' + p.poLine +
+      ' · ETA ' + date(p.expectedDate) + ' · Received ' + (p.received ?? 'Unassigned') + ' / ' + p.ordered + ' · ' + p.risk.status);
+    if (d.unavailableReason) lines.push(d.unavailableReason);
+    return '<div class="active-kitting-supply" aria-label="Read-only supply context"><small>' + lines.map(escapeDashboardHtml).join('<br>') + '</small></div>';
   }
 
   function renderActiveKittingReferences(group) {

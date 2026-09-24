@@ -114,7 +114,18 @@
     return () => window.removeEventListener(CHANGE_EVENT, handler);
   }
 
+  // Supply is a separate, read-only projection; it never promotes material readiness.
+  async function getSupplyProgress(options = {}) {
+    if (window.DleOsRuntimeConfig?.environment !== 'SIMULATION') return { workOrders: [] };
+    const response = await window.fetch('/api/sim/material-planning', {
+      credentials: 'same-origin', cache: 'no-store', signal: options.signal
+    });
+    if (!response.ok) throw new Error('Supply planning unavailable');
+    return response.json();
+  }
+
   window.MaterialStatus = Object.freeze({
+    getSupplyProgress,
     STATES,
     LABELS,
     project,
