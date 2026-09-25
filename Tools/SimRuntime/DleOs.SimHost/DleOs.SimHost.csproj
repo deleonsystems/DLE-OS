@@ -18,6 +18,7 @@
     <Content Include="sim_scanned_bom_ocr.ps1" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_quotation_pdf.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_contract_review_pdf.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="sim_production_pdf.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Quotation\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_candidate_bom.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="sim_pdf_readability.py" CopyToOutputDirectory="PreserveNewest" />

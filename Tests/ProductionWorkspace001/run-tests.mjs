@@ -24,9 +24,10 @@ assert.match(source, /data-workspace-home=\\?"production/);
 assert.match(source, /DleWorkspaces\?\.kitting\?\.loadReadModel/);
 assert.match(kitting, /loadReadModel: loadGovernedReadModel/);
 assert.match(kitting, /if \(workspaceState\.model\) \{[\s\S]*renderWorkspace\(\);[\s\S]*Governed read model current/);
-assert.match(source, /preferredDashboardView: "production"/);
-assert.match(source, /returnWorkspaceId: WORKSPACE_ID/);
-assert.match(source, /window\.go\("workOrderDashboardModule"\)/);
+assert.match(source, /const API = "\/api\/production\/v1\/work-orders\/"/);
+assert.match(source, /async function openWorkOrder\(row\)/);
+assert.doesNotMatch(source, /window\.go\("workOrderDashboardModule"\)/);
+assert.match(markup, /id="productionManagement"/);
 assert.match(dashboardMarkup, /id="workOrderDashboardReturnToProduction"/);
 assert.match(dashboard, /function returnToProductionWorkspace\(\)/);
 assert.match(dashboard, /setWorkspaceView\?\.\('production'\)/);
@@ -75,7 +76,7 @@ assert.match(source, /class="production-compact-row"/);
 assert.match(source, /<small>QTY<\/small>/);
 assert.match(source, /<small>DUE<\/small>/);
 assert.match(source, /production-compact-arrow/);
-assert.doesNotMatch(source, /production-job-table|<table|<tr|<td/);
+assert.doesNotMatch(source, /production-job-table/);
 assert.match(styles, /\.production-workspace\{display:grid;gap:10px;max-width:1460px;margin:0 auto;padding:8px 20px 28px/);
 assert.match(styles, /\.production-lifecycle-tabs\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:10px\}/);
 assert.match(styles, /\.production-compact-row\{display:grid;grid-template-columns:minmax\(118px,.7fr\).*minmax\(170px,1fr\) 98px 24px/);
@@ -89,6 +90,10 @@ assert.doesNotMatch(shell.slice(shell.indexOf('data-workspace-home="production"'
 const navigation = [];
 const context = {
   window: {
+    fetch: async () => ({ ok: true, headers: { get: () => "application/json" }, json: async () => ({
+      workOrderNumber: "1001", context: {}, source: {}, definition: null, boundTraveler: null,
+      operations: [], validationErrors: [], materialStatus: "KIT_COMPLETE", productionStatus: "TRAVELER_REQUIRED", canManage: false
+    }) }),
     DleWorkspaces: {
       kitting: {
         buildGovernedHandoff(row) {
@@ -110,7 +115,7 @@ const context = {
     },
     go(screenId) { navigation.push(["screen", screenId]); }
   },
-  document: {},
+  document: { getElementById: () => null, querySelector: () => null },
   console,
   Map,
   Object,
@@ -173,14 +178,9 @@ assert.deepEqual(Array.from(production.buildViewModel(model, "beta").kitShort, r
 assert.deepEqual(Array.from(production.buildViewModel(model, "asm-100").kitComplete, row => row.workOrderNumber), ["1001"]);
 assert.deepEqual(Array.from(production.buildViewModel(model, "revision-that-does-not-exist").kitComplete), []);
 
-assert.equal(production.openWorkOrder(complete), true);
-assert.equal(navigation[0][0], "selection");
-assert.equal(navigation[0][1].workOrderNumber, "1001");
-assert.equal(navigation[0][1].preferredDashboardView, "production");
-assert.equal(navigation[0][1].preferredPresentation, "dashboard");
-assert.equal(navigation[0][1].sourceWorkspaceId, "production");
-assert.equal(navigation[0][1].returnWorkspaceId, "production");
-assert.deepEqual(navigation.slice(1), [["workspace", "production"], ["screen", "workOrderDashboardModule"]]);
-assert.equal(production.openWorkOrder({ ...complete, actionable: false }), false);
+assert.equal(await production.openWorkOrder(complete), true);
+assert.deepEqual(navigation, [["workspace", "production"]]);
+assert.equal(production.getPackage().workOrderNumber, "1001");
+assert.equal(await production.openWorkOrder({ ...complete, actionable: false }), false);
 
 console.log("Production Workspace queue, search, navigation, and preservation contracts: PASS");
