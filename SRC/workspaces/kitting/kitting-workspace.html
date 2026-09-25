@@ -10,7 +10,7 @@
   <section class="kitting-workspace-controls" aria-label="Kitting queue controls">
     <label class="kitting-search-control">
       <span class="sr-only">Search Kitting jobs</span>
-      <input id="kittingSearch" type="search" placeholder="Search Work Order, Part, Customer, PO..." oninput="filterKittingWorkspace()">
+      <input id="kittingSearch" type="search" placeholder="Search Work Order, Part, Customer, PO, Accepted Material ID..." oninput="filterKittingWorkspace()">
     </label>
     <button type="button" class="secondary-btn kitting-refresh" onclick="refreshKittingQueue()">↻ Refresh Queue</button>
   </section>
@@ -22,8 +22,13 @@
     <button type="button" data-kitting-lifecycle-tab="KIT_SHORT" onclick="selectKittingQueue('KIT_SHORT')" aria-pressed="false">
       <span>Kit Short / Awaiting Parts</span><strong id="kittingKitShortTabCount">0</strong>
     </button>
+    <button type="button" data-kitting-lifecycle-tab="NEEDS_REKIT" onclick="selectKittingQueue('NEEDS_REKIT')" aria-pressed="false">
+      <span>Accepted Material / Needs Re-Kit</span><strong id="kittingNeedsRekitTabCount">0</strong>
+    </button>
+  </nav>
+  <nav class="kitting-history-nav" aria-label="Completed kits">
     <button type="button" data-kitting-lifecycle-tab="KIT_COMPLETE" onclick="selectKittingQueue('KIT_COMPLETE')" aria-pressed="false">
-      <span>Kit Complete</span><strong id="kittingKitCompleteTabCount">0</strong>
+      <span>Completed Kits / History</span><strong id="kittingKitCompleteTabCount">0</strong>
     </button>
   </nav>
 

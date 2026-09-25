@@ -79,7 +79,7 @@ internal sealed class SimPurchasingService(SimStateStore state, SimOperationsDat
     {
         if (!actor.Can("receiving.view") && !actor.Can("purchasing.view")) throw new SimOrderEntryPermissionException();
         var view = await operations.ReadPurchasing(runtime, false);
-        return new SimExpectedReceivingView("SIM", runtime.Generation, false,
+        return new SimExpectedReceivingView("SIM", runtime.Generation, actor.Can("receiving.manage"),
             view.Purchases.OrderBy(p => string.IsNullOrEmpty(p.ExpectedDate) ? "9999-12-31" : p.ExpectedDate,
                 StringComparer.Ordinal).ThenBy(p => p.PoNumber).ThenBy(p => p.PoLine).ToArray());
     });

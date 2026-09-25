@@ -14,3 +14,27 @@ body[data-workspace-view="kitting"] main{margin-top:12px}
 @media(max-width:900px){.kitting-compact-row{grid-template-columns:110px minmax(150px,1fr) 70px 112px 98px 22px;row-gap:3px}.kitting-compact-customer{grid-column:2/5;grid-row:2}}
 @media(max-width:760px){.kitting-lifecycle-tabs{grid-template-columns:1fr}.kitting-lifecycle-tabs button{min-height:56px;justify-content:space-between;text-align:left}}
 @media(max-width:620px){body[data-workspace-view="kitting"] main{margin-top:8px}.kitting-workspace{padding:6px 12px 20px}.kitting-workspace-header{align-items:start}.kitting-workspace-status{display:none}.kitting-workspace-controls{grid-template-columns:1fr auto}.kitting-search-control{grid-column:1/-1}.kitting-refresh{grid-column:2}.kitting-compact-row{grid-template-columns:minmax(0,1fr) 98px 22px;gap:7px 10px}.kitting-compact-wo{grid-column:1;grid-row:1}.kitting-compact-state{grid-column:2;grid-row:1}.kitting-compact-arrow{grid-column:3;grid-row:1}.kitting-compact-assembly{grid-column:1/-1;grid-row:2}.kitting-compact-quantity{grid-column:1;grid-row:3}.kitting-compact-due{grid-column:2/-1;grid-row:3}.kitting-compact-customer{grid-column:1/-1;grid-row:4}}
+.kitting-compact-status{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}.kitting-compact-supply{color:#cbd5e1;font-size:11px;line-height:1.35;text-align:center;overflow-wrap:anywhere;white-space:normal}
+@media(min-width:901px){.kitting-compact-row{grid-template-columns:minmax(118px,.7fr) minmax(175px,1.15fr) minmax(70px,.4fr) minmax(112px,.55fr) minmax(120px,1fr) minmax(150px,190px) 24px}}
+@media(min-width:621px) and (max-width:900px){.kitting-compact-row{grid-template-columns:90px minmax(110px,1fr) 50px 100px minmax(135px,170px) 22px}}
+@media(max-width:620px){.kitting-compact-status{grid-column:1/-1;grid-row:5;align-items:flex-start}.kitting-compact-supply{text-align:left}}
+
+.kitting-history-nav { display:flex; justify-content:flex-end; margin:8px 0; }
+.kitting-history-nav button { background:transparent; color:#b8c7db; border:1px solid #43546b; border-radius:6px; padding:6px 12px; cursor:pointer; }
+.kitting-history-nav strong { margin-left:8px; }
+.accepted-material-ready { outline:2px solid #60c7c0; outline-offset:-2px; scroll-margin-top:130px; }
+.active-kitting-supply a { display:inline-block; color:#b8fff2; padding:6px; }
+
+.kitting-material-card { padding:14px; border:1px solid #43546b; border-left:3px solid #60c7c0; border-radius:8px; background:#182b36; color:#e1edf7; overflow-wrap:anywhere; }
+.kitting-material-heading { display:flex; flex-wrap:wrap; gap:10px 24px; }
+.kitting-material-card p { margin:8px 0; }
+.kitting-material-card button { white-space:normal; text-align:left; margin:4px 8px 4px 0; }
+
+.kitting-material-disclosure { margin:-4px 0 4px; color:#cbd5e1; font-size:12px; }
+.kitting-material-disclosure > summary { cursor:pointer; padding:4px 12px; width:fit-content; }
+.kitting-material-disclosure > summary:focus-visible { outline:2px solid #80bfff; outline-offset:2px; }
+.kitting-material-tray { padding:2px 12px 6px; border-left:1px solid #43546b; margin-left:12px; }
+.kitting-material-detail { display:flex; align-items:center; gap:8px; padding:4px 0; overflow-wrap:anywhere; }
+.kitting-material-detail > span { min-width:0; }
+.kitting-material-detail > button { flex:0 0 auto; width:auto; min-height:28px; padding:3px 10px; font-size:12px; }
+@media(max-width:620px) { .kitting-material-detail { align-items:flex-start; flex-wrap:wrap; } }

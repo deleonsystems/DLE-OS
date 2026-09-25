@@ -97,7 +97,8 @@ CREATE TRIGGER IF NOT EXISTS SimPurchasingCommandNoDelete BEFORE DELETE ON SimPu
     {
         var stored = await PurchasingRows<SimPurchasingDemand>(connection, transaction, "SimPurchasingDemand");
         var plans = await PurchasingRows<SimBuyingPlan>(connection, transaction, "SimBuyingPlan");
-        var purchases = await PurchasingRows<SimPurchaseLine>(connection, transaction, "SimPurchaseLine");
+        var purchases = await ReceivingPurchases(connection, transaction,
+            await PurchasingRows<SimPurchaseLine>(connection, transaction, "SimPurchaseLine"));
         var cases = await PurchasingRows<SimKittingCaseRecord>(connection, transaction, "SimKittingCase");
         var submissions = await PurchasingRows<SimKittingSubmission>(connection, transaction, "SimKittingSubmission");
         var active = new Dictionary<string, SimPurchasingDemand>(StringComparer.Ordinal);

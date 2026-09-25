@@ -69,7 +69,7 @@ assert.equal(ui.formatDate(null), 'Not established');
 assert.equal(ui.formatDate('2026-10-14T00:00:00Z'), 'Not established');
 
 await ui.render();
-assert.match(mount.innerHTML, /Read-only incoming queue/);
+assert.match(mount.innerHTML, /Operational SIM Receiving/);
 assert.match(results.innerHTML, /4 of 4 expected PO lines/);
 assert.ok(results.innerHTML.indexOf('data-receiving-id="first"') < results.innerHTML.indexOf('data-receiving-id="later"'));
 for (const value of ['Expected Date', 'Supplier', 'PO / Line', 'DLE P/N', 'Ordered', 'Received', 'Open', 'WO(s)', 'Customer Due',
@@ -110,8 +110,7 @@ fail = true; await ui.refresh(); assert.match(results.innerHTML, /role="alert"/)
 fail = false; payload = { items: [] }; await ui.refresh(); assert.match(results.innerHTML, /No purchased material is awaiting receipt/);
 assert.ok(calls.length >= 3);
 assert.ok(calls.every(call => call.url === '/api/sim/receiving/expected' && call.options.method === 'GET'));
-assert.doesNotMatch(source, /method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/);
-assert.doesNotMatch(source, /localStorage|sessionStorage|\/receipts|Receive material/);
+assert.doesNotMatch(source, /localStorage|sessionStorage/);
 
 // Workspace appears only in SIM and uses its view permission; non-SIM registry remains unchanged.
 vm.runInContext(registry, context);
@@ -126,4 +125,4 @@ assert.match(identity, /receiving:'receiving\.view'/);
 assert.match(styles, /\.receiving-workspace \.receiving-header\{position:static/);
 assert.match(styles, /overflow:auto/);
 assert.doesNotMatch(styles, /body\s*\{/);
-console.log('PASS Receiving UI: PO-line identity, multi-WO coverage, expected-date sorting/nulls, all filters/sorts, date-only display, read-only details, reviewed traceability, escaping, failed/empty states, GET-only access, SIM-only routing.');
+console.log('PASS Receiving queue UI: PO-line identity, multi-WO coverage, expected-date sorting/nulls, all filters/sorts, date-only display, source details, reviewed traceability, escaping, failed/empty states, read-only queue loading, SIM-only routing.');

@@ -7,11 +7,23 @@ internal sealed record SimMaterialSchedule(string CustomerDueDate, SimManufactur
     string MaterialNeedBy, int WorkingDays, object Provenance);
 internal sealed record SimSupplyRisk(int? BufferWorkingDays, bool? ProductionAtRisk, bool? SupplierLate, string Status);
 internal sealed record SimSupplyOrder(Guid PurchaseId, string PoNumber, string PoLine, decimal Ordered,
-    decimal? Received, decimal? Open, string ExpectedDate, SimSupplyRisk Risk);
+    decimal? Received, decimal? Open, string ExpectedDate, SimSupplyRisk Risk, bool ReceiptEvidenceVerified = false);
+internal sealed record SimSupplyAcceptedMaterial(string ReceiptLineId, string PoNumber, string PoLine,
+    string PackingSlipNumber, decimal AvailableQuantity, string Uom, string StagingLocation,
+    DateTimeOffset ReceivedAtUtc, DateTimeOffset? AcceptedAtUtc);
 internal sealed record SimSupplyDemand(string DemandId, string WorkOrderNumber, string SourceRowId,
     string PartNumber, decimal Short, string Progress, SimMaterialSchedule? Schedule,
-    SimSupplyOrder[] Orders, string? UnavailableReason);
-internal sealed record SimSupplyWorkOrder(string WorkOrderNumber, string CompactText, SimSupplyDemand[] Demands);
+    SimSupplyOrder[] Orders, string? UnavailableReason, SimSupplyAcceptedMaterial[]? AcceptedMaterials = null,
+    SimKittingReturnOrigin? ReturnOrigin = null)
+{
+    internal decimal Available => AcceptedMaterials?.Sum(m => m.AvailableQuantity) ?? 0;
+}
+internal sealed record SimKittingReturnOrigin(Guid CaseId, long WorkingVersion, Guid SubmissionId,
+    string ReleasedBomIdentity, string SourceRowId, string RequirementId, string FindNumber,
+    string ReleasedSequence, decimal RequiredQuantity, decimal PreviouslyKitted);
+internal sealed record SimSupplyWorkOrder(string WorkOrderNumber, string CompactText, SimSupplyDemand[] Demands,
+    string? LastPartDue, bool LastPartDueEstablished, string? MaterialNeedBy, int? BufferWorkingDays,
+    bool? ProductionAtRisk, int ShortageCount, int OrderedCount, int UncoveredCount, int LateCount);
 internal sealed record SimMaterialPlanningView(string Rule, string AsOfDate, SimSupplyWorkOrder[] WorkOrders);
 
 internal sealed class SimMaterialPlanning(SimStateStore state, SimOperationsDataStore operations,
@@ -44,7 +56,7 @@ internal sealed class SimMaterialPlanning(SimStateStore state, SimOperationsData
         var buffer = Buffer(eta, need);
         // Calendar ordering also catches weekend promises after a Friday need-by.
         bool atRisk = open > 0 && (eta > need || today > need);
-        return new(buffer, atRisk, late, open <= 0 ? "Received · Awaiting Re-kit" : late ? "Late" : atRisk ? "At Risk" : eta == today ? "Expected Today" : "On Time");
+        return new(buffer, atRisk, late, open <= 0 ? "Received" : late ? "Late" : atRisk ? "At Risk" : eta == today ? "Expected Today" : "On Time");
     }
     internal static SimMaterialSchedule Derive(SimNewOrderPackage package, object provenance)
     {
@@ -64,13 +76,57 @@ internal sealed class SimMaterialPlanning(SimStateStore state, SimOperationsData
             quote = quote.Reference, laborVersion = baseline.Labor.Version, definitionId = baseline.Labor.DefinitionId,
             technicalSourceToken = baseline.SourceToken, dueDateReview = review, rule = Rule });
     }
+    // Coverage is demand-specific. Only governed, accepted and staged material leaves
+    // the outstanding LPD set. Neither physical arrival nor this projection resolves Kitting.
+    internal static SimSupplyWorkOrder RollUp(string workOrderNumber, SimSupplyDemand[] demands)
+    {
+        var shortages = demands.Where(d => d.Short > 0).ToArray();
+        var outstanding = shortages.Where(d => d.UnavailableReason is not null || d.Available < d.Short).ToArray();
+        var allAvailable = shortages.Length > 0 && outstanding.Length == 0;
+        var uncovered = outstanding.Count(d => d.Available + d.Orders.Sum(o => o.Open ?? 0) < d.Short);
+        var ordered = outstanding.Count(d => d.Available + d.Orders.Sum(o => o.Open ?? 0) >= d.Short);
+        var late = outstanding.Count(d => d.Orders.Any(o => o.Open > 0 && o.Risk.SupplierLate == true));
+        var sourceReview = outstanding.Any(d => d.UnavailableReason is not null);
+        var receiptReview = outstanding.Any(d => d.Orders.Any(o => o.Received is null ||
+            (o.Received > 0 && !o.ReceiptEvidenceVerified)));
+        var undated = outstanding.Count(d => d.Orders.Any(o => o.Open > 0 && !TryDate(o.ExpectedDate, out _)));
+        var established = outstanding.Length > 0 && uncovered == 0 && undated == 0 && !sourceReview && !receiptReview &&
+            outstanding.All(d => d.Orders.Any(o => o.Open > 0));
+        var lpd = established ? outstanding.SelectMany(d => d.Orders).Where(o => o.Open > 0)
+            .Select(o => o.ExpectedDate).Max(StringComparer.Ordinal) : null;
+        var needs = shortages.Select(d => d.Schedule?.MaterialNeedBy).Distinct().ToArray();
+        var need = needs.Length == 1 && TryDate(needs[0], out _) ? needs[0] : null;
+        int? buffer = null;
+        bool? atRisk = null;
+        if (allAvailable) atRisk = false;
+        if (TryDate(lpd, out var last) && TryDate(need, out var required))
+        {
+            buffer = Buffer(last, required);
+            atRisk = last > required;
+        }
+        var attention = new List<string>();
+        if (sourceReview) attention.Add("Supply Review Required");
+        if (receiptReview) attention.Add("Receipt Availability Requires Review");
+        if (uncovered > 0) attention.Add($"{uncovered} Needs Buyer Action");
+        if (undated > 0) attention.Add($"{undated} Missing ETA");
+        if (late > 0) attention.Add($"{late} Late");
+        if (atRisk == true) attention.Add("At Risk");
+        if (need is null) attention.Add("Planning Unavailable");
+        if (attention.Count == 0) attention.Add(atRisk == false ? "On Time" : "Supply Review Required");
+        var text = "LPD " + (TryDate(lpd, out var date) ? date.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture) : "Not Established") +
+            " · " + string.Join(" · ", attention);
+        if (allAvailable) text = "Accepted Material · Awaiting Kitting";
+        else if (shortages.Any(d => d.Available > 0)) text += " · Accepted Material Partially Available";
+        return new(workOrderNumber, text, demands, lpd, established, need, buffer, atRisk,
+            shortages.Length, ordered, uncovered, late);
+    }
     internal Task<SimMaterialPlanningView> Read(SimPersona actor) => state.WithStableRuntime<SimMaterialPlanningView>(async runtime =>
     {
         if (!new[] { "kitting.view", "purchasing.view", "receiving.view", "sync.operations" }.Any(actor.Can))
             throw new SimOrderEntryPermissionException();
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(UtcNow(),
             TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles")).DateTime);
-        var view = await operations.ReadPurchasing(runtime, false);
+        var (view, receiving, origins) = await operations.ReadKittingSupply(runtime);
         var result = new List<SimSupplyWorkOrder>();
         foreach (var group in view.Demands.GroupBy(d => d.WorkOrderNumber))
         {
@@ -95,32 +151,47 @@ internal sealed class SimMaterialPlanning(SimStateStore state, SimOperationsData
                 var orders = view.Purchases.Where(p => p.Coverage.Any(c => c.DemandId == d.DemandId)).Select(p =>
                 {
                     var c = p.Coverage.Single(c => c.DemandId == d.DemandId);
-                    // Physical receipts cannot be assigned across grouped demands without allocation evidence.
-                    decimal? received = p.ReceivedQuantity == 0 ? 0 : p.Coverage.Length == 1 && p.ExcessQuantity == 0 ? p.ReceivedQuantity : null;
+                    var receipts = receiving.Materials.Where(m => m.PurchaseId == p.PurchaseId).ToArray();
+                    var verified = receipts.Sum(m => m.ReceivedQuantity) == p.ReceivedQuantity;
+                    // Only governed receipt allocations assign physical arrival to a demand.
+                    // Older aggregate receipt values remain visible but cannot imply usable material.
+                    decimal? received = verified ? receipts.SelectMany(m => m.Coverage)
+                        .Where(a => a.DemandId == d.DemandId).Sum(a => a.ReceivedQuantity) :
+                        p.ReceivedQuantity == 0 ? 0 : p.Coverage.Length == 1 && p.ExcessQuantity == 0 ? p.ReceivedQuantity : null;
+                    var open = received is null ? (decimal?)null : Math.Max(0, c.Quantity - received.Value);
                     return new SimSupplyOrder(p.PurchaseId, p.PoNumber, p.PoLine, c.Quantity, received,
-                        received is null ? null : Math.Max(0, c.Quantity - received.Value), p.ExpectedDate,
-                        Risk(current?.MaterialNeedBy, p.ExpectedDate, today, p.OpenQuantity));
+                        open, p.ExpectedDate,
+                        Risk(current?.MaterialNeedBy, p.ExpectedDate, today, open ?? p.OpenQuantity), verified);
                 }).ToArray();
+                var accepted = AcceptedForDemand(d.DemandId, receiving.Materials, orders);
+                var available = accepted.Sum(m => m.AvailableQuantity);
                 var ordered = orders.Sum(p => p.Ordered);
                 var plans = view.Plans.Where(p => p.State != "ORDERED" && p.Coverage.Any(c => c.DemandId == d.DemandId)).ToArray();
-                var progress = orders.Length > 0 && orders.All(p => p.Received is not null) && orders.Sum(p => p.Received ?? 0) >= d.ShortQuantity
-                    ? "Received · Awaiting Re-kit" : ordered >= d.ShortQuantity ? "Ordered" : ordered > 0 ? "Part Ordered" :
+                var progress = d.SourceCurrent && unavailable is null && available >= d.ShortQuantity ? "Ready for Kitting" :
+                    available > 0 ? "Accepted Material Partially Available" :
+                    orders.Any(p => p.Received > 0) ? "Received · Awaiting Acceptance / Staging" :
+                    ordered >= d.ShortQuantity ? "Ordered" : ordered > 0 ? "Part Ordered" :
                     plans.Any(p => p.State == "READY_FOR_PO") ? "Ready for PO" : plans.Length > 0 ? "Buying Plan" :
                     d.State == "ACCEPTED" ? "Accepted by Purchasing" : "Needs Buyer";
                 return new SimSupplyDemand(d.DemandId, group.Key, d.SourceRowId, d.PartNumber, d.ShortQuantity,
-                    progress, current, orders, d.SourceCurrent ? unavailable : "Shortage source changed; review required.");
+                    progress, current, orders, d.SourceCurrent ? unavailable : "Shortage source changed; review required.", accepted,
+                    origins.GetValueOrDefault(d.DemandId));
             }).ToArray();
-            var stages = demands.Select(d => d.Progress).Distinct().ToArray();
-            var text = stages.Length == 1 ? stages[0] : "Mixed Supply";
-            var dates = demands.SelectMany(d => d.Orders).Select(o => o.ExpectedDate).Distinct().ToArray();
-            if (dates.Length == 1 && TryDate(dates[0], out var eta)) text += " · ETA " + eta.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture);
-            if (demands.Any(d => d.Schedule is null)) text += " · Planning Unavailable";
-            else if (demands.SelectMany(d => d.Orders).Any(o => o.Risk.SupplierLate == true)) text += " · Late";
-            else if (demands.SelectMany(d => d.Orders).Any(o => o.Risk.ProductionAtRisk == true)) text += " · At Risk";
-            result.Add(new(group.Key, text, demands));
+            result.Add(RollUp(group.Key, demands));
         }
         return new(Rule, Iso(today), result.ToArray());
     });
+
+    internal static SimSupplyAcceptedMaterial[] AcceptedForDemand(string demandId,
+        SimAcceptedMaterial[] materials, SimSupplyOrder[] orders)
+    {
+        return materials.Where(m => m.StagedAtUtc is not null && m.AvailableQuantity > 0 &&
+                    m.Coverage.Any(a => a.DemandId == demandId && a.Quantity > 0) &&
+                    orders.Any(o => o.PurchaseId == m.PurchaseId && o.ReceiptEvidenceVerified))
+                    .Select(m => new SimSupplyAcceptedMaterial(m.ReceiptLineId, m.PoNumber, m.PoLine, m.PackingSlipNumber,
+                        Math.Min(m.AvailableQuantity, m.Coverage.Single(a => a.DemandId == demandId).Quantity),
+                        m.PurchasingUom, m.StagingLocation, m.ReceivedAtUtc, m.AcceptedAtUtc)).ToArray();
+    }
 
     internal static void Map(WebApplication app, SimStateStore state, SimPersonaSessionStore personas, SimMaterialPlanning service)
     {

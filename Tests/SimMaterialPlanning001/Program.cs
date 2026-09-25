@@ -47,7 +47,44 @@ Console.WriteLine(JsonSerializer.Serialize(model,json));
 Check(demand.Schedule?.CustomerDueDate=="2026-10-14"&&demand.Schedule.MaterialNeedBy=="2026-10-09","accepted live-copy authority resolves due and need-by");
 Check(demand.Schedule!.Lead==new SimManufacturingLead(3,"DAYS"),"frozen 3 DAYS used instead of quote delivery3WEEKS");
 Check(demand.Short==8&&demand.Orders.Single().Ordered==8&&demand.Orders.Single().Received==0&&demand.Orders.Single().Open==8,"projection preserves8 ordered0 received8 open");
-Check(work.CompactText=="Ordered · ETA 10/07/2026","compact supply separate from material status");
+Check(work.CompactText=="LPD 10/07/2026 · On Time","compact LPD separate from material status");
+Check(work.LastPartDue=="2026-10-07" && work.LastPartDueEstablished && work.MaterialNeedBy=="2026-10-09" &&
+    work.BufferWorkingDays==2 && work.ProductionAtRisk==false && work.LateCount==0,"single shortage LPD and WO risk");
+var order=demand.Orders.Single();
+SimSupplyDemand Sample(string id,string eta,decimal ordered=8,decimal? received=0) => demand with {
+    DemandId=id,SourceRowId=id,Orders=[order with {ExpectedDate=eta,Ordered=ordered,Received=received,
+        Open=received is null?null:Math.Max(0,ordered-received.Value),
+        Risk=SimMaterialPlanning.Risk("2026-10-09",eta,new(2026,9,23),ordered-(received??0))}]};
+SimSupplyWorkOrder Roll(params SimSupplyDemand[] items)=>SimMaterialPlanning.RollUp("test",items);
+var multiple=Roll(Sample("a","2026-10-03"),Sample("b","2026-10-07"),Sample("c","2026-10-11"));
+Check(multiple.LastPartDue=="2026-10-11" && multiple.ProductionAtRisk==true && multiple.ShortageCount==3,"three mixed ETAs roll up latest, at risk");
+Check(Roll(Sample("a","2026-10-09")).ProductionAtRisk==false,"LPD equal need-by on time");
+Check(!Roll(Sample("a","2026-10-07"),Sample("b","")).LastPartDueEstablished,"missing ETA suppresses entire LPD");
+var uncovered=Roll(Sample("a","2026-10-07"),demand with {DemandId="uncovered",Orders=[]});
+Check(uncovered.LastPartDue is null && uncovered.UncoveredCount==1 && uncovered.CompactText.Contains("1 Needs Buyer Action"),"uncovered shortage prevents partial-date LPD");
+Check(!Roll(Sample("a","2026-10-07",4)).LastPartDueEstablished,"partial coverage cannot establish LPD");
+var split=demand with {Orders=[order with {Ordered=4,Open=4,ExpectedDate="2026-10-03"},order with {Ordered=4,Open=4,ExpectedDate="2026-10-08"}]};
+Check(Roll(split).LastPartDue=="2026-10-08","split demand coverage uses final supplier date");
+var lateSample=Sample("late","2026-10-07");
+lateSample=lateSample with {Orders=[lateSample.Orders[0] with {Risk=SimMaterialPlanning.Risk("2026-10-09","2026-10-07",new(2026,10,8),8)}]};
+var lateRoll=Roll(lateSample);
+Check(lateRoll.LastPartDueEstablished && lateRoll.LateCount==1 && lateRoll.ProductionAtRisk==false && lateRoll.CompactText.Contains("1 Late"),"late evidence independent of LPD production risk");
+Check(!Roll(Sample("partial receipt","2026-10-07",8,4)).LastPartDueEstablished,"physical partial receipt lacks accepted availability evidence");
+Check(!Roll(Sample("full receipt","2026-10-07",8,8)).LastPartDueEstablished,"physical full receipt cannot silently become usable or close shortage");
+Check(!Roll(Sample("unassigned","2026-10-07",8,null)).LastPartDueEstablished,"ambiguous receipt allocation fails closed");
+Check(!Roll(demand with {UnavailableReason="Source changed"}).LastPartDueEstablished,"stale demand lineage prevents clean LPD");
+Check(!Roll().LastPartDueEstablished,"no outstanding evidence cannot manufacture LPD");
+SimSupplyAcceptedMaterial Accepted(decimal qty) => new("SIM-AM-00000001","SIM-PO-0001","010","SIM-PS-0001",qty,"EA","SIM / Kitting staging",DateTimeOffset.UtcNow,DateTimeOffset.UtcNow);
+var acceptedFull = demand with {Orders=[order with {Received=8,Open=0,ReceiptEvidenceVerified=true}],AcceptedMaterials=[Accepted(8)]};
+Check(Roll(acceptedFull).CompactText=="Accepted Material · Awaiting Kitting" && !Roll(acceptedFull).LastPartDueEstablished,
+    "all staged accepted demand replaces LPD without changing material status");
+var acceptedPartial = demand with {Orders=[order with {Received=3,Open=5,ReceiptEvidenceVerified=true}],AcceptedMaterials=[Accepted(3)]};
+Check(Roll(acceptedPartial).LastPartDue=="2026-10-07" && Roll(acceptedPartial).CompactText.Contains("Partially Available"),
+    "partial accepted quantity keeps LPD for remaining expected supply");
+var held = demand with {Orders=[order with {Received=8,Open=0,ReceiptEvidenceVerified=true}],AcceptedMaterials=[]};
+Check(!Roll(held).LastPartDueEstablished && Roll(held).UncoveredCount==1,"held/rejected arrivals never become accepted coverage");
+Check(Roll(acceptedFull,Sample("other","2026-10-11")).LastPartDue=="2026-10-11","fully available demand excluded from mixed outstanding LPD set");
+Check(Roll(acceptedFull with {UnavailableReason="Source changed"}).CompactText!="Accepted Material · Awaiting Kitting","stale demand cannot grant ready availability");
 var intake=(SimRfqIntakeRecord)(await intakes.ReadAsync("RFQI-SIM-0043"))!;
 var package=intake.OrderEntry!.Acceptance.Package;
 var baseline=package.TechnicalSource!.Baseline!;

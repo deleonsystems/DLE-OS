@@ -85,7 +85,7 @@ await Reject(async()=>{await service.Purchase(planId,purchaseRequest with{Reques
 await Reject(async()=>{await service.SavePlan(planId,Plan(version:V(ready)+1),actor);},"ordered plan cannot be edited");
 var expected=E(await service.Expected(actor));
 var receipt=expected.GetProperty("items").EnumerateArray().Single();
-Check(!expected.GetProperty("canReceive").GetBoolean()&&receipt.GetProperty("orderedQuantity").GetDecimal()==8&&receipt.GetProperty("receivedQuantity").GetDecimal()==0&&receipt.GetProperty("openQuantity").GetDecimal()==8,"one expected PO line with ordered8 received0 open8 and no receiving capability");
+Check(expected.GetProperty("canReceive").GetBoolean()&&receipt.GetProperty("orderedQuantity").GetDecimal()==8&&receipt.GetProperty("receivedQuantity").GetDecimal()==0&&receipt.GetProperty("openQuantity").GetDecimal()==8,"one expected PO line with ordered8 received0 open8 and administrator receiving capability");
 Check(S(receipt,"provenance")=="SIMULATED_DEVELOPMENTAL"&&S(receipt,"status")=="EXPECTED"&&S(receipt,"receiptState")=="AWAITING_RECEIPT","explicit developmental and awaiting-receipt truth");
 Check(receipt.GetProperty("coverage")[0].GetProperty("quantity").GetDecimal()==8&&S(receipt.GetProperty("coverage")[0],"workOrderNumber")=="0999999","expected receipt retains per-demand coverage");
 Check(S(receipt,"expectedDate")=="2026-10-07"&&S(receipt,"requestedDate")=="2026-10-05"&&S(receipt,"materialNeedBy")==""&&S(receipt.GetProperty("coverage")[0],"customerDueDate")=="2026-10-14","supplier dates, absent need-by and customer due remain separate date-only facts");

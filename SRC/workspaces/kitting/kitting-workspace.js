@@ -248,11 +248,12 @@
     const workOrderNumbers = window.KittingReadModel.collectActionableWorkOrderNumbers(
       lines, approvalsByLineKey, rmaReworkByLineKey
     );
-    const [workOrdersByNumber, materialStatusesByWorkOrder] = await Promise.all([
+    const [workOrdersByNumber, materialStatusesByWorkOrder, supplyProgressByWorkOrder] = await Promise.all([
       loadCanonicalWorkOrders(workOrderNumbers),
       hasEmbeddedProjections && !forceMaterialStatus
         ? buildEmbeddedMaterialStatuses(lines, workOrderNumbers)
-        : loadMaterialStatuses(workOrderNumbers, { force: forceMaterialStatus })
+        : loadMaterialStatuses(workOrderNumbers, { force: forceMaterialStatus }),
+      loadSupplyProgress(workOrderNumbers)
     ]);
     workspaceState.canonicalRows = canonicalRows;
     workspaceState.model = window.KittingReadModel.buildReadModel({
@@ -260,9 +261,22 @@
       approvalsByLineKey,
       workOrdersByNumber,
       materialStatusesByWorkOrder,
+      supplyProgressByWorkOrder,
       rmaReworkByLineKey
     });
     return workspaceState.model;
+  }
+
+  async function loadSupplyProgress(workOrderNumbers) {
+    if (window.DleOsRuntimeConfig?.environment !== "SIMULATION" || !window.MaterialStatus?.getSupplyProgress) return new Map();
+    try {
+      const result = await window.MaterialStatus.getSupplyProgress();
+      return new Map(workOrderNumbers.map(number => [number, result?.workOrders?.find(item => item.workOrderNumber === number) ||
+        { compactText: "LPD Not Established · Supply Unavailable" }]));
+    } catch (_) {
+      return new Map(workOrderNumbers.map(number => [number,
+        { compactText: "LPD Not Established · Supply Unavailable" }]));
+    }
   }
 
   function refreshKittingQueue() {
@@ -508,6 +522,7 @@
       ...(queues.kittingInProgress || []),
     ]);
     const kitShort = filterAndSortRows(queues.kitShort || []);
+    const needsRekit = filterAndSortRows(queues.needsRekit || []);
     const kitComplete = filterAndSortRows(queues.kitComplete || []);
     const allKittingSearchRows = searchActive ? filterAndSortRows([
       ...(queues.needsKitting || []),
@@ -517,6 +532,7 @@
     ]) : [];
     setCount("kittingNeedsKittingTabCount", needsKitting.length);
     setCount("kittingKitShortTabCount", kitShort.length);
+    setCount("kittingNeedsRekitTabCount", needsRekit.length);
     setCount("kittingKitCompleteTabCount", kitComplete.length);
     const views = {
       NEEDS_KITTING: {
@@ -531,14 +547,19 @@
         rows: kitShort,
         empty: "No kits are currently awaiting parts."
       },
+      NEEDS_REKIT: {
+        title: "Accepted Material / Needs Re-Kit",
+        description: "Accepted, staged material assigned to the exact shortage. Open to review; no material is consumed.",
+        rows: needsRekit, empty: "No accepted material is currently ready for re-kit."
+      },
       KIT_COMPLETE: {
-        title: "Kit Complete",
+        title: "Completed Kits / History",
         description: "Completed kits still associated with active/open canonical demand.",
         rows: kitComplete,
         empty: "No active/open jobs are currently Kit Complete."
       }
     };
-    const selected = searchActive ? {
+    const selected = searchActive && workspaceState.activeQueue !== "NEEDS_REKIT" ? {
       title: "Search Results \u2014 " + allKittingSearchRows.length,
       description: "Searching all Kitting lifecycle states.",
       rows: allKittingSearchRows,
@@ -561,7 +582,7 @@
     if (countId) setCount(countId, rows.length);
     if (!target) return;
     target.innerHTML = rows.length
-      ? '<div class="kitting-compact-list">' + rows.map(renderCompactQueueRow).join("") + '</div>'
+      ? '<div class="kitting-compact-list">' + rows.map(row => row.kind === "ACCEPTED_MATERIAL" ? renderAcceptedMaterialRow(row) : renderCompactQueueRow(row)).join("") + '</div>'
       : '<div class="kitting-kit-queue-empty">' + escapeHtml(emptyMessage) + '</div>';
   }
 
@@ -573,6 +594,7 @@
       NEEDS_KITTING: queues.needsKitting,
       KITTING_IN_PROGRESS: queues.kittingInProgress,
       KIT_SHORT: queues.kitShort,
+      NEEDS_REKIT: queues.needsRekit,
       KIT_COMPLETE: queues.kitComplete,
       RMA_REWORK: queues.rmaRework
     }[workspaceState.activeQueue] || [];
@@ -581,7 +603,11 @@
   function filterAndSortRows(rows) {
     const search = cleanText(document.getElementById("kittingSearch")?.value).toLowerCase();
     const filtered = (rows || []).filter(row => {
+      if (row.kind === "ACCEPTED_MATERIAL") return !search || [row.receiptLineId, row.partNumber,
+        row.stagingLocation, ...row.destinations.flatMap(d => [d.workOrderNumber, d.findNumber, d.requirementId])]
+        .join(" ").toLowerCase().includes(search);
       const haystack = [
+        ...(row.acceptedDemands || []).flatMap(d => [d.partNumber, ...(d.acceptedMaterials || []).map(m => m.receiptLineId)]),
         row.workOrderNumber,
         row.rmaCaseReference,
         row.rmaCaseType,
@@ -628,10 +654,44 @@
       '<span class="kitting-compact-metric kitting-compact-due"><small>DUE</small><strong>',
       escapeHtml(dueDate), '</strong></span>',
       '<span class="kitting-compact-customer">', escapeHtml(customer), '</span>',
-      '<span class="kitting-compact-state">', escapeHtml(operatorStatus(row.materialStatus)), '</span>',
+      '<span class="kitting-compact-status"><span class="kitting-compact-state">', escapeHtml(operatorStatus(row.materialStatus)), '</span>',
+      row.materialStatus === "KIT_SHORT" && row.supplyProgress?.compactText
+        ? '<small class="kitting-compact-supply">' + escapeHtml(row.supplyProgress.compactText) + '</small>' : '',
+      '</span>',
       '<span class="kitting-compact-arrow" aria-hidden="true">\u2192</span>',
-      '</button>'
+      '</button>',
+      renderAcceptedDestinations(row)
     ].join("");
+  }
+
+  function renderAcceptedMaterialRow(material) {
+    return '<article class="kitting-material-card" aria-label="Accepted Material ' + escapeHtml(material.receiptLineId) + '">' +
+      '<div class="kitting-material-heading"><strong>' + escapeHtml(material.receiptLineId) + '</strong><span>' + escapeHtml(material.partNumber) +
+      '</span><span>Available ' + escapeHtml(material.availableQuantity) + ' ' + escapeHtml(material.uom) + '</span></div>' +
+      '<p>Staging: ' + escapeHtml(material.stagingLocation) + ' · Ready for Re-Kit</p>' +
+      material.destinations.map(d => '<button type="button" class="secondary-btn" data-kitting-queue-key="' +
+        escapeHtml(d.queueKey) + '" data-source-row-id="' + escapeHtml(d.sourceRowId) +
+        '" data-accepted-material-id="' + escapeHtml(material.receiptLineId) + '" onclick="openKittingWorkOrder(event)">' +
+        'Return to WO ' + escapeHtml(d.workOrderNumber) + ' · Find ' + escapeHtml(d.findNumber) +
+        ' / ' + escapeHtml(d.requirementId) + ' · ' + escapeHtml(d.availableQuantity) + ' ' + escapeHtml(material.uom) +
+        ' → View shortage</button>').join('') + '</article>';
+  }
+
+  function renderAcceptedDestinations(row) {
+    const demands = row.acceptedDemands || [];
+    if (!demands.length) return '';
+    return '<details class="kitting-material-disclosure"><summary>Accepted Material · ' +
+      demands.length + ' Ready</summary><div class="kitting-material-tray">' + demands.map(d => {
+        const available = Math.min(d.short, d.acceptedMaterials.reduce((n, m) => n + Number(m.availableQuantity), 0));
+        const receipt = d.acceptedMaterials.length === 1 ? d.acceptedMaterials[0].receiptLineId : '';
+        return '<div class="kitting-material-detail"><span>Find ' + escapeHtml(d.returnOrigin.findNumber || '—') +
+          ' · ' + escapeHtml(d.partNumber) + ' · Short ' + escapeHtml(d.short) + ' · ' +
+          escapeHtml(available) + ' Available' + (receipt ? ' · ' + escapeHtml(receipt) : '') + '</span>' +
+          '<button type="button" class="secondary-btn" data-kitting-queue-key="' + escapeHtml(row.queueKey) +
+          '" data-source-row-id="' + escapeHtml(d.sourceRowId) + '" aria-label="View Find ' +
+          escapeHtml(d.returnOrigin.findNumber || d.returnOrigin.requirementId) + ' shortage for WO ' +
+          escapeHtml(row.workOrderNumber) + '" onclick="openKittingWorkOrder(event)">View</button></div>';
+      }).join('') + '</div></details>';
   }
 
   function operatorStatus(status) {
@@ -769,6 +829,8 @@
     if (!row?.actionable || !row.workOrderNumber || !row.canonicalWorkOrder) return false;
     const originLine = row.relatedLines.find(line => Number(line.operationalQuantityOpen) > 0) || row.relatedLines[0];
     const handoff = buildGovernedHandoff(row, originLine);
+    handoff.acceptedMaterialFocus = { sourceRowId: event?.currentTarget?.dataset?.sourceRowId || row.acceptedDemands?.[0]?.sourceRowId || "",
+      receiptLineId: event?.currentTarget?.dataset?.acceptedMaterialId || "" };
     if (typeof window.KittingJobWorkspace?.open !== "function") {
       setStatus("Kitting Job Workspace navigation is unavailable", "error");
       return false;
@@ -858,8 +920,13 @@
         explanation: "Persistent Kitting Cases whose latest immutable submission has unresolved shortages.",
         emptyMessage: "No governed Work Orders currently have a Kit Short Material Status."
       },
+      NEEDS_REKIT: {
+        title: "Accepted Material / Needs Re-Kit",
+        description: "Accepted, staged material assigned to the exact shortage. Open to review; no material is consumed.",
+        rows: needsRekit, empty: "No accepted material is currently ready for re-kit."
+      },
       KIT_COMPLETE: {
-        title: "Kit Complete",
+        title: "Completed Kits / History",
         explanation: "Terminal persistent Kitting Cases with a complete immutable submission.",
         emptyMessage: "No governed Work Orders currently have a Kit Complete Material Status."
       },

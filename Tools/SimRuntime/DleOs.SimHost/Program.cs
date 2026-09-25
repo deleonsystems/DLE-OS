@@ -281,6 +281,7 @@ SimMaterialPlanning.Map(app,simState,personaSessions,new SimMaterialPlanning(sim
 var simKittingCases=new SimKittingCases(simState,operationsData,kittingRequirements);
 SimKittingEndpoints.Map(app,simState,personaSessions,simKittingCases);
 SimPurchasingEndpoints.Map(app,simState,personaSessions,new SimPurchasingService(simState,operationsData));
+SimReceivingEndpoints.Map(app,simState,personaSessions,new SimReceivingService(simState,operationsData,new SimIntakeDocuments(runtime.StateRoot)));
 SimDocumentEndpoints.Map(app, simState, personaSessions, simDocuments);
 
 app.MapMethods("/api/{**path}",

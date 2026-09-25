@@ -577,6 +577,10 @@
       ? 'Kit Complete is read only.'
       : activeKittingRecovery.message;
     renderActiveKittingTrial();
+    const focus = selectedWorkOrder?.acceptedMaterialFocus;
+    const target = activeKittingTrialDraft.groups.find(g => g.sourceRowId === focus?.sourceRowId && kittingReturnDemand(g));
+    if (target) window.requestAnimationFrame?.(() => document.getElementById('kitting-return-' + target.sourceRowId)
+      ?.scrollIntoView?.({ block: 'center' }));
     return true;
   }
 
@@ -1769,7 +1773,7 @@
     const save = document.getElementById('activeKittingSave');
     if (save) save.disabled = !ownsKittingLease();
     renderPoTraceabilityControls();
-    body.innerHTML = renderActiveKittingContext(draft, summary) +
+    body.innerHTML = renderActiveKittingContext(draft, summary) + renderAcceptedKittingSummary(draft) +
       renderActiveKittingRecovery() +
       renderActiveKittingInstructions(draft.assemblyInstructions) +
       '<div class="active-kitting-trial-table-wrap" role="region" aria-label="Active Kitting BOM requirements" tabindex="0">' +
@@ -1839,8 +1843,8 @@
     const locked = group.rowState === 'SUBMITTED';
     const submittedVisual = locked ? window.ActiveKittingTrial.getSubmittedVisualState(entry) : null;
     const rowClass = (entry?.result ? 'result-' + entry.result.toLowerCase().replaceAll('_', '-') : 'result-pending') +
-      (locked ? ' row-locked' : '') + (group.sequence === activeKittingNextSequence ? ' active-kitting-next-row' : '');
-    return '<tr class="' + rowClass + '" data-active-kitting-row="' + escapeDashboardHtml(group.sequence) + '">' +
+      (kittingReturnDemand(group) ? ' accepted-material-ready' : '') + (locked ? ' row-locked' : '') + (group.sequence === activeKittingNextSequence ? ' active-kitting-next-row' : '');
+    return '<tr id="kitting-return-' + escapeDashboardHtml(group.sourceRowId) + '" class="' + rowClass + '" data-active-kitting-row="' + escapeDashboardHtml(group.sequence) + '">' +
       '<td><strong>' + escapeDashboardHtml(group.sequence) + '</strong>' +
       (group.relatedParts.length ? '<small>' + group.relatedParts.map(part => 'Seq ' + escapeDashboardHtml(part.row.sequence)).join('<br>') + '</small>' : '') + '</td>' +
       '<td>' + escapeDashboardHtml(group.findNumber ?? '-') + '</td><td><strong>' + escapeDashboardHtml(group.partNumber) + '</strong>' +
@@ -2010,13 +2014,52 @@
       escapeDashboardHtml(interpretation) + '</span></span>';
   }
 
+  function kittingReturnDemand(group) {
+    return kittingCaseReview?.state === "KIT_SHORT" && kittingSupplyProgress?.demands?.find(d => d.sourceRowId === group.sourceRowId &&
+      d.returnOrigin?.sourceRowId === group.sourceRowId &&
+      !d.unavailableReason && d.short > 0 && d.returnOrigin?.caseId === kittingCaseReview?.caseId &&
+      d.returnOrigin?.workingVersion === kittingCaseReview?.workingVersion &&
+      d.returnOrigin?.releasedBomIdentity === kittingCaseReview?.releasedBomIdentity &&
+      d.returnOrigin?.requirementId === group.groupId &&
+      (d.acceptedMaterials || []).some(m => m.availableQuantity > 0 && m.stagingLocation));
+  }
+
+  function renderAcceptedKittingSummary(draft) {
+    const groups = draft.groups.filter(g => kittingReturnDemand(g));
+    if (!groups.length) return '';
+    return '<aside class="active-kitting-supply" aria-label="Accepted material available"><strong>Accepted Material Available</strong><p>' +
+      groups.length + ' shortage(s) ready for re-kit · Read-only review</p>' + groups.map(g => {
+        const d = kittingReturnDemand(g);
+        const qty = Math.min(d.short, d.acceptedMaterials.reduce((n, m) => n + Number(m.availableQuantity), 0));
+        return '<a class="secondary-btn" href="#kitting-return-' + escapeDashboardHtml(g.sourceRowId) +
+          '">Find ' + escapeDashboardHtml(g.findNumber) + ' · ' + escapeDashboardHtml(g.partNumber) +
+          ' · ' + qty + ' ' + escapeDashboardHtml(g.unitOfMeasure) + ' available → View shortage</a>';
+      }).join(' ') + '</aside>';
+  }
+
   function renderKittingSupply(group) {
     const d = kittingSupplyProgress?.demands?.find(item => item.sourceRowId === group.sourceRowId);
     if (!d) return kittingSupplyProgress?.unavailable ? '<small>Supply context unavailable</small>' : '';
     const date = value => /^(\d{4})-(\d{2})-(\d{2})$/.test(value || '') ? value.slice(5,7) + '/' + value.slice(8,10) + '/' + value.slice(0,4) : 'Not Established';
+    const eventDate = value => value && Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric'
+    }).format(new Date(value)) : 'Not Established';
     const lines = ['Short ' + d.short + ' · ' + d.progress, 'Need By ' + date(d.schedule?.materialNeedBy)];
     for (const p of d.orders || []) lines.push('Ordered ' + p.ordered + ' · PO ' + p.poNumber + ' / ' + p.poLine +
       ' · ETA ' + date(p.expectedDate) + ' · Received ' + (p.received ?? 'Unassigned') + ' / ' + p.ordered + ' · ' + p.risk.status);
+    const accepted = d.acceptedMaterials || [];
+    if (accepted.length) {
+      const available = accepted.reduce((total, item) => total + Number(item.availableQuantity || 0), 0);
+      lines.push('Accepted Material Available ' + available + ' ' + (accepted[0].uom || ''));
+      for (const item of accepted) lines.push('Accepted Material ' + item.receiptLineId +
+        ' · ' + item.availableQuantity + ' ' + item.uom + ' · PO ' + item.poNumber + ' / ' + item.poLine +
+        ' · Packing Slip ' + item.packingSlipNumber + ' · Staged ' + item.stagingLocation +
+        ' · Received ' + eventDate(item.receivedAtUtc) + ' · Accepted ' + eventDate(item.acceptedAtUtc));
+      lines.push(kittingReturnDemand(group) ? 'READY FOR RE-KIT' + (available < d.short ? ' · Partial supply' : '') : 'Supply Review Required');
+      lines.push('Destination WO ' + getSelectedReleasedBomWorkOrder() + ' · Find ' + (group.findNumber ?? '—') +
+        ' · Released line ' + group.sequence + ' · Requirement ' + group.groupId);
+      lines.push('Required ' + group.requiredQuantity + ' · Previously Kitted ' + (group.entry?.pickedQuantity ?? '—') + ' · Short ' + d.short);
+    }
     if (d.unavailableReason) lines.push(d.unavailableReason);
     return '<div class="active-kitting-supply" aria-label="Read-only supply context"><small>' + lines.map(escapeDashboardHtml).join('<br>') + '</small></div>';
   }
