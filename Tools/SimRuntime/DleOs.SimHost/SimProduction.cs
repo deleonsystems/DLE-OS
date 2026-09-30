@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-internal sealed class SimProductionService(SimStateStore state,SimOperationsDataStore operations,SimRfqIntakeStore intakes,
+internal sealed partial class SimProductionService(SimStateStore state,SimOperationsDataStore operations,SimRfqIntakeStore intakes,
     SimKittingRequirementsProvider provider,SimIntakeDocuments documents)
 {
     internal static readonly JsonSerializerOptions Json=new(JsonSerializerDefaults.Web);
@@ -128,16 +128,26 @@ internal sealed class SimProductionService(SimStateStore state,SimOperationsData
     {
         var wo=source.Package.GetProperty("workOrderNumber").GetString()!;var retained=await store.Read(wo,runtime.Generation);
         var package=JsonNode.Parse((retained.Bound?.FrozenPackage??source.Package).GetRawText())!.AsObject();
-        var route=retained.Bound?.Operations??retained.Definition?.Operations??source.Operations;
+        var revisions=RevisionView(retained.Bound,retained.Revisions,source);
+        var route=revisions.Effective?.Operations??retained.Definition?.Operations??source.Operations;
         var errors=Validation(route,source,retained.Bound?.SourceToken??retained.Definition?.SourceToken);
         if(retained.Bound is null)errors.Add("An approved Traveler must be bound to this Work Order.");
+        var execution=retained.Execution||route.Any(o=>o.ExecutionState!="NOT_STARTED");
+        if(execution)errors.Add("Persisted execution evidence exists. Pre-start revision editing is unavailable.");
         var material=source.Case?.State??"NEEDS_KITTING";var ready=material=="KIT_COMPLETE"&&retained.Bound is not null&&errors.Count==0;
         package["materialStatus"]=material;package["productionStatus"]=Status(material,ready);package["ready"]=ready;
         package["validationErrors"]=JsonSerializer.SerializeToNode(errors,Json);package["definition"]=JsonSerializer.SerializeToNode(retained.Definition,Json);
         package["boundTraveler"]=JsonSerializer.SerializeToNode(retained.Bound is null?null:new{retained.Bound.Id,retained.Bound.Version,retained.Bound.DefinitionId,
             retained.Bound.DefinitionVersion,retained.Bound.SourceToken,retained.Bound.ApprovedAt,retained.Bound.CreatedAt,retained.Bound.CreatedBy,retained.Bound.Operations},Json);
-        package["operations"]=JsonSerializer.SerializeToNode(route.OrderBy(o=>o.Sequence),Json);package["history"]=JsonSerializer.SerializeToNode(retained.History,Json);
-        package["canManage"]=actor.Can("production.manage");package["executionStarted"]=false;package["currentOperations"]=new JsonArray();
+        package["operations"]=ProjectOperations(route,revisions.Effective);package["history"]=JsonSerializer.SerializeToNode(retained.History,Json);
+        package["effectiveRevision"]=ProjectRevision(revisions.Effective);
+        package["travelerRevisions"]=JsonSerializer.SerializeToNode(revisions.All.Select(r=>new{r.Id,r.Version,r.PreviousRevisionId,r.ChangeBasis,r.Reason,r.CreatedBy,r.CreatedAt,r.Approval,effective=r.Id==revisions.Effective?.Id}),Json);
+        package["woRevisionWorkingVersion"]=retained.Revisions.Head?.WorkingVersion??0;
+        package["woRevisionDraft"]=ProjectRevision(retained.Revisions.Draft);
+        package["woRevisionHistory"]=JsonSerializer.SerializeToNode(retained.Revisions.History,Json);
+        package["canEditTraveler"]=actor.Can("production.manage")&&!execution&&retained.Bound is not null&&errors.Count==0;
+        await ProjectTeam(package,wo,runtime.Generation,actor,retained.Revisions,revisions.All);
+        package["canManage"]=actor.Can("production.manage");package["executionStarted"]=execution;package["currentOperations"]=new JsonArray();
         var first=route.Where(o=>o.Classification=="PRODUCTION"&&o.Enabled).OrderBy(o=>o.Sequence).FirstOrDefault();
         package["firstOperation"]=first is null?null:JsonSerializer.SerializeToNode(new{first.Id,first.Sequence,first.Name,state=ready?"READY":"NOT_READY",executionState="NOT_STARTED",startAvailable=false},Json);
         return JsonSerializer.SerializeToElement(package,Json);

@@ -25,7 +25,8 @@
     loadError: "",
     selectedQueue: "KIT_COMPLETE",
     packages: new Map(), packageErrors: new Map(), selectedWo: "", package: null,
-    panel: "traveler", editing: false, dirty: false, busy: false, detailRequest: 0, message: ""
+    panel: "traveler", editing: false, dirty: false, busy: false, detailRequest: 0, message: "",
+    woEditing: false, revisionReview: false, revisionOrder: [], revisionReason: "", clarifications: [], substeps: [], travelerVisuals: [], operationContent: [], inputPanel: null, inspectedRevision: null, drag: null
   };
 
   async function renderProductionWorkspace() {
@@ -70,6 +71,13 @@
   function bindInteractions(mount) {
     if (mount.dataset.productionInteractionsBound === "true") return;
     mount.dataset.productionInteractionsBound = "true";
+    mount.addEventListener('pointerdown', beginRevisionDrag);
+    mount.addEventListener('pointermove', moveRevisionDrag);
+    mount.addEventListener('pointerup', event => finishRevisionDrag(event, true));
+    mount.addEventListener('pointercancel', event => finishRevisionDrag(event, false));
+    mount.addEventListener('lostpointercapture', event => finishRevisionDrag(event, false));
+    mount.addEventListener('keydown', revisionGripKey);
+    window.addEventListener?.('blur', cancelRevisionDrag);
     mount.querySelector("#productionWorkspaceSearch")?.addEventListener("input", renderQueues);
     mount.querySelector("#productionWorkspaceRefresh")?.addEventListener("click", () => {
       void refreshProductionWorkspace({ forceMaterialStatus: true });
@@ -83,12 +91,40 @@
       const panel = event.target?.closest?.("[data-production-panel]");
       if (panel) {
         if (!discardEdits()) return;
-        state.editing = false; state.panel = panel.dataset.productionPanel; renderManagement(); return;
+        state.editing = false; state.woEditing = false; state.panel = panel.dataset.productionPanel; renderManagement(); return;
       }
       const rowElement = event.target?.closest?.("[data-production-queue-key]");
       if (rowElement) return openWorkOrder(state.rowsByKey.get(rowElement.dataset.productionQueueKey));
     });
-    mount.addEventListener("input", event => { if (event.target?.closest?.("#productionDraftForm")) state.dirty = true; });
+    mount.addEventListener('change', event => {
+      if (event.target?.id === 'productionImageFile' && state.inputPanel) { state.inputPanel.file = event.target.files?.[0] || null; }
+    });
+    mount.addEventListener('paste', event => {
+      if (!state.inputPanel || state.inputPanel.kind !== 'VISUAL' || !event.target?.closest?.('.production-input-panel')) return;
+      const file = Array.from(event.clipboardData?.items || []).find(i => i.kind === 'file' && /^image\/(png|jpeg)$/.test(i.type))?.getAsFile();
+      if (file) { event.preventDefault(); state.inputPanel.file = file; const status = document.getElementById('productionImageStatus'); if (status) status.textContent = 'Pasted image ready to upload.'; }
+    });
+    mount.addEventListener("input", event => {
+      if (event.target?.closest?.("#productionDraftForm")) state.dirty = true;
+      if(event.target?.dataset?.woContentField){const item=state.operationContent.find(n=>n.operationId===event.target.dataset.operationId);if(item){item[event.target.dataset.woContentField]=event.target.value;state.dirty=true;const row=event.target.closest?.('.production-sheet-operation');if(event.target.dataset.woContentField==='instructions'){const preview=row?.querySelector('.production-sheet-preview');if(preview)preview.textContent=event.target.value;const compactPreview=row?.querySelector('[data-instruction-preview]');if(compactPreview)compactPreview.textContent=event.target.value||'No Traveler instruction recorded.';const status=row?.querySelector('[data-source-status]');if(status)status.textContent=event.target.value===event.target.dataset.sourceInstruction?'Same as source':'Modified from source';}}}
+      if (event.target?.dataset?.substepId) { const step=state.substeps.find(n=>n.id===event.target.dataset.substepId); if(step){step.text=event.target.value;state.dirty=true;} }
+      if (event.target?.dataset?.travelerVisualId) { const visual=state.travelerVisuals.find(n=>n.id===event.target.dataset.travelerVisualId); if(visual){visual.caption=event.target.value;state.dirty=true;} }
+      if (event.target?.dataset?.inputField && state.inputPanel) state.inputPanel[event.target.dataset.inputField] = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+      if (event.target?.dataset?.clarificationId) {
+        const note = state.clarifications.find(n => n.id === event.target.dataset.clarificationId);
+        if (note) { note.text = event.target.value; state.dirty = true; }
+      }
+      if (event.target?.id === "woRevisionReason") { state.revisionReason = event.target.value; state.dirty = true; }
+      if (state.woEditing && state.dirty) {
+        const bar = document.querySelector('.production-sticky-actions');
+        const status = bar?.querySelector('small'); if (status) status.textContent = 'Unsaved draft changes';
+        const review = bar?.querySelector('[data-production-action="review-wo"]'); if (review) review.disabled = true;
+        if (event.target?.dataset?.clarificationId) {
+          const preview = event.target.closest('.production-sheet-operation')?.querySelector('.production-sheet-preview');
+          if (preview) { preview.textContent = 'WO clarification · ' + event.target.value; preview.title = event.target.value; }
+        }
+      }
+    });
     mount.addEventListener("submit", async event => {
       if (event.target?.id !== "productionDraftForm") return;
       event.preventDefault();
@@ -235,7 +271,7 @@
   async function openWorkOrder(row) {
     if (!row?.actionable || !row.workOrderNumber || !row.canonicalWorkOrder) return false;
     if (!discardEdits()) return false;
-    state.selectedWo = row.workOrderNumber; state.package = null; state.editing = false; state.panel = "traveler";
+    state.selectedWo = row.workOrderNumber; state.package = null; state.editing = false; state.woEditing = false; state.inspectedRevision = null; state.panel = "traveler";
     window.DleWorkspaceShell?.setWorkspaceView?.(WORKSPACE_ID);
     await refreshDetail();
     return true;
@@ -251,7 +287,8 @@
     DRAFT: "Draft", APPROVED: "Approved", MATERIALS_PREREQUISITE: "Materials prerequisite", COUNTED_EXACT: "Counted Exact",
     TRAVELER: "Traveler", COC: "Certificate of Conformance", CERTIFICATE_OF_CONFORMANCE: "Certificate of Conformance",
     MATERIAL_CERT: "Material Certificate", TEST_REPORT: "Test Report", SEEDED: "Traveler Draft Created", EDIT_LEASE_ACQUIRED: "Edit Lease Acquired",
-    DRAFT_REVISED: "Draft Revised", WO_BOUND: "WO Traveler Frozen",
+    DRAFT_REVISED: "Draft Revised", WO_BOUND: "WO Traveler Frozen", ADDED: "Added", CHANGED: "Changed", REMOVED: "Removed",
+    WO_CLARIFICATION_ADDED: "Production Clarification Added", WO_CLARIFICATION_CHANGED: "Production Clarification Changed", WO_CLARIFICATION_REMOVED: "Production Clarification Removed",
     COUNTED: "Counted Exact", COMPLETE: "Complete", PRODUCTION: "Production", NOT_READY: "Not Ready"
   }[value] || cleanText(value).replace(/_/g, " ") || "Not established");
   const dateTime = value => value && Number.isFinite(Date.parse(value))
@@ -282,6 +319,8 @@
   }
 
   function discardEdits() {
+    if (state.inputPanel && !window.confirm("Discard the open Team Input / visual editor?")) return false;
+    state.inputPanel = null;
     if (state.dirty && !window.confirm?.("Discard unsaved Traveler draft edits?")) return false;
     state.dirty = false; return true;
   }
@@ -294,18 +333,23 @@
       const data = await request(state.selectedWo);
       if (token !== state.detailRequest) return;
       state.package = data; state.packages.set(state.selectedWo, data);
-      state.message = ""; state.editing = false; renderManagement(); renderQueues();
+      state.message = ""; state.editing = false; state.woEditing = false; state.inspectedRevision = null; renderManagement(); renderQueues();
     } catch (error) { if (token === state.detailRequest) { state.message = error.message; renderManagement(); } }
   }
 
   function renderManagement() {
+    cancelRevisionDrag();
     const target = document.getElementById("productionManagement");
     const queue = document.querySelector("[data-production-queue-view]");
     if (queue) queue.hidden = Boolean(state.selectedWo);
     if (!target) return;
     target.hidden = !state.selectedWo;
     if (!state.selectedWo) return;
+    const expanded = new Set(Array.from(target.querySelectorAll('details[data-wo-operation][open]')).map(el => el.dataset.woOperation));
+    const disclosures = new Set(Array.from(target.querySelectorAll('details[data-operation-disclosure][open]')).map(el => el.dataset.operationDisclosure));
     target.innerHTML = renderManagementHtml(state.package);
+    target.querySelectorAll('details[data-wo-operation]').forEach(el => { el.open = expanded.has(el.dataset.woOperation); });
+    target.querySelectorAll('details[data-operation-disclosure]').forEach(el => { el.open = disclosures.has(el.dataset.operationDisclosure); });
   }
 
   function renderManagementHtml(data) {
@@ -319,7 +363,7 @@
     const facts = '<div class="production-context">' + field("Customer", context.customer || context.customerNumber) +
       field("Assembly / Rev", [context.assembly, context.revision].filter(Boolean).join(" / ")) + field("Qty", readableQuantity(context.quantity)) +
       field("Customer Due", formatDueDate(context.customerDueDate)) + field("Material Status", humanStatus(data.materialStatus)) +
-      field("Production Status", humanStatus(data.productionStatus)) + field("Traveler", bound ? "Approved / Frozen · v" + bound.definitionVersion :
+      field("Production Status", humanStatus(data.productionStatus)) + field("Traveler", bound ? "Approved / Frozen · v" + (data.effectiveRevision?.version || bound.version) :
         def ? humanStatus(def.status) + " · v" + (def.version || def.workingVersion) : "Not established") + '</div>';
     const firstCard = '<section class="production-first-operation" aria-label="First operation">' +
       '<div><small>FIRST OPERATION</small><strong>' + escapeHtml(first ? first.sequence + ' — ' + first.name : "Awaiting approved Traveler") +
@@ -352,37 +396,150 @@
       (Number(basis.setupMinutes) > 0 ? " · Setup " + readableQuantity(basis.setupMinutes) + " min" : "");
   }
 
-  function renderOperationDetails(op) {
-    const notes = list(op.productionNotes).filter(note => note.purpose === "PRODUCTION" && !note.removed);
-    return '<div class="production-operation-details"><section><h4>Source instructions · read-only</h4><p class="production-preserve-lines">' +
-      escapeHtml(op.instructions || "No source instructions recorded.") + '</p>' +
-      notes.map(note => '<p class="production-source-note production-preserve-lines">' + escapeHtml(note.text) + '</p>').join("") +
-      '<p class="production-muted">Controlled technical documents remain authoritative.</p></section>' +
-      (op.shopInstructions ? '<section><h4>Traveler / shop instruction</h4><p class="production-preserve-lines">' + escapeHtml(op.shopInstructions) + '</p></section>' : '') +
-      (op.managementNotes ? '<section><h4>Management note</h4><p class="production-preserve-lines">' + escapeHtml(op.managementNotes) + '</p></section>' : '') +
-      (op.inspectionRequirements ? '<section><h4>Inspection / test review</h4><p class="production-preserve-lines">' + escapeHtml(op.inspectionRequirements) + '</p></section>' : '') +
-      '<section class="production-reference-list"><h4>Visual / technical references</h4>' +
-      (list(op.visuals).map(visual => link(visual.url, visual.name) + (visual.caption ? '<small>' + escapeHtml(visual.caption) + '</small>' : '')).join("") ||
-        '<span class="production-muted">Text-only operation · no visual attached</span>') +
-      list(op.technicalReferences).map(reference => link(reference.url, reference.name)).join("") + '</section>' +
-      '<small class="production-muted">Source operation ' + escapeHtml(op.sourceOperationId) + ' · Traveler operation ' + escapeHtml(op.id) + '</small></div>';
+  function loadAuthoring(draft) {
+    state.operationContent=list(draft.operations).filter(o=>o.enabled&&o.classification==='PRODUCTION').map(o=>({operationId:o.id,instructions:o.travelerInstructions??(o.shopInstructions||o.instructions||''),workCenter:o.travelerWorkCenter??o.workCenter??'',department:o.travelerDepartment??o.department??''}));
+    state.clarifications = list(draft.clarifications).filter(n=>!n.removed).map(n=>({...n}));
+    state.substeps = list(draft.substeps).filter(n=>!n.removed).map(n=>({...n}));
+    state.travelerVisuals = list(draft.visuals).filter(n=>!n.removed).map(n=>({...n}));
+  }
+  function currentTeam(op) { return state.panel === 'traveler' && !state.inspectedRevision ? list(state.package?.teamInputs).filter(n=>n.operationId===op.id) : []; }
+  function visualTotal(op, editing) { return list(op.visuals).length + (editing ? state.travelerVisuals.filter(n=>n.operationId===op.id).length : list(op.travelerVisuals).length) + currentTeam(op).filter(n=>n.kind==='VISUAL'&&n.active).length; }
+  function opAction(action,label,op,id='') { return '<button type="button" data-production-action="'+action+'" data-operation-id="'+escapeHtml(op.id)+'" data-content-id="'+escapeHtml(id)+'"'+(state.busy?' disabled':'')+'>'+label+'</button>'; }
+  function operationMenu(op, editing) {
+    if(state.panel!=='traveler'||state.inspectedRevision||(!editing&&(!state.package?.canAddTeamInput||!state.package?.boundTraveler))) return '<span></span>';
+    const items=editing ? opAction('add-substep','Add Traveler Substep',op)+opAction('add-clarification','Add Clarification',op)+opAction('add-controlled-visual','Add Traveler Visual',op) : opAction('add-team-note','Add Production Note',op)+opAction('add-team-visual','Add Team Visual',op);
+    return '<details class="production-authoring-menu"><summary aria-label="Add content to '+escapeHtml(op.name)+'">+</summary><div>'+items+'</div></details>';
+  }
+  function imageCard(v) { const url=v.url||apiPath(state.selectedWo)+'/production-visuals/'+encodeURIComponent(v.assetId); return '<a class="production-visual-thumb" href="'+escapeHtml(url)+'" target="_blank" rel="noopener"><img src="'+escapeHtml(url)+'" alt="'+escapeHtml(v.caption||v.text||v.name||'Traveler visual')+'" loading="lazy"></a>'+link(url,'View Original'); }
+  function controlledContent(op,editing,part) {
+    const steps=(editing?state.substeps.filter(n=>n.operationId===op.id):list(op.substeps)).slice().sort((a,b)=>a.order-b.order);
+    const visuals=editing?state.travelerVisuals.filter(n=>n.operationId===op.id):list(op.travelerVisuals);
+    return (steps.length&&part==='steps'?'<section><ol class="production-substeps">'+steps.map(n=>'<li>'+(editing?'<textarea rows="2" maxlength="4000" data-substep-id="'+escapeHtml(n.id)+'" aria-label="Substep instruction">'+escapeHtml(n.text)+'</textarea><div>'+opAction('substep-up','<span aria-hidden="true">↑</span><span class="production-sr-only">Move substep up</span>',op,n.id)+opAction('substep-down','<span aria-hidden="true">↓</span><span class="production-sr-only">Move substep down</span>',op,n.id)+opAction('remove-substep','Remove',op,n.id)+'</div>':'<p class="production-preserve-lines">'+escapeHtml(n.text)+'</p>')+'</li>').join('')+'</ol></section>':'')+
+      (visuals.length&&part==='visuals'?'<section><div class="production-visual-grid">'+visuals.map(v=>'<article>'+imageCard(v)+(editing?'<label>Caption<textarea rows="2" maxlength="500" data-traveler-visual-id="'+escapeHtml(v.id)+'">'+escapeHtml(v.caption)+'</textarea></label>'+opAction('replace-controlled-visual','Supersede image',op,v.id)+opAction('remove-controlled-visual','Remove',op,v.id):'<p>'+escapeHtml(v.caption)+'</p>')+(v.teamSource?'<small>Promoted from Team Input</small>':'<small>WO-authored visual</small>')+'</article>').join('')+'</div></section>':'');
+  }
+  function teamContent(op,kind) {
+    const entries=currentTeam(op).filter(n=>!kind||n.kind===kind); if(!entries.length) return '';
+    return '<section class="production-team-input"><h4>Team Input · not controlled instructions</h4>'+entries.map(n=>'<article class="production-team-entry"><small>'+escapeHtml(n.author)+' · '+escapeHtml(dateTime(n.createdAt))+' · '+(n.audience==='MANAGEMENT_ONLY'?'Management only':'Team visible')+(n.active?'':' · Withdrawn')+'</small>'+(n.kind==='VISUAL'?imageCard(n):'')+'<p class="production-preserve-lines">'+escapeHtml(n.text)+'</p>'+list(n.promotions).map(p=>'<small>Promoted · Traveler v'+escapeHtml(p.version)+' · '+escapeHtml(humanStatus(p.status))+'</small>').join('')+(!state.woEditing&&n.canCorrect?opAction('correct-team-input','Correct / withdraw',op,n.id):'')+(!state.woEditing&&n.active&&state.package?.canEditTraveler?opAction('promote-team-input','Promote to Traveler…',op,n.id):'')+'<details><summary>History · '+n.version+' version'+(n.version===1?'':'s')+'</summary>'+list(n.history).map(h=>'<p>v'+h.version+' · '+escapeHtml(h.updatedBy)+' · '+escapeHtml(dateTime(h.updatedAt))+' · '+escapeHtml(h.reason)+'<br>'+escapeHtml(h.text)+'</p>').join('')+'</details></article>').join('')+'</section>';
+  }
+  function renderInputPanel() {
+    const p=state.inputPanel;if(!p)return '';
+    return '<section class="production-input-panel" aria-label="'+escapeHtml(p.title)+'"><h3>'+escapeHtml(p.title)+'</h3><p>'+escapeHtml(p.operationName)+'</p>'+(p.kind==='VISUAL'&&!p.existing?'<label>PNG / JPEG · up to 8 MB<input id="productionImageFile" type="file" accept="image/png,image/jpeg"></label><small id="productionImageStatus" role="status">Or paste an image into this editor. '+escapeHtml(p.file?.name||'')+'</small>':'')+'<label>'+(p.kind==='VISUAL'?'Caption':'Team note')+'<textarea data-input-field="text" rows="3" maxlength="'+(p.kind==='VISUAL'?500:4000)+'">'+escapeHtml(p.text)+'</textarea></label>'+
+      (!p.controlled&&state.package?.canManageTeamInput?'<label>Audience<select data-input-field="audience"><option value="TEAM_VISIBLE"'+(p.audience==='TEAM_VISIBLE'?' selected':'')+'>Team visible</option><option value="MANAGEMENT_ONLY"'+(p.audience==='MANAGEMENT_ONLY'?' selected':'')+'>Management only</option></select></label>':'')+
+      (p.existing?'<label>Correction reason<textarea data-input-field="reason" maxlength="2000">'+escapeHtml(p.reason)+'</textarea></label><label>Status<select data-input-field="active"><option value="true"'+(p.active?' selected':'')+'>Active</option><option value="false"'+(!p.active?' selected':'')+'>Withdrawn — retain history</option></select></label>':'')+
+      '<div>'+button('save-input',p.controlled?'Attach to draft':'Save Team Input',state.busy)+button('cancel-input','Cancel',state.busy)+'</div><small>'+(p.controlled?'This visual becomes controlled only after saving, reviewing, and approving the WO revision.':'Team Input does not change the effective Traveler or Production readiness.')+'</small></section>';
+  }
+  function showInputPanel() { renderManagement(); const panel=document.querySelector('.production-input-panel');panel?.scrollIntoView?.({block:'center'});panel?.querySelector('textarea')?.focus?.({preventScroll:true}); }
+  function openOperationDisclosure(opId, part) {
+    const row=Array.from(document.querySelectorAll('details[data-wo-operation]')).find(d=>d.dataset.woOperation===opId);
+    if(row){row.open=true;const detail=Array.from(row.querySelectorAll('details[data-operation-disclosure]')).find(d=>d.dataset.operationDisclosure===opId+':'+part);if(detail)detail.open=true;}
+  }
+  function showOperation(opId, part) { renderManagement(); openOperationDisclosure(opId, part); }
+  async function handleAuthoringAction(action,element) {
+    const supported=['add-team-note','add-team-visual','correct-team-input','promote-team-input','add-substep','substep-up','substep-down','remove-substep','add-controlled-visual','replace-controlled-visual','remove-controlled-visual','save-input','cancel-input'];
+    if(!supported.includes(action))return false;if(state.busy)return true;
+    const opId=element.dataset.operationId,id=element.dataset.contentId;
+    const op=list((state.woEditing?state.package?.woRevisionDraft:state.package?.effectiveRevision)?.operations).find(o=>o.id===opId);
+    const dirty=(part)=>{state.dirty=true;state.revisionReview=false;showOperation(opId,part||(action.includes('substep')?'steps':'visuals'));};
+    if(action==='cancel-input'){state.inputPanel=null;renderManagement();return true;}
+    if(action==='save-input'){await saveAuthoringInput();return true;}
+    if(!op)return true;
+    if(action==='promote-team-input'){
+      if(!state.package.canEditTraveler)return true;
+      const n=currentTeam(op).find(n=>n.id===id&&n.active);if(!n)return true;
+      await handleWoRevision('edit-wo',element);if(!state.woEditing)return true;
+      const teamSource={id:n.id,version:n.version};
+      if(n.kind==='NOTE')state.clarifications.push({id:window.crypto.randomUUID(),operationId:op.id,text:n.text,teamSource});
+      else state.travelerVisuals.push({id:window.crypto.randomUUID(),operationId:op.id,assetId:n.id,caption:n.text,name:n.name,url:n.url,teamSource});
+      state.message='Team Input copied into the WO draft. Enter a reason, save, review, and approve to make it controlled.';dirty(n.kind==='NOTE'?'notes':'visuals');return true;
+    }
+    if(action.startsWith('add-team')||action==='correct-team-input'){
+      if(!state.package.canAddTeamInput||state.woEditing)return true;
+      const n=action==='correct-team-input'?currentTeam(op).find(n=>n.id===id&&n.canCorrect):null;if(action==='correct-team-input'&&!n)return true;
+      state.inputPanel={title:n?'Correct Team Input':action==='add-team-note'?'Add Production Note':'Add Team Visual',operationId:op.id,operationName:op.name,kind:n?.kind||(action==='add-team-note'?'NOTE':'VISUAL'),text:n?.text||'',audience:n?.audience||'TEAM_VISIBLE',active:n?.active??true,existing:n,reason:''};showInputPanel();return true;
+    }
+    if(!state.woEditing||!state.package.canEditTraveler)return true;
+    if(action==='add-substep')state.substeps.push({id:window.crypto.randomUUID(),operationId:op.id,order:Math.max(0,...state.substeps.filter(n=>n.operationId===op.id).map(n=>n.order))+1,text:''});
+    else if(action==='remove-substep')state.substeps=state.substeps.filter(n=>n.id!==id);
+    else if(action==='substep-up'||action==='substep-down'){
+      const items=state.substeps.filter(n=>n.operationId===op.id).sort((a,b)=>a.order-b.order),i=items.findIndex(n=>n.id===id),j=i+(action==='substep-up'?-1:1);
+      if(i>=0&&j>=0&&j<items.length)[items[i].order,items[j].order]=[items[j].order,items[i].order];
+    } else if(action==='remove-controlled-visual')state.travelerVisuals=state.travelerVisuals.filter(n=>n.id!==id);
+    else {state.inputPanel={title:action==='replace-controlled-visual'?'Supersede Traveler Visual':'Add Traveler Visual',controlled:true,kind:'VISUAL',operationId:op.id,operationName:op.name,text:'',supersedesId:action==='replace-controlled-visual'?id:null};showInputPanel();return true;}
+    dirty();return true;
+  }
+  async function saveAuthoringInput(){
+    const p=state.inputPanel;if(!p)return;state.busy=true;state.message='Saving…';
+    try{
+      if(p.kind==='NOTE'||p.existing){
+        const result=await request(state.selectedWo,'/team-input',{id:p.existing?.id||window.crypto.randomUUID(),expectedVersion:p.existing?.version||0,travelerId:state.package.boundTraveler.id,operationId:p.operationId,text:p.text,audience:p.audience,active:p.active===true||p.active==='true',reason:p.reason||''});
+        state.package=result;state.packages.set(state.selectedWo,result);
+      }else{
+        if(!p.file)throw new Error('Choose or paste a PNG or JPEG image.');
+        const draft=state.package.woRevisionDraft,meta={travelerId:state.package.boundTraveler.id,operationId:p.operationId,caption:p.text,audience:p.audience||'MANAGEMENT_ONLY',scope:p.controlled?'DRAFT_VISUAL':'TEAM_INPUT',expectedWorkingVersion:state.package.woRevisionWorkingVersion,revisionId:p.controlled?draft.id:null,leaseId:p.controlled?draft.lease.id:null};
+        const response=await window.fetch(apiPath(state.selectedWo)+'/production-visuals',{method:'POST',credentials:'same-origin',headers:{'Content-Type':p.file.type,'X-File-Name':encodeURIComponent(p.file.name||'pasted-image.png'),'X-Production-Visual':encodeURIComponent(JSON.stringify(meta))},body:p.file});
+        const asset=await response.json();if(!response.ok)throw new Error(asset.message||asset.error?.message||'Image upload failed.');
+        if(p.controlled){state.travelerVisuals=state.travelerVisuals.filter(v=>v.id!==p.supersedesId);state.travelerVisuals.push({id:window.crypto.randomUUID(),operationId:p.operationId,assetId:asset.id,caption:p.text,name:asset.name,supersedesId:p.supersedesId});state.dirty=true;state.revisionReview=false;}
+        else{state.package=await request(state.selectedWo);state.packages.set(state.selectedWo,state.package);}
+      }
+      state.inputPanel=null;state.message=p.controlled?'Visual attached to local draft. Save with a reason, review, and approve.':'Team Input saved. Effective Traveler unchanged.';
+    }catch(error){state.message=error.message;}finally{state.busy=false;showOperation(p.operationId,p.kind==='VISUAL'?'visuals':'notes');}
+  }
+
+  function clarificationContent(op, editable = false) {
+    const notes = editable ? state.clarifications.filter(n => n.operationId === op.id) : list(op.clarifications);
+    return notes.length ? '<section class="production-clarifications"><h4>Production clarifications · WO only</h4>' + notes.map(n =>
+      '<div class="production-clarification"><small>' + (n.addedInVersion ? 'Added in Traveler v' + escapeHtml(n.addedInVersion) + ' · ' + escapeHtml(dateTime(n.createdAt)) : 'New draft clarification') + '</small>' +
+      (editable ? '<label class="production-sr-only" for="clarification-' + escapeHtml(n.id) + '">Production clarification for ' + escapeHtml(op.name) + '</label><textarea id="clarification-' + escapeHtml(n.id) + '" data-clarification-id="' + escapeHtml(n.id) + '" rows="3" maxlength="4000" required' + (state.busy ? ' disabled' : '') + '>' + escapeHtml(n.text) + '</textarea>' +
+        '<button type="button" data-production-action="remove-clarification" data-clarification-id="' + escapeHtml(n.id) + '"' + (state.busy ? ' disabled' : '') + '>Remove clarification</button>' :
+        '<p class="production-preserve-lines">' + escapeHtml(n.text) + '</p>') + '</div>').join('') + '</section>' : '';
+  }
+
+  function operationValues(op,editable=false){return editable?(state.operationContent.find(n=>n.operationId===op.id)||operationValues(op)): {instructions:op.travelerInstructions??(op.shopInstructions||op.instructions||''),workCenter:op.travelerWorkCenter??op.workCenter??'',department:op.travelerDepartment??op.department??''};}
+  function renderOperationDetails(op, editable = false) {
+    const value=operationValues(op,editable),source=op.sourceInstruction??(op.shopInstructions||op.instructions||'');
+    const teamAllowed=!editable&&!state.woEditing&&op.enabled!==false&&op.classification==='PRODUCTION'&&state.panel==='traveler'&&!state.inspectedRevision&&state.package?.canAddTeamInput&&state.package?.boundTraveler;
+    const field=(name,label,max,area=false)=>'<label>'+(area?'<span class="production-sr-only">'+label+'</span>':label)+(area?'<textarea rows="4"':'<input type="text"')+' data-wo-content-field="'+name+'" data-operation-id="'+escapeHtml(op.id)+'"'+(name==='instructions'?' data-source-instruction="'+escapeHtml(source)+'"':'')+' maxlength="'+max+'"'+(state.busy?' disabled':'')+(area?'>'+escapeHtml(value[name])+'</textarea>':' value="'+escapeHtml(value[name])+'">')+'</label>';
+    const notes=list(op.productionNotes).filter(n=>n.purpose==='PRODUCTION'&&!n.removed);
+    const steps=editable?state.substeps.filter(n=>n.operationId===op.id):list(op.substeps);
+    const clarifications=editable?state.clarifications.filter(n=>n.operationId===op.id):list(op.clarifications);
+    const team=currentTeam(op),teamNotes=team.filter(n=>n.kind==='NOTE'),teamVisuals=team.filter(n=>n.kind==='VISUAL');
+    const travelerVisuals=editable?state.travelerVisuals.filter(n=>n.operationId===op.id):list(op.travelerVisuals);
+    const disclosure=(part,summary,content)=>'<details class="production-compact-disclosure" data-operation-disclosure="'+escapeHtml(op.id+':'+part)+'"><summary>'+summary+'</summary><div class="production-compact-content">'+content+'</div></details>';
+    const row=(heading,content,actions='',extra='')=>'<section class="production-operation-compact-row '+extra+'"><h4>'+heading+'</h4>'+content+(actions?'<div class="production-compact-actions">'+actions+'</div>':'')+'</section>';
+    const view='<span class="production-disclosure-hint">'+(editable?'View / Edit':'View')+'</span>';
+    const noteSummary=teamNotes.filter(n=>n.active).length+' notes · '+clarifications.length+' clarifications';
+    const visualSummary='Source '+list(op.visuals).length+' · Team '+teamVisuals.filter(n=>n.active).length+' · Traveler '+travelerVisuals.length;
+    return '<div class="production-operation-details">'+
+      row('Traveler Instructions',disclosure('instructions','<span class="production-instruction-preview" data-instruction-preview>'+escapeHtml(value.instructions||'No Traveler instruction recorded.')+'</span><span class="production-disclosure-hint">'+(editable?'Edit / Expand':'More')+'</span>',(editable?field('instructions','Traveler Instructions',8000,true):'<p class="production-preserve-lines">'+escapeHtml(value.instructions||'No Traveler instruction recorded.')+'</p>'))+'<small data-source-status>'+ (value.instructions===source?'Same as source':'Modified from source')+'</small>','','production-traveler-instruction')+
+      row('Substeps',steps.length?disclosure('steps',steps.length+' items · '+view,controlledContent(op,editable,'steps')):'<span class="production-compact-empty">None</span>',editable?opAction('add-substep','+ Add Traveler Substep',op):'')+
+      row('Production Notes / Clarifications',clarifications.length||teamNotes.length?disclosure('notes',noteSummary+' · '+view,clarificationContent(op,editable)+'<div class="production-team-lane"><h4>Team Notes</h4><small>Operational context · not controlled instructions</small>'+teamContent(op,'NOTE')+'</div>'):'<span class="production-compact-empty">'+noteSummary+'</span>',(editable?opAction('add-clarification','+ Add Clarification',op):'')+(teamAllowed?opAction('add-team-note','+ Add Production Note',op):''))+
+      row('Visuals',list(op.visuals).length||teamVisuals.length||travelerVisuals.length?disclosure('visuals',visualSummary+' · '+view,'<div class="production-visual-lanes"><section><h4>Source Visuals · read-only</h4>'+ (list(op.visuals).map(v=>'<article>'+imageCard(v)+'<small>'+escapeHtml(v.caption||v.name)+'</small></article>').join('')||'<small>No source visuals</small>')+'</section><section><h4>Team Visuals</h4><small>Operational evidence</small>'+teamContent(op,'VISUAL')+'</section><section><h4>Traveler Visuals · controlled</h4>'+controlledContent(op,editable,'visuals')+'</section></div>'):'<span class="production-compact-empty">'+visualSummary+'</span>',(teamAllowed?opAction('add-team-visual','+ Add Team Visual',op):'')+(editable?opAction('add-controlled-visual','+ Add Traveler Visual',op):''),'production-reference-list')+
+      row('Work Center / Department',editable?'<div class="production-operation-fields">'+field('workCenter','Work Center',120)+field('department','Department',120)+'</div>':'<span>'+escapeHtml([value.workCenter,value.department].filter(Boolean).join(' / ')||'—')+'</span>','','production-compact-workcenter')+
+      '<details class="production-compact-more" data-operation-disclosure="'+escapeHtml(op.id+':more')+'"><summary>More <span>Planning · Technical References · Source Information</span></summary><div class="production-compact-content">'+
+      '<section><h4>Planning Reference · read-only</h4><p>'+escapeHtml(estimatingBasis(op))+'</p><small>Frozen Labor v'+escapeHtml(state.package?.source?.laborVersion??'—')+'</small></section>'+
+      '<section><h4>Technical References · read-only</h4>'+list(op.technicalReferences).map(r=>link(r.url,r.name)).join('')+(op.inspectionRequirements?'<p class="production-preserve-lines">'+escapeHtml(op.inspectionRequirements)+'</p>':'')+'<small>Controlled technical documents remain authoritative.</small></section>'+
+      '<details class="production-source-instruction"><summary>Source Instruction · View original source</summary><small>Read-only · Quoted Labor / Technical Source</small><p class="production-preserve-lines">'+escapeHtml(source)+'</p>'+notes.map(n=>'<p class="production-preserve-lines">'+escapeHtml(n.text)+'</p>').join('')+(op.managementNotes?'<p>'+escapeHtml(op.managementNotes)+'</p>':'')+'</details>'+
+      '<details class="production-source-information"><summary>Source Information / History</summary><p>Source seq '+escapeHtml(op.sourceSequence??op.sequence)+' · WO seq '+escapeHtml(op.sequence)+'</p><p>Source operation '+escapeHtml(op.sourceOperationId)+' · Traveler operation '+escapeHtml(op.id)+'</p>'+list(op.clarifications).map(n=>'<p>Clarification · '+escapeHtml(n.createdBy)+' · '+escapeHtml(dateTime(n.createdAt))+' · Updated '+escapeHtml(dateTime(n.updatedAt))+'</p>').join('')+'</details></div></details></div>';
+  }
+
+  // Shared presentation only: read-only and draft routes use the same worksheet columns.
+  function worksheetHead(editable) {
+    return '<div class="production-sheet-head'+(editable?'':' production-sheet-head-readonly')+'">'+(editable?'<span>Grip</span>':'')+'<div class="production-sheet-columns"><span>Seq / Operation</span><span>+</span><span>Instructions / Notes</span><span>Visuals</span><span class="production-sheet-workcenter">Work Center</span><span class="production-sheet-estimate">Estimate</span></div></div>';
   }
 
   function renderRoute(operations) {
-    const active = list(operations).filter(op => op.classification !== "MATERIALS_PREREQUISITE" && op.enabled !== false).sort((a, b) => a.sequence - b.sequence);
-    return '<div class="production-route" aria-label="Active Production route"><div class="production-route-head" aria-hidden="true">' +
-      '<span>Seq / Operation</span><span>Department / Work Center</span><span>Estimated basis</span><span>References / State</span></div>' +
-      active.map(op => '<details class="production-operation"><summary><span><small>' + escapeHtml(op.sequence) + '</small><strong>' +
-        escapeHtml(op.name) + '</strong></span><span>' + escapeHtml([op.department, op.workCenter].filter(Boolean).join(" / ") || "Not Assigned") +
-        '</span><span>' + escapeHtml(estimatingBasis(op)) + '</span><span><small>' +
-        (list(op.visuals).length ? list(op.visuals).length + ' visual' + (list(op.visuals).length > 1 ? 's' : '') : 'Text only') +
-        (op.inspectionRequirements ? ' · Inspection / Test' : '') + '</small><strong>Not Started</strong></span></summary>' +
-        renderOperationDetails(op) + '</details>').join("") + '</div>';
+    const active=list(operations).filter(op=>op.classification==='PRODUCTION'&&op.enabled!==false).sort((a,b)=>a.sequence-b.sequence);
+    return '<div class="production-worksheet-scroll production-route production-view-sheet" aria-label="Active Production route">' + worksheetHead(false) + active.map(op=>{
+      const team=currentTeam(op).filter(n=>n.active), count=visualTotal(op,false);
+      return '<div class="production-sheet-operation"><details data-wo-operation="'+escapeHtml(op.id)+'"><summary title="Open operation details / editor"><strong>'+escapeHtml(op.sequence+' · '+op.name)+'</strong></summary>'+renderOperationDetails(op)+'</details>'+operationMenu(op,false)+
+        '<span class="production-sheet-preview">'+escapeHtml(operationValues(op).instructions||'—')+(team.length?'<small>'+team.length+' team input'+(team.length===1?'':'s')+'</small>':'')+'</span>'+ (count?'<button type="button" class="production-sheet-visuals" data-production-action="view-operation-visuals" data-operation-id="'+escapeHtml(op.id)+'">'+count+' visual'+(count===1?'':'s')+'</button>':'<span class="production-sheet-visuals">—</span>')+
+        '<span class="production-sheet-workcenter" aria-label="'+escapeHtml(operationValues(op).workCenter||operationValues(op).department||'Unassigned')+'">'+escapeHtml(operationValues(op).workCenter||operationValues(op).department||'—')+'</span><span class="production-sheet-estimate">'+escapeHtml(estimatingBasis(op))+'</span></div>';
+    }).join('')+'</div>';
   }
 
   function renderTraveler(data) {
     const def = data.definition, bound = data.boundTraveler;
-    const operations = bound ? bound.operations : list(data.operations);
+    const operations = data.effectiveRevision?.operations || (bound ? bound.operations : list(data.operations));
     const prerequisites = list(operations).filter(op => op.classification === "MATERIALS_PREREQUISITE");
     const management = data.canManage === true && !data.executionStarted;
     const printPath = apiPath(data.workOrderNumber) + "/traveler.pdf";
@@ -392,7 +549,7 @@
       '<div class="production-seed-choices">' + list(data.operations).map(op => '<label><input type="checkbox" data-production-prerequisite value="' +
         escapeHtml(op.sourceOperationId) + '"> ' + escapeHtml(op.sequence + ' — ' + op.name) + '</label>').join("") + '</div>' +
       button("seed", "Create Traveler Draft", state.busy) + '</div>';
-    if (def && management) controls = '<div class="production-governance"><div class="production-governance-heading"><h3>Traveler Definition · ' +
+    if (def && !bound && management) controls = '<div class="production-governance"><div class="production-governance-heading"><h3>Traveler Definition · ' +
       escapeHtml(humanStatus(def.status)) + ' · working v' + escapeHtml(def.workingVersion) + '</h3>' +
       (!state.editing ? button("edit", def.status === "APPROVED" ? "Review / Revise Definition" : "Review / Edit Draft", state.busy) : '') +
       (def.status === "DRAFT" && !state.editing ? button("approve", "Approve Traveler Version", state.busy) : '') +
@@ -400,15 +557,224 @@
       '</div><small>Definition ' + escapeHtml(def.id) + (def.approval ? ' · Approved by ' + escapeHtml(def.approval.actor) + ' · ' + escapeHtml(dateTime(def.approval.atUtc)) : '') +
       '</small>' + (bound ? '<p>The WO uses its frozen approved version. Definition revisions do not change this WO Traveler.</p>' : '') +
       (state.editing ? renderEditor(def) : '') + '</div>';
-    return '<div class="production-section-heading"><h3>' + (bound ? 'Frozen WO Traveler · ' + escapeHtml(bound.id) : 'Traveler Review') +
+    if (bound) controls = renderWoRevisionControls(data);
+    return '<section class="production-labor-worksheet"><div class="production-section-heading"><h3>' + (bound ? 'Effective Traveler v' + escapeHtml(data.effectiveRevision?.version || bound.version) + ' · Approved / Frozen' : 'Traveler Review') +
       '</h3>' + (def ? link(printPath, "Print Traveler — Non-Controlled Copy") : '') + '</div>' +
-      (bound ? '<p class="production-muted">Approved definition v' + escapeHtml(bound.definitionVersion) + ' · Bound by ' + escapeHtml(bound.createdBy) +
-        ' · ' + escapeHtml(dateTime(bound.createdAt)) + '</p>' : '<p class="production-muted">A reviewed, approved and frozen Traveler is required before Production can be ready.</p>') +
+      (bound ? '<p class="production-muted">' + (data.effectiveRevision?.changeBasis === "WO_SPECIFIC" ? 'WO-Specific Revision' : 'As Quoted') +
+        (data.effectiveRevision?.previousRevisionId ? ' · Based on v' + escapeHtml(list(data.travelerRevisions).find(r => r.id === data.effectiveRevision.previousRevisionId)?.version || '—') : '') +
+        ' · Frozen Labor v' + escapeHtml(data.source?.laborVersion) + ' · ' + escapeHtml(data.context?.sourceQuote) + ' · Approved ' +
+        escapeHtml(dateTime(data.effectiveRevision?.approval?.atUtc || bound.approvedAt)) + ' · ' + escapeHtml(data.effectiveRevision?.approval?.actor || '') + '</p>' : '<p class="production-muted">A reviewed, approved and frozen Traveler is required before Production can be ready.</p>') +
+      controls + renderInputPanel() +
       '<div class="production-prerequisite"><strong>Materials Released: ' + escapeHtml(humanStatus(data.materialStatus)) + '</strong>' +
       prerequisites.map(op => '<span>' + escapeHtml(op.sequence + ' — ' + op.name) + ' · Materials prerequisite / excluded from active Production</span>').join("") +
       '</div>' + prerequisites.map(op => '<details class="production-prerequisite-reference"><summary>View retained Materials source · ' +
         escapeHtml(op.sequence + ' ' + op.name) + '</summary>' + renderOperationDetails(op) + '</details>').join("") +
-      (!def ? '<h3>Frozen Labor source · review operation classification</h3>' : '') + renderRoute(operations) + controls;
+      (!def ? '<h3>Frozen Labor source · review operation classification</h3>' : '') + (state.woEditing ? '' : renderRoute(operations)) + '</section>';
+  }
+
+  function revisionGroups(operations) {
+    const active = list(operations).filter(o => o.enabled && o.classification === 'PRODUCTION').sort((a, b) => a.sequence - b.sequence);
+    return active.filter(o => !o.sourceParentId).map(parent => [parent, ...active.filter(o => o.sourceParentId === parent.sourceOperationId).sort((a, b) => a.sourceSequence - b.sourceSequence)]);
+  }
+
+  function moveRevisionGroup(operations, orderedIds, id, direction) {
+    const groups = revisionGroups(operations).sort((a, b) => orderedIds.indexOf(a[0].id) - orderedIds.indexOf(b[0].id));
+    const index = groups.findIndex(group => group[0].id === id), next = index + direction;
+    if (index < 0 || next < 0 || next >= groups.length) return orderedIds;
+    [groups[index], groups[next]] = [groups[next], groups[index]];
+    return groups.flat().map(o => o.id);
+  }
+
+  function insertRevisionGroup(operations, orderedIds, id, targetId, after) {
+    const groups = revisionGroups(operations).sort((a, b) => orderedIds.indexOf(a[0].id) - orderedIds.indexOf(b[0].id));
+    const moving = groups.find(group => group[0].id === id);
+    if (!moving || id === targetId || !groups.some(group => group[0].id === targetId)) return orderedIds;
+    const remaining = groups.filter(group => group !== moving);
+    remaining.splice(remaining.findIndex(group => group[0].id === targetId) + (after ? 1 : 0), 0, moving);
+    return remaining.flat().map(op => op.id);
+  }
+
+  function applyRevisionOrder(order, id) {
+    if (order.join('|') === state.revisionOrder.join('|')) return;
+    state.revisionOrder = order; state.dirty = true; state.revisionReview = false;
+    renderManagement();
+    const handles = document.querySelectorAll('[data-revision-grip]');
+    Array.from(handles).find(el => el.dataset.revisionGrip === id)?.focus({ preventScroll: true });
+    const status = document.getElementById('woReorderStatus');
+    if (status) status.textContent = 'Operation moved. Unsaved draft order; effective Traveler unchanged.';
+  }
+
+  function beginRevisionDrag(event) {
+    const handle = event.target?.closest?.('[data-revision-grip]');
+    if (!handle || event.button !== 0 || event.isPrimary === false || state.drag || state.busy || !state.woEditing || !state.package?.canEditTraveler) return;
+    const row = handle.closest('[data-revision-row]'), listElement = handle.closest('.production-reorder-list');
+    if (!row || !listElement) return;
+    event.preventDefault(); handle.focus({ preventScroll: true });
+    state.drag = { id: handle.dataset.revisionGrip, pointerId: event.pointerId, handle, row, listElement,
+      startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, active: false, target: null, frame: null };
+    handle.setPointerCapture(event.pointerId);
+  }
+
+  function revisionDropTarget(drag) {
+    drag.listElement.querySelectorAll('[data-revision-row]').forEach(row => { row.classList.remove('drop-before', 'drop-after'); });
+    drag.target = null;
+    const rect = drag.listElement.getBoundingClientRect();
+    if (drag.x < rect.left || drag.x > rect.right || drag.y < Math.max(0, rect.top) || drag.y > Math.min(window.innerHeight, rect.bottom)) return;
+    const rows = Array.from(drag.listElement.querySelectorAll('[data-revision-row]'));
+    const row = rows.find(el => drag.y < el.getBoundingClientRect().bottom) || rows.at(-1);
+    if (!row || row.dataset.revisionRow === drag.id) return;
+    const bounds = row.getBoundingClientRect(), after = drag.y >= bounds.top + bounds.height / 2;
+    drag.target = { id: row.dataset.revisionRow, after };
+    row.classList.add(after ? 'drop-after' : 'drop-before');
+  }
+
+  function revisionDragScroll() {
+    const drag = state.drag;
+    if (!drag?.active) return;
+    // Scroll the nearest scrollable ancestor, falling back to the document viewport.
+    let scroller = drag.listElement.parentElement;
+    while (scroller && !(scroller.scrollHeight > scroller.clientHeight && /auto|scroll/.test(window.getComputedStyle(scroller).overflowY))) scroller = scroller.parentElement;
+    scroller ||= document.scrollingElement;
+    const bounds = scroller === document.scrollingElement ? { top: 0, bottom: window.innerHeight } : scroller?.getBoundingClientRect();
+    const listBounds = drag.listElement.getBoundingClientRect();
+    if (bounds && drag.x >= listBounds.left && drag.x <= listBounds.right) {
+      const top = Math.max(0, bounds.top), bottom = Math.min(window.innerHeight, bounds.bottom);
+      const amount = drag.y < top + 48 ? -10 : drag.y > bottom - 48 ? 10 : 0;
+      if (amount) { scroller.scrollTop += amount; revisionDropTarget(drag); }
+    }
+    drag.frame = window.requestAnimationFrame(revisionDragScroll);
+  }
+
+  function moveRevisionDrag(event) {
+    const drag = state.drag;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    drag.x = event.clientX; drag.y = event.clientY;
+    if (!drag.active && Math.hypot(drag.x - drag.startX, drag.y - drag.startY) < 6) return;
+    event.preventDefault();
+    if (!drag.active) {
+      drag.active = true; drag.row.classList.add('is-dragging'); drag.listElement.classList.add('is-reordering');
+      drag.handle.setAttribute('aria-pressed', 'true');
+      drag.frame = window.requestAnimationFrame(revisionDragScroll);
+    }
+    revisionDropTarget(drag);
+  }
+
+  function cancelRevisionDrag() {
+    const drag = state.drag;
+    if (!drag) return;
+    state.drag = null;
+    if (drag.frame != null) window.cancelAnimationFrame(drag.frame);
+    drag.row.classList.remove('is-dragging'); drag.listElement.classList.remove('is-reordering');
+    drag.listElement.querySelectorAll('[data-revision-row]').forEach(row => row.classList.remove('drop-before', 'drop-after'));
+    drag.handle.setAttribute('aria-pressed', 'false');
+    if (drag.handle.hasPointerCapture(drag.pointerId)) drag.handle.releasePointerCapture(drag.pointerId);
+  }
+
+  function finishRevisionDrag(event, commit) {
+    const drag = state.drag;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    if (commit && drag.active) { drag.x = event.clientX; drag.y = event.clientY; revisionDropTarget(drag); }
+    const target = commit && drag.active ? drag.target : null;
+    cancelRevisionDrag();
+    if (target && state.woEditing && !state.busy && state.package?.canEditTraveler) applyRevisionOrder(
+      insertRevisionGroup(state.package.woRevisionDraft.operations, state.revisionOrder, drag.id, target.id, target.after), drag.id);
+  }
+
+  function revisionGripKey(event) {
+    if (event.key === 'Escape' && state.drag) { event.preventDefault(); cancelRevisionDrag(); return; }
+    const handle = event.target?.closest?.('[data-revision-grip]');
+    if (!handle || state.busy || !state.woEditing || !state.package?.canEditTraveler || !['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault(); cancelRevisionDrag();
+    const id = handle.dataset.revisionGrip, operations = state.package.woRevisionDraft.operations;
+    const groups = revisionGroups(operations).sort((a, b) => state.revisionOrder.indexOf(a[0].id) - state.revisionOrder.indexOf(b[0].id));
+    const order = event.key === 'Home' || event.key === 'End'
+      ? insertRevisionGroup(operations, state.revisionOrder, id, (event.key === 'Home' ? groups[0] : groups.at(-1))[0].id, event.key === 'End')
+      : moveRevisionGroup(operations, state.revisionOrder, id, event.key === 'ArrowUp' ? -1 : 1);
+    applyRevisionOrder(order, id);
+  }
+
+  function renderWoRevisionControls(data) {
+    const draft = data.woRevisionDraft;
+    if (!state.woEditing) return '<div class="production-editor-actions">' +
+      (data.canEditTraveler ? button('edit-wo', draft ? 'Resume Edit Traveler' : 'Edit Traveler', state.busy) : '') +
+      (draft ? '<span>Draft Traveler v' + escapeHtml(draft.version) + ' · Effective v' + escapeHtml(data.effectiveRevision?.version) + ' unchanged</span>' +
+        button('review-wo', 'Review Changes', state.busy) : '') + '</div>' + (draft && state.revisionReview ? renderRevisionDiff(draft) : '');
+    if (!draft) return '';
+    const groups = revisionGroups(draft.operations).sort((a, b) => state.revisionOrder.indexOf(a[0].id) - state.revisionOrder.indexOf(b[0].id));
+    const slots = revisionGroups(draft.operations).map(group => Math.trunc(group[0].sequence)).sort((a, b) => a - b);
+    return '<section class="production-wo-editor"><div class="production-wo-banner"><strong>Draft Traveler v' + escapeHtml(draft.version) + ' · WO-Specific Revision</strong><span>Editing WO ' + escapeHtml(data.workOrderNumber) + ' only.</span></div>' +
+      '<details class="production-source-information"><summary>Revision details</summary><p>Quote and Labor source remain unchanged.</p><p>Based on effective v' + escapeHtml(data.effectiveRevision?.version) + ' · Revised ' + escapeHtml(dateTime(draft.revisedAt)) + ' · ' + escapeHtml(draft.revisedBy) + ' · Lease expires ' + escapeHtml(dateTime(draft.lease?.expiresAt)) + '</p></details>' +
+      '<p id="woGripHelp" class="production-sr-only">Keyboard: focus the grip, then use ↑ / ↓ or Home / End. Escape cancels a drag.</p><span id="woReorderStatus" class="production-sr-only" role="status" aria-live="polite"></span>' +
+      '<div class="production-worksheet-scroll">' + worksheetHead(true) +
+      '<div class="production-reorder-list">' + groups.map((group, i) => '<div class="production-reorder-row" data-revision-row="' + escapeHtml(group[0].id) + '"><div class="production-reorder-controls">' +
+        '<button type="button" class="production-drag-grip" data-revision-grip="' + escapeHtml(group[0].id) + '" aria-label="Reorder ' + escapeHtml(group[0].name) + '" aria-describedby="woGripHelp" aria-pressed="false"' + (state.busy ? ' disabled' : '') + '><span aria-hidden="true">⠿</span></button></div><div>' +
+        group.map((op, child) => {
+          const notes = state.clarifications.filter(n => n.operationId === op.id), visualCount = visualTotal(op,true);
+          const preview = operationValues(op,true).instructions || '—';
+          return '<div class="production-sheet-operation' + (child ? ' production-sheet-child' : '') + '"><details data-wo-operation="' + escapeHtml(op.id) + '"><summary title="Open operation details / editor"><strong>' + escapeHtml(slots[i] + child / 100) + ' · ' + escapeHtml(op.name) + '</strong></summary>' +
+            renderOperationDetails({ ...op, sequence: slots[i] + child / 100 }, true) + '</details>' +
+            operationMenu(op,true) +
+            '<span class="production-sheet-preview" title="' + escapeHtml(preview) + '">' + (notes.length ? '<small>WO clarification · ' + notes.length + '</small>' : '') + escapeHtml(preview) + '</span>' +
+            (visualCount ? '<button type="button" class="production-sheet-visuals" data-production-action="view-operation-visuals" data-operation-id="' + escapeHtml(op.id) + '">' + visualCount + ' visual' + (visualCount === 1 ? '' : 's') + '</button>' : '<span class="production-sheet-visuals">—</span>') +
+            '<span class="production-sheet-workcenter"' + (!operationValues(op,true).workCenter && !operationValues(op,true).department ? ' aria-label="Unassigned"' : '') + '>' + escapeHtml(operationValues(op,true).workCenter || operationValues(op,true).department || '—') + '</span><span class="production-sheet-estimate">' + escapeHtml(estimatingBasis(op)) + '</span></div>';
+        }).join('') + '</div></div>').join('') + '</div></div>' +
+      '<label>Change reason<textarea id="woRevisionReason" maxlength="2000" rows="2" required' + (state.busy ? ' disabled' : '') + '>' + escapeHtml(state.revisionReason) + '</textarea></label>' +
+      '<div class="production-editor-actions production-sticky-actions">' + button('save-wo', 'Save Draft', state.busy) + button('review-wo', 'Review Changes', state.busy || state.dirty || !draft.reason) + button('close-wo', 'Close Editor', state.busy) + link(apiPath(data.workOrderNumber) + '/wo-traveler/draft.pdf', 'Print saved draft') + '<small>' + (state.dirty ? 'Unsaved draft changes' : 'Saved draft · Approval required · Effective v' + escapeHtml(data.effectiveRevision?.version) + ' unchanged') + '</small></div>' +
+      (state.revisionReview && !state.dirty ? renderRevisionDiff(draft) +
+        (draft.reason && draft.differences?.length === 2 ? '<label class="production-checkbox"><input type="checkbox" id="woRevisionReviewed"> I reviewed both comparisons and the sequence / dependency warnings.</label>' +
+          ((list(draft.clarifications).some(n => !n.removed) || list(draft.differences).some(d => list(d.clarifications).length || list(d.content).length) || list(draft.substeps).some(n=>!n.removed) || list(draft.visuals).some(n=>!n.removed)) ? '<label class="production-checkbox"><input type="checkbox" id="woTechnicalReviewed"> I reviewed these WO-specific instructions for consistency with controlled technical requirements.</label>' : '') +
+          button('approve-wo', 'Approve & Make Effective', state.busy) : '') : '') + '</section>';
+  }
+
+  function renderRevisionDiff(revision) {
+    return '<section class="production-revision-comparison"><h3>Review Changes · Traveler v' + escapeHtml(revision.version) + '</h3><p>Reason: ' + escapeHtml(revision.reason || (revision.changeBasis === 'AS_QUOTED' ? 'As-quoted frozen baseline' : 'Not saved yet')) +
+      '</p><small>' + escapeHtml(revision.revisedBy) + ' · ' + escapeHtml(dateTime(revision.revisedAt)) + '</small>' +
+      list(revision.differences).map((diff, i) => '<details' + (i === 0 ? ' open' : '') + '><summary>' + (i === 0 ? 'Previous Effective' : 'As-Quoted Baseline') +
+        ' v' + escapeHtml(diff.baselineVersion) + ' → v' + escapeHtml(revision.version) + '</summary><p>' + escapeHtml(diff.summary) + '</p>' + (list(diff.operations).some(op => op.changed) ? '<div class="production-table-scroll"><table class="production-diff-table"><thead><tr>' +
+        '<th>Operation</th><th>Source seq</th><th>WO position</th><th>WO seq</th><th>Change</th></tr></thead><tbody>' + list(diff.operations).filter(op => op.changed).map(op => '<tr><td>' + escapeHtml(op.name) +
+          '</td><td>' + escapeHtml(op.sourceSequence) + '</td><td>' + escapeHtml(op.previousPosition) + ' → ' + escapeHtml(op.proposedPosition) + '</td><td>' + escapeHtml(op.previousSequence) + ' → ' + escapeHtml(op.proposedSequence) +
+          '</td><td>' + (op.changed ? 'Operation reordered' : 'Unchanged') + '</td></tr>').join('') + '</tbody></table></div>' : '') + list(diff.clarifications).map(n => '<section class="production-clarification-diff"><strong>' + escapeHtml(n.name) + ' · Clarification ' + escapeHtml(humanStatus(n.action)) + '</strong>' + (n.before != null ? '<p class="production-preserve-lines">Before: ' + escapeHtml(n.before||'—') + '</p>' : '') + (n.after != null ? '<p class="production-preserve-lines">After: ' + escapeHtml(n.after||'—') + '</p>' : '') + '</section>').join('') + list(diff.content).map(n=>'<section class="production-clarification-diff"><strong>' + escapeHtml(n.name) + ' · ' + escapeHtml(humanStatus(n.kind) + ' · ' + humanStatus(n.action)) + '</strong>' + (n.before != null ? '<p>Before: ' + escapeHtml(n.before||'—') + '</p>' : '') + (n.after != null ? '<p>After: ' + escapeHtml(n.after||'—') + '</p>' : '') + '</section>').join('') + '</details>').join('') +
+      (list(revision.warnings).length ? '<div class="production-validation"><strong>REVIEW WARNING · Sequence-sensitive instructions</strong><p>Confirm the proposed order honors these retained requirements. Frozen source requirements remain unchanged.</p>' +
+        list(revision.warnings).map(w => '<details><summary>' + escapeHtml(w.name) + '</summary><p class="production-preserve-lines">' + escapeHtml(w.evidence) + '</p></details>').join('') + '</div>' : '') + '</section>';
+  }
+
+  async function handleWoRevision(action, element) {
+    if (!state.package?.canEditTraveler) return;
+    if (action === 'add-clarification' || action === 'remove-clarification') {
+      if (!state.woEditing || state.busy) return;
+      const op = list(state.package.woRevisionDraft.operations).find(o => o.id === element.dataset.operationId && o.enabled && o.classification === 'PRODUCTION');
+      if (action === 'add-clarification' && op) {
+        const id = window.crypto.randomUUID(); state.clarifications.push({ id, operationId: op.id, text: '' });
+        state.dirty = true; state.revisionReview = false; renderManagement();
+        openOperationDisclosure(op.id,'notes');
+        const editor = document.getElementById('clarification-' + id); const details = editor?.closest('details'); if (details) details.open = true; editor?.focus();
+      } else if (action === 'remove-clarification') {
+        state.clarifications = state.clarifications.filter(n => n.id !== element.dataset.clarificationId); state.dirty = true; state.revisionReview = false; renderManagement();
+      }
+      return;
+    }
+    if (action === 'edit-wo') {
+      if (!discardEdits()) return;
+      const result = await command('/wo-traveler/edit', { expectedWorkingVersion: state.package.woRevisionWorkingVersion, effectiveRevisionId: state.package.effectiveRevision.id });
+      if (result) { state.woEditing = true; state.revisionReview = false; state.revisionOrder = list(result.woRevisionDraft.operations).filter(o => o.enabled && o.classification === 'PRODUCTION').sort((a, b) => a.sequence - b.sequence).map(o => o.id); state.revisionReason = result.woRevisionDraft.reason; loadAuthoring(result.woRevisionDraft); }
+    } else if (action === 'move-up' || action === 'move-down') {
+      applyRevisionOrder(moveRevisionGroup(state.package.woRevisionDraft.operations, state.revisionOrder, element.dataset.operationId, action === 'move-up' ? -1 : 1), element.dataset.operationId);
+      return;
+    } else if (action === 'save-wo') {
+      if (state.clarifications.concat(state.substeps).some(n => !n.text.trim())) { state.message = 'Enter clarification text or remove the empty clarification before saving.'; renderManagement(); return; }
+      if (!state.revisionReason.trim()) { state.message = 'Enter a change reason before saving the draft.'; renderManagement(); return; }
+      const draft = state.package.woRevisionDraft;
+      const result = await command('/wo-traveler/draft', { expectedWorkingVersion: state.package.woRevisionWorkingVersion, revisionId: draft.id, leaseId: draft.lease.id,
+        reason: state.revisionReason, orderedOperationIds: state.revisionOrder, clarifications: state.clarifications.map(({ id, operationId, text, teamSource }) => ({ id, operationId, text, teamSource })), substeps: state.substeps.map(({id,operationId,order,text})=>({id,operationId,order,text})), operationContent: state.operationContent, visuals: state.travelerVisuals.map(({id,operationId,assetId,caption,teamSource,supersedesId})=>({id,operationId,assetId,caption,teamSource,supersedesId})) }, 'PUT');
+      if (result) { loadAuthoring(result.woRevisionDraft); state.revisionReview = true; state.message = 'WO draft saved. The effective Traveler is unchanged.'; }
+    } else if (action === 'approve-wo') {
+      if (state.dirty || !document.getElementById('woRevisionReviewed')?.checked) { state.message = 'Save changes and review both comparisons and warnings before approval.'; renderManagement(); return; }
+      const draft = state.package.woRevisionDraft;
+      if ((list(draft.clarifications).some(n => !n.removed) || list(draft.differences).some(d => list(d.clarifications).length || list(d.content).length) || list(draft.substeps).some(n=>!n.removed) || list(draft.visuals).some(n=>!n.removed)) && !document.getElementById('woTechnicalReviewed')?.checked) { state.message = 'Review WO-specific content for consistency with controlled technical requirements before approval.'; renderManagement(); return; }
+      const result = await command('/wo-traveler/approve', { expectedWorkingVersion: state.package.woRevisionWorkingVersion, revisionId: draft.id, leaseId: draft.lease.id, warningsReviewed: true, technicalConsistencyReviewed: !!document.getElementById('woTechnicalReviewed')?.checked });
+      if (result) { state.woEditing = false; state.revisionReview = false; state.message = 'Traveler v' + result.effectiveRevision.version + ' approved and effective for this WO. Production has not started.'; }
+    }
+    renderManagement(); renderQueues();
   }
 
   function renderEditor(def) {
@@ -506,11 +872,17 @@
   }
 
   function renderHistory(data) {
-    return '<h3>Traveler History</h3><p class="production-muted">Append-only definition approval and WO binding history. No Production execution has started.</p>' +
-      '<ol class="production-history">' + list(data.history).map(item => '<li><strong>' + escapeHtml(humanStatus(item.type || item.action || item.eventType)) +
+    return '<h3>Traveler History</h3><p class="production-muted">Immutable approved revisions and append-only review history.</p>' +
+      '<div class="production-revision-history">' + list(data.travelerRevisions).map(r => '<div><strong>Traveler v' + escapeHtml(r.version) +
+        ' · ' + (r.changeBasis === "AS_QUOTED" ? 'As Quoted' : 'WO-Specific Revision') + ' · ' + (r.effective ? 'Effective' : 'Superseded') + '</strong><small>' +
+        escapeHtml(r.createdBy) + ' · Created ' + escapeHtml(dateTime(r.createdAt)) + ' · Approved ' + escapeHtml(dateTime(r.approval?.atUtc)) + '</small><p>' + escapeHtml(r.reason) +
+        '</p><button type="button" data-production-action="inspect-revision" data-revision-id="' + escapeHtml(r.id) + '"' + (state.busy ? ' disabled' : '') + '>View Traveler v' + escapeHtml(r.version) + '</button></div>').join('') + '</div>' +
+      (state.inspectedRevision ? '<section class="production-governance"><h3>Traveler v' + escapeHtml(state.inspectedRevision.version) + ' · Historical snapshot / Read-only</h3>' +
+        renderRevisionDiff(state.inspectedRevision) + renderRoute(state.inspectedRevision.operations) + '</section>' : '') +
+      '<ol class="production-history">' + [...list(data.history), ...list(data.woRevisionHistory)].map(item => '<li><strong>' + escapeHtml(humanStatus(item.type || item.action || item.eventType)) +
         '</strong><span>' + escapeHtml(item.actor || item.reviewedBy || item.actorId) + ' · ' + escapeHtml(dateTime(item.atUtc || item.timestamp)) +
         (item.workingVersion != null ? ' · working v' + escapeHtml(item.workingVersion) : '') +
-        '</span>' + (item.reason || item.detail?.reason ? '<p>' + escapeHtml(item.reason || item.detail.reason) + '</p>' : '') + '</li>').join("") + '</ol>';
+        '</span>' + (item.action?.startsWith('WO_CLARIFICATION_') ? '<p>' + escapeHtml(item.detail?.name || '') + ' · ' + escapeHtml(item.detail?.after || item.detail?.before || '') + '</p>' : '') + (item.reason || item.detail?.reason ? '<p>' + escapeHtml(item.reason || item.detail.reason) + '</p>' : '') + '</li>').join("") + '</ol>';
   }
 
   async function command(suffix, body, method = "POST", preserveForm = false) {
@@ -537,13 +909,26 @@
     }
   }
 
-  async function handleAction(action) {
+  async function handleAction(action, element) {
     if (state.busy) return;
-    if (action === "back") { if (!discardEdits()) return; state.selectedWo = ""; state.editing = false; ++state.detailRequest; renderManagement(); renderQueues(); return; }
+    if (action === "back") { if (!discardEdits()) return; state.selectedWo = ""; state.editing = false; state.woEditing = false; state.inspectedRevision = null; ++state.detailRequest; renderManagement(); renderQueues(); return; }
     if (action === "refresh-detail") return refreshDetail();
     if (action === "show-bom") { state.panel = "bom"; renderManagement(); return; }
     if (action === "cancel-edit") { if (!discardEdits()) return; state.editing = false; renderManagement(); return; }
+    if (action === "inspect-revision") {
+      state.busy = true; try { state.inspectedRevision = await request(state.selectedWo, '/wo-traveler/revisions/' + encodeURIComponent(element.dataset.revisionId)); }
+      catch (error) { state.message = error.message; } finally { state.busy = false; renderManagement(); } return;
+    }
+    if (action === "review-wo") { state.revisionReview = true; renderManagement(); return; }
+    if (action === "close-wo") { if (!discardEdits()) return; state.woEditing = false; state.revisionReview = false; renderManagement(); return; }
+    if (await handleAuthoringAction(action, element)) return;
+    if (action === 'view-operation-visuals') {
+      const row = document.querySelector('[data-wo-operation="' + element.dataset.operationId + '"]');
+      if (row) { openOperationDisclosure(element.dataset.operationId,'visuals'); row.querySelector('.production-reference-list')?.scrollIntoView({ block: 'nearest' }); }
+      return;
+    }
     if (!canManage()) return;
+    if (["edit-wo", "save-wo", "approve-wo", "move-up", "move-down", "add-clarification", "remove-clarification"].includes(action)) return handleWoRevision(action, element);
     const def = state.package.definition;
     if (action === "seed") {
       const materialsPrerequisiteSourceIds = Array.from(document.querySelectorAll("[data-production-prerequisite]:checked")).map(input => input.value);
@@ -635,6 +1020,7 @@
     openWorkOrder,
     getModel: () => state.model,
     getPackage: () => state.package,
-    renderManagementHtml, renderRoute, renderBom, renderOperationDetails, humanStatus
+    renderManagementHtml, renderRoute, renderBom, renderOperationDetails, humanStatus,
+    renderRevisionDiff, renderWoRevisionControls, moveRevisionGroup, revisionGroups, insertRevisionGroup
   });
 })(window, document);

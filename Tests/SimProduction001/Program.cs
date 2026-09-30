@@ -16,7 +16,7 @@ await using(var b=new SqliteConnection($"Data Source={db};Pooling=False")){await
 // disposable copy's Traveler tables so this harness can qualify initial creation again.
 await using(var fixture=new SqliteConnection($"Data Source={db};Pooling=False")){
     await fixture.OpenAsync();await using var reset=fixture.CreateCommand();
-    reset.CommandText="DROP TABLE IF EXISTS SimTravelerEvent; DROP TABLE IF EXISTS SimWoTraveler; DROP TABLE IF EXISTS SimTravelerApprovedVersion; DROP TABLE IF EXISTS SimTravelerDefinition;";
+    reset.CommandText="DROP TABLE IF EXISTS SimWoTravelerRevisionEvent; DROP TABLE IF EXISTS SimWoTravelerRevision; DROP TABLE IF EXISTS SimWoTravelerDraft; DROP TABLE IF EXISTS SimWoTravelerRevisionHead; DROP TABLE IF EXISTS SimTravelerEvent; DROP TABLE IF EXISTS SimWoTraveler; DROP TABLE IF EXISTS SimTravelerApprovedVersion; DROP TABLE IF EXISTS SimTravelerDefinition;";
     await reset.ExecuteNonQueryAsync();
 }
 var json=SimProductionService.Json;var actor=SimPersonaCatalog.Default;var checks=0;

@@ -4,10 +4,16 @@ using System.Text.Json;
 // a document, approves a Traveler, or creates an execution/signoff event.
 internal static class SimProductionPrint
 {
-    internal static Task<byte[]> Create(JsonElement projection, string kind, SimPersona actor, DateTimeOffset generatedAt)
+    internal static Task<byte[]> Create(JsonElement projection, string kind, SimPersona actor, DateTimeOffset generatedAt, bool draftPreview=false)
     {
         if (kind is not ("traveler" or "bom")) throw new ArgumentOutOfRangeException(nameof(kind));
         if (projection.ValueKind != JsonValueKind.Object) throw new ArgumentException("A Production package is required.", nameof(projection));
+        if(draftPreview){
+            var node=System.Text.Json.Nodes.JsonNode.Parse(projection.GetRawText())!.AsObject();
+            if(node["woRevisionDraft"] is null)throw new KittingCaseProblem(409,"wo_revision_missing","There is no saved WO draft to preview.");
+            node["effectiveRevision"]=node["woRevisionDraft"]!.DeepClone();node["draftPreview"]=true;
+            projection=JsonSerializer.SerializeToElement(node);
+        }
         return SimQuotationPdf.RenderDocument(new
         {
             kind,

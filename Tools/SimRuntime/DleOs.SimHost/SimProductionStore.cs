@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.Data.Sqlite;
 
 // Additive tables in the existing SIM database. Read-only projection does not create tables or seed records.
-internal sealed class SimProductionStore(string databasePath)
+internal sealed partial class SimProductionStore(string databasePath)
 {
     internal static readonly JsonSerializerOptions Json=new(JsonSerializerDefaults.Web);
     private readonly SemaphoreSlim gate=new(1,1);
@@ -12,16 +12,17 @@ internal sealed class SimProductionStore(string databasePath)
         await using var q=c.CreateCommand();q.Transaction=t;q.CommandText="SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@name";
         q.Parameters.AddWithValue("@name",name);return Convert.ToInt32(await q.ExecuteScalarAsync())==1;
     }
-    internal async Task<(SimTravelerDefinition? Definition,SimWoTraveler? Bound,SimTravelerEvent[] History)> Read(string wo,long generation)
+    internal async Task<(SimTravelerDefinition? Definition,SimWoTraveler? Bound,SimTravelerEvent[] History,SimWoRevisionState Revisions,bool Execution)> Read(string wo,long generation)
     {
         await using var c=Open(false);await c.OpenAsync();await using var t=c.BeginTransaction(deferred:true);
-        if(!await Exists(c,t,"SimTravelerDefinition"))return(null,null,[]);
+        if(!await Exists(c,t,"SimTravelerDefinition"))return(null,null,[],new(null,null,[],[]),await ExecutionExists(c,t,wo));
         var d=await One<SimTravelerDefinition>(c,t,"SimTravelerDefinition",wo,generation);
         var b=await One<SimWoTraveler>(c,t,"SimWoTraveler",wo,generation);
         await using var q=c.CreateCommand();q.Transaction=t;q.CommandText="SELECT PayloadJson FROM SimTravelerEvent WHERE WorkOrderNumber=@wo AND Generation=@gen ORDER BY rowid";
         q.Parameters.AddWithValue("@wo",wo);q.Parameters.AddWithValue("@gen",generation);var history=new List<SimTravelerEvent>();
         await using var r=await q.ExecuteReaderAsync();while(await r.ReadAsync())history.Add(JsonSerializer.Deserialize<SimTravelerEvent>(r.GetString(0),Json)!);
-        return(d,b,history.ToArray());
+        await r.DisposeAsync();
+        return(d,b,history.ToArray(),await ReadRevisions(c,t,wo,generation),await ExecutionExists(c,t,wo));
     }
     internal static async Task<T?> One<T>(SqliteConnection c,SqliteTransaction? t,string table,string wo,long generation){
         await using var q=c.CreateCommand();q.Transaction=t;q.CommandText=$"SELECT PayloadJson FROM {table} WHERE WorkOrderNumber=@wo AND Generation=@gen";
@@ -43,6 +44,7 @@ internal sealed class SimProductionStore(string databasePath)
                 CREATE TRIGGER IF NOT EXISTS SimTravelerEventNoUpdate BEFORE UPDATE ON SimTravelerEvent BEGIN SELECT RAISE(ABORT,'Traveler history is append-only'); END;
                 CREATE TRIGGER IF NOT EXISTS SimTravelerEventNoDelete BEFORE DELETE ON SimTravelerEvent BEGIN SELECT RAISE(ABORT,'Traveler history is append-only'); END;
                 """);
+            if(await ExecutionExists(c,t,wo))throw KittingCaseProblem.Conflict("traveler_execution_exists","Production execution evidence exists. Pre-start Traveler changes are no longer permitted.");
             await change(c,t,await One<SimTravelerDefinition>(c,t,"SimTravelerDefinition",wo,generation),await One<SimWoTraveler>(c,t,"SimWoTraveler",wo,generation));
             await t.CommitAsync();
         }finally{gate.Release();}

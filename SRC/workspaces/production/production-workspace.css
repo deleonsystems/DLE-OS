@@ -112,6 +112,35 @@ body[data-workspace-view="production"] main{margin-top:12px}
 .production-history{padding-left:24px;font-size:13px}
 .production-history li{padding:9px;border-bottom:1px solid #334155}
 .production-history span{display:block;margin-top:4px;color:#a8b6c9;font-size:12px}
+.production-wo-editor{display:grid;gap:12px;margin:14px 0;padding:14px;border:1px solid #48627e;border-radius:8px;background:#101e31}
+.production-wo-banner{position:sticky;top:0;z-index:2;display:grid;gap:4px;padding:10px 12px;background:#193754;border:1px solid #5b94be;border-radius:6px;font-size:13px;color:#eff6ff}
+.production-wo-banner span{font-size:12px;color:#d3e8fa}
+.production-reorder-list{display:grid;gap:5px}
+.production-reorder-row{position:relative;display:grid;grid-template-columns:36px minmax(0,1fr);gap:6px;border:1px solid #334155;border-radius:6px;background:#132238}
+.production-reorder-controls{display:flex;align-items:flex-start;gap:2px;padding:5px 2px}
+.production-management .production-drag-grip{width:32px;min-width:32px;height:34px;padding:0;border-color:transparent;background:transparent;color:#b5cbe2;font-size:25px;line-height:1;cursor:grab;touch-action:none;user-select:none}
+.production-management .production-drag-grip:hover{background:#243e5b;color:#f0f7ff}
+.production-management .production-drag-grip:focus-visible{outline:2px solid #8ecbff;outline-offset:1px}
+.production-management .production-drag-grip:disabled{cursor:default;opacity:.45}
+.production-reorder-row.is-dragging{border-color:#82b6e6;background:#203c57;box-shadow:0 3px 9px #0006}
+.production-reorder-list.is-reordering,.production-reorder-list.is-reordering *{cursor:grabbing!important}
+.production-reorder-row.drop-before:before,.production-reorder-row.drop-after:after{content:"";position:absolute;left:0;right:0;height:3px;background:#8ed2ff;box-shadow:0 0 0 1px #0a182a;pointer-events:none;z-index:3}
+.production-reorder-row.drop-before:before{top:-4px}.production-reorder-row.drop-after:after{bottom:-4px}
+.production-sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(pointer:coarse),(max-width:800px){
+  .production-reorder-row{grid-template-columns:48px minmax(0,1fr)}
+  .production-management .production-drag-grip{width:44px;min-width:44px;height:44px}
+}
+.production-reorder-row summary{padding:11px 8px;cursor:pointer;font-size:13px}
+.production-reorder-row summary small{margin-left:12px;color:#acbfd7;font-size:11px}
+.production-revision-comparison{display:grid;gap:10px;margin:15px 0;padding:12px;border:1px solid #415d7b;border-radius:7px;background:#101e31}
+.production-revision-comparison summary{cursor:pointer;padding:7px 0;color:#c4ddfc;font-size:13px}
+.production-diff-table{width:100%;min-width:560px;border-collapse:collapse;font-size:12px}
+.production-diff-table th,.production-diff-table td{padding:8px;text-align:left;border-bottom:1px solid #334155}
+.production-diff-table th{background:#192b45;color:#bfcee1}
+.production-revision-history{display:grid;gap:8px;margin-top:12px}
+.production-revision-history>div{padding:12px;border:1px solid #334155;border-radius:6px;font-size:13px}
+.production-revision-history small{display:block;color:#a8b6c9;margin:5px 0}
 @media(max-width:1100px){
   [data-production-workspace] .production-compact-row{grid-template-columns:110px minmax(140px,1fr) 60px 106px minmax(205px,1fr) 20px}
   [data-production-workspace] .production-compact-customer{grid-column:2/5;grid-row:2}
@@ -143,3 +172,166 @@ body[data-workspace-view="production"] main{margin-top:12px}
   .production-editor-grid{grid-template-columns:1fr}
   .production-first-operation>div:last-child{max-width:none}
 }
+/* Compact WO authoring worksheet: source content and governing state stay read-only. */
+.production-sheet-head{display:grid;grid-template-columns:36px minmax(0,1fr);gap:6px;font-size:11px;color:#b8cce2;background:#193047;padding:7px 2px}
+.production-sheet-columns,.production-sheet-operation{display:grid;grid-template-columns:minmax(155px,1.1fr) 32px minmax(155px,1.2fr) 78px minmax(70px,.5fr) minmax(115px,.7fr);gap:8px;align-items:start}
+.production-sheet-operation{font-size:12px;padding:5px 6px;min-width:0;border-bottom:1px solid #334155}
+.production-sheet-operation>details[data-wo-operation]{display:contents}
+.production-sheet-operation>details[data-wo-operation]>summary{grid-column:1;grid-row:1;padding:6px 0;font-size:12px;overflow-wrap:anywhere}
+.production-sheet-operation>details[data-wo-operation]>.production-operation-details{grid-column:1/-1;grid-row:2}
+.production-sheet-operation>details[data-wo-operation]:not([open])>.production-operation-details{display:none}
+.production-sheet-operation>.production-add-clarification{grid-column:2;grid-row:1;padding:3px;min-width:28px;height:28px;font-size:17px}
+.production-sheet-preview{grid-column:3;grid-row:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;padding:5px 0;color:#deebf8}
+.production-sheet-preview small{display:block;color:#9ecbf0;font-size:10px}
+.production-sheet-operation>.production-sheet-visuals{grid-column:4;grid-row:1;padding:5px 2px;font-size:11px}
+.production-sheet-operation>.production-sheet-workcenter{grid-column:5;grid-row:1;padding:5px 0;color:#b7c8dc}
+.production-sheet-operation>.production-sheet-estimate{grid-column:6;grid-row:1;padding:5px 0;color:#b7c8dc;overflow-wrap:anywhere}
+.production-sheet-child{border-left:2px solid #5883a9;margin-left:8px}
+.production-wo-editor .production-reorder-list{gap:0}
+.production-wo-editor .production-reorder-row{border-radius:0}
+.production-source-information{font-size:12px;color:#adc2da}
+.production-source-information summary{cursor:pointer;padding:4px}
+.production-sticky-actions{position:sticky;bottom:0;z-index:4;background:#193047;border:1px solid #48627e;border-radius:5px;padding:9px;box-shadow:0 -3px 9px #0004;flex-wrap:wrap}
+.production-clarification{padding:8px;border-left:2px solid #88b8de;margin:6px 0;background:#172c43}
+.production-clarification textarea{box-sizing:border-box;display:block;width:100%;resize:vertical;min-height:70px;margin:6px 0;background:#0c192b;color:#eef5fd;border:1px solid #6483a1;border-radius:4px;padding:8px}
+.production-clarification small{color:#adc2da}
+.production-clarification-diff{border-left:2px solid #88b8de;padding:8px}
+@media(max-width:1100px){
+ .production-sheet-columns,.production-sheet-operation{grid-template-columns:minmax(145px,1fr) 32px minmax(150px,1.3fr) 72px}
+ .production-sheet-operation>.production-sheet-workcenter,.production-sheet-operation>.production-sheet-estimate,.production-sheet-columns>.production-sheet-workcenter,.production-sheet-columns>.production-sheet-estimate{display:none}
+}
+@media(max-width:800px){.production-sheet-head{grid-template-columns:48px minmax(0,1fr)}}
+@media(max-width:620px){
+ .production-sheet-head{display:none}
+ .production-wo-editor{padding:7px}
+ .production-sheet-operation{grid-template-columns:minmax(0,1fr) 32px 70px;gap:4px}
+ .production-sheet-operation>.production-sheet-preview{grid-column:1/-1;grid-row:2}
+ .production-sheet-operation>.production-sheet-visuals{grid-column:3}
+ .production-sheet-operation>details[data-wo-operation]>.production-operation-details{grid-row:3}
+ .production-sticky-actions{gap:5px}.production-sticky-actions small{flex-basis:100%}
+}
+.production-sheet-operation>details[data-wo-operation]::details-content{display:contents}
+.production-sheet-operation .production-operation-details{min-width:0;width:100%}
+@media(max-width:620px){.production-sheet-operation .production-operation-details{padding:8px}}
+
+.production-authoring-menu{position:relative;grid-column:2;grid-row:1;align-self:start}
+.production-authoring-menu>summary{list-style:none;padding:3px 8px;background:#233a54;border:1px solid #537293;border-radius:4px;cursor:pointer;color:#e8f2ff;text-align:center}
+.production-authoring-menu>div{position:absolute;z-index:15;left:0;top:30px;width:215px;padding:6px;background:#14283d;border:1px solid #59758f;box-shadow:0 8px 18px #0009;border-radius:5px;display:grid;gap:4px}
+.production-authoring-menu button{text-align:left;white-space:normal}
+.production-input-panel{padding:14px;background:#13283c;border:1px solid #7094b5;border-radius:6px;display:grid;gap:9px;margin:12px 0;max-width:680px}
+.production-input-panel label{display:grid;gap:5px}.production-input-panel textarea,.production-input-panel select,.production-substeps textarea,.production-visual-grid textarea{background:#0b1a2b;color:#ecf5ff;border:1px solid #6786a3;border-radius:4px;padding:7px;box-sizing:border-box;max-width:100%;width:100%}
+.production-team-entry{padding:10px;border-left:2px solid #738ba1;background:#15283a;margin:7px 0}.production-team-entry small{display:block;color:#b7cce1}.production-team-entry button,.production-substeps button,.production-visual-grid button{margin:4px}
+.production-substeps{padding-left:24px}.production-substeps li{padding:5px}.production-visual-grid{display:flex;flex-wrap:wrap;gap:14px}.production-visual-grid article{width:220px;max-width:100%}.production-visual-thumb{display:block;width:160px;max-width:100%}.production-visual-thumb img{max-width:100%;height:95px;object-fit:contain;background:#0a1522;border:1px solid #58758f;border-radius:3px}
+.production-sheet-preview small{display:block;color:#aec5dc}.production-view-sheet{border:1px solid #334b63;border-radius:6px}.production-view-sheet>.production-sheet-operation{padding:9px}
+@media(max-width:620px){.production-authoring-menu>div{left:auto;right:0;width:200px}.production-input-panel{padding:9px}.production-visual-grid article{width:100%}}
+
+.production-traveler-instruction label,.production-operation-fields label{display:grid;gap:5px}
+.production-traveler-instruction textarea,.production-operation-fields input{width:100%;box-sizing:border-box;background:#0b1a2b;color:#edf5fc;border:1px solid #6584a1;border-radius:4px;padding:8px;font:inherit;resize:vertical}
+.production-operation-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.production-operation-details small{display:block;color:#a7bfd6}.production-operation-details section>button{margin-top:6px}
+.production-team-lane{margin-top:10px;border-left:2px solid #637d94;padding:8px}.production-visual-lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.production-visual-lanes>section{padding:8px;background:#14263a;border-radius:4px;min-width:0}
+.production-source-instruction,.production-source-information{padding:8px;border-top:1px solid #344c64}.production-operation-details .production-substeps textarea{min-height:44px}.production-substeps li>div{display:flex;gap:4px}
+@media(max-width:800px){.production-visual-lanes{grid-template-columns:1fr}.production-operation-fields{grid-template-columns:1fr}}
+/* Labor worksheet presentation (labor-workbench.css); intentionally scoped to
+   Traveler. No RFQ classes, handlers, endpoints or costing rules are imported. */
+.production-labor-worksheet{--sheet-ink:#183247;--sheet-muted:#50697a;--sheet-line:#c0cfda;--sheet-head:#dce7ee;--sheet-row:#f1f6fa;--sheet-focus:#579ab9;background:#f8fbfd;color:var(--sheet-ink);padding:12px;border:1px solid var(--sheet-line);border-radius:8px;font:13px system-ui;min-width:0}
+.production-labor-worksheet :is(h3,h4,label,strong){color:var(--sheet-ink)}
+.production-labor-worksheet :is(.production-muted,small,.production-source-information,.production-source-context){color:var(--sheet-muted)}
+.production-labor-worksheet button,.production-labor-worksheet .production-reference-link{min-height:28px;padding:4px 8px;border:1px solid #a9bbc9;border-radius:3px;background:white;color:#245b78;font:inherit}
+.production-labor-worksheet button:hover,.production-labor-worksheet .production-reference-link:hover{background:#e4eef4;border-color:#579ab9;color:#183247}
+.production-labor-worksheet :is(button,a,summary):focus-visible{outline:2px solid var(--sheet-focus);outline-offset:1px}
+.production-labor-worksheet :is(input,textarea,select){box-sizing:border-box;background:white;color:var(--sheet-ink);border:1px solid #adc0cc;border-radius:2px;padding:6px;font:inherit;max-width:100%}
+.production-labor-worksheet :is(input,textarea,select):focus{background:white;border-color:var(--sheet-focus);outline:1px solid var(--sheet-focus)}
+.production-labor-worksheet textarea{resize:vertical;display:block}
+.production-labor-worksheet :is(.production-wo-editor,.production-governance,.production-wo-banner,.production-revision-comparison,.production-revision-history>div){background:#f8fbfd;border-color:var(--sheet-line);color:var(--sheet-ink);border-radius:4px}
+.production-labor-worksheet .production-wo-editor{padding:8px;margin-top:8px;min-width:0;gap:8px}
+.production-labor-worksheet .production-wo-banner{padding:6px 0;border:0;gap:4px}
+.production-labor-worksheet .production-wo-banner :is(strong,span){color:var(--sheet-ink)}
+.production-labor-worksheet .production-worksheet-scroll{max-height:58vh;min-height:120px;overflow:auto;overscroll-behavior:contain;border:1px solid var(--sheet-line);border-radius:0;margin:8px 0}
+.production-labor-worksheet .production-sheet-head{position:sticky;top:0;z-index:5;background:var(--sheet-head);color:var(--sheet-ink);font-size:13px;padding:7px 5px;gap:0;border-bottom:1px solid var(--sheet-line);grid-template-columns:36px minmax(0,1fr)}
+.production-labor-worksheet .production-sheet-head-readonly{grid-template-columns:minmax(0,1fr)}
+.production-labor-worksheet .production-sheet-columns,.production-labor-worksheet .production-sheet-operation{grid-template-columns:minmax(135px,1.15fr) 30px minmax(145px,1.5fr) 68px minmax(70px,.65fr) minmax(90px,.85fr);gap:0}
+.production-labor-worksheet .production-sheet-columns{padding:0 5px}
+.production-labor-worksheet .production-sheet-columns>span{padding:0 5px}
+.production-labor-worksheet .production-reorder-row{grid-template-columns:36px minmax(0,1fr);gap:0;padding:0;background:#fff;border:0;border-bottom:1px solid #dce5eb;min-width:0}
+.production-labor-worksheet .production-reorder-row:nth-child(even),.production-labor-worksheet .production-view-sheet>.production-sheet-operation:nth-child(odd){background:var(--sheet-row)}
+.production-labor-worksheet .production-sheet-operation{padding:3px 5px;font-size:13px;border:0;align-items:center}
+.production-labor-worksheet .production-sheet-operation>details[data-wo-operation]>summary{padding:4px 5px;color:var(--sheet-ink);font-size:13px}
+.production-labor-worksheet .production-sheet-operation>details>summary strong{font-weight:500}
+.production-labor-worksheet .production-sheet-operation>details>summary::marker{color:#245b78}
+.production-labor-worksheet .production-sheet-operation:has(>details[open]){background:#e2edf4}
+.production-labor-worksheet .production-sheet-operation:hover{background:#e4eef4}
+.production-labor-worksheet .production-sheet-operation>:is(.production-sheet-preview,.production-sheet-workcenter,.production-sheet-estimate,.production-sheet-visuals){padding:4px 5px;color:var(--sheet-ink);border-left:1px solid #e0e6eb;font-size:12px}
+.production-labor-worksheet .production-sheet-operation>.production-sheet-visuals{color:#245b78;background:transparent;border-radius:2px;min-height:26px}
+.production-labor-worksheet .production-authoring-menu{align-self:center;padding:0 2px}
+.production-labor-worksheet .production-authoring-menu>summary{display:grid;place-items:center;box-sizing:border-box;width:26px;height:26px;padding:0;background:transparent;border:1px solid #cad6df;border-radius:3px;color:#245b78;list-style:none}
+.production-labor-worksheet .production-authoring-menu>summary::-webkit-details-marker{display:none}
+.production-labor-worksheet .production-authoring-menu>div{background:white;border:1px solid #96afc1;border-radius:6px;box-shadow:0 6px 18px #0003;padding:6px;gap:0}
+.production-labor-worksheet .production-authoring-menu button{border:0;text-align:left;justify-content:start;padding:6px}
+.production-labor-worksheet .production-drag-grip{width:32px;min-width:32px;height:30px;min-height:30px;border:0;background:transparent;color:#7893a4;font-size:23px;padding:0}
+.production-labor-worksheet .production-drag-grip:hover{background:#dce7ee;color:#245b78}
+.production-labor-worksheet .production-reorder-row.is-dragging{background:#e2edf4;box-shadow:0 3px 9px #0003}
+.production-labor-worksheet .production-reorder-row.drop-before:before,.production-labor-worksheet .production-reorder-row.drop-after:after{background:#245b78;box-shadow:0 0 0 1px white}
+.production-labor-worksheet .production-operation-details{box-sizing:border-box;background:#f8fbfd;color:var(--sheet-ink);border-top:1px solid #b9cad5;padding:12px;gap:12px}
+.production-labor-worksheet .production-operation-details h4{color:var(--sheet-ink);font-size:13px;margin-bottom:6px}
+.production-labor-worksheet .production-traveler-instruction textarea{min-height:64px;padding:6px}
+.production-labor-worksheet :is(.production-clarification,.production-team-entry){background:white;border:1px solid #d2dee6;border-radius:4px;padding:10px;margin:7px 0}
+.production-labor-worksheet .production-team-lane{border-left-color:#b6ccd9;padding:8px}
+.production-labor-worksheet .production-substeps{padding-left:26px;margin:6px 0}
+.production-labor-worksheet .production-substeps li{position:relative;border-left:3px solid #b6ccd9;background:#f1f6fa;padding:5px 8px;margin:3px 0;color:#496171}
+.production-labor-worksheet .production-substeps textarea{min-height:32px;background:transparent;border-color:transparent;padding:4px}
+.production-labor-worksheet .production-substeps textarea:focus{background:white;border-color:#579ab9}
+.production-labor-worksheet .production-sheet-child{border-left:3px solid #b6ccd9;margin-left:12px}
+.production-labor-worksheet .production-visual-lanes{width:100%;gap:10px}
+.production-labor-worksheet .production-visual-lanes>section{background:#f1f6fa;padding:8px;border:1px solid #d2dee6;border-radius:4px}
+.production-labor-worksheet .production-visual-lanes article{background:white;padding:8px;border:1px solid #d2dee6;border-radius:4px;margin:6px 0;box-sizing:border-box}
+.production-labor-worksheet .production-visual-thumb{width:100%}
+.production-labor-worksheet .production-visual-thumb img{width:100%;height:130px;object-fit:contain;background:#edf2f5;border:0}
+.production-labor-worksheet .production-input-panel{background:#f8fbfd;border:1px solid #9eb4c4;box-shadow:0 8px 30px #0003;color:var(--sheet-ink);max-width:680px}
+.production-labor-worksheet :is(.production-source-information,.production-source-instruction,.production-prerequisite-reference){border-color:#c0cfda;color:#50697a}
+.production-labor-worksheet :is(.production-source-information,.production-source-instruction)>summary{color:#50697a;font-size:11px}
+.production-labor-worksheet .production-prerequisite{background:#e4eef4;color:#183247;padding:6px 8px;font-size:11px}
+.production-labor-worksheet .production-prerequisite span{color:#50697a}
+.production-labor-worksheet .production-sticky-actions{background:#e4eef4;border-color:#c5d5e0;box-shadow:0 -2px 5px #0001;padding:8px;z-index:6}
+.production-labor-worksheet .production-revision-comparison summary{color:#245b78}
+.production-labor-worksheet .production-diff-table :is(th,td){border-color:#dce5eb;color:#183247}
+.production-labor-worksheet .production-diff-table th{background:#dce7ee}
+@media(max-width:1100px){.production-labor-worksheet .production-sheet-columns,.production-labor-worksheet .production-sheet-operation{grid-template-columns:minmax(140px,1fr) 30px minmax(140px,1.3fr) 68px}}
+@media(pointer:coarse){.production-labor-worksheet .production-drag-grip{min-height:44px;width:36px;min-width:36px}.production-labor-worksheet .production-authoring-menu>summary{height:36px;width:30px}}
+@media(max-width:620px){.production-labor-worksheet{padding:8px}.production-labor-worksheet .production-sheet-head{display:none}.production-labor-worksheet .production-sheet-operation{grid-template-columns:minmax(0,1fr) 30px 64px}.production-labor-worksheet .production-worksheet-scroll{max-height:65vh}.production-labor-worksheet .production-operation-details{padding:8px}.production-labor-worksheet .production-visual-lanes{grid-template-columns:1fr}.production-labor-worksheet .production-authoring-menu>div{position:fixed;inset:auto 12px 68px auto;width:min(240px,calc(100vw - 24px));z-index:20}}
+.production-labor-worksheet .production-substeps li>div{flex-wrap:wrap;gap:4px}
+.production-labor-worksheet .production-substeps li>div>button{margin:3px 0;padding:3px 6px;white-space:nowrap}
+.production-labor-worksheet .production-substeps button[data-production-action^="substep-"]{min-width:26px;height:26px;min-height:26px}
+.production-labor-worksheet :is(.production-reorder-row,.production-view-sheet>.production-sheet-operation):nth-last-child(-n+3) .production-authoring-menu>div{top:auto;bottom:30px}
+@media(max-width:620px){.production-labor-worksheet :is(.production-reorder-row,.production-view-sheet>.production-sheet-operation) .production-authoring-menu>div{top:auto;bottom:68px}}
+
+/* Compact operation disclosure: full authoring stays available on demand. */
+.production-labor-worksheet .production-operation-details{padding:6px 10px;gap:0}
+.production-labor-worksheet .production-operation-compact-row{display:grid;grid-template-columns:170px minmax(0,1fr) auto;align-items:start;gap:4px 10px;padding:5px 0;border-bottom:1px solid #dce5eb;min-width:0}
+.production-labor-worksheet .production-operation-compact-row>h4{font-size:12px;line-height:18px;margin:3px 0;font-weight:600}
+.production-labor-worksheet .production-operation-compact-row>:not(h4){min-width:0}
+.production-labor-worksheet .production-operation-compact-row>small[data-source-status]{grid-column:2/-1;font-size:10px;margin-top:-2px}
+.production-labor-worksheet .production-compact-disclosure{grid-column:2;min-width:0}
+.production-labor-worksheet .production-traveler-instruction>.production-compact-disclosure,.production-labor-worksheet .production-compact-workcenter>.production-operation-fields{grid-column:2/-1}
+.production-labor-worksheet .production-compact-disclosure>summary{cursor:pointer;color:#245b78;padding:3px 0;line-height:18px;font-size:12px;overflow-wrap:anywhere}
+.production-labor-worksheet .production-disclosure-hint{font-size:11px;color:#245b78;text-decoration:underline;text-underline-offset:2px}
+.production-labor-worksheet .production-instruction-preview{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;color:#183247;font-size:12px;line-height:17px}
+.production-labor-worksheet .production-traveler-instruction summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;list-style:none}
+.production-labor-worksheet .production-traveler-instruction summary::-webkit-details-marker{display:none}
+.production-labor-worksheet .production-traveler-instruction details[open] .production-instruction-preview{display:none}
+.production-labor-worksheet .production-compact-content{padding:6px 0;min-width:0}
+.production-labor-worksheet .production-compact-content>p{margin:3px 0}
+.production-labor-worksheet .production-compact-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.production-labor-worksheet .production-compact-actions button{min-height:24px;font-size:11px;padding:2px 6px;margin:0}
+.production-labor-worksheet .production-compact-empty{font-size:12px;line-height:24px;color:#50697a}
+.production-labor-worksheet .production-compact-workcenter .production-operation-fields{display:flex;gap:8px;flex-wrap:wrap}
+.production-labor-worksheet .production-compact-workcenter label{display:flex;align-items:center;gap:5px;flex:1 1 180px;font-size:11px;min-width:0}
+.production-labor-worksheet .production-compact-workcenter input{width:100%;min-width:0;min-height:25px;padding:3px 5px;flex:1}
+.production-labor-worksheet .production-compact-more{padding:5px 0;font-size:12px}
+.production-labor-worksheet .production-compact-more>summary{cursor:pointer;color:#245b78;line-height:20px}
+.production-labor-worksheet .production-compact-more>summary>span{color:#50697a;font-size:11px;margin-left:8px}
+.production-labor-worksheet .production-compact-more>.production-compact-content{display:grid;gap:8px}
+.production-labor-worksheet .production-operation-compact-row:has(>.production-compact-disclosure[open]){grid-template-columns:170px minmax(0,1fr)}
+.production-labor-worksheet .production-operation-compact-row:has(>.production-compact-disclosure[open])>.production-compact-actions{grid-column:2;justify-content:flex-start}
+@media(max-width:800px){.production-labor-worksheet .production-operation-compact-row,.production-labor-worksheet .production-operation-compact-row:has(>.production-compact-disclosure[open]){grid-template-columns:125px minmax(0,1fr)}.production-labor-worksheet .production-compact-actions{grid-column:2;justify-content:flex-start}}
+@media(max-width:620px){.production-labor-worksheet .production-operation-details{padding:5px 7px}.production-labor-worksheet .production-operation-compact-row,.production-labor-worksheet .production-operation-compact-row:has(>.production-compact-disclosure[open]){grid-template-columns:minmax(0,1fr);gap:2px;padding:5px 0}.production-labor-worksheet .production-operation-compact-row>h4{margin:0}.production-labor-worksheet .production-operation-compact-row>:not(h4),.production-labor-worksheet .production-operation-compact-row:has(>.production-compact-disclosure[open])>.production-compact-actions{grid-column:1/-1}.production-labor-worksheet .production-traveler-instruction summary{gap:5px}.production-labor-worksheet .production-compact-more>summary>span{display:block;margin-left:0}.production-labor-worksheet .production-compact-workcenter label{flex-basis:100%}}
+@media(max-width:620px){.production-labor-worksheet .production-operation-details .production-operation-compact-row>:is(details,small,div,span,h4){grid-column:1/-1}}

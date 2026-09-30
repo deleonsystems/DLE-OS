@@ -16,6 +16,23 @@ internal static class SimProductionEndpoints
         }
         const string route="/api/production/v1/work-orders/{workOrderNumber}";
         app.MapGet(route,(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.Read(workOrderNumber,a))));
+        app.MapPost(route+"/team-input",(string workOrderNumber,SimProductionTeamSave r,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.SaveTeamInput(workOrderNumber,r,a))));
+        app.MapPost(route+"/production-visuals",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>{
+            var metadata=Uri.UnescapeDataString(c.Request.Headers["X-Production-Visual"].ToString());
+            SimProductionVisualUpload? r;try{r=System.Text.Json.JsonSerializer.Deserialize<SimProductionVisualUpload>(metadata,SimProductionService.Json);}catch(System.Text.Json.JsonException){return Results.BadRequest(new{message="Invalid visual scope."});}
+            if(r is null)return Results.BadRequest();
+            return Results.Json(await service.UploadProductionVisual(workOrderNumber,r,Uri.UnescapeDataString(c.Request.Headers["X-File-Name"].ToString()),c.Request.Body,a));
+        }));
+        app.MapGet(route+"/production-visuals/{visualId:guid}",(string workOrderNumber,Guid visualId,HttpContext c)=>Guard(c,false,async a=>{
+            var file=await service.OpenProductionVisual(workOrderNumber,visualId,a);c.Response.Headers["X-Content-Type-Options"]="nosniff";
+            c.Response.Headers["Content-Security-Policy"]="default-src 'none'; sandbox";return Results.File(file.Bytes,file.Type);
+        }));
+        app.MapPost(route+"/wo-traveler/edit",(string workOrderNumber,SimWoRevisionBeginRequest r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.BeginWoRevision(workOrderNumber,r,a))));
+        app.MapPut(route+"/wo-traveler/draft",(string workOrderNumber,SimWoRevisionSaveRequest r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.SaveWoRevision(workOrderNumber,r,a))));
+        app.MapPost(route+"/wo-traveler/approve",(string workOrderNumber,SimWoRevisionApproveRequest r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.ApproveWoRevision(workOrderNumber,r,a))));
+        app.MapGet(route+"/wo-traveler/revisions/{revisionId:guid}",(string workOrderNumber,Guid revisionId,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadRevision(workOrderNumber,revisionId,a))));
+        app.MapGet(route+"/wo-traveler/draft.pdf",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>
+            Results.File(await SimProductionPrint.Create(await service.Read(workOrderNumber,a),"traveler",a,DateTimeOffset.UtcNow,true),"application/pdf")));
         app.MapPost(route+"/traveler/seed",(string workOrderNumber,SimTravelerSeedRequest r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.Seed(workOrderNumber,r,a))));
         app.MapPost(route+"/traveler/lease",(string workOrderNumber,SimTravelerVersionRequest r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.Lease(workOrderNumber,r,a))));
         app.MapPut(route+"/traveler/draft",(string workOrderNumber,SimTravelerDraftRequest r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.Draft(workOrderNumber,r,a))));

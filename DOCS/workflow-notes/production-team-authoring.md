@@ -1,0 +1,15 @@
+# Production Team Input and controlled WO authoring
+
+Team Input is append-only WO/Traveler/operation evidence. The Production Team SIM persona has `production.view` and `production.team_input`, not `production.manage`. Managers may also author and correct input. Read-only viewers cannot author. Management-only inputs and their original images are filtered server-side. Corrections require an expected input version and a reason; the original author or a manager may correct/withdraw an input. Team Input does not acquire a Traveler lease or change readiness. These evidence corrections remain available after execution; controlled changes retain the pre-start guard.
+
+PNG/JPEG assets (maximum 8 MB) reuse `SimIntakeDocuments` verified storage under the WO Traveler identity. This is a WO endpoint and ownership ledger, not an RFQ/Labor endpoint. Original binaries and all input versions remain retained. Direct controlled uploads are staged for an exact draft identity, working version and lease before a reference is saved.
+
+Substeps and WO visual references are optional typed arrays in the existing WO revision snapshot. Substeps retain stable identity, parent operation, order and audit fields; they are instruction blocks, not costed operations. Reordering a parent still moves the full operation and its attachments. Removed authored content is retained as tombstones; image supersession links old and new visual references. Source operations and source visuals cannot be overwritten.
+
+Promotion copies a reviewed Team Note into a clarification or references a verified Team Visual in a WO draft. Both record the Team Input identity/version, keep original evidence and append promotion events on Save. Promotion never changes the effective Traveler automatically. Normal reason, lease/version checks, dual comparisons, technical-consistency acknowledgment and approval apply. Once explicitly promoted and approved, controlled instructions/visuals are operator-facing regardless of the original Team Input audience; unpromoted management-only evidence stays restricted.
+
+Normal + menu: Add Team Note / Add Team Visual. Edit + menu: Add Substep / Add Production Clarification / Add Traveler Visual. PNG/JPEG upload and clipboard image paste share the same editor. Team history and promotion state are visible next to input. Controlled PDFs include approved substeps, clarifications and visual-reference indicators only; draft PDFs remain marked DRAFT / NOT EFFECTIVE. No Team-inclusive print mode, Labor feedback promotion, operator execution, or post-start controlled amendment workflow was added.
+
+The shapes retain WO, Traveler, operation, author/time, source provenance, scope/audience and stable content IDs for future operator views and reviewed Labor feedback. Neither downstream feature is implemented here.
+
+Live verification is read-only. Do not use isolated test examples to populate WO 0999999. Existing effective v1, draft v2 and working version 4 must remain unchanged; Material KIT_COMPLETE and Production READY_TO_START_PRODUCTION, execution not started.

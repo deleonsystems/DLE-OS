@@ -79,12 +79,14 @@ def render(data, logo, output):
     context = package.get("context") or {}
     source = package.get("source") or {}
     bound = package.get("boundTraveler") or {}
+    effective = package.get("effectiveRevision") or {}
     definition = package.get("definition") or {}
     wo = text(package.get("workOrderNumber"))
     title = "PRODUCTION TRAVELER" if kind == "traveler" else "DLE-OS BOM / FINAL KITTING REFERENCE"
-    draft = not bool(bound)
-    status = "DRAFT / NOT BOUND TO WO" if draft else "APPROVED / FROZEN WO TRAVELER"
-    traveler_ref = (f"{text(bound.get('id'))} / V{bound.get('version', 1)}" if bound else
+    draft_preview = bool(package.get("draftPreview"))
+    draft = draft_preview or not bool(bound)
+    status = "DRAFT / NOT EFFECTIVE" if draft_preview else "DRAFT / NOT BOUND TO WO" if draft else "APPROVED / FROZEN WO TRAVELER"
+    traveler_ref = (f"{text(bound.get('id'))} / V{effective.get('version', bound.get('version', 1))}" if bound else
                     f"Draft {text(definition.get('id'), 'not created')} / working V{definition.get('workingVersion', 0)}")
     normal = ParagraphStyle("production-body", fontName="Helvetica", fontSize=8.5, leading=11.5, textColor=INK, spaceAfter=0)
     small = ParagraphStyle("production-small", parent=normal, fontSize=7.5, leading=10)
@@ -142,9 +144,11 @@ def render(data, logo, output):
               p("Accepted-order reference: " + text(source.get("acceptanceId")), small),
               p("State as of generation. Reprints do not approve, release, or sign off work. Confirm the current electronic record before use.", muted), Spacer(1, 6)]
 
+    if effective:
+        story.append(p(f"Traveler v{effective['version']} | {'As Quoted' if effective.get('changeBasis') == 'AS_QUOTED' else 'WO-Specific Revision'} | " + ("DRAFT / NOT EFFECTIVE" if draft_preview else "Approved " + timestamp((effective.get('approval') or {}).get('atUtc'))), bold))
     if kind == "traveler":
-        # A bound route always wins over a later editable definition.
-        operations = bound.get("operations") if bound else definition.get("operations")
+        # Only an approved effective WO revision wins; a pending draft never prints as effective.
+        operations = effective.get("operations") if effective else bound.get("operations") if bound else definition.get("operations")
         operations = operations if operations is not None else package.get("operations", [])
         operations = sorted(operations, key=lambda op: Decimal(str(op.get("sequence", 0))))
         prerequisites = [o for o in operations if o.get("classification") == "MATERIALS_PREREQUISITE"]
@@ -160,7 +164,7 @@ def render(data, logo, output):
         rows = [[p("SEQ", bold), p("OPERATION", bold), p("WORK CENTER", bold), p("STATE", bold)]]
         for op in active:
             rows.append([p(op.get("sequence")), p(op.get("name"), bold),
-                         p(op.get("workCenter") or op.get("department") or "Not Assigned"),
+                         p(op.get("travelerWorkCenter", op.get("workCenter")) or op.get("travelerDepartment", op.get("department")) or "Not Assigned"),
                          p(label(op.get("executionState", "NOT_STARTED")))])
         story.append(table(rows, [36, 265, 132, 107], True))
         story.append(p("Estimating references are planning allowances, not process settings or actual execution time.", muted))
@@ -168,6 +172,7 @@ def render(data, logo, output):
             block_start = len(story)
             story.append(p(f"{op.get('sequence')} - {text(op.get('name'))}", heading))
             story.append(p(f"Traveler operation {text(op.get('id'))} | Source {text(op.get('sourceOperationId'))} | {label(op.get('executionState', 'NOT_STARTED'))}", muted))
+            story.append(p(f"Source sequence {op.get('sourceSequence', op.get('sequence'))} | WO sequence {op.get('sequence')}", muted))
             basis = op.get("estimatingBasis") or {}
             basis_items = []
             if basis.get("operationQuantity") is not None and basis.get("runSeconds") is not None:
@@ -177,14 +182,23 @@ def render(data, logo, output):
             if basis_items:
                 story.append(p("Estimate: " + "; ".join(basis_items), small))
             story.append(Spacer(1, 4))
-            detail("Frozen source instruction", op.get("instructions"))
-            detail("Traveler / shop instruction", op.get("shopInstructions"))
+            for note in op.get("clarifications") or []:
+                if not note.get("removed", False) and note.get("type") == "PRODUCTION_CLARIFICATION":
+                    detail(f"Production clarification - added in Traveler v{note.get('addedInVersion')}", note.get("text"))
+            detail("Traveler Instructions", op.get("travelerInstructions", op.get("shopInstructions") or op.get("instructions")))
+            detail("Work Center / Department", " / ".join(v for v in [op.get("travelerWorkCenter", op.get("workCenter")), op.get("travelerDepartment", op.get("department"))] if v))
             for note in op.get("productionNotes") or []:
                 # Deliberate allowlist: internal quotation content is never printable.
                 if note.get("purpose", "PRODUCTION") == "PRODUCTION" and not note.get("removed", False):
                     detail("Production note", note.get("text"))
             detail("Inspection / test requirement", op.get("inspectionRequirements"))
             detail("Management note (does not override technical authority)", op.get("managementNotes"))
+            for step in sorted(op.get("substeps") or [], key=lambda s: s.get("order", 0)):
+                if not step.get("removed"):
+                    detail("Controlled substep " + str(step.get("order")), step.get("text"))
+            for visual in op.get("travelerVisuals") or []:
+                if not visual.get("removed"):
+                    detail("Controlled Traveler visual", text(visual.get("name")) + " - " + text(visual.get("caption")))
             visuals = op.get("visuals") or []
             if visuals:
                 detail("Verified visual references", "\n".join(text(v.get("name")) + (" - " + v["caption"] if v.get("caption") else "") for v in visuals))
@@ -214,7 +228,7 @@ def render(data, logo, output):
         canvas.drawString(36, 742, title)
         canvas.setFont("Helvetica", 8)
         canvas.drawString(36, 728, f"WO {wo} | {status}")
-        version_context = (f"WO Traveler V{bound.get('version', 1)} | Definition V{bound.get('definitionVersion', 0)}" if bound else
+        version_context = (f"WO Traveler V{effective.get('version', bound.get('version', 1))} | Definition V{bound.get('definitionVersion', 0)}" if bound else
                            f"Draft working V{definition.get('workingVersion', 0)}")
         canvas.drawRightString(576, 728, version_context)
         canvas.setStrokeColor(LINE)
@@ -224,6 +238,10 @@ def render(data, logo, output):
         canvas.drawString(36, 39, "DLE-OS ELECTRONIC RECORD GOVERNS")
         canvas.setFont("Helvetica", 7)
         canvas.drawRightString(576, 39, f"Page {doc.page}")
+        if effective:
+            canvas.setFont("Helvetica", 7)
+            canvas.drawRightString(576, 16, ('As Quoted' if effective.get('changeBasis') == 'AS_QUOTED' else 'WO-Specific Revision') +
+                                  (' | DRAFT / NOT EFFECTIVE' if draft_preview else ' | Approved ' + timestamp((effective.get('approval') or {}).get('atUtc'))))
         canvas.drawString(36, 27, generated)
         canvas.restoreState()
 
