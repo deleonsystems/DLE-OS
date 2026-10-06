@@ -204,7 +204,7 @@
 
   function applyMethod(draft, sequence, method, enteredQuantity = null) {
     const group = findGroup(draft, sequence);
-    if (!group || group.rowState === 'SUBMITTED') return null;
+    if (!group || group.rowState === 'SUBMITTED' || group.entry?.allocations?.some(a => a.acceptedMaterial?.applicationId)) return null;
     group.entry = calculateEntry(group, method, enteredQuantity, draft?.employeeName);
     return group.entry;
   }
@@ -255,6 +255,7 @@
   function updateAllocation(draft, sequence, allocationId, changes) {
     const group = findGroup(draft, sequence);
     if (!group?.entry || group.rowState === 'SUBMITTED' || group.entry.method !== METHODS.COUNT) return null;
+    if (group.entry.allocations.some(a => a.allocationId === clean(allocationId) && a.acceptedMaterial?.applicationId)) return null;
     const sourceChanged = Object.hasOwn(changes || {}, 'partNumber') || Object.hasOwn(changes || {}, 'purchaseOrder');
     const allocations = group.entry.allocations.map(allocation => allocation.allocationId === clean(allocationId)
       ? { ...allocation, ...changes, acceptedMaterial: sourceChanged ? null : allocation.acceptedMaterial,
@@ -282,6 +283,7 @@
     const group = findGroup(draft, sequence);
     if (!group?.entry || group.rowState === 'SUBMITTED' || group.entry.method !== METHODS.COUNT ||
         group.entry.allocations.length <= 1) return null;
+    if (group.entry.allocations.some(a => a.allocationId === clean(allocationId) && a.acceptedMaterial?.applicationId)) return null;
     group.entry = calculateCountRollup(group,
       group.entry.allocations.filter(allocation => allocation.allocationId !== clean(allocationId)));
     return group.entry;

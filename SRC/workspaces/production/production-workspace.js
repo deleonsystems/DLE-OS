@@ -382,7 +382,7 @@
     else if (state.panel === "customer") body = renderCustomer(data);
     else if (state.panel === "history") body = renderHistory(data);
     else body = renderTraveler(data);
-    return top + notice + facts + firstCard + errors + '<nav class="production-detail-tabs" aria-label="Production references">' + tabs +
+    return top + notice + facts + firstCard + (window.ShippingHandoff?.productionButton(data.workOrderNumber) || '') + errors + '<nav class="production-detail-tabs" aria-label="Production references">' + tabs +
       '</nav><section class="production-detail-body">' + body + '</section><p class="production-source-context">Source quote ' +
       escapeHtml(context.sourceQuote || source.quote?.quoteNumber || source.quote || "Not established") + ' · Frozen Labor v' +
       escapeHtml(source.laborVersion ?? "—") + ' · Current operation: Not Started</p>';

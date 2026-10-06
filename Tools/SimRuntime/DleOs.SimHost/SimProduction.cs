@@ -17,11 +17,14 @@ internal sealed partial class SimProductionService(SimStateStore state,SimOperat
         "KIT_COMPLETE" when validTraveler=>"READY_TO_START_PRODUCTION","KIT_COMPLETE"=>"TRAVELER_REVIEW_REQUIRED",_=>"SOURCE_REVIEW_REQUIRED"};
     internal Task<JsonElement> Read(string wo,SimPersona actor)=>WithSource(wo,actor,false,async(s,r)=>await View(s,r,actor));
     private Task<T> WithSource<T>(string wo,SimPersona actor,bool write,Func<SimProductionSource,SimStateMetadata,Task<T>> action)=>state.WithStableRuntime(async runtime=>{
-        Permission(actor,write);wo=SimKittingCases.Normalize(wo);
+        Permission(actor,write);return await WithVerifiedSource(wo,runtime,action);
+    });
+    private async Task<T> WithVerifiedSource<T>(string wo,SimStateMetadata runtime,Func<SimProductionSource,SimStateMetadata,Task<T>> action){
+        wo=SimKittingCases.Normalize(wo);
         // Same lock order as imported-order release and Kitting Start. Intake source cannot be
         // reopened/held between validation and Traveler mutation. Never reads mutable Labor plans.
         return await provider.WithReleasedRequirements(wo,runtime,async release=>await action(await Source(wo,runtime,release),runtime));
-    });
+    }
     private async Task<SimProductionSource> Source(string wo,SimStateMetadata runtime,SimKittingReleasedRequirements release)
     {
         var caseRecord=await operations.ReadSimKittingCase(wo,runtime);

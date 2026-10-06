@@ -1388,6 +1388,21 @@
       requireDevelopmentCapability('kitting.disposition');
       return requestKittingCase(workOrderNumber, '/draft', { ...options, method: 'PUT', body: request });
     },
+    getKittingMaterialContext(workOrderNumber) {
+      return requestKittingCase(workOrderNumber, '/accepted-material');
+    },
+    applyKittingMaterial(workOrderNumber, request) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/apply-accepted-material', { method: 'POST', body: request });
+    },
+    correctKittingManualAllocation(workOrderNumber, request) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/correct-manual-allocation', { method: 'POST', body: request });
+    },
+    reverseKittingMaterial(workOrderNumber, request) {
+      requireDevelopmentCapability('kitting.disposition');
+      return requestKittingCase(workOrderNumber, '/reverse-material-application', { method: 'POST', body: request });
+    },
     saveAndExitKittingCase(workOrderNumber, request, options = {}) {
       requireDevelopmentCapability('kitting.disposition');
       return requestKittingCase(workOrderNumber, '/save-exit', { ...options, method: 'POST', body: request });

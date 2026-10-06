@@ -2,6 +2,29 @@
   'use strict';
   const labels = { QUOTE_APPROVED: 'Quote Approved', NOT_STARTED: 'Not Started', IN_PROGRESS: 'In Progress', COMPLETE: 'Complete', READY_TO_WORK: 'Ready to Work', READY_FOR_QUOTE_ASSEMBLY: 'Ready for Quote Assembly' };
   let returnIntakeId = null;
+  const mobileOverview = () => document.body?.dataset?.simRuntime === 'true' && document.body?.dataset?.viewMode === 'mobile';
+  const desktopOnly = () => mobileOverview() ? ' disabled aria-describedby="rfqsMobileScope"' : '';
+  function syncMobileBoundary() {
+    if (!mount || document.body.dataset.workspaceView !== 'rfqs') return;
+    const overview = mount.querySelector('.rfqs-overview');
+    const blocked = mobileOverview() && !overview && !!mount.querySelector('.rfqs-workspace') && !mount.querySelector('.labor-workbench');
+    document.body.dataset.rfqsMobileWorkbench = String(blocked);
+    mount.querySelector('[data-rfqs-mobile-boundary]')?.remove();
+    if (overview) {
+      overview.querySelectorAll('[data-open="materials"],[data-open="final-review"]').forEach(button => { button.disabled = mobileOverview(); });
+      const scope = overview.querySelector('#rfqsMobileScope');
+      if (scope) scope.hidden = !mobileOverview();
+      return;
+    }
+    if (!blocked) return;
+    const notice = document.createElement('section');
+    notice.className = 'rfqs-mobile-boundary';
+    notice.dataset.rfqsMobileBoundary = 'true';
+    notice.innerHTML = '<h2>Continue in Desktop View</h2><p>Materials and Quotation Final Review require Desktop View. Your open work is preserved.</p><button type="button">Return to Desktop View</button>';
+    notice.querySelector('button').onclick = event => { event.stopPropagation(); window.DleOperatorHeader.setViewMode('desktop'); };
+    mount.prepend(notice);
+  }
+
   let mount, items = [], selected = null, opened = null, saving = false, error = '', bucket = 'ACTIVE', pendingCommercial = null;
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function request(url, options) {
@@ -18,8 +41,11 @@
     if(selected.workbenchEligible){const workspace=(await request('/api/sim/rfqs')).items.find(r=>r.intakeId===id);if(workspace)selected={...selected,lanes:workspace.lanes,inputs:workspace.inputs};else selected.workbenchEligible=false;}
   }
   async function refresh() {
+    mount?.setAttribute?.("aria-busy", "true");
+    if (mount) mount.inert = true;
     try { const id=returnIntakeId||selected?.intakeId;items=(await request('/api/sim/rfqs/commercial')).items;await selectItem(id);returnIntakeId=null;error=''; }
     catch(e){error=e.message;}
+    finally { if (mount) mount.inert = false; mount?.setAttribute?.('aria-busy', 'false'); }
     draw();
   }
   async function commercialAction(action){
@@ -53,6 +79,7 @@
     } catch (e) { error = e.message; draw(); }
   }
   async function openMaterials() {
+    if (mobileOverview()) return;
     try {
       if (!window.DleMaterialsWorkbench) {
         const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'SRC/workspaces/rfqs/materials-workbench.css'; document.head.appendChild(link);
@@ -71,6 +98,7 @@
     } catch (e) { error = e.message; draw(); }
   }
   async function openFinalReview() {
+    if (mobileOverview()) return;
     try {
       if (!window.DleQuotationFinalReview) {
         const link=document.createElement('link');link.rel='stylesheet';link.href='SRC/workspaces/rfqs/quotation-final-review.css';document.head.appendChild(link);
@@ -97,6 +125,7 @@
       if (button.dataset.action === 'refresh') await refresh();
       if (button.dataset.action === 'source') {
         const id = selected.intakeId;
+        returnIntakeId = id;
         window.DleWorkspaceShell.navigate({ workspaceId: 'technical-review' });
         // Navigation can lazy-load the destination; wait until its template is ready.
         for (let attempt = 0; attempt < 100; attempt++) {
@@ -110,26 +139,36 @@
     };
     await refresh();
   }
-  function context(r) { return r.assemblies.map(a => esc(a.assemblyNumber) + ' · Rev ' + esc(a.revision) + ' · Qty ' + esc(a.quantity)).join('<br>'); }
+  function context(r) {
+    return r.assemblies.map(a => '<div class="rfqs-assembly"><strong>'+esc(a.assemblyNumber)+'</strong><span>Rev <b>'+esc(a.revision)+'</b></span><span>Qty <b>'+esc(a.quantity)+'</b></span></div>').join('');
+  }
   function lane(name) {
     const key = name.toLowerCase(), value = selected.lanes[key];
-    if (key === 'materials') return '<section class="rfqs-lane"><h2>Materials</h2><p class="rfqs-status">' + labels[value.status] + '</p><p>Accepted BOM v' + selected.inputs.materials.version + ' · ' + selected.inputs.materials.candidate.rows.length + ' rows</p><button data-open="materials">Open Materials</button><p>Save and complete the quotation in Materials.</p></section>';
-    return '<section class="rfqs-lane"><h2>Labor</h2><p class="rfqs-status">' + labels[value.status] + '</p><p>Manufacturing Definition available</p><button data-open="labor">Open Labor</button><p>Save and complete the quotation in Labor.</p></section>';
+    if (key === 'materials') return '<section class="rfqs-lane"><h2>Materials</h2><p class="rfqs-status" data-status="' + esc(value.status) + '">' + labels[value.status] + '</p><p>Accepted BOM v' + selected.inputs.materials.version + ' · ' + selected.inputs.materials.candidate.rows.length + ' rows</p><button data-open="materials"'+desktopOnly()+'>Open Materials</button><p>Save and complete the quotation in Materials.</p></section>';
+    return '<section class="rfqs-lane"><h2>Labor</h2><p class="rfqs-status" data-status="' + esc(value.status) + '">' + labels[value.status] + '</p><p>Manufacturing Definition available</p><button data-open="labor">Open Labor</button><p>Save and complete the quotation in Labor.</p></section>';
   }
   const money=v=>v==null?'—':Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'});
   const date=v=>v?new Date(v).toLocaleDateString('en-US',{timeZone:'America/Los_Angeles'}):'—';
   function commercialDetail(r){
     const c=r.commercial, latest=r.approvals?.at(-1), readonly=window.DleOsCapabilities?.can?.('technical_review.disposition')!==true;
     const canSubmit=r.approvalCurrent&&latest&&latest.id!==c.approvalId&&['OPEN','SUBMITTED','EXPIRED'].includes(c.status);
-    return '<section class="rfq-commercial-detail"><h2>Commercial Lifecycle</h2><p><strong>'+esc(r.status)+'</strong> · '+esc(r.quoteNumber||'No approved quotation')+' · '+money(r.quoteTotal)+'</p><p>Approved: '+date(r.approvedAt)+' · Submitted: '+date(c.submittedAt)+' · Expires: '+date(c.expiresAt)+' (Pacific time)</p>'+ (r.revisionNeeded?'<p role="alert">Revision needed. Submitted quotation remains unchanged. Current work: '+esc(r.workStatus)+'.</p>':'')+(canSubmit?'<button data-commercial="SUBMIT" '+(readonly||saving?'disabled':'')+'>Mark Approved Quote Submitted</button><small>Records commercial submission and 30-day validity. Does not send customer communication.</small>':'')+(c.status==='SUBMITTED'&&r.status==='Expired'?'<button data-commercial="EXPIRE" '+(readonly||saving?'disabled':'')+'>Record Expiration</button>':'')+(c.closedAt?'<p>Closed: '+date(c.closedAt)+' · '+esc(c.closeReason)+'</p>':'')+(c.status==='AWARDED'&&!c.orderLinks?.length?'<p>Order handoff pending</p>':'')+'<details><summary>Lifecycle history ('+(c.history||[]).length+')</summary><ul>'+(c.history||[]).map(h=>'<li>'+esc(h.action)+' · '+esc(h.at)+' · '+esc(h.actor)+' · '+esc(h.reason)+'</li>').join('')+'</ul></details><details><summary>Approval history ('+(r.approvals||[]).length+')</summary><ul>'+(r.approvals||[]).map(a=>'<li>Version '+a.version+' · '+esc(a.id)+' · '+date(a.approvedAt)+' · '+money(a.summary.quoteTotal)+'</li>').join('')+'</ul></details><details><summary>Order links ('+(c.orderLinks||[]).length+')</summary><ul>'+(c.orderLinks||[]).map(l=>'<li>'+esc(l.quoteNumber)+' · New Order: '+esc(l.newOrderIntakeId||'Pending')+' · SO: '+esc(l.salesOrderId||'Pending')+' · WO: '+esc(l.workOrderId||'Pending')+'</li>').join('')+'</ul></details></section>';
+    return '<section class="rfq-commercial-detail"><h2>Commercial Lifecycle</h2><div class="rfqs-current-status"><span>Current status</span><strong>'+esc(r.status)+'</strong></div>'+ (latest&&!r.approvalCurrent?'<p class="rfqs-approval-note">Historical approval retained. Current work requires final review before a new approval.</p>':'') +'<p class="rfqs-quote-reference"><span>Quotation reference</span><strong>'+esc(r.quoteNumber||'No approved quotation')+'</strong></p><p><strong>Recorded quote total</strong> &middot; '+money(r.quoteTotal)+'</p><p>Approved: '+date(r.approvedAt)+' · Submitted: '+date(c.submittedAt)+' · Expires: '+date(c.expiresAt)+' (Pacific time)</p>'+ (r.revisionNeeded?'<p role="alert">Revision needed. Submitted quotation remains unchanged. Current work: '+esc(r.workStatus)+'.</p>':'')+(canSubmit?'<button data-commercial="SUBMIT" '+(readonly||saving?'disabled':'')+'>Mark Approved Quote Submitted</button><small>Records commercial submission and 30-day validity. Does not send customer communication.</small>':'')+(c.status==='SUBMITTED'&&r.status==='Expired'?'<button data-commercial="EXPIRE" '+(readonly||saving?'disabled':'')+'>Record Expiration</button>':'')+(c.closedAt?'<p>Closed: '+date(c.closedAt)+' · '+esc(c.closeReason)+'</p>':'')+(c.status==='AWARDED'&&!c.orderLinks?.length?'<p>Order handoff pending</p>':'')+'<details><summary>Lifecycle history ('+(c.history||[]).length+')</summary><ul>'+(c.history||[]).map(h=>'<li>'+esc(h.action)+' · '+esc(h.at)+' · '+esc(h.actor)+' · '+esc(h.reason)+'</li>').join('')+'</ul></details><details><summary>Approval history ('+(r.approvals||[]).length+')</summary><ul>'+(r.approvals||[]).map(a=>'<li>Version '+a.version+' · '+esc(a.id)+' · '+date(a.approvedAt)+' · '+money(a.summary.quoteTotal)+'</li>').join('')+'</ul></details><details><summary>Order links ('+(c.orderLinks||[]).length+')</summary><ul>'+(c.orderLinks||[]).map(l=>'<li>'+esc(l.quoteNumber)+' · New Order: '+esc(l.newOrderIntakeId||'Pending')+' · SO: '+esc(l.salesOrderId||'Pending')+' · WO: '+esc(l.workOrderId||'Pending')+'</li>').join('')+'</ul></details></section>';
   }
   function draw(){
+    document.body.dataset.rfqsMobileWorkbench = "false";
     const rows=items.filter(r=>r.bucket===bucket);
     const toggles='<div class="rfq-lifecycle-tabs" role="group" aria-label="RFQ lifecycle">'+['ACTIVE','SUBMITTED','HISTORY'].map(b=>'<button data-bucket="'+b+'" aria-pressed="'+(bucket===b)+'" class="'+(bucket===b?'active':'')+'">'+b+' <span>'+items.filter(r=>r.bucket===b).length+'</span></button>').join('')+'</div>';
-    const table='<div class="rfqs-scroll"><table><thead><tr>'+['RFQ / Quote Number','Customer','Assembly / Rev','Qty','Quote Total','Submitted','Expires','Status'].map(t=>'<th>'+t+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><td><button data-rfq="'+esc(r.intakeId)+'">'+esc(r.intakeId)+'</button><br>'+esc(r.quoteNumber||'—')+'</td><td>'+esc(r.customer.customerName)+'</td><td>'+r.assemblies.map(a=>esc(a.assemblyNumber)+' / '+esc(a.revision)).join('<br>')+'</td><td>'+r.assemblies.map(a=>a.quantity).join('<br>')+'</td><td>'+money(r.quoteTotal)+'</td><td>'+date(r.commercial.submittedAt)+'</td><td>'+date(r.commercial.expiresAt)+'</td><td>'+esc(r.status)+(r.revisionNeeded?'<br><small>Revision needed</small>':'')+'</td></tr>').join('')+'</tbody></table></div>';
-    const detail=selected?'<button data-action="queue">← RFQ queue</button><div class="rfqs-context"><h2>'+esc(selected.customer.customerName)+'</h2><p>'+context(selected)+'</p><p>Intake: '+esc(selected.intakeId)+' · '+esc(selected.intakeStatus)+' · Created '+date(selected.createdAt)+'</p><p>Scope: '+esc(selected.scope.replaceAll('_',' '))+'</p><button data-action="source">View Intake / Technical Review</button><button data-open="intake-documents">Intake Documents</button></div><div data-intake-documents-host></div>'+commercialDetail(selected)+(selected.workbenchEligible&&selected.inputs?'<div class="rfqs-lanes">'+lane('Materials')+lane('Labor')+'</div><button data-open="final-review">Quotation Final Review</button>':'<p>Materials and Labor become available after Technical Review qualification.</p>'):toggles+(rows.length?table:'<p>No '+bucket.toLowerCase()+' RFQs.</p>');
-    mount.innerHTML='<section class="rfqs-workspace"><header><h1>RFQs</h1><button data-action="refresh" '+(saving?'disabled':'')+'>Refresh</button></header>'+(error?'<p role="alert">'+esc(error)+'</p>':'')+detail+'</section>';
+    const columns=['RFQ / Quote Number','Customer','Assembly / Rev','Qty','Quote Total','Submitted','Expires','Status'];
+    const table='<div class="rfqs-scroll"><table><thead><tr>'+columns.map(t=>'<th>'+t+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+[
+      '<button data-rfq="'+esc(r.intakeId)+'">'+esc(r.intakeId)+'</button><br>'+esc(r.quoteNumber||'-'),
+      esc(r.customer.customerName),r.assemblies.map(a=>esc(a.assemblyNumber)+' / '+esc(a.revision)).join('<br>'),
+      r.assemblies.map(a=>a.quantity).join('<br>'),money(r.quoteTotal),date(r.commercial.submittedAt),date(r.commercial.expiresAt),
+      esc(r.status)+(r.revisionNeeded?'<br><small>Revision needed</small>':'')
+    ].map((value,index)=>'<td data-label="'+columns[index]+'">'+value+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+    const detail=selected?'<button data-action="queue">&larr; RFQ queue</button><div class="rfqs-context"><span class="rfqs-eyebrow">Customer</span><h2>'+esc(selected.customer.customerName)+'</h2>'+context(selected)+'<dl class="rfqs-identity"><div><dt>Intake</dt><dd>'+esc(selected.intakeId)+'</dd></div><div><dt>Intake status</dt><dd>'+esc(selected.intakeStatus)+'</dd></div><div><dt>Created</dt><dd>'+date(selected.createdAt)+'</dd></div><div><dt>Scope</dt><dd>'+esc(selected.scope.replaceAll('_',' '))+'</dd></div></dl><div class="rfqs-context-actions"><button data-action="source">View Intake / Technical Review</button><button data-open="intake-documents">Intake Documents</button></div></div><div data-intake-documents-host></div>'+commercialDetail(selected)+(selected.workbenchEligible&&selected.inputs?'<p id="rfqsMobileScope" class="rfqs-mobile-scope"'+(mobileOverview()?'':' hidden')+'>Mobile View supports the RFQ overview and Labor. Use Desktop View for Materials and Quotation Final Review.</p>'+'<div class="rfqs-lanes">'+lane('Materials')+lane('Labor')+'</div><div class="rfqs-review-action"><button data-open="final-review"'+desktopOnly()+'>Quotation Final Review</button></div>':'<p>Materials and Labor become available after Technical Review qualification.</p>'):toggles+(rows.length?table:'<p>No '+bucket.toLowerCase()+' RFQs.</p>');
+    mount.innerHTML='<section class="rfqs-workspace rfqs-overview"><header class="rfqs-overview-header"><h1>RFQs</h1><button data-action="refresh" '+(saving?'disabled':'')+'>Refresh</button></header>'+(error?'<p role="alert">'+esc(error)+'</p>':'')+detail+'</section>';
   }
+  document.addEventListener('dle:view-mode-change', syncMobileBoundary);
   window.DleWorkspaces = window.DleWorkspaces || {};
   document.addEventListener('dle:workspace-navigation', event => {
     if (event.detail?.workspace?.id === 'rfqs' && event.detail?.requestedState?.intakeId) returnIntakeId = event.detail.requestedState.intakeId;

@@ -3,9 +3,11 @@ using System.Diagnostics;
 internal static class SimPdfPagePreview
 {
     private static readonly SemaphoreSlim Slots = new(2);
-    internal static async Task<byte[]> Render(byte[] bytes, int page)
+    internal static async Task<int> Count(byte[] bytes) => int.Parse(System.Text.Encoding.UTF8.GetString(await Run(bytes, 0)), System.Globalization.CultureInfo.InvariantCulture);
+    internal static Task<byte[]> Render(byte[] bytes,int page,int pixels=2200){if(page<1)throw new IOException("Page unavailable.");return Run(bytes,page,pixels);}
+    private static async Task<byte[]> Run(byte[] bytes, int page, int pixels = 2200)
     {
-        if (page is < 1 or > 200 || bytes.Length > 20 * 1024 * 1024) throw new IOException("Page unavailable.");
+        if (pixels is < 512 or > 4096 || page < 0 || bytes.Length > 20 * 1024 * 1024) throw new IOException("Page unavailable.");
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         using var process = new Process();
         var acquired = false;
@@ -20,6 +22,7 @@ internal static class SimPdfPagePreview
             process.StartInfo.ArgumentList.Add("-I");
             process.StartInfo.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "sim_pdf_page_preview.py"));
             process.StartInfo.ArgumentList.Add(page.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            process.StartInfo.ArgumentList.Add(pixels.ToString(System.Globalization.CultureInfo.InvariantCulture));
             process.Start();
             using var output = new MemoryStream();
             var copy = process.StandardOutput.BaseStream.CopyToAsync(output, timeout.Token);

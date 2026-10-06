@@ -117,4 +117,20 @@ check(html('#buyerDetails').includes('<fieldset disabled>'),'Server readonly per
 const writeCount=calls.filter(c=>c.method!=='GET').length;await submit(form('buyerPlanForm',fields));
 check(calls.filter(c=>c.method!=='GET').length===writeCount,'Read-only persona cannot send commands');
 check(JSON.stringify(originalDemand)===demandEvidence&&JSON.stringify(submitted)===submissionBefore,'UI preserved source fixture truth');
+// Current outcome is separate from the immutable original shortage and purchase.
+const historyPurchase={purchaseId:'purchase-one',poNumber:'SIM-PO-0001',poLine:'010',partNumber:'SIM-OPTO-4',purchasingUom:'EA',orderedQuantity:8,receivedQuantity:8,openQuantity:0,coverage:[{demandId:'demand-5',quantity:8}]};
+model={canManage:true,demands:[{...originalDemand,state:'RESOLVED',sourceCurrent:false,remainingShortQuantity:0}],plans:[],purchases:[historyPurchase]};
+Object.assign(planning.workOrders[0].demands[0],{materialStatus:'KIT_COMPLETE',progress:'Kit Complete',resolved:true});
+planning.workOrders[0].demands[0].orders[0].appliedQuantity=8;
+const commandsBefore=calls.filter(c=>c.method!=='GET').length;
+await app.refresh();await stage('purchased');await click('purchase','purchase-one');
+check(html('#buyerRows').includes('Received / Complete')&&html('#buyerRows').includes('Applied to Kit 8 EA')&&html('#buyerRows').includes('Kit Complete'),'Purchased history distinguishes receipt completion, application and WO outcome');
+check(!html('#buyerDetails').includes('Awaiting Receipt')&&!html('#buyerDetails').includes('remain Kit Short')&&!html('#buyerDetails').includes('No physical receipt'),'Purchase detail has no stale action assertions');
+check(app.buildViewModel(model).shortages.length===0&&app.buildViewModel(model).purchased.length===1,'Resolved demand leaves active buying and preserves purchase history');
+check(app.purchaseStatus({...historyPurchase,receivedQuantity:3,openQuantity:5})==='Partially Received','Partial receipt is not complete');
+check(app.purchaseStatus({...historyPurchase,receivedQuantity:0,openQuantity:8})==='Ordered / Awaiting Receipt','Ordered phase retains expected action');
+planning.workOrders[0].demands[0].materialStatus='KIT_SHORT';planning.workOrders[0].demands[0].progress='Re-Kit Applied · Submission Required';
+await app.refresh();await stage('purchased');
+check(html('#buyerRows').includes('Submission Required')&&!html('#buyerRows').includes('Kit Complete'),'Applied before successor never grants readiness');
+check(calls.filter(c=>c.method!=='GET').length===commandsBefore,'History reconciliation rendering sends no mutation');
 console.log(`SIM Purchasing UI: ${assertions} checks PASS (isolated fake API; no live state changed)`);

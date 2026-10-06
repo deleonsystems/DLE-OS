@@ -39,9 +39,14 @@ internal sealed partial class SimOperationsDataStore
     {
         var materials=await PurchasingRows<SimAcceptedMaterial>(connection,transaction,"SimAcceptedMaterial");
         var stages=await PurchasingRows<SimReceivingStage>(connection,transaction,"SimReceivingStage");
+        var applications=await PurchasingRows<SimKittingMaterialEvent>(connection,transaction,"SimKittingMaterialEvent");
         materials=materials.Select(m=> {
             var stage=stages.Where(s=>s.ReceiptLineId==m.ReceiptLineId).OrderByDescending(s=>s.ResultingVersion).FirstOrDefault();
-            return stage is null?m:m with{StagingLocation=stage.Location,StagedAtUtc=stage.AtUtc,Version=stage.ResultingVersion,AvailableQuantity=m.AcceptedQuantity};
+            var evidence=applications.Where(e=>e.ReceiptLineId==m.ReceiptLineId).ToArray();
+            var applied=evidence.Sum(e=>e.Quantity);
+            return stage is null?m:m with{StagingLocation=stage.Location,StagedAtUtc=stage.AtUtc,Version=stage.ResultingVersion+evidence.Length,
+                AvailableQuantity=m.AcceptedQuantity-applied,AppliedQuantity=applied,
+                Coverage=m.Coverage.Select(a=>a with{AppliedQuantity=evidence.Where(e=>e.DemandId==a.DemandId).Sum(e=>e.Quantity)}).ToArray()};
         }).ToArray();
         return new(await PurchasingRows<SimReceivingDelivery>(connection,transaction,"SimReceivingDelivery"),materials,
             await PurchasingRows<SimReceivingRequirementReview>(connection,transaction,"SimReceivingRequirementReview"),stages,

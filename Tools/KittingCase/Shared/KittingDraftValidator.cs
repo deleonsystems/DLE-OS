@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 internal static class KittingDraftValidator
 {
     internal static KittingDraftValidation Validate(JsonElement draft,string workOrder,bool requireComplete,
-        bool poTraceabilityRequired)
+        bool poTraceabilityRequired, bool allowSimApplications=false)
     {
         if (draft.ValueKind!=JsonValueKind.Object) throw Bad("draft_required","A Kitting draft is required.");
         if (Text(draft,"workOrder")?.PadLeft(7,'0')!=workOrder) throw Bad("draft_work_order_mismatch","The draft Work Order does not match the case.");
@@ -39,7 +39,7 @@ internal static class KittingDraftValidator
                             (!decimal.TryParse(quantityValue.ToString(),NumberStyles.Number,CultureInfo.InvariantCulture,out var quantity)||quantity<0))
                             throw Bad("allocation_quantity_invalid","Allocation quantity must be zero or greater.");
                         ValidatePo(Text(allocation,"purchaseOrder"));
-                        ValidateAcceptedMaterial(allocation,part,Text(allocation,"purchaseOrder"));
+                        ValidateAcceptedMaterial(allocation,part,Text(allocation,"purchaseOrder"),allowSimApplications);
                     }
                 if(poTraceabilityRequired&&IsCompleteDraftEntry(entry)&&!HasPoEvidence(entry)&&
                     (method is "COMPLETE" or "COMPLETE_MIN_EXTRA"))
@@ -60,7 +60,7 @@ internal static class KittingDraftValidator
             {
                 if(!eligible.Contains(Text(entry,"selectedPartNumber")??""))throw Bad("eligible_part_required","Complete results require a governed selected part.");
                 calculatedShort=0;ValidatePo(Text(entry,"purchaseOrder"));
-                ValidateAcceptedMaterial(entry,Text(entry,"selectedPartNumber"),Text(entry,"purchaseOrder"));
+                ValidateAcceptedMaterial(entry,Text(entry,"selectedPartNumber"),Text(entry,"purchaseOrder"),allowSimApplications);
                 if(poTraceabilityRequired&&!HasPoEvidence(entry))
                     throw Bad("po_traceability_required","P.O. traceability is required for each material source actually used.");
             }
@@ -72,7 +72,7 @@ internal static class KittingDraftValidator
                 { if(!eligible.Contains(Text(allocation,"partNumber")??""))throw Bad("allocation_part_not_eligible","Allocation part is outside the governed main/Related set.");
                   if(!Decimal(allocation,"quantity",out var quantity)||quantity<0)throw Bad("allocation_quantity_invalid","Allocation quantity must be zero or greater.");
                   ValidatePo(Text(allocation,"purchaseOrder"));
-                  ValidateAcceptedMaterial(allocation,Text(allocation,"partNumber"),Text(allocation,"purchaseOrder"));
+                  ValidateAcceptedMaterial(allocation,Text(allocation,"partNumber"),Text(allocation,"purchaseOrder"),allowSimApplications);
                   if(poTraceabilityRequired&&quantity>0&&!HasPoEvidence(allocation))
                       throw Bad("po_traceability_required","Every positive material allocation requires its own P.O. traceability evidence.");
                   total+=quantity; }
@@ -96,9 +96,16 @@ internal static class KittingDraftValidator
         Text(entry,"method") is "COMPLETE" or "COMPLETE_MIN_EXTRA" ||
         Decimal(entry,"shortageQuantity",out var shortage)&&Math.Abs(shortage)<=0.0001m;
     private static void ValidatePo(string? value){if((value??"").Length>80)throw Bad("purchase_order_too_long","P.O. evidence is limited to 80 characters.");}
-    private static void ValidateAcceptedMaterial(JsonElement source,string? part,string? purchaseOrder)
+    private static void ValidateAcceptedMaterial(JsonElement source,string? part,string? purchaseOrder,bool allowSimApplications)
     {
         if(!source.TryGetProperty("acceptedMaterial",out var identity)||identity.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)return;
+        if(allowSimApplications && identity.ValueKind==JsonValueKind.Object && Text(identity,"identityType")=="SIM_ACCEPTED_MATERIAL_APPLICATION") {
+            if(!Guid.TryParse(Text(identity,"applicationId"),out _) || string.IsNullOrWhiteSpace(Text(identity,"receiptLineId")) ||
+                Text(identity,"partNumber")!=part || !SamePo(Text(identity,"purchaseOrderNumber"),purchaseOrder) ||
+                !Decimal(identity,"appliedQuantity",out var applied) || !Decimal(source,"quantity",out var quantity) || applied<=0 || applied!=quantity)
+                throw Bad("accepted_material_source_mismatch","Applied material must retain its governed quantity and source.");
+            return;
+        }
         if(identity.ValueKind!=JsonValueKind.Object||Text(identity,"identityType")!="CANONICAL_PURCHASE_RECEIPT_LINE"||
             !Regex.IsMatch(Text(identity,"purchaseReceiptLineId")??"","^[0-9a-fA-F]{50}$"))
             throw Bad("accepted_material_identity_invalid","Accepted material must reference a governed canonical receipt line.");

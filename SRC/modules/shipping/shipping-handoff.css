@@ -1,0 +1,84 @@
+@import url("../../workspaces/production/production-workspace.css");
+@import url("../../workspaces/kitting/kitting-job-workspace.css");
+
+/* Full-page job presentation shares Kitting's identity/context/action conventions. */
+.shipping-job-workspace {color:var(--text,#e2e8f0)}
+.shipping-job-workspace .shipping-job-shell {width:100%;max-width:none;margin:12px 0 40px;color:#e2e8f0}
+.shipping-job-nav {margin-bottom:12px}
+.shipping-job-nav button,.shipping-job-shell>button {margin:0;padding:8px 12px;background:transparent;border:1px solid #475569;border-radius:7px;color:#cbd5e1;cursor:pointer}
+.shipping-job-workspace .kitting-job-header {position:static;display:flex;align-items:center;justify-content:space-between;gap:18px;box-shadow:none;min-height:0;padding:14px 18px}
+.shipping-job-workspace .kitting-job-status {white-space:normal;line-height:1.4;font-size:11px;text-align:center}
+.shipping-job-workspace .kitting-job-state-context {flex-wrap:wrap}
+.shipping-job-workspace .kitting-job-state-context strong {font-size:12px;color:#cbd5e1}
+.shipping-job-actions {margin-top:16px}
+.shipping-job-workspace .shipping-print-cards {grid-template-columns:repeat(2,minmax(0,1fr))}
+.shipping-print-cards>button {padding:16px 18px;min-height:82px;border:1px solid rgba(139,188,255,.58);background:linear-gradient(145deg,rgba(35,99,171,.34),rgba(14,45,83,.52));color:#f4f8ff;font-size:16px;cursor:pointer}
+.shipping-job-actions>p {color:#94a3b8;font-size:12px;margin:8px 2px 16px}
+.shipping-job-issues {border:1px solid #755d32;border-left:3px solid #c89f56;border-radius:8px;background:rgba(62,47,22,.4);padding:13px 18px;margin-bottom:16px}
+.shipping-job-issues h3 {margin:0 0 6px;font-size:14px;color:#e7bd72}
+.shipping-job-issues ul {margin:0;padding-left:18px;color:#e0cba6;font-size:12px;line-height:1.7}
+.shipping-job-sections {display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px}
+.shipping-job-card {min-width:0;padding:18px;border:1px solid var(--border,#34445b);border-radius:10px;background:var(--panel,#101c2b)}
+.shipping-job-card h3 {margin:0 0 12px;font-size:16px;color:#e2e8f0}
+.shipping-job-card h4 {margin:16px 0 6px;font-size:13px;color:#cbd5e1}
+.shipping-job-card p,.shipping-job-support p {font-size:14px;line-height:1.6;margin:8px 0}
+.shipping-job-card .shipping-section-meta {font-size:12px;color:#94a3b8}
+.shipping-instruction {white-space:pre-wrap;overflow-wrap:anywhere;color:#cbd5e1}
+.shipping-job-facts {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0}
+.shipping-job-facts dt,.shipping-document dt {font-size:11px;color:#94a3b8}
+.shipping-job-facts dd,.shipping-document dd {margin:4px 0 0;font-size:13px;overflow-wrap:anywhere}
+.shipping-job-documents {grid-column:1/-1;margin-bottom:16px;padding:12px 16px}
+.shipping-job-documents>dl {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0}
+.shipping-document {padding:4px 10px;border-left:2px solid #475569}
+.shipping-document small {display:block;margin-top:7px;font-size:11px;color:#e7bd72}
+.shipping-job-support {margin-top:12px;border:1px solid #34445b;border-radius:8px;background:rgba(8,22,34,.42);padding:12px 16px;color:#b7c8dc}
+.shipping-job-support summary {cursor:pointer;font-size:12px;font-weight:650}
+.shipping-job-support[open] summary {margin-bottom:14px}
+.shipping-job-workspace button:focus-visible,.shipping-job-workspace summary:focus-visible {outline:2px solid #93c5fd;outline-offset:3px}
+.shipping-job-workspace [data-shipping-job-heading]:focus {outline:none}
+.shipping-job-nav {display:flex;align-items:center;gap:16px;color:#94a3b8;font-size:12px}
+.shipping-job-issues p {font-size:13px;line-height:1.5;color:#e0cba6;margin:4px 0}
+.shipping-job-actions {margin-bottom:14px}
+.shipping-job-sections {align-items:start}
+.shipping-tabs {display:flex;gap:8px;margin:18px 0 12px;flex-wrap:wrap}
+.shipping-tabs button {background:#101c2b;color:#cbd5e1;border:1px solid #475569;border-radius:7px;padding:10px 14px;cursor:pointer;font:inherit}
+.shipping-tabs button[aria-pressed=true] {border-color:#93c5fd;background:#21374e;color:#fff}
+.shipping-departure {margin:18px 0;padding:16px 18px;border:1px solid #487c91;border-radius:9px;background:#102632;color:#dcebf1}
+.shipping-departure h3 {margin:0 0 6px;font-size:16px}
+.shipping-departure p {font-size:13px;line-height:1.6;margin:6px 0;overflow-wrap:anywhere}
+.shipping-departure button {margin:10px 0 0;padding:12px 18px;border:1px solid #80c7e5;border-radius:7px;background:#20566e;color:white;font-weight:700;font-size:15px;cursor:pointer}
+.shipping-departure button:disabled {opacity:.6;cursor:wait}
+@media(max-width:800px){.shipping-job-workspace .kitting-job-header {align-items:flex-start;flex-wrap:wrap}.shipping-job-sections {grid-template-columns:minmax(0,1fr)}.shipping-job-documents>dl {grid-template-columns:repeat(2,minmax(0,1fr))}.shipping-job-workspace .shipping-print-cards {grid-template-columns:1fr}.shipping-job-card {padding:14px}.shipping-job-workspace .kitting-job-context>dl {grid-template-columns:repeat(2,minmax(0,1fr))}.shipping-job-workspace .kitting-job-heading h2 {font-size:22px;overflow-wrap:anywhere}}
+
+/* Reuse the Production/Purchasing queue pattern; overrides stay inside SIM Shipping. */
+body[data-workspace-view="shipping"]:has(.shipping-queue)>main {max-width:none;margin-top:12px;padding-inline:clamp(22px,2vw,32px)}
+body[data-workspace-view="shipping"] .workspace-home[data-workspace-home="shipping"]:has(.shipping-queue) {width:100%;max-width:none;margin-left:0;transform:none}
+.shipping-queue.production-workspace {width:100%;max-width:none;margin:0;padding:8px 0 28px;box-sizing:border-box}
+.shipping-queue [hidden] {display:none!important}
+.shipping-queue .shipping-sim {color:#b9a36f;font-size:11px;white-space:nowrap}
+.shipping-queue .shipping-queue-count {display:inline-block;margin-left:7px;padding:2px 8px;border:0;background:#1e293b;color:#cbd5e1;border-radius:999px;font-size:12px;letter-spacing:0;vertical-align:middle}
+.shipping-queue .shipping-job {grid-template-columns:minmax(118px,.8fr) minmax(175px,1.3fr) minmax(78px,.5fr) minmax(115px,.7fr) minmax(150px,1fr) minmax(170px,1fr) 24px;margin:0;font-family:inherit}
+.shipping-queue .shipping-job>span {min-width:0;overflow-wrap:anywhere}
+.shipping-queue .shipping-job-status {display:grid;justify-items:start;gap:4px}
+.shipping-queue .shipping-job-status .production-compact-state {grid-column:auto;grid-row:auto}
+.shipping-queue .production-compact-state {white-space:normal;line-height:1.3}
+.shipping-queue .shipping-attention {color:#e7bd72;font-size:11px}
+.shipping-queue .shipping-source-warning {padding:10px 12px;border-left:2px solid #e7bd72;color:#e7bd72;font-size:12px}
+.shipping-queue .shipping-secondary {display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 24px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(148,163,184,.2);font-size:12px;color:#94a3b8}
+.shipping-queue .shipping-secondary summary {cursor:pointer;padding:4px 0}
+.shipping-queue .shipping-secondary details[open] {flex-basis:100%}
+.shipping-queue .shipping-secondary p {line-height:1.5;color:#cbd5e1}
+.shipping-queue .shipping-secondary button {margin-left:8px;padding:5px 9px;border:1px solid #475569;border-radius:6px;background:transparent;color:#cbd5e1;cursor:pointer}
+.shipping-queue summary:focus-visible,.shipping-queue .shipping-secondary button:focus-visible {outline:2px solid #60a5fa;outline-offset:3px}
+@media(max-width:1100px){.shipping-queue .shipping-job {grid-template-columns:110px minmax(150px,1fr) 78px 115px minmax(170px,1fr) 22px;row-gap:4px}.shipping-queue .production-compact-customer {grid-column:2/5;grid-row:2}.shipping-queue .shipping-job-status {grid-column:5;grid-row:1/3}.shipping-queue .production-compact-arrow {grid-column:6;grid-row:1/3}}
+@media(max-width:760px){.shipping-queue .shipping-job {grid-template-columns:minmax(0,1fr) minmax(130px,.8fr) 22px;gap:8px 10px}.shipping-queue .production-compact-wo {grid-column:1;grid-row:1}.shipping-queue .production-compact-arrow {grid-column:3;grid-row:1}.shipping-queue .production-compact-assembly {grid-column:1/-1;grid-row:2}.shipping-queue .production-compact-quantity {grid-column:1;grid-row:3}.shipping-queue .production-compact-due {grid-column:2/-1;grid-row:3}.shipping-queue .production-compact-customer {grid-column:1/-1;grid-row:4}.shipping-queue .shipping-job-status {grid-column:2;grid-row:1;justify-items:end}.shipping-queue .production-workspace-header {align-items:start}.shipping-queue .shipping-sim {white-space:normal;text-align:right}.shipping-queue .shipping-secondary {gap:8px 18px}}
+@media(max-width:620px){body[data-workspace-view="shipping"]:has(.shipping-queue)>main {margin-top:8px;padding-inline:12px}.shipping-queue.production-workspace {padding-top:6px}.shipping-queue .production-workspace-controls {grid-template-columns:minmax(0,1fr) auto}.shipping-queue .production-search-control {grid-column:1/-1}.shipping-queue .production-refresh {grid-column:2}}
+
+.handoff { color:#e2e8f0; background:#111c2b; padding:20px; border:1px solid #34445b; border-radius:9px; }
+.handoff h1,.handoff h2,.handoff h3 { color:#f1f5f9; margin:12px 0; }
+.handoff p,.handoff dd { line-height:1.5; }.handoff small {display:block;color:#afc0d5;margin-top:4px}
+.handoff button,.handoff-inline button,[data-handoff-summary] button { background:#21374e;color:#e8f3ff;border:1px solid #557493;border-radius:5px;padding:7px 11px;cursor:pointer;font:inherit; }
+.handoff button:disabled {opacity:.55;cursor:default}.handoff button:focus-visible,.handoff input:focus-visible,.handoff select:focus-visible,.handoff textarea:focus-visible {outline:2px solid #7dd3fc;outline-offset:2px}
+.handoff-heading {display:flex;justify-content:space-between;gap:16px;align-items:center}.handoff-table {overflow:auto}.handoff table {border-collapse:collapse;width:100%;font-size:13px}.handoff th,.handoff td {text-align:left;padding:10px;border-bottom:1px solid #34445b;vertical-align:top;min-width:85px}
+.handoff-dialog {width:min(960px,calc(100vw - 32px));max-height:88vh;box-sizing:border-box;overflow:auto}.handoff-dialog::backdrop {background:#000a}.handoff-facts {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.handoff-facts dt {font-size:12px;color:#a9bed4}.handoff-facts dd {margin:3px 0;overflow-wrap:anywhere}.handoff-warning {background:#40341c;border-left:3px solid #e7b550;padding:10px}.handoff-instructions {white-space:pre-wrap}.handoff details {margin:14px 0;border-top:1px solid #34445b;padding-top:12px}.handoff summary {cursor:pointer;color:#c9dff5}.handoff-form {max-width:520px;display:grid;gap:12px;margin-top:18px;border-top:1px solid #34445b;padding-top:10px}.handoff-form label {display:grid;gap:5px}.handoff-form input,.handoff-form select,.handoff-form textarea {background:#0b1523;color:#f1f5f9;border:1px solid #52677f;border-radius:4px;padding:8px;font:inherit}.handoff-form input[type=checkbox] {width:18px}.handoff-form textarea {min-height:64px}.handoff-inline {display:flex;align-items:center;gap:12px;margin:10px 0}.handoff-inline small,[data-handoff-summary] small {display:block;color:#afc0d5;font-size:11px}[data-handoff-summary] button {font-size:11px;padding:4px 6px;margin-top:4px}.handoff-reconciliation {margin-top:24px;border-top:1px solid #34445b;padding-top:8px}
+@media(max-width:650px){.handoff {padding:12px}.handoff-facts {grid-template-columns:repeat(2,minmax(0,1fr))}.handoff-heading {align-items:flex-start}.handoff-inline {flex-wrap:wrap}}

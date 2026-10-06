@@ -41,6 +41,8 @@ internal sealed partial class SimRfqIntakeStore
             var record = (await ReadDatasetAsync()).Records.SingleOrDefault(r => r.IntakeId == id && RfqEligible(r))
                 ?? throw SimRfqIntakeProblem.NotFound("RFQ_NOT_READY", "Qualified RFQ not found.");
             var view = LaborView(RfqView(record, await ReadRfqLanes()));
+            if(view.Rfq.Lanes.Labor.Status=="COMPLETE")throw SimRfqIntakeProblem.Conflict("LABOR_COMPLETE","Use Revise Labor before attaching images.");
+            if(LaborRevisionBlocker(view,(await ReadDatasetAsync()).Records) is {} commitment)throw SimRfqIntakeProblem.Conflict("LABOR_COMMITTED",commitment);
             if (view.Plan.Revision != request.ExpectedRevision || view.Plan.DefinitionId != request.DefinitionId)
                 throw SimRfqIntakeProblem.Conflict("LABOR_STALE", "Labor changed. Reopen Labor before attaching images.");
             if (!VisualRowId(request.RowId) || (request.ParentId is not null && (!VisualRowId(request.ParentId) || request.ParentId == request.RowId)) || string.IsNullOrWhiteSpace(request.Sequence) || request.Sequence.Length > 20 || !request.Sequence.All(c => char.IsAsciiDigit(c) || c == '.') || (request.Operation?.Length ?? 0) > 200)

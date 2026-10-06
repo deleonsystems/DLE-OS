@@ -2,6 +2,8 @@
   "use strict";
 
   const MOBILE_READY_WORKSPACE_IDS = new Set(["operations-center", "invoice-history", "rfq-quoting"]);
+  const HOME_WORKSPACE_ORDER = ["technical-review", "rfqs", "order-entry", "operations-center",
+    "kitting", "purchasing", "receiving", "production", "shipping", "invoice-history"];
   const INTAKE_WIZARD_HOME_ENTRY = Object.freeze({
     id: "rfq-quoting",
     home: Object.freeze({
@@ -34,14 +36,13 @@
       const assignment = workspace.home;
       return assignment && (!workspace.simOnly || isSimIntakeEnabled()) && capabilities.can(assignment.requiredPermission);
     });
-    if (isSimIntakeEnabled()) {
-      const rfqsIndex = workAreas.findIndex(workspace => workspace.id === "rfqs");
-      const reviewIndex = workAreas.findIndex(workspace => workspace.id === "technical-review");
-      if (rfqsIndex >= 0 && reviewIndex >= 0) {
-        const [rfqs] = workAreas.splice(rfqsIndex, 1);
-        workAreas.splice(workAreas.findIndex(workspace => workspace.id === "technical-review") + 1, 0, rfqs);
-      }
-    }
+    workAreas.sort((a, b) => {
+      const rank = id => {
+        const index = HOME_WORKSPACE_ORDER.indexOf(id);
+        return index < 0 ? HOME_WORKSPACE_ORDER.length : index;
+      };
+      return rank(a.id) - rank(b.id);
+    });
     const homeEntries = isSimIntakeEnabled()
       ? [INTAKE_WIZARD_HOME_ENTRY, ...workAreas]
       : workAreas;
@@ -94,7 +95,8 @@
   }
 
   function renderMobileLauncher(workspace) {
-    const mobileReady = MOBILE_READY_WORKSPACE_IDS.has(workspace.id);
+    const mobileReady = MOBILE_READY_WORKSPACE_IDS.has(workspace.id) ||
+      (["technical-review", "rfqs"].includes(workspace.id) && isSimIntakeEnabled());
     const element = mobileReady ? "button" : "div";
     const action = mobileReady
       ? ' type="button" data-mobile-work-area="' + escapeHtml(workspace.id) + '"'

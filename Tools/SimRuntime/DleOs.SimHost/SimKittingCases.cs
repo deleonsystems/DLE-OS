@@ -42,7 +42,7 @@ internal sealed record SimKittingEvent(Guid EventId,long Sequence,Guid CaseId,st
 internal sealed record SimKittingSubmission(Guid SubmissionId,Guid CaseId,string SubmissionType,int VersionNumber,
     string SnapshotJson,string SubmittedBy,DateTimeOffset SubmittedAtUtc,string PdfFileName,string PdfSha256);
 
-internal sealed class SimKittingCases(SimStateStore state,SimOperationsDataStore operations,SimKittingRequirementsProvider provider)
+internal sealed partial class SimKittingCases(SimStateStore state,SimOperationsDataStore operations,SimKittingRequirementsProvider provider)
 {
     internal Func<DateTimeOffset> UtcNow {get;set;}=()=>DateTimeOffset.UtcNow;
     internal Func<Task>? BeforeStartCommitForTest {get;set;}
@@ -116,9 +116,9 @@ internal sealed class SimKittingCases(SimStateStore state,SimOperationsDataStore
         return(c with{EditingSessionId=Guid.NewGuid(),EditingOwner=actor.DisplayName,EditingActorId=actor.Id,EditingAcquiredAtUtc=now,EditingExpiresAtUtc=now+Lease},action,(object)new{previousOwner=c.EditingOwner});
     });
     internal Task<object> Save(string wo,SimKittingSaveRequest request,SimPersona actor,bool exit=false)=>Change(wo,actor,(c,now)=>{
-        Editable(c,request,actor,now);RequireFrozen(c.FrozenDraft,request.Draft);RejectUnsupportedReceipt(request.Draft);
-        KittingDraftValidator.Validate(request.Draft,c.WorkOrderNumber,false,c.PoTraceabilityRequired);
-        var draft=Stamp(request.Draft,c.Draft,actor,now);var validation=KittingDraftValidator.Validate(draft,c.WorkOrderNumber,false,c.PoTraceabilityRequired);
+        Editable(c,request,actor,now);RequireFrozen(c.FrozenDraft,request.Draft);ProtectMaterialEvidence(c.Draft,request.Draft);
+        KittingDraftValidator.Validate(request.Draft,c.WorkOrderNumber,false,c.PoTraceabilityRequired,true);
+        var draft=Stamp(request.Draft,c.Draft,actor,now);var validation=KittingDraftValidator.Validate(draft,c.WorkOrderNumber,false,c.PoTraceabilityRequired,true);
         return(c with{Draft=draft,ActionableCount=validation.ActionableCount,CompletedCount=validation.CompletedCount,ShortRequirementCount=validation.ShortCount,
             TotalShortage=validation.TotalShortage,EditingSessionId=exit?null:c.EditingSessionId,EditingOwner=exit?null:c.EditingOwner,
             EditingActorId=exit?null:c.EditingActorId,EditingAcquiredAtUtc=exit?null:c.EditingAcquiredAtUtc,EditingExpiresAtUtc=exit?null:now+Lease},
@@ -162,7 +162,7 @@ internal sealed class SimKittingCases(SimStateStore state,SimOperationsDataStore
         await state.WithStableRuntime(async runtime=>{Permission(actor,true);wo=Normalize(wo);
             return View(await operations.ChangeSimKittingCase(wo,runtime,actor,UtcNow(),mutate),actor);});
     private static void Version(SimKittingCaseRecord c,SimKittingVersionRequest request){if(c.WorkingVersion!=request.ExpectedWorkingVersion)throw KittingCaseProblem.Conflict("kitting_case_version_changed","The case changed. Reload its latest saved state.");}
-    private static void Editable(SimKittingCaseRecord c,SimKittingEditableRequest request,SimPersona actor,DateTimeOffset now){Version(c,request);
+    internal static void Editable(SimKittingCaseRecord c,SimKittingEditableRequest request,SimPersona actor,DateTimeOffset now){Version(c,request);
         if(c.State=="KIT_COMPLETE")throw KittingCaseProblem.Conflict("kitting_case_complete","Kit Complete is read-only.");
         if(request.EditingSessionId is null||request.EditingSessionId!=c.EditingSessionId||c.EditingActorId!=actor.Id||c.EditingExpiresAtUtc<=now)
             throw KittingCaseProblem.Conflict("editing_lease_required","The editing lease is absent, expired, or owned by another user.");}
@@ -181,7 +181,7 @@ internal sealed class SimKittingCases(SimStateStore state,SimOperationsDataStore
     private static JsonNode Sort(JsonNode node)=>node switch{JsonObject o=>new JsonObject(o.OrderBy(x=>x.Key,StringComparer.Ordinal).Select(x=>KeyValuePair.Create(x.Key,x.Value is null?null:Sort(x.Value))).ToArray()),JsonArray a=>new JsonArray(a.Select(x=>x is null?null:Sort(x)).ToArray()),
         JsonValue v when v.TryGetValue<JsonElement>(out var e)&&e.ValueKind==JsonValueKind.Number&&e.TryGetDecimal(out var number)=>JsonNode.Parse(number.ToString("G29",CultureInfo.InvariantCulture))!,_=>node.DeepClone()};
     private static string Hash(JsonElement value)=>Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Sort(JsonNode.Parse(value.GetRawText())!).ToJsonString())));
-    private static JsonElement Stamp(JsonElement value,JsonElement previous,SimPersona actor,DateTimeOffset now)
+    internal static JsonElement Stamp(JsonElement value,JsonElement previous,SimPersona actor,DateTimeOffset now)
     {
         var node=JsonNode.Parse(value.GetRawText())!;node["employeeName"]=actor.DisplayName;
         var old=JsonNode.Parse(previous.GetRawText())!["groups"]!.AsArray();var groups=node["groups"]!.AsArray();
@@ -239,9 +239,9 @@ internal sealed class SimKittingCases(SimStateStore state,SimOperationsDataStore
     internal Task<object> Submissions(string wo,SimPersona actor)=>state.WithStableRuntime(async runtime=>{Permission(actor,false);return (object)new{workOrderNumber=Normalize(wo),submissions=await operations.ReadSimKittingSubmissions(Normalize(wo),runtime)};});
     internal async Task<object> Submit(string wo,SimKittingSaveRequest request,SimPersona actor)=>await state.WithStableRuntime(async runtime=>{
         Permission(actor,true);wo=Normalize(wo);var result=await operations.SubmitSimKittingCase(wo,runtime,actor,UtcNow(),c=>{
-            Editable(c,request,actor,UtcNow());RequireFrozen(c.FrozenDraft,request.Draft);RejectUnsupportedReceipt(request.Draft);
-            KittingDraftValidator.Validate(request.Draft,wo,true,c.PoTraceabilityRequired);
-            var draft=Stamp(request.Draft,c.Draft,actor,UtcNow());var valid=KittingDraftValidator.Validate(draft,wo,true,c.PoTraceabilityRequired);
+            Editable(c,request,actor,UtcNow());RequireFrozen(c.FrozenDraft,request.Draft);ProtectMaterialEvidence(c.Draft,request.Draft);
+            KittingDraftValidator.Validate(request.Draft,wo,true,c.PoTraceabilityRequired,true);
+            var draft=Stamp(request.Draft,c.Draft,actor,UtcNow());var valid=KittingDraftValidator.Validate(draft,wo,true,c.PoTraceabilityRequired,true);
             return c with{Draft=draft,ActionableCount=valid.ActionableCount,CompletedCount=valid.CompletedCount,ShortRequirementCount=valid.ShortCount,TotalShortage=valid.TotalShortage};
         });return View(result,actor);
     });
@@ -339,11 +339,26 @@ CREATE TRIGGER IF NOT EXISTS SimKittingSubmissionNoDelete BEFORE DELETE ON SimKi
             var prepared=validate(current);var type=prepared.ShortRequirementCount>0?"KIT_SHORT":"KIT_COMPLETE";
             await using var command=connection.CreateCommand();command.Transaction=transaction;command.CommandText="SELECT COALESCE(MAX(VersionNumber),0)+1 FROM SimKittingSubmission WHERE CaseId=@case AND SubmissionType=@type;";
             command.Parameters.AddWithValue("@case",current.CaseId.ToString());command.Parameters.AddWithValue("@type",type);var version=Convert.ToInt32(await command.ExecuteScalarAsync());
-            var id=Guid.NewGuid();var snapshot=JsonSerializer.Serialize(new{schemaVersion=1,submissionId=id,current.CaseId,current.RunNumber,workOrderNumber=wo,current.AssemblyItemNumber,current.Revision,
+            var earlier=await PurchasingRows<SimKittingSubmission>(connection,transaction,"SimKittingSubmission");
+            var predecessor=earlier.Where(s=>s.CaseId==current.CaseId).OrderByDescending(s=>s.SubmittedAtUtc).ThenByDescending(s=>s.VersionNumber).FirstOrDefault();
+            var applications=ActiveApplications(await PurchasingRows<SimKittingMaterialEvent>(connection,transaction,"SimKittingMaterialEvent")).Where(e=>e.CaseId==current.CaseId).ToArray();
+            var applicationIds=applications.Select(e=>e.EventId).ToArray();
+            var id=Guid.NewGuid();var snapshot=JsonSerializer.Serialize(new{schemaVersion=2,submissionId=id,current.CaseId,current.RunNumber,workOrderNumber=wo,current.AssemblyItemNumber,current.Revision,
+                predecessorSubmissionId=predecessor?.SubmissionId,applicationIds,applications,
+                predecessorDraft=predecessor is null?(JsonElement?)null:JsonDocument.Parse(predecessor.SnapshotJson).RootElement.GetProperty("draft").Clone(),
                 current.ReleasedBomIdentity,submissionType=type,versionNumber=version,submittedBy=actor.DisplayName,submittedAtUtc=now,current.PoTraceabilityRequired,
                 originalPoTraceabilityRequired=SimKittingCases.OriginalPolicy(current),current.PoTraceabilityAmendment,draft=prepared.Draft,current.Lineage},KittingJson);
             var bytes=KittingCasePdfWriter.Create(snapshot);var hash=Convert.ToHexString(SHA256.HashData(bytes));var name=$"WO{wo}_{type.Replace('_','-')}_V{version:000}.pdf";
             var receipt=new SimKittingSubmission(id,current.CaseId,type,version,snapshot,actor.DisplayName,now,name,hash);
+            if(predecessor is not null) {
+                await EnsureKittingMaterialSchema(connection,transaction);
+                foreach(var demand in (await PurchasingRows<SimPurchasingDemand>(connection,transaction,"SimPurchasingDemand")).Where(d=>d.CaseId==current.CaseId)) {
+                    var row=prepared.Draft.GetProperty("groups").EnumerateArray().Single(g=>PurchasingText(g,"sourceRowId")==demand.SourceRowId);
+                    var reconciliation=new SimKittingDemandReconciliation(Guid.NewGuid(),demand.DemandId,current.CaseId,demand.SubmissionId,predecessor.SubmissionId,id,
+                        demand.ShortQuantity,Number(Field(row,"entry"),"shortageQuantity"),applications.Where(e=>e.DemandId==demand.DemandId).Select(e=>e.EventId).ToArray(),actor.Id,now,current.WorkingVersion+1);
+                    await ExecuteAsync(connection,transaction,"INSERT INTO SimKittingDemandReconciliation VALUES(@id,@json)",("@id",reconciliation.Id.ToString()),("@json",JsonSerializer.Serialize(reconciliation,KittingJson)));
+                }
+            }
             await ExecuteAsync(connection,transaction,"INSERT INTO SimKittingSubmission VALUES(@id,@case,@type,@version,@json,@pdf,@hash);",
                 ("@id",id.ToString()),("@case",current.CaseId.ToString()),("@type",type),("@version",version),("@json",JsonSerializer.Serialize(receipt,KittingJson)),("@pdf",bytes),("@hash",hash));
             var next=prepared with{State=type,WorkingVersion=current.WorkingVersion+1,LastOperator=actor.DisplayName,LastWorkedAtUtc=now,

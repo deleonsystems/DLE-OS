@@ -85,6 +85,20 @@ var held = demand with {Orders=[order with {Received=8,Open=0,ReceiptEvidenceVer
 Check(!Roll(held).LastPartDueEstablished && Roll(held).UncoveredCount==1,"held/rejected arrivals never become accepted coverage");
 Check(Roll(acceptedFull,Sample("other","2026-10-11")).LastPartDue=="2026-10-11","fully available demand excluded from mixed outstanding LPD set");
 Check(Roll(acceptedFull with {UnavailableReason="Source changed"}).CompactText!="Accepted Material · Awaiting Kitting","stale demand cannot grant ready availability");
+var appliedFull=acceptedFull with {AppliedQuantity=8,AcceptedMaterials=[]};
+Check(Roll(appliedFull).CompactText=="Re-Kit Applied · Submission Required","full working application does not imply submitted completion");
+var resolved=appliedFull with {Resolved=true,RemainingShortQuantity=0,MaterialStatus="KIT_COMPLETE"};
+var completed=SimMaterialPlanning.RollUp("test",[resolved],"KIT_COMPLETE");
+Check(completed.MaterialStatus=="KIT_COMPLETE"&&completed.ShortageCount==0&&completed.LastPartDue is null&&completed.CompactText=="Kit Complete",
+    "governing completed state suppresses active supply blocker but retains history");
+Check(completed.Demands.Single().Short==8&&completed.Demands.Single().Orders.Single().ExpectedDate=="2026-10-07",
+    "completion preserves original shortage and historical ETA");
+var mixed=Roll(resolved,Sample("still-short","2026-10-11"));
+Check(mixed.ShortageCount==1&&mixed.LastPartDue=="2026-10-11"&&mixed.ProductionAtRisk==true,
+    "one resolved requirement cannot complete a different shortage");
+var partiallyApplied=acceptedPartial with {AppliedQuantity=2,AcceptedMaterials=[Accepted(1)]};
+Check(Roll(partiallyApplied).CompactText.Contains("Partially Available")&&Roll(partiallyApplied).LastPartDue=="2026-10-07",
+    "partial re-kit retains actionable accepted remainder and outstanding supply");
 var intake=(SimRfqIntakeRecord)(await intakes.ReadAsync("RFQI-SIM-0043"))!;
 var package=intake.OrderEntry!.Acceptance.Package;
 var baseline=package.TechnicalSource!.Baseline!;

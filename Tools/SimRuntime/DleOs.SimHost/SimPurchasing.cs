@@ -32,7 +32,7 @@ internal sealed record SimPurchasingDemand(string DemandId, long Version, string
     string SalesOrderNumber, string SalesOrderLineNumber, string Customer, string CustomerNumber,
     string AssemblyItemNumber, string Revision, decimal BuildQuantity, string CustomerDueDate,
     string MaterialNeedBy, SimPurchasingQuality QualityRequirements, string CompatibilityKey,
-    string? AcceptedBy, string? AcceptedActorId, DateTimeOffset? AcceptedAtUtc);
+    string? AcceptedBy, string? AcceptedActorId, DateTimeOffset? AcceptedAtUtc, decimal? RemainingShortQuantity = null, Guid? ReconciliationId = null);
 internal sealed record SimDemandCoverage(string DemandId, decimal Quantity, long DemandVersion,
     string SourceFingerprint, string WorkOrderNumber, string SalesOrderNumber, string SalesOrderLineNumber,
     string Customer, string AssemblyItemNumber, string Revision, string CustomerDueDate);

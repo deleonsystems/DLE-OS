@@ -21,6 +21,7 @@
   async function loadShippingWorkspace() {
     const mount = document.querySelector('[data-workspace-mount="shipping"]');
     if (!mount) return;
+    if (window.ShippingHandoff?.isSim()) return window.ShippingHandoff.renderShipping(mount);
 
     if (mount.dataset.workspaceLoaded !== "true") {
       mount.innerHTML = '<div class="workspace-dashboard-card"><h3>Loading Shipping Workspace</h3><p>Preparing workspace layout...</p></div>';
@@ -117,6 +118,7 @@
   }
 
   function enqueueRequest(requestToShip) {
+    if (window.ShippingHandoff?.isSim()) return window.ShippingHandoff.open(requestToShip?.workOrder, 'release');
     if (!requestToShip) return;
     state.requests.push(requestToShip);
     state.selectedShippingRequest = requestToShip;

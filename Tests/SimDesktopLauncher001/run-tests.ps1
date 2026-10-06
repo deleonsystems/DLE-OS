@@ -23,7 +23,7 @@ function New-Object {
     }
     return $shell
 }
-& $Launcher
+& $Launcher -SimHome (Join-Path $env:LOCALAPPDATA 'DLE-OS\SIM')
 exit $LASTEXITCODE
 '@ | Set-Content $runner
 foreach ($case in 'malformed-profile','missing-module') {

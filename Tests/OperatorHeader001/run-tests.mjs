@@ -70,7 +70,7 @@ assert.match(script, /querySelector\('\.operations-center-mobile-search-row > bu
 assert.match(script, /Mobile View Coming Soon/);
 assert.match(script, /const rfqQuotingActive = workspaceId === 'rfq-quoting'/);
 assert.match(script, /viewMode === MOBILE_VIEW_MODE && !homeActive && !operationsCenterActive && !invoiceHistoryActive && !rfqQuotingActive/);
-assert.match(styles, /:not\(\[data-workspace-view="rfq-quoting"\]\) > main > :not\(#dleMobileViewFallback\)/);
+assert.match(styles, /:not\(\[data-workspace-view="rfq-quoting"\]\):not\(\[data-technical-review-mobile="true"\]\):not\(\[data-rfqs-mobile="true"\]\) > main > :not\(#dleMobileViewFallback\)/);
 assert.match(styles, /body\[data-view-mode="mobile"\]\[data-workspace-view="rfq-quoting"\] #dle-auth-name \{ display:none \}/);
 assert.match(styles, /body\[data-view-mode="mobile"\]\[data-workspace-view="rfq-quoting"\] > main \{ margin-top:0;padding-top:0 \}/);
 assert.match(script, /window\.DleWorkAreaHome\?\.render\?\.\(\)/);

@@ -37,6 +37,7 @@
   let activeKittingResumeVerification = null;
   let kittingCaseReview = null;
   let kittingSupplyProgress = null;
+  let kittingMaterialPending = false;
   let kittingCaseState = 'idle';
   let kittingCaseRequestId = 0;
   let activeKittingEditable = false;
@@ -1504,7 +1505,7 @@
   }
 
   function persistActiveKittingDraft(release) {
-    if (!ownsKittingLease() || poTraceabilityAmendmentPending) return false;
+    if (!ownsKittingLease() || poTraceabilityAmendmentPending || kittingMaterialPending) return false;
     const workOrderNumber = getSelectedReleasedBomWorkOrder();
     const caseId = kittingCaseReview.caseId;
     if (activeKittingAutosaveTimer) window.clearTimeout(activeKittingAutosaveTimer);
@@ -1938,7 +1939,12 @@
     const options = selected => '<option value="">Select part used</option>' + group.eligibleParts.map(part =>
       '<option value="' + escapeDashboardHtml(part) + '"' + (part === selected ? ' selected' : '') + '>' +
       escapeDashboardHtml(part) + '</option>').join('');
-    const rows = entry.allocations.map((allocation, index) => '<div class="active-kitting-allocation-row" data-allocation-row="' +
+    const rows = entry.allocations.map((allocation, index) => allocation.acceptedMaterial?.applicationId
+      ? '<div class="kitting-applied-evidence"><strong>Accepted Material · ' + escapeDashboardHtml(allocation.acceptedMaterial.receiptLineId) +
+        '</strong><span>' + escapeDashboardHtml(allocation.partNumber) + ' · ' + escapeDashboardHtml(allocation.quantity) + ' ' + escapeDashboardHtml(group.unitOfMeasure) +
+        ' · PO ' + escapeDashboardHtml(allocation.purchaseOrder) + ' / ' + escapeDashboardHtml(allocation.acceptedMaterial.poLine) +
+        '</span><small>Governed application · Use Review Applied Material for a reviewed reversal.</small></div>'
+      : '<div class="active-kitting-allocation-row" data-allocation-row="' +
       escapeDashboardHtml(allocation.allocationId) + '"><label>Part Used<select onchange="updateWorkOrderDashboardKittingAllocation(\'' +
       escapeDashboardHtml(group.sequence) + '\',\'' + escapeDashboardHtml(allocation.allocationId) + '\',\'partNumber\',this.value,this)">' +
       options(allocation.partNumber) + '</select></label><label>Qty<input type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" value="' +
@@ -1985,7 +1991,8 @@
       metric('Extra', entry.extraQuantity === null ? '\u2014' : formatQuantity(entry.extraQuantity)) + '</div>';
     const allocationTable = entry.method === window.ActiveKittingTrial.METHODS.COUNT
       ? '<div class="active-kitting-evidence-table-wrap"><table class="active-kitting-evidence-table"><colgroup><col class="part"><col class="quantity"><col class="po"></colgroup><thead><tr><th>Part</th><th>Qty</th><th>P.O.</th></tr></thead><tbody>' +
-        entry.allocations.map(allocation => '<tr><td>' + escapeDashboardHtml(allocation.partNumber) + '</td><td>' +
+        entry.allocations.map(allocation => '<tr><td><small>' + (allocation.acceptedMaterial?.applicationId
+          ? 'Accepted Material ' + escapeDashboardHtml(allocation.acceptedMaterial.receiptLineId) : 'Original Kitting') + '</small>' + escapeDashboardHtml(allocation.partNumber) + '</td><td>' +
           escapeDashboardHtml(formatQuantity(allocation.quantity)) + '</td><td>' + escapeDashboardHtml(allocation.purchaseOrder || '\u2014') +
           '</td></tr>').join('') + '</tbody></table></div>'
       : '<div class="active-kitting-evidence-table-wrap"><table class="active-kitting-evidence-table"><colgroup><col class="part"><col class="quantity"><col class="po"></colgroup><thead><tr><th>Part</th><th>Method</th><th>P.O.</th></tr></thead><tbody><tr><td>' +
@@ -2044,7 +2051,18 @@
     const eventDate = value => value && Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric'
     }).format(new Date(value)) : 'Not Established';
-    const lines = ['Short ' + d.short + ' · ' + d.progress, 'Need By ' + date(d.schedule?.materialNeedBy)];
+    const applied = (group.entry?.allocations || []).filter(a => a.acceptedMaterial?.applicationId);
+    const complete = kittingCaseReview?.state === 'KIT_COMPLETE';
+    const lines = [applied.length ? 'Original Short ' + d.short + ' · Working Short ' + group.entry.shortageQuantity +
+      (complete ? ' · Kit Complete' : ' · Re-Kit Applied · Submission Required') :
+      (complete ? 'Original Short ' : 'Short ') + d.short + ' · ' + d.progress, (complete ? 'Historical Need By ' : 'Need By ') + date(d.schedule?.materialNeedBy)];
+    if (applied.length) {
+      lines.push('Original Kitting ' + (group.entry.allocations.filter(a => !a.acceptedMaterial?.applicationId).reduce((n,a) => n + Number(a.quantity),0)) + ' ' + group.unitOfMeasure);
+      for (const allocation of applied) lines.push('Accepted Material ' + allocation.acceptedMaterial.receiptLineId + ' · Applied ' + allocation.quantity + ' ' + group.unitOfMeasure +
+        ' · PO ' + allocation.purchaseOrder + ' / ' + allocation.acceptedMaterial.poLine + ' · Packing Slip ' + allocation.acceptedMaterial.packingSlipNumber);
+      lines.push((complete ? 'Submitted Total ' : 'Working Total ') + group.entry.pickedQuantity + ' / ' + group.requiredQuantity +
+        (complete ? ' · KIT COMPLETE' : ' · WO remains KIT SHORT'));
+    }
     for (const p of d.orders || []) lines.push('Ordered ' + p.ordered + ' · PO ' + p.poNumber + ' / ' + p.poLine +
       ' · ETA ' + date(p.expectedDate) + ' · Received ' + (p.received ?? 'Unassigned') + ' / ' + p.ordered + ' · ' + p.risk.status);
     const accepted = d.acceptedMaterials || [];
@@ -2058,10 +2076,110 @@
       lines.push(kittingReturnDemand(group) ? 'READY FOR RE-KIT' + (available < d.short ? ' · Partial supply' : '') : 'Supply Review Required');
       lines.push('Destination WO ' + getSelectedReleasedBomWorkOrder() + ' · Find ' + (group.findNumber ?? '—') +
         ' · Released line ' + group.sequence + ' · Requirement ' + group.groupId);
-      lines.push('Required ' + group.requiredQuantity + ' · Previously Kitted ' + (group.entry?.pickedQuantity ?? '—') + ' · Short ' + d.short);
+      lines.push('Required ' + group.requiredQuantity + ' · Previously Kitted ' + (d.returnOrigin?.previouslyKitted ?? '—') + ' · Short ' + d.short);
     }
     if (d.unavailableReason) lines.push(d.unavailableReason);
-    return '<div class="active-kitting-supply" aria-label="Read-only supply context"><small>' + lines.map(escapeDashboardHtml).join('<br>') + '</small></div>';
+    const canReview = isSimRuntime && kittingCaseReview?.state === 'KIT_SHORT' && d.returnOrigin && !d.unavailableReason;
+    const action = canReview ? '<button type="button" class="secondary-btn" onclick="reviewWorkOrderDashboardAcceptedMaterial(\'' +
+      escapeDashboardHtml(group.sourceRowId) + '\')"' + (!ownsKittingLease() ? ' disabled' : '') + '>' +
+      (applied.length ? 'Review Applied Material' : 'Apply Accepted Material') + '</button>' : '';
+    return '<div class="active-kitting-supply" aria-label="Supply and re-kit context"><small>' + lines.map(escapeDashboardHtml).join('<br>') + '</small>' + action + '</div>';
+  }
+
+  async function reviewAcceptedKittingMaterial(sourceRowId) {
+    if (!isSimRuntime || !ownsKittingLease() || kittingMaterialPending) return false;
+    if (activeKittingDirty || activeKittingPendingSaves) {
+      if (!await persistActiveKittingDraft(false)) return false;
+    }
+    await activeKittingSaveQueue;
+    const wo = getSelectedReleasedBomWorkOrder();
+    try {
+      const context = await window.DleApiClient.getKittingMaterialContext(wo);
+      if (context.caseId !== kittingCaseReview?.caseId || context.workingVersion !== kittingCaseReview.workingVersion)
+        throw new Error('The case changed. Reload before reviewing an application.');
+      const requirement = context.requirements.find(r => r.sourceRowId === sourceRowId);
+      if (!requirement) throw new Error('The exact shortage origin is unavailable. Refresh before applying material.');
+      document.getElementById('kittingMaterialDialog')?.remove();
+      const dialog = document.createElement('dialog');
+      dialog.id = 'kittingMaterialDialog'; dialog.className = 'active-kitting-result-dialog kitting-material-dialog';
+      const e = escapeDashboardHtml;
+      const correction = requirement.corrections[0];
+      dialog.innerHTML = '<header><div><small>WO ' + e(wo) + ' · Find ' + e(requirement.findNumber) + '</small><strong>' +
+        (correction ? 'Review manual allocation correction' : 'Apply Accepted Material') + '</strong></div></header>' +
+        '<p><strong>' + e(requirement.partNumber) + '</strong> · Required ' + e(requirement.requiredQuantity) + ' ' + e(requirement.uom) +
+        '<br>Original Kitting ' + e(requirement.previouslyKitted) + ' · Working Short ' + e(requirement.remainingShort) + '</p>' +
+        (correction ? '<p>Manual allocation ' + e(correction.allocationId) + ' contains ' + e(correction.quantity) + ' ' + e(requirement.uom) +
+          ' without accepted-material evidence. Correcting it retains the old allocation in audit history and restores the original count.</p>' +
+          '<label>Review reason<textarea id="kittingMaterialReason" rows="3" maxlength="4000" required></textarea></label>' +
+          '<button type="button" data-correct>Apply Reviewed Correction</button>' :
+          requirement.materials.map((m,i) => '<section class="kitting-material-choice"><strong>' + e(m.receiptLineId) + '</strong>' +
+            '<p>Available ' + e(m.availableQuantity) + ' ' + e(m.uom) + '<br>Staging ' + e(m.stagingLocation) + '<br>PO ' + e(m.poNumber) + ' / ' + e(m.poLine) +
+            '<br>Packing Slip ' + e(m.packingSlipNumber) + '</p><label>Qty to Apply<input type="number" min="0.0001" step="any" max="' + e(Math.min(m.availableQuantity,requirement.remainingShort)) +
+            '" value="' + e(Math.min(m.availableQuantity,requirement.remainingShort)) + '" data-quantity="' + i + '"></label><button type="button" data-apply="' + i + '"' +
+            (requirement.remainingShort > 0 ? '' : ' disabled') + '>Apply</button></section>').join('') +
+          requirement.applications.map((a,i) => '<section class="kitting-material-choice"><strong>Accepted Material ' + e(a.receiptLineId) + ' · Applied ' + e(a.quantity) + ' ' + e(a.uom) +
+            '</strong><p>PO ' + e(a.receipt.poNumber) + ' / ' + e(a.receipt.poLine) + ' · ' + e(a.actor) + '</p>' +
+            '<details><summary>Reviewed reversal</summary><p>Return the material physically before restoring its availability.</p><label>Reason<textarea data-reversal-reason="' + i + '" maxlength="4000"></textarea></label>' +
+            '<label><input type="checkbox" data-returned="' + i + '"> Material returned to ' + e(a.receipt.stagingLocation) + '</label>' +
+            '<button type="button" data-reverse="' + i + '">Reverse Application</button></details></section>').join('')) +
+        '<p class="kitting-material-message" role="status">Applying material saves the working result. It does not submit Kitting or release Production.</p>' +
+        '<footer><button type="button" data-close>Cancel / Close</button></footer>';
+      document.body.append(dialog);
+      dialog.querySelector('[data-close]').onclick = () => dialog.close();
+      dialog.addEventListener('close', () => { if (!kittingMaterialPending) dialog.remove(); });
+      dialog.addEventListener('cancel', event => { if (kittingMaterialPending) event.preventDefault(); });
+      const base = { requestId: crypto.randomUUID(), expectedWorkingVersion: context.workingVersion,
+        editingSessionId: kittingCaseReview.editingSessionId, caseId: context.caseId,
+        sourceSubmissionId: requirement.submissionId, sourceRowId, requirementId: requirement.requirementId };
+      let retryRequest = null;
+      let retryMethod = null;
+      async function execute(method, makeRequest) {
+        if (kittingMaterialPending) return;
+        if (retryMethod && retryMethod !== method) return;
+        const request = retryRequest || makeRequest();
+        if (!request) return;
+        retryRequest = request; retryMethod = method; kittingMaterialPending = true;
+        dialog.querySelectorAll('button,input,textarea').forEach(node => node.disabled = true);
+        try {
+          const result = await window.DleApiClient[method](wo, request);
+          kittingCaseReview = result.kittingCase;
+          activeKittingTrialDraft = structuredClone(result.kittingCase.draft);
+          activeKittingDraftVersion = result.kittingCase.workingVersion;
+          activeKittingDirty = false; activeKittingSaveState = 'Saved · ' + (correction ? 'Reviewed correction' : 'Governed material application');
+          activeKittingSubmissionPreview = 'Re-kit working evidence saved. KIT SHORT remains in effect until you review and Submit Kitting.';
+          const supply = await window.MaterialStatus?.getSupplyProgress();
+          kittingSupplyProgress = supply?.workOrders?.find(item => item.workOrderNumber === wo) || null;
+          dialog.remove(); renderReleasedBomControl(); renderKitReleasedBomMessage(); renderActiveKittingTrial();
+          document.getElementById('kitting-return-' + sourceRowId)?.scrollIntoView({ block: 'center' });
+        } catch (error) {
+          dialog.querySelector('[role="status"]').textContent = error.message || 'Unable to verify the saved result. Retry the same command or reload.';
+          dialog.querySelectorAll('button').forEach(node => node.disabled = false);
+          // Input stays locked after dispatch: a network retry must retain the exact command identity and values.
+        } finally { kittingMaterialPending = false; }
+      }
+      dialog.querySelector('[data-correct]')?.addEventListener('click', () => execute('correctKittingManualAllocation', () => {
+        const reason = dialog.querySelector('#kittingMaterialReason').value.trim();
+        if (!reason) { dialog.querySelector('[role="status"]').textContent = 'Enter a review reason.'; return null; }
+        return { ...base, allocationId: correction.allocationId, expectedAllocationHash: correction.allocationHash, reason };
+      }));
+      dialog.querySelectorAll('[data-apply]').forEach(button => button.onclick = () => execute('applyKittingMaterial', () => {
+        const i = Number(button.dataset.apply), m = requirement.materials[i];
+        const quantity = Number(dialog.querySelector('[data-quantity="' + i + '"]').value);
+        if (!(quantity > 0 && quantity <= Math.min(m.availableQuantity,requirement.remainingShort))) {
+          dialog.querySelector('[role="status"]').textContent = 'Enter a quantity within the shortage and available balance.'; return null;
+        }
+        return { ...base, demandId: requirement.demandId, receiptLineId: m.receiptLineId, expectedMaterialVersion: m.version, quantity, uom: m.uom };
+      }));
+      dialog.querySelectorAll('[data-reverse]').forEach(button => button.onclick = () => execute('reverseKittingMaterial', () => {
+        const i = Number(button.dataset.reverse), a = requirement.applications[i];
+        const reason = dialog.querySelector('[data-reversal-reason="' + i + '"]').value.trim();
+        const returned = dialog.querySelector('[data-returned="' + i + '"]').checked;
+        if (!reason || !returned) { dialog.querySelector('[role="status"]').textContent = 'Enter a reason and confirm physical return.'; return null; }
+        return { ...base, applicationId: a.eventId, expectedMaterialVersion: a.currentMaterialVersion, reason, materialReturnedToStaging: true };
+      }));
+      dialog.showModal();
+      return true;
+    } catch (error) { activeKittingSubmissionPreview = error.message; renderActiveKittingTrial(); return false; }
   }
 
   function renderActiveKittingReferences(group) {
@@ -2982,6 +3100,7 @@
   window.signInAgainWorkOrderDashboardKitting = signInAgainActiveKitting;
   window.saveAndExitWorkOrderDashboardKitting = saveAndExitActiveKitting;
   window.saveWorkOrderDashboardKitting = () => persistActiveKittingDraft(false);
+  window.reviewWorkOrderDashboardAcceptedMaterial = reviewAcceptedKittingMaterial;
   window.closeWorkOrderDashboardActiveKitting = closeActiveKittingTrial;
   window.openWorkOrderDashboardKittingResultDialog = openActiveKittingResultDialog;
   window.closeWorkOrderDashboardKittingResultDialog = closeActiveKittingResultDialog;

@@ -1,6 +1,8 @@
 (function(document) {
   'use strict';
-  const rows=Array.from(document.querySelectorAll('tbody tr[data-quantity]'));
+  function mount(root,options={}) {
+  const byId=id=>root.getElementById?root.getElementById(id):root.querySelector('#'+id);
+  const rows=Array.from(root.querySelectorAll('tbody tr[data-quantity]'));
   const selected=new Set();let anchor=null;
   function sum(indices) {
     let value=0n,places=0,missing=0;
@@ -17,12 +19,12 @@
   }
   function update(){
     rows.forEach((row,index)=>row.setAttribute('aria-selected',String(selected.has(index))));
-    document.getElementById('bom-selection').textContent='Selected: '+selected.size+' lines · '+sum(selected)+' components';
-    document.getElementById('bom-clear').disabled=selected.size===0;
+    byId('bom-selection').textContent='Selected: '+selected.size+' lines · '+sum(selected)+' components';
+    byId('bom-clear').disabled=selected.size===0;
   }
   function clear(){selected.clear();anchor=null;update();}
   function select(index,event){
-    const additive=event.ctrlKey||event.metaKey;
+    const additive=event.ctrlKey||event.metaKey||options.touchToggle===true;
     if(event.shiftKey&&anchor!==null){
       if(!additive)selected.clear();
       for(let i=Math.min(anchor,index);i<=Math.max(anchor,index);i++)selected.add(i);
@@ -40,8 +42,11 @@
       if(event.key==='Enter'||event.key===' '){event.preventDefault();select(index,event);}
     });
   });
-  document.getElementById('bom-clear').addEventListener('click',clear);
-  document.addEventListener('keydown',event=>{if(event.key==='Escape')clear();});
-  document.getElementById('bom-total').textContent=sum(rows.keys());
+  byId('bom-clear').addEventListener('click',clear);
+  root.addEventListener('keydown',event=>{if(event.key==='Escape')clear();});
+  byId('bom-total').textContent=sum(rows.keys());
   update();
+  }
+  if(typeof window!=='undefined')window.DleBomReference=Object.freeze({mount});
+  if(document.getElementById('bom-total'))mount(document);
 })(document);

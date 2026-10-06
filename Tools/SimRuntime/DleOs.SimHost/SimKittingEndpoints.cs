@@ -25,6 +25,10 @@ internal static class SimKittingEndpoints
         app.MapPost(route+"/abandon",(string workOrderNumber,SimKittingEditableRequest r,HttpContext c)=>Guard(c,true,a=>service.Abandon(workOrderNumber,r,a)));
         app.MapPut(route+"/po-traceability",(string workOrderNumber,SimKittingTraceabilityRequest r,HttpContext c)=>Guard(c,true,a=>service.Traceability(workOrderNumber,r,a)));
         app.MapPost(route+"/po-traceability-amendment",(string workOrderNumber,SimKittingTraceabilityAmendmentRequest r,HttpContext c)=>Guard(c,true,a=>service.AmendTraceability(workOrderNumber,r,a)));
+        app.MapGet(route+"/accepted-material",(string workOrderNumber,HttpContext c)=>Guard(c,false,a=>service.MaterialContext(workOrderNumber,a)));
+        app.MapPost(route+"/apply-accepted-material",(string workOrderNumber,SimKittingMaterialRequest r,HttpContext c)=>Guard(c,true,a=>service.ApplyMaterial(workOrderNumber,r,a)));
+        app.MapPost(route+"/correct-manual-allocation",(string workOrderNumber,SimKittingCorrectionRequest r,HttpContext c)=>Guard(c,true,a=>service.CorrectAllocation(workOrderNumber,r,a)));
+        app.MapPost(route+"/reverse-material-application",(string workOrderNumber,SimKittingReversalRequest r,HttpContext c)=>Guard(c,true,a=>service.ReverseMaterial(workOrderNumber,r,a)));
         app.MapPost(route+"/submit",(string workOrderNumber,SimKittingSaveRequest r,HttpContext c)=>Guard(c,true,a=>service.Submit(workOrderNumber,r,a)));
         app.MapGet(route+"/submissions/{submissionId:guid}/pdf",async Task<IResult>(string workOrderNumber,Guid submissionId,HttpContext c)=>{
             var actor=personas.Resolve(c);if(!actor.Can("kitting.view"))return Results.StatusCode(403);

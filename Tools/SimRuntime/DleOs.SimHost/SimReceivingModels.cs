@@ -16,7 +16,7 @@ internal sealed record SimReceivingCoverageRequest(string DemandId, decimal Quan
     decimal ReceivedQuantity, decimal HoldQuantity, decimal RejectedQuantity);
 internal sealed record SimReceivingCoverage(string DemandId, decimal Quantity, decimal ReceivedQuantity,
     decimal HoldQuantity, decimal RejectedQuantity, string WorkOrderNumber, string SalesOrderNumber,
-    string SalesOrderLineNumber);
+    string SalesOrderLineNumber, decimal AppliedQuantity = 0);
 internal sealed record SimReceiveLineRequest(Guid PurchaseId, decimal PackingSlipQuantity,
     decimal CountedQuantity, decimal AcceptedQuantity, decimal HoldQuantity, decimal RejectedQuantity,
     string? ObservedPartNumber, string? DiscrepancyReason, Dictionary<string,string> Checks,
@@ -40,7 +40,7 @@ internal sealed record SimAcceptedMaterial(string ReceiptLineId, Guid PurchaseId
     string ActorId, DateTimeOffset ReceivedAtUtc, DateTimeOffset? AcceptedAtUtc, string StagingLocation,
     DateTimeOffset? StagedAtUtc, long Version, string? VproReceiptId,
     Dictionary<string,string> Checks, SimReceivingRequirements Requirements,
-    SimReceivingDocument[] EvidenceDocuments, string Provenance = "SIM_OPERATIONAL_ACCEPTANCE");
+    SimReceivingDocument[] EvidenceDocuments, string Provenance = "SIM_OPERATIONAL_ACCEPTANCE", decimal AppliedQuantity = 0);
 internal sealed record SimReceivingStage(Guid StageId, string ReceiptLineId, string Location,
     string ActorId, string Actor, DateTimeOffset AtUtc, long ExpectedVersion, long ResultingVersion);
 internal sealed record SimReceivingEvent(Guid EventId, string EventType, string PoKey, string EntityId,

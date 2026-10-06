@@ -163,9 +163,15 @@
     const operationsCenterActive = workspaceId === 'operations-center';
     const invoiceHistoryActive = workspaceId === 'invoice-history';
     const rfqQuotingActive = workspaceId === 'rfq-quoting';
+    const technicalReviewMobileActive = workspaceId === 'technical-review' &&
+      document.body?.dataset?.simRuntime === 'true' && window.DleOsRuntimeConfig?.rfqIntakeMode === 'SIM_PHASE1';
+    if (document.body?.dataset) document.body.dataset.technicalReviewMobile = String(technicalReviewMobileActive);
+    const rfqsMobileActive = workspaceId === 'rfqs' &&
+      document.body?.dataset?.simRuntime === 'true' && window.DleOsRuntimeConfig?.rfqIntakeMode === 'SIM_PHASE1';
+    if (document.body?.dataset) document.body.dataset.rfqsMobile = String(rfqsMobileActive);
     const fallback = ensureMobileViewFallback();
     if (fallback) {
-      const showFallback = viewMode === MOBILE_VIEW_MODE && !homeActive && !operationsCenterActive && !invoiceHistoryActive && !rfqQuotingActive;
+      const showFallback = viewMode === MOBILE_VIEW_MODE && !homeActive && !operationsCenterActive && !invoiceHistoryActive && !rfqQuotingActive && !technicalReviewMobileActive && !rfqsMobileActive;
       fallback.hidden = !showFallback;
       const label = document.getElementById('dleMobileViewFallbackWorkspace');
       if (label) label.textContent = showFallback ? (document.body?.dataset?.workspaceLabel || '') : '';

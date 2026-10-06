@@ -4,7 +4,7 @@ internal sealed record SimManufacturingLead(int? Value, string Unit = "WEEKS");
 
 internal sealed record SimLaborOperation(string Id, string Name, decimal? SetupMinutes = null, decimal? RunMinutes = null, string Instructions = "", decimal? OperationQuantity = null, decimal? RunSeconds = null, string? ParentId = null, string TimeBasis = "PER_UNIT",
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborVisual[]? Visuals = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborNote[]? Notes = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborNote[]? Notes = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ResponsibleRole = null);
 internal sealed record SimLaborTotals(decimal SetupMinutes, decimal RunMinutes, decimal TotalMinutes, decimal TotalHours, decimal Cost, decimal SaleTotal, decimal UnitSalePrice, decimal? TotalSeconds = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? BaseLaborCost = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? ConsumablesPerUnit = null,
@@ -12,15 +12,17 @@ internal sealed record SimLaborTotals(decimal SetupMinutes, decimal RunMinutes, 
 internal sealed record SimLaborSnapshot(int Version, string DefinitionId, int Quantity, SimLaborOperation[] Operations,
     decimal Rate, decimal Markup, SimLaborTotals Totals, string UpdatedBy, DateTimeOffset AtUtc, string CalculationVersion = "LABOR_MINUTES_V1",
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborCharge[]? Charges = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimManufacturingLead? ManufacturingLead = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimManufacturingLead? ManufacturingLead = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimDrawingContent[]? DrawingNotes = null);
 internal sealed record SimLaborPlan(int Revision, string DefinitionId, int Quantity, string Template, SimLaborOperation[] Operations,
     decimal? Rate, decimal Markup, string UpdatedBy, DateTimeOffset AtUtc, SimLaborSnapshot[] Versions, string CalculationVersion = "LABOR_MINUTES_V1",
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborVisual[]? RemovedVisuals = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborNote[]? RemovedNotes = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborCharge[]? Charges = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimManufacturingLead? ManufacturingLead = null);
-internal sealed record SimLaborRequest(int ExpectedRevision, string DefinitionId, int Quantity, SimLaborOperation[] Operations, decimal? Rate, decimal Markup, bool Complete = false, string CalculationVersion = "LABOR_OPERATION_QTY_V2", int VisualContractVersion = 0, int NoteContractVersion = 0, SimLaborCharge[]? Charges = null, int ChargeContractVersion = 0, SimManufacturingLead? ManufacturingLead = null, int LeadContractVersion = 0);
-internal sealed record SimLaborView(SimRfqWorkspace Rfq, SimLaborPlan Plan, SimLaborTotals Totals);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimManufacturingLead? ManufacturingLead = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborRevisionEvent[]? RevisionHistory = null);
+internal sealed record SimLaborRequest(int ExpectedRevision, string DefinitionId, int Quantity, SimLaborOperation[] Operations, decimal? Rate, decimal Markup, bool Complete = false, string CalculationVersion = "LABOR_OPERATION_QTY_V2", int VisualContractVersion = 0, int NoteContractVersion = 0, SimLaborCharge[]? Charges = null, int ChargeContractVersion = 0, SimManufacturingLead? ManufacturingLead = null, int LeadContractVersion = 0, string? DrawingContentToken = null, int RoleContractVersion = 0);
+internal sealed record SimLaborView(SimRfqWorkspace Rfq, SimLaborPlan Plan, SimLaborTotals Totals, int RevisionContractVersion = 0, bool CanRevise = false, string? RevisionBlocker = null, string DrawingContentToken = "", int RoleContractVersion = 1);
 
 internal sealed partial class SimRfqIntakeStore
 {
@@ -71,11 +73,14 @@ internal sealed partial class SimRfqIntakeStore
     internal static SimLaborPlan NormalizeLaborSeconds(SimLaborPlan plan) => plan.CalculationVersion == "LABOR_OPERATION_QTY_V2"
         ? plan with { CalculationVersion = "LABOR_SECONDS_V3", Operations = plan.Operations.Select(o => o with { RunSeconds = o.RunMinutes * 60, RunMinutes = null }).ToArray() }
         : plan;
-    internal async Task<SimLaborView> ReadLabor(string id) => LaborView((await ReadRfqs()).SingleOrDefault(r => r.IntakeId == id)
-        ?? throw SimRfqIntakeProblem.NotFound("RFQ_NOT_READY", "Qualified RFQ not found."));
+    internal async Task<SimLaborView> ReadLabor(string id)
+    {
+        await gate.WaitAsync();try{var records=(await ReadDatasetAsync()).Records;var record=records.SingleOrDefault(r=>r.IntakeId==id&&RfqEligible(r))??throw SimRfqIntakeProblem.NotFound("RFQ_NOT_READY","Qualified RFQ not found.");return await LaborCapabilities(LaborView(RfqView(record,await ReadRfqLanes())),records);}finally{gate.Release();}
+    }
 
     internal async Task<SimLaborView> SaveLabor(string id, SimLaborRequest request, SimPersona persona)
     {
+        if(!persona.Can("technical_review.disposition"))throw SimRfqIntakeProblem.Conflict("LABOR_DENIED","Labor editing is not permitted.");
         await gate.WaitAsync();
         try
         {
@@ -83,6 +88,8 @@ internal sealed partial class SimRfqIntakeStore
                 ?? throw SimRfqIntakeProblem.NotFound("RFQ_NOT_READY", "Qualified RFQ not found.");
             var lanes = await ReadRfqLanes();
             var view = LaborView(RfqView(record, lanes));
+            if(view.Rfq.Lanes.Labor.Status=="COMPLETE")throw SimRfqIntakeProblem.Conflict("LABOR_COMPLETE","Use Revise Labor with a reason before editing completed Labor.");
+            if(LaborRevisionBlocker(view,(await ReadDatasetAsync()).Records) is {} commitment)throw SimRfqIntakeProblem.Conflict("LABOR_COMMITTED",commitment);
             if (request.CalculationVersion != "LABOR_BATCH_ALLOCATION_V6") throw SimRfqIntakeProblem.Conflict("LABOR_UNITS_CHANGED", "Reload Labor before saving: the time-basis contract has changed.");
             if (request.ExpectedRevision != view.Plan.Revision || request.DefinitionId != view.Plan.DefinitionId || request.Quantity != view.Plan.Quantity)
                 throw SimRfqIntakeProblem.Conflict("LABOR_STALE", "Labor or its source changed. Reopen Labor before saving again.");
@@ -92,7 +99,11 @@ internal sealed partial class SimRfqIntakeStore
                 throw SimRfqIntakeProblem.Conflict("LABOR_VALUES", "Use unique operations, nonnegative times/rate up to 1000000, and markup from 0 to 10000 percent.");
             if (request.Operations.Any(o => o.ParentId is not null && !request.Operations.Any(p => p.Id == o.ParentId && p.ParentId is null && p.Id != o.Id)))
                 throw SimRfqIntakeProblem.Conflict("LABOR_HIERARCHY", "Sub-operations must belong to an existing main operation. Only one child level is supported.");
-            var operations = request.Operations.Select(o => o with { Name = (o.Name ?? "").Trim(), Instructions = (o.Instructions ?? "").Trim() }).ToArray();
+            if (request.Operations.Any(o => o.ResponsibleRole is {Length: > 80} or "__inherit" or "__custom" || o.ResponsibleRole?.Any(char.IsControl) == true))
+                throw SimRfqIntakeProblem.BadRequest("LABOR_ROLE_VALUES", "Use a role label up to 80 characters.");
+            if (request.RoleContractVersion != 1 && (request.Operations.Any(o=>o.ResponsibleRole is not null) || view.Plan.Operations.Any(o=>o.ResponsibleRole is not null)))
+                throw SimRfqIntakeProblem.Conflict("LABOR_ROLE_CONTRACT", "Refresh Labor before saving responsible roles.");
+            var operations = request.Operations.Select(o => o with { ResponsibleRole = o.ResponsibleRole?.Trim(), Name = (o.Name ?? "").Trim(), Instructions = (o.Instructions ?? "").Trim() }).ToArray();
             var visualState = await ValidateLaborVisuals(record, view.Plan, operations, request.VisualContractVersion, persona);
             operations = visualState.Operations;
             // Canonical flat order keeps every child beside its parent; IDs remain stable.
@@ -109,8 +120,16 @@ internal sealed partial class SimRfqIntakeStore
                 throw SimRfqIntakeProblem.Conflict("LABOR_INCOMPLETE", "Name at least one operation and enter a Labor Rate before completing.");
             var now = DateTimeOffset.UtcNow;
             var plan = view.Plan with { Revision = view.Plan.Revision + 1, Operations = operations, Rate = request.Rate, Markup = request.Markup, UpdatedBy = persona.DisplayName, AtUtc = now, RemovedVisuals = visualState.Removed, RemovedNotes = noteState.Removed, Charges = charges, ManufacturingLead = lead };
+            SimDrawingContent[]? frozenNotes=null;
+            if(request.Complete){
+                var layers=(await DrawingLayers()).GetValueOrDefault(id)??[];
+                var reviewed=DrawingContent(layers,view.Plan.Operations);
+                if(request.DrawingContentToken!=DrawingContentToken(reviewed)&&(request.DrawingContentToken is not null||reviewed.Length>0))throw SimRfqIntakeProblem.Conflict("LABOR_DRAWING_STALE","Refresh and review Drawing Notes before completing Labor.");
+                frozenNotes=DrawingContent(layers,operations);
+                if(frozenNotes.Length>0){var current=(await DrawingContext(id)).Source;if(frozenNotes.Any(n=>n.Source!=current))throw SimRfqIntakeProblem.Conflict("LABOR_DRAWING_SOURCE","Drawing Notes reference an older source. Review that source change before completing Labor.");}
+            }
             if (request.Complete)
-                plan = plan with { Versions = plan.Versions.Append(new(plan.Versions.Length + 1, plan.DefinitionId, plan.Quantity, operations, plan.Rate!.Value, plan.Markup, CalculateLabor(operations, plan.Quantity, plan.Rate.Value, plan.Markup, charges), persona.DisplayName, now, "LABOR_BATCH_ALLOCATION_V6", charges, lead)).ToArray() };
+                plan = plan with { Versions = plan.Versions.Append(new(plan.Versions.Length + 1, plan.DefinitionId, plan.Quantity, operations, plan.Rate!.Value, plan.Markup, CalculateLabor(operations, plan.Quantity, plan.Rate.Value, plan.Markup, charges), persona.DisplayName, now, "LABOR_BATCH_ALLOCATION_V6", charges, lead, frozenNotes)).ToArray() };
             // Read latest lanes under the same persistence gate as Materials, replacing only Labor fields.
             lanes[id] = view.Rfq.Lanes with { LaborQuote = plan, Labor = new(request.Complete ? "COMPLETE" : "IN_PROGRESS", persona.DisplayName, now) };
             Directory.CreateDirectory(Path.GetDirectoryName(RfqLanesPath)!);
@@ -123,7 +142,7 @@ internal sealed partial class SimRfqIntakeStore
                 File.Move(temporary, RfqLanesPath, true);
             }
             finally { if (File.Exists(temporary)) File.Delete(temporary); }
-            return LaborView(RfqView(record, lanes));
+            return await LaborCapabilities(LaborView(RfqView(record, lanes)),(await ReadDatasetAsync()).Records);
         }
         finally { gate.Release(); }
     }
@@ -133,6 +152,13 @@ internal static partial class SimRfqIntakeEndpoints
     private static void MapLabor(WebApplication app, SimStateStore state, SimRfqIntakeStore store, SimPersonaSessionStore personas)
     {
         MapLaborVisuals(app, state, store, personas);
+        MapDrawingNotes(app, state, store, personas);
+        app.MapPost("/api/sim/rfqs/{id}/labor/revise",async Task<IResult>(string id,SimLaborReviseRequest request,HttpContext context)=>{
+            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.disposition");if(denied is not null)return denied;
+            try{return Results.Json(await store.ReviseLabor(id,request,personas.Resolve(context)));}
+            catch(SimRfqIntakeProblem p){return Results.Json(new{message=p.Message,code=p.Code},statusCode:p.StatusCode);}
+            catch(IOException){return Results.Json(new{message="Revision could not be confirmed. Retry the same request."},statusCode:503);}
+        });
         app.MapGet("/api/sim/rfqs/{id}/bom-reference", async Task<IResult> (string id, HttpContext context) =>
         {
             var denied = DeniedTechnicalReview(context, state, personas, "technical_review.view"); if (denied is not null) return denied;

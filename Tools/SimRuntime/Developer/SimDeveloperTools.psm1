@@ -3,6 +3,9 @@ Set-StrictMode -Version Latest
 function Get-DleOsSimProfilePath {
     param([string] $ProfilePath)
     if (-not [string]::IsNullOrWhiteSpace($ProfilePath)) { return $ProfilePath }
+    $stable = Join-Path $env:USERPROFILE '.dle-os\SIM\sim-profile.json'
+    if (Test-Path -LiteralPath $stable) { return $stable }
+    # Compatibility for existing installations; new desktop installs use the nonvirtualized home.
     return Join-Path $env:LOCALAPPDATA 'DLE-OS\SIM\sim-profile.json'
 }
 
@@ -251,12 +254,23 @@ function Get-DleOsSimRuntimeStatus {
         $runtime.binding -eq $Profile.url -and
         $runtime.lanHostName -eq $Profile.hostname
     $metadataPid = if ($runtime -and $runtime.processId) { [int]$runtime.processId } else { $null }
-    $listenerPid = if ($listener -and $listener.owningProcess) { [int]$listener.owningProcess } else { $null }
+    $listenerPid = if ($listener -and $listener.PSObject.Properties['owningProcess']) { [int]$listener.owningProcess } else { $null }
     $pidValue = if ($metadataMatchesProfile -and $metadataPid) { $metadataPid } elseif ($listenerPid) { $listenerPid } else { $metadataPid }
     $process = if ($pidValue) { Get-Process -Id $pidValue -ErrorAction SilentlyContinue } else { $null }
+    # A stale/recycled PID or an unrelated listener is not this SIM.
+    $identityMatches = $false
+    if ($metadataMatchesProfile -and $process -and $listenerPid -eq $metadataPid) {
+        try {
+            $expectedExe = Join-Path $Profile.repoPath 'Tools\SimRuntime\DleOs.SimHost\bin\Debug\net8.0\DleOs.SimHost.exe'
+            $identityMatches = $process.Path -eq $expectedExe -and
+                $process.StartTime.ToUniversalTime() -le ([DateTimeOffset]$runtime.startedAtUtc).UtcDateTime
+        } catch { $identityMatches = $false }
+    }
     $activeBinding = if ($metadataMatchesProfile) { $runtime.binding } elseif ($listener) { $Profile.url } elseif ($runtime) { $runtime.binding } else { $null }
     [pscustomobject]@{
-        running = $null -ne $process -and $null -ne $listener
+        running = [bool]$identityMatches
+        listenerPresent = $null -ne $listener
+        listenerProcessId = $listenerPid
         processId = $pidValue
         processName = if ($process) { $process.ProcessName } else { $null }
         binding = $activeBinding
@@ -321,6 +335,24 @@ function Get-DleOsSimStatus {
     }
 }
 
+function Test-DleOsSimDns {
+    param([Parameter(Mandatory)] $Profile)
+    $attempts = @()
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $resolved = @()
+        $errorText = $null
+        try {
+            $resolved = @(Resolve-DnsName -Name $Profile.hostname -Type A -ErrorAction Stop |
+                Where-Object Type -eq A | Select-Object -ExpandProperty IPAddress -Unique)
+        } catch { $errorText = $_.Exception.Message }
+        $attempts += [pscustomobject]@{attempt=$attempt;addresses=$resolved;error=$errorText}
+        if ($Profile.lanIp -in $resolved) {
+            return [pscustomobject]@{passed=$true;hostname=$Profile.hostname;expected=$Profile.lanIp;attempts=$attempts}
+        }
+        if ($attempt -lt 3) { Start-Sleep -Milliseconds 500 }
+    }
+    return [pscustomobject]@{passed=$false;hostname=$Profile.hostname;expected=$Profile.lanIp;attempts=$attempts}
+}
 function Test-DleOsSimPreflight {
     param([string] $ProfilePath)
     $profile = Get-DleOsSimProfile $ProfilePath
@@ -333,8 +365,8 @@ function Test-DleOsSimPreflight {
     Add-Check 'dotnet' (-not [string]::IsNullOrWhiteSpace((Get-Command dotnet -ErrorAction SilentlyContinue).Source)) '.NET command on PATH'
     $permanentCode = [Environment]::GetEnvironmentVariable('DLE_OS_SIM_PERMANENT_ACCESS_CODE', [EnvironmentVariableTarget]::User)
     Add-Check 'permanentAccessCode' (-not [string]::IsNullOrWhiteSpace($permanentCode)) 'DLE_OS_SIM_PERMANENT_ACCESS_CODE present in User scope'
-    $resolved = @(Resolve-DnsName $profile.hostname -Type A -ErrorAction SilentlyContinue | Where-Object Type -eq A | Select-Object -ExpandProperty IPAddress -Unique)
-    Add-Check 'dns' ($profile.lanIp -in $resolved) "$($profile.hostname) resolves to $($profile.lanIp)"
+    $dns = Test-DleOsSimDns $profile
+    Add-Check 'dns' $dns.passed ($dns | ConvertTo-Json -Compress -Depth 4)
     $cert = Test-DleOsSimCertificate $profile.certificateThumbprint $profile.hostname
     Add-Check 'certificate' ($cert.found -and $cert.readable -and $cert.selected.hostnameMatches) 'certificate present, SAN-matched, private key available'
     $firewall = Get-DleOsSimFirewallStatus $profile
@@ -366,7 +398,13 @@ function Stop-DleOsSimSafely {
             throw 'Runtime metadata does not identify the configured SIM LAN host. Refusing to stop anything.'
         }
     }
-    $pidValue = if ($runtimeStatus.running -and $runtimeStatus.processId) { [int]$runtimeStatus.processId } else { [int]$runtime.processId }
+    if (-not $runtimeStatus.running) {
+        if ($runtimeStatus.listenerPresent) {
+            throw 'Port 5177 is occupied but its owner is not verified as the configured SIM. Refusing to stop anything.'
+        }
+        return [pscustomobject]@{result='stopped';message='No verified SIM listener exists. No process was stopped.'}
+    }
+    $pidValue = [int]$runtimeStatus.processId
     $process = Get-CimInstance Win32_Process -Filter "ProcessId=$pidValue" -ErrorAction SilentlyContinue
     if ($null -eq $process) {
         return [pscustomobject]@{ result = 'stopped'; processId = $pidValue; message = 'Recorded SIM process is not running.' }
@@ -376,6 +414,11 @@ function Stop-DleOsSimSafely {
     $executable = [string]$process.ExecutablePath
     if ($commandLine -notlike "*$expectedRoot*" -and $executable -notlike "*$expectedRoot*") {
         throw "Process $pidValue does not match the DLE-OS SIM host path. Refusing to stop it."
+    }
+    $freshStatus = Get-DleOsSimRuntimeStatus $profile
+    if (-not $freshStatus.running -or $freshStatus.processId -ne $pidValue -or
+        $process.CreationDate.ToUniversalTime() -gt ([DateTimeOffset]$runtime.startedAtUtc).UtcDateTime) {
+        throw 'SIM process identity changed during stop validation. Refusing to stop anything.'
     }
     Stop-Process -Id $pidValue -Force
     for ($attempt = 0; $attempt -lt 30; $attempt++) {

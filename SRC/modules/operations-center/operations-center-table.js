@@ -71,6 +71,7 @@
 
     const rows = records.map((record, index) => renderRow(record, index)).join('');
     container.innerHTML = '<table class="operations-center-table"><thead><tr>' + headers + '</tr></thead><tbody>' + rows + '</tbody></table>';
+    void window.ShippingHandoff?.hydrateOperations(container);
   }
 
   function renderRow(record, index) {
@@ -120,7 +121,8 @@
     }
     if (column.key === 'workOrder') {
       const presentation = viewModel.getWorkOrderPresentation(record);
-      return renderWorkOrderCell(presentation, className);
+      const cell = renderWorkOrderCell(presentation, className);
+      return window.ShippingHandoff?.isSim() ? cell.replace('</td>', '<div data-handoff-summary="' + escapeHtml(value) + '"></div></td>') : cell;
     }
     if (column.key === 'verifiedStatus') {
       return renderVerifiedStatusCell(record, masterRecordKey, className);

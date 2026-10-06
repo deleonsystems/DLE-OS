@@ -359,11 +359,17 @@
   }
   function materialMarkup(material) {
     const id = material.receiptLineId, stage = state.draft?.stage?.[id] ?? '';
+    const jobs = unique(list(material.coverage).map(c => c.workOrderNumber));
+    const outcomes = list(state.planning?.workOrders).filter(w => jobs.includes(w.workOrderNumber) && w.materialStatus)
+      .map(w => w.workOrderNumber + ' · ' + (window.MaterialStatus?.LABELS?.[w.materialStatus] || w.materialStatus.replaceAll('_', ' ')));
     return '<section class="receiving-material" aria-label="Accepted material ' + esc(material.partNumber) + '"><div class="receiving-detail-title"><h3>' +
       esc(material.partNumber) + ' · PO ' + esc(material.poNumber) + ' / ' + esc(material.poLine) + '</h3><span class="receiving-status">' +
-      (Number(material.availableQuantity) > 0 ? 'Ready for Kitting' : Number(material.acceptedQuantity) > 0 ? 'Accepted · Awaiting staging' : 'Disposition recorded') + '</span></div>' +
+      (Number(material.availableQuantity) > 0 ? (Number(material.appliedQuantity) > 0 ? 'Partially Applied · Ready for Kitting' : 'Ready for Kitting') :
+        Number(material.appliedQuantity) > 0 && Number(material.appliedQuantity) >= Number(material.acceptedQuantity) ? 'Applied to Kit' :
+        Number(material.acceptedQuantity) > 0 ? (material.stagedAtUtc ? 'Accepted · No available balance' : 'Accepted · Awaiting staging') : 'Disposition recorded') + '</span></div>' +
       factList([['Received', quantity(material.receivedQuantity)], ['Accepted', quantity(material.acceptedQuantity)], ['Hold', quantity(material.holdQuantity)],
-        ['Rejected', quantity(material.rejectedQuantity)], ['Available for Kitting', quantity(material.availableQuantity) + ' ' + text(material.purchasingUom)],
+        ['Rejected', quantity(material.rejectedQuantity)], ['Applied to Kit', quantity(material.appliedQuantity || 0)], ['Available for Kitting', quantity(material.availableQuantity) + ' ' + text(material.purchasingUom)],
+        ...(outcomes.length ? [['WO Material Status', outcomes.join('; ')]] : []),
         ['Packing slip', material.packingSlipNumber], ['Received by', material.receivedBy], ['Accepted by', material.acceptedBy],
         ['Received date', localDate(material.receivedAtUtc)], ['Accepted date', localDate(material.acceptedAtUtc)],
         ['Staging location', material.stagingLocation || 'Not staged'], ['VPRO receipt', material.vproReceiptId || 'Not Linked']]) +

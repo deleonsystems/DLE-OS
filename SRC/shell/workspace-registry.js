@@ -137,7 +137,11 @@
     {
       id: "shipping",
       label: "Shipping Workspace",
-      purpose: "Request to Ship preparation and customer shipment operations."
+      purpose: "Request to Ship preparation and customer shipment operations.",
+      home: Object.freeze({
+        label: "Shipping", description: "Released Work \u2022 Job Context \u2022 Print Previews",
+        mark: "SH", requiredPermission: "shipments.view"
+      })
     },
     {
       id: "platform",

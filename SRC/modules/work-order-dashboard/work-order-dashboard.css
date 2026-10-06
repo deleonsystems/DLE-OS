@@ -1862,3 +1862,29 @@ body:is([data-view-mode="desktop"],[data-view-mode="ipad"]) #workOrderDashboardM
   color: #1d4ed8;
   font-weight: 700;
 }
+.kitting-material-dialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 18px;
+  color: #e2e8f0;
+  background: #142033;
+  border: 1px solid #456076;
+}
+.kitting-material-dialog p { line-height: 1.5; font-size: 13px; }
+.kitting-material-dialog > header { min-height: 0; height: auto; padding: 12px; }
+.kitting-material-dialog label { display: block; margin: 10px 0; font-size: 13px; }
+.kitting-material-dialog textarea,
+.kitting-material-dialog input[type="number"] {
+  display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 8px;
+  color: #f1f5f9; background: #0c1624; border: 1px solid #52667a; border-radius: 5px;
+}
+.kitting-material-dialog button {
+  padding: 8px 12px; color: #e5fff7; background: #234e47;
+  border: 1px solid #4c8277; border-radius: 5px; cursor: pointer;
+}
+.kitting-material-dialog button:disabled { opacity: .5; cursor: default; }
+.kitting-material-choice, .kitting-applied-evidence {
+  display: grid; gap: 5px; padding: 12px; margin: 10px 0;
+  background: #172c38; border: 1px solid #406b72; border-radius: 6px;
+}
+.kitting-material-message { color: #b4d9eb; }
+.active-kitting-supply > button { margin-top: 8px; }

@@ -481,6 +481,7 @@
   function updateRequestToShipAction() {
     const button = document.getElementById('salesOrderDashboardCreateRequestToShipButton');
     if (!button) return;
+    if (window.ShippingHandoff?.isSim()) button.textContent = 'Shipment authorization';
 
     const selectedRows = dashboardState.selectedWorkOrders;
     const enabled = selectedRows.length > 0 && selectedRows.every(isValidWorkOrder);
@@ -496,6 +497,10 @@
   function openRequestToShipDialog() {
     const selectedRows = dashboardState.selectedWorkOrders.filter(isValidWorkOrder);
     if (!selectedRows.length || selectedRows.length !== dashboardState.selectedWorkOrders.length) return;
+    if (window.ShippingHandoff?.isSim()) {
+      if (selectedRows.length !== 1) { window.alert('Select one Work Order to review its governed shipment authorization.'); return; }
+      return window.ShippingHandoff.open(buildRequestDialogLine(selectedRows[0], 0).workOrder, 'release');
+    }
 
     const orderOfficial = dashboardState.selectedOrder?.official || {};
     const firstOfficial = selectedRows[0]?.official || {};

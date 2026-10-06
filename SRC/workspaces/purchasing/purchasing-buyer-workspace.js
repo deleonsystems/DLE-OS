@@ -51,7 +51,7 @@
   async function render(mount) {
     state.mount = mount;
     if (!mount) return;
-    if (!state.model) await refresh(); else draw();
+    if (!state.dirty) await refresh(); else draw();
   }
   async function refresh() {
     if (state.busy) return state.model;
@@ -70,6 +70,17 @@
   function planningFor(item) {
     const ids = item.demandId ? [item.demandId] : (item.coverage || []).map(c => c.demandId);
     return (state.planning?.workOrders || []).flatMap(w => w.demands || []).filter(d => ids.includes(d.demandId));
+  }
+  function purchaseStatus(p) {
+    if (Number(p.receivedQuantity) > 0) return Number(p.openQuantity) === 0 ? "Received / Complete" : "Partially Received";
+    return "Ordered / Awaiting Receipt";
+  }
+  function materialOutcome(p) {
+    const demands = planningFor(p);
+    const lines = demands.map(d => `WO ${d.workOrderNumber} · ${d.materialStatus === "KIT_COMPLETE" ? "Kit Complete" : d.progress || "Material status unavailable"}`);
+    const applied = demands.flatMap(d => d.orders || []).filter(o => o.purchaseId === p.purchaseId).reduce((n, o) => n + Number(o.appliedQuantity || 0), 0);
+    if (applied > 0) lines.unshift(`Applied to Kit ${qty(applied)} ${p.purchasingUom}`);
+    return lines.map(line => `<small>${esc(line)}</small>`).join("");
   }
   function needBy(item) {
     const dates = [...new Set(planningFor(item).map(d => d.schedule?.materialNeedBy).filter(Boolean))];
@@ -118,7 +129,7 @@
     return table(["PO / Line", "Supplier", "DLE / Vendor P/N", "Description", "Ordered", "Received", "Open", "Unit Cost", "Extended", "Requested", "Expected", "Customer Due", "WO(s)", "Status / Action"], rows.map(p => `<tr>
       <td><strong>${esc(p.poNumber)} / ${esc(p.poLine)}</strong></td><td>${esc(p.supplier)}</td><td>${esc(p.partNumber)}<small>${esc(p.vendorPartNumber)}</small></td><td class="buyer-description">${esc(p.description)}</td>
       <td class="buyer-number">${qty(p.orderedQuantity)} ${esc(p.purchasingUom)}</td><td class="buyer-number">${qty(p.receivedQuantity)}</td><td class="buyer-number">${qty(p.openQuantity)}</td><td class="buyer-number">${money(p.unitCost, p.currency)}</td><td class="buyer-number">${money(p.extendedCost, p.currency)}</td>
-      <td>${date(p.requestedDate)}</td><td>${date(p.expectedDate)}</td><td>${customerDates(p)}</td><td>${esc(works(p))}</td><td class="buyer-actions">${badge("Ordered / Awaiting Receipt")}${button("purchase", "Details", p.purchaseId || p.poLineId)}</td></tr>`), "No purchases recorded. Shop List contains plans ready for PO entry.");
+      <td>${date(p.requestedDate)}</td><td>${date(p.expectedDate)}</td><td>${customerDates(p)}</td><td>${esc(works(p))}</td><td class="buyer-actions">${badge(purchaseStatus(p))}${materialOutcome(p)}${button("purchase", "Details", p.purchaseId || p.poLineId)}</td></tr>`), "No purchases recorded. Shop List contains plans ready for PO entry.");
   }
   function draw() {
     if (!state.mount) return;
@@ -159,7 +170,7 @@
     return `<details class="buyer-audit"><summary>Reviewed receiving requirements</summary><div class="buyer-facts">${fact("Material / PO Traceability", known(q.poTraceabilityRequired) + (q.traceabilityAmendmentId ? " · Amended" : ""))}${fact("CoC", known(q.cocRequired))}${fact("Material Cert", known(q.materialCertRequired))}${fact("Inspection", known(q.inspectionRequired))}</div>${q.specialReceivingNotes ? `<p>${esc(q.specialReceivingNotes)}</p>` : ""}<p>Requirements are inherited read-only from reviewed source evidence.</p></details>`;
   }
   function demandDetail(d) {
-    return `<h2>${esc(d.partNumber)} <span class="buyer-muted">${esc(d.description)}</span></h2><div class="buyer-context">${context(d)}</div><div class="buyer-facts">${fact("Required", qty(d.requiredQuantity))}${fact("Kitted", qty(d.kittedQuantity))}${fact("Short", qty(d.shortQuantity))}${fact("Customer Due", date(d.customerDueDate))}${fact("Material Need-By", needBy(d))}${fact("Material Status", "KIT SHORT")}</div>${planningFacts(d)}
+    return `<h2>${esc(d.partNumber)} <span class="buyer-muted">${esc(d.description)}</span></h2><div class="buyer-context">${context(d)}</div><div class="buyer-facts">${fact("Required", qty(d.requiredQuantity))}${fact("Kitted", qty(d.kittedQuantity))}${fact("Short", qty(d.shortQuantity))}${fact("Customer Due", date(d.customerDueDate))}${fact("Material Need-By", needBy(d))}${fact("Original Material Status", "KIT SHORT")}${fact("Current Material Status", planningFor(d)[0]?.materialStatus === "KIT_COMPLETE" ? "Kit Complete" : planningFor(d)[0]?.progress || "Not Established")}</div>${planningFacts(d)}
       <p class="buyer-muted">Accept assigns buyer ownership. The submitted shortage remains unchanged until material is received and applied through Kitting.</p><div class="buyer-actions">${d.state === "INCOMING" ? button("accept", "Accept", d.demandId, disabled() || (d.sourceCurrent === false ? " disabled" : "")) : ""}${button("bom", "View Kitted BOM", d.demandId)}</div>${quality(d)}${audit(d)}`;
   }
   function field(label, name, value, type = "text", extra = "") {
@@ -192,8 +203,8 @@
       <form id="buyerPurchaseForm"><fieldset${disabled()}><div class="buyer-form-grid">${field("Synthetic PO Number", "poNumber", "", "text", ' required maxlength="40"')}${field("PO Line", "poLine", "010", "text", ' required maxlength="10"')}${field("Order Date", "orderDate", "", "date", " required")}${field("Confirmation / Acknowledgment", "confirmation", "", "text", ' maxlength="200"')}</div><label class="buyer-wide-label">Purchase notes<textarea name="notes" rows="2" maxlength="4000" placeholder="Scenario date and supplier context"></textarea></label><h3>Demand Coverage</h3>${coverageTable(coverage(plan))}<div class="buyer-actions"><button class="buyer-button buyer-primary" type="submit">Record SIM Purchase</button>${button("plan", "Back to Plan", plan.planId)}</div></fieldset></form>`;
   }
   function purchaseDetail(p) {
-    return `<h2>PO ${esc(p.poNumber)} / ${esc(p.poLine)} ${badge("Ordered / Awaiting Receipt")}</h2><p>${esc(p.partNumber)} · ${esc(p.description)}</p><div class="buyer-facts">${fact("Supplier", p.supplier)}${fact("Vendor P/N", p.vendorPartNumber)}${fact("Ordered", `${qty(p.orderedQuantity)} ${p.purchasingUom}`)}${fact("Received", qty(p.receivedQuantity))}${fact("Open", qty(p.openQuantity))}${fact("Unit Cost", money(p.unitCost, p.currency))}${fact("Extended", money(p.extendedCost, p.currency))}${fact("Order Date", date(p.orderDate))}${fact("Supplier Requested", date(p.requestedDate))}${fact("Supplier Expected", date(p.expectedDate))}${fact("Material Need-By", needBy(p))}${fact("Acknowledgment", p.confirmation || "Not recorded")}</div>
-      ${planningFacts(p)}<p class="buyer-warning">SIMULATED DEVELOPMENTAL · No physical receipt. Covered work orders remain Kit Short.</p><h3>Demand Coverage</h3>${coverageTable(coverage(p))}${p.excessQuantity ? `<p>Excess ${qty(p.excessQuantity)} · ${esc(p.excessPurpose)}</p>` : ""}${p.notes ? `<p>${esc(p.notes)}</p>` : ""}${quality(p)}${audit(p)}`;
+    return `<h2>PO ${esc(p.poNumber)} / ${esc(p.poLine)} ${badge(purchaseStatus(p))}${materialOutcome(p)}</h2><p>${esc(p.partNumber)} · ${esc(p.description)}</p><div class="buyer-facts">${fact("Supplier", p.supplier)}${fact("Vendor P/N", p.vendorPartNumber)}${fact("Ordered", `${qty(p.orderedQuantity)} ${p.purchasingUom}`)}${fact("Received", qty(p.receivedQuantity))}${fact("Open", qty(p.openQuantity))}${fact("Unit Cost", money(p.unitCost, p.currency))}${fact("Extended", money(p.extendedCost, p.currency))}${fact("Order Date", date(p.orderDate))}${fact("Supplier Requested", date(p.requestedDate))}${fact("Supplier Expected", date(p.expectedDate))}${fact("Material Need-By", needBy(p))}${fact("Acknowledgment", p.confirmation || "Not recorded")}</div>
+      ${planningFacts(p)}<p class="buyer-warning">SIMULATED DEVELOPMENTAL · Purchase history is retained. Receipt quantities and current Kitting outcomes are shown separately.</p><h3>Demand Coverage</h3>${coverageTable(coverage(p))}${p.excessQuantity ? `<p>Excess ${qty(p.excessQuantity)} · ${esc(p.excessPurpose)}</p>` : ""}${p.notes ? `<p><strong>Original purchase notes (at order entry):</strong> ${esc(p.notes)}</p>` : ""}${quality(p)}${audit(p)}`;
   }
   function drawDetail() {
     const target = state.mount?.querySelector("#buyerDetails");
@@ -302,5 +313,5 @@
     window.go?.("home", false);
     return true;
   }
-  window.SimPurchasingWorkspace = Object.freeze({ render, refresh, openWorkOrder, buildViewModel, formatDate: date, planPayload, getModel: () => state.model });
+  window.SimPurchasingWorkspace = Object.freeze({ purchaseStatus, render, refresh, openWorkOrder, buildViewModel, formatDate: date, planPayload, getModel: () => state.model });
 })(window, document);

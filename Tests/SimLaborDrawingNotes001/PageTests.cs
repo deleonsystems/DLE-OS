@@ -1,0 +1,18 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+internal static class PageTests {
+ internal static async Task Run(string repo){
+ await LaborRevisionTests.Run(repo,true);var f=JsonNode.Parse(File.ReadAllText(Path.Combine(repo,"tmp/labor-revise/browser-fixture.json")))!;var root=(string)f["root"]!;var id=(string)f["id"]!;var store=new SimRfqIntakeStore(root);var actor=new SimPersona("pages","pages","Page fixture","ACTIVE",[],["technical_review.view","technical_review.disposition"],false,"SIM");var before=await store.ReadLabor(id);var history=JsonSerializer.Serialize(before.Plan.Versions);var labor=await store.ReviseLabor(id,new(Guid.NewGuid().ToString(),before.Plan.Revision,4,"Page fixture"),actor);var notes=await store.ReadDrawingNotes(id,actor);var step=labor.Plan.Operations[0].Id;var other=labor.Plan.Operations[1].Id;
+ void Check(bool b,string s){if(!b)throw new Exception(s);Console.WriteLine("PASS: "+s);}
+ async Task Reject(SimDrawingNotesRequest r,string code){try{await store.SaveDrawingNotes(id,step,r,actor);throw new Exception("Expected rejection");}catch(SimRfqIntakeProblem e){Check(e.Code==code,code);}}
+ Check(await store.DrawingNotesPageCount(id,notes.Source.DocumentId,notes.Source.Sha256,actor)==2,"exact source has two pages");
+ SimDrawingMark Mark(int page)=>new(Guid.NewGuid().ToString(),page,"circle",[new(.2,.2),new(.4,.4)]);
+ var req=new SimDrawingNotesRequest(0,labor.Plan.Revision,notes.Source,[Mark(2)],null,"marks","",Guid.NewGuid().ToString(),"Page two",[step,other],2);var saved=await store.SaveDrawingNotes(id,step,req,actor);Check(saved.Page==2&&saved.SavedView.Page==2,"new shared layer bound to page two");
+ await Reject(req with{ExpectedRevision=saved.Revision,Marks=[Mark(1)]},"DRAWING_LAYER_PAGE");await Reject(req with{ExpectedRevision=saved.Revision,Action="view",Marks=null,SavedView=new(1,.5,.5,1,1)},"DRAWING_LAYER_PAGE");
+ var camera=new SimDrawingCamera(2,.4,.6,.3,.3,90);saved=await store.SaveDrawingNotes(id,step,req with{ExpectedRevision=saved.Revision,Action="view",Marks=null,SavedView=camera},actor);var reopened=await new SimRfqIntakeStore(root).ReadDrawingNotes(id,actor);Check(reopened.Layers.Single().Layer.SavedView==camera,"page zoom position rotation survive reopen");
+ Check((await store.DrawingNotesPage(id,notes.Source.DocumentId,notes.Source.Sha256,2,actor)).Length>0,"page two renders");Check(JsonSerializer.Serialize((await store.ReadLabor(id)).Plan.Versions)==history,"old snapshots untouched");
+ labor=await store.ReadLabor(id);var completed=await store.SaveLabor(id,new(labor.Plan.Revision,labor.Plan.DefinitionId,labor.Plan.Quantity,labor.Plan.Operations,labor.Plan.Rate,labor.Plan.Markup,true,"LABOR_BATCH_ALLOCATION_V6",1,1,labor.Plan.Charges,1,labor.Plan.ManufacturingLead,1,labor.DrawingContentToken,1),actor);Check((await store.ReadDrawingNotes(id,actor,5)).Layers.Single().Layer.Page==2,"history retains layer page identity");
+ await store.ReviseLabor(id,new(Guid.NewGuid().ToString(),completed.Plan.Revision,5,"Legacy rejection fixture"),actor);
+ var path=Path.Combine(root,"data/labor-drawing-notes.json");var opt=new JsonSerializerOptions(JsonSerializerDefaults.Web);var legacy=saved with{Page=null,Marks=[Mark(1),Mark(2)]};File.WriteAllText(path,JsonSerializer.Serialize(new Dictionary<string,SimDrawingLayer[]>{{id,[legacy]}},opt));var raw=File.ReadAllText(path);var current=await store.ReadLabor(id);await Reject(req with{ExpectedLaborRevision=current.Plan.Revision,ExpectedRevision=legacy.Revision},"DRAWING_MULTIPAGE_LEGACY");Check(File.ReadAllText(path)==raw,"legacy multi-page layer unchanged after rejection");
+ }
+}

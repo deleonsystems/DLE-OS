@@ -102,16 +102,20 @@ CREATE TRIGGER IF NOT EXISTS SimPurchasingCommandNoDelete BEFORE DELETE ON SimPu
         var cases = await PurchasingRows<SimKittingCaseRecord>(connection, transaction, "SimKittingCase");
         var submissions = await PurchasingRows<SimKittingSubmission>(connection, transaction, "SimKittingSubmission");
         var active = new Dictionary<string, SimPurchasingDemand>(StringComparer.Ordinal);
-        foreach (var current in cases.Where(c => c.Generation == runtime.Generation && c.State == "KIT_SHORT" && c.EditingSessionId is null))
+        foreach (var current in cases.Where(c => c.Generation == runtime.Generation && c.State is "KIT_SHORT" or "KIT_COMPLETE"))
         {
-            var submission = submissions.Where(s => s.CaseId == current.CaseId)
+            var latest = submissions.Where(s => s.CaseId == current.CaseId)
                 .OrderByDescending(s => s.SubmittedAtUtc).ThenByDescending(s => s.VersionNumber).FirstOrDefault();
-            if (submission?.SubmissionType != "KIT_SHORT") continue;
+            // Retained buying authority stays tied to its immutable shortage while a re-kit draft is edited.
+            var sourceIds = stored.Where(d=>d.CaseId==current.CaseId).Select(d=>d.SubmissionId).ToHashSet();
+            if(latest is not null)sourceIds.Add(latest.SubmissionId);
+            foreach(var submission in submissions.Where(s=>sourceIds.Contains(s.SubmissionId)&&s.CaseId==current.CaseId&&s.SubmissionType=="KIT_SHORT")) {
+            var retainedOrigin=stored.Any(d=>d.CaseId==current.CaseId&&d.SubmissionId==submission.SubmissionId);
             using var document = JsonDocument.Parse(submission.SnapshotJson);
             var snapshot = document.RootElement;
             var draft = Field(snapshot, "draft"); var lineage = Field(snapshot, "lineage");
             if (PurchasingText(snapshot, "releasedBomIdentity") != current.ReleasedBomIdentity ||
-                SimPurchasingService.Hash(current.Draft) != SimPurchasingService.Hash(draft)) continue;
+                (!retainedOrigin && (current.EditingSessionId is not null || SimPurchasingService.Hash(current.Draft) != SimPurchasingService.Hash(draft)))) continue;
             var so = PurchasingText(lineage, "salesOrderNumber"); var soLine = PurchasingText(lineage, "salesOrderLineNumber");
             var customer = Field(lineage, "customer"); var customerNumber = PurchasingText(customer, "customerNumber");
             var canonical = await PurchasingSalesLine(connection, transaction, customerNumber, so, soLine);
@@ -136,7 +140,7 @@ CREATE TRIGGER IF NOT EXISTS SimPurchasingCommandNoDelete BEFORE DELETE ON SimPu
                 var entry = Field(group, "entry"); var shortage = Number(entry, "shortageQuantity");
                 if (shortage <= 0 || !Flag(group, "actionable")) continue;
                 var sourceRowId = PurchasingText(group, "sourceRowId");
-                if (sourceRowId.Length == 0) continue;
+                if (sourceRowId.Length == 0 || stored.Any(d=>d.CaseId==current.CaseId&&d.SourceRowId==sourceRowId&&d.SubmissionId!=submission.SubmissionId)) continue;
                 var part = PurchasingText(group, "partNumber"); var uom = PurchasingText(group, "unitOfMeasure");
                 var id = SimPurchasingService.StableId($"{runtime.Generation}:{current.CaseId}:{submission.SubmissionId}:{sourceRowId}");
                 var compatibility = SimPurchasingService.Hash(new { current.ReleasedBomIdentity, sourceRowId, part, uom,
@@ -151,16 +155,23 @@ CREATE TRIGGER IF NOT EXISTS SimPurchasingCommandNoDelete BEFORE DELETE ON SimPu
                     Number(lineage, "buildQuantity"), dueDate, "", quality, compatibility, null, null, null);
             }
         }
+        }
+        var reconciliations = await PurchasingRows<SimKittingDemandReconciliation>(connection,transaction,"SimKittingDemandReconciliation");
         // Persisted source snapshots never disappear merely because Kitting was resubmitted.
-        // Block further buying on old evidence; reconciliation is a later explicit workflow.
+        // Explicit successor Submit adds reconciliation; accepted source snapshots remain immutable.
         foreach (var retained in stored)
         {
             var current = active.GetValueOrDefault(retained.DemandId);
-            active[retained.DemandId] = retained with { SourceCurrent = current is not null && current.SourceFingerprint == retained.SourceFingerprint };
+            var reconciliation=reconciliations.Where(r=>r.DemandId==retained.DemandId).OrderByDescending(r=>r.WorkingVersion).FirstOrDefault();
+            active[retained.DemandId] = retained with {
+                SourceCurrent = current is not null && current.SourceFingerprint == retained.SourceFingerprint && reconciliation?.RemainingShort != 0,
+                State = reconciliation?.RemainingShort == 0 ? "RESOLVED" : retained.State,
+                RemainingShortQuantity = reconciliation?.RemainingShort,
+                ReconciliationId = reconciliation?.Id };
         }
         // A successor submission is not fresh buying authority while an older accepted demand for
         // the same case/requirement remains. In particular, do not bypass purchased coverage merely
-        // by changing the submission-derived demand ID. No automatic cancellation or reconciliation.
+        // by changing the submission-derived demand ID. Existing purchased coverage is retained.
         foreach (var incoming in active.Values.Where(d => d.State == "INCOMING").ToArray())
         {
             if (stored.Any(prior => prior.DemandId != incoming.DemandId && prior.CaseId == incoming.CaseId &&

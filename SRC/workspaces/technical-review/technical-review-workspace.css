@@ -487,3 +487,52 @@
 .source-pn-help p { margin:5px 0 0; color:#94a3b8; font-size:11px; }
 .technical-review-candidate .source-pn-badge:focus-visible,.source-pn-popover select:focus-visible,.source-pn-popover button:focus-visible,.source-pn-help>summary:focus-visible { outline:2px solid #9dceff; outline-offset:2px; }
 .source-pn-popover button:disabled,.technical-review-candidate .source-pn-badge:disabled { opacity:.55; cursor:wait; }
+/* SIM phone layout: keep review contracts and desktop layouts unchanged. */
+@media(max-width:760px){
+ body[data-sim-runtime="true"][data-workspace-view="technical-review"]>main{width:100%;max-width:none;padding:12px 8px;margin-top:8px}
+ body[data-sim-runtime="true"] .technical-review-workspace{width:100%;max-width:100%;min-width:0;margin:0;padding:8px 4px 48px;box-sizing:border-box}
+ body[data-sim-runtime="true"] .technical-review-workspace :is(section,article,fieldset,div){min-width:0}
+ body[data-sim-runtime="true"] .technical-review-header{position:static;min-height:0;padding:16px;gap:12px;margin-bottom:16px;border-radius:12px}
+ body[data-sim-runtime="true"] .technical-review-header h1{font-size:25px;line-height:1.2}
+ body[data-sim-runtime="true"] .technical-review-header-status{width:fit-content;max-width:100%;white-space:normal}
+ body[data-sim-runtime="true"] .technical-review-workspace :is(h2,h3){font-size:22px;overflow-wrap:anywhere}
+ body[data-sim-runtime="true"] .technical-review-workspace :is(p,dd,summary,legend,a){overflow-wrap:anywhere}
+ body[data-sim-runtime="true"] .technical-review-workspace dd{margin-left:12px}
+ body[data-sim-runtime="true"] .technical-review-workspace :is(button,input:not([type=checkbox]):not([type=radio]),select,textarea){min-height:44px;font-size:16px;max-width:100%;box-sizing:border-box}
+ body[data-sim-runtime="true"] .technical-review-workspace :is(button,summary){touch-action:manipulation;white-space:normal}
+ body[data-sim-runtime="true"] .technical-review-workspace :is(button,a,input,select,textarea,summary):focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
+ body[data-sim-runtime="true"] .technical-review-workspace :is(input[type=checkbox],input[type=radio]){width:22px;height:22px;vertical-align:middle}
+ body[data-sim-runtime="true"] :is(.technical-review-context,.technical-review-detail-header){display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:14px}
+ body[data-sim-runtime="true"] :is(.technical-review-question,.technical-review-entry-card){width:100%;max-width:100%;padding:16px;box-sizing:border-box;margin-inline:0}
+ body[data-sim-runtime="true"] .technical-review-workspace:has(.technical-review-entry-card){padding:8px 4px 48px}
+ body[data-sim-runtime="true"] :is(.technical-review-history-facts,.technical-review-bom-sources,.technical-review-package-fields,.scanned-setup-layout,.scan-review-layout){grid-template-columns:minmax(0,1fr)}
+ body[data-sim-runtime="true"] :is(.package-page-actions,.candidate-editor-actions,.technical-review-entry-actions,.candidate-workbench-footer){display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+ body[data-sim-runtime="true"] :is(.package-page-actions,.technical-review-entry-actions)>button{flex:1 1 180px;margin:0}
+ body[data-sim-runtime="true"] .technical-review-workspace :is(.package-review-table,.candidate-table-scroll,.scan-review-table-scroll){max-width:100%;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+ body[data-sim-runtime="true"] .technical-review-workspace .unified-package-review{overflow:visible}
+ body[data-sim-runtime="true"] .candidate-workbench .candidate-workbench-table{min-width:1100px}
+ body[data-sim-runtime="true"] .candidate-workbench .candidate-table-scroll{height:60svh;min-height:280px;max-height:650px;scroll-padding-left:0}
+ body[data-sim-runtime="true"] .candidate-row-inspector{width:calc(100vw - 72px);max-height:55svh;padding:8px}
+ body[data-sim-runtime="true"] .candidate-detail-row .candidate-row-inspector :is(.candidate-edit-grid,.candidate-alternate){grid-template-columns:minmax(0,1fr)}
+ body[data-sim-runtime="true"] .candidate-row-inspector .candidate-alternate-add label{min-width:0;width:100%}
+ body[data-sim-runtime="true"] .review-document-upload{padding:12px}
+ body[data-sim-runtime="true"] .review-document-upload fieldset{padding:10px}
+ body[data-sim-runtime="true"] .package-review-table .review-document-upload .technical-review-package-fields{grid-template-columns:minmax(0,1fr)}
+ body[data-sim-runtime="true"] .review-file-drop{padding:16px;min-height:110px}
+ body[data-sim-runtime="true"] .review-file-drop input[type=file]{position:static;width:100%;height:auto;opacity:1;min-height:44px;margin-bottom:10px;color:#dbeafe}
+ body[data-sim-runtime="true"] .review-file-drop input[type=file]::file-selector-button{min-height:44px;border:1px solid #64788f;border-radius:6px;background:#20364c;color:#f0f6fc;font:inherit;padding:8px}
+ body[data-sim-runtime="true"] .source-pn-popover{max-height:70svh}
+ body[data-sim-runtime="true"] .technical-review-candidate .source-pn-popover :is(button,select){min-height:44px;height:auto;font-size:16px}
+ body[data-sim-runtime="true"] .technical-review-workspace iframe{max-width:100%}
+}
+@media(max-width:760px){
+ body[data-sim-runtime="true"] .technical-review-workspace .package-pn-question select{min-height:44px;height:auto;font-size:16px}
+}
+.technical-review-mobile-hint{display:none}
+@media(max-width:760px){body[data-sim-runtime="true"] .technical-review-mobile-hint{display:block;color:#bfdbfe;font-size:13px;line-height:1.4;margin:8px 0}body[data-sim-runtime="true"] .candidate-table-scroll:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}}
+
+@media(max-width:760px){
+ body[data-sim-runtime="true"] .technical-review-workspace .package-table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ body[data-sim-runtime="true"] .technical-review-workspace .package-table-scroll table{min-width:900px}
+ body[data-sim-runtime="true"] .technical-review-workspace .unified-package-review .package-table-scroll table{min-width:1060px}
+}

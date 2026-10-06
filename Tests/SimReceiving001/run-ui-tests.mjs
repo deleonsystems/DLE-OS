@@ -54,6 +54,12 @@ const window = { document, crypto: { randomUUID: () => 'request-' + (++sequence)
   } };
 vm.runInNewContext(source, { window, document, console, Intl, Date });
 const ui = window.DleWorkspaces.receiving;
+const appliedReceipt={receiptLineId:'receipt-complete',acceptedQuantity:8,receivedQuantity:8,appliedQuantity:8,availableQuantity:0,stagedAtUtc:'2026-09-24T00:00:00Z',coverage:[],purchasingUom:'EA'};
+assert.match(ui.materialMarkup(appliedReceipt), /Applied to Kit/);
+assert.doesNotMatch(ui.materialMarkup(appliedReceipt), /Awaiting staging|Ready for Kitting|Record Staging/);
+assert.match(ui.materialMarkup({...appliedReceipt,appliedQuantity:3,availableQuantity:5}), /Partially Applied · Ready for Kitting/);
+assert.match(ui.materialMarkup({...appliedReceipt,appliedQuantity:0,availableQuantity:8}), /Ready for Kitting/);
+assert.match(ui.materialMarkup({...appliedReceipt,appliedQuantity:0,availableQuantity:0,stagedAtUtc:null}), /Awaiting staging/);
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const input = (dataset, value) => mount.oninput({ target: { dataset, value } });
 const click = async dataset => { mount.onclick({ target: { closest: () => ({ dataset }) } }); await tick(); };
