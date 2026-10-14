@@ -13,9 +13,9 @@ const edit=(field,value,id='a')=>root.oninput({target:{dataset:{id,field},value}
 const setting=(key,value)=>root.oninput({target:{dataset:{plan:key},value}});
 const click=(action,id='a')=>root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{action,id}})}});
 edit('operationQuantity','55');edit('runSeconds','30');setting('markup','25');
-assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'1650 sec');assert.equal(root.querySelector('[data-total="unit"]').textContent,'$42.97');
+assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'1650 sec / unit');assert.equal(root.querySelector('[data-total="unit"]').textContent,'$42.97');
 setting('rate','75.5');assert.equal(root.querySelector('[data-total="unit"]').textContent,'$43.26');setting('rate','75');
-edit('operationQuantity','');assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'0 sec');edit('operationQuantity','55');
+edit('operationQuantity','');assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'0 sec / unit');edit('operationQuantity','55');
 for(const invalid of ['-1','abc','1.1234567']){edit('runSeconds',invalid);const before=writes;await click('save');assert.equal(writes,before);}edit('runSeconds','30');
 edit('instructions','Synthetic routing');await click('down');await click('add');await click('remove','new-1');await click('save');assert.equal(saved.plan.operations[0].id,'b');assert.equal(saved.plan.operations[1].instructions,'Synthetic routing');
 await reopen();assert.match(mount.innerHTML,/Synthetic routing/);await click('complete');assert.equal(saved.plan.versions.length,1);
@@ -31,27 +31,27 @@ const choose=(id,choice)=>root.onclick({stopPropagation(){},target:{closest:()=>
 await choose('a',0);assert.match(mount.innerHTML,/Kitting/);
 await click('sub','a');const child1=`new-${next}`;await choose(child1,0);edit('operationQuantity','55',child1);edit('runSeconds','8',child1);
 await click('sub','a');const child2=`new-${next}`;await choose(child2,3);edit('operationQuantity','55',child2);edit('runSeconds','20',child2);
-assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'1540 sec');assert.equal(root.querySelector('[data-total="run"]').textContent,'1540');
-assert.doesNotMatch(mount.innerHTML,/Children roll up|parent Qty\/time not counted/);assert.match(mount.innerHTML,/20\.1/);assert.match(mount.innerHTML,/data-rollup-run="a"/);
+assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'1540 sec / unit');assert.equal(root.querySelector('[data-total="run"]').textContent,'1540');
+assert.doesNotMatch(mount.innerHTML,/Children roll up|parent Qty\/time not counted/);assert.match(mount.innerHTML,/M1\.1/);assert.match(mount.innerHTML,/data-rollup-run="a"/);
 await click('up','a');await click('up',child2);await click('save');
 assert.deepEqual(saved.plan.operations.map(o=>o.id),['a',child2,child1,'b']);assert.equal(saved.plan.operations[1].parentId,'a');
-await reopen();assert.match(mount.innerHTML,/10\.1/);assert.match(mount.innerHTML,/10\.2/);
+await reopen();assert.match(mount.innerHTML,/M1\.1/);assert.match(mount.innerHTML,/M1\.2/);
 await click('manual',child1);edit('name','Custom label step',child1);await click('save');assert.equal(saved.plan.operations.find(o=>o.id===child1).name,'Custom label step');
 const options=[{dataset:{option:'kitting'}},{dataset:{option:'reflow'}}];root.oninput({target:{dataset:{search:''},value:'kit',closest:()=>({querySelectorAll:()=>options})}});assert.equal(options[0].hidden,false);assert.equal(options[1].hidden,true);
-assert.ok(api.choices({name:'SMT Setup'}).includes('Load Feeders'));assert.ok(api.choices({name:'Final Inspection'}).includes('Visual Inspection'));
-await click('remove','a');assert.match(mount.innerHTML,/Remove this operation and its sub-operations/);await click('cancel-remove');assert.match(mount.innerHTML,/10\.2/);
-await click('remove',child1);await click('remove',child2);assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'1650 sec');
+assert.ok(api.choices({name:'SMT'}).includes('SMT Machine Placement'));assert.ok(api.choices({name:'Inspection'}).includes('Quality Inspection')); for(const group of api.choices()) assert.ok(api.choices({name:group}).includes('Cleaning'));
+await click('remove','a');assert.match(mount.innerHTML,/Remove this operation and its sub-operations/);await click('cancel-remove');assert.match(mount.innerHTML,/M1\.2/);
+await click('remove',child1);await click('remove',child2);assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'1650 sec / unit');
 console.log('PASS: contextual operation choices/search/manual, one-level hierarchy, automatic sequence, parent/child ordering, rollup without double counting, removal safeguards and hierarchy save/reopen.');
 
 await click('sub','a');const roll1=`new-${next}`;edit('operationQuantity','1',roll1);edit('runSeconds','300',roll1);
 await click('sub','a');const roll2=`new-${next}`;edit('operationQuantity','50',roll2);edit('runSeconds','180',roll2);
 assert.equal(root.querySelector('[data-rollup-run="a"]').textContent,'—');
-assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'9300 sec');
-assert.equal(root.querySelector('[data-operation-total="'+roll2+'"]').textContent,'9000 sec');
+assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'9300 sec / unit');
+assert.equal(root.querySelector('[data-operation-total="'+roll2+'"]').textContent,'9000 sec / unit');
 assert.equal(root.querySelector('[data-total="minutes"]').textContent,'155');
 await click('toggle','a');assert.equal((mount.innerHTML.match(/<tr hidden class="labor-child"/g)||[]).length,2);
 assert.match(mount.innerHTML,/aria-expanded="false"/);await click('down','a');assert.match(mount.innerHTML,/<tr hidden class="labor-child"/);
-assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'9300 sec');
+assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'9300 sec / unit');
 await click('toggle','a');assert.doesNotMatch(mount.innerHTML,/<tr hidden/);
 await click('save');await reopen();assert.equal(root.querySelector('[data-rollup-run="a"]').textContent,'—');
 assert.equal(saved.plan.operations.find(o=>o.id==='a').runSeconds,30);
@@ -61,10 +61,10 @@ console.log('PASS: collapse/expand, session redraw state, read-only disclosure, 
 
 const basis=(id,value)=>root.onclick({stopPropagation(){},target:{closest:()=>({dataset:{action:'basis',id,basis:value}})}});
 await basis(roll1,'BATCH');edit('operationQuantity','55',roll1);edit('runSeconds','180',roll1);
-assert.equal(root.querySelector('[data-operation-total="'+roll1+'"]').textContent,'396 sec*');assert.match(mount.innerHTML,/labor-batch/);
-await basis(roll1,'PER_UNIT');assert.equal(root.querySelector('[data-operation-total="'+roll1+'"]').textContent,'9900 sec');
+assert.equal(root.querySelector('[data-operation-total="'+roll1+'"]').textContent,'396 sec / unit*');assert.match(mount.innerHTML,/labor-batch/);
+await basis(roll1,'PER_UNIT');assert.equal(root.querySelector('[data-operation-total="'+roll1+'"]').textContent,'9900 sec / unit');
 await basis(roll1,'BATCH');await click('save');await reopen();assert.equal(saved.plan.operations.find(o=>o.id===roll1).timeBasis,'BATCH');
-assert.match(mount.innerHTML,/>Options<\/th>/);assert.match(mount.innerHTML,/popover="auto" class="labor-picker labor-options"/);
+assert.match(mount.innerHTML,/>Options<\/th>/);assert.match(mount.innerHTML,/popover="manual" class="labor-picker labor-options"/);
 assert.equal(api.calculate({quantity:25,rate:75,markup:0,operations:[{id:'p',operationQuantity:999,runSeconds:999},{id:'b',parentId:'p',operationQuantity:1,runSeconds:300,timeBasis:'BATCH'},{id:'u',parentId:'p',operationQuantity:55,runSeconds:180}]}).run,'9912');
 console.log('PASS: Batch/Per Unit live totals, mixed hierarchy, basis save/reopen and compact Options menu.');
 
@@ -77,12 +77,12 @@ console.log('PASS: batch allocation tooltip, 396 seconds, per-unit pricing witho
 
 edit('operationQuantity','1',roll1);edit('runSeconds','600',roll1);await basis(roll1,'BATCH');
 await click('sub','a');const dashChild=`new-${next}`;edit('operationQuantity','55',dashChild);edit('runSeconds','180',dashChild);await basis(dashChild,'BATCH');
-assert.equal(root.querySelector('[data-operation-total="'+roll1+'"]').textContent,'24 sec*');
-assert.equal(root.querySelector('[data-operation-total="'+dashChild+'"]').textContent,'396 sec*');
-assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'420 sec');
+assert.equal(root.querySelector('[data-operation-total="'+roll1+'"]').textContent,'24 sec / unit*');
+assert.equal(root.querySelector('[data-operation-total="'+dashChild+'"]').textContent,'396 sec / unit*');
+assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'420 sec / unit');
 assert.equal(root.querySelector('[data-rollup-run="a"]').textContent,'—');
 assert.match(mount.innerHTML,/Operation Qty a — supplied by children/);
-await click('toggle','a');assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'420 sec');
+await click('toggle','a');assert.equal(root.querySelector('[data-operation-total="a"]').textContent,'420 sec / unit');
 await click('save');await reopen();assert.equal(root.querySelector('[data-rollup-run="a"]').textContent,'—');
 assert.equal(saved.plan.operations.find(o=>o.id==='a').runSeconds,30);
 await click('remove',roll1);await click('remove',dashChild);assert.match(mount.innerHTML,/data-id="a" data-field="runSeconds"[^>]*value="30"/);
@@ -100,7 +100,7 @@ window.fetch=async(url,options)=>{
 };
 const imageFile={name:'Screenshot.png',type:'image/png',size:80};
 const paste=async(file=imageFile)=>{let prevented=false;await root.onpaste({target:{closest:()=>true},clipboardData:{items:[{kind:'file',type:file.type,getAsFile:()=>file}]},preventDefault(){prevented=true;}});return prevented;};
-await click('visuals','a');assert.match(mount.innerHTML,/Visuals for \d+ Kitting/);
+await click('visuals','a');assert.match(mount.innerHTML,/Visuals for M\d+ Kitting/);
 assert.equal(await paste(),true);assert.equal(uploads,1);assert.match(mount.innerHTML,/Visuals a \(1\)/);assert.match(mount.innerHTML,/<img src="[^"]+image-1"/);
 root.oninput({target:{dataset:{visualCaption:'image-1'},value:'Watch <polarity>'}});
 await root.onchange({target:{dataset:{visualFile:''},files:[imageFile]}});assert.equal(uploads,2);assert.match(mount.innerHTML,/Visuals a \(2\)/);

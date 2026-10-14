@@ -1,6 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
+if(args.Contains("--exclusions")){await ExclusionTests.Run(Path.GetFullPath(args[0]));return;}
+if(args.Contains("--bom")){await BomSlideTests.Run(Path.GetFullPath(args[0]));return;}
+if(args.Contains("--organizer")){await OrganizerTests.Run(Path.GetFullPath(args[0]));return;}
+if(args.Contains("--slides")){await SlideTests.Run(Path.GetFullPath(args[0]));return;}
 if(args.Contains("--pages")){await PageTests.Run(Path.GetFullPath(args[0]));return;}
 if(args.Contains("--roles")){await RoleTests.Run(Path.GetFullPath(args[0]));return;}
 if(args.Contains("--shapes")){await ShapeTests.Run(Path.GetFullPath(args[0]));return;}
@@ -11,6 +15,7 @@ if(args.Contains("--revisions")){await LaborRevisionTests.Run(Path.GetFullPath(a
 if(args.Length>1&&args[1]=="--bridge"){
  var opt=new JsonSerializerOptions(JsonSerializerDefaults.Web);var input=JsonNode.Parse(Console.In.ReadToEnd())!;var api=new SimRfqIntakeStore(args[0]);var persona=new SimPersona("bridge","bridge","Isolated Browser Author","ACTIVE",[],["technical_review.view","technical_review.disposition"],false,"SIM");
  try{object output=(string?)input["action"] switch{
+ "visual"=>await api.StageLaborVisual((string)input["id"]!,input["request"]!["metadata"]!.Deserialize<SimLaborVisualUpload>(opt)!,"browser-fixture.png",new MemoryStream(Convert.FromBase64String((string)input["request"]!["bytes"]!)),persona),
  "labor"=>await api.ReadLabor((string)input["id"]!),
  "revise"=>await api.ReviseLabor((string)input["id"]!,input["request"]!.Deserialize<SimLaborReviseRequest>(opt)!,persona),
  "labor-save"=>await api.SaveLabor((string)input["id"]!,input["request"]!.Deserialize<SimLaborRequest>(opt)!,persona),

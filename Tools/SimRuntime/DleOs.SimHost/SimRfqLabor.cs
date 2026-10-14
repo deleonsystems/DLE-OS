@@ -2,9 +2,18 @@ using System.Text.Json;
 
 internal sealed record SimManufacturingLead(int? Value, string Unit = "WEEKS");
 
+internal sealed record SimFirstPieceSettings(bool Enabled = false, string? InspectionOperationId = null, bool CaptureSerial = false, string[]? SetupOperationIds = null);
 internal sealed record SimLaborOperation(string Id, string Name, decimal? SetupMinutes = null, decimal? RunMinutes = null, string Instructions = "", decimal? OperationQuantity = null, decimal? RunSeconds = null, string? ParentId = null, string TimeBasis = "PER_UNIT",
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborVisual[]? Visuals = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborNote[]? Notes = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ResponsibleRole = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborNote[]? Notes = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ResponsibleRole = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborSlide[]? Slides = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] bool? SlidesOrganized = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string[]? ExcludedSlideIds = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimFirstPieceSettings? FirstPiece = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] int? ExecutionQuantity = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? InstructionSourceId = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Department = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Handoff = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] bool? CaptureSerial = null);
 internal sealed record SimLaborTotals(decimal SetupMinutes, decimal RunMinutes, decimal TotalMinutes, decimal TotalHours, decimal Cost, decimal SaleTotal, decimal UnitSalePrice, decimal? TotalSeconds = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? BaseLaborCost = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] decimal? ConsumablesPerUnit = null,
@@ -21,16 +30,19 @@ internal sealed record SimLaborPlan(int Revision, string DefinitionId, int Quant
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborCharge[]? Charges = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimManufacturingLead? ManufacturingLead = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborRevisionEvent[]? RevisionHistory = null);
-internal sealed record SimLaborRequest(int ExpectedRevision, string DefinitionId, int Quantity, SimLaborOperation[] Operations, decimal? Rate, decimal Markup, bool Complete = false, string CalculationVersion = "LABOR_OPERATION_QTY_V2", int VisualContractVersion = 0, int NoteContractVersion = 0, SimLaborCharge[]? Charges = null, int ChargeContractVersion = 0, SimManufacturingLead? ManufacturingLead = null, int LeadContractVersion = 0, string? DrawingContentToken = null, int RoleContractVersion = 0);
-internal sealed record SimLaborView(SimRfqWorkspace Rfq, SimLaborPlan Plan, SimLaborTotals Totals, int RevisionContractVersion = 0, bool CanRevise = false, string? RevisionBlocker = null, string DrawingContentToken = "", int RoleContractVersion = 1);
+internal sealed record SimLaborRequest(int ExpectedRevision, string DefinitionId, int Quantity, SimLaborOperation[] Operations, decimal? Rate, decimal Markup, bool Complete = false, string CalculationVersion = "LABOR_OPERATION_QTY_V2", int VisualContractVersion = 0, int NoteContractVersion = 0, SimLaborCharge[]? Charges = null, int ChargeContractVersion = 0, SimManufacturingLead? ManufacturingLead = null, int LeadContractVersion = 0, string? DrawingContentToken = null, int RoleContractVersion = 0, int SlideContractVersion = 0);
+internal sealed record SimLaborView(SimRfqWorkspace Rfq, SimLaborPlan Plan, SimLaborTotals Totals, int RevisionContractVersion = 0, bool CanRevise = false, string? RevisionBlocker = null, string DrawingContentToken = "", int RoleContractVersion = 1, int SlideContractVersion = 8);
 
 internal sealed partial class SimRfqIntakeStore
 {
     internal static decimal LaborOperationSeconds(SimLaborOperation operation, SimLaborOperation[] operations, int quantity = 1)
     {
         var children = operations.Where(o => o.ParentId == operation.Id).ToArray();
-        decimal Own(SimLaborOperation o) => (o.RunSeconds ?? 0) * (o.OperationQuantity ?? 0) / (o.TimeBasis == "BATCH" ? quantity : 1);
-        return children.Length == 0 ? Own(operation) : children.Sum(Own);
+        var root = operation;
+        while (root.ParentId is string parent) root = operations.Single(o => o.Id == parent);
+        decimal Own(SimLaborOperation o) => (o.RunSeconds ?? 0) * (o.OperationQuantity ?? 0) * (o.TimeBasis == "BATCH" ? 1 : root.ExecutionQuantity ?? quantity) / quantity;
+        bool EstimatedBelow(SimLaborOperation o) => operations.Where(c => c.ParentId == o.Id).Any(c => (c.OperationQuantity.HasValue && c.RunSeconds.HasValue) || EstimatedBelow(c));
+        return !EstimatedBelow(operation) ? Own(operation) : children.Sum(child => LaborOperationSeconds(child, operations, quantity));
     }
     internal static SimLaborTotals CalculateLabor(SimLaborOperation[] operations, int quantity, decimal rate, decimal markup, SimLaborCharge[]? charges = null)
     {
@@ -97,17 +109,38 @@ internal sealed partial class SimRfqIntakeStore
             if (request.Operations is null || request.Operations.Length > 200 || request.Operations.Any(o => o is null || string.IsNullOrWhiteSpace(o.Id) || o.Id.Length > 80 || !o.Id.All(c => char.IsAsciiLetterOrDigit(c) || c == '-') || (o.Name?.Length ?? 0) > 200 || (o.Instructions?.Length ?? 0) > 4000 || o.SetupMinutes is < 0 or > 1000000 || o.RunMinutes is < 0 or > 1000000 || !Precise(o.SetupMinutes) || !Precise(o.RunMinutes) || o.RunMinutes is not null || o.TimeBasis is not ("PER_UNIT" or "BATCH") || o.RunSeconds is < 0 or > 60000000 || !Precise(o.RunSeconds) || o.OperationQuantity is < 0 or > 1000000 || !Precise(o.OperationQuantity))
                 || request.Operations.Select(o => o.Id).Distinct().Count() != request.Operations.Length || request.Rate is < 0 or > 1000000 || request.Markup is < 0 or > 10000 || !Precise(request.Rate) || !Precise(request.Markup))
                 throw SimRfqIntakeProblem.Conflict("LABOR_VALUES", "Use unique operations, nonnegative times/rate up to 1000000, and markup from 0 to 10000 percent.");
-            if (request.Operations.Any(o => o.ParentId is not null && !request.Operations.Any(p => p.Id == o.ParentId && p.ParentId is null && p.Id != o.Id)))
-                throw SimRfqIntakeProblem.Conflict("LABOR_HIERARCHY", "Sub-operations must belong to an existing main operation. Only one child level is supported.");
+            bool Advanced(SimLaborOperation o, SimLaborOperation[] all) => o.ExecutionQuantity is not null || o.InstructionSourceId is not null || o.Department is not null || o.Handoff is not null || o.CaptureSerial is not null || o.ParentId is string p && all.Any(parent => parent.Id == p && parent.ParentId is not null);
+            if (request.SlideContractVersion < 8 && (request.Operations.Any(o => Advanced(o, request.Operations)) || view.Plan.Operations.Any(o => Advanced(o, view.Plan.Operations))))
+                throw SimRfqIntakeProblem.Conflict("LABOR_SECTION_CONTRACT", "Refresh Labor before saving nested sections or shared instructions.");
+            foreach (var operation in request.Operations)
+            {
+                var visited = new HashSet<string> { operation.Id }; var current = operation;
+                while (current.ParentId is string parentId)
+                {
+                    var parent = request.Operations.SingleOrDefault(o => o.Id == parentId);
+                    if (parent is null || !visited.Add(parentId)) throw SimRfqIntakeProblem.Conflict("LABOR_HIERARCHY", "Every step needs an existing parent and a cycle-free hierarchy.");
+                    current = parent;
+                }
+                if (operation.ExecutionQuantity is < 1 or > 1000000 || operation.ParentId is not null && operation.ExecutionQuantity is not null || operation.Department?.Length > 80 || operation.Handoff?.Length > 1000)
+                    throw SimRfqIntakeProblem.BadRequest("LABOR_SECTION_VALUES", "Use a positive section quantity, department up to 80 characters and handoff up to 1000 characters.");
+                if (operation.InstructionSourceId is string sourceId)
+                {
+                    var source = request.Operations.SingleOrDefault(o => o.Id == sourceId);
+                    if (source is null || source.Id == operation.Id || source.InstructionSourceId is not null || !string.IsNullOrEmpty(operation.Instructions) || operation.Notes?.Length > 0 || operation.Slides?.Length > 0 || operation.Visuals?.Length > 0 || operation.ExcludedSlideIds?.Length > 0 || operation.SlidesOrganized == true)
+                        throw SimRfqIntakeProblem.BadRequest("LABOR_INSTRUCTION_SOURCE", "Shared instructions must reference an independent existing owner. Preserve local content before linking.");
+                }
+            }
             if (request.Operations.Any(o => o.ResponsibleRole is {Length: > 80} or "__inherit" or "__custom" || o.ResponsibleRole?.Any(char.IsControl) == true))
                 throw SimRfqIntakeProblem.BadRequest("LABOR_ROLE_VALUES", "Use a role label up to 80 characters.");
             if (request.RoleContractVersion != 1 && (request.Operations.Any(o=>o.ResponsibleRole is not null) || view.Plan.Operations.Any(o=>o.ResponsibleRole is not null)))
                 throw SimRfqIntakeProblem.Conflict("LABOR_ROLE_CONTRACT", "Refresh Labor before saving responsible roles.");
             var operations = request.Operations.Select(o => o with { ResponsibleRole = o.ResponsibleRole?.Trim(), Name = (o.Name ?? "").Trim(), Instructions = (o.Instructions ?? "").Trim() }).ToArray();
+            await ValidateLaborSlides(record, view.Plan, operations, request.SlideContractVersion);
             var visualState = await ValidateLaborVisuals(record, view.Plan, operations, request.VisualContractVersion, persona);
             operations = visualState.Operations;
             // Canonical flat order keeps every child beside its parent; IDs remain stable.
-            operations = operations.Where(o => o.ParentId is null).SelectMany(p => new[] { p }.Concat(operations.Where(c => c.ParentId == p.Id))).ToArray();
+            IEnumerable<SimLaborOperation> InOrder(string? parent) { foreach (var item in operations.Where(o => o.ParentId == parent)) { yield return item; foreach (var child in InOrder(item.Id)) yield return child; } }
+            operations = InOrder(null).ToArray();
             var noteState = ValidateLaborNotes(view.Plan, operations, request.NoteContractVersion, persona);
             operations = noteState.Operations;
             var charges = ValidateLaborCharges(view.Plan, request);
@@ -181,16 +214,42 @@ internal static partial class SimRfqIntakeEndpoints
             catch (IOException) { return Results.Json(new { message = "Labor could not be saved. Your edits remain available; retry." }, statusCode: 503); }
         });
     }
+    internal static string[][] BomReferenceCells(SimRfqWorkspace rfq) => rfq.Inputs.Materials.Candidate.Rows.Select(r =>
+    {
+        var identity = r.ManufacturerIdentity;
+        var confirmed = identity is null ? "" : string.Join(" / ", identity.Proposals.Where(p => identity.Decision(p.Id) == "CONFIRMED").Select(p => p.PartNumber).Distinct());
+        return new[] { r.Values.GetValueOrDefault("lineNumber") ?? "", r.Values.GetValueOrDefault("partNumber") ?? "", confirmed, r.Values.GetValueOrDefault("description") ?? "", r.Values.GetValueOrDefault("designators") ?? "", r.Values.GetValueOrDefault("quantity") ?? "", r.ComponentType ?? "STANDARD_COTS" };
+    }).ToArray();
+    // Matches labor-bom-slides.js v3: Arial-compatible advances, compact 1200x700 source pages.
+    internal static int BomReferencePageCount(SimRfqWorkspace rfq)
+    {
+        int[] widths = [45, 100, 200, 400, 190, 50, 145];
+        int[] advances = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,333,556,556,556,556,260,556,333,737,370,556,584,1000,737,333,400,584,333,333,333,556,537,278,333,333,365,556,834,834,834,611,667,667,667,667,667,667,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,500,556,556,556,556,278,278,278,278,556,556,556,556,556,556,556,584,611,556,556,556,556,500,556,500];
+        int Lines(string text, int width) {
+            var chars=text.EnumerateRunes().ToArray();int start=0,count=0;
+            while(start<chars.Length){int end=start,lastBreak=start;double used=0;
+                while(end<chars.Length){var cp=chars[end].Value;var advance=(cp>=32&&cp<=255?advances[cp-32]:1000)*12*1.035/1000;
+                    if(used+advance>width-8&&end>start)break;used+=advance;end++;
+                    if(System.Text.Rune.IsWhiteSpace(chars[end-1])||chars[end-1].Value is '/' or '-' or 0x2013)lastBreak=end;
+                }
+                if(end<chars.Length&&lastBreak>start)end=lastBreak;count++;start=end;
+            }
+            return Math.Max(1,count);
+        }
+        int count=0,used=0,rowsOnPage=0;
+        foreach(var cells in BomReferenceCells(rfq)){
+            if(rowsOnPage>=20){count++;used=0;rowsOnPage=0;}
+            var height=cells.Select((v,i)=>Lines(v,widths[i])).Max();var whole=height*14+3;
+            if(whole<=570&&whole>570-used){count++;used=0;rowsOnPage=0;}
+            int offset=0;while(offset<height){int available=(570-used-3)/14;if(available<1){count++;used=0;rowsOnPage=0;continue;}int take=Math.Min(height-offset,available);used+=take*14+3;rowsOnPage++;offset+=take;if(offset<height){count++;used=0;rowsOnPage=0;}}
+        }
+        return Math.Max(1,count+(used>0?1:0));
+    }
     internal static string BomReference(SimRfqWorkspace rfq)
     {
         string E(object? v) => System.Net.WebUtility.HtmlEncode(v?.ToString() ?? "");
         var accepted = rfq.Inputs.Materials;
-        var rows = accepted.Candidate.Rows.Select(r =>
-        {
-            var identity = r.ManufacturerIdentity;
-            var confirmed = identity is null ? "" : string.Join(" / ", identity.Proposals.Where(p => identity.Decision(p.Id) == "CONFIRMED").Select(p => p.PartNumber).Distinct());
-            return "<tr tabindex=\"0\" aria-selected=\"false\" data-quantity=\"" + E(r.Values.GetValueOrDefault("quantity")) + "\">" + new[] { r.Values.GetValueOrDefault("lineNumber"), r.Values.GetValueOrDefault("partNumber"), confirmed, r.Values.GetValueOrDefault("description"), r.Values.GetValueOrDefault("designators"), r.Values.GetValueOrDefault("quantity"), r.ComponentType ?? "STANDARD_COTS" }.Select(v => "<td>" + E(v) + "</td>").Aggregate("", (a,b) => a+b) + "</tr>";
-        });
+        var rows = BomReferenceCells(rfq).Select(cells => "<tr tabindex=\"0\" aria-selected=\"false\" data-quantity=\"" + E(cells[5]) + "\">" + string.Concat(cells.Select(v => "<td>" + E(v) + "</td>")) + "</tr>");
         return "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>Accepted BOM — read-only reference</title><style>body{font:14px system-ui;margin:24px;color:#183247;background:#f4f7fa}h1{font-size:22px}table{border-collapse:collapse;width:100%;background:white}th,td{padding:7px 9px;border:1px solid #d4dfe7;text-align:left}th{position:sticky;top:0;background:#dce7ee}tr:nth-child(even){background:#f1f6fa}tbody tr{cursor:pointer}tbody tr[aria-selected=true]{background:#cce5f5}tbody tr:focus-visible{outline:2px solid #286b96;outline-offset:-2px}.analysis{position:sticky;bottom:0;background:#e4eef4;padding:10px;display:flex;gap:16px;align-items:center}td{overflow-wrap:anywhere}body{font-size:13px}</style><h1>Accepted BOM — read-only reference</h1><p>" + E(rfq.Customer.CustomerName) + " · " + E(rfq.Assemblies[0].AssemblyNumber) + " · Rev " + E(rfq.Assemblies[0].Revision) + " · Accepted BOM v" + accepted.Version + "</p><p><strong>BOM Lines: " + accepted.Candidate.Rows.Length + "</strong> · Total Components: <strong id=\"bom-total\">—</strong></p><p>Click a row · Ctrl+Click to add/remove · Shift+Click for a range · Escape to clear. Selection is temporary and read-only.</p><table><thead><tr>" + string.Join("", new[] { "Find / Line #", "Customer / BOM P/N", "Confirmed MFG P/N", "Description", "Ref Des", "Qty / Assy", "Component Type" }.Select(h => "<th>" + h + "</th>")) + "</tr></thead><tbody>" + string.Join("", rows) + "</tbody></table><div class=\"analysis\"><span id=\"bom-selection\" role=\"status\" aria-live=\"polite\">Selected: 0 lines · 0 components</span><button id=\"bom-clear\" type=\"button\">Clear selection</button></div><script src=\"/SRC/workspaces/rfqs/bom-reference.js\" defer></script></html>";
     }
 }

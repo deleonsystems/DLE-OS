@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),{webcrypto}=require('crypto');
+let shown;const window={crypto:webcrypto,DleLaborDrawingNotes:{open:async options=>{shown=options;}}};
+for(const name of ['labor-workbench','labor-slides'])vm.runInNewContext(fs.readFileSync('SRC/workspaces/rfqs/'+name+'.js','utf8'),{window,document:{},structuredClone,clearTimeout,TextEncoder});
+const api=window.DleLaborWorkbench;
+const smt={id:'a',name:'SMT',responsibleRole:'Kitting operator'},child={id:'child',name:'Cleaning',parentId:'a'};
+assert.equal(api.workArea(smt),'SMT');assert(!api.materialPreparationIds([smt,child]).size);assert(api.choices(smt).includes('SMT Machine Placement'));assert(!api.choices(smt).includes('Pull Components'));
+smt.name='Kitting';assert.equal(api.materialPreparationIds([smt,child]).size,2);assert(api.choices(smt).includes('Cleaning'));
+smt.name='Custom bench';assert.equal(api.workArea(smt),'');assert.equal(api.materialPreparationIds([smt,child]).size,0);assert(api.choices(smt).includes('SMT Hand Solder'));assert.equal(smt.responsibleRole,'Kitting operator');
+for(const name of api.choices())assert(api.choices({name}).includes('Cleaning'));
+const stage=()=>({id:webcrypto.randomUUID(),name:'Stage',marks:[],savedView:{page:1,x:.5,y:.5,width:1,height:1}}),card=()=>({id:webcrypto.randomUUID(),kind:'START',title:'Start',body:'',page:1,stages:[stage()]}),op=(id,name,role,parentId=null)=>({id,name,responsibleRole:role,parentId,instructions:'Keep '+id,slides:parentId?[]:[card()]});
+const plan={definitionId:'fixture',operations:[op('kit','Kitting','SMT Operator'),op('a','SMT','Kitting operator'),op('child','Cleaning','Quality Inspector','a'),op('b','SMT','SMT Operator'),op('q','Inspection','SMT Operator'),op('c','SMT',null),op('custom','My own process','Old role')]};
+const controller=window.DleLaborSlides.connect({intakeId:'fixture',getPlan:()=>plan,canEdit:()=>true,supported:()=>true,onChange:()=>{throw Error('unexpected mutation');}});
+(async()=>{const before=JSON.stringify(plan);await controller.playSequence(plan.operations,null);assert.deepEqual(Array.from(shown.operationTabs,t=>t.label),['SMT 1','SMT 2','Inspection','SMT 3','My own process']);assert.deepEqual(Array.from(shown.operationTabs,t=>t.id),['a','b','q','c','custom']);
+shown.onAdvance(1);await new Promise(setImmediate);assert.equal(shown.operationTabs.find(t=>t.active).id,'a','child override cannot split section');shown.onAdvance(shown.operationTabs.find(t=>t.id==='b').offset);await new Promise(setImmediate);assert.equal(shown.operationTabs.find(t=>t.active).id,'b','consecutive identical names remain distinct');
+await controller.playSequence(plan.operations,null,'SMT Operator');assert.equal(shown.operationTabs.length,5);assert.equal(JSON.stringify(plan),before);
+console.log('PASS operation-first: role-independent materials/choices; custom rename fallback; exact work-area matching; repeated adjacent/split main sections; inherited/override roles preserved; optional role preview; no mutations');})().catch(e=>{console.error(e);process.exitCode=1;});

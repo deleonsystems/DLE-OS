@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),window={};
+for(const f of ['labor-workbench','labor-traveler-print'])vm.runInNewContext(fs.readFileSync('SRC/workspaces/rfqs/'+f+'.js','utf8'),{window,document:{}});
+const api=window.DleLaborWorkbench;
+const ops=[{id:'a',name:'SMT'},{id:'a1',parentId:'a',name:'Place'},{id:'k',name:'Kitting'},{id:'k1',parentId:'k',name:'Kit'},{id:'a2',parentId:'a',name:'Solder',slides:[{id:'s',kind:'DRAWING',stages:[{},{}]}],excludedSlideIds:['s']},{id:'b',name:'Shipping'},{id:'b1',parentId:'b',name:'Labels'}];
+const before=JSON.stringify(ops),rows=api.displayRows(ops);
+assert.deepEqual(Array.from(rows,r=>r.seq),['1','1.1','1.2','M1','M1.1','2','2.1']);
+assert.deepEqual(Array.from(rows,r=>r.legacySeq),Array.from(api.ordered(ops),r=>r.seq));
+assert.deepEqual(Array.from(rows,r=>r.step),[null,1,2,null,1,null,1]);
+const production=ops.filter(o=>!api.materialPreparationIds(ops).has(o.id));assert.deepEqual(Array.from(api.displayRows(production),r=>r.seq),['1','1.1','1.2','2','2.1']);
+const reordered=[ops[0],ops[4],ops[1],...ops.slice(2,4),...ops.slice(5)];assert.equal(api.displayRows(reordered).find(r=>r.o.id==='a2').seq,'1.1');assert.equal(api.displayRows(reordered).find(r=>r.o.id==='a1').seq,'1.2');
+const def=window.DleLaborTravelerPrint.build({operations:ops},{});for(const label of ['M1','M1.1','1','1.1','1.2','2','2.1'])assert(def.html.includes('class="quote-number">'+label+'</td>'));assert.equal(JSON.stringify(ops),before);
+console.log('PASS tree-derived display numbering, local child steps, stable Materials separation, reordered children, reference/stage independence, preserved legacy sequences and preliminary traveler numbers');
