@@ -18,6 +18,7 @@ internal static class SimKittingEndpoints
         app.MapGet(route+"/released-requirements",(string workOrderNumber,HttpContext c)=>Guard(c,false,a=>service.Released(workOrderNumber,a)));
         app.MapGet(route+"/history",(string workOrderNumber,HttpContext c)=>Guard(c,false,a=>service.History(workOrderNumber,a)));
         app.MapGet(route+"/submissions",(string workOrderNumber,HttpContext c)=>Guard(c,false,a=>service.Submissions(workOrderNumber,a)));
+        app.MapPost(route+"/production-bom-correction",(string workOrderNumber,SimProductionBomCorrectionRequest r,HttpContext c)=>Guard(c,true,a=>service.CorrectProductionBom(workOrderNumber,r,a)));
         app.MapPost(route+"/start",(string workOrderNumber,SimKittingStartRequest r,HttpContext c)=>Guard(c,true,a=>service.Start(workOrderNumber,r,a)));
         app.MapPost(route+"/resume",(string workOrderNumber,SimKittingVersionRequest r,HttpContext c)=>Guard(c,true,a=>service.Resume(workOrderNumber,r,a)));
         app.MapPut(route+"/draft",(string workOrderNumber,SimKittingSaveRequest r,HttpContext c)=>Guard(c,true,a=>service.Save(workOrderNumber,r,a)));

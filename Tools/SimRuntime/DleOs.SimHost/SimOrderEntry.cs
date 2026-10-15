@@ -29,8 +29,7 @@ internal sealed partial class SimRfqIntakeStore
     {
         var quantity=package.Facts.Lines.SingleOrDefault()?.Quantity ?? 0;
         return (package.TechnicalSource?.Baseline?.Definition.Materials.Candidate.Rows ?? []).Select(row=> {
-            var numbers=row.IdentityBasis=="ASSEMBLY_PN" ? new[]{row.AssemblyIdentity?.PartNumber} : row.IdentityBasis=="CUSTOMER_PN" ? new[]{row.PrimaryIdentity?.PartNumber} :
-                row.ManufacturerIdentity?.Proposals.Where(p=>row.ManufacturerIdentity.Decision(p.Id)=="CONFIRMED").Select(p=>(string?)p.PartNumber).Distinct().ToArray() ?? [];
+            var numbers=SimApprovedPartIdentities.Resolve(row);
             var dnp=row.ComponentType=="DNP";
             var per=decimal.TryParse(row.Values.GetValueOrDefault("quantity"),NumberStyles.Number,CultureInfo.InvariantCulture,out var n)?n:0;
             return new SimBridgeBomRow(row.Values.GetValueOrDefault("lineNumber") ?? (row.Index+1).ToString(),dnp?"Not fitted":string.Join(" / ",numbers.Where(n=>!string.IsNullOrWhiteSpace(n))),row.Values.GetValueOrDefault("description") ?? "",per,dnp?0:per*quantity,dnp);

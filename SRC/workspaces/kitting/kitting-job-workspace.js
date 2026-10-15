@@ -157,10 +157,229 @@
     prependById(actions, 'workOrderDashboardKitReleasedBom');
     appendById(releasedBom, 'workOrderDashboardReleasedBom');
     primaryIds.slice(3).forEach(id => appendById(documents, id));
-    appendById(active, 'workOrderDashboardActiveKitting');
+    if (!document.getElementById('workOrderDashboardActiveKitting')?.closest('.job-instruction-viewer'))
+      appendById(productionSlidesOpen ? document.getElementById('kittingProductionBom') : active, 'workOrderDashboardActiveKitting');
+    initializeProductionSlides();
     const legacy = originalLocations.get('legacyKittingWorkspaceSection')?.node;
     if (legacy) disposition.appendChild(legacy);
     applyReportVisibility();
+  }
+
+  let startingSlides = false;
+  let legacyInstructionWorkOrder = '';
+  async function startKitting() {
+    if (!['SIM', 'SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)) return false;
+    if (startingSlides) return false;
+    startingSlides = true;
+    try {
+      const wo = clean(window.WorkOrderDashboardModule?.getSelectedHandoff?.()?.workOrderNumber);
+      const probe = await fetch('/api/production/v1/work-orders/' + encodeURIComponent(wo) + '/instructions', {credentials:'same-origin',cache:'no-store'});
+      if (probe.status === 404) {
+        // Legacy jobs without accepted instruction decks retain their governed form.
+        legacyInstructionWorkOrder = wo;
+        document.getElementById('kittingJobWorkspace')?.classList.remove('uses-production-slides');
+        return await window.WorkOrderDashboardModule.openActiveKitting();
+      }
+      if (!probe.ok) throw Error('Production Slides unavailable (' + probe.status + '). Please retry.');
+      const opened = await window.WorkOrderDashboardModule.openActiveKitting();
+      if (!opened) throw Error(window.WorkOrderDashboardModule.getActiveKittingSaveState?.() || 'Kitting could not start or resume. Please retry.');
+      toggleProductionSlides(true);
+      return true;
+    } catch (error) {
+      window.alert(error.message || 'Kitting could not open.');
+      return false;
+    } finally { startingSlides = false; }
+  }
+  let productionSlidesOpen = false;
+  let productionSlide = 0;
+  let productionSlideWorkOrder = '';
+
+  function toggleProductionSlides(forceOpen) {
+    if (!['SIM', 'SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)) return false;
+    const open = typeof forceOpen === 'boolean' ? forceOpen : !productionSlidesOpen;
+    const panel = document.getElementById('kittingProductionSlides');
+    const active = document.getElementById('workOrderDashboardActiveKitting');
+    if (!panel || !active) return false;
+    productionSlidesOpen = open;
+    if (!open) { previewLoad++; setPrimaryTool('kitting', false); }
+    document.getElementById('kittingJobWorkspace')?.classList.toggle('has-production-slides', open);
+    document.getElementById('kittingProductionSlidesToggle')?.setAttribute('aria-expanded', String(open));
+    panel.hidden = !open;
+    // Move the actual form. Its draft, events, dialogs, lease and save actions remain owned by Kitting.
+    document.getElementById(open ? 'kittingProductionBom' : 'kittingJobActiveCase')?.appendChild(active);
+    if (open) {
+      productionSlide = 0;
+      productionSlideWorkOrder = clean(window.WorkOrderDashboardModule?.getSelectedHandoff?.()?.workOrderNumber);
+      closeReportsPanel();
+      showProductionSlide(0);
+      void loadAcceptedProductionPreview();
+      panel.scrollIntoView({ block: 'start' });
+    }
+    return open;
+  }
+
+  function showProductionSlide(index) {
+    productionSlide = Math.max(0, Math.min(document.querySelectorAll('[data-kitting-production-slide]').length - 1, Number(index) || 0));
+    document.querySelectorAll('[data-kitting-production-slide]').forEach(node => {
+      node.hidden = Number(node.dataset.kittingProductionSlide) !== productionSlide;
+    });
+    const picker = document.getElementById('kittingProductionSlidePicker');
+    if (picker) picker.value = String(productionSlide);
+    document.getElementById('kittingProductionPrevious').disabled = productionSlide === 0;
+    document.getElementById('kittingProductionNext').disabled = productionSlide === document.querySelectorAll('[data-kitting-production-slide]').length - 1;
+    setText('kittingProductionSlideCount', (productionSlide + 1) + ' / ' + document.querySelectorAll('[data-kitting-production-slide]').length);
+    refreshProductionTraveler();
+    const selected = document.querySelector('[data-kitting-production-slide="' + productionSlide + '"][data-accepted-drawing]');
+    if (selected) void renderAcceptedDrawing(selected);
+  }
+
+  let previewLoad = 0;
+  const previewScripts = new Map();
+  async function previewScript(name, global) {
+    if (window[global]) return;
+    if (!previewScripts.has(name)) previewScripts.set(name, new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = '/SRC/workspaces/rfqs/' + name + '.js';
+      script.onload = resolve;
+      script.onerror = () => { previewScripts.delete(name); script.remove(); reject(Error('The existing traveler renderer could not load. Reopen to retry.')); };
+      document.head.append(script);
+    }));
+    await previewScripts.get(name);
+  }
+  async function previewJson(url) {
+    const response = await window.fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw Error('Accepted source unavailable (' + response.status + '). This preview requires access to the retained accepted order and technical documents.');
+    return response.json();
+  }
+  function previewRequire(ok, message) { if (!ok) throw Error(message); }
+  function stepProductionSlide(delta) { showProductionSlide(productionSlide + delta); }
+  function refreshProductionTraveler() {
+    if (productionSlidesOpen) {
+      const empty = document.getElementById('kittingProductionBomEmpty');
+      if (empty) empty.hidden = !document.getElementById('workOrderDashboardActiveKitting')?.hidden;
+    }
+  }
+  async function loadAcceptedProductionPreview() {
+    const ticket = ++previewLoad;
+    const host = document.getElementById('kittingProductionSlides');
+    host.querySelectorAll('[data-accepted-drawing]').forEach(node => node.remove());
+    const picker = document.getElementById('kittingProductionSlidePicker');
+    while (picker.options.length > 2) picker.remove(2);
+    showProductionSlide(0);
+    const frame = document.getElementById('kittingAcceptedTraveler');
+    frame.removeAttribute('srcdoc');
+    setText('kittingAcceptedSource', 'Loading the retained accepted Labor plan and verified drawing references...');
+    try {
+      const wo = productionSlideWorkOrder;
+      previewRequire(/^\d{7}$/.test(wo), 'Select a canonical work order.');
+      const job = await previewJson('/api/production/v1/work-orders/' + wo);
+      const order = await previewJson('/api/sim/order-entry/' + encodeURIComponent(job.source.acceptedIntakeId));
+      const acceptance = order.orderEntry?.acceptance, baseline = acceptance?.package?.technicalSource?.baseline;
+      previewRequire(acceptance && baseline && acceptance.id === job.source.acceptanceId &&
+        acceptance.packageRevision === job.source.acceptedRevision && acceptance.sourceToken === job.source.sourceToken,
+        'The accepted order does not match this work order. No substitute traveler was loaded.');
+      previewRequire(order.orderEntry.bridge?.state?.identifiers?.workOrder === wo, 'The accepted order is linked to a different work order.');
+      const labor = baseline.labor, line = acceptance.package.facts.lines[0];
+      previewRequire(labor.version === job.source.laborVersion && labor.definitionId === job.source.manufacturingDefinitionId &&
+        baseline.quote.approvalId === job.source.quoteApprovalId && baseline.quote.approvalVersion === job.source.quoteApprovalVersion &&
+        line.assembly === job.context.assembly && line.revision === job.context.revision && labor.quantity === job.context.quantity,
+        'Accepted Labor identity or quantity changed. Reopen after source review.');
+      await previewScript('labor-workbench', 'DleLaborWorkbench');
+      await previewScript('labor-traveler-print', 'DleLaborTravelerPrint');
+      await previewScript('labor-drawing-notes', 'DleLaborDrawingNotes');
+      const plan = { ...labor, revision: labor.version };
+      const rfq = { customer: order.customer, assemblies: [{ assemblyNumber: line.assembly, revision: line.revision, description: line.description || '' }] };
+      // Use the actual Labor traveler builder. Only identity/release labels differ for this accepted preview.
+      const definition = window.DleLaborTravelerPrint.build(plan, rfq, window.DleLaborWorkbench);
+      const doc = new DOMParser().parseFromString(definition.html, 'text/html');
+      doc.querySelector('.quote-header h1').textContent = 'ACCEPTED INSTRUCTION PREVIEW';
+      doc.querySelector('.quote-header p').textContent = 'Not a released production traveler';
+      const fields = doc.querySelectorAll('.quote-field strong');
+      fields[0].textContent = order.orderEntry.bridge.state.identifiers.salesOrder;
+      fields[1].textContent = wo;
+      fields[2].textContent = acceptance.package.poNumber;
+      doc.querySelector('.quote-facts th').textContent = 'Order Qty';
+      doc.querySelectorAll('.quote-repeat span').forEach(node => { node.textContent = node.textContent.replace('PRELIMINARY / QUOTE', 'ACCEPTED PREVIEW'); });
+      doc.querySelector('.quote-footer').textContent = 'Accepted Labor v' + labor.version + ' — not a production release. Execution fields intentionally blank.';
+      if (ticket !== previewLoad || !productionSlidesOpen) return;
+      frame.srcdoc = '<!doctype html><html><head><base href="' + escapeHtml(document.baseURI) + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' + definition.css + '</style></head><body><div class="dle-print-page">' + doc.body.innerHTML + '</div></body></html>';
+      const sourceLabel = 'Accepted order ' + order.intakeId + ', revision ' + acceptance.packageRevision + ' · Labor v' + labor.version + ' · ' +
+        (job.boundTraveler ? 'Accepted instructions shown; a separately bound production traveler exists.' : 'No production traveler is bound to this job.');
+      setText('kittingAcceptedSource', sourceLabel);
+      await previewScript('../kitting/production-instruction-editor', 'DleJobInstructions');
+      if(await window.DleJobInstructions.open({wo,job,order,frame,trigger:document.getElementById('workOrderDashboardKitReleasedBom')}))return;
+      const references = new Map((job.technicalDocuments || []).map(ref => [ref.documentId, ref]));
+      let index = 2;
+      for (const operation of labor.operations) for (const card of operation.slides || []) {
+        if (card.kind !== 'DRAWING') continue;
+        const ref = references.get(card.source?.documentId);
+        previewRequire(ref && ref.sha256 === card.source.sha256 && card.source.definitionId === labor.definitionId,
+          'A frozen drawing reference no longer matches the verified job source. Remaining drawing slides were not loaded.');
+        for (const [stageIndex, stage] of (card.stages || []).entries()) {
+          const section = document.createElement('section');
+          section.dataset.kittingProductionSlide = String(index);
+          section.dataset.acceptedDrawing = card.id;
+          section.hidden = true;
+          const title = operation.name + ' · ' + ref.name + ' · p' + card.page + ' · stage ' + (stageIndex + 1);
+          section.innerHTML = '<p class="kitting-production-note">' + escapeHtml(title) + '<br>' + escapeHtml(sourceLabel) + '</p><p data-drawing-status role="status">Verified accepted drawing; loading when selected.</p><iframe sandbox="allow-same-origin" class="kitting-accepted-document" title="' + escapeHtml(title) + '"></iframe>';
+          section.acceptedDrawing = { ref, card, stage, sourceRfq: baseline.quote.intakeId, title };
+          host.append(section);
+          picker.add(new Option(title, String(index++)));
+        }
+      }
+      showProductionSlide(productionSlide);
+
+    } catch (error) {
+      if (ticket === previewLoad && productionSlidesOpen) setText('kittingAcceptedSource', error.message);
+    }
+  }
+  async function renderAcceptedDrawing(section) {
+    if (!section || section.dataset.loading === 'true' || section.querySelector('iframe')?.hasAttribute('srcdoc')) return;
+    section.dataset.loading = 'true';
+    const { ref, card, stage, sourceRfq, title } = section.acceptedDrawing;
+    const status = section.querySelector('[data-drawing-status]');
+    try {
+      // The existing page endpoint verifies these exact PDF bytes on every request.
+      // No mutable Labor plan or annotation endpoint is read.
+      const base = '/api/sim/rfqs/' + encodeURIComponent(sourceRfq) + '/labor/drawing-notes/pages/' + encodeURIComponent(ref.documentId) + '/' + encodeURIComponent(ref.sha256);
+      const pages = await previewJson(base + '/info');
+      previewRequire(card.page >= 1 && card.page <= pages.pageCount, 'The accepted drawing page is unavailable.');
+      previewRequire(!(stage.photos || []).length, 'This stage needs a verified photo mapping before display.');
+      const response = await window.fetch(base + '/' + card.page, { credentials: 'same-origin', cache: 'no-store' });
+      previewRequire(response.ok, 'The exact accepted drawing page could not be rendered.');
+      const blob = await response.blob();
+      previewRequire(blob.type.startsWith('image/'), 'The exact drawing renderer returned no image.');
+      const url = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob); });
+      const image = new Image(); image.src = url; await image.decode();
+      const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'), group = document.createElementNS(ns, 'g');
+      const paper = { width: image.naturalWidth, height: image.naturalHeight };
+      svg.setAttribute('viewBox', '0 0 960 624'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', title);
+      const matrix = window.DleLaborDrawingNotes.transform(stage.savedView, paper, { width: 960, height: 624 });
+      group.setAttribute('transform', 'matrix(' + [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f].join(' ') + ')');
+      const baseImage = document.createElementNS(ns, 'image'); baseImage.setAttribute('href', url);
+      baseImage.setAttribute('width', paper.width); baseImage.setAttribute('height', paper.height); group.append(baseImage); svg.append(group);
+      for (const mark of stage.marks || []) if (mark.page === card.page) window.DleLaborDrawingNotes.appendMark(group, mark, paper);
+      section.querySelector('iframe').srcdoc = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:white;color:#172d3d;font:14px Arial}svg{display:block;width:100%;height:auto}p{padding:12px}</style></head><body><p>Accepted instruction preview — not a production release</p>' + (card.body ? '<p>' + escapeHtml(card.body) + '</p>' : '') + svg.outerHTML + '</body></html>';
+      status.textContent = 'Verified accepted drawing · page ' + card.page;
+      status.title = 'PDF SHA-256 ' + ref.sha256 + ' · frozen stage ' + stage.id;
+    } catch (error) { status.textContent = error.message + ' Select this slide again to retry.'; }
+    finally { section.dataset.loading = 'false'; }
+  }
+
+  function initializeProductionSlides() {
+    const bar = document.getElementById('kittingProductionViewBar');
+    const sim = ['SIM', 'SIMULATION'].includes(window.DleOsRuntimeConfig?.environment);
+    if (bar) bar.hidden = true;
+    document.getElementById('kittingJobWorkspace')?.classList.toggle('uses-production-slides', sim && legacyInstructionWorkOrder !== clean(window.WorkOrderDashboardModule?.getSelectedHandoff?.()?.workOrderNumber));
+    if (sim) {
+      const action = document.getElementById('workOrderDashboardKitReleasedBom');
+      if (action) action.setAttribute('onclick', 'KittingJobWorkspace.startKitting()');
+    }
+    const active = document.getElementById('workOrderDashboardActiveKitting');
+    if (active && active.dataset.slidesObserved !== 'true' && typeof window.MutationObserver === 'function') {
+      active.dataset.slidesObserved = 'true';
+      new window.MutationObserver(refreshProductionTraveler).observe(active, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    }
   }
 
   function canViewDevelopmentReports(capabilities = window.DleOsCapabilities) {
@@ -196,7 +415,7 @@
     const printMenu = document.querySelector('#kittingJobWorkspace .kitting-job-action-slot .kitting-label-menu');
     const printSummary = printMenu?.querySelector('summary');
     if (workspace) workspace.dataset.activePrimaryTool = activePrimaryTool || '';
-    if (workspace) workspace.classList.toggle('is-focused-kitting', activePrimaryTool === 'kitting');
+    if (workspace) workspace.classList.toggle('is-focused-kitting', activePrimaryTool === 'kitting' && !workspace.classList.contains('uses-production-slides'));
     [[kitting, 'kitting'], [reports, 'reports'], [printMenu, 'print-labels']].forEach(([control, tool]) => {
       control?.classList.toggle('is-active', activePrimaryTool === tool);
     });
@@ -223,7 +442,7 @@
 
   function setPrimaryTool(tool, open = true) {
     if (!['kitting', 'print-labels', 'reports'].includes(tool)) return activePrimaryTool;
-    if (open && activePrimaryTool === 'kitting' && tool !== 'kitting') {
+    if (open && activePrimaryTool === 'kitting' && tool !== 'kitting' && !document.getElementById('kittingJobWorkspace')?.classList.contains('uses-production-slides')) {
       closeReportsPanel();
       closePrintLabelsPanel();
       updatePrimaryToolPresentation();
@@ -255,6 +474,7 @@
 
   function handlePrintLabelsToggle(menu) {
     if (!menu?.closest('#kittingJobWorkspace')) return false;
+    if (productionSlidesOpen) return menu.open;
     setPrimaryTool('print-labels', menu.open);
     return menu.open;
   }
@@ -283,6 +503,7 @@
   }
 
   function restoreDashboardSurface() {
+    if (productionSlidesOpen) toggleProductionSlides(false);
     Array.from(originalLocations.values()).forEach(location => {
       if (!location.parent?.isConnected || !location.node) return;
       if (location.next?.parentNode === location.parent) location.parent.insertBefore(location.node, location.next);
@@ -291,6 +512,7 @@
   }
 
   function open(handoff) {
+    if (productionSlidesOpen) toggleProductionSlides(false);
     if (!handoff || typeof window.WorkOrderDashboardModule?.setSelectedWorkOrder !== 'function' || typeof window.go !== 'function') {
       return false;
     }
@@ -337,6 +559,8 @@
   function render(payload) {
     const selection = payload?.selection || null;
     if (!selection) return;
+    if (productionSlidesOpen && productionSlideWorkOrder !== clean(selection.workOrderNumber)) toggleProductionSlides(false);
+    initializeProductionSlides();
     const canonical = selection.canonicalWorkOrder || {};
     setText('kittingJobWorkOrder', clean(selection.workOrderNumber || selection.official?.workOrder) || 'Work Order');
     const item = clean(selection.itemNumber || canonical.itemNumber || selection.official?.partNumber) || 'Assembly not selected';
@@ -355,6 +579,7 @@
     const badge = document.getElementById('kittingJobMaterialStatus');
     if (badge) badge.dataset.status = normalizeStatus(payload.materialStatus || selection.materialStatusProjection || selection.materialStatus);
     renderRelatedRows(payload.relatedRows || selection.relatedRows || []);
+    refreshProductionTraveler();
   }
 
   function renderRelatedRows(rows) {
@@ -429,6 +654,7 @@
 
   window.KittingJobWorkspace = Object.freeze({
     open, render, setPresentationMode, returnToQueue, toggleReports,
+    startKitting, toggleProductionSlides, showProductionSlide, stepProductionSlide,
     applyReportVisibility, canViewDevelopmentReports, setPrimaryTool, handlePrintLabelsToggle,
     refreshPrimaryToolPresentation, updateFocusedModeLayout,
     createReleasedBomReturnPath, restoreReleasedBomReturn
@@ -440,3 +666,4 @@
   window.toggleKittingJobReports = toggleReports;
   window.handleKittingJobPrintLabelsToggle = handlePrintLabelsToggle;
 })(window, document);
+

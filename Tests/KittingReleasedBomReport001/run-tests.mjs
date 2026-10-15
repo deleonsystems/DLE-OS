@@ -9,6 +9,7 @@ const reportFixture = JSON.parse(fs.readFileSync(
   'Artifacts/WorkOrderReleasedBom004/WORKORDER-RELEASED-BOM-004/work-order-0115621.json', 'utf8'));
 
 const trialContext = vm.createContext({ window: {}, Object, Date });
+vm.runInContext(fs.readFileSync('SRC/shared/bom-report.js','utf8'),trialContext);
 vm.runInContext(trialSource, trialContext);
 const persistedDraft = trialContext.window.ActiveKittingTrial.createDraft(reportFixture, 'Miguel De Leon');
 const report = trialContext.window.ActiveKittingTrial.releasedBomDocument(persistedDraft, {

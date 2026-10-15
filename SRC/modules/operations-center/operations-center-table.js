@@ -62,7 +62,7 @@
       return;
     }
 
-    const projectionHeader = projection?.isActive()
+    const projectionHeader = (projection?.isActive() || window.OperationsCenter.teamList?.isSelecting())
       ? '<th class="operations-center-include-header">Include</th>'
       : '';
 
@@ -76,7 +76,7 @@
 
   function renderRow(record, index) {
     const masterRecordKey = viewModel.getMasterRecordKey(record);
-    const projectionCell = projection?.isActive()
+    const projectionCell = (projection?.isActive() || window.OperationsCenter.teamList?.isSelecting())
       ? renderProjectionCell(masterRecordKey)
       : '';
     const cells = getTableColumns().map(column => renderTableCell(column, record, masterRecordKey)).join('');
@@ -315,6 +315,7 @@
 
     if (!summary) return;
     summary.hidden = !active;
+    window.OperationsCenter.teamList?.refreshControls();
     if (!active) return;
 
     const projectionSummary = projection.getSummary(getDisplayedRecords(), viewModel);

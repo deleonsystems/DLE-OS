@@ -119,7 +119,11 @@ internal sealed partial class SimRfqIntakeStore
                 if (card.Page > SimRfqIntakeEndpoints.BomReferencePageCount(workspace)) Invalid("That View BOM page does not exist.");
                 var hash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(reference)));
                 var a = record.Assemblies[0];
-                if (card.Source != new SimDrawingSource("bom-reference-v3", hash, plan.DefinitionId, a.AssemblyNumber, a.Revision, "View BOM"))
+                var v4Hash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("bom-reference-v4\n" + hash + "\n" + plan.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                var v5Hash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("bom-reference-v5\n" + hash + "\n" + plan.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                if (card.Source != new SimDrawingSource("bom-reference-v3", hash, plan.DefinitionId, a.AssemblyNumber, a.Revision, "View BOM") &&
+                    card.Source != new SimDrawingSource("bom-reference-v4", v4Hash, plan.DefinitionId, a.AssemblyNumber, a.Revision, "View BOM") &&
+                    card.Source != new SimDrawingSource("bom-reference-v5", v5Hash, plan.DefinitionId, a.AssemblyNumber, a.Revision, "View BOM"))
                     Invalid("BOM source changed. Reopen the current View BOM before adding page overlays.");
             }
             else if (card.Kind == "DRAWING")

@@ -32,16 +32,16 @@ assert.match(stopBody, /draft: activeKittingTrialDraft \? structuredClone\(activ
   'recovery preserves the local draft');
 
 const hydrateBody = dashboard.match(/function hydratePersistedKittingCaseForReadOnly[\s\S]*?\n  }/)?.[0] ?? '';
-assert.match(hydrateBody, /kind: review\.isEditing \? 'LEASE_RECONNECT_REQUIRED' : 'LEASE_EXPIRED'/,
-  'hydrated nonterminal cases expose an explicit active-or-stale reconnect state');
+assert.match(hydrateBody, /kind: review\.isEditing \? \(isSameKittingOperator[\s\S]*'LEASE_RECONNECT_REQUIRED' : 'LEASE_OWNED'\) : 'RESUME_REQUIRED'/,
+  'hydrated saved cases distinguish normal resume, same-user reconnect and another-user lease');
 assert.match(hydrateBody, /message: isKittingEditingAvailable\(\)[\s\S]*kittingEditingDeferredMessage/,
   'hydrated nonterminal cases expose the truthful read-only stabilization message');
 
 const reconnectBody = dashboard.match(/async function reconnectActiveKitting[\s\S]*?\n  }/)?.[0] ?? '';
-assert.match(reconnectBody, /ensureKittingCase\(true\)/,
+assert.match(reconnectBody, /ensureKittingCase\(true, true\)/,
   'reconnect forces a fresh backend Kitting Case read');
 assert.ok(reconnectBody.indexOf('if (!isKittingEditingAvailable())') <
-  reconnectBody.indexOf('ensureKittingCase(true)'),
+  reconnectBody.indexOf('ensureKittingCase(true, true)'),
   'the deferred editing guard prevents backend reconnect work before any fresh read or resume');
 assert.match(reconnectBody, /resumeKittingCase\(getSelectedReleasedBomWorkOrder\(\)/,
   'free lease reacquisition uses the governed resume endpoint');
@@ -88,3 +88,7 @@ assert.match(submitBody, /positionNextActiveKittingRow\(sequence\)/,
   'next-row positioning remains limited to successful row submission');
 
 console.log('Kitting lease/auth recovery source contracts: PASS');
+
+assert.match(reconnectBody, /kittingCaseState !== 'loaded'/, 'failed refresh cannot resume from a stale case');
+assert.match(reconnectBody, /activeKittingTrialDraft = retainedDraft \|\| activeKittingTrialDraft/, 'failed reconnect retains even a clean saved form');
+assert.match(dashboard, /resume \? 'Saved Kitting'/, 'normal saved view is not shown as a connection fault');

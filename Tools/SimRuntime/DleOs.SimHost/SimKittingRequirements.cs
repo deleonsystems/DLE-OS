@@ -21,7 +21,7 @@ internal sealed partial class SimRfqIntakeStore
 
 // Adapter from a verified, imported accepted-order snapshot to the existing Kitting draft contract.
 // This provider is read-only and is called inside the caller's stable-runtime boundary.
-internal sealed class SimKittingRequirementsProvider(SimRfqIntakeStore intakes, SimOperationsDataStore operations)
+internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore intakes, SimOperationsDataStore operations)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly JsonSerializerOptions AcceptanceJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -166,6 +166,14 @@ internal sealed class SimKittingRequirementsProvider(SimRfqIntakeStore intakes, 
             poTraceabilityRequired = poTraceability
         }, Json);
         var identity = "SIM-KITTING-V1:" + Hash(JsonSerializer.SerializeToElement(new { lineage, draft }, Json));
+        // Read only the persisted job correction; never consult the mutable quote here.
+        var saved = wo == SimProductionBomRecovery.WorkOrder ? await operations.ReadSimKittingCase(wo, runtime) : null;
+        if (saved?.ProductionBomCorrection is {} correction)
+        {
+            SimProductionBomRecovery.Require(correction.BaseReleasedBomIdentity == identity, "The correction belongs to a different released baseline.");
+            draft = SimProductionBomRecovery.Annotate(draft, lineage, correction);
+            lineage = SimProductionBomRecovery.AnnotateLineage(lineage, correction);
+        }
         return new(wo, work.ItemNumber, work.Revision, work.ScheduledQuantity, identity, 1, draft, lineage, poTraceability);
     }
 
@@ -182,7 +190,7 @@ internal sealed class SimKittingRequirementsProvider(SimRfqIntakeStore intakes, 
         decimal required;
         try { required = dnp ? 0 : checked(each * buildQuantity); }
         catch (OverflowException) { throw Problem("QUANTITY", $"BOM line {sequence} exceeds the supported decimal quantity range."); }
-        var approved = ApprovedIdentities(row);
+        var approved = SimApprovedPartIdentities.Resolve(row);
         var primary = approved.FirstOrDefault() ?? row.Values.GetValueOrDefault("partNumber") ?? "";
         Require(dnp || approved.Length > 0, "IDENTITY", $"BOM line {sequence} has no unambiguous accepted part identity.");
         var description = row.Values.GetValueOrDefault("description") ?? "";
@@ -203,30 +211,6 @@ internal sealed class SimKittingRequirementsProvider(SimRfqIntakeStore intakes, 
             sourceRowId = row.RowId, sourceRowIndex = row.Index, componentType = row.ComponentType,
             sourcePartNumber = row.Values.GetValueOrDefault("partNumber"), sourceDesignators = row.Values.GetValueOrDefault("designators")
         };
-    }
-
-    private static string[] ApprovedIdentities(SimCandidateRow row)
-    {
-        if (row.ComponentType == "DNP") return [];
-        var numbers = new List<string>();
-        if (row.IdentityBasis == "ASSEMBLY_PN")
-        {
-            if (!string.IsNullOrWhiteSpace(row.AssemblyIdentity?.PartNumber)) numbers.Add(row.AssemblyIdentity.PartNumber);
-            else numbers.AddRange((row.Alternates ?? []).Where(a => a.RemovedAtUtc is null && a.Origin == "MANUAL" &&
-                a.ReviewStatus == "CONFIRMED" && a.History.LastOrDefault() is { ReviewStatus: "CONFIRMED" } h &&
-                !string.IsNullOrWhiteSpace(h.Reviewer)).Select(a => a.PartNumber));
-        }
-        else if (row.IdentityBasis == "CUSTOMER_PN" && !string.IsNullOrWhiteSpace(row.PrimaryIdentity?.PartNumber))
-            numbers.Add(row.PrimaryIdentity.PartNumber);
-        else if (row.IdentityBasis == "MANUFACTURER_PN" && row.ManufacturerIdentity is { Stale: false } manufacturer)
-        {
-            // Every included proposal was individually confirmed and the complete row accepted.
-            // Keep all explicit approved identities; no description or naming heuristic is used.
-            numbers.AddRange(manufacturer.Proposals.Where(p => manufacturer.Decision(p.Id) == "CONFIRMED").Select(p => p.PartNumber));
-        }
-        if (numbers.Count == 0) return [];
-        numbers.AddRange((row.Alternates ?? []).Where(a => a.RemovedAtUtc is null && a.ReviewStatus == "APPROVED").Select(a => a.PartNumber));
-        return numbers.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct(StringComparer.Ordinal).ToArray();
     }
 
     private static string? String(JsonElement element, string name) => element.TryGetProperty(name, out var value) &&

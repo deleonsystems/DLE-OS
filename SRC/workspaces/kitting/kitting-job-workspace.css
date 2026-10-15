@@ -124,3 +124,38 @@
   .kitting-navigation-guard-actions { grid-template-columns:1fr; }
   .kitting-navigation-guard-actions button.primary { grid-column:auto; }
 }
+
+/* SIM alternate view: the existing form is moved, never duplicated. */
+.kitting-production-view-bar { display:flex;justify-content:flex-end; }
+.kitting-production-view-bar[hidden],.kitting-production-slides[hidden],.kitting-production-slides [hidden] { display:none!important; }
+.kitting-production-view-bar button,.kitting-production-slide-controls button,.kitting-production-slide-controls select { min-height:44px; }
+.kitting-production-slides { border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--text);overflow:clip; }
+.kitting-production-slide-controls { display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px;border-bottom:1px solid var(--border); }
+.kitting-production-slide-controls label { display:flex;align-items:center;gap:8px; }
+.kitting-production-traveler { padding:clamp(18px,4vw,48px);min-height:45vh; }
+.kitting-production-traveler h3 { font-size:26px;margin:10px 0 25px; }
+.kitting-production-traveler dl { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px; }
+.kitting-production-traveler dt { color:var(--muted);font-size:12px; }
+.kitting-production-traveler dd { margin:6px 0 0;font-weight:700;font-size:18px;overflow-wrap:anywhere; }
+.kitting-production-note { padding:16px;color:var(--muted);line-height:1.5; }
+.kitting-job-workspace.has-production-slides.is-focused-kitting .kitting-job-actions { display:block; }
+.kitting-job-workspace.has-production-slides .active-kitting-sticky-context { position:static; }
+.kitting-job-workspace.has-production-slides .active-kitting-trial-table-wrap { max-height:none;overflow-x:auto;overflow-y:visible; }
+@media(max-width:600px) { .kitting-production-traveler dl { grid-template-columns:1fr; } .kitting-production-slide-controls { gap:6px; } }
+.kitting-production-view-bar button,.kitting-production-slide-controls button { padding:10px 16px;border:1px solid #365773;border-radius:8px;background:#122b42;color:#edf6ff;font:inherit;font-weight:650;cursor:pointer; }
+.kitting-production-slide-controls button:disabled { opacity:.4;cursor:default; }
+.kitting-production-slide-controls button:focus-visible,.kitting-production-view-bar button:focus-visible { outline:3px solid #81c4ff;outline-offset:2px; }
+.kitting-production-slide-controls select { min-width:160px; }
+.kitting-job-workspace.has-production-slides .kitting-job-main > *, .kitting-production-slides > *, #kittingProductionBom .active-kitting-trial { min-width:0;max-width:100%;box-sizing:border-box; }
+.kitting-production-slide-controls select { background:#102438;color:#edf6ff;border:1px solid #365773;border-radius:8px;padding:8px; }
+@media(max-width:900px) { .kitting-job-workspace.has-production-slides .kitting-job-action-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+.kitting-production-slide-controls select { background:#f4f7fb!important;color:#102438!important;color-scheme:light; }
+
+.kitting-production-traveler { padding:0; }
+.kitting-accepted-document { display:block;width:100%;height:78vh;min-height:480px;box-sizing:border-box;border:0;background:white; }
+.kitting-production-slides [data-drawing-status] { padding:0 16px;font-size:12px;overflow-wrap:anywhere; }
+.kitting-production-slide-controls select { max-width:min(480px,65vw); }
+
+/* SIM uses the original form inside Production Slides. Keep its resting host out of the landing UI. */
+.kitting-job-workspace.uses-production-slides #kittingJobActiveCase { display:none; }
+.kitting-job-workspace.uses-production-slides #kittingProductionViewBar { display:none; }

@@ -69,6 +69,14 @@
   }
 
   function initializeSalesOrderDashboard() {
+    if (document.body?.dataset?.simRuntime === 'true' && !window.SalesOrderFolder && !window.salesOrderFolderLoading) {
+      window.salesOrderFolderLoading = true;
+      const script = document.createElement('script');
+      script.src = 'SRC/modules/sales-order-dashboard/sales-order-folder.js';
+      script.onload = () => renderSalesOrderDashboardModule();
+      script.onerror = () => { window.salesOrderFolderLoading = false; };
+      document.head.append(script);
+    }
     if (!operationalStateSubscription && window.DleApiClient?.subscribeOperationalLineStateChange) {
       operationalStateSubscription = window.DleApiClient.subscribeOperationalLineStateChange(detail => {
         const refresh = refreshChangedOperationalLines(detail.lines);
@@ -113,6 +121,7 @@
   }
 
   function renderSalesOrderDashboardModule() {
+    window.SalesOrderFolder?.mount();
     const status = document.getElementById('salesOrderDashboardStatus');
     if (status) {
       status.textContent = 'Sales Order Dashboard ready. Future digital Sales Order folder workflows will live here.';
@@ -122,6 +131,7 @@
     renderRmaReworkSummaries();
     updateRequestToShipAction();
     updateRmaReworkActions();
+    window.SalesOrderFolder?.render();
   }
 
   function renderSalesOrderSummary() {
@@ -147,6 +157,7 @@
   }
 
   function renderRelatedWorkOrders() {
+    if (window.SalesOrderFolder) return;
     const rows = document.getElementById('salesOrderDashboardWorkOrderRows');
     if (!rows) return;
 
@@ -481,10 +492,11 @@
   function updateRequestToShipAction() {
     const button = document.getElementById('salesOrderDashboardCreateRequestToShipButton');
     if (!button) return;
-    if (window.ShippingHandoff?.isSim()) button.textContent = 'Shipment authorization';
+    if (window.ShippingHandoff?.isSim()) button.textContent = window.SalesOrderFolder ? 'Ship' : 'Shipment authorization';
 
     const selectedRows = dashboardState.selectedWorkOrders;
-    const enabled = selectedRows.length > 0 && selectedRows.every(isValidWorkOrder);
+    const enabled = selectedRows.length > 0 && selectedRows.every(isValidWorkOrder) &&
+      (!window.SalesOrderFolder || (selectedRows.length === 1 && !getShipmentProjection(selectedRows[0]).isFullyStaged));
     button.disabled = !enabled;
     const blocked = selectedRows.find(row => !isValidWorkOrder(row));
     button.title = enabled
@@ -498,6 +510,7 @@
     const selectedRows = dashboardState.selectedWorkOrders.filter(isValidWorkOrder);
     if (!selectedRows.length || selectedRows.length !== dashboardState.selectedWorkOrders.length) return;
     if (window.ShippingHandoff?.isSim()) {
+      if (window.SalesOrderFolder && selectedRows.some(row => getShipmentProjection(row).isFullyStaged)) return;
       if (selectedRows.length !== 1) { window.alert('Select one Work Order to review its governed shipment authorization.'); return; }
       return window.ShippingHandoff.open(buildRequestDialogLine(selectedRows[0], 0).workOrder, 'release');
     }
@@ -745,6 +758,7 @@
     const rows = Array.isArray(selectedOrder.relatedRows) && selectedOrder.relatedRows.length
       ? selectedOrder.relatedRows
       : [selectedOrder];
+    if (document.body?.dataset?.simRuntime === 'true') return rows;
     return rows.filter(row => isRmaControlledRow(row) || !getShipmentProjection(row).isFullyStaged);
   }
 
@@ -1692,3 +1706,5 @@
   document.addEventListener('keydown', handleRequestToShipDialogKeydown);
   document.addEventListener('keydown', handleWorkOrderApprovalKeydown);
 })();
+
+

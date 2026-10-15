@@ -185,6 +185,7 @@ internal static partial class SimRfqIntakeEndpoints
     private static void MapLabor(WebApplication app, SimStateStore state, SimRfqIntakeStore store, SimPersonaSessionStore personas)
     {
         MapLaborVisuals(app, state, store, personas);
+        MapBomProcess(app, state, store, personas);
         MapDrawingNotes(app, state, store, personas);
         app.MapPost("/api/sim/rfqs/{id}/labor/revise",async Task<IResult>(string id,SimLaborReviseRequest request,HttpContext context)=>{
             var denied=DeniedTechnicalReview(context,state,personas,"technical_review.disposition");if(denied is not null)return denied;

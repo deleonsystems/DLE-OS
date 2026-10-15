@@ -20,7 +20,7 @@ for (const text of [
   "Compare the customer PO with the quotation", "Submit for Contract Review",
   "Is traceability required?", "Traveler", "Material Certs", "Certificate of Conformance", "FAIR", "ITAR", "DPAS Rated",
   "Anything else from the customer’s PO that DLE needs to honor?", "Other customer requirements", "Enter any customer requirement not already captured above.",
-  "I reviewed the customer PO and captured its requirements.", "SUBMITTED FOR CONTRACT REVIEW — PENDING ACCEPTANCE"
+  "I reviewed the customer PO and captured its requirements.", "Submitted for contract review · Pending acceptance."
 ]) check(wizard.includes(text), `New Order UI includes: ${text}`);
 check(/intake-choice-disabled[^>]*" disabled aria-disabled="true"/.test(wizard), "Verbal / Informal remains visibly disabled");
 check(wizard.includes("Attach the customer PO before continuing."), "Customer PO attachment is required in the guided flow");

@@ -31,6 +31,7 @@
     let content='<section class="oe-handoff" aria-label="Operations Handoff"><h3>Operations Handoff</h3><p class="oe-development"><strong>DEVELOPMENT ONLY</strong><span>SIMULATED VPRO 5 DATA</span></p>'+factList([['ERP Source','VPRO 5 — SIM'],['Bridge Status',state.status],['Recognition',recognitionLabel(handoff?.recognition)]]);
     if(handoffError)return content+'<p role="alert">'+esc(handoffError)+'</p><p>Refresh to check the SIM handoff. Import is unavailable until its safeguards are verified.</p></section>';
     if(!handoff?.enabled)return content+'<p>The developmental SIM Operations adapter is disabled.</p></section>';
+    if(handoff?.scopeSupported===false)return content+'<p>'+esc(handoff.scopeMessage)+'</p></section>';
     content+='<p>Prepare a read-only dry run, review its simulated facts, then explicitly import that exact validated packet into SIM Operations.</p>';
     if(recognitionLabel(handoff?.recognition)==='Imported — bridge acknowledgment pending')content+='<p role="alert">Canonical import succeeded. Prepare again to recover the saved packet, then retry Import to record bridge acknowledgment without duplicating Operations records.</p>';
     if(!allowed)content+='<p>Preparing or importing a developmental packet requires SIM import permission.</p>';

@@ -116,3 +116,10 @@ body[data-view-mode="mobile"][data-rfqs-mobile-workbench="true"] [data-workspace
  body[data-sim-runtime="true"][data-view-mode="mobile"] .rfqs-overview .intake-owned-documents input { width:100%; min-width:0; }
  body[data-sim-runtime="true"][data-view-mode="mobile"] .rfqs-overview input[type="file"]::file-selector-button { min-height:44px; font:inherit; }
 }
+
+.rfqs-overview .rfqs-lane button{min-height:48px;width:100%;font-size:16px;background:#164da1;border-color:#60a5fa}
+.rfqs-overview .rfqs-review-action{align-items:center;justify-content:space-between;gap:16px;padding:16px 0;flex-wrap:wrap}
+.rfqs-overview .rfqs-review-action p{margin:0;color:var(--muted);flex:1 1 280px}
+.rfqs-overview .rfqs-review-action button{min-height:44px}
+.rfqs-overview .rfqs-secondary{padding:14px 0;border-top:1px solid var(--border)}
+.rfqs-overview .rfqs-secondary>summary{min-height:30px}.rfqs-price-summary{line-height:1.6;font-size:15px}

@@ -1,21 +1,40 @@
-(function(window){
+(function(window,document){
  'use strict';
- // v3 uses fixed Arial-compatible glyph advances; browser zoom cannot move page boundaries.
- const widths=[45,100,200,400,190,50,145],font=12,lineHeight=14,bodyHeight=570;
- const advances=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,333,556,556,556,556,260,556,333,737,370,556,584,1000,737,333,400,584,333,333,333,556,537,278,333,333,365,556,834,834,834,611,667,667,667,667,667,667,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,500,556,556,556,556,278,278,278,278,556,556,556,556,556,556,556,584,611,556,556,556,556,500,556,500];
- const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- function lines(value,width,size=font){const chars=Array.from(value),result=[];let start=0;while(start<chars.length){let end=start,lastBreak=start,used=0;while(end<chars.length){const cp=chars[end].codePointAt(0),advance=(advances[cp-32]||1000)*size*1.035/1000;if(used+advance>width-8&&end>start)break;used+=advance;end++;if(/[\s/–-]/.test(chars[end-1]))lastBreak=end;}if(end<chars.length&&lastBreak>start)end=lastBreak;result.push(chars.slice(start,end).join(''));start=end;}return result.length?result:[''];}
- function paginate(rows){const pages=[];let page=[],used=0;const flush=()=>{if(page.length){pages.push(page);page=[];used=0;}};
-  rows.forEach((cells,index)=>{if(page.length>=20)flush();const wrapped=cells.map((text,i)=>lines(text,widths[i])),height=Math.max(...wrapped.map(a=>a.length)),whole=height*lineHeight+3;let offset=0;if(whole<=bodyHeight&&whole>bodyHeight-used)flush();
-   while(offset<height){const available=Math.floor((bodyHeight-used-3)/lineHeight);if(available<1){flush();continue;}const count=Math.min(height-offset,available);page.push({row:index+1,offset,continued:offset>0,cells:wrapped.map(a=>a.slice(offset,offset+count)),lineCount:count});used+=count*lineHeight+3;offset+=count;if(offset<height)flush();}
-  });flush();return pages.length?pages:[[]];
+ const pending=new Map();
+ async function load(name,global){if(window[global])return;if(!pending.has(name))pending.set(name,new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/SRC/'+name;s.onload=resolve;s.onerror=()=>{pending.delete(name);s.remove();reject(Error('BOM renderer unavailable. Retry.'));};document.head.append(s);}));await pending.get(name);}
+ async function ready(){await Promise.all([load('shared/bom-report.js','DleBomReport'),load('workspaces/rfqs/bom-process.js','DleBomProcess'),load('workspaces/rfqs/labor-bom-slides-v3.js','DleLaborBomSlidesV3')]);}
+ async function read(url,identity){
+  await ready();const legacy=await window.DleLaborBomSlidesV3.read(url,identity),response=await fetch(url.replace(/\/bom-reference$/,'/labor'),{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Quote identity unavailable.');const view=await response.json();
+  if(view.plan.definitionId!==identity.definitionId||view.rfq.assemblies[0].assemblyNumber!==identity.assembly||view.rfq.assemblies[0].revision!==identity.revision)throw Error('BOM and Labor identity changed. Reopen Labor.');
+  const quantity=view.plan.quantity,process=await window.DleBomProcess.read(url);
+  if(process.sourceHash!==legacy.source.sha256||process.rows.length!==legacy.rows.length)throw Error('The BOM changed. Reopen it before editing or printing.');
+  return compose(legacy,view.rfq,quantity,process);
  }
- async function read(url,identity){const response=await window.fetch(url,{credentials:'same-origin',cache:'no-store'});if(!response.ok||!response.headers.get('content-type')?.startsWith('text/html'))throw Error('View BOM unavailable.');const html=await response.text(),doc=new DOMParser().parseFromString(html,'text/html'),table=doc.querySelector('table'),columns=[...(table?.querySelectorAll('thead th')||[])].map(c=>c.textContent),nodes=[...(table?.querySelectorAll('tbody tr[data-quantity]')||[])];if(columns.length!==7||!doc.querySelector('#bom-total'))throw Error('Invalid View BOM reference.');const rows=nodes.map(row=>[...row.querySelectorAll('td')].map(cell=>cell.textContent));if(rows.some(row=>row.length!==7))throw Error('Incomplete View BOM row.');const sha256=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(html)))].map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();return{header:doc.querySelector('body > p')?.textContent||'',columns,rows,pages:paginate(rows),source:{documentId:'bom-reference-v3',sha256,...identity,name:'View BOM'}};}
- function svg(data,pageNumber){const page=data.pages[pageNumber-1];if(!page)throw Error('BOM page unavailable.');let y=92;const cells=[];
-  const text=(x,y,value,size=font,fill='#183247')=>'<text x="'+x+'" y="'+y+'" font-family="Arial, Helvetica, sans-serif" font-size="'+size+'" fill="'+fill+'" xml:space="preserve">'+escape(value)+'</text>';
-  let x=35;data.columns.forEach((label,i)=>{lines(label,widths[i],10).forEach((line,j)=>cells.push(text(x+4,75+j*11,line,10)));x+=widths[i];});
-  page.forEach((row,n)=>{const height=row.lineCount*lineHeight+3;cells.push('<rect x="35" y="'+y+'" width="1130" height="'+height+'" fill="'+(n%2?'#edf3f7':'#fff')+'" stroke="#b8c8d4"/>');let x=35;row.cells.forEach((cell,i)=>{cells.push('<path d="M'+x+' '+y+'v'+height+'" stroke="#b8c8d4"/>');cell.forEach((line,j)=>cells.push(text(x+4,y+12+j*lineHeight,line)));x+=widths[i];});if(row.continued)cells.push(text(36,y+height-5,'Row '+row.row+' continued',11,'#496a82'));y+=height;});
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700"><rect width="1200" height="700" fill="white"/>'+text(35,18,'BOM reference | Page '+pageNumber+' / '+data.pages.length,15)+text(35,36,data.header,12)+text(35,52,'Qty / Assy = accepted BOM quantity per assembly. Not issued or kitted quantities.',11)+ '<rect x="35" y="64" width="1130" height="28" fill="#dce7ee"/>'+cells.join('')+text(35,678,page.length?'Source rows '+page[0].row+'–'+page.at(-1).row+' of '+data.rows.length:'No BOM rows',11)+text(35,695,'Current View BOM reference · Protected base · Independent page overlays',10)+'</svg>';
+ async function fromFrozen(snapshot,identity){
+  await ready();return compose(await window.DleLaborBomSlidesV3.fromHtml(snapshot.html,identity),snapshot.rfq,snapshot.quantity,snapshot.process);
  }
- window.DleLaborBomSlides=Object.freeze({read,paginate,svg});
-})(window);
+ async function compose(legacy,rfq,quantity,process){
+  const sourceFor=async version=>({...legacy.source,documentId:version,sha256:[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(version+'\n'+legacy.source.sha256+'\n'+quantity)))].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase()});
+  const v4={...legacy,source:await sourceFor('bom-reference-v4')};
+  return {...legacy,legacy,v4,rfq,quantity,process,source:await sourceFor('bom-reference-v5')};
+ }
+ function matches(data,source){const ref=source?.documentId==='bom-reference-v3'?data?.legacy:source?.documentId==='bom-reference-v4'?data?.v4:data;return !!ref&&ref.source.documentId===source?.documentId&&ref.source.sha256===source?.sha256;}
+ function svg(data,page,source=data.source,compact=false){if(!matches(data,source))throw Error('BOM source changed. Existing overlays are preserved.');if(source.documentId==='bom-reference-v3')return window.DleLaborBomSlidesV3.svg(data.legacy,page);
+  const fragments=data.pages[page-1];if(!fragments)throw Error('BOM page unavailable.');const rows=fragments.map(r=>r.cells.map(c=>c.join(''))),draft=window.DleBomReport.quoteDraft(rows,data.rfq,data.quantity);draft.groups.forEach((g,i)=>{g.requiredEach=data.rows[fragments[i].row-1][5];if(compact){const value=data.process?.rows[fragments[i].row-1];g.process=fragments[i].continued&&value?{...value,notes:''}:value;}g.sequence=String(fragments[i].row)+(fragments[i].continued?' (cont.)':'');});return window.DleBomReport.svg(draft,page,data.pages.length,source.documentId==='bom-reference-v5',compact);
+ }
+ // Reflow current unannotated employee pages together; stored source pages remain immutable.
+ function flowSvg(data,pages=data.pages.map((_,i)=>i+1)){
+  const indices=[...new Set(pages.flatMap(page=>(data.pages[page-1]||[]).map(r=>r.row-1)))];
+  const draft=window.DleBomReport.quoteDraft(indices.map(i=>data.rows[i]),data.rfq,data.quantity);
+  draft.groups.forEach((g,i)=>{g.sequence=String(indices[i]+1);g.process=data.process?.rows[indices[i]];});
+  return window.DleBomReport.svg(draft,null,null,true,true);
+ }
+ async function quoteDocument(url,compact=false){const response=await fetch(url.replace(/\/bom-reference$/,'/labor'),{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Quote identity unavailable.');const v=await response.json(),a=v.rfq.assemblies[0];const data=await read(url,{definitionId:v.plan.definitionId,assembly:a.assemblyNumber,revision:a.revision});if(compact){
+   await load('workspaces/rfqs/labor-letter-pages.js','DleLaborLetterPages');
+   const forms=window.DleLaborLetterPages,context='QUOTE | '+a.assemblyNumber+' | Rev '+a.revision+' | Qty '+data.quantity;
+   const result=await forms.compose({kind:'BOM',layer:{page:1,marks:[],photos:[]},caption:'',context,loadBase:async()=>new Response(flowSvg(data),{headers:{'Content-Type':'image/svg+xml'}})});
+   return forms.document(result);
+  }
+  return window.DleBomReport.document(window.DleBomReport.quoteDraft(data.rows,data.rfq,data.quantity),{context:'QUOTE',returnUrl:'/',fairLabels:true});}
+ window.DleLaborBomSlides=Object.freeze({read,fromFrozen,svg,flowSvg,matches,ready,quoteDocument,paginate:rows=>window.DleLaborBomSlidesV3.paginate(rows)});
+})(window,document);

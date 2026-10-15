@@ -37,7 +37,7 @@
     selected=items.find(r=>r.intakeId===id)||null;
     if(!selected)return;
     const review=await request('/api/sim/rfqs/'+encodeURIComponent(id)+'/final-review');
-    selected={...selected,approvals:review.approvals,approvalCurrent:review.approvalCurrent};
+    selected={...selected,approvals:review.approvals,approvalCurrent:review.approvalCurrent,reviewSummary:review.summary,reviewBlockers:review.blockers};
     if(selected.workbenchEligible){const workspace=(await request('/api/sim/rfqs')).items.find(r=>r.intakeId===id);if(workspace)selected={...selected,lanes:workspace.lanes,inputs:workspace.inputs};else selected.workbenchEligible=false;}
   }
   async function refresh() {
@@ -144,8 +144,8 @@
   }
   function lane(name) {
     const key = name.toLowerCase(), value = selected.lanes[key];
-    if (key === 'materials') return '<section class="rfqs-lane"><h2>Materials</h2><p class="rfqs-status" data-status="' + esc(value.status) + '">' + labels[value.status] + '</p><p>Accepted BOM v' + selected.inputs.materials.version + ' · ' + selected.inputs.materials.candidate.rows.length + ' rows</p><button data-open="materials"'+desktopOnly()+'>Open Materials</button><p>Save and complete the quotation in Materials.</p></section>';
-    return '<section class="rfqs-lane"><h2>Labor</h2><p class="rfqs-status" data-status="' + esc(value.status) + '">' + labels[value.status] + '</p><p>Manufacturing Definition available</p><button data-open="labor">Open Labor</button><p>Save and complete the quotation in Labor.</p></section>';
+    if (key === 'materials') return '<section class="rfqs-lane"><h2>Materials</h2><p class="rfqs-status" data-status="' + esc(value.status) + '">' + labels[value.status] + '</p><p>' + selected.inputs.materials.candidate.rows.length + ' BOM rows</p><button data-open="materials"'+desktopOnly()+'>Open Materials</button><p>Save and complete the quotation in Materials.</p></section>';
+    return '<section class="rfqs-lane"><h2>Labor</h2><p class="rfqs-status" data-status="' + esc(value.status) + '">' + labels[value.status] + '</p><p>Operations, time and production instructions</p><button data-open="labor">Open Labor</button><p>Save and complete the quotation in Labor.</p></section>';
   }
   const money=v=>v==null?'—':Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'});
   const date=v=>v?new Date(v).toLocaleDateString('en-US',{timeZone:'America/Los_Angeles'}):'—';
@@ -167,6 +167,18 @@
     ].map((value,index)=>'<td data-label="'+columns[index]+'">'+value+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
     const detail=selected?'<button data-action="queue">&larr; RFQ queue</button><div class="rfqs-context"><span class="rfqs-eyebrow">Customer</span><h2>'+esc(selected.customer.customerName)+'</h2>'+context(selected)+'<dl class="rfqs-identity"><div><dt>Intake</dt><dd>'+esc(selected.intakeId)+'</dd></div><div><dt>Intake status</dt><dd>'+esc(selected.intakeStatus)+'</dd></div><div><dt>Created</dt><dd>'+date(selected.createdAt)+'</dd></div><div><dt>Scope</dt><dd>'+esc(selected.scope.replaceAll('_',' '))+'</dd></div></dl><div class="rfqs-context-actions"><button data-action="source">View Intake / Technical Review</button><button data-open="intake-documents">Intake Documents</button></div></div><div data-intake-documents-host></div>'+commercialDetail(selected)+(selected.workbenchEligible&&selected.inputs?'<p id="rfqsMobileScope" class="rfqs-mobile-scope"'+(mobileOverview()?'':' hidden')+'>Mobile View supports the RFQ overview and Labor. Use Desktop View for Materials and Quotation Final Review.</p>'+'<div class="rfqs-lanes">'+lane('Materials')+lane('Labor')+'</div><div class="rfqs-review-action"><button data-open="final-review"'+desktopOnly()+'>Quotation Final Review</button></div>':'<p>Materials and Labor become available after Technical Review qualification.</p>'):toggles+(rows.length?table:'<p>No '+bucket.toLowerCase()+' RFQs.</p>');
     mount.innerHTML='<section class="rfqs-workspace rfqs-overview"><header class="rfqs-overview-header"><h1>RFQs</h1><button data-action="refresh" '+(saving?'disabled':'')+'>Refresh</button></header>'+(error?'<p role="alert">'+esc(error)+'</p>':'')+detail+'</section>';
+    if(selected){
+      const root=mount.querySelector('.rfqs-overview'),context=root.querySelector('.rfqs-context'),commercial=root.querySelector('.rfq-commercial-detail');
+      const reference=document.createElement('p');reference.className='rfqs-quote-reference';reference.textContent=(selected.quoteNumber||selected.intakeId)+' · '+selected.status;context.append(reference);
+      const s=selected.reviewSummary;
+      if(s){const summary=document.createElement('p');summary.className='rfqs-price-summary';summary.textContent='Total quote '+money(s.quoteTotal)+' · Unit price '+money(s.combinedUnitPrice)+' · '+(selected.approvalCurrent?('Quoted delivery '+(selected.approvals.at(-1)?.answers.delivery||'Not set')):('Suggested lead '+(s.suggestedLeadDays==null?'Not available':s.suggestedLeadDays+' days')));context.append(summary);}
+      const technical=document.createElement('details');technical.className='rfqs-secondary';technical.innerHTML='<summary>Intake and technical documents</summary>';
+      for(const node of [...context.querySelectorAll('.rfqs-identity,.rfqs-context-actions')])technical.append(node);
+      technical.append(root.querySelector('[data-intake-documents-host]'));root.append(technical);
+      const audit=document.createElement('details');audit.className='rfqs-secondary';audit.innerHTML='<summary>Quote history and commercial details</summary>';audit.append(commercial);root.append(audit);
+      const review=root.querySelector('.rfqs-review-action');if(review){const note=document.createElement('p');note.textContent=(selected.reviewBlockers||[]).join(' ')||(selected.approvalCurrent?'Review the approved quote and mark it submitted.':'Review pricing and delivery, approve, then mark submitted.');review.prepend(note);}
+    }
+
   }
   document.addEventListener('dle:view-mode-change', syncMobileBoundary);
   window.DleWorkspaces = window.DleWorkspaces || {};

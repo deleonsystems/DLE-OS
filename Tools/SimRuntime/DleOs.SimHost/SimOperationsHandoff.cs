@@ -50,7 +50,7 @@ internal sealed class SimOperationsHandoffService(SimStateStore state,SimRfqInta
             var readback=receipt is null?null:await operations.ReadPacketRecognitionAsync(receipt,runtime);
             var recognized=receipt is not null && recognition?.ReceiptId==receipt.ReceiptId && readback?.Verified==true && recognition.Generation==runtime.Generation &&
                 r.OrderEntry.Bridge.State.Identifiers?.SalesOrder==receipt.SalesOrderNumber && r.OrderEntry.Bridge.State.Identifiers?.WorkOrder==receipt.WorkOrderNumber && r.OrderEntry.Bridge.State.Identifiers?.SalesOrderLine==receipt.SalesOrderLineNumber;
-            return (new {enabled,canImport=enabled&&actor.Can("order_entry.sim_import"),recognition=recognized?"Recognized in SIM Operations":receipt is null?"Awaiting":"Imported — bridge acknowledgment pending",receipt,readback},null);
+            return (new {enabled,scopeSupported=TrialScope(r) is not null,scopeMessage=TrialScope(r) is null?"This accepted package is outside the explicitly qualified SIM trials.":null,canImport=enabled&&actor.Can("order_entry.sim_import")&&TrialScope(r) is not null,recognition=recognized?"Recognized in SIM Operations":receipt is null?"Awaiting":"Imported — bridge acknowledgment pending",receipt,readback},null);
         }));
     internal async Task<object> Prepare(string id,int expectedRevision,SimPersona actor)=>await state.WithStableRuntime(async runtime=>{
         Guard(actor,runtime);
@@ -112,11 +112,24 @@ internal sealed class SimOperationsHandoffService(SimStateStore state,SimRfqInta
             if(grant.PacketId!=packet.PacketId||grant.Hash!=packet.ContentHash||grant.ActorId!=actor.Id||grant.IntakeId!=packet.Source.IntakeId||grant.AcceptedRevision!=packet.Source.AcceptedRevision||grant.BridgeRevision!=packet.Source.BridgeRevision||grant.Generation!=packet.Generation||grant.ExpiresAt<=DateTimeOffset.UtcNow)throw new FormatException();
         }catch(Exception e) when(e is FormatException or JsonException or NullReferenceException){throw SimRfqIntakeProblem.Conflict("SIM_IMPORT_VALIDATION","Validation token is invalid, expired or stale. Prepare again.");}
     }
+    // Bounded SIM trials only. The Abbott grant pins the reviewed package token;
+    // later revisions require another explicit qualification, not automatic admission.
+    internal static string? TrialScope(SimRfqIntakeRecord r)
+    {
+        var a=r.OrderEntry?.Acceptance;var p=a?.Package;var q=p?.TechnicalSource?.Baseline?.Quote;
+        if(a is null || p is null || q is null)return null;
+        if(r.IntakeId=="RFQI-SIM-0043" && p.PoNumber=="SIM-E2E-001-PO" && q.IntakeId=="RFQI-SIM-0042" && q.QuoteNumber=="SIM-Q-0042-R01" && a.PackageRevision==7)return "E2E-SIM-001";
+        if(r.Environment=="SIM" && r.IntakeId=="RFQI-SIM-0044" && a.PackageRevision==4 && p.Revision==4 &&
+            a.SourceToken=="318ECCC6202F1270CAD0BB9FB8469A927EF497D9D38AD2785020E0F4FCE3F68A" && r.Customer.CustomerNumber=="990100" &&
+            p.PoNumber=="SIM-PO-0036-20261014-A" && q.IntakeId=="RFQI-SIM-0036" && q.QuoteNumber=="SIM-Q-0036-R02" &&
+            p.Facts.Lines.Length==1 && p.Facts.Lines[0] is {Assembly:"B11283-17",Revision:"B",Quantity:25})return "ABBOTT-0044-SIM-TRIAL";
+        return null;
+    }
+
     private static SimOperationsPacket BuildPacket(SimRfqIntakeRecord r,SimStateMetadata runtime,SimPersona actor,string packetId,DateTimeOffset prepared,int schemaVersion=2)
     {
         var entry=r.OrderEntry!;var accepted=entry.Acceptance;var p=accepted.Package;var ids=entry.Bridge.State.Identifiers!;var line=p.Facts.Lines.Single();var baseline=p.TechnicalSource!.Baseline!;
-        if(r.IntakeId!="RFQI-SIM-0043"||p.PoNumber!="SIM-E2E-001-PO"||baseline.Quote.IntakeId!="RFQI-SIM-0042"||baseline.Quote.QuoteNumber!="SIM-Q-0042-R01"||accepted.PackageRevision!=7)
-            throw SimRfqIntakeProblem.Conflict("SIM_IMPORT_SCOPE","This developmental adapter is scoped to E2E-SIM-001 accepted revision 7.");
+        var scope=TrialScope(r)??throw SimRfqIntakeProblem.Conflict("SIM_IMPORT_SCOPE","This accepted package is outside the explicitly qualified SIM trials.");
         // Explicit synthetic ERP opening date, based on the accepted order event,
         // independently of customer PO Date and Customer Due Date.
         var openingDate=accepted.At.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture);
@@ -128,7 +141,7 @@ internal sealed class SimOperationsHandoffService(SimStateStore state,SimRfqInta
         if(schemaVersion==2)order=order with{CustomerPoDate=p.Facts.PoDate};
         var work=new SimOperationsPacketWorkOrder(ids.WorkOrder,r.Customer.CustomerNumber,ids.SalesOrder,ids.SalesOrderLine,line.Assembly,line.Revision,line.Quantity.Value,"STANDARD","OPEN",openingDate,"EA");
         var evidence=new SimOperationsRelationshipEvidence(packetId+":anchor","SIMULATED_ACCEPTED_BRIDGE_ANCHOR",r.Customer.CustomerNumber,ids.SalesOrder,ids.SalesOrderLine,ids.WorkOrder,line.Assembly,line.Revision,line.Quantity.Value);
-        var packet=new SimOperationsPacket(packetId,schemaVersion,"",actor.Id,prepared,"SIM","SIM-VPRO5","SIMULATED_DEVELOPMENTAL","E2E-SIM-001",runtime.ScenarioId,runtime.ScenarioVersion,runtime.Generation,source,order,work,[evidence]);
+        var packet=new SimOperationsPacket(packetId,schemaVersion,"",actor.Id,prepared,"SIM","SIM-VPRO5","SIMULATED_DEVELOPMENTAL",scope,runtime.ScenarioId,runtime.ScenarioVersion,runtime.Generation,source,order,work,[evidence]);
         return packet with{ContentHash=SimOperationsDataStore.PacketHash(packet)};
     }
 

@@ -41,7 +41,10 @@ for(const name of ['poDate','assembly','revision','quantity','currency','unitPri
 await t.searchOrderQuotes();assert.match(calls.at(-1).url,/bucket=SUBMITTED/);assert.match(t.renderNewOrderStep('quote-search'),/SIM-Q-0042-R01/);
 const before=JSON.stringify(s.order.facts);
 await t.orderActionClick({dataset:{orderAction:'select',index:'0'}});
-assert.equal(JSON.stringify(s.order.facts),before);assert.equal(s.order.quote.approvalId,'approval-1');
+assert.notEqual(JSON.stringify(s.order.facts),before);assert.equal(s.order.quote.approvalId,'approval-1');
+assert.equal(s.order.facts.lines[0].assembly,'SIM-ASSY-001');assert.equal(s.order.facts.lines[0].quantity,10);assert.equal(s.order.facts.lines[0].unitPrice,70.64);
+assert.equal(s.order.facts.poDate,'');assert.equal(s.order.facts.requestedDelivery,'');assert.equal(s.order.poFactsConfirmed,false);
+s.order.facts.lines[0].quantity=13;await t.orderActionClick({dataset:{orderAction:'select',index:'0'}});assert.equal(s.order.facts.lines[0].quantity,13,'reselection preserves manual values');
 assert.match(t.renderNewOrderStep('order-comparison'),/70.64/);assert.match(t.renderNewOrderStep('order-comparison'),/706.40/);assert.match(t.renderNewOrderStep('order-comparison'),/3 Weeks/);assert.match(t.renderNewOrderStep('order-comparison'),/MISSING/);
 assert.ok(calls.every(c=>!c.options?.method||c.url.endsWith('/preview')||c.url.endsWith('/po-extraction')),'search/selection only GET or read-only preview/extraction');
 await t.orderActionClick({dataset:{orderAction:'bucket',bucket:'HISTORY'}});assert.match(calls.at(-1).url,/bucket=HISTORY/);

@@ -1681,3 +1681,28 @@ body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .intake-handoff
 .contract-review-form .cr-actions { display:flex; justify-content:space-between; gap:12px; }
 .contract-review-form .cr-actions button { font-size:12px; padding:8px 12px; min-height:36px; }
 @media(max-width:700px) { .contract-review-form dl { grid-template-columns:1fr; } .contract-review-form header { flex-direction:column; } .contract-review-form .cr-actions { flex-wrap:wrap; } }
+
+.intake-po-number{display:grid;gap:8px;margin:16px 0;font-weight:600}.intake-po-number input{box-sizing:border-box;width:100%;min-height:44px;padding:10px 12px;border:1px solid #82929a;border-radius:6px;font:inherit;color:inherit;background:white}.intake-nav{flex-wrap:wrap}
+
+/* Final order-review acknowledgment stays attached to its submit action. */
+.contract-review-form .cr-submit-block{margin-top:12px;padding:12px;border:1px solid #71879d;border-radius:8px;background:#192635}
+.contract-review-form .cr-ack{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-height:44px;box-sizing:border-box;width:100%;margin:0;padding:8px 4px;cursor:pointer;line-height:1.5;font-size:14px;color:#eef5fb}
+.contract-review-form .cr-ack input[type="checkbox"]{appearance:auto;flex:0 0 20px;width:20px;min-width:20px;max-width:20px;height:20px;min-height:20px;margin:0;padding:0;cursor:pointer;accent-color:#79baff}
+.contract-review-form .cr-ack span{flex:1;min-width:0}
+.contract-review-form .cr-ack input:focus-visible{outline:2px solid #9ccaff;outline-offset:4px}
+.contract-review-form .cr-ack-help{margin:2px 0 12px 34px;font-size:12px;color:#d5e3ef}
+.contract-review-form .cr-review-details{margin-top:8px}.contract-review-form .cr-review-details summary{cursor:pointer;padding:8px 0}
+.contract-review-form .cr-actions button{min-height:44px}
+.contract-review-form .intake-primary:disabled{cursor:not-allowed}
+.contract-review-form .intake-primary[aria-busy="true"]:disabled{cursor:wait}
+@media(max-width:700px){.contract-review-form .cr-submit-block{padding:10px}.contract-review-form .cr-ack{align-items:flex-start}.contract-review-form .cr-ack input[type="checkbox"]{margin-top:1px}.contract-review-form .cr-actions button{flex:1 1 220px}}
+
+.intake-order-complete{max-width:760px;margin:auto;color:var(--intake-ink)}
+.intake-order-complete h2{font-size:clamp(21px,2.4vw,28px);line-height:1.25;margin:12px 0}
+.intake-order-complete-check{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#e3f2ec;color:#206344;font-size:24px}
+.intake-order-complete-status{font-weight:700;line-height:1.5}
+.intake-order-complete dl{margin:20px 0;border-top:1px solid var(--intake-line)}
+.intake-order-complete dl>div{display:grid;grid-template-columns:180px minmax(0,1fr);gap:14px;padding:9px 0;border-bottom:1px solid var(--intake-line)}
+.intake-order-complete dt{font-size:13px;font-weight:600}.intake-order-complete dd{margin:0;font-size:14px;overflow-wrap:anywhere;white-space:pre-wrap}
+.intake-order-complete-note{font-size:13px;line-height:1.5}.intake-order-complete>button{min-width:130px}
+@media(max-width:650px){.intake-order-complete dl>div{grid-template-columns:1fr;gap:4px}.intake-order-complete>button{width:100%}}

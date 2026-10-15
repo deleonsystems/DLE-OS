@@ -43,6 +43,11 @@
   }
 
   async function initializeOperationsCenter() {
+    if (document.body.dataset.simRuntime === 'true' && !window.OperationsCenter.teamList) {
+      await new Promise((resolve, reject) => { const script=document.createElement('script');
+        script.src='SRC/modules/operations-center/operations-team-list.js';script.onload=resolve;script.onerror=reject;document.head.append(script); });
+    }
+    window.OperationsCenter.teamList?.initialize();
     if (!operationalStateSubscription && window.DleApiClient?.subscribeOperationalLineStateChange) {
       operationalStateSubscription = window.DleApiClient.subscribeOperationalLineStateChange(detail => {
         if (!window.OperationsCenter.state?.canonicalLoaded) return;

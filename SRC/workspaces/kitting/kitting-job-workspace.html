@@ -42,6 +42,9 @@
     </details>
 
     <main class="kitting-job-main">
+      <div id="kittingProductionViewBar" class="kitting-production-view-bar" hidden>
+        <button id="kittingProductionSlidesToggle" type="button" aria-expanded="false" aria-controls="kittingProductionSlides" onclick="KittingJobWorkspace.toggleProductionSlides()">Production Slides</button>
+      </div>
       <section class="kitting-job-actions" aria-label="Kitting job actions">
         <div id="kittingJobPrimaryActions" class="kitting-job-action-grid">
           <div id="kittingJobPrintLabelsAction" class="kitting-job-action-slot"></div>
@@ -98,6 +101,22 @@
         </div>
       </section>
 
+      <section id="kittingProductionSlides" class="kitting-production-slides" aria-label="Production Slides" hidden>
+        <nav class="kitting-production-slide-controls" aria-label="Slide navigation">
+          <button id="kittingProductionPrevious" type="button" onclick="KittingJobWorkspace.stepProductionSlide(-1)">Previous</button>
+          <label>Slide <select id="kittingProductionSlidePicker" onchange="KittingJobWorkspace.showProductionSlide(this.value)"><option value="0">Kitting traveler</option><option value="1">Interactive BOM</option></select></label>
+          <span id="kittingProductionSlideCount" aria-live="polite">1 / 2</span>
+          <button id="kittingProductionNext" type="button" onclick="KittingJobWorkspace.stepProductionSlide(1)">Next</button>
+          <button type="button" onclick="KittingJobWorkspace.toggleProductionSlides(false)">Back to workspace</button>
+        </nav>
+        <article class="kitting-production-traveler" data-kitting-production-slide="0">
+          <p id="kittingAcceptedSource" class="kitting-production-note" role="status"></p>
+          <iframe id="kittingAcceptedTraveler" class="kitting-accepted-document" title="Accepted Labor traveler preview" sandbox="allow-same-origin"></iframe>
+        </article>
+        <section id="kittingProductionBom" data-kitting-production-slide="1" aria-label="Interactive Kitting BOM" hidden>
+          <p id="kittingProductionBomEmpty" class="kitting-production-note">Use the Kitting action above to start or resume the existing kit.</p>
+        </section>
+      </section>
       <div id="kittingJobActiveCase"></div>
     </main>
   </div>

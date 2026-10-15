@@ -36,7 +36,9 @@ internal sealed record SimKittingCaseRecord(Guid CaseId,string WorkOrderNumber,i
     int ActionableCount,int CompletedCount,int ShortRequirementCount,decimal TotalShortage,
     JsonElement Draft,JsonElement FrozenDraft,JsonElement Lineage,long Generation,
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    SimKittingTraceabilityAmendment? PoTraceabilityAmendment=null);
+    SimKittingTraceabilityAmendment? PoTraceabilityAmendment=null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    SimProductionBomCorrection? ProductionBomCorrection=null);
 internal sealed record SimKittingEvent(Guid EventId,long Sequence,Guid CaseId,string EventType,string ActorId,
     string Actor,DateTimeOffset EventAtUtc,long WorkingVersion,JsonElement Detail);
 internal sealed record SimKittingSubmission(Guid SubmissionId,Guid CaseId,string SubmissionType,int VersionNumber,

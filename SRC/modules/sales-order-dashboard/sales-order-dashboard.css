@@ -609,3 +609,32 @@
     display: grid;
   }
 }
+
+/* SIM Sales Order folder; existing workflow dialogs remain unchanged. */
+.so-folder .so-folder-heading,.so-folder .so-folder-section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.so-folder .so-folder-heading { margin-bottom:22px; }
+.so-folder h2 { margin:4px 0; font-size:28px; }
+.so-folder h3 { margin:0 0 12px; font-size:19px; }
+.so-folder h4 { margin:18px 0 8px; }
+.so-folder p { margin:8px 0; }
+.so-folder .so-folder-section { border:1px solid var(--border-color,#354255); border-radius:10px; padding:18px; margin-bottom:18px; background:var(--panel-bg,rgba(255,255,255,.03)); }
+.so-folder .so-folder-bottom { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr); gap:18px; }
+.so-folder .so-folder-scroll { overflow:auto; }
+.so-folder table { width:100%; border-collapse:collapse; font-size:13px; }
+.so-folder th,.so-folder td { padding:12px 10px; border-bottom:1px solid #53607255; text-align:left; vertical-align:top; }
+.so-folder th { color:var(--muted-text,#9eafc4); font-weight:600; }
+.so-folder td span,.so-folder td strong,.so-folder td small { display:block; }
+.so-folder td strong { margin:4px 0; }
+.so-folder small,.so-folder .so-folder-hint { color:var(--muted-text,#9eafc4); font-size:12px; }
+.so-folder .so-folder-badge { background:#6884a320; border:1px solid #6884a340; border-radius:5px; padding:4px 6px; margin-bottom:5px; }
+.so-folder button,.so-folder a { overflow-wrap:anywhere; }
+.so-folder button { padding:8px 12px; border-radius:6px; cursor:pointer; }
+.so-folder button:disabled { opacity:.5; cursor:default; }
+.so-folder input[type=checkbox] { width:19px; height:19px; }
+.so-folder #salesOrderDashboardCreateRequestToShipButton { background:#2563eb; color:#fff; border:1px solid #6192fa; min-width:85px; }
+.so-folder .so-folder-admin { border-top:1px solid #53607255; padding:12px 0; }
+.so-folder summary { cursor:pointer; padding:8px 0; }
+.so-folder [data-folder-previews] button { display:block; margin:8px 0; }
+.so-folder [data-folder-previews] button span { display:block; font-size:12px; }
+@media(max-width:950px) { .so-folder .so-folder-bottom { grid-template-columns:1fr; gap:0; } .so-folder .so-folder-jobs { min-width:750px; } }
+.so-folder a { color:#8ec5ff; }

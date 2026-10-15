@@ -71,7 +71,7 @@
     if(url.origin!==window.location.origin||!/^\/api\/sim\/rfqs\/[^/]+\/bom-reference$/.test(url.pathname))return;
     const main=document.querySelector('body > main'),scroll={top:main?.scrollTop||0,left:main?.scrollLeft||0};
     const dialog=document.createElement('dialog');dialog.className='labor-drawing-viewer labor-bom-viewer';dialog.setAttribute('aria-label','Accepted BOM read-only reference');
-    dialog.innerHTML='<div class="labor-drawing-heading"><button type="button" data-drawing-back aria-label="Back to Labor worksheet">Back</button><strong>Accepted BOM</strong><button type="button" data-bom-retry hidden>Retry</button></div><p role="status" class="labor-drawing-status">Loading accepted BOM…</p><div class="labor-bom-content" tabindex="0" aria-label="Accepted BOM; scroll to inspect"></div><div class="labor-bom-analysis" hidden><span id="bom-selection" role="status" aria-live="polite"></span><button id="bom-clear" type="button">Clear selection</button></div>';
+    dialog.innerHTML='<div class="labor-drawing-heading"><button type="button" data-drawing-back aria-label="Back to Labor worksheet">Back</button><strong>Quotation BOM</strong><button type="button" data-bom-edit hidden>Edit</button><button type="button" data-bom-print disabled>Print</button><button type="button" data-bom-retry hidden>Retry</button></div><p role="status" class="labor-drawing-status">Loading accepted BOM…</p><div class="labor-bom-content" tabindex="0" aria-label="Accepted BOM; scroll to inspect"></div><div class="labor-bom-analysis" hidden><span id="bom-selection" role="status" aria-live="polite"></span><button id="bom-clear" type="button">Clear selection</button></div>';
     const status=dialog.querySelector('.labor-drawing-status'),content=dialog.querySelector('.labor-bom-content'),retry=dialog.querySelector('[data-bom-retry]');
     let controller=null,closed=false,busy=false;
     const textNode=(tag,value)=>{const node=document.createElement(tag);node.textContent=value;return node;};
@@ -84,17 +84,11 @@
         const sourceTable=source.querySelector('table'),sourceRows=sourceTable?.querySelectorAll('tbody tr[data-quantity]');
         if(!sourceTable||!sourceRows||!source.querySelector('#bom-total'))throw new Error('Invalid BOM reference');
         await ensureBomHelper();if(closed)return;
-        // Copy the secured reference's text and quantities, never its scripts or markup.
-        content.replaceChildren(textNode('h2',source.querySelector('h1')?.textContent||'Accepted BOM - read-only reference'));
-        content.append(textNode('p',source.querySelector('body > p')?.textContent||''));
-        const totals=textNode('p','BOM Lines: '+sourceRows.length+' · Total Components: '),total=document.createElement('strong');total.id='bom-total';totals.append(total);content.append(totals);
-        content.append(textNode('p','Tap rows to select or remove them. Swipe the table sideways for more columns. Selection is temporary and read-only.'));
-        const wrap=document.createElement('div');wrap.className='labor-bom-table-wrap';
-        const table=document.createElement('table'),head=document.createElement('thead'),header=document.createElement('tr'),body=document.createElement('tbody');
-        for(const cell of sourceTable.querySelectorAll('thead th'))header.append(textNode('th',cell.textContent));head.append(header);table.append(head);
-        for(const row of sourceRows){const copy=document.createElement('tr');copy.tabIndex=0;copy.dataset.quantity=row.dataset.quantity;copy.setAttribute('aria-selected','false');for(const cell of row.querySelectorAll('td'))copy.append(textNode('td',cell.textContent));body.append(copy);}
-        table.append(body);wrap.append(table);content.append(wrap);
-        dialog.querySelector('.labor-bom-analysis').hidden=false;window.DleBomReference.mount(dialog,{touchToggle:true});
+        const html=await window.DleBomReference.report(url.pathname,true);if(closed)return;
+        const process=await window.DleBomProcess.read(url.pathname);if(closed)return;const edit=dialog.querySelector('[data-bom-edit]');edit.hidden=!process.canEdit;edit.onclick=async()=>{if(await window.DleBomProcess.open(url.pathname,edit))await load();};
+        const frame=document.createElement('iframe');frame.title='Quotation BOM';frame.style.cssText='width:100%;height:100%;min-height:65vh;border:0;background:white';
+        frame.onload=()=>{if(!closed){const print=dialog.querySelector('[data-bom-print]');print.disabled=false;print.onclick=()=>{frame.contentWindow.focus();frame.contentWindow.print();};}};frame.srcdoc=html;content.replaceChildren(frame);
+        dialog.querySelector('.labor-bom-analysis').hidden=true;
         status.textContent='Read-only reference. Use Back to return to your unchanged worksheet.';
       }catch(error){if(!closed&&error.name!=='AbortError'){status.textContent='Accepted BOM could not be displayed. Retry or use Back; your worksheet is unchanged.';retry.hidden=false;}}
       finally{busy=false;}

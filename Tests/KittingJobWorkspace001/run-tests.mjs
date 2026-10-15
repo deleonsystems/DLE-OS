@@ -17,6 +17,10 @@ assert.match(rootHtml, /loadKittingJobWorkspace/);
 assert.match(rootHtml, /initializeKittingJobWorkspace/);
 
 assert.match(html, /Kitting Job Workspace/);
+assert.match(html, /id="kittingProductionSlidesToggle"/);
+assert.match(html, /id="kittingAcceptedTraveler"/);
+assert.match(script, /appendChild\(active\)/);
+assert.doesNotMatch(script, /cloneNode/);
 assert.doesNotMatch(html, /Back to Kitting|kitting-job-back/);
 assert.match(html, /id="kittingJobWorkOrder"/);
 assert.match(html, /id="kittingJobAssembly"/);
@@ -44,7 +48,7 @@ assert.match(html, /id="kittingJobDevelopmentHistory"/);
 assert.match(html, /DEV report diagnostics/);
 assert.match(html, /id="kittingJobReports"[^>]*hidden/);
 assert.doesNotMatch(html, /History and document evidence/);
-assert.doesNotMatch(html, /Standard View|Kitting View|Production View|Production Workspace|Traveler|Assembly Drawing/);
+assert.doesNotMatch(html, /Standard View|Kitting View|Production View|Production Workspace|Assembly Drawing/);
 
 assert.match(script, /setPresentationMode/);
 assert.match(script, /mountDedicatedSurface/);
@@ -65,7 +69,7 @@ assert.doesNotMatch(script, /collapseKittingPanel|collapseActiveKitting/);
 assert.match(script, /handlePrintLabelsToggle/);
 assert.match(script, /function refreshPrimaryToolPresentation/);
 assert.match(script, /activePrimaryTool === 'print-labels' && printMenu/);
-assert.match(script, /classList\.toggle\('is-focused-kitting', activePrimaryTool === 'kitting'\)/);
+assert.match(script, /classList\.toggle\('is-focused-kitting', activePrimaryTool === 'kitting' && !workspace\.classList\.contains\('uses-production-slides'\)\)/);
 assert.match(script, /--kitting-focused-sticky-top/);
 assert.match(script, /body > header\.dle-app-header/);
 assert.match(script, /restoreDashboardSurface/);

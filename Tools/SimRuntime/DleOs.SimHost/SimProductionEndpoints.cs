@@ -15,6 +15,20 @@ internal static class SimProductionEndpoints
             catch(Exception e)when(e is InvalidOperationException or IOException or SqliteException or System.ComponentModel.Win32Exception){return Results.Json(new{code="production_unavailable",message="The verified Production package is unavailable. Refresh and resolve its retained source before continuing."},statusCode:503);}
         }
         const string route="/api/production/v1/work-orders/{workOrderNumber}";
+        app.MapGet(route+"/instructions",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadJobInstructions(workOrderNumber,a))));
+        app.MapGet(route+"/instructions/sources",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadInstructionSources(workOrderNumber,a))));
+        app.MapGet(route+"/instructions/pages/{documentId}/{hash}/info",(string workOrderNumber,string documentId,string hash,HttpContext c)=>Guard(c,false,async a=>Results.Bytes(await service.ReadInstructionPage(workOrderNumber,documentId,hash,0,2200,a),"application/json")));
+        app.MapGet(route+"/instructions/pages/{documentId}/{hash}/{page:int}",(string workOrderNumber,string documentId,string hash,int page,int? pixels,HttpContext c)=>Guard(c,false,async a=>Results.Bytes(await service.ReadInstructionPage(workOrderNumber,documentId,hash,page,pixels??2200,a),"image/png")));
+        app.MapPut(route+"/instructions",(string workOrderNumber,SimJobInstructionSave r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.SaveJobInstructions(workOrderNumber,r,a))));
+        app.MapPost(route+"/instructions/visuals",(string workOrderNumber,HttpContext c)=>Guard(c,true,async a=>{
+            using var bytes=new MemoryStream();var buffer=new byte[81920];int count;
+            while((count=await c.Request.Body.ReadAsync(buffer))>0){if(bytes.Length+count>8388608)return Results.StatusCode(413);bytes.Write(buffer,0,count);}
+            var asset=await service.UploadInstructionAsset(workOrderNumber,c.Request.Headers["X-Instruction-Baseline"].ToString(),Uri.UnescapeDataString(c.Request.Headers["X-File-Name"].ToString()),bytes.ToArray(),a);
+            return Results.Json(new{asset.DocumentId,asset.Sha256,asset.Name,asset.Type});
+        }));
+        app.MapGet(route+"/instructions/visuals/{documentId}",(string workOrderNumber,string documentId,HttpContext c)=>Guard(c,false,async a=>{
+            var file=await service.OpenInstructionAsset(workOrderNumber,documentId,a);c.Response.Headers["X-Content-Type-Options"]="nosniff";return Results.File(file.Bytes,file.Type);
+        }));
         app.MapGet(route,(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.Read(workOrderNumber,a))));
         app.MapPost(route+"/team-input",(string workOrderNumber,SimProductionTeamSave r,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.SaveTeamInput(workOrderNumber,r,a))));
         app.MapPost(route+"/production-visuals",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>{
