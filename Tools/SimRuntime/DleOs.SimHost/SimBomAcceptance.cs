@@ -37,6 +37,11 @@ internal sealed partial class SimRfqIntakeStore
             throw SimRfqIntakeProblem.Conflict("SIM_BOM_MISSING", "Build a Candidate BOM before completing BOM Review.");
         if (request.Candidate is null || !JsonNode.DeepEquals(ComparableSnapshot(JsonSerializer.SerializeToNode(request.Candidate, jsonOptions)), ComparableSnapshot(JsonSerializer.SerializeToNode(bom, jsonOptions))))
             throw SimRfqIntakeProblem.Conflict("SIM_BOM_CHANGED", "The candidate changed. Reopen and review the latest version before completing BOM Review.");
+        if (bom.VproImport is not null)
+        {
+            await RequireVproAcceptance(dataset, record);
+            return;
+        }
         var sources = await AnalysisDocuments(record, bom.Analysis?.SourceSnapshot.SourceSelectionVersion);
         RequireCurrentScanCandidate(record, bom);
         if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == record.IntakeId && DleAnalysisContract.Active(j.Status)))

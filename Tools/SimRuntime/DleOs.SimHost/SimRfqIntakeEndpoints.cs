@@ -28,6 +28,27 @@ internal static partial class SimRfqIntakeEndpoints
         MapRfqs(app, state, store, personas);
         MapNewOrders(app, state, store, personas);
         MapOrderEntry(app, state, store, personas);
+        app.MapGet("/api/sim/technical-reviews/{intakeId}/vpro-source-decisions", async Task<IResult> (string intakeId, HttpContext context) => {
+            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.view");if(denied is not null)return denied;
+            context.Response.Headers["Cache-Control"]="private, no-store";
+            try{return Results.Json(await store.ReadVproDecisions(intakeId));}
+            catch(SimRfqIntakeProblem p){return Results.Json(new {code=p.Code,message=p.Message},statusCode:p.StatusCode);}
+            catch(IOException){return Results.Json(new {message="Source verification unavailable. Decisions were not changed."},statusCode:503);}
+        });
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/vpro-source-decisions", async Task<IResult> (string intakeId, SimVproDecisionRequest request, HttpContext context) => {
+            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.disposition");if(denied is not null)return denied;
+            try{return Results.Json(await store.SaveVproDecision(intakeId,request,personas.Resolve(context)));}
+            catch(SimRfqIntakeProblem p){return Results.Json(new {code=p.Code,message=p.Message},statusCode:p.StatusCode);}
+            catch(IOException){return Results.Json(new {message="Source verification unavailable. Reopen before retrying."},statusCode:503);}
+        });
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/vpro-bom-draft", async Task<IResult> (string intakeId, SimVproRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.BuildVproDraft(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code=p.Code, message=p.Message }, statusCode:p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message="Import unavailable. Reopen the review before retrying; no existing draft is replaced." }, statusCode:503); }
+        });
         app.MapPost("/api/sim/technical-reviews/{intakeId}/scanned-bom-review/candidate", async Task<IResult> (string intakeId, SimScanCandidateRequest request, HttpContext context) =>
         {
             var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");

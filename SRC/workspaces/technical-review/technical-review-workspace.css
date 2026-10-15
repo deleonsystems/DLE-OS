@@ -536,3 +536,9 @@
  body[data-sim-runtime="true"] .technical-review-workspace .package-table-scroll table{min-width:900px}
  body[data-sim-runtime="true"] .technical-review-workspace .unified-package-review .package-table-scroll table{min-width:1060px}
 }
+
+/* Legacy import source evidence stays inside the candidate toolbar. */
+.technical-review-workspace .vpro-import-evidence { flex: 1 1 100%; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.technical-review-workspace .vpro-source-scroll { overflow-x: auto; max-width: 100%; }
+.technical-review-workspace .vpro-source-scroll table { border-collapse: collapse; color: #e6edf6; font: 12px system-ui, sans-serif; }
+.technical-review-workspace .vpro-source-scroll th, .technical-review-workspace .vpro-source-scroll td { padding: 6px 8px; border: 1px solid #405169; text-align: left; white-space: nowrap; }

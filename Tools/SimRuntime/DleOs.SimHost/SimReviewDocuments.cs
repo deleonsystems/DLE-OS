@@ -41,7 +41,7 @@ internal sealed partial class SimRfqIntakeStore
             }
             else if (request.Applicability != "PARENT_ASSEMBLY" || !string.IsNullOrWhiteSpace(request.SubassemblyPartNumber) || !string.IsNullOrWhiteSpace(request.ProposedSubassemblyIdentity))
                 throw SimRfqIntakeProblem.BadRequest("SIM_PACKAGE_DOCUMENT_SCOPE", "Add component or subassembly files from Candidate BOM row Technical Files. This uploader accepts package-level files only.");
-            if (!new[] { "DRAWING", "DRAWING_AND_BOM", "BOM_ONLY", "GERBER_FILES", "DATASHEET", "SPECIFICATION", "UNKNOWN", "OTHER" }.Contains(request.Type) ||
+            if (!new[] { "DRAWING", "DRAWING_AND_BOM", "BOM_ONLY", "VPRO5_BOM_EXPORT", "GERBER_FILES", "DATASHEET", "SPECIFICATION", "UNKNOWN", "OTHER" }.Contains(request.Type) ||
                 request.Applicability is not ("PARENT_ASSEMBLY" or "SUBASSEMBLY" or "SUPPORTING_REFERENCE") ||
                 (request.Applicability == "SUBASSEMBLY" && string.IsNullOrWhiteSpace(request.SubassemblyPartNumber)) ||
                 (request.SubassemblyPartNumber?.Length ?? 0) > 120 || (request.ProposedSubassemblyIdentity?.Length ?? 0) > 120 || (request.Note?.Length ?? 0) > 500)
@@ -54,7 +54,7 @@ internal sealed partial class SimRfqIntakeStore
                 var at = DateTimeOffset.UtcNow;
                 var file = staged with { ReviewOrigin = new("Technical Review", persona.DisplayName, at, staged.Name,
                     staged.DocumentId!, Convert.ToHexString(SHA256.HashData(bytes)), request.Note?.Trim(), association) };
-                var type = request.Type switch { "DRAWING" or "DRAWING_AND_BOM" => "ASSEMBLY_DRAWING", "BOM_ONLY" => "BOM", "GERBER_FILES" => "GERBER", "OTHER" or "DATASHEET" or "SPECIFICATION" => "SUPPORTING_DOCUMENT", _ => "UNKNOWN" };
+                var type = request.Type switch { "DRAWING" or "DRAWING_AND_BOM" => "ASSEMBLY_DRAWING", "BOM_ONLY" => "BOM", "GERBER_FILES" => "GERBER", "VPRO5_BOM_EXPORT" or "OTHER" or "DATASHEET" or "SPECIFICATION" => "SUPPORTING_DOCUMENT", _ => "UNKNOWN" };
                 var doc = new SimPackageDocument(staged.DocumentId!, staged.Name, type, "UNRESOLVED", request.Applicability,
                     request.Applicability == "SUBASSEMBLY" ? request.SubassemblyPartNumber!.Trim() : null,
                     request.Type == "DRAWING_AND_BOM", new(request.Type, request.Type == "OTHER" ? request.Note?.Trim() : null, "CONFIRMED", persona.DisplayName, at),

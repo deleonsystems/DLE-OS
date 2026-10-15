@@ -53,7 +53,7 @@ internal static class SimTechnicalPackageProvider
             if (doc.PartNumberReview is { } pn && ((pn.Basis is not null && !new[] { "MANUFACTURER", "CUSTOMER_INTERNAL", "MIXED", "UNKNOWN" }.Contains(pn.Basis)) || (!BomBearing(doc) && pn.Basis is not null)))
                 throw SimRfqIntakeProblem.BadRequest("SIM_PN_BASIS_INVALID", "Choose a supported part-number basis for BOM-bearing documents only.");
             if (doc.IdentityReview is { } identity &&
-                (!new[] { "DRAWING", "DRAWING_AND_BOM", "BOM_ONLY", "GERBER_FILES", "DATASHEET", "SPECIFICATION", "UNKNOWN", "OTHER" }.Contains(identity.Type) ||
+                (!new[] { "DRAWING", "DRAWING_AND_BOM", "BOM_ONLY", "VPRO5_BOM_EXPORT", "GERBER_FILES", "DATASHEET", "SPECIFICATION", "UNKNOWN", "OTHER" }.Contains(identity.Type) ||
                  (identity.OtherDescription?.Length ?? 0) > 500 ||
                  (identity.Type == "DRAWING" && (doc.DocumentType != "ASSEMBLY_DRAWING" || doc.EmbeddedBom)) ||
                  (identity.Type == "DRAWING_AND_BOM" && (doc.DocumentType != "ASSEMBLY_DRAWING" || !doc.EmbeddedBom)) ||
@@ -61,6 +61,7 @@ internal static class SimTechnicalPackageProvider
                  (identity.Type == "UNKNOWN" && doc.DocumentType != "UNKNOWN") ||
                  (identity.Type is "DATASHEET" or "SPECIFICATION" && doc.DocumentType != "SUPPORTING_DOCUMENT") ||
                  (identity.Type == "GERBER_FILES" && doc.DocumentType != "GERBER") ||
+                 (identity.Type == "VPRO5_BOM_EXPORT" && doc.DocumentType != "SUPPORTING_DOCUMENT") ||
                  (identity.Type == "OTHER" && doc.DocumentType is not ("SUPPORTING_DOCUMENT" or "GERBER" or "ALTERNATE_PART_APPROVAL"))))
                 throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_IDENTITY_REVIEW_INVALID", "Choose a document identity consistent with its technical classification.");
             if (!new[] { "BOM", "ASSEMBLY_DRAWING", "SUBASSEMBLY_BOM", "ALTERNATE_PART_APPROVAL", "GERBER", "SUPPORTING_DOCUMENT", "UNKNOWN" }.Contains(doc.DocumentType) ||

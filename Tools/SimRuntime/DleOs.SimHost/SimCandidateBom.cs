@@ -48,7 +48,7 @@ internal sealed record SimCandidateBom(string Id, string Label, string Governing
     string ContractVersion = "DLE_CANDIDATE_BOM_V1",
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     SimReviewedScanSource? ReviewedScanSource = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidateProgressStamp? Progress = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidateProgressStamp? Progress = null, SimVproImport? VproImport = null);
 internal sealed record SimPrimarySelection(string? ProposalId, string? PartNumber, string? ManufacturerName, string ExpectedToken);
 internal sealed record SimCandidateReviewRequest(string CandidateId, int RowIndex, Dictionary<string,string>? Values,
     SimCandidateAlternateChange? AlternateChange = null, SimCandidateComponentChange? ComponentChange = null,

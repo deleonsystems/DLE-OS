@@ -515,6 +515,15 @@ internal sealed partial class SimRfqIntakeStore
             var record = dataset.Records[index];
             var review = record.TechnicalReview;
             var package = review?.TechnicalPackage;
+            if (review?.CandidateBom?.VproImport is not null && request is not null)
+            {
+                await RequireVproDraft(record);
+                var updated = SimCandidateBomProvider.Review(review.CandidateBom, request, persona, "MIXED");
+                dataset.Records[index] = record with { TechnicalReview = review with { CandidateBom = updated } };
+                dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                await WriteVerifiedAsync(dataset);
+                return new { reviewType = "RFQ_REVIEW", record = dataset.Records[index] };
+            }
             var governing = package?.Documents.SingleOrDefault(d => d.DocumentId == package.GoverningBomDocumentId);
             if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || EffectiveAssemblyClassification(record) is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
                 !SimTechnicalPackageProvider.IsGoverningCandidateSource(governing))
