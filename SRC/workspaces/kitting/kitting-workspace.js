@@ -35,6 +35,8 @@
       }
     }
 
+    promoteCompletedKits(mount);
+
     if (workspaceState.model) {
       renderWorkspace();
       setStatus(
@@ -46,6 +48,18 @@
       return;
     }
     await refreshKittingWorkspace();
+  }
+
+  function promoteCompletedKits(mount) {
+    if (!['SIM', 'SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)) return;
+    const primary = mount.querySelector('.kitting-lifecycle-tabs');
+    const secondary = mount.querySelector('.kitting-history-nav');
+    const rekit = primary?.querySelector('[data-kitting-lifecycle-tab="NEEDS_REKIT"]');
+    const completed = secondary?.querySelector('[data-kitting-lifecycle-tab="KIT_COMPLETE"]');
+    if (!rekit || !completed) return;
+    primary.replaceChild(completed, rekit);
+    secondary.append(rekit);
+    secondary.setAttribute('aria-label', 'Accepted material');
   }
 
   async function fetchWorkspaceTemplate() {

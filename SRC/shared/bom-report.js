@@ -19,7 +19,7 @@
 
   function documentHtml(draft, navigation = {}) {
 
-    const quote=navigation.context==='QUOTE',employee=(quote||navigation.releasedWorksheet)&&!!navigation.compact;
+    const quote=navigation.context==='QUOTE',employee=!!navigation.releasedWorksheet||(quote&&!!navigation.compact);
 
     const header = draft?.header || {};
 
@@ -37,6 +37,7 @@
 
       if(quote)return clean(value)||'Unavailable';
 
+      if(value==null||clean(value)==='')return '-';
       const number = Number(value);
 
       return window.KittingQuantity?.format(value) ??
@@ -134,8 +135,9 @@
 
       (navigation.compact?'body{font:12px/1.1 Arial,Helvetica,sans-serif;background:white}main{width:792px;margin:0;padding:8px;box-shadow:none}h1{font-size:16px;margin:0 0 2px}.subtitle{font-size:10px;margin:0 0 4px}.identity{grid-template-columns:repeat(4,minmax(0,1fr));gap:2px 10px;padding:4px 0}.identity div{display:flex;gap:5px;align-items:baseline}.identity span{font-size:10px}.identity strong{font-size:11px;margin:0}.material-table col.seq{width:30px}.material-table col.find{width:30px}.material-table col.part{width:160px}.material-table col.required{width:88px}.material-table th,.material-table td{padding:1px 4px}.material-table th{font-size:10px;position:static}.material-table small{font-size:11px;line-height:1.1}.material-table td:nth-child(4) small{display:inline}.material-table td.number strong{margin:0;display:inline}main>p:last-child{font-size:10px;margin:4px 0 0}.toolbar{display:none}':'')+
 
-      (employee?'body{font-size:11px}.material-table small{font-size:10px}.material-table col.seq{width:26px}.material-table col.find{width:28px}.material-table col.part{width:148px}.material-table col.required{width:91px}.material-table col.result{width:50px}.material-table col.po{width:30px}.material-table col.process{width:64px}.material-table col.notes{width:115px}.material-table .part-number{display:block;white-space:nowrap;overflow-wrap:normal;word-break:normal}.process-notes{white-space:pre-wrap}.process-type{background:#fff;color:#172d3d}.process-type[data-process-type=SMT]{background:#dceefb}.process-type[data-process-type=TH]{background:#fff3c4}@media print{.process-type{background:#fff!important;color:#000!important}}.material-table th{font-size:9px}.material-table td{padding:2px 3px}.material-table td:nth-child(4) small{display:block}.material-table td.number{font-size:11px;line-height:1.1;vertical-align:top}.required-inline{font:inherit;font-weight:400}.material-table td.number .required-total{display:inline;font-size:inherit;font-weight:700;line-height:inherit;margin:0}.pending-kitting,.pending-po{text-align:center!important;color:#52616b;white-space:pre-wrap;overflow-wrap:anywhere}.material-table th{overflow-wrap:normal}':'')+
+      (employee?'body{font-size:11px}.material-table{font:11px/1.1 Arial,Helvetica,sans-serif}.material-table small{font-size:10px}.material-table col.seq{width:26px}.material-table col.find{width:28px}.material-table col.part{width:148px}.material-table col.required{width:91px}.material-table col.result{width:50px}.material-table col.po{width:30px}.material-table col.process{width:64px}.material-table col.notes{width:115px}.material-table .part-number{display:block;white-space:nowrap;overflow-wrap:normal;word-break:normal}.process-notes{white-space:pre-wrap}.process-type{background:#fff;color:#172d3d}.process-type[data-process-type=SMT]{background:#dceefb}.process-type[data-process-type=TH]{background:#fff3c4}@media print{.process-type{background:#fff!important;color:#000!important}}.material-table th{font-size:9px}.material-table td{padding:2px 3px}.material-table td:nth-child(4) small{display:block}.material-table td.number{font-size:11px;line-height:1.1;vertical-align:top}.required-inline{font:inherit;font-weight:400}.material-table td.number .required-total{display:inline;font-size:inherit;font-weight:700;line-height:inherit;margin:0}.pending-kitting,.pending-po{text-align:center!important;color:#52616b;white-space:pre-wrap;overflow-wrap:anywhere}.material-table th{overflow-wrap:normal}':'')+
 
+      (employee&&!quote?'.material-table col.result{width:100px}.material-table col.po{width:45px}.material-table col.notes{width:100px}':'')+
       '</style></head><body data-shared-bom="'+(quote?'quote':'released')+'"><header class="toolbar"><strong>'+(quote?'Quotation BOM':'Released BOM \u00b7 Kitting Pick View')+'</strong><span id="reportIdentity">'+(quote?'Quote ':'WO ') +
 
       escapeHtml(workOrder) + ' \u00b7 ' + escapeHtml(header.billNumber) + ' Rev ' + escapeHtml(header.revision) +
@@ -167,7 +169,7 @@
 
       '<th>'+(employee?'Part / Related':quote?'Part / Confirmed MFG':'Part / Related Part')+'</th><th>Description / References</th><th class="number">'+(employee?'Required':quote?'Qty / Assy / Quote total':'Required')+'</th>'+(employee?'<th>Kitting Result</th><th>P.O.</th><th>Component Type</th><th>Notes</th>':'')+'</tr></thead><tbody>' + rows +
 
-      '</tbody></table>'+(quote&&!navigation.page&&!navigation.compact?'<div class="quote-analysis">BOM Lines: '+groups.length+' | Total components / assy: <strong id="bom-total"></strong><p id="bom-selection" role="status" aria-live="polite"></p><button id="bom-clear">Clear selection</button></div>':'')+(navigation.page?'<p>Quote BOM - Page '+navigation.page+' of '+navigation.pages+' | Not released, picked or issued.</p>':'')+'</main></body></html>';
+      '</tbody></table>'+(quote&&!navigation.page&&!navigation.compact?'<div class="quote-analysis">BOM Lines: '+groups.length+' | Total components / assy: <strong id="bom-total"></strong><p id="bom-selection" role="status" aria-live="polite"></p><button id="bom-clear">Clear selection</button></div>':'')+(navigation.page?'<p>'+(quote?'Quote BOM':'Work Order BOM')+' - Page '+navigation.page+' of '+navigation.pages+(quote?' | Not released, picked or issued.':' | Saved Kitting results.')+'</p>':'')+'</main></body></html>';
 
   }
 
@@ -197,18 +199,13 @@
 
   const e=group.entry;if(!e)return '-';
 
-  const result=[e.result||e.method||'Recorded'];
-
+  const labels={COMPLETE:'Complete',COMPLETE_MIN_EXTRA:'Complete with minimal extra',COUNTED_EXACT:'Counted — exact',COUNTED_SHORT:'Counted — short',COUNTED_EXTRA:'Counted — extra'};
+  const result=[labels[e.result]||labels[e.method]||e.result||e.method||'Recorded'];
   if(e.pickedQuantity!=null)result.push('Picked '+e.pickedQuantity);
-
   if(e.shortageQuantity>0)result.push('Short '+e.shortageQuantity);
-
   if(e.extraQuantity>0)result.push('Extra '+e.extraQuantity);
-
-  for(const a of e.allocations||[])result.push([a.partNumber,a.quantity!=null?'Qty '+a.quantity:''].filter(Boolean).join(' '));
-
-  if(e.selectedPartNumber)result.push(e.selectedPartNumber);
-
+  for(const a of e.allocations||[])result.push(['Used: '+a.partNumber,a.quantity!=null?'Qty '+a.quantity:''].filter(Boolean).join(' '));
+  if(e.selectedPartNumber)result.push('Used: '+e.selectedPartNumber);
   return result.join('\n');
 
  }
@@ -241,7 +238,7 @@
 
  }
 
- window.DleBomReport=Object.freeze({partIdentity,partNumbers,document:documentHtml,quoteDraft,multiply,svg,releasedDocument,version:'bom-reference-v4'});
+ window.DleBomReport=Object.freeze({partIdentity,partNumbers,processLabel,kittingResult,purchaseOrders,document:documentHtml,quoteDraft,multiply,svg,releasedDocument,version:'bom-reference-v4'});
 
 
 

@@ -9,19 +9,22 @@
   if(window.DleLaborSlides)return;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/SRC/workspaces/rfqs/labor-slides.js';s.onload=resolve;s.onerror=reject;document.head.append(s);});
  }
  window.addEventListener('beforeunload',e=>{if([...drafts.values()].some(d=>d.dirty)){e.preventDefault();e.returnValue='';}});
- async function open({wo,job,order,frame,trigger}){
+ async function open({wo,job,order,frame,trigger,material}){
   const base='/api/production/v1/work-orders/'+encodeURIComponent(wo)+'/instructions';
   const probe=await fetch(base,{credentials:'same-origin',cache:'no-store'});if(probe.status===404)return false;if(!probe.ok)throw Error('Work order instructions unavailable ('+probe.status+').');const remote=await probe.json();await script();
+  const kit=['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)?await json('/api/kitting-cases/v1/work-orders/'+encodeURIComponent(wo)):null;
+  const viewOnly=kit?.kittingCase?.state==='KIT_COMPLETE';
   let d=drafts.get(wo);
-  if(d?.dirty&&d.token!==remote.baselineToken)throw Error('The accepted baseline changed. Your unsaved job draft is retained in this window; review it before proceeding.');
+  if(!viewOnly&&d?.dirty&&d.token!==remote.baselineToken)throw Error('The accepted baseline changed. Your unsaved job draft is retained in this window; review it before proceeding.');
   if(!d?.dirty){d={plan:{definitionId:remote.definitionId,quantity:remote.quantity,operations:remote.operations,revision:remote.version},version:remote.version,token:remote.baselineToken,dirty:false};drafts.set(wo,d);}
   d.canEdit=remote.canEdit;
+  const plan=viewOnly?{definitionId:remote.definitionId,quantity:remote.quantity,operations:remote.operations,revision:remote.version}:d.plan;
   const baseline=order.orderEntry.acceptance.package.technicalSource.baseline;
   const frozen=await json(base+'/sources');if(frozen.baselineToken!==remote.baselineToken)throw Error('Accepted source changed. Reopen this job.');
   const source=baseline.labor.operations.flatMap(o=>o.slides||[]).find(c=>c.kind==='DRAWING')?.source;
   const save=async()=>{
    if(d.saving)return d.saving;
-   if(!d.canEdit)throw Error('This session cannot edit job instructions.');
+   if(viewOnly||!d.canEdit)throw Error('This session cannot edit job instructions.');
    const snapshot=structuredClone(d.plan.operations),serial=JSON.stringify(snapshot);
    d.saving=json(base,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedVersion:d.version,baselineToken:d.token,operations:snapshot})}).then(result=>{
     d.version=result.version;d.plan.revision=result.version;d.dirty=JSON.stringify(d.plan.operations)!==serial;return true;
@@ -32,16 +35,21 @@
   try { anchor=JSON.parse(sessionStorage.getItem(locationKey)||'null'); } catch (_) {}
   const adapter=window.DleLaborSlides.connect({
    onPosition:position=>{try {sessionStorage.setItem(locationKey,JSON.stringify(position));} catch (_) {}},
-   intakeId:baseline.quote.intakeId,getPlan:()=>d.plan,onChange:()=>{d.dirty=true;},canEdit:()=>d.canEdit,supported:()=>true,
+   intakeId:baseline.quote.intakeId,getPlan:()=>plan,onChange:()=>{d.dirty=true;},canEdit:()=>!viewOnly&&d.canEdit,supported:()=>true,
    photosSupported:()=>true,imageTransformsSupported:()=>true,exclusionsSupported:()=>true,layoutSupported:()=>true,bomSupported:()=>true,
    drawingBase:base+'/pages',bomIdentity:()=>({assembly:job.context.assembly,revision:job.context.revision}),
-   loadBomReference:()=>window.DleLaborBomSlides.fromFrozen(frozen,{definitionId:d.plan.definitionId,assembly:job.context.assembly,revision:job.context.revision}),
-   isDirty:()=>d.dirty,saveLabor:save,saveLabel:'Save to Work Order',visualBase:base,
+   loadBomReference:async()=>{
+    const data=await window.DleLaborBomSlides.fromFrozen(frozen,{definitionId:plan.definitionId,assembly:job.context.assembly,revision:job.context.revision});
+    data.workOrder=wo;
+    data.loadWorkOrderDraft=async()=>{const review=await json('/api/kitting-cases/v1/work-orders/'+encodeURIComponent(wo));return review.kittingCase?.draft||null;};
+    await window.DleLaborBomSlides.refresh(data);return data;
+   },
+   isDirty:()=>!viewOnly&&d.dirty,saveLabor:save,saveLabel:'Save to Work Order',visualBase:base,
    onMount:dialog=>{dialog.classList.add('job-instruction-viewer');},
    contextNotice:'WO '+wo+' — Job instruction draft based on accepted Labor v'+remote.baselineVersion+'. Not a production release.',
    drawingContext:async()=>{if(!source)throw Error('No frozen drawing source is available.');return {source,layers:(baseline.labor.drawingNotes||[]).map(layer=>({layer,reviewRequired:false}))};},
    uploadPhoto:file=>json(base+'/visuals',{method:'POST',headers:{'X-Instruction-Baseline':d.token,'X-File-Name':encodeURIComponent(file.name),'Content-Type':file.type},body:file}),
-   travelerMetadata:()=>({...job.context,workOrder:wo}),travelerRfq:()=>({customer:order.customer,assemblies:[{assemblyNumber:job.context.assembly,revision:job.context.revision}]}),
+   travelerMaterial:()=>material,travelerMetadata:()=>({...job.context,workOrder:wo}),travelerRfq:()=>({customer:order.customer,assemblies:[{assemblyNumber:job.context.assembly,revision:job.context.revision}]}),
    onExit:()=>window.KittingJobWorkspace.toggleProductionSlides(false),
    prefixGroup:'Kitting',
    prefixSlides:[
@@ -51,7 +59,7 @@
    editSource:(id,resume)=>{const op=d.plan.operations.find(o=>o.id===id);const dialog=document.createElement('dialog');dialog.className='labor-slide-dialog';const heading=document.createElement('h2');heading.textContent='Instructions — '+op.name;const text=document.createElement('textarea');text.value=op.instructions||'';text.maxLength=4000;text.rows=8;const apply=document.createElement('button');apply.textContent='Apply to job draft';apply.onclick=()=>{op.instructions=text.value;d.dirty=true;dialog.close();};const cancel=document.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();dialog.append(heading,text,apply,cancel);dialog.addEventListener('close',()=>{dialog.remove();resume();},{once:true});document.body.append(dialog);dialog.showModal();}
   });
   await window.WorkOrderDashboardModule.prepareKittingPreview?.();
-  await adapter.playSequence(d.plan.operations,trigger,null,{includeMaterials:true,anchor});return true;
+  await adapter.playSequence(viewOnly?structuredClone(plan.operations):plan.operations,trigger,null,{includeMaterials:true,anchor});return true;
  }
  window.DleJobInstructions=Object.freeze({open});
 })(window,document);

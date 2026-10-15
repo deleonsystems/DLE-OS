@@ -82,7 +82,7 @@
     const official = [
       'orderDate', 'customerNumber', 'customer', 'customerPo', 'poDate', 'salesOrder',
       'sequenceLine', 'workOrder', 'partNumber', 'description',
-      'opQtyOpen', 'customerDueDate', 'dueDate', 'price', 'extendedPrice', 'materialStatus'
+      'opQtyOpen', 'customerDueDate', 'dueDate', 'price', 'extendedPrice', 'materialStatus', 'productionPlaceholder'
     ].map(field => getOfficialField(record, field));
     const latestStatus = getVerifiedStatusPresentation(record);
     const presentation = getWorkOrderPresentation(record);
@@ -419,6 +419,10 @@
   }
 
   function getOfficialField(record, field) {
+    // Unconnected presentation only for the approved SIM trial job. This is
+    // deliberately not productionStatus, an execution fact, or persisted data.
+    if (field === 'productionPlaceholder') return ['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment) &&
+      resolveGovernedWorkOrderNumber(record) === '0999998' ? 'Not Started' : '';
     const projectedValue = getOperationalProjectionField(record, field);
     if (projectedValue !== '') return projectedValue;
 

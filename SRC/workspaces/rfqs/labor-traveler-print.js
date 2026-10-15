@@ -1,6 +1,20 @@
 (function(window,document){
  'use strict';
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function formatDate(value){
+  const text=String(value??'').trim();if(!text)return '';
+  const only=/^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  let iso;
+  if(only){
+   const date=new Date(text+'T00:00:00Z');
+   if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==text)return text;
+   iso=text; // Calendar dates never pass through the browser's local timezone.
+  }else{
+   const date=new Date(text);if(!Number.isFinite(date.getTime()))return text;
+   iso=date.toISOString().slice(0,10); // Retain the traveler's existing UTC semantics.
+  }
+  return ['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)?iso.slice(5,7)+'-'+iso.slice(8,10)+'-'+iso.slice(2,4):iso;
+ }
  const notes=op=>[op.instructions,...(op.notes||[]).filter(n=>!n.removed&&n.purpose==='PRODUCTION').map(n=>n.text)].filter(v=>typeof v==='string'&&v.trim()).join('\n\n');
  // Bound continuation rows so a long note can paginate without shrinking type.
  // Slices retain every character and never create additional operation numbers.
@@ -14,10 +28,33 @@
  .quote-facts td{height:28px}.quote-splits td{height:24px}.quote-caption{font-size:9pt;color:#34495e;margin:5px 0}
  .quote-operations thead{display:table-header-group}.quote-operations tfoot{display:table-footer-group}.quote-repeat{background:#fff;color:#145fae;font-weight:bold;border:0;border-bottom:2px solid #1269a8;padding:7px 0;font-size:10pt}.quote-repeat span{float:right;color:#34495e;font-weight:normal}
  .quote-operations tbody{break-inside:avoid;page-break-inside:avoid}.quote-operations tr{break-inside:avoid;page-break-inside:avoid}.quote-operations .quote-main{background:#e6eef6}.quote-op-name{font-weight:normal;font-size:12pt;line-height:1.25}.quote-sub .quote-op-name{font-size:10.5pt;font-weight:normal;padding-left:12px}.quote-note{white-space:pre-wrap;font-size:10.5pt;line-height:1.35;margin-top:5px}.quote-sub .quote-note{padding-left:12px}.quote-continuation{font-size:9pt;font-weight:normal}.quote-qty{text-align:center;font-size:10pt}.quote-qty small{display:block;font-size:8pt}.quote-execution{background:white;min-width:0}.quote-number{font-size:10pt}
- .quote-note-label{display:block;margin-bottom:4px;font-size:10pt}
+ .quote-covered{background:white;border-top:0;border-bottom:0}.quote-execution time{white-space:nowrap;font-size:8pt}.quote-note-label{display:block;margin-bottom:4px;font-size:10pt}
  .quote-operations [data-depth="2"] .quote-op-name{padding-left:24px}.quote-operations [data-depth="3"] .quote-op-name{padding-left:36px}.quote-records{break-inside:avoid;page-break-inside:avoid;margin-top:15px}.quote-records h2{font-size:12pt;margin:0 0 5px}.quote-records td{height:27px}.quote-signoffs{display:grid;grid-template-columns:1fr 1fr;gap:12px 25px;margin-top:12px}.quote-line{border-bottom:1px solid #777;min-height:25px}.quote-footer{font-size:8.5pt;color:#34495e;margin:10px 0 0}
  @media screen{body{background:#dbe3eb}.dle-print-page{max-width:7.8in;margin:20px auto;padding:24px;background:white;box-sizing:content-box;box-shadow:0 2px 8px #7896a5}}
  `;
+ // Read-only evidence projection: viewing or editing instructions never records work.
+ function materialEvidence(review,history){
+  const labels={NEEDS_KITTING:'Needs Kitting',KITTING_IN_PROGRESS:'Kitting in Progress',KIT_SHORT:'Kit Short',KIT_COMPLETE:'Kit Complete'};
+  const kit=review?.kittingCase,state=kit?.state||review?.legacyMaterialStatus?.machineValue;
+  const result={status:labels[state]||'',completedBy:'',completedAtUtc:''};
+  if(state!=='KIT_COMPLETE'||!kit?.caseId||!kit.releasedBomIdentity)return result;
+  const matches=(history?.submissions||[]).filter(s=>{
+   if(s.caseId!==kit.caseId||s.submissionType!=='KIT_COMPLETE'||!s.submissionId||!s.submittedBy||!Number.isFinite(Date.parse(s.submittedAtUtc)))return false;
+   try{const snapshot=JSON.parse(s.snapshotJson);return snapshot.caseId===kit.caseId&&snapshot.workOrderNumber===kit.workOrderNumber&&snapshot.releasedBomIdentity===kit.releasedBomIdentity&&snapshot.submissionId===s.submissionId&&snapshot.submissionType==='KIT_COMPLETE'&&snapshot.submittedBy===s.submittedBy&&snapshot.submittedAtUtc===s.submittedAtUtc;}catch(_){return false;}
+  }).sort((a,b)=>Date.parse(b.submittedAtUtc)-Date.parse(a.submittedAtUtc));
+  if(matches[0])Object.assign(result,{completedBy:matches[0].submittedBy,completedAtUtc:matches[0].submittedAtUtc});
+  return result;
+ }
+ async function loadMaterialEvidence(wo){
+  if(!/^\d{7}$/.test(wo))throw Error('Select a canonical work order.');
+  const url='/api/kitting-cases/v1/work-orders/'+wo;
+  const read=async suffix=>{const r=await fetch(url+suffix,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Kitting status unavailable ('+r.status+').');return r.json();};
+  const before=await read('');
+  if(before.kittingCase?.state!=='KIT_COMPLETE')return materialEvidence(before);
+  const history=await read('/submissions'),after=await read('');
+  if(before.kittingCase.caseId!==after.kittingCase?.caseId||before.kittingCase.workingVersion!==after.kittingCase.workingVersion)throw Error('Kitting changed while loading the traveler. Reopen to refresh.');
+  return materialEvidence(after,history);
+ }
  function build(plan,rfq,api=window.DleLaborWorkbench,presentation={}){
   const operationLabel=api.operationLabel||(o=>!o?.parentId&&String(o?.name||'').trim().toLowerCase()==='inspection'?'Quality-Inspection':o?.name||'');
   const assembly=rfq.assemblies?.[0]||{},excluded=api.materialPreparationIds(plan.operations||[]),allRows=api.displayRows(plan.operations||[]);
@@ -25,19 +62,30 @@
   const typeOf=o=>{const root=api.sectionRoot(plan.operations,o),side=api.smtSide(root);return side?'SMT-'+side:(api.workAreaLabel?.(api.workArea(root))||api.workArea(root)||root.name);};
   const focused=o=>presentation.focusType&&typeOf(o)===presentation.focusType;
   const rowNotes=o=>presentation.focusType&&!o.parentId&&!focused(o)?'':notes(api.resolvedInstruction(plan.operations,o));
-  function row(item,part,index){const {o,seq}=item;return `<tr class="${o.parentId?'quote-sub':'quote-main'}" data-focus="${!!focused(o)}" data-depth="${item.depth||0}" data-operation="${esc(o.id)}" data-continuation="${index>0}"><td class="quote-number">${index?'':esc(seq)}</td><td><div class="quote-op-name">${esc(operationLabel(o))}${index?' <span class="quote-continuation">(continued)</span>':''}</div>${part?`<div class="quote-note">${!o.parentId?`<strong class="quote-note-label">Operation Notes${index?' (continued)':''}</strong>`:''}${esc(part)}</div>`:''}</td>${'<td class="quote-execution"></td>'.repeat(4)}</tr>`;}
+  function row(item,part,index){
+   const {o,seq}=item,material=excluded.has(o.id),count=material?4:5;
+   let execution='<td colspan="'+count+'" class="quote-covered"></td>';
+   if(!o.parentId&&!index){
+    const evidence=material?presentation.material:null;
+    const timestamp=evidence?.completedAtUtc;
+    const date=timestamp&&Number.isFinite(Date.parse(timestamp))?'<time datetime="'+esc(timestamp)+'" title="'+esc(timestamp)+'">'+esc(formatDate(timestamp))+'</time>':'';
+    const values=material?[esc(metadata.quantity),esc(evidence?.status||''),esc(evidence?.completedBy||''),date]:['','','','',''];
+    execution=values.map(value=>'<td class="quote-execution">'+value+'</td>').join('');
+   }
+   return `<tr class="${o.parentId?'quote-sub':'quote-main'}" data-focus="${!!focused(o)}" data-depth="${item.depth||0}" data-operation="${esc(o.id)}" data-continuation="${index>0}"><td class="quote-number">${index?'':esc(seq)}</td><td><div class="quote-op-name">${esc(operationLabel(o))}${index?' <span class="quote-continuation">(continued)</span>':''}</div>${part?`<div class="quote-note">${!o.parentId?`<strong class="quote-note-label">Operation Notes${index?' (continued)':''}</strong>`:''}${esc(part)}</div>`:''}</td>${execution}</tr>`;
+  }
   function sectionRows(ordered){const groups=[];
   for(let at=0;at<ordered.length;){const main=ordered[at++],subs=[];while(at<ordered.length&&ordered[at].o.parentId===main.o.id)subs.push(ordered[at++]);const mainRows=chunks(rowNotes(main.o)).map((text,i)=>row(main,text,i));groups.push(...mainRows.slice(0,-1).map(r=>'<tbody>'+r+'</tbody>'));let pair=mainRows.at(-1);if(subs.length){const child=subs.shift(),parts=chunks(rowNotes(child.o));pair+=row(child,parts.shift(),0);groups.push('<tbody class="quote-keep-pair">'+pair+'</tbody>');groups.push(...parts.map((part,i)=>'<tbody>'+row(child,part,i+1)+'</tbody>'));}else groups.push('<tbody>'+pair+'</tbody>');for(const child of subs)groups.push(...chunks(rowNotes(child.o)).map((part,i)=>'<tbody>'+row(child,part,i)+'</tbody>'));}
   return groups.join('');}
   const phases=api.firstPiecePhases(plan);
-  function phaseRows(section){return phases.filter(p=>excluded.has(p.owner.id)===(section==='Materials')).map(p=>{
-    if(p.kind==='normal'){const root=p.owner,advanced=root.executionQuantity!=null||root.handoff||root.department||root.instructionSourceId||root.captureSerial;const heading=advanced?'<tbody data-focus="'+!!focused(root)+'" data-execution-section="'+esc(root.id)+'"><tr><td colspan="6"><strong>'+esc(operationLabel(root))+'</strong><div>'+esc(api.sectionContext(root,plan.operations,plan.quantity))+'</div><div>Labor revision '+esc(plan.revision||'draft')+'</div></td></tr>'+(root.captureSerial?'<tr><td colspan="6">First-piece serial / identification (if used): ____________________</td></tr>':'')+'</tbody>':'';return heading+sectionRows(p.rows);}
+  function phaseRows(section){const columns=section==='Materials'?6:7;return phases.filter(p=>excluded.has(p.owner.id)===(section==='Materials')).map(p=>{
+    if(p.kind==='normal'){const root=p.owner,advanced=root.executionQuantity!=null||root.handoff||root.department||root.instructionSourceId||root.captureSerial;const heading=advanced?'<tbody data-focus="'+!!focused(root)+'" data-execution-section="'+esc(root.id)+'"><tr><td colspan="'+columns+'"><strong>'+esc(operationLabel(root))+'</strong><div>'+esc(api.sectionContext(root,plan.operations,plan.quantity))+'</div><div>Labor revision '+esc(plan.revision||'draft')+'</div></td></tr>'+(root.captureSerial?'<tr><td colspan="'+columns+'">First-piece serial / identification (if used): ____________________</td></tr>':'')+'</tbody>':'';return heading+sectionRows(p.rows);}
     const settings=p.owner.firstPiece,version='Labor revision '+(plan.revision||'draft'),label=p.kind==='first'?'First-piece build — 1 of '+plan.quantity:p.kind==='inspection'?'First-piece inspection / acceptance':'Remaining-batch build — '+p.quantity;
     const last=plan.operations.filter(o=>o.parentId===p.owner.id).at(-1),setup=(settings.setupOperationIds||[]).map(id=>plan.operations.find(o=>o.id===id)?.name).filter(Boolean);
     let text=p.kind==='first'?'Complete through '+(last?.name||'all work steps')+'. One-time setup: '+(setup.join(', ')||'none selected')+'. Accepted first piece is included in total quantity.':p.kind==='remaining'?'HOLD until first-piece acceptance. Reuse the same '+version+' instructions. Do not repeat one-time setup.':'Inspect after '+(last?.name||'all work steps')+'. Hold the remaining batch pending acceptance. If inspection fails, keep remaining work on hold for disposition. This record is not formal process qualification or an enforced release.';
     if(p.kind==='inspection'){const o=p.rows[0]?.o;const estimated=o&&o.operationQuantity!=null&&o.runSeconds!=null;text+=' Inspection labor: '+(estimated?o.operationQuantity+' × '+o.runSeconds+' seconds, once per lot; costed in the linked '+o.name+' row.':'NOT ESTIMATED — separate inspection labor must be entered.');}
-    const header='<tbody data-first-piece-phase="'+p.kind+'" data-instruction-owner="'+esc(p.owner.id)+'"><tr><td colspan="6"><strong>'+esc(operationLabel(p.owner)+' — '+label)+'</strong><div>'+esc(version+' — shared instruction set. '+text)+'</div></td></tr>'+(p.kind==='first'&&settings.captureSerial?'<tr><td colspan="6">First-piece serial / identification (if used): ____________________</td></tr>':'')+'</tbody>';
-    const acceptance=p.kind==='inspection'?'<tbody><tr data-first-piece-acceptance><td colspan="6">Disposition: __________ &nbsp; Inspector: __________ &nbsp; Date: __________ &nbsp; Accepted quantity: __________</td></tr></tbody>':'';
+    const header='<tbody data-first-piece-phase="'+p.kind+'" data-instruction-owner="'+esc(p.owner.id)+'"><tr><td colspan="'+columns+'"><strong>'+esc(operationLabel(p.owner)+' — '+label)+'</strong><div>'+esc(version+' — shared instruction set. '+text)+'</div></td></tr>'+(p.kind==='first'&&settings.captureSerial?'<tr><td colspan="'+columns+'">First-piece serial / identification (if used): ____________________</td></tr>':'')+'</tbody>';
+    const acceptance=p.kind==='inspection'?'<tbody><tr data-first-piece-acceptance><td colspan="'+columns+'">Disposition: __________ &nbsp; Inspector: __________ &nbsp; Date: __________ &nbsp; Accepted quantity: __________</td></tr></tbody>':'';
     return header+sectionRows(p.rows)+acceptance;
   }).join('');}
   const blankRow=(columns)=>'<tr>'+Array.from({length:columns},()=>'<td></td>').join('')+'</tr>';
@@ -45,9 +93,9 @@
    <div class="quote-identities">${[['Sales Order #','QUOTE'],['Work Order #','QUOTE'],['Purchase Order #','QUOTE'],['Customer',metadata.customer]].map(([label,value])=>`<div class="quote-field"><span>${label}</span><strong>${esc(value)}</strong></div>`).join('')}</div>
    <table class="quote-facts"><colgroup><col style="width:12%"><col style="width:24%"><col style="width:9%"><col><col style="width:15%"></colgroup><thead><tr>${['Quote Qty','Part Number','Rev','Description','Release Date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody><tr><td>${esc(metadata.quantity)}</td><td>${esc(metadata.assembly)}</td><td>${esc(metadata.revision)}</td><td>${esc(metadata.description)}</td><td></td></tr></tbody></table>
    <table class="quote-splits"><caption>Split order details</caption><thead><tr>${['Stockroom split qty','Production split qty','Employee #','Reason','Split date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${blankRow(5)}</tbody></table>
-   ${['Materials','Production'].map(section=>{const rows=allRows.filter(({o})=>excluded.has(o.id)===(section==='Materials'));if(!rows.length&&section==='Materials')return '';return `<table class="quote-operations quote-${section.toLowerCase()}"><colgroup>${[7,57,9,11,8,8].map(n=>'<col style="width:'+n+'%">').join('')}</colgroup><thead><tr><th colspan="6" class="quote-repeat">${section} <span>PRELIMINARY / QUOTE &middot; ${esc(metadata.assembly)} &middot; Rev ${esc(metadata.revision)} &middot; Qty ${esc(metadata.quantity)}</span></th></tr><tr>${['Op #','Operation / Instructions','Emp #','Date','Acc Qty','Rej Qty'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead>${phaseRows(section)||'<tbody><tr><td colspan="6">No production operations in this draft.</td></tr></tbody>'}</table>`;}).join('')}
+   ${['Materials','Production'].map(section=>{const rows=allRows.filter(({o})=>excluded.has(o.id)===(section==='Materials'));if(!rows.length&&section==='Materials')return '';const columns=section==='Materials'?['Step','Operation / Instructions','Kit Qty','Status','Completed By','Date Completed']:['Step','Operation / Instructions','Status','Completed By','Date Completed','Acc Qty','Rej Qty'];const widths=section==='Materials'?[7,43,8,14,15,13]:[7,43,12,12,12,7,7];return `<table class="quote-operations quote-${section.toLowerCase()}"><colgroup>${widths.map(n=>'<col style="width:'+n+'%">').join('')}</colgroup><thead><tr><th colspan="${columns.length}" class="quote-repeat">${section} <span>PRELIMINARY / QUOTE &middot; ${esc(metadata.assembly)} &middot; Rev ${esc(metadata.revision)} &middot; Qty ${esc(metadata.quantity)}</span></th></tr><tr>${columns.map(h=>'<th>'+h+'</th>').join('')}</tr></thead>${phaseRows(section)||'<tbody><tr><td colspan="'+columns.length+'">No production operations in this draft.</td></tr></tbody>'}</table>`;}).join('')}
    <section class="quote-records"><h2>Discrepancy / Rework Record</h2><table><colgroup><col style="width:7%"><col style="width:30%"><col><col><col><col><col><col></colgroup><thead><tr>${['Op #','Discrepancy','S/N','Insp.','Disp.','Rework by','Insp.','Date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${blankRow(8).repeat(2)}</tbody></table><div class="quote-line">Corrective action:</div><div class="quote-signoffs">${['Approved by:','Date:','Production:','Q.A. / M.R.B.:'].map(label=>'<div class="quote-line">'+label+'</div>').join('')}</div></section>
-   <p class="quote-footer">PRELIMINARY / QUOTE - Not a production release. Execution fields intentionally blank.</p>`;
+   <p class="quote-footer">PRELIMINARY / QUOTE - Not a production release. ${presentation.material?'Completion fields are populated only from recorded completion.':'Execution fields intentionally blank.'}</p>`;
   return {documentName:'Preliminary Quote Traveler - '+metadata.assembly,paperSize:'letter',orientation:'portrait',margins:'.35in',html:(presentation.focusType?'<p class="quote-focus-key">Current focus: '+esc(presentation.focusType)+' - gray highlighting indicates focus, not completion.</p>':'')+html,css:css+(presentation.focusType?' .quote-operations .quote-main{background:white}.quote-operations [data-focus="true"]{background:#e8eaec}.quote-focus-key{font:10.5pt/1.3 Arial;margin:0 0 10px;color:#34495e}':'')};
  }
  async function open({plan,rfq,trigger,dirty=false,engine}){
@@ -71,5 +119,5 @@
   const style=document.createElement('style');style.textContent=scope(sheet.cssRules)+prefix+' .quote-header{background:transparent;padding:0;border:0;color:#111}'+prefix+' .quote-header h1{color:inherit}'+'.labor-traveler-base .dle-print-page{margin:0;padding:24px;max-width:none;box-shadow:none;box-sizing:border-box}';outer.append(style);
   const page=document.createElement('div');page.className='dle-print-page';page.innerHTML=definition.html;outer.append(page);parent.append(outer);return outer;
  }
- window.DleLaborTravelerPrint=Object.freeze({build,open,chunks,mount});
+ window.DleLaborTravelerPrint=Object.freeze({build,open,chunks,mount,materialEvidence,loadMaterialEvidence,formatDate});
 })(window,document);

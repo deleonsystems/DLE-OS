@@ -18,16 +18,44 @@
   const v4={...legacy,source:await sourceFor('bom-reference-v4')};
   return {...legacy,legacy,v4,rfq,quantity,process,source:await sourceFor('bom-reference-v5')};
  }
+ // Saved results join by the immutable BOM process key, never displayed sequence/index.
+ async function refresh(data){
+  if(!data?.loadWorkOrderDraft)return;
+  const request=(data.resultReadVersion||0)+1;data.resultReadVersion=request;
+  data.savedDraft=null;
+  const draft=await data.loadWorkOrderDraft();
+  if(request!==data.resultReadVersion)throw Error('A newer BOM result read is in progress. Reopen this slide.');
+  if(!draft)return;
+  const assembly=data.rfq?.assemblies?.[0],header=draft.header||{};
+  if(String(draft.workOrder)!==String(data.workOrder)||header.billNumber!==assembly?.assemblyNumber||header.revision!==assembly?.revision||Number(header.scheduledProduction)!==Number(data.quantity))throw Error('Saved Kitting BOM identity changed. Reopen this work order.');
+  const keys=new Set(),ids=new Set(),expected=new Set(data.process.rows.map(r=>r.key));
+  if(expected.size!==data.rows.length||expected.has(undefined)||expected.has(''))throw Error('Accepted BOM line keys are unavailable or ambiguous.');
+  for(const g of draft.groups||[]){if(!g.sourceRowId||ids.has(g.sourceRowId)||!g.process?.key||keys.has(g.process.key)||!expected.has(g.process.key))throw Error('Saved Kitting line identity is unavailable or ambiguous.');keys.add(g.process.key);ids.add(g.sourceRowId);}
+  if(keys.size!==expected.size)throw Error('Saved Kitting BOM lines do not match the accepted source.');
+  data.savedDraft=draft;
+ }
+ function displayDraft(data,indices){
+  const draft=window.DleBomReport.quoteDraft(indices.map(i=>data.rows[i]),data.rfq,data.quantity);
+  const saved=new Map((data.savedDraft?.groups||[]).map(g=>[g.process.key,g]));
+  draft.groups=draft.groups.map((g,i)=>{const index=indices[i],process=data.process?.rows[index],match=saved.get(process?.key);
+   return match?{...structuredClone(match),entry:match.rowState==='SUBMITTED'?structuredClone(match.entry):null}:{...g,sequence:String(index+1),requiredQuantity:data.workOrder?window.DleBomReport.multiply(g.requiredEach,data.quantity):undefined,process};
+  });
+  if(data.workOrder){draft.workOrder=data.workOrder;draft.header={...draft.header,...data.savedDraft?.header,workOrder:data.workOrder};}
+  return draft;
+ }
+ function navigation(data){return data.workOrder?{context:'RELEASED',releasedWorksheet:true}:{};}
  function matches(data,source){const ref=source?.documentId==='bom-reference-v3'?data?.legacy:source?.documentId==='bom-reference-v4'?data?.v4:data;return !!ref&&ref.source.documentId===source?.documentId&&ref.source.sha256===source?.sha256;}
- function svg(data,page,source=data.source,compact=false){if(!matches(data,source))throw Error('BOM source changed. Existing overlays are preserved.');if(source.documentId==='bom-reference-v3')return window.DleLaborBomSlidesV3.svg(data.legacy,page);
+ function quoteSvg(data,page,source=data.source,compact=false){if(!matches(data,source))throw Error('BOM source changed. Existing overlays are preserved.');if(source.documentId==='bom-reference-v3')return window.DleLaborBomSlidesV3.svg(data.legacy,page);
   const fragments=data.pages[page-1];if(!fragments)throw Error('BOM page unavailable.');const rows=fragments.map(r=>r.cells.map(c=>c.join(''))),draft=window.DleBomReport.quoteDraft(rows,data.rfq,data.quantity);draft.groups.forEach((g,i)=>{g.requiredEach=data.rows[fragments[i].row-1][5];if(compact){const value=data.process?.rows[fragments[i].row-1];g.process=fragments[i].continued&&value?{...value,notes:''}:value;}g.sequence=String(fragments[i].row)+(fragments[i].continued?' (cont.)':'');});return window.DleBomReport.svg(draft,page,data.pages.length,source.documentId==='bom-reference-v5',compact);
  }
- // Reflow current unannotated employee pages together; stored source pages remain immutable.
+ function svg(data,page,source=data.source,compact=false){if(!data.workOrder)return quoteSvg(data,page,source,compact);if(!matches(data,source))throw Error('BOM source changed. Existing overlays are preserved.');
+  const fragments=data.pages[page-1];if(!fragments)throw Error('BOM page unavailable.');const draft=displayDraft(data,fragments.map(r=>r.row-1));
+  return window.DleBomReport.svg(draft,page,data.pages.length,source.documentId==='bom-reference-v5',compact,navigation(data));
+ }
+ // All operations derive their display from the same freshly read saved case.
  function flowSvg(data,pages=data.pages.map((_,i)=>i+1)){
   const indices=[...new Set(pages.flatMap(page=>(data.pages[page-1]||[]).map(r=>r.row-1)))];
-  const draft=window.DleBomReport.quoteDraft(indices.map(i=>data.rows[i]),data.rfq,data.quantity);
-  draft.groups.forEach((g,i)=>{g.sequence=String(indices[i]+1);g.process=data.process?.rows[indices[i]];});
-  return window.DleBomReport.svg(draft,null,null,true,true);
+  return window.DleBomReport.svg(displayDraft(data,indices),null,null,true,true,navigation(data));
  }
  async function quoteDocument(url,compact=false){const response=await fetch(url.replace(/\/bom-reference$/,'/labor'),{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Quote identity unavailable.');const v=await response.json(),a=v.rfq.assemblies[0];const data=await read(url,{definitionId:v.plan.definitionId,assembly:a.assemblyNumber,revision:a.revision});if(compact){
    await load('workspaces/rfqs/labor-letter-pages.js','DleLaborLetterPages');
@@ -36,5 +64,5 @@
    return forms.document(result);
   }
   return window.DleBomReport.document(window.DleBomReport.quoteDraft(data.rows,data.rfq,data.quantity),{context:'QUOTE',returnUrl:'/',fairLabels:true});}
- window.DleLaborBomSlides=Object.freeze({read,fromFrozen,svg,flowSvg,matches,ready,quoteDocument,paginate:rows=>window.DleLaborBomSlidesV3.paginate(rows)});
+ window.DleLaborBomSlides=Object.freeze({read,fromFrozen,refresh,displayDraft,svg,flowSvg,matches,ready,quoteDocument,paginate:rows=>window.DleLaborBomSlidesV3.paginate(rows)});
 })(window,document);

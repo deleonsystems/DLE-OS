@@ -290,7 +290,8 @@
       const plan = { ...labor, revision: labor.version };
       const rfq = { customer: order.customer, assemblies: [{ assemblyNumber: line.assembly, revision: line.revision, description: line.description || '' }] };
       // Use the actual Labor traveler builder. Only identity/release labels differ for this accepted preview.
-      const definition = window.DleLaborTravelerPrint.build(plan, rfq, window.DleLaborWorkbench);
+      const material = await window.DleLaborTravelerPrint.loadMaterialEvidence(wo);
+      const definition = window.DleLaborTravelerPrint.build(plan, rfq, window.DleLaborWorkbench, {material});
       const doc = new DOMParser().parseFromString(definition.html, 'text/html');
       doc.querySelector('.quote-header h1').textContent = 'ACCEPTED INSTRUCTION PREVIEW';
       doc.querySelector('.quote-header p').textContent = 'Not a released production traveler';
@@ -300,14 +301,14 @@
       fields[2].textContent = acceptance.package.poNumber;
       doc.querySelector('.quote-facts th').textContent = 'Order Qty';
       doc.querySelectorAll('.quote-repeat span').forEach(node => { node.textContent = node.textContent.replace('PRELIMINARY / QUOTE', 'ACCEPTED PREVIEW'); });
-      doc.querySelector('.quote-footer').textContent = 'Accepted Labor v' + labor.version + ' — not a production release. Execution fields intentionally blank.';
+      doc.querySelector('.quote-footer').textContent = 'Accepted Labor v' + labor.version + ' — not a production release.  Kitting status is from the saved case; completion requires a retained Kit Complete submission. Production completion is not recorded by viewing instructions.';
       if (ticket !== previewLoad || !productionSlidesOpen) return;
       frame.srcdoc = '<!doctype html><html><head><base href="' + escapeHtml(document.baseURI) + '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' + definition.css + '</style></head><body><div class="dle-print-page">' + doc.body.innerHTML + '</div></body></html>';
       const sourceLabel = 'Accepted order ' + order.intakeId + ', revision ' + acceptance.packageRevision + ' · Labor v' + labor.version + ' · ' +
         (job.boundTraveler ? 'Accepted instructions shown; a separately bound production traveler exists.' : 'No production traveler is bound to this job.');
       setText('kittingAcceptedSource', sourceLabel);
       await previewScript('../kitting/production-instruction-editor', 'DleJobInstructions');
-      if(await window.DleJobInstructions.open({wo,job,order,frame,trigger:document.getElementById('workOrderDashboardKitReleasedBom')}))return;
+      if(await window.DleJobInstructions.open({wo,job,order,frame,material,trigger:document.getElementById(document.getElementById('kittingProductionSlidesToggle')?.hidden?'workOrderDashboardKitReleasedBom':'kittingProductionSlidesToggle')}))return;
       const references = new Map((job.technicalDocuments || []).map(ref => [ref.documentId, ref]));
       let index = 2;
       for (const operation of labor.operations) for (const card of operation.slides || []) {
@@ -366,10 +367,43 @@
     finally { section.dataset.loading = 'false'; }
   }
 
-  function initializeProductionSlides() {
+  const completedDeckAccess = new Map();
+  async function refreshCompletedSlidesEntry() {
     const bar = document.getElementById('kittingProductionViewBar');
+    if (!bar) return;
+    const wo = clean(window.WorkOrderDashboardModule?.getSelectedHandoff?.()?.workOrderNumber);
+    const eligible = () => ['SIM', 'SIMULATION'].includes(window.DleOsRuntimeConfig?.environment) &&
+      wo === clean(window.WorkOrderDashboardModule?.getSelectedHandoff?.()?.workOrderNumber) &&
+      document.getElementById('kittingJobMaterialStatus')?.dataset.status === 'KIT_COMPLETE';
+    bar.hidden = true;
+    const button = document.getElementById('kittingProductionSlidesToggle');
+    const workspace = document.getElementById('kittingJobWorkspace');
+    if (button) button.hidden = true;
+    workspace?.classList.remove('completed-slides-entry');
+    if (!eligible() || !/^\d{7}$/.test(wo)) return;
+    if (!completedDeckAccess.has(wo)) completedDeckAccess.set(wo,
+      fetch('/api/production/v1/work-orders/' + encodeURIComponent(wo) + '/instructions',
+        {credentials:'same-origin',cache:'no-store'})
+        .then(async response => { if (!response.ok) return false; const deck = await response.json(); return Array.isArray(deck.operations) && deck.operations.length > 0; })
+        .catch(() => false));
+    const allowed = await completedDeckAccess.get(wo);
+    if (eligible() && allowed && button) {
+      const action = document.getElementById('workOrderDashboardKitReleasedBom');
+      action?.parentNode?.insertBefore(button, action);
+      button.innerHTML = '<strong>Production Slides</strong><span>View completed kit instructions</span>';
+      button.hidden = false;
+      workspace?.classList.add('completed-slides-entry');
+    }
+  }
+
+  function initializeProductionSlides() {
     const sim = ['SIM', 'SIMULATION'].includes(window.DleOsRuntimeConfig?.environment);
-    if (bar) bar.hidden = true;
+    void refreshCompletedSlidesEntry();
+    const statusBadge = document.getElementById('kittingJobMaterialStatus');
+    if (statusBadge && !statusBadge.dataset.slidesEntryObserved) {
+      statusBadge.dataset.slidesEntryObserved = 'true';
+      new MutationObserver(refreshCompletedSlidesEntry).observe(statusBadge, {attributes:true,attributeFilter:['data-status']});
+    }
     document.getElementById('kittingJobWorkspace')?.classList.toggle('uses-production-slides', sim && legacyInstructionWorkOrder !== clean(window.WorkOrderDashboardModule?.getSelectedHandoff?.()?.workOrderNumber));
     if (sim) {
       const action = document.getElementById('workOrderDashboardKitReleasedBom');
@@ -512,6 +546,7 @@
   }
 
   function open(handoff) {
+    completedDeckAccess.delete(clean(handoff?.workOrderNumber));
     if (productionSlidesOpen) toggleProductionSlides(false);
     if (!handoff || typeof window.WorkOrderDashboardModule?.setSelectedWorkOrder !== 'function' || typeof window.go !== 'function') {
       return false;
@@ -578,6 +613,7 @@
     setText('kittingJobMaterialStatus', materialStatus);
     const badge = document.getElementById('kittingJobMaterialStatus');
     if (badge) badge.dataset.status = normalizeStatus(payload.materialStatus || selection.materialStatusProjection || selection.materialStatus);
+    void refreshCompletedSlidesEntry();
     renderRelatedRows(payload.relatedRows || selection.relatedRows || []);
     refreshProductionTraveler();
   }
@@ -634,7 +670,8 @@
     const parsed = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
     const isValid = parsed.getUTCFullYear() === Number(match[1]) &&
       parsed.getUTCMonth() === Number(match[2]) - 1 && parsed.getUTCDate() === Number(match[3]);
-    return isValid ? `${match[2]}/${match[3]}/${match[1]}` : text;
+    return isValid ? (['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)
+      ? `${match[2]}-${match[3]}-${match[1].slice(-2)}` : `${match[2]}/${match[3]}/${match[1]}`) : text;
   }
 
   function formatQuantity(value) {

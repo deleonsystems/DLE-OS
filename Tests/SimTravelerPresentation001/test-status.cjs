@@ -1,0 +1,14 @@
+const repo=process.argv[2]||require('path').resolve(__dirname,'../..');
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const dir=''+repo+'/SRC/modules/operations-center/';
+const window={OperationsCenter:{state:{operationalEnrichmentAvailable:true}},DleOsRuntimeConfig:{environment:'SIMULATION'}};
+vm.runInNewContext(fs.readFileSync(dir+'operations-center-view-model.js','utf8'),{window});
+const api=window.OperationsCenter.viewModel;
+const current={workOrderNumber:'0999998',productionStatus:'READY_TO_START_PRODUCTION'};
+const other={workOrderNumber:'0123456',productionStatus:'COMPLETE',executionStarted:true};
+const before=JSON.stringify([current,other]);
+assert.equal(api.getOfficialField(current,'productionPlaceholder'),'Not Started');
+assert.equal(api.getOfficialField(other,'productionPlaceholder'),'');
+assert.equal(JSON.stringify([current,other]),before);
+window.DleOsRuntimeConfig.environment='DEV';assert.equal(api.getOfficialField(current,'productionPlaceholder'),'');
+console.log('PASS: unconnected current-job-only SIM placeholder, no data mutation, other jobs and DEV excluded.');

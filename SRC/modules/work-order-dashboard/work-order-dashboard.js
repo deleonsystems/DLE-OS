@@ -1953,9 +1953,10 @@
 
     const group = activeKittingTrialDraft?.groups?.find(item => item.sequence === String(sequence));
 
-    const retainedCount = method === window.ActiveKittingTrial.METHODS.COUNT ? 0 : null;
+    const retainedCount = !isSimRuntime && method === window.ActiveKittingTrial.METHODS.COUNT ? 0 : null;
 
-    const entry = window.ActiveKittingTrial.applyMethod(activeKittingTrialDraft, sequence, method, retainedCount);
+    const entry = isSimRuntime && group?.actionable && group.rowState !== 'SUBMITTED' && group.entry?.method === method ? group.entry
+      : window.ActiveKittingTrial.applyMethod(activeKittingTrialDraft, sequence, method, retainedCount);
 
     activeKittingDialogSequence = String(sequence);
 
@@ -2010,6 +2011,7 @@
     const entry = window.ActiveKittingTrial.addAllocation(activeKittingTrialDraft, sequence);
 
     if (!entry) return false;
+    if (isSimRuntime) window.ActiveKittingTrial.updateAllocation(activeKittingTrialDraft, sequence, entry.allocations.at(-1).allocationId, {quantity:null});
 
     scheduleActiveKittingAutosave();
 
@@ -2056,6 +2058,10 @@
   function placeActiveKittingCountCaret(input) {
 
     if (!input) return;
+    if (isSimRuntime) {
+      input.setSelectionRange?.(0, input.value.length);
+      return;
+    }
 
     const end = input.value.length;
 
@@ -3012,6 +3018,7 @@
 
 
   function editActiveKittingRow(sequence) {
+    if (isSimRuntime && kittingCaseReview?.state === 'KIT_COMPLETE') return false;
 
     if (activeKittingTrialState !== 'loaded' || !ownsKittingLease()) return false;
 
@@ -3514,6 +3521,154 @@
 
 
 
+  const activeKittingPoKeyboardModes = new Map();
+
+  function setupActiveKittingPoKeyboard() {
+    if (!isSimRuntime || !(navigator.maxTouchPoints > 0 || window.matchMedia('(any-pointer: coarse)').matches)) return;
+    const dialog = document.getElementById('activeKittingResultDialog');
+    if (!dialog) return;
+    for (const input of dialog.querySelectorAll('.active-kitting-po, [data-allocation-row] input[maxlength="40"]')) {
+      if (input.disabled || input.readOnly) continue;
+      // P.O. remains a text identifier. This is a keyboard hint, not validation.
+      const key = JSON.stringify([activeKittingTrialDraft?.workOrder, activeKittingDialogSequence, input.closest('[data-allocation-row]')?.dataset.allocationRow || 'complete']);
+      input.inputMode = activeKittingPoKeyboardModes.get(key) || 'numeric';
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'kitting-po-keyboard';
+      toggle.tabIndex = -1; // Keep the established hardware-keyboard Tab sequence.
+      const label = () => {
+        const numeric = input.inputMode === 'numeric';
+        toggle.textContent = numeric ? 'ABC keyboard' : '123 keyboard';
+        toggle.setAttribute('aria-label', numeric ? 'Use letters and symbols for P.O.' : 'Use number keyboard for P.O.');
+      };
+      label();
+      toggle.addEventListener('click', event => {
+        event.preventDefault();
+        const start = input.selectionStart, end = input.selectionEnd;
+        input.inputMode = input.inputMode === 'numeric' ? 'text' : 'numeric';
+        activeKittingPoKeyboardModes.set(key, input.inputMode);
+        label();
+        // Refocus synchronously within the tap gesture so mobile browsers can
+        // reconsider the keyboard. Never rewrite the identifier or fire input.
+        input.blur();
+        input.focus({preventScroll:true});
+        input.setSelectionRange(start, end);
+      });
+      input.insertAdjacentElement('afterend', toggle);
+    }
+  }
+
+  let activeKittingEnterSubmitPending = false;
+
+  function setupActiveKittingResultEnter() {
+    if (!isSimRuntime) return;
+    const dialog = document.getElementById('activeKittingResultDialog');
+    if (!dialog) return;
+    dialog.addEventListener('keydown', async event => {
+      if (event.key !== 'Enter' || event.defaultPrevented) return;
+      // Native dropdown acceptance, multiline editing, and explicit ancillary
+      // buttons retain their normal behavior. Tab and Space are untouched.
+      if (event.target.closest('select,textarea,[contenteditable]')) return;
+      const button = event.target.closest('button');
+      if (button && !button.matches('.active-kitting-method,.active-kitting-dialog-submit')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.repeat || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+          !dialog.isConnected || !dialog.open || activeKittingEnterSubmitPending || activeKittingPendingSaves ||
+          poTraceabilityAmendmentPending || kittingMaterialPending || activeKittingTrialState !== 'loaded' ||
+          !ownsKittingLease() || kittingCaseReview?.state === 'KIT_COMPLETE' ||
+          window.DleOsCapabilities?.can('kitting.disposition') === false) return;
+      const sequence = activeKittingDialogSequence;
+      refreshActiveKittingDialogSubmit(sequence);
+      const submit = dialog.querySelector('.active-kitting-dialog-submit');
+      if (!submit || submit.disabled) return;
+      activeKittingEnterSubmitPending = true;
+      try {
+        await submitActiveKittingRow(sequence);
+      } finally {
+        activeKittingEnterSubmitPending = false;
+      }
+    }, {capture:true});
+  }
+
+  // UI-only row identity; never stored in the Kitting draft.
+  let activeKittingTableRowKey = '';
+
+  function setupActiveKittingTableNavigation(restoreFocus = false, scrollTop = 0) {
+    if (!isSimRuntime) return;
+    const wrap = document.querySelector('#activeKittingTrialBody .active-kitting-trial-table-wrap');
+    if (!wrap) return;
+    wrap.classList.add('sim-kitting-keyboard-table');
+    wrap.scrollTop = scrollTop;
+    const rows = () => [...wrap.querySelectorAll('tbody > tr[data-kitting-row-key]')]
+      .filter(row => row.getClientRects().length && getComputedStyle(row).visibility !== 'hidden');
+    const editable = target => target.closest('input,select,textarea,button,a,[contenteditable="true"],[role="button"]');
+    const keepVisible = row => {
+      // Scroll only the nearest vertical scrollport, not every ancestor/the page.
+      for (let parent = row.parentElement; parent; parent = parent.parentElement) {
+        if (parent.scrollHeight <= parent.clientHeight + 1 || !/(auto|scroll)/.test(getComputedStyle(parent).overflowY)) continue;
+        const port = parent.getBoundingClientRect(), rect = row.getBoundingClientRect();
+        const head = wrap.querySelector('thead').getBoundingClientRect();
+        const top = port.top + parent.clientTop + (head.bottom > port.top && head.top <= port.top + 2 ? head.height : 0) + 3;
+        const bottom = port.top + parent.clientTop + parent.clientHeight - 3;
+        if (rect.top < top) parent.scrollTop += rect.top - top;
+        else if (rect.bottom > bottom) parent.scrollTop += Math.min(rect.bottom - bottom, rect.top - top);
+        return;
+      }
+    };
+    const select = (row, focus = false) => {
+      if (!row) return;
+      activeKittingTableRowKey = row.dataset.kittingRowKey;
+      for (const item of wrap.querySelectorAll('tbody > tr[data-kitting-row-key]')) {
+        const selected = item === row;
+        item.classList.toggle('is-keyboard-selected', selected);
+        item.tabIndex = selected ? 0 : -1;
+        if (selected) item.setAttribute('aria-current', 'true');
+        else item.removeAttribute('aria-current');
+      }
+      wrap.tabIndex = -1;
+      if (focus) { row.focus({preventScroll:true}); keepVisible(row); }
+    };
+    const displayed = rows();
+    const current = displayed.find(row => row.dataset.kittingRowKey === activeKittingTableRowKey) || displayed[0];
+    if (current) select(current, restoreFocus);
+    else { activeKittingTableRowKey = ''; wrap.tabIndex = 0; }
+    wrap.addEventListener('click', event => {
+      const row = event.target.closest('tr[data-kitting-row-key]');
+      if (row && wrap.contains(row)) select(row, !editable(event.target));
+    }, {capture:true});
+    wrap.addEventListener('focusin', event => {
+      const row = event.target.closest('tr[data-kitting-row-key]');
+      if (row) select(row);
+    });
+    wrap.addEventListener('keydown', event => {
+      const resultArrow = event.target.matches('[data-active-kitting-result]') && ['ArrowUp','ArrowDown'].includes(event.key);
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (editable(event.target) && !resultArrow) ||
+          !['ArrowUp','ArrowDown','Enter'].includes(event.key)) return;
+      if (event.target !== wrap && !event.target.matches('tr[data-kitting-row-key]') && !resultArrow) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const visible = rows();
+      if (!visible.length) return;
+      let index = visible.findIndex(row => row.dataset.kittingRowKey === activeKittingTableRowKey);
+      if (event.key === 'Enter') {
+        const row = visible[index];
+        const button = row?.querySelector('[data-active-kitting-result]');
+        if (button && !button.disabled) button.click();
+        return;
+      }
+      index = index < 0 ? 0 : Math.max(0, Math.min(visible.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
+      select(visible[index], true);
+    });
+    for (const dialog of document.querySelectorAll('#activeKittingResultDialog, #activeKittingSubmittedDetailDialog')) {
+      dialog.addEventListener('close', () => requestAnimationFrame(() => {
+        if (!dialog.isConnected || document.querySelector('dialog[open]')) return;
+        const selected = rows().find(row => row.dataset.kittingRowKey === activeKittingTableRowKey);
+        if (selected) select(selected, true);
+      }));
+    }
+  }
+
   function renderActiveKittingTrial(options = {}) {
 
     const root = document.getElementById('workOrderDashboardActiveKitting');
@@ -3598,6 +3753,10 @@
 
     renderPoTraceabilityControls();
 
+    const previousTable = body.querySelector('.active-kitting-trial-table-wrap');
+    const restoreTableFocus = !!previousTable && (document.activeElement === previousTable || document.activeElement?.matches('tr[data-kitting-row-key]'));
+    const previousTableScroll = previousTable?.scrollTop || 0;
+
     body.innerHTML = renderActiveKittingContext(draft, summary) + renderAcceptedKittingSummary(draft) +
 
       renderActiveKittingRecovery() +
@@ -3608,7 +3767,7 @@
 
       '<table class="active-kitting-trial-table"><thead><tr><th>WO Seq</th><th>Find</th><th>Part / Related</th>' +
 
-      '<th>Description / References</th><th>Required</th><th>Kitting result</th>' +
+      '<th>Description / References</th><th>Required</th><th>Kitting result</th>' + (isSimRuntime ? '<th>P.O.</th><th>Component Type</th><th>Notes</th>' : '') +
 
       '</tr></thead><tbody>' + draft.groups.map(renderActiveKittingRow).join('') + '</tbody></table></div>' +
 
@@ -3635,6 +3794,9 @@
       (activeKittingSubmissionPreview ? '<p class="active-kitting-trial-submit-message" role="status">' +
 
         escapeDashboardHtml(activeKittingSubmissionPreview) + '</p>' : '');
+    setupActiveKittingTableNavigation(restoreTableFocus, previousTableScroll);
+    setupActiveKittingResultEnter();
+    setupActiveKittingPoKeyboard();
 
 
 
@@ -3710,9 +3872,18 @@
 
 
 
+  function renderActiveKittingProductionFields(group) {
+    if (!isSimRuntime) return '';
+    const report=window.DleBomReport;
+    const saved=group.rowState==='SUBMITTED'?group:{...group,entry:null};
+    return '<td class="kitting-bom-po">'+escapeDashboardHtml(report.purchaseOrders(saved))+'</td><td class="kitting-bom-type" data-process-type="'+escapeDashboardHtml(group.process?.componentType||'UNKNOWN')+'">'+escapeDashboardHtml(report.processLabel(group.process))+'</td><td class="kitting-bom-notes">'+escapeDashboardHtml([...(group.notes||[]),group.process?.notes||''].filter(Boolean).join('\n'))+'</td>';
+  }
+
   function renderActiveKittingRow(group) {
 
-    if (!group.actionable) return '<tr class="result-informational"><td><strong>' + escapeDashboardHtml(group.sequence) +
+    const navigationKey = isSimRuntime ? ' data-kitting-row-key="' + escapeDashboardHtml(JSON.stringify([activeKittingTrialDraft.workOrder, group.sourceRowId || group.sequence])) + '"' : '';
+
+    if (!group.actionable) return '<tr class="result-informational"' + navigationKey + '><td><strong>' + escapeDashboardHtml(group.sequence) +
 
       '</strong></td><td>' + escapeDashboardHtml(group.findNumber ?? '-') + '</td><td>' +
 
@@ -3720,7 +3891,7 @@
 
       renderActiveKittingReferences(group) + '</td><td><strong>Not actionable</strong></td><td>' +
 
-      '<span class="active-kitting-result informational">Instruction / DNP - no Kitting entry required</span></td></tr>';
+      '<span class="active-kitting-result informational">Instruction / DNP - no Kitting entry required</span></td>' + renderActiveKittingProductionFields(group) + '</tr>';
 
 
 
@@ -3734,7 +3905,7 @@
 
       (kittingReturnDemand(group) ? ' accepted-material-ready' : '') + (locked ? ' row-locked' : '') + (group.sequence === activeKittingNextSequence ? ' active-kitting-next-row' : '');
 
-    return '<tr id="kitting-return-' + escapeDashboardHtml(group.sourceRowId) + '" class="' + rowClass + '" data-active-kitting-row="' + escapeDashboardHtml(group.sequence) + '">' +
+    return '<tr id="kitting-return-' + escapeDashboardHtml(group.sourceRowId) + '" class="' + rowClass + '"' + navigationKey + ' data-active-kitting-row="' + escapeDashboardHtml(group.sequence) + '">' +
 
       '<td><strong>' + escapeDashboardHtml(group.sequence) + '</strong>' +
 
@@ -3766,7 +3937,7 @@
 
         : 'openWorkOrderDashboardKittingResultDialog(\'' + escapeDashboardHtml(group.sequence) + '\')') + '">' +
 
-      (locked ? renderSubmittedActiveKittingResult(entry) : renderActiveKittingResult(entry)) + '</button></td></tr>';
+      (locked ? renderSubmittedActiveKittingResult(entry) : renderActiveKittingResult(entry)) + '</button></td>' + renderActiveKittingProductionFields(group) + '</tr>';
 
   }
 
@@ -3779,6 +3950,8 @@
     if (!group || group.rowState === 'SUBMITTED') return '';
 
     const entry = group.entry;
+    const compact = isSimRuntime;
+    const identity = '<div class="kitting-entry-identity"><div><span>Seq</span><strong>' + escapeDashboardHtml(String(group.sequence).padStart(3, '0')) + '</strong></div><div><span>Find No.</span><strong>' + escapeDashboardHtml(group.findNumber ?? '-') + '</strong></div><div class="kitting-entry-required"><span>Qty Required</span><strong>' + escapeDashboardHtml(formatQuantity(group.requiredQuantity)) + ' <small>' + escapeDashboardHtml(group.unitOfMeasure) + '</small></strong></div></div>';
 
     const methods = window.ActiveKittingTrial.METHODS;
 
@@ -3815,30 +3988,31 @@
       : '';
 
     const allocationLedger = needsCount ? renderActiveKittingAllocationEditor(group) : '';
+    const emptyEvidence = compact && !entry ? '<div class="active-kitting-complete-evidence"><label>Part Used<select disabled><option>Choose a result first</option></select></label><label>P.O.<input disabled value="" placeholder="Choose a result first"></label></div>' : '';
 
     const entryReady = entry && entry.shortageQuantity !== null && (needsCount || group.eligibleParts.includes(entry.selectedPartNumber)) &&
 
       (!kittingCaseReview?.poTraceabilityRequired || window.ActiveKittingTrial.hasRequiredPoTraceability(group));
 
-    return '<dialog id="activeKittingResultDialog" class="active-kitting-result-dialog active-kitting-work-card-dialog" ' +
+    return '<dialog id="activeKittingResultDialog" class="active-kitting-result-dialog active-kitting-work-card-dialog' + (compact ? ' sim-count-entry' : '') + '" ' +
 
       'oncancel="return cancelWorkOrderDashboardKittingResultDialog(event)" onclose="closeWorkOrderDashboardKittingResultDialog()">' +
 
-      '<header><div><small>Governed material / bag</small><strong>Kitting Result &mdash; Seq ' +
+      '<header><div><small>' + (compact ? 'Selected line' : 'Governed material / bag') + '</small><strong>Kitting Result &mdash; Seq ' +
 
       escapeDashboardHtml(String(group.sequence).padStart(3, '0')) + '</strong></div>' +
 
       '<button type="button" class="active-kitting-dialog-close" aria-label="Close" onclick="document.getElementById(\'activeKittingResultDialog\').close()">&times;</button></header>' +
 
-      renderActiveKittingMaterialCard(draft, group) +
+      (compact ? identity : renderActiveKittingMaterialCard(draft, group)) +
 
       '<div class="active-kitting-method-heading"><span>Kitting Result</span><small>Choose one method</small></div>' +
 
-      '<div class="active-kitting-methods">' + button(methods.COMPLETE, 'Complete') +
+      '<div class="active-kitting-methods">' + button(methods.COMPLETE, compact ? '&#10003; Complete' : 'Complete') +
 
-      button(methods.COMPLETE_MIN_EXTRA, 'Min Extra') + button(methods.COUNT, 'Count') + '</div>' +
+      button(methods.COMPLETE_MIN_EXTRA, compact ? '&#10003;* Complete with minimal extra' : 'Min Extra') + button(methods.COUNT, compact ? '# Count' : 'Count') + '</div>' +
 
-      completeEvidence + allocationLedger + renderKittingBagLabelArea(draft, group) + '<footer>' +
+      completeEvidence + emptyEvidence + allocationLedger + (compact && entry?.method === methods.COMPLETE_MIN_EXTRA ? '<p class="kitting-min-extra-note">Required quantity covered, plus a small uncounted extra.</p>' : '') + renderKittingBagLabelArea(draft, group) + '<footer>' +
 
       '<button type="button" onclick="document.getElementById(\'activeKittingResultDialog\').close()">Cancel</button>' +
 
@@ -3934,7 +4108,7 @@
 
         '</span><small>Governed application · Use Review Applied Material for a reviewed reversal.</small></div>'
 
-      : '<div class="active-kitting-allocation-row" data-allocation-row="' +
+      : '<div class="active-kitting-allocation-row' + (index === 0 ? ' kitting-first-allocation' : '') + '" data-allocation-row="' +
 
       escapeDashboardHtml(allocation.allocationId) + '"><label>Part Used<select onchange="updateWorkOrderDashboardKittingAllocation(\'' +
 
@@ -3948,6 +4122,7 @@
 
       '\',\'' + escapeDashboardHtml(allocation.allocationId) + '\',\'quantity\',this.value,this)" ' +
 
+      (isSimRuntime ? 'onmouseup="event.preventDefault();placeWorkOrderDashboardKittingCountCaret(this)" onclick="placeWorkOrderDashboardKittingCountCaret(this)" ' : '') +
       'onfocus="placeWorkOrderDashboardKittingCountCaret(this)" onkeydown="handleWorkOrderDashboardKittingCountKeydown(event,\'' +
 
       escapeDashboardHtml(group.sequence) + '\',\'' + escapeDashboardHtml(allocation.allocationId) + '\')"></label>' +
@@ -3990,6 +4165,7 @@
 
     const entry = group.entry;
 
+    const completedReadOnly = isSimRuntime && kittingCaseReview?.state === 'KIT_COMPLETE';
     const canEdit = ownsKittingLease() && window.DleOsCapabilities?.can('kitting.disposition') !== false;
 
     const method = entry.method === window.ActiveKittingTrial.METHODS.COMPLETE
@@ -4042,7 +4218,7 @@
 
         escapeDashboardHtml(entry.purchaseOrder || '\u2014') + '</td></tr></tbody></table></div>';
 
-    return '<dialog id="activeKittingSubmittedDetailDialog" class="active-kitting-result-dialog active-kitting-detail-dialog" ' +
+    return '<dialog id="activeKittingSubmittedDetailDialog" class="active-kitting-result-dialog active-kitting-detail-dialog' + (completedReadOnly ? ' sim-completed-kit-review' : '') + '" ' +
 
       'onclose="closeWorkOrderDashboardKittingDetail()"><header><div class="active-kitting-dialog-heading"><small>WO Seq ' +
 
@@ -4054,11 +4230,11 @@
 
       allocationTable + renderKittingBagLabelArea(draft, group) +
 
-      '<footer><button type="button" class="active-kitting-row-action edit" data-dle-required-permission="kitting.disposition" ' +
+      '<footer>' + (completedReadOnly ? '' : '<button type="button" class="active-kitting-row-action edit" data-dle-required-permission="kitting.disposition" ' +
 
       'onclick="editWorkOrderDashboardKittingRow(\'' + escapeDashboardHtml(group.sequence) + '\')"' +
 
-      (canEdit ? '' : ' disabled') + '>Edit</button><button type="button" onclick="document.getElementById(\'activeKittingSubmittedDetailDialog\').close()">Close</button></footer></dialog>';
+      (canEdit ? '' : ' disabled') + '>Edit</button>') + '<button type="button" onclick="document.getElementById(\'activeKittingSubmittedDetailDialog\').close()">Close</button></footer></dialog>';
 
   }
 
@@ -4416,7 +4592,7 @@
 
     if (group.references.length) details.push('Refs: ' + group.references.join(', '));
 
-    if (group.notes.length) details.push('Note: ' + group.notes.join(' - '));
+    if (!isSimRuntime && group.notes.length) details.push('Note: ' + group.notes.join(' - '));
 
     return details.length ? '<small>' + details.map(escapeDashboardHtml).join('<br>') + '</small>' : '';
 

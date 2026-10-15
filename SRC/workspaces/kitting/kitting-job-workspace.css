@@ -158,4 +158,10 @@
 
 /* SIM uses the original form inside Production Slides. Keep its resting host out of the landing UI. */
 .kitting-job-workspace.uses-production-slides #kittingJobActiveCase { display:none; }
-.kitting-job-workspace.uses-production-slides #kittingProductionViewBar { display:none; }
+
+
+/* The completed viewer occupies the same primary slot as active Kitting. */
+.kitting-job-workspace.completed-slides-entry #workOrderDashboardKitReleasedBom { display:none!important; }
+
+.kitting-job-workspace.completed-slides-entry #kittingProductionSlidesToggle { border-color:rgba(111,200,177,.62);background:linear-gradient(145deg,rgba(24,104,90,.48),rgba(11,54,52,.62));color:#f1fffb; }
+.kitting-job-workspace.completed-slides-entry #kittingProductionSlidesToggle strong { display:block; }

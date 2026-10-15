@@ -54,7 +54,7 @@
  }
  function appendStartBase(group,summary){
   const base=document.createElementNS('http://www.w3.org/2000/svg','foreignObject');base.dataset.protectedBase='';base.setAttribute('width','1200');base.setAttribute('height','800');
-  if(summary.travelerPlan&&!summary.kind){base.setAttribute('width','800');group.append(base);const definition=window.DleLaborTravelerPrint.build(summary.travelerPlan,summary.travelerRfq,window.DleLaborWorkbench,{focusType:summary.travelerFocus});const content=window.DleLaborTravelerPrint.mount(base,definition);const paper={width:800,height:Math.max(800,Math.ceil(content.scrollHeight))};base.setAttribute('height',paper.height);return paper;}
+  if(summary.travelerPlan&&!summary.kind){base.setAttribute('width','800');group.append(base);const definition=window.DleLaborTravelerPrint.build(summary.travelerPlan,summary.travelerRfq,window.DleLaborWorkbench,{focusType:summary.travelerFocus,material:summary.travelerMaterial});const content=window.DleLaborTravelerPrint.mount(base,definition);const paper={width:800,height:Math.max(800,Math.ceil(content.scrollHeight))};base.setAttribute('height',paper.height);return paper;}
   const content=startBase(summary);base.append(content);group.append(base);
   const paper={width:1200,height:Math.max(800,Math.ceil(content.scrollHeight))};base.setAttribute('height',paper.height);return paper;
  }

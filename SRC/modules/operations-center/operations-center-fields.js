@@ -28,6 +28,7 @@
       className: 'operations-center-verified-status-cell'
     },
     { key: 'materialStatus', label: 'Material Status' },
+    ...(['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment) ? [{ key: 'productionPlaceholder', label: 'Production Status', placeholder: true }] : []),
     { key: 'quantityOrdered', label: 'Qty Ordered', diagnostic: true, numeric: true },
     { key: 'erpQtyOpen', label: 'ERP Qty Open', diagnostic: true, numeric: true },
     { key: 'pendingInvoiceQty', label: 'Pending Invoice Qty', diagnostic: true, numeric: true }
