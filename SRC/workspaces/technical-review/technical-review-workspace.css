@@ -542,3 +542,93 @@
 .technical-review-workspace .vpro-source-scroll { overflow-x: auto; max-width: 100%; }
 .technical-review-workspace .vpro-source-scroll table { border-collapse: collapse; color: #e6edf6; font: 12px system-ui, sans-serif; }
 .technical-review-workspace .vpro-source-scroll th, .technical-review-workspace .vpro-source-scroll td { padding: 6px 8px; border: 1px solid #405169; text-align: left; white-space: nowrap; }
+
+/* Candidate-only layout. The existing row editors and approval gates are unchanged. */
+.candidate-focused .technical-review-workspace{padding:10px 14px}
+.candidate-focused .candidate-workbench{padding:12px!important}
+.candidate-focused .candidate-compact-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 16px;align-items:center;padding:0 0 8px;margin:0}
+.candidate-compact-toolbar .candidate-heading{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.candidate-compact-toolbar .candidate-heading h2{font-size:21px;margin:0;color:#f1f5f9}
+.candidate-compact-toolbar .candidate-heading span{font-size:12px;color:#aabbd0}
+.candidate-compact-toolbar .candidate-identity{grid-column:1;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px;min-width:0}
+.candidate-identity a{overflow-wrap:anywhere;color:#a9cfff}
+.candidate-compact-toolbar .candidate-compact-actions{grid-column:2;grid-row:1 / 3;display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.candidate-compact-actions button{font-size:12px;padding:8px 10px;min-height:34px}
+.candidate-compact-actions button:disabled{opacity:.5;cursor:not-allowed}
+.candidate-compact-toolbar .candidate-review-line{grid-column:1 / -1;display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;font-size:12px;color:#d8e3f1}
+.candidate-review-line .candidate-progress-status{font-size:11px;color:#9cafc5}
+.candidate-compact-toolbar .candidate-requirements{grid-column:1 / -1;border-top:1px solid #334155;padding-top:7px;font-size:13px}
+.candidate-requirements>summary{cursor:pointer;color:#b9d8ff;font-weight:600}
+.candidate-requirements>summary span{font-size:11px;font-weight:400;color:#aabbd0;margin-left:8px}
+.candidate-requirements .scanned-bom-notice{margin:8px 0 0;padding:12px;max-width:none}
+.candidate-requirements h4{margin:0 0 8px}
+.candidate-requirements p{margin:7px 0}
+.candidate-requirements textarea{display:block;width:min(100%,740px);box-sizing:border-box;min-height:65px}
+.candidate-requirements small{display:block;overflow-wrap:anywhere}
+.candidate-compact-toolbar .candidate-view-tools{grid-column:1 / -1;display:flex;gap:16px;align-items:center;font-size:11px;color:#aabbd0}
+.candidate-view-tools summary{cursor:pointer}
+.candidate-view-tools .technical-review-mobile-hint{margin:0;font-size:11px}
+.candidate-focused .candidate-table-scroll{margin:0;min-height:200px}
+.candidate-focused .candidate-message{margin:0 0 7px;font-size:12px}
+.candidate-focused .candidate-message:empty{display:none}
+.candidate-focused .candidate-workbench-footer{padding-top:7px;margin:0}
+.candidate-provenance{font-size:12px;color:#aabbd0}
+.candidate-provenance>summary{cursor:pointer}
+.candidate-provenance .scanned-bom-notice{margin:8px 0;padding:12px}
+@media(max-width:1050px){
+ .candidate-focused .candidate-compact-toolbar{grid-template-columns:minmax(0,1fr)}
+ .candidate-compact-toolbar .candidate-compact-actions{grid-column:1;grid-row:auto;justify-content:flex-start}
+ .candidate-compact-actions button{min-height:40px}
+}
+
+.alternate-review-focus { max-width: 850px; }
+.candidate-row-inspector:has(.alternate-review-focus) { max-height: calc(100svh - 300px); min-height: 360px; }
+.alternate-review-focus .alternate-review-actions { position: sticky; bottom: 0; z-index: 2; padding: 8px 0; background: #142336; }
+.alternate-review-primary { display: flex; flex-wrap: wrap; gap: 5px 20px; padding: 10px; border: 1px solid #4b6579; border-radius: 6px; }
+.alternate-review-primary strong { width: 100%; }
+.alternate-review-card { margin: 12px 0; padding: 12px; border: 1px solid #4b6579; border-radius: 6px; background: #142336; }
+.alternate-review-card h5 { font-size: 15px; margin: 0 0 8px; }
+.alternate-review-focus p { margin: 8px 0; }
+.alternate-review-evidence, .alternate-review-sources { overflow-wrap: anywhere; }
+.alternate-saved-status, .alternate-review-progress { font-weight: 600; }
+.alternate-review-focus a { color: #9fcbff; text-decoration: underline; }
+.alternate-review-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.alternate-review-fields label:last-child { grid-column: 1 / -1; }
+.alternate-review-fields input, .alternate-review-focus select { width: 100%; box-sizing: border-box; }
+.alternate-review-focus select { appearance: none; color-scheme: dark; background-color: #0f172a; color: #e2e8f0; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, #cbd5e1 50%), linear-gradient(135deg, #cbd5e1 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+.alternate-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.alternate-review-focus button { min-height: 36px; }
+.alternate-review-focus button:disabled { opacity: .45; cursor: default; }
+.alternate-decision-list { margin: 8px 0; padding-left: 20px; }
+@media (max-width: 900px) { .alternate-review-focus { max-width: min(700px, calc(100vw - 100px)); } .alternate-review-fields { grid-template-columns: 1fr; } }
+
+.final-bom-review { max-width: 1050px; margin: 0 auto; padding: 18px; border: 1px solid #40536b; border-radius: 12px; background: #101c2c; color: #e2e8f0; }
+.final-bom-review header { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.final-bom-review h2 { margin: 0 0 6px; font-size: 23px; }
+.final-bom-review h3 { margin: 0 0 8px; font-size: 16px; }
+.final-bom-review p { margin: 8px 0; line-height: 1.4; }
+.final-bom-review section { margin: 16px 0; padding: 14px; border: 1px solid #40536b; border-radius: 8px; }
+.final-bom-review label { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.final-bom-review .final-bom-check { flex-direction: row; align-items: start; gap: 9px; }
+.final-bom-review input[type=checkbox] { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; }
+.final-bom-review textarea { min-height: 62px; width: 100%; box-sizing: border-box; border: 1px solid #64748b; border-radius: 5px; padding: 8px; background: #0b1320; color: #e2e8f0; font: inherit; resize: vertical; }
+.final-bom-review a { color: #a8d1ff; text-decoration: underline; overflow-wrap: anywhere; }
+.final-bom-links { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.final-bom-recorded { color: #9ee1bb; }
+.final-bom-error { padding: 10px; border: 1px solid #dba267; color: #ffcf98; }
+.final-bom-review button { border: 1px solid #64748b; border-radius: 6px; background: #1b3049; color: #e2e8f0; padding: 9px 14px; min-height: 38px; cursor: pointer; }
+.final-bom-review button:disabled { opacity: .45; cursor: default; }
+.final-bom-review footer { position: sticky; bottom: 0; background: #101c2c; padding: 10px 0; border-top: 1px solid #40536b; }
+.final-bom-review footer button { margin-right: 10px; }
+.final-bom-review details { margin: 10px 0; }
+.final-bom-review summary { cursor: pointer; color: #a8d1ff; }
+@media(max-width: 850px) { .final-bom-review { padding: 12px; } .final-bom-review header { flex-wrap: wrap; } .final-bom-review section { padding: 10px; } }
+
+.final-bom-plain { max-width: 900px; }
+.final-bom-plain .final-bom-choices { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 12px 0; }
+.final-bom-plain .final-bom-choices label { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid #50657e; border-radius: 6px; cursor: pointer; }
+.final-bom-plain input[type=radio] { width: 18px; height: 18px; margin: 0; flex: 0 0 auto; }
+.final-bom-plain [hidden] { display: none !important; }
+.final-bom-note-hint { font-size: 12px; color: #b8c5d8; }
+.final-bom-plain textarea { min-height: 52px; }
+.final-bom-reference { overflow-wrap: anywhere; font-size: 13px; }
