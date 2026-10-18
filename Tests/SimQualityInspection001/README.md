@@ -1,0 +1,2 @@
+# Admin home and QC Inspection regression checks
+Run `node Tests/SimQualityInspection001/run-home-tests.cjs`, `run-workspace-tests.cjs`, and `run-viewer-tests.cjs` from the repository. Requires Playwright at NODE_REPL_NODE_MODULE_DIRS and Microsoft Edge. Sources are read from this checkout; all job data is an isolated browser fixture. No SIM endpoint is contacted. Output defaults to a new OS temporary directory, or set DLE_TEST_OUTPUT. Home legacy comparisons read source from checkpoint 81cbfddfa42a95323e54a8af505b0b7ff825fb9b; that commit must exist locally.

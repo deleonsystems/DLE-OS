@@ -13,3 +13,51 @@ body[data-view-mode="mobile"] .work-area-home{max-width:680px;margin:0 auto;padd
 .mobile-home{display:grid;gap:14px}.mobile-home-intro{padding:8px 4px 2px}.mobile-home-kicker{margin:0 0 5px;color:var(--blue);font-size:10px;font-weight:800;letter-spacing:.16em}.mobile-home-intro h1{margin:0;color:var(--text);font-size:clamp(23px,7vw,30px);line-height:1.08}.mobile-home-intro>p:last-child{margin:6px 0 0;color:var(--muted);font-size:14px}.mobile-home-launchers{display:grid;gap:10px}.mobile-home-card{width:100%;min-height:100px;display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px;border:1px solid var(--border);border-radius:11px;background:var(--panel);color:var(--text);text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.22)}button.mobile-home-card{font:inherit;cursor:pointer;touch-action:manipulation}.mobile-home-card-mark{width:48px;height:48px;display:grid;place-items:center;border-radius:10px;background:var(--panel-2);color:#bfdbfe;font-size:13px;font-weight:900;letter-spacing:.08em}.mobile-home-card-copy{min-width:0;display:grid;gap:4px}.mobile-home-card strong{font-size:17px;line-height:1.2}.mobile-home-card small{color:var(--muted);font-size:12px;line-height:1.3}.mobile-home-card-state{width:max-content;max-width:100%;margin-top:3px;border-radius:999px;padding:4px 7px;background:rgba(100,116,139,.16);color:#94a3b8;font-size:10px;font-weight:800;letter-spacing:.035em}.mobile-home-card.mobile-ready{min-height:116px;border-color:rgba(96,165,250,.62);background:linear-gradient(135deg,rgba(30,64,175,.34),var(--panel));box-shadow:0 12px 32px rgba(0,0,0,.28)}.mobile-home-card.mobile-ready .mobile-home-card-mark{background:var(--blue);color:var(--text)}.mobile-home-card.mobile-ready .mobile-home-card-state{background:var(--blue-soft);color:#bfdbfe}.mobile-home-card.mobile-ready:hover,.mobile-home-card.mobile-ready:focus-visible{border-color:#93c5fd;box-shadow:0 0 0 3px var(--blue-soft),0 12px 32px rgba(0,0,0,.28);outline:none}.mobile-home-card-arrow{color:#93c5fd;font-size:24px}.mobile-home-card.mobile-coming-soon{opacity:.82}.mobile-home-card.mobile-coming-soon .mobile-home-card-arrow{display:none}
 body[data-view-mode="mobile"] .mobile-home-card-copy>strong{font-size:clamp(14px,4.4vw,17px);text-transform:uppercase}
 @media(max-width:420px){body[data-view-mode="mobile"] .work-area-home{padding-inline:max(10px,env(safe-area-inset-left,0)) max(10px,env(safe-area-inset-right,0))}.mobile-home-card{grid-template-columns:44px minmax(0,1fr);min-height:96px;padding:12px}.mobile-home-card-mark{width:44px;height:44px}.mobile-home-card-arrow{display:none}}
+
+/* Admin desktop navigation map; other presentations retain their existing styles. */
+.work-area-home.uses-admin-flow{max-width:1320px;padding:32px 24px}
+.uses-admin-flow .work-area-home-hero{margin-bottom:18px}
+.uses-admin-flow .work-area-home-hero h1{font-size:36px}
+.uses-admin-flow .work-area-home-hero>p:last-child{font-size:24px;margin-top:12px}
+.home-flow-help{color:#94a3b8;font-size:13px;line-height:1.6;margin:0 0 28px}
+.home-flow-map{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:42px 40px;isolation:isolate}
+body[data-view-mode="desktop"] .home-flow-map .work-area-card{min-width:0;min-height:110px;grid-template-columns:44px minmax(0,1fr);gap:14px;padding:18px;border-radius:15px;position:relative;z-index:1}
+.home-flow-map .work-area-card-mark{width:44px;height:44px;border-radius:12px;font-size:13px}
+.home-flow-map .work-area-card strong{font-size:18px;letter-spacing:.025em;overflow-wrap:anywhere}
+.home-flow-map .work-area-card small{font-size:12px;line-height:1.4;margin-top:6px;overflow-wrap:anywhere}
+.home-flow-map .work-area-card:hover,.home-flow-map .work-area-card:focus-visible{transform:none}
+.home-flow-map .work-area-card:focus-visible{outline:3px solid #93c5fd;outline-offset:4px}
+.home-flow-map>[data-work-area="rfq-quoting"]{grid-area:1/2}
+.home-flow-map>[data-work-area="technical-review"]{grid-area:2/2}
+.home-flow-map>[data-work-area="rfqs"]{grid-area:3/1}
+.home-flow-map>[data-work-area="order-entry"]{grid-area:3/2}
+.home-flow-map>[data-work-area="quality"]{grid-area:4/2}
+.home-flow-materials{grid-area:5/1/6/3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:42px 40px;position:relative;padding:32px 0 20px}
+.home-flow-materials:before{content:"";position:absolute;inset:0 -12px;border:1px solid #29456b;border-radius:22px;background:#101d32;z-index:-1}
+.home-flow-materials h2{position:absolute;top:0;left:8px;margin:8px 0;color:#93c5fd;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.home-flow-materials>[data-work-area="kitting"]{grid-area:1/2}
+.home-flow-materials>[data-work-area="purchasing"]{grid-area:1/1}
+.home-flow-materials>[data-work-area="receiving"]{grid-area:2/1}
+.home-flow-production{grid-area:6/1/7/3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:42px 40px;position:relative;padding:32px 0 20px}
+.home-flow-production:before{content:"";position:absolute;inset:0 -12px;border:1px solid #29456b;border-radius:22px;background:#101d32;z-index:-1}
+.home-flow-production h2{position:absolute;top:0;left:8px;margin:8px 0;color:#93c5fd;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.home-flow-production>[data-work-area="production"]{grid-area:1/2}
+.home-flow-production>[data-work-area="quality-inspection"]{grid-area:1/1}
+.home-flow-map>[data-work-area="shipping"]{grid-area:7/2}
+.home-flow-support{grid-area:4/3/8/4;display:flex;flex-direction:column;gap:24px;justify-content:space-between;align-items:stretch;border-left:1px dashed #52647c;padding-left:18px}
+.home-flow-support .work-area-card{width:100%}
+.home-flow-other{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.home-flow-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:0}
+.home-flow-edge{fill:none;stroke:#60a5fa;stroke-width:2.5;marker-end:url(#homeFlowArrow)}
+.home-flow-edge.conditional{stroke-dasharray:6 5}
+/* Compact desktop / browser zoom: preserve readable native buttons and document
+   order rather than squeezing a multi-column diagram or drawing false links. */
+@media(max-width:999px){
+ .home-flow-map{display:flex;flex-direction:column;gap:18px}
+ .home-flow-lines{display:none}
+ .home-flow-materials,.home-flow-production{display:flex;flex-direction:column;gap:18px;padding:36px 12px 16px}
+ .home-flow-materials:before,.home-flow-production:before{inset:0}
+ .home-flow-materials h2,.home-flow-production h2{left:12px}
+ .home-flow-support{padding:18px 0 0;border-left:0;border-top:1px dashed #52647c}
+ .home-flow-map .work-area-card{min-height:100px}
+}

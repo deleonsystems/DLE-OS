@@ -130,6 +130,12 @@
       })
     },
     {
+      id: "quality-inspection", label: "QC - Inspection", simOnly: true,
+      purpose: "Read-only inspection job preparation; no submission or release actions.",
+      modulePath: "SRC/workspaces/quality-inspection/quality-inspection-workspace.js",
+      stylePath: "SRC/workspaces/quality-inspection/quality-inspection-workspace.css"
+    },
+    {
       id: "quality",
       label: "Quality",
       purpose: "Inspection, FAIRs, nonconformances, and corrective actions.",
@@ -163,7 +169,17 @@
 
   const workspaceById = new Map(WORKSPACE_DEFINITIONS.map(workspace => [workspace.id, workspace]));
   const workspaceByLabel = new Map(WORKSPACE_DEFINITIONS.map(workspace => [workspace.label, workspace]));
-  const available = workspace => workspace && (!workspace.simOnly || window.document?.body?.dataset?.simRuntime === "true");
+  const inspectionAvailable = () => {
+    const session = window.DleOsSession, capabilities = window.DleOsCapabilities;
+    return window.document?.body?.dataset?.simRuntime === "true" &&
+      window.DleOsRuntimeConfig?.rfqIntakeMode === "SIM_PHASE1" &&
+      (window.DleOperatorHeader?.getViewMode?.() || window.document?.body?.dataset?.viewMode) === "desktop" &&
+      session?.user?.accountStatus === "ACTIVE" &&
+      (capabilities?.isSuperAdmin === true || (Array.isArray(session?.roles) && session.roles.includes("ADMIN"))) &&
+      capabilities?.can?.("order_entry.view") === true;
+  };
+  const available = workspace => workspace && (!workspace.simOnly || window.document?.body?.dataset?.simRuntime === "true") &&
+    (workspace.id !== "quality-inspection" || inspectionAvailable());
 
   window.DleWorkspaceRegistry = Object.freeze({
     defaultWorkspaceId: "dle-home",
