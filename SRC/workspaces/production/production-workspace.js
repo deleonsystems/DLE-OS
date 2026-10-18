@@ -5,6 +5,7 @@
   const TEMPLATE_PATH = "SRC/workspaces/production/production-workspace.html";
   const API = "/api/production/v1/work-orders/";
   const QUEUES = Object.freeze({
+    ALL: Object.freeze({rowsKey:"all",title:"Production jobs",description:"Select a work order to review its traveler and operations.",empty:"No production jobs are available."}),
     KIT_COMPLETE: Object.freeze({
       rowsKey: "kitComplete",
       title: "Kit Complete",
@@ -23,9 +24,9 @@
     model: null,
     rowsByKey: new Map(),
     loadError: "",
-    selectedQueue: "KIT_COMPLETE",
+    selectedQueue: "ALL",
     packages: new Map(), packageErrors: new Map(), selectedWo: "", package: null,
-    panel: "traveler", editing: false, dirty: false, busy: false, detailRequest: 0, message: "",
+    panel: "overview", editing: false, dirty: false, busy: false, detailRequest: 0, message: "",
     woEditing: false, revisionReview: false, revisionOrder: [], revisionReason: "", clarifications: [], substeps: [], travelerVisuals: [], operationContent: [], inputPanel: null, inspectedRevision: null, drag: null
   };
 
@@ -78,6 +79,7 @@
     mount.addEventListener('lostpointercapture', event => finishRevisionDrag(event, false));
     mount.addEventListener('keydown', revisionGripKey);
     window.addEventListener?.('blur', cancelRevisionDrag);
+    mount.querySelector("#productionQueueFilter")?.addEventListener("change", e => selectProductionQueue(e.target.value));
     mount.querySelector("#productionWorkspaceSearch")?.addEventListener("input", renderQueues);
     mount.querySelector("#productionWorkspaceRefresh")?.addEventListener("click", () => {
       void refreshProductionWorkspace({ forceMaterialStatus: true });
@@ -170,6 +172,7 @@
   function buildViewModel(model, searchTerm = "") {
     const queues = model?.queues || {};
     return Object.freeze({
+      all: Object.freeze(filterRows([...new Map([...(queues.kitComplete || []), ...(queues.kitShort || [])].map(row => [row.workOrderNumber, row])).values()], searchTerm)),
       kitComplete: Object.freeze(filterRows(queues.kitComplete, searchTerm)),
       kitShort: Object.freeze(filterRows(queues.kitShort, searchTerm))
     });
@@ -224,7 +227,7 @@
   }
 
   function renderSelectedQueue(view, search) {
-    const config = QUEUES[state.selectedQueue] || QUEUES.KIT_COMPLETE;
+    const config = QUEUES[state.selectedQueue] || QUEUES.ALL;
     const rows = view[config.rowsKey] || [];
     setText("productionSelectedQueueTitle", config.title);
     setText("productionSelectedQueueDescription", config.description);
@@ -236,42 +239,30 @@
     const target = document.getElementById("productionSelectedJobs");
     if (!target) return;
     target.innerHTML = rows.length
-      ? '<div class="production-compact-list">' + rows.map(renderRow).join("") + '</div>'
+      ? '<div class="production-table-scroll"><table class="production-job-table"><caption class="production-sr-only">Production jobs</caption><thead><tr>' + ['Work Order','Assembly / Rev','Qty','Due','Customer','Material Status','Production Status',''].map(v=>'<th scope="col">'+v+'</th>').join('') + '</tr></thead><tbody>' + rows.map(renderRow).join('') + '</tbody></table></div>'
       : '<p class="production-queue-empty">' + escapeHtml(emptyMessage) + '</p>';
+  }
+
+  function materialBadge(status) {
+    const kind = status === 'KIT_COMPLETE' ? 'is-complete' : status === 'KIT_SHORT' ? 'is-short' : '';
+    const symbol = status === 'KIT_COMPLETE' ? '&#10003;' : status === 'KIT_SHORT' ? '&#9888;&#65038;' : '';
+    return '<span class="production-material '+kind+'">'+(symbol?'<span class="production-material-symbol" aria-hidden="true">'+symbol+'</span>':'')+escapeHtml(humanStatus(status))+'</span>';
   }
 
   function renderRow(row) {
     const projection = state.packages.get(row.workOrderNumber);
-    const unavailable = state.packageErrors.has(row.workOrderNumber);
-    const material = projection?.materialStatus || (state.selectedQueue === "KIT_COMPLETE" ? "KIT_COMPLETE" : "KIT_SHORT");
-    const production = projection ? humanStatus(projection.productionStatus) : unavailable ? "Production source review required" :
-      material === "KIT_SHORT" ? "Awaiting Parts" : "Traveler review required";
-    const customer = [row.customerNumber, row.customerName].filter(Boolean).join(" \u00b7 ") || "N/A";
-    const quantity = row.canonicalWorkOrderQuantity === null || row.canonicalWorkOrderQuantity === undefined
-      ? "N/A" : formatQuantity(row.canonicalWorkOrderQuantity);
-    return [
-      '<button type="button" class="production-compact-row" data-production-queue-key="',
-      escapeHtml(row.queueKey), '" aria-label="Open Work Order ', escapeHtml(row.workOrderNumber), '">',
-      '<span class="production-compact-wo">WO ', escapeHtml(row.workOrderNumber), '</span>',
-      '<span class="production-compact-assembly"><strong>', escapeHtml(row.assemblyItemNumber || "N/A"),
-      '</strong><small>Rev ', escapeHtml(row.revision || "N/A"), '</small></span>',
-      '<span class="production-compact-metric production-compact-quantity"><small>QTY</small><strong>',
-      escapeHtml(quantity), '</strong></span>',
-      '<span class="production-compact-metric production-compact-due"><small>DUE</small><strong>',
-      escapeHtml(formatDueDate(row.earliestDueDate)), '</strong></span>',
-      '<span class="production-compact-customer">', escapeHtml(customer), '</span>',
-      '<span class="production-queue-readiness"><span class="production-compact-state">', escapeHtml(humanStatus(material)), '</span>',
-      '<strong>', escapeHtml(production), '</strong><small>', escapeHtml(projection?.boundTraveler ? 'Traveler v' + projection.boundTraveler.definitionVersion + ' · Frozen' : projection?.definition ? 'Traveler · ' + humanStatus(projection.definition.status) : unavailable ? 'Traveler unavailable · source review' : 'Traveler not bound'), '</small>',
-      projection?.firstOperation ? '<small>First · ' + escapeHtml(projection.firstOperation.sequence) + ' ' + escapeHtml(projection.firstOperation.name) + '</small>' : '', '</span>',
-      '<span class="production-compact-arrow" aria-hidden="true">→</span>',
-      '</button>'
-    ].join("");
+    const material = projection?.materialStatus || row.materialStatus || 'UNKNOWN';
+    const production = projection ? humanStatus(projection.productionStatus) : 'Production source review required';
+    return '<tr><td><strong>'+escapeHtml(row.workOrderNumber)+'</strong></td><td>'+escapeHtml(row.assemblyItemNumber||'Not recorded')+'<small>Rev '+escapeHtml(row.revision||'-')+'</small></td>'+
+      '<td>'+escapeHtml(formatQuantity(row.canonicalWorkOrderQuantity))+'</td><td>'+escapeHtml(formatDueDate(row.earliestDueDate))+'</td><td>'+escapeHtml(row.customerName||row.customerNumber)+'</td>'+
+      '<td>'+materialBadge(material)+'</td><td>'+escapeHtml(production)+'</td>'+
+      '<td><button type="button" data-production-queue-key="'+escapeHtml(row.queueKey)+'" aria-label="Open Work Order '+escapeHtml(row.workOrderNumber)+'"'+(!row.actionable?' disabled':'')+'>Open job</button></td></tr>';
   }
 
   async function openWorkOrder(row) {
     if (!row?.actionable || !row.workOrderNumber || !row.canonicalWorkOrder) return false;
     if (!discardEdits()) return false;
-    state.selectedWo = row.workOrderNumber; state.package = null; state.editing = false; state.woEditing = false; state.inspectedRevision = null; state.panel = "traveler";
+    state.selectedWo = row.workOrderNumber; state.package = null; state.editing = false; state.woEditing = false; state.inspectedRevision = null; state.panel = "overview";
     window.DleWorkspaceShell?.setWorkspaceView?.(WORKSPACE_ID);
     await refreshDetail();
     return true;
@@ -353,8 +344,8 @@
   }
 
   function renderManagementHtml(data) {
-    const top = '<div class="production-detail-top">' + button("back", "← Production queue", state.busy) +
-      '<h2>WO ' + escapeHtml(state.selectedWo || data?.workOrderNumber) + ' · Production Management</h2>' +
+    const top = '<div class="production-detail-top">' + button("back", "Back to jobs", state.busy) +
+      '<h2>WO ' + escapeHtml(state.selectedWo || data?.workOrderNumber) + ' · Production</h2>' +
       button("refresh-detail", "Refresh", state.busy) + '</div>';
     const notice = '<p id="productionDetailMessage" class="production-detail-message" role="status" aria-live="polite">' + escapeHtml(state.message) + '</p>';
     if (!data) return top + notice;
@@ -362,17 +353,12 @@
     const source = data.source || {}, first = data.firstOperation;
     const facts = '<div class="production-context">' + field("Customer", context.customer || context.customerNumber) +
       field("Assembly / Rev", [context.assembly, context.revision].filter(Boolean).join(" / ")) + field("Qty", readableQuantity(context.quantity)) +
-      field("Customer Due", formatDueDate(context.customerDueDate)) + field("Material Status", humanStatus(data.materialStatus)) +
+      field("Customer Due", formatDueDate(context.customerDueDate)) + '<div class="production-fact"><small>Material Status</small><strong>'+materialBadge(data.materialStatus)+'</strong></div>' +
       field("Production Status", humanStatus(data.productionStatus)) + field("Traveler", bound ? "Approved / Frozen · v" + (data.effectiveRevision?.version || bound.version) :
         def ? humanStatus(def.status) + " · v" + (def.version || def.workingVersion) : "Not established") + '</div>';
-    const firstCard = '<section class="production-first-operation" aria-label="First operation">' +
-      '<div><small>FIRST OPERATION</small><strong>' + escapeHtml(first ? first.sequence + ' — ' + first.name : "Awaiting approved Traveler") +
-      '</strong><span>' + (data.ready ? 'Ready · Not Started' : 'Not Started · Readiness review required') + '</span></div>' +
-      '<div><button type="button" class="production-start" disabled aria-describedby="productionExecutionNotice">Start ' +
-      escapeHtml(first?.name || "First Operation") + '</button><small id="productionExecutionNotice">Execution controls are not enabled in this foundation slice.</small></div></section>';
     const errors = list(data.validationErrors).length ? '<div class="production-validation" role="note"><strong>Readiness review</strong><ul>' +
       data.validationErrors.map(error => '<li>' + escapeHtml(typeof error === "string" ? error : error.message || error.code) + '</li>').join("") + '</ul></div>' : "";
-    const tabs = [["traveler", "Traveler"], ["bom", "DLE-OS BOM"], ["kitting", "Kitting Result"], ["technical", "Technical Definition"],
+    const tabs = [["overview", "Traveler & operations"], ["traveler", "Review traveler"], ["bom", "DLE-OS BOM"], ["kitting", "Kitting Result"], ["technical", "Technical Definition"],
       ["customer", "Customer Requirements"], ["history", "History"]].map(([id, label]) =>
       '<button type="button" data-production-panel="' + id + '" aria-pressed="' + (state.panel === id) + '">' + label + '</button>').join("");
     let body;
@@ -381,11 +367,75 @@
     else if (state.panel === "technical") body = renderTechnical(data);
     else if (state.panel === "customer") body = renderCustomer(data);
     else if (state.panel === "history") body = renderHistory(data);
-    else body = renderTraveler(data);
-    return top + notice + facts + firstCard + (window.ShippingHandoff?.productionButton(data.workOrderNumber) || '') + errors + '<nav class="production-detail-tabs" aria-label="Production references">' + tabs +
+    else if (state.panel === "traveler") body = renderTraveler(data);
+    else body = renderOverview(data);
+    return top + notice + facts + errors + '<nav class="production-detail-tabs" aria-label="Production references">' + tabs +
       '</nav><section class="production-detail-body">' + body + '</section><p class="production-source-context">Source quote ' +
       escapeHtml(context.sourceQuote || source.quote?.quoteNumber || source.quote || "Not established") + ' · Frozen Labor v' +
-      escapeHtml(source.laborVersion ?? "—") + ' · Current operation: Not Started</p>';
+      escapeHtml(source.laborVersion ?? "—") + '</p>';
+  }
+
+  function travelerOperations(data) {
+    return list(data.effectiveRevision?.operations || data.boundTraveler?.operations || data.operations).slice().sort((a,b)=>a.sequence-b.sequence);
+  }
+  // Display-only exclusions. Do not rewrite the governed route or grant operation permissions.
+  function isContextOperation(op, route = []) {
+    const seen = new Set();
+    for (let item = op; item && !seen.has(item.id); item = route.find(parent => parent.sourceOperationId === item.sourceParentId || parent.id === item.sourceParentId)) {
+      seen.add(item.id);
+      if (item.classification !== 'PRODUCTION' || item.enabled === false || /\b(kitting|materials|qc|quality|inspect|inspection|shipping)\b/i.test(item.name || '')) return true;
+      if (!item.sourceParentId) break;
+    }
+    return false;
+  }
+  function productionOperations(data) {
+    if (!data.boundTraveler) return [];
+    return travelerOperations(data).filter(op=>op.enabled!==false&&!isContextOperation(op, travelerOperations(data)));
+  }
+  function travelerProgress(data) {
+    const route=travelerOperations(data), bound=!!data.boundTraveler;
+    const completed=bound?route.filter(op=>op.executionState==='COMPLETED'||op.executionState==='COMPLETE'):[];
+    const current=bound?route.filter(op=>op.executionState==='IN_PROGRESS'):[];
+    // Sequence describes planned order only; it is never evidence of readiness or completion.
+    const next=bound?route.find(op=>op.enabled!==false&&!isContextOperation(op, route)&&op.executionState==='NOT_STARTED'):null;
+    return {route,completed,current,next,bound};
+  }
+  function renderOverview(data) {
+    const progress=travelerProgress(data), available=productionOperations(data);
+    const name=op=>op.sequence+' - '+op.name;
+    const current=progress.current.length?progress.current.map(name).join(', '):data.executionStarted?'No current step recorded':'Not started';
+    const next=!progress.bound?'Review and approve the traveler':progress.next?name(progress.next)+' (planned order only)':'No next production step recorded';
+    return '<section class="production-overview"><h3>Traveler overview</h3><div class="production-progress">'+
+      field('Completed',progress.bound?progress.completed.length+' recorded steps':'No bound traveler')+field('Current position',current)+field('Next',next)+'</div>'+
+      '<p>Viewing instructions does not start work or clear material and traveler requirements.</p>'+
+      (!progress.bound?'<p class="production-notice">This traveler has not been approved and attached to the job. Production operations are not yet available.</p>'+button('review-traveler','Review traveler',state.busy):'')+
+      '<details class="production-overview-route" open><summary>Process overview - '+progress.route.length+' steps'+(!progress.bound?' (source awaiting review)':'')+'</summary><ol>'+progress.route.map(op=>'<li><span>'+escapeHtml(name(op))+'</span><small>'+escapeHtml(!progress.bound?'Awaiting traveler review':humanStatus(op.executionState))+(isContextOperation(op, progress.route)?' - Context only':op.enabled===false?' - Excluded':'')+'</small></li>').join('')+'</ol></details>'+
+      '<h3>Production operations</h3><p class="production-muted">Select an operation to view its instructions and saved source slides. Kitting, QC and Shipping remain context only.</p>'+
+      (!available.length?'<p>No production operations are available to preview.</p>':'<div class="production-operation-choices">'+available.map(op=>'<button type="button" data-production-action="operation-preview" data-operation-id="'+escapeHtml(op.id)+'">'+escapeHtml(name(op))+'<small>View instructions</small></button>').join('')+'</div>')+
+      '<section id="productionOperationPreview" aria-live="polite"></section></section>';
+  }
+  async function openOperationPreview(id, trigger) {
+    const data=state.package,wo=state.selectedWo,token=state.detailRequest;
+    const op=productionOperations(data||{}).find(op=>op.id===id);
+    if (!op || state.busy || state.panel!=='overview') return false;
+    const target=document.getElementById('productionOperationPreview');if(!target)return false;
+    target.innerHTML='<h3>'+escapeHtml(op.sequence+' - '+op.name)+'</h3><p class="production-preserve-lines">'+escapeHtml(op.travelerInstructions??op.shopInstructions??op.instructions??'')+'</p>'+
+      '<p>Read-only preview. '+materialBadge(data.materialStatus)+' / '+escapeHtml(humanStatus(data.productionStatus))+'.</p>'+
+      '<button type="button" data-production-source-slides>View saved source slides</button><p data-production-slide-status role="status"></p>';
+    target.querySelector('[data-production-source-slides]').onclick=async event=>{
+      const status=target.querySelector('[data-production-slide-status]');event.currentTarget.disabled=true;
+      try {
+        const source=data.source||{};if(!source.acceptedIntakeId)throw Error('No accepted source slides are available for this job.');
+        const res=await fetch('/api/sim/order-entry/'+encodeURIComponent(source.acceptedIntakeId),{credentials:'same-origin',cache:'no-store'});
+        if(!res.ok)throw Error('Source slides are unavailable.');const order=await res.json();
+        if(order.orderEntry?.acceptance?.id!==source.acceptanceId||order.orderEntry.acceptance.packageRevision!==source.acceptedRevision)throw Error('The source changed. Refresh this job before viewing slides.');
+        if(!window.DleJobInstructions)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/SRC/workspaces/kitting/production-instruction-editor.js';script.onload=resolve;script.onerror=()=>reject(Error('The slide viewer could not load.'));document.head.append(script);});
+        if(state.selectedWo!==wo||state.detailRequest!==token||state.panel!=='overview'||document.body.dataset.workspaceView!=='production')return;
+        const opened=await window.DleJobInstructions.open({wo,job:{context:data.context},order,readOnly:true,sourceOperationIds:[op.sourceOperationId],trigger});
+        if(opened===false)throw Error('No saved source slides are available for this operation.');
+      }catch(error){status.textContent=error.message;}finally{const b=target.querySelector('[data-production-source-slides]');if(b)b.disabled=false;}
+    };
+    target.scrollIntoView?.({block:'nearest'});return true;
   }
 
   function estimatingBasis(operation) {
@@ -565,7 +615,7 @@
         ' · Frozen Labor v' + escapeHtml(data.source?.laborVersion) + ' · ' + escapeHtml(data.context?.sourceQuote) + ' · Approved ' +
         escapeHtml(dateTime(data.effectiveRevision?.approval?.atUtc || bound.approvedAt)) + ' · ' + escapeHtml(data.effectiveRevision?.approval?.actor || '') + '</p>' : '<p class="production-muted">A reviewed, approved and frozen Traveler is required before Production can be ready.</p>') +
       controls + renderInputPanel() +
-      '<div class="production-prerequisite"><strong>Materials Released: ' + escapeHtml(humanStatus(data.materialStatus)) + '</strong>' +
+      '<div class="production-prerequisite"><strong>Materials Released: ' + materialBadge(data.materialStatus) + '</strong>' +
       prerequisites.map(op => '<span>' + escapeHtml(op.sequence + ' — ' + op.name) + ' · Materials prerequisite / excluded from active Production</span>').join("") +
       '</div>' + prerequisites.map(op => '<details class="production-prerequisite-reference"><summary>View retained Materials source · ' +
         escapeHtml(op.sequence + ' ' + op.name) + '</summary>' + renderOperationDetails(op) + '</details>').join("") +
@@ -912,6 +962,8 @@
 
   async function handleAction(action, element) {
     if (state.busy) return;
+    if (action === "operation-preview") return openOperationPreview(element.dataset.operationId, element);
+    if (action === "review-traveler") { state.panel="traveler"; renderManagement(); return; }
     if (action === "back") { if (!discardEdits()) return; state.selectedWo = ""; state.editing = false; state.woEditing = false; state.inspectedRevision = null; ++state.detailRequest; renderManagement(); renderQueues(); return; }
     if (action === "refresh-detail") return refreshDetail();
     if (action === "show-bom") { state.panel = "bom"; renderManagement(); return; }
@@ -1022,6 +1074,7 @@
     getModel: () => state.model,
     getPackage: () => state.package,
     renderManagementHtml, renderRoute, renderBom, renderOperationDetails, humanStatus,
+    renderOverview, productionOperations, travelerProgress, openOperationPreview,
     renderRevisionDiff, renderWoRevisionControls, moveRevisionGroup, revisionGroups, insertRevisionGroup
   });
 })(window, document);

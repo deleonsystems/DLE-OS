@@ -29,17 +29,22 @@
     const term = text(search).trim().toLowerCase();
     return rows.filter(row => (filter !== 'AWAITING' || row.inspectionStatus === 'AWAITING_INSPECTION') &&
       (filter !== 'SHORT' || row.materialStatus === 'KIT_SHORT') &&
+      (filter !== 'COMPLETE' || row.materialStatus === 'KIT_COMPLETE') &&
       [row.workOrderNumber,row.customerName,row.customerNumber,row.assemblyItemNumber,row.revision,
         ...list(row.relatedLines).map(l=>l.customerPurchaseOrderNumber)].join(' ').toLowerCase().includes(term));
   }
   function statuses(row) {
-    return '<span class="qi-material '+(row.materialStatus==='KIT_SHORT'?'qi-short':'')+'">'+esc(labels[row.materialStatus]||row.materialStatus||'Unavailable')+'</span>';
+    const complete=row.materialStatus==='KIT_COMPLETE',short=row.materialStatus==='KIT_SHORT';
+    const symbol=complete?'&#10003;':short?'&#9888;&#65038;':'';
+    return '<span class="qi-material '+(complete?'qi-complete':short?'qi-short':'')+'">'+
+      (symbol?'<span class="qi-material-symbol" aria-hidden="true">'+symbol+'</span>':'')+
+      esc(labels[row.materialStatus]||row.materialStatus||'Unavailable')+'</span>';
   }
   function rowHtml(row) {
     return '<tr'+(row.inspectionStatus==='AWAITING_INSPECTION'?' class="qi-awaiting"':'')+' data-qi-row="'+esc(row.workOrderNumber)+'">'+
-      '<td>'+esc(row.customerName||row.customerNumber)+'</td><td><strong>'+esc(row.workOrderNumber)+'</strong></td>'+
+      '<td><strong>'+esc(row.workOrderNumber)+'</strong></td>'+
       '<td>'+esc(row.assemblyItemNumber)+'<small>Rev '+esc(row.revision||'—')+'</small></td><td>'+esc(row.canonicalWorkOrderQuantity??'—')+'</td>'+
-      '<td>'+esc(text(row.earliestDueDate).slice(0,10)||'—')+'</td><td>'+statuses(row)+'</td><td><span class="qi-inspection">'+inspectionLabel(row)+'</span></td>'+
+      '<td>'+esc(text(row.earliestDueDate).slice(0,10)||'—')+'</td><td>'+esc(row.customerName||row.customerNumber)+'</td><td>'+statuses(row)+'</td><td><span class="qi-inspection">'+inspectionLabel(row)+'</span></td>'+
       '<td><button type="button" data-qi-open="'+esc(row.workOrderNumber)+'">Open job</button></td></tr>';
   }
   function draw() {
@@ -53,31 +58,31 @@
     host.querySelector('[data-qi-filter]')?.addEventListener('change',e=>{state.filter=e.target.value;draw();});
     host.querySelector('[data-qi-search]')?.addEventListener('input',e=>{state.search=e.target.value;drawRows();});
     host.querySelectorAll('[data-qi-open]').forEach(b=>b.onclick=()=>void openJob(b.dataset.qiOpen));
-    host.querySelector('[data-qi-back]')?.addEventListener('click',()=>{++state.token;state.selected=null;state.packet=null;state.loading=false;state.error='';draw();host.querySelector('[data-qi-open]')?.focus();});
+    host.querySelector('[data-qi-back]')?.addEventListener('click',backToJobs);
     host.querySelector('[data-qi-slides]')?.addEventListener('click',e=>void slides(e.currentTarget));
     host.querySelector('[data-qi-bom]')?.addEventListener('click',()=>void bom());
   }
   function queueHtml() {
-    return '<div class="qi-controls"><label>Show<select data-qi-filter>'+[['ALL','All Jobs'],['AWAITING','Awaiting Inspection'],['SHORT','Kit Short']].map(([v,l])=>'<option value="'+v+'"'+(state.filter===v?' selected':'')+'>'+l+'</option>').join('')+'</select></label>'+
+    return '<div class="qi-controls"><label>Show<select data-qi-filter>'+[['ALL','All Jobs'],['AWAITING','Awaiting Inspection'],['SHORT','Kit Short'],['COMPLETE','Kit Complete']].map(([v,l])=>'<option value="'+v+'"'+(state.filter===v?' selected':'')+'>'+l+'</option>').join('')+'</select></label>'+
       '<label>Search<input type="search" data-qi-search value="'+esc(state.search)+'" placeholder="Work Order, assembly, customer, PO"></label></div>'+
       (state.loading?'<p role="status">Loading jobs…</p>':'')+'<div data-qi-rows>'+tableHtml()+'</div>';
   }
   function tableHtml() {
     const rows=filteredRows(state.rows,state.filter,state.search);
     if (!rows.length) return '<p role="status">'+(state.loading?'Checking current job data…':state.filter==='AWAITING'?'No jobs have been submitted for inspection.':'No matching jobs.')+'</p>';
-    return '<div class="qi-table-scroll"><table><caption class="qi-sr">Open inspection jobs</caption><thead><tr>'+['Customer','Work Order','Assembly / Rev','Qty','Due','Material Status','Inspection Status',''].map(l=>'<th scope="col">'+l+'</th>').join('')+'</tr></thead><tbody>'+rows.map(rowHtml).join('')+'</tbody></table></div>';
+    return '<div class="qi-table-scroll"><table><caption class="qi-sr">Open inspection jobs</caption><thead><tr>'+['Work Order','Assembly / Rev','Qty','Due','Customer','Material Status','Inspection Status',''].map(l=>'<th scope="col">'+l+'</th>').join('')+'</tr></thead><tbody>'+rows.map(rowHtml).join('')+'</tbody></table></div>';
   }
   function drawRows() { const host=mount();host.querySelector('[data-qi-rows]').innerHTML=tableHtml();host.querySelectorAll('[data-qi-open]').forEach(b=>b.onclick=()=>void openJob(b.dataset.qiOpen)); }
   function safeDocumentUrl(value) {
     try {const url=new URL(value,window.location.href);return url.origin===window.location.origin && /^\/api\/(production\/v1\/work-orders\/[^/]+\/documents\/|sim\/(new-orders|rfq-intakes)\/[^/]+\/documents\/)/.test(url.pathname)?url.href:null;}catch{return null;}
   }
+  function backToJobs() {
+    const wo=state.selected?.workOrderNumber;++state.token;state.selected=null;state.packet=null;state.order=null;state.loading=false;state.error='';draw();
+    [...(mount()?.querySelectorAll('[data-qi-open]')||[])].find(b=>b.dataset.qiOpen===wo)?.focus();
+  }
   function detailHtml() {
-    const row=state.selected,p=state.packet;
-    const docs=[...list(state.order?.review?.poDocuments),...list(p?.technicalDocuments)].map(doc=>{const url=safeDocumentUrl(doc.url);return url?'<li><a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(doc.name)+'</a></li>':'';}).join('');
-    return '<section class="qi-detail"><button type="button" data-qi-back>Back to jobs</button><h2 tabindex="-1" data-qi-heading>WO '+esc(row.workOrderNumber)+' — '+esc(row.assemblyItemNumber)+'</h2>'+
-      '<p>'+statuses(row)+' <span class="qi-inspection">'+inspectionLabel(row)+'</span></p>'+
-      '<p>Read-only packet preview</p>'+(state.loading?'<p role="status">Loading packet…</p>':p?
-      '<div class="qi-tools"><button type="button" data-qi-slides>View slides</button><button type="button" data-qi-bom>View BOM</button></div><h3>Packet documents</h3>'+(docs?'<ul>'+docs+'</ul>':'<p>No packet documents are available.</p>')+'<div data-qi-viewer></div>':'<p>The job packet is not available yet.</p>')+'</section>';
+    const row=state.selected;
+    return '<section class="qi-detail"><button type="button" data-qi-back>Back to jobs</button><h2 tabindex="-1" data-qi-heading>WO '+esc(row.workOrderNumber)+' - '+esc(row.assemblyItemNumber)+'</h2><p>'+statuses(row)+' <span class="qi-inspection">'+inspectionLabel(row)+'</span></p><p role="status">'+(state.loading?'Opening read-only traveler and slides…':state.error?'Slides could not be opened. Return to jobs and try again.':'Read-only slides are open.')+'</p></section>';
   }
   async function get(url) {
     const response=await fetch(url,{credentials:'same-origin',cache:'no-store'});
@@ -101,6 +106,7 @@
         if(order.orderEntry?.acceptance?.id!==packet.source.acceptanceId||order.orderEntry.acceptance.packageRevision!==packet.source.acceptedRevision)throw Error('The customer packet changed. Refresh and reopen this job.');
         state.order=order;
       }
+      if(active(token))await slides(mount().querySelector('[data-qi-back]'));
     }catch(e){if(active(token))state.error=e.message;}finally{if(active(token)){state.loading=false;draw();}}
   }
   function loadAsset(url, style=false) {
@@ -119,7 +125,7 @@
       const order=await get('/api/sim/order-entry/'+encodeURIComponent(intake));
       if(order.orderEntry?.acceptance?.id!==p.source.acceptanceId||order.orderEntry.acceptance.packageRevision!==p.source.acceptedRevision)throw Error('The packet changed. Reopen this job.');
       if(!window.DleJobInstructions)await loadAsset('/SRC/workspaces/kitting/production-instruction-editor.js');if(!active(token))return;
-      const opened=await window.DleJobInstructions.open({wo:p.workOrderNumber,job:{context:p.context},order,quality:true,readOnly:true,trigger:button});
+      const opened=await window.DleJobInstructions.open({wo:p.workOrderNumber,job:{context:p.context},order,quality:true,readOnly:true,trigger:button,startAtTraveler:true,backLabel:'Back to jobs',isCurrent:()=>active(token),onExit:()=>{if(active(token))backToJobs();},onViewerMount:(dialog,heading)=>{const info=document.createElement('div');info.className='qi-viewer-context';info.innerHTML='<strong>WO '+esc(p.workOrderNumber)+' · '+esc(p.context?.assembly||state.selected.assemblyItemNumber)+' · Rev '+esc(p.context?.revision||state.selected.revision||'-')+'</strong> '+statuses(state.selected)+' <span class="qi-inspection">'+inspectionLabel(state.selected)+'</span>';heading.after(info);dialog.classList.add('qi-slides-viewer');dialog.addEventListener('cancel',e=>{e.preventDefault();dialog.querySelector('[data-back]')?.click();});}});
       if(opened===false)throw Error('Slides are not available for this packet.');
     }catch(e){if(active(token)){state.error=e.message;draw();}}finally{button.disabled=false;}
   }

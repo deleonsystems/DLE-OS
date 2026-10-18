@@ -63,20 +63,20 @@ assert.match(dashboardStyles, /data-dashboard-view="production"[^}]*\.work-order
 for (const field of ["workOrderNumber", "customerName", "assemblyItemNumber", "revision", "canonicalWorkOrderQuantity", "earliestDueDate"]) {
   assert.match(source, new RegExp(field));
 }
-assert.match(markup, /data-production-queue="KIT_COMPLETE" aria-pressed="true"/);
-assert.match(markup, /data-production-queue="KIT_SHORT" aria-pressed="false"/);
-assert.match(markup, /Kit Short \/ Awaiting Parts/);
+assert.match(markup, /option value="KIT_COMPLETE"/);
+assert.match(markup, /option value="KIT_SHORT"/);
+assert.match(markup, /Kit Short/);
 assert.doesNotMatch(markup, /Needs Kitting/);
 assert.match(markup, /type="search"/);
 assert.doesNotMatch(markup, /<details|<dialog|modal|accordion|dropdown/i);
 assert.doesNotMatch(source, /appendKittingDisposition|submitKitting|fetch\([^)]*method:\s*["'](?:POST|PUT|PATCH|DELETE)/i);
-assert.match(source, /selectedQueue: "KIT_COMPLETE"/);
+assert.match(source, /selectedQueue: "ALL"/);
 assert.match(source, /function selectProductionQueue\(queueKey\)/);
-assert.match(source, /class="production-compact-row"/);
-assert.match(source, /<small>QTY<\/small>/);
-assert.match(source, /<small>DUE<\/small>/);
-assert.match(source, /production-compact-arrow/);
-assert.doesNotMatch(source, /production-job-table/);
+assert.match(source, /class="production-job-table"/);
+
+
+
+
 assert.match(styles, /\.production-workspace\{display:grid;gap:10px;max-width:1460px;margin:0 auto;padding:8px 20px 28px/);
 assert.match(styles, /\.production-lifecycle-tabs\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:10px\}/);
 assert.match(styles, /\.production-compact-row\{display:grid;grid-template-columns:minmax\(118px,.7fr\).*minmax\(170px,1fr\) 98px 24px/);
@@ -127,7 +127,7 @@ vm.createContext(context);
 vm.runInContext(source, context);
 
 const production = context.window.DleWorkspaces.production;
-assert.equal(production.getSelectedQueue(), "KIT_COMPLETE");
+assert.equal(production.getSelectedQueue(), "ALL");
 assert.equal(production.selectQueue("KIT_SHORT"), true);
 assert.equal(production.getSelectedQueue(), "KIT_SHORT");
 assert.equal(production.selectQueue("NOT_A_QUEUE"), false);

@@ -2,7 +2,7 @@
   <header class="production-workspace-header">
     <div>
       <h1>Production</h1>
-      <p>Review released jobs, governed Travelers and material evidence.</p>
+      <p>Find a job, review its traveler, and view operation instructions.</p>
     </div>
     <div id="productionWorkspaceStatus" class="production-workspace-status" role="status" aria-live="polite">Loading jobs</div>
   </header>
@@ -14,21 +14,13 @@
       <input id="productionWorkspaceSearch" type="search" autocomplete="off"
         placeholder="Search Work Order, Part, Customer, PO...">
     </label>
+    <label class="production-filter">Material status<select id="productionQueueFilter"><option value="ALL">All jobs</option><option value="KIT_COMPLETE">Kit Complete</option><option value="KIT_SHORT">Kit Short</option></select></label>
     <button id="productionWorkspaceRefresh" type="button" class="secondary-btn production-refresh">↻ Refresh Queue</button>
   </section>
 
-  <nav class="production-lifecycle-tabs" aria-label="Production queues">
-    <button type="button" data-production-queue="KIT_COMPLETE" aria-pressed="true">
-      <span>Kit Complete</span><strong id="productionKitCompleteCount">0</strong>
-    </button>
-    <button type="button" data-production-queue="KIT_SHORT" aria-pressed="false">
-      <span>Kit Short / Awaiting Parts</span><strong id="productionKitShortCount">0</strong>
-    </button>
-  </nav>
-
   <section class="production-operator-queue" aria-labelledby="productionSelectedQueueTitle">
-    <h2 id="productionSelectedQueueTitle">Kit Complete</h2>
-    <p id="productionSelectedQueueDescription">Primary Production queue for work orders with complete kits.</p>
+    <h2 id="productionSelectedQueueTitle">Production jobs</h2>
+    <p id="productionSelectedQueueDescription">Select a work order to review its traveler and operations.</p>
     <div id="productionSelectedJobs" class="production-job-list"></div>
   </section>
   </div>
