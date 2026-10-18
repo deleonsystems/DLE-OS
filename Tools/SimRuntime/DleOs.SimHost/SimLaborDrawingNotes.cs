@@ -30,7 +30,7 @@ internal sealed partial class SimRfqIntakeStore
         var rfq = RfqView(record, await ReadRfqLanes());
         // Historical layers remain reviewable even when the governing definition changed.
         var plan = rfq.Lanes.LaborQuote is { } saved ? NormalizeLaborHierarchy(saved) : LaborView(rfq).Plan;
-        var labor = new SimLaborView(rfq, plan, CalculateLabor(plan.Operations, plan.Quantity, plan.Rate ?? 0, plan.Markup, plan.Charges));
+        var labor = new SimLaborView(rfq, plan, CalculateLabor(plan.Operations, plan.Quantity, plan.Rate ?? 0, plan.Markup, plan.Charges, plan.CommissionPercent));
         var drawing = await OpenDocument(id, labor.Rfq.Inputs.Manufacturing.GoverningDocumentId ?? "");
         if (drawing.Document.Type != "application/pdf") throw SimRfqIntakeProblem.BadRequest("DRAWING_SOURCE", "Choose the governing PDF drawing.");
         var a = record.Assemblies[0];

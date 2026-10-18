@@ -86,7 +86,7 @@ internal sealed partial class SimKittingCases(SimStateStore state,SimOperationsD
     internal static object Contract(SimKittingCaseRecord c,DateTimeOffset now,bool canAmendPoTraceability=false)=>new{c.CaseId,c.WorkOrderNumber,c.RunNumber,isActiveRun=true,c.AssemblyItemNumber,c.Revision,
         c.ReleasedBomIdentity,c.ReleasedBomVersion,c.State,c.StartedBy,c.StartedAtUtc,c.LastOperator,c.LastWorkedAtUtc,c.EditingSessionId,
         c.EditingOwner,c.EditingAcquiredAtUtc,c.EditingExpiresAtUtc,c.WorkingVersion,c.ActionableCount,c.CompletedCount,c.ShortRequirementCount,
-        c.TotalShortage,c.PoTraceabilityRequired,originalPoTraceabilityRequired=OriginalPolicy(c),c.PoTraceabilityAmendment,canAmendPoTraceability,
+        c.TotalShortage,supplyDispositionSupported=true,mixedSourcesSupported=true,c.PoTraceabilityRequired,originalPoTraceabilityRequired=OriginalPolicy(c),c.PoTraceabilityAmendment,canAmendPoTraceability,
         isEditing=c.EditingSessionId is not null&&c.EditingExpiresAtUtc>now,c.Draft,c.Lineage};
 
     internal async Task<object> Start(string wo,SimKittingStartRequest request,SimPersona actor)=>await state.WithStableRuntime(async runtime=>{
@@ -177,7 +177,7 @@ internal sealed partial class SimKittingCases(SimStateStore state,SimOperationsD
         var root=JsonNode.Parse(value.GetRawText())?.AsObject()??throw KittingCaseProblem.BadRequest("draft_required","A valid draft is required.");
         root.Remove("employeeName");
         if(root["groups"] is not JsonArray groups)throw KittingCaseProblem.BadRequest("requirements_required","Requirement groups are required.");
-        foreach(var group in groups){var row=group!.AsObject();foreach(var key in new[]{"entry","rowState","revisionNumber","lastSubmittedBy","lastSubmittedAtUtc"})row.Remove(key);}
+        foreach(var group in groups){var row=group!.AsObject();foreach(var key in new[]{"entry","rowState","revisionNumber","lastSubmittedBy","lastSubmittedAtUtc","supplyDisposition"})row.Remove(key);}
         return Sort(root);
     }
     private static JsonNode Sort(JsonNode node)=>node switch{JsonObject o=>new JsonObject(o.OrderBy(x=>x.Key,StringComparer.Ordinal).Select(x=>KeyValuePair.Create(x.Key,x.Value is null?null:Sort(x.Value))).ToArray()),JsonArray a=>new JsonArray(a.Select(x=>x is null?null:Sort(x)).ToArray()),
@@ -191,9 +191,11 @@ internal sealed partial class SimKittingCases(SimStateStore state,SimOperationsD
             var group=groups[i]!.AsObject();var prior=old[i]!.AsObject();var rowState=group["rowState"]?.ToString();
             if(rowState is not("EDITING" or "SUBMITTED"))throw KittingCaseProblem.BadRequest("kitting_row_state_invalid","Row state must be Editing or Submitted.");
             var submitted=rowState=="SUBMITTED";
+            SimKittingSupplyDisposition.Stamp(group,prior,actor,now);
+            SimKittingSupplyDisposition.StampAllocations(group,prior,actor,now);
             if(group["entry"] is null&&submitted)throw KittingCaseProblem.BadRequest("kitting_entry_required","A submitted row requires execution evidence.");
             if(group["actionable"]?.GetValue<bool>()!=true&&(group["entry"] is not null||submitted))throw KittingCaseProblem.BadRequest("nonactionable_execution","Nonactionable requirements cannot carry execution evidence.");
-            var changed=Execution(group["entry"])?.ToJsonString()!=Execution(prior["entry"])?.ToJsonString();
+            var changed=Execution(group["entry"])?.ToJsonString()!=Execution(prior["entry"])?.ToJsonString() || group["supplyDisposition"]?.ToJsonString()!=prior["supplyDisposition"]?.ToJsonString();
             foreach(var key in new[]{"lastSubmittedBy","lastSubmittedAtUtc"}){group.Remove(key);if(prior[key] is {} previousValue)group[key]=previousValue.DeepClone();}
             var revision=int.TryParse(prior["revisionNumber"]?.ToString(),out var parsed)?parsed:0;
             group["revisionNumber"]=revision;
@@ -210,13 +212,18 @@ internal sealed partial class SimKittingCases(SimStateStore state,SimOperationsD
                 }else{allocation!["evidenceOperator"]=actor.DisplayName;allocation["evidenceAtUtc"]=now;}
             }
             // Derived displayed totals never trust a caller's picked/extra/result claims.
+            entry.AsObject().Remove("customerInstalledQuantity");
             if(entry["method"]?.ToString()=="COUNT"){
-                var countedAllocations=entry["allocations"] as JsonArray;decimal total=0;var valid=countedAllocations is {Count:>0};
+                var countedAllocations=entry["allocations"] as JsonArray;decimal total=0,installed=0;var valid=countedAllocations is {Count:>0};
                 var eligible=group["eligibleParts"]!.AsArray().Select(x=>x!.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                if(countedAllocations is not null)foreach(var a in countedAllocations){if(!decimal.TryParse(a?["quantity"]?.ToString(),NumberStyles.Number,CultureInfo.InvariantCulture,out var qty)||qty<0||!eligible.Contains(a?["partNumber"]?.ToString()??""))valid=false;else total+=qty;}
+                if(countedAllocations is not null)foreach(var a in countedAllocations){if(!decimal.TryParse(a?["quantity"]?.ToString(),NumberStyles.Number,CultureInfo.InvariantCulture,out var qty)||qty<0||!eligible.Contains(a?["partNumber"]?.ToString()??""))valid=false;else if(a?["sourceType"]?.ToString()=="CUSTOMER_INSTALLED") {
+                    if(!decimal.TryParse(a?["customerInstalledQuantity"]?.ToString(),NumberStyles.Number,CultureInfo.InvariantCulture,out var ci)||ci<=0)valid=false;else installed+=ci;
+                }else total+=qty;}
                 var required=decimal.Parse(group["requiredQuantity"]!.ToString(),CultureInfo.InvariantCulture);
-                entry["pickedQuantity"]=valid?JsonValue.Create(total):null;entry["shortageQuantity"]=valid?JsonValue.Create(Math.Max(required-total,0)):null;
-                entry["extraQuantity"]=valid?JsonValue.Create(Math.Max(total-required,0)):null;entry["result"]=!valid?"COUNT_REQUIRED":total<required?"COUNTED_SHORT":total>required?"COUNTED_EXTRA":"COUNTED_EXACT";
+                if(installed>0 && total+installed>required)valid=false;
+                if(countedAllocations?.Any(a=>a?["sourceType"] is not null)==true)entry["customerInstalledQuantity"]=valid?JsonValue.Create(installed):null;
+                entry["pickedQuantity"]=valid?JsonValue.Create(total):null;entry["shortageQuantity"]=valid?JsonValue.Create(Math.Max(required-total-installed,0)):null;
+                entry["extraQuantity"]=valid?JsonValue.Create(Math.Max(total-required,0)):null;entry["result"]=!valid?"COUNT_REQUIRED":total+installed<required?"COUNTED_SHORT":total>required?"COUNTED_EXTRA":"COUNTED_EXACT";
             }else{entry["pickedQuantity"]=null;entry["shortageQuantity"]=0;entry["extraQuantity"]=null;entry["result"]=entry["method"]?.ToString()=="COMPLETE_MIN_EXTRA"?"COMPLETE_MIN_EXTRA":"COMPLETE";}
         }
         return JsonSerializer.SerializeToElement(node,Json);

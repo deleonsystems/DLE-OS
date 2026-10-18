@@ -123,6 +123,12 @@ internal sealed class SimOperationsHandoffService(SimStateStore state,SimRfqInta
             a.SourceToken=="318ECCC6202F1270CAD0BB9FB8469A927EF497D9D38AD2785020E0F4FCE3F68A" && r.Customer.CustomerNumber=="990100" &&
             p.PoNumber=="SIM-PO-0036-20261014-A" && q.IntakeId=="RFQI-SIM-0036" && q.QuoteNumber=="SIM-Q-0036-R02" &&
             p.Facts.Lines.Length==1 && p.Facts.Lines[0] is {Assembly:"B11283-17",Revision:"B",Quantity:25})return "ABBOTT-0044-SIM-TRIAL";
+        if(r.Environment=="SIM" && r.IntakeId=="RFQI-SIM-0046" && a.PackageRevision==2 && p.Revision==2 &&
+            a.Id=="0a15fbf0-d1f3-4123-b1af-34b1bda2410e" &&
+            a.SourceToken=="025540756823921B23180E73AB9F27C55C63B6CC12D46CD5833D75574035FF5C" &&
+            r.Customer.CustomerNumber=="990100" && p.PoNumber=="SIM-PO-0045-20261017-C72EE3" &&
+            q.IntakeId=="RFQI-SIM-0045" && q.QuoteNumber=="SIM-Q-0045-R01" &&
+            p.Facts.Lines.Length==1 && p.Facts.Lines[0] is {Assembly:"B11165-32",Revision:"A",Quantity:25})return "ABBOTT-0046-AWAITING-RELEASE";
         return null;
     }
 
@@ -139,7 +145,9 @@ internal sealed class SimOperationsHandoffService(SimStateStore state,SimRfqInta
             line.Quantity!.Value,line.Quantity.Value,0,line.Currency,line.UnitPrice!.Value,line.ExtendedValue!.Value,line.CustomerDueDate!,null,openingDate,
             ["SIM opening state: ordered/open quantity equals accepted order quantity; shipped quantity is zero.","SIM ERP order date and WO opened date use the accepted-order calendar date "+openingDate+"; they are not copied from PO Date.","SIM WO type STANDARD, status OPEN, UOM EA; scheduled quantity equals accepted order quantity.","Estimated Ship Date is unset; Customer Due Date remains separate reviewed commercial context."]);
         if(schemaVersion==2)order=order with{CustomerPoDate=p.Facts.PoDate};
-        var work=new SimOperationsPacketWorkOrder(ids.WorkOrder,r.Customer.CustomerNumber,ids.SalesOrder,ids.SalesOrderLine,line.Assembly,line.Revision,line.Quantity.Value,"STANDARD","OPEN",openingDate,"EA");
+        var awaitingRelease=scope=="ABBOTT-0046-AWAITING-RELEASE";
+        if(awaitingRelease)order=order with{SimulatedFacts=order.SimulatedFacts.Where(f=>!f.Contains("status OPEN")).Append("SIM VPRO entry only. WO is Awaiting Release; Quality review is not completed. Kitting and production are blocked.").ToArray()};
+        var work=new SimOperationsPacketWorkOrder(ids.WorkOrder,r.Customer.CustomerNumber,ids.SalesOrder,ids.SalesOrderLine,line.Assembly,line.Revision,line.Quantity.Value,"STANDARD",awaitingRelease?"AWAITING_RELEASE":"OPEN",openingDate,"EA");
         var evidence=new SimOperationsRelationshipEvidence(packetId+":anchor","SIMULATED_ACCEPTED_BRIDGE_ANCHOR",r.Customer.CustomerNumber,ids.SalesOrder,ids.SalesOrderLine,ids.WorkOrder,line.Assembly,line.Revision,line.Quantity.Value);
         var packet=new SimOperationsPacket(packetId,schemaVersion,"",actor.Id,prepared,"SIM","SIM-VPRO5","SIMULATED_DEVELOPMENTAL",scope,runtime.ScenarioId,runtime.ScenarioVersion,runtime.Generation,source,order,work,[evidence]);
         return packet with{ContentHash=SimOperationsDataStore.PacketHash(packet)};

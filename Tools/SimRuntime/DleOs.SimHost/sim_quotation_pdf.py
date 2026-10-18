@@ -39,6 +39,8 @@ def render(data, logo, output):
         rows.append(['',p('NRE',small),p(charge['label']+' (one-time)'),'',p(money(charge['amount']),right)])
     for charge in data.get('materialCharges', []):
         rows.append(['',p('Material NRE' if charge['treatment']=='NRE' else 'Charge',small),p(charge['label']),'',p(money(charge['amount']),right)])
+    if data.get('quickTurn') is not None:
+        rows.append(['',p('Charge',small),p('Quick-Turn Charge'),'',p(money(data['quickTurn']['amount']),right)])
     table = Table(rows, colWidths=[35,145,160,85,95], repeatRows=1)
     table.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LINEBELOW',(0,0),(-1,0),0.8,blue),
                               ('LINEBELOW',(0,-1),(-1,-1),0.4,colors.HexColor('#CFD9DF')),
@@ -59,10 +61,13 @@ def render(data, logo, output):
         story.extend([p('Separate Material Charges: '+money(data.get('materialSeparateTotal',0)),right),p('Material NRE: '+money(data.get('materialNreTotal',0)),right)])
     total_label=ParagraphStyle('total-label',parent=right,fontName='Helvetica-Bold',fontSize=12,textColor=blue)
     total_value=ParagraphStyle('total-value',parent=total_label,fontSize=14,leading=18)
-    totals = Table([[p('Product Total',right),p(money(data['productTotal']),right)],
-                    [p('One-Time Charges',right),p(money(data['nreTotal']),right)],
-                    [p('Grand Quote Total',total_label),p(money(data['grandTotal']),total_value)]],colWidths=[180,125],hAlign='RIGHT')
-    totals.setStyle(TableStyle([('LINEABOVE',(0,2),(-1,2),1,blue),('TOPPADDING',(0,0),(-1,-1),9),
+    total_rows = [[p('Product Total',right),p(money(data['productTotal']),right)],
+                  [p('One-Time Charges',right),p(money(data['nreTotal']),right)]]
+    if data.get('quickTurn') is not None:
+        total_rows.append([p('Quick-Turn Charge',right),p(money(data['quickTurn']['amount']),right)])
+    total_rows.append([p('Grand Quote Total',total_label),p(money(data['grandTotal']),total_value)])
+    totals = Table(total_rows,colWidths=[180,125],hAlign='RIGHT')
+    totals.setStyle(TableStyle([('LINEABOVE',(0,-1),(-1,-1),1,blue),('TOPPADDING',(0,0),(-1,-1),9),
                                ('BOTTOMPADDING',(0,0),(-1,-1),9),('RIGHTPADDING',(-1,0),(-1,-1),0)]))
     story.append(KeepTogether(totals))
     def footer(canvas, document):

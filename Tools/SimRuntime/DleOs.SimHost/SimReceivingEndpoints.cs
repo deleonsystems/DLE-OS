@@ -15,6 +15,20 @@ internal static class SimReceivingEndpoints
             catch(Exception e)when(e is IOException or InvalidOperationException or SqliteException){return Results.Json(new{code="receiving_unavailable",message="Receiving could not finish this request. Refresh retained evidence before retrying."},statusCode:503);}
         }
         const string route="/api/sim/receiving";
+        app.MapGet(route+"/customer",async Task<IResult>(HttpContext c)=>await Guard(c,async a=>Results.Json(await service.CustomerReceipts(a))));
+        app.MapGet(route+"/customer/{id}",(string id,HttpContext c)=>Guard(c,async a=>Results.Json(await service.ReadCustomer(id,a))));
+        app.MapPost(route+"/customer/{id}/receive",(string id,SimCustomerReceiveRequest r,HttpContext c)=>Guard(c,async a=>Results.Json(await service.ReceiveCustomer(id,r,a))));
+        app.MapPost(route+"/customer/{id}/documents",(string id,HttpContext c)=>Guard(c,async a=> {
+            if(!c.Request.Headers.ContainsKey("X-SIM-Document-Upload"))return Results.BadRequest();
+            if(c.Request.ContentLength>20*1024*1024)return Results.StatusCode(413);
+            return Results.Json(await service.UploadCustomer(id,c.Request.Query["kind"].ToString(),c.Request.Query["name"].ToString(),c.Request.Body,a));
+        }));
+        app.MapGet(route+"/customer/{id}/documents/{docId}",(string id,string docId,HttpContext c)=>Guard(c,async a=> {
+            var opened=await service.OpenCustomerDocument(id,docId,a);
+            c.Response.Headers["X-Content-Type-Options"]="nosniff";
+            c.Response.Headers["Content-Disposition"]=new System.Net.Http.Headers.ContentDispositionHeaderValue(opened.Document.Type=="application/pdf"?"inline":"attachment"){FileNameStar=opened.Document.Name}.ToString();
+            return Results.Bytes(opened.Bytes,opened.Document.Type);
+        }));
         app.MapGet(route+"/history",async Task<IResult>(HttpContext c)=>await Guard(c,async a=>Results.Json(await service.History(a))));
         app.MapGet(route+"/po/{purchaseId:guid}",(Guid purchaseId,HttpContext c)=>Guard(c,async a=>Results.Json(await service.ReadPo(purchaseId,a))));
         app.MapPost(route+"/po/{purchaseId:guid}/requirements",(Guid purchaseId,SimReceivingRequirementsRequest r,HttpContext c)=>Guard(c,async a=>Results.Json(await service.Review(purchaseId,r,a))));

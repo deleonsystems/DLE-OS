@@ -15,6 +15,18 @@
     return '<strong class="part-number">'+escape(identity.primary)+'</strong>'+identity.related.map(number=>'<small class="part-number">'+escape(number)+'</small>').join('');
   }
 
+  // Match only the immutable note generated from this row's retained C/S metadata.
+  // Operator process notes are never filtered, even when they use similar wording.
+  function customerSupplyNote(group) {
+    const s=group.customerSupply;
+    if(!s||!['findNumber','customerPartNumber','approvedPartNumber','requiredEach','requiredQuantity','uom','quoteNumber','poNumber'].every(k=>s[k]!==undefined&&s[k]!==null)||!Array.isArray(s.poDocumentNames))return null;
+    return 'C/S (Customer supplied); Find '+s.findNumber+'; Customer P/N '+s.customerPartNumber+'; Approved P/N '+s.approvedPartNumber+'; '+s.requiredEach+' '+s.uom+'/assembly; minimum '+s.requiredQuantity+' '+s.uom+'; quote '+s.quoteNumber+'; PO '+s.poNumber+' ('+s.poDocumentNames.join(', ')+'). Supply responsibility only; receipt and kitting remain separate.';
+  }
+  function operatorNotes(group) {
+    const generated=customerSupplyNote(group);
+    return (group.notes||[]).filter(note=>generated===null||note!==generated);
+  }
+
   const processLabel=p=>p?.componentType==='WIRE'?'Wire':p?.componentType==='MANUAL'?p.customLabel:p?.componentType==='SUB_ASSY'?'Sub-Assy':p?.componentType&&p.componentType!=='UNKNOWN'?p.componentType:'\u2014';
 
   function documentHtml(draft, navigation = {}) {
@@ -71,7 +83,7 @@
 
       const notes = (group.notes || []).map(clean).filter(Boolean).map(n=>navigation.fairLabels?n.replace(/^Component type:/,'FAIR Component Type:'):n);
 
-      if(employee)return '<tr data-process-key="'+escapeHtml(group.process?.key||'')+'" data-sequence="'+escapeHtml(group.sequence)+'"><td>'+escapeHtml(group.sequence)+'</td><td>'+escapeHtml(group.findNumber??'—')+'</td><td class="part-numbers">'+partNumbers(group)+'</td><td>'+escapeHtml(group.description||group?.primaryPart?.description||'NOT ON FILE')+(references.length?'<small>Refs: '+escapeHtml(references.join(', '))+'</small>':'')+'</td><td class="number"><span class="required-inline">'+escapeHtml(quantity(group.requiredEach))+(clean(group.unitOfMeasure)?' '+escapeHtml(group.unitOfMeasure):'')+'/ea · '+'<strong class="required-total">'+escapeHtml(quote?multiply(group.requiredEach,header.scheduledProduction):quantity(group.requiredQuantity))+'</strong>'+(clean(group.unitOfMeasure)?' '+escapeHtml(group.unitOfMeasure):'')+'</span></td><td class="pending-kitting">'+escapeHtml(quote?'—':kittingResult(group))+'</td><td class="pending-po">'+escapeHtml(quote?'—':purchaseOrders(group))+'</td><td class="process-type" data-process-type="'+escapeHtml(group.process?.componentType||'UNKNOWN')+'">'+escapeHtml(processLabel(group.process))+'</td><td class="process-notes">'+escapeHtml(quote?(group.process?.notes||''):[...(group.notes||[]),group.process?.notes||''].filter(Boolean).join('\n'))+'</td></tr>';
+      if(employee)return '<tr data-process-key="'+escapeHtml(group.process?.key||'')+'" data-sequence="'+escapeHtml(group.sequence)+'"><td>'+escapeHtml(group.sequence)+'</td><td>'+escapeHtml(group.findNumber??'—')+'</td><td class="part-numbers">'+partNumbers(group)+'</td><td>'+escapeHtml(group.description||group?.primaryPart?.description||'NOT ON FILE')+(!quote&&(group.supplyDisposition?.responsibility ? group.supplyDisposition.responsibility==='CUSTOMER_SUPPLIED' : group.customerSupply)?'<small>C/S — Customer supplied</small>':'')+(references.length?'<small>Refs: '+escapeHtml(references.join(', '))+'</small>':'')+'</td><td class="number"><span class="required-inline">'+escapeHtml(quantity(group.requiredEach))+(clean(group.unitOfMeasure)?' '+escapeHtml(group.unitOfMeasure):'')+'/ea · '+'<strong class="required-total">'+escapeHtml(quote?multiply(group.requiredEach,header.scheduledProduction):quantity(group.requiredQuantity))+'</strong>'+(clean(group.unitOfMeasure)?' '+escapeHtml(group.unitOfMeasure):'')+'</span></td><td class="pending-kitting">'+escapeHtml(quote?'—':kittingResult(group))+'</td><td class="pending-po">'+escapeHtml(quote?'—':purchaseOrders(group))+'</td><td class="process-type" data-process-type="'+escapeHtml(group.process?.componentType||'UNKNOWN')+'">'+escapeHtml(processLabel(group.process))+'</td><td class="process-notes">'+escapeHtml(quote?(group.process?.notes||''):[...operatorNotes(group),group.process?.notes||''].filter(Boolean).join('\n'))+'</td></tr>';
 
       return '<tr '+(quote?'tabindex="0" aria-selected="false" data-quantity="'+escapeHtml(group.requiredEach)+'" ':'')+'data-sequence="' + escapeHtml(group.sequence) + '"><td><strong>' +
 
@@ -202,15 +214,16 @@
   const labels={COMPLETE:'Complete',COMPLETE_MIN_EXTRA:'Complete with minimal extra',COUNTED_EXACT:'Counted — exact',COUNTED_SHORT:'Counted — short',COUNTED_EXTRA:'Counted — extra'};
   const result=[labels[e.result]||labels[e.method]||e.result||e.method||'Recorded'];
   if(e.pickedQuantity!=null)result.push('Picked '+e.pickedQuantity);
+  if(e.customerInstalledQuantity>0)result.push('Customer installs '+e.customerInstalledQuantity+' (not kitted)');
   if(e.shortageQuantity>0)result.push('Short '+e.shortageQuantity);
   if(e.extraQuantity>0)result.push('Extra '+e.extraQuantity);
-  for(const a of e.allocations||[])result.push(['Used: '+a.partNumber,a.quantity!=null?'Qty '+a.quantity:''].filter(Boolean).join(' '));
+  for(const a of e.allocations||[])result.push(['Used: '+a.partNumber,a.sourceType==='CUSTOMER_INSTALLED'?'Customer installs '+a.customerInstalledQuantity+'; on hand '+a.quantity:a.quantity!=null?'Qty '+a.quantity:''].filter(Boolean).join(' '));
   if(e.selectedPartNumber)result.push('Used: '+e.selectedPartNumber);
   return result.join('\n');
 
  }
 
- function purchaseOrders(group){const e=group.entry;if(!e)return '-';return [...new Set([e.purchaseOrder,...(e.allocations||[]).map(a=>a.purchaseOrder)].map(clean).filter(Boolean))].join('\n')||'-';}
+ function purchaseOrders(group){const e=group.entry;if(!e)return (group.supplyDisposition?.responsibility ? group.supplyDisposition.responsibility==='CUSTOMER_SUPPLIED' : group.customerSupply)?'C/S':'-';return [...new Set([(group.supplyDisposition?.responsibility ? group.supplyDisposition.responsibility==='CUSTOMER_SUPPLIED' : group.customerSupply)?'C/S':'',e.purchaseOrder,...(e.allocations||[]).map(a=>a.purchaseOrder)].map(clean).filter(Boolean))].join('\n')||'-';}
 
  let letterReady;
 
@@ -238,7 +251,7 @@
 
  }
 
- window.DleBomReport=Object.freeze({partIdentity,partNumbers,processLabel,kittingResult,purchaseOrders,document:documentHtml,quoteDraft,multiply,svg,releasedDocument,version:'bom-reference-v4'});
+ window.DleBomReport=Object.freeze({customerSupplyNote,operatorNotes,partIdentity,partNumbers,processLabel,kittingResult,purchaseOrders,document:documentHtml,quoteDraft,multiply,svg,releasedDocument,version:'bom-reference-v4'});
 
 
 

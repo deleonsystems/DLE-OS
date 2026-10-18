@@ -269,7 +269,7 @@ SELECT EXISTS(
  JOIN SalesOrderWorkOrderRelationship r ON r.ActionableWorkOrderNumber=w.WorkOrderNumber
  JOIN SalesOrderLine s ON s.CustomerNumber=r.CustomerNumber
   AND s.SalesOrderNumber=r.SalesOrderNumber AND s.LineNumber=r.SalesOrderLineNumber
- WHERE w.WorkOrderNumber=@workOrder AND r.ResolutionStatus='EXACT_LINE_UNIQUE'
+ WHERE w.WorkOrderNumber=@workOrder AND w.WorkOrderStatus!='AWAITING_RELEASE' AND r.ResolutionStatus='EXACT_LINE_UNIQUE'
   AND s.QuantityOrdered>0 AND CAST(json_extract(s.PayloadJson,'$.erpQuantityOpen') AS REAL)>0
 );
 """;
@@ -489,14 +489,13 @@ FROM WorkOrderVerifiedStatusEvent WHERE RequestCorrelationId=@correlation LIMIT 
     {
         await using var connection = OpenReadOnly();
         await connection.OpenAsync();
+        var production = new SimProductionStore(databasePath);
+        var hasCases = await PacketExistsAsync(connection, null, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='SimKittingCase'");
         foreach (var item in page.Items.Cast<Dictionary<string, object?>>())
         {
-            var customer = item["customerNumber"]?.ToString() ?? "";
-            var salesOrder = item["salesOrderNumber"]?.ToString() ?? "";
-            var line = item["lineNumber"]?.ToString() ?? "";
-            var command = connection.CreateCommand();
+            await using var command = connection.CreateCommand();
             command.CommandText = """
-SELECT r.ActionableWorkOrderNumber,k.PayloadJson,
+SELECT r.ActionableWorkOrderNumber,k.PayloadJson,w.WorkOrderStatus,
  CASE WHEN w.WorkOrderNumber IS NOT NULL AND s.QuantityOrdered>0
   AND CAST(json_extract(s.PayloadJson,'$.erpQuantityOpen') AS REAL)>0 THEN 1 ELSE 0 END
 FROM SalesOrderWorkOrderRelationship r
@@ -505,41 +504,73 @@ LEFT JOIN WorkOrder w ON w.WorkOrderNumber=r.ActionableWorkOrderNumber
 JOIN SalesOrderLine s ON s.CustomerNumber=r.CustomerNumber
  AND s.SalesOrderNumber=r.SalesOrderNumber AND s.LineNumber=r.SalesOrderLineNumber
 WHERE r.CustomerNumber=@customer AND r.SalesOrderNumber=@salesOrder
-  AND r.SalesOrderLineNumber=@line AND r.ResolutionStatus='EXACT_LINE_UNIQUE'
+ AND r.SalesOrderLineNumber=@line AND r.ResolutionStatus='EXACT_LINE_UNIQUE'
 LIMIT 1;
 """;
-            command.Parameters.AddWithValue("@customer", customer);
-            command.Parameters.AddWithValue("@salesOrder", salesOrder);
-            command.Parameters.AddWithValue("@line", line);
-            await using var reader = await command.ExecuteReaderAsync();
+            command.Parameters.AddWithValue("@customer", item["customerNumber"]?.ToString() ?? "");
+            command.Parameters.AddWithValue("@salesOrder", item["salesOrderNumber"]?.ToString() ?? "");
+            command.Parameters.AddWithValue("@line", item["lineNumber"]?.ToString() ?? "");
             item["rmaReworkMembership"] = null;
             item["workOrderApprovalReview"] = null;
-            if (await reader.ReadAsync() && !reader.IsDBNull(0))
+            item["materialStatusWorkOrderNumber"] = "";
+            item["materialStatus"] = null;
+            await using var reader = await command.ExecuteReaderAsync();
+            if (!await reader.ReadAsync() || reader.IsDBNull(0)) continue;
+            var wo = reader.GetString(0);
+            var legacy = reader.IsDBNull(1) ? null : reader.GetString(1);
+            var importedHold = !reader.IsDBNull(2) && reader.GetString(2) == "AWAITING_RELEASE";
+            var eligible = reader.GetInt64(3) == 1;
+            await reader.DisposeAsync();
+            var hasCurrentCase = hasCases && await PacketExistsAsync(connection, null,
+                "SELECT COUNT(*) FROM SimKittingCase WHERE WorkOrderNumber=@wo AND Generation=@gen AND json_extract(PayloadJson,'$.generation')=@gen",
+                ("@wo", wo), ("@gen", page.Generation));
+            var current = hasCurrentCase ? await ReadSimKittingCase(connection, null, wo, page.Generation) : null;
+            var release = importedHold ? await production.ReadQualityRelease(wo, page.Generation) : null;
+            if (release?.Generation != page.Generation) release = null;
+            var held = importedHold && release is null && current is null;
+            // Resolve current operational state without rewriting immutable import evidence.
+            if (importedHold) item["releaseState"] = held ? "AWAITING_RELEASE" : "RELEASED";
+            if (current is not null || held || legacy is not null || eligible)
+                item["materialStatusWorkOrderNumber"] = wo;
+            if (current is not null)
+                item["materialStatus"] = MaterialProjection(wo, current.State, "KITTING_CASE",
+                    new { current.CaseId, current.State, current.RunNumber, current.WorkingVersion });
+            else if (held)
+                item["materialStatus"] = MaterialProjection(wo, "AWAITING_RELEASE", "QUALITY_RELEASE_REQUIRED");
+            else if (legacy is not null)
             {
-                var workOrder = reader.GetString(0);
-                if (!reader.IsDBNull(1))
-                {
-                    using var document = JsonDocument.Parse(reader.GetString(1));
-                    item["materialStatusWorkOrderNumber"] = workOrder;
-                    item["materialStatus"] = JsonSerializer.Deserialize<object>(
-                        document.RootElement.GetProperty("materialStatus").GetRawText());
-                }
-                else
-                {
-                    // Expose eligibility, not an invented stored disposition. The
-                    // shared MaterialStatus read resolves the normal no-case default.
-                    item["materialStatusWorkOrderNumber"] = reader.GetInt64(2) == 1 ? workOrder : "";
-                    item["materialStatus"] = null;
-                }
+                using var document = JsonDocument.Parse(legacy);
+                item["materialStatus"] = document.RootElement.GetProperty("materialStatus").Clone();
             }
-            else
+            else if (eligible)
+                item["materialStatus"] = MaterialProjection(wo, "NEEDS_KITTING", "KITTING_ELIGIBILITY");
+
+            // Accepted SIM jobs have a separate execution baseline, never a material-readiness status.
+            // Leave unrelated legacy rows and any existing production projection untouched.
+            if (item.ContainsKey("importProvenance") && !item.ContainsKey("productionExecution"))
             {
-                item["materialStatusWorkOrderNumber"] = "";
-                item["materialStatus"] = null;
+                var retained = await production.Read(wo, page.Generation);
+                var effective = retained.Revisions.Approved.FirstOrDefault(r => r.Id == retained.Revisions.Head?.EffectiveRevisionId);
+                var route = effective?.Operations ?? retained.Bound?.Operations ?? retained.Definition?.Operations ?? [];
+                var states = route.Select(o => o.ExecutionState).Where(s => s != "NOT_STARTED").Distinct().ToArray();
+                var started = retained.Execution || states.Length > 0;
+                var value = !started ? "NOT_STARTED" : states.Length == 1 ? states[0] : "EXECUTION_RECORDED";
+                item["productionExecution"] = new { machineValue = value,
+                    label = value == "NOT_STARTED" ? "Not Started" : value == "EXECUTION_RECORDED" ? "Execution recorded" :
+                        System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.Replace('_', ' ').ToLowerInvariant()),
+                    executionStarted = started, source = "SIM_EXECUTION_EVIDENCE", states };
             }
         }
         return page;
     }
+
+    private static object MaterialProjection(string wo, string state, string source, object? kittingCase = null) => new
+    {
+        workOrderNumber = wo, machineValue = state, source, kittingCase,
+        hasPersistentKittingHistory = kittingCase is not null,
+        label = state switch { "AWAITING_RELEASE" => "Awaiting Release", "NEEDS_KITTING" => "Needs Kitting",
+            "KITTING_IN_PROGRESS" => "Kitting In Progress", "KIT_SHORT" => "Kit Short", "KIT_COMPLETE" => "Kit Complete", _ => state }
+    };
 
     private async Task<SimPageResult> ReadPageAsync(string table, List<string> filters,
         List<SqliteParameter> parameters, string orderBy, (int Page, int PageSize) paging, long generation)

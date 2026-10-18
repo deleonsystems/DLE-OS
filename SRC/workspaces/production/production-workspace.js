@@ -815,7 +815,8 @@
   }
 
   function renderMaterialEvidence(row) {
-    return (row.originalKittedQuantity != null ? '<span>Original Kitting: ' + escapeHtml(readableQuantity(row.originalKittedQuantity)) + '</span>' : '') +
+    return (row.customerInstallInstruction ? '<strong>' + escapeHtml(row.customerInstallInstruction) + '</strong>' : '') +
+      (row.originalKittedQuantity != null ? '<span>Original Kitting: ' + escapeHtml(readableQuantity(row.originalKittedQuantity)) + '</span>' : '') +
       (Number(row.acceptedMaterialApplied) > 0 ? '<span>Accepted Material Applied: ' + escapeHtml(readableQuantity(row.acceptedMaterialApplied)) + '</span>' : '') +
       list(row.acceptedMaterials).map(app => '<span>' + escapeHtml(app.materialId) +
         ' · ' + escapeHtml(readableQuantity(app.quantity)) + '</span><small>PO ' + escapeHtml(app.purchaseOrderNumber) + ' / ' +
@@ -836,12 +837,12 @@
         ' · ' + escapeHtml(readableQuantity(app.quantity ?? app.appliedQuantity)) + ' applied</p>').join("") + '</details>' +
       '<h3 class="production-allocation-heading">Retained allocation evidence</h3>' + list(kit.requirements).map(row => {
         const allocations = list(row.entry?.allocations);
-        return '<details class="production-audit"><summary>Find ' + escapeHtml(row.sequence) + ' · ' + escapeHtml(row.partNumber) +
+        return (Number(row.entry?.customerInstalledQuantity)>0 ? '<p class="production-notice"><strong>Find ' + escapeHtml(row.sequence) + ': Customer installs ' + escapeHtml(readableQuantity(row.entry.customerInstalledQuantity)) + ' ' + escapeHtml(row.unitOfMeasure) + ' — ' + escapeHtml(row.partNumber) + '</strong>. Excluded from DLE installation; not a receipt.</p>' : '') + '<details class="production-audit"><summary>Find ' + escapeHtml(row.sequence) + ' · ' + escapeHtml(row.partNumber) +
           ' · ' + escapeHtml(humanStatus(row.entry?.result)) + '</summary>' +
           (allocations.length ? '<div class="production-table-scroll"><table class="production-bom"><thead><tr><th>Allocation</th><th>Part</th><th>Qty</th>' +
             '<th>Supplier PO</th><th>Accepted Material</th><th>Recorded by</th><th>Recorded at</th></tr></thead><tbody>' +
             allocations.map(allocation => '<tr><td>' + escapeHtml(allocation.allocationId) + '</td><td>' + escapeHtml(allocation.partNumber) +
-              '</td><td>' + escapeHtml(readableQuantity(allocation.quantity)) + '</td><td>' + escapeHtml(allocation.purchaseOrder || "Not recorded") +
+              '</td><td>' + escapeHtml(readableQuantity(allocation.quantity)) + (allocation.sourceType === 'CUSTOMER_INSTALLED' ? ' on hand; customer installs ' + escapeHtml(readableQuantity(allocation.customerInstalledQuantity)) : '') + '</td><td>' + escapeHtml(allocation.purchaseOrder || "Not recorded") +
               '</td><td>' + escapeHtml(allocation.acceptedMaterial?.receiptLineId || "Not recorded") + '</td><td>' +
               escapeHtml(allocation.evidenceOperator || "Not recorded") + '</td><td>' + escapeHtml(dateTime(allocation.evidenceAtUtc)) + '</td></tr>').join("") +
             '</tbody></table></div>' : '<p class="production-muted">' + (row.entry?.result === "COMPLETE" ?

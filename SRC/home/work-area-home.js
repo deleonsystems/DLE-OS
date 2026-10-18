@@ -3,7 +3,7 @@
 
   const MOBILE_READY_WORKSPACE_IDS = new Set(["operations-center", "invoice-history", "rfq-quoting"]);
   const HOME_WORKSPACE_ORDER = ["technical-review", "rfqs", "order-entry", "operations-center",
-    "kitting", "purchasing", "receiving", "production", "shipping", "invoice-history"];
+    "quality", "kitting", "purchasing", "receiving", "production", "shipping", "invoice-history"];
   const INTAKE_WIZARD_HOME_ENTRY = Object.freeze({
     id: "rfq-quoting",
     home: Object.freeze({
@@ -96,7 +96,7 @@
 
   function renderMobileLauncher(workspace) {
     const mobileReady = MOBILE_READY_WORKSPACE_IDS.has(workspace.id) ||
-      (["technical-review", "rfqs"].includes(workspace.id) && isSimIntakeEnabled());
+      (["technical-review", "rfqs", "quality"].includes(workspace.id) && isSimIntakeEnabled());
     const element = mobileReady ? "button" : "div";
     const action = mobileReady
       ? ' type="button" data-mobile-work-area="' + escapeHtml(workspace.id) + '"'

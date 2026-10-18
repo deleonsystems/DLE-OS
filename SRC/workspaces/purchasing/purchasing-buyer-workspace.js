@@ -2,8 +2,8 @@
   "use strict";
 
   const API = "/api/sim/purchasing";
-  const stages = [["shortages", "Material Shortages"], ["sorting", "Sorting"], ["shop", "Shop List"], ["purchased", "Purchased"]];
-  const state = { mount: null, model: null, history: [], planning: null, stage: "shortages", search: "", busy: false, message: "", error: false, selected: null, dirty: false };
+  const stages = [["shortages", "Material Shortages"], ["sorting", "Sorting"], ["shop", "Shop List"], ["purchased", "Supply Tracking"]];
+  const state = { mount: null, model: null, history: [], planning: null, stage: "shortages", search: "", busy: false, message: "", error: false, selected: null, dirty: false, copySelection: new Set() };
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const qty = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(Number(value)) : "—";
   const date = value => { const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "")); return match ? `${match[2]}/${match[3]}/${match[1]}` : "Not Established"; };
@@ -13,24 +13,92 @@
   const disabled = () => state.busy || !canManage() ? " disabled" : "";
   const coverage = item => (item.coverage || []).map(link => ({ ...byId(link.demandId), ...link }));
   const planDemands = (model, plan) => (plan.coverage || []).map(link => ({ ...model.demands.find(d => d.demandId === link.demandId), ...link }));
-  const demandText = demand => [demand.partNumber, demand.approvedPartNumber, demand.description, demand.workOrderNumber, demand.salesOrderNumber, demand.salesOrderLineNumber, demand.customer, demand.assemblyItemNumber, demand.revision].join(" ");
+  const demandText = demand => [demand.customerSupply?.customerPartNumber, demand.customerSupply ? "C/S Customer supplied" : "", demand.partNumber, demand.approvedPartNumber, demand.description, demand.workOrderNumber, demand.salesOrderNumber, demand.salesOrderLineNumber, demand.customer, demand.assemblyItemNumber, demand.revision].join(" ");
+
+  const currentCustomerShortage = d => !!d?.customerSupply && d.sourceCurrent === true &&
+    ["INCOMING", "ACCEPTED"].includes(d.state) && Number(d.remainingShortQuantity ?? d.shortQuantity) > 0;
+  const currentAcknowledgment = d => currentCustomerShortage(d) && !!d.customerContact &&
+    d.customerContact.submissionId === (d.currentSubmissionId || d.submissionId) &&
+    d.customerContact.sourceFingerprint === d.sourceFingerprint &&
+    Number(d.customerContact.shortQuantity) === Number(d.remainingShortQuantity ?? d.shortQuantity);
+  const followupEnabled = () => state.model?.customerFollowupSupported === true;
+  // Use the reviewed customer identity only: approved/manufacturer P/N is not a substitute.
+  function emailPayload(rows) {
+    const clean = value => String(value ?? "").replace(/[\r\n\t]+/g, " ").trim() || "Not recorded";
+    const headers = ["Find No.", "Customer P/N", "Description", "Qty Short", "UOM"];
+    const groups = new Map();
+    for (const d of rows) {
+      const po = d.customerPoNumber || d.customerSupply?.poNumber;
+      const key = JSON.stringify([d.customerNumber, d.customer, po, d.salesOrderNumber, d.salesOrderLineNumber, d.workOrderNumber, d.assemblyItemNumber, d.revision]);
+      if (!groups.has(key)) groups.set(key, { d, po, rows: [] });
+      groups.get(key).rows.push(d);
+    }
+    const text = [], html = [];
+    const cellStyle = "border:1px solid #808080;padding:6px 8px;vertical-align:top;text-align:left;";
+    for (const { d, po, rows: groupRows } of groups.values()) {
+      const context = `Customer: ${clean(d.customer)}; Customer PO: ${clean(po)}; Assembly: ${clean(d.assemblyItemNumber)} / Rev ${clean(d.revision)}`;
+      const reference = `SO: ${clean(d.salesOrderNumber)} / ${clean(d.salesOrderLineNumber)}; WO: ${clean(d.workOrderNumber)}`;
+      const cells = groupRows.map(row => [clean(row.customerSupply?.findNumber || row.findNumber),
+        clean(row.customerSupply?.customerPartNumber), clean(row.description),
+        qty(row.remainingShortQuantity ?? row.shortQuantity), clean(row.uom)]);
+      text.push([context, reference, headers.join("\t"), ...cells.map(row => row.join("\t"))].join("\r\n"));
+      // Semantic table and inline styles are retained by rich-text email paste. No external CSS or assets.
+      html.push(`<p style="margin:0 0 4px;font-weight:bold;">${esc(context)}</p><p style="margin:0 0 8px;font-size:11px;color:#555555;">${esc(reference)}</p>` +
+        `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border:1px solid #808080;font-family:Arial,sans-serif;font-size:12px;color:#000000;background-color:#ffffff;"><thead><tr>${headers.map(h => `<th scope="col" style="${cellStyle}background-color:#eeeeee;font-weight:bold;">${esc(h)}</th>`).join("")}</tr></thead><tbody>${cells.map(row => `<tr>${row.map((value, index) => `<td style="${cellStyle}${index === 3 ? "text-align:right;" : ""}">${esc(value)}</td>`).join("")}</tr>`).join("")}</tbody></table><p style="margin:0;height:12px;"></p>`);
+    }
+    return { text: text.join("\r\n\r\n"), html: `<div style="font-family:Arial,sans-serif;font-size:12px;color:#000000;background-color:#ffffff;">${html.join("")}</div>` };
+  }
+  function emailText(rows) { return emailPayload(rows).text; }
+  function contactSummary(d) {
+    const c = currentAcknowledgment(d) ? d.customerContact : null;
+    return c ? `<div class="buyer-contact-summary"><strong>C/S - Emailed / Awaiting Customer Material</strong><small>Emailed by ${esc(c.actor)} at ${esc(c.atUtc)}</small>${c.expectedDate ? `<small>Expected ${date(c.expectedDate)}</small>` : ""}</div>` : "";
+  }
+  async function copyForEmail(ids) {
+    if (!ids.length) return;
+    try {
+      // Refresh quantities and identities immediately before copying. This is a read-only action.
+      const model = await request();
+      const rows = ids.map(id => model.demands.find(d => d.demandId === id));
+      if (!model.customerFollowupSupported || rows.some(d => !currentCustomerShortage(d))) throw new Error("A selected shortage changed. Refresh and review your selection before copying.");
+      const payload = emailPayload(rows);
+      try {
+        if (!window.navigator.clipboard?.write || !window.ClipboardItem) throw new Error("Rich clipboard unavailable");
+        await window.navigator.clipboard.write([new window.ClipboardItem({
+          "text/html": new Blob([payload.html], { type: "text/html" }),
+          "text/plain": new Blob([payload.text], { type: "text/plain" })
+        })]);
+        state.message = `Copied formatted table for ${rows.length} shortage(s). Contact has not been marked.`; state.error = false; showMessage();
+      } catch (_) {
+        let plainCopied = false;
+        try { await window.navigator.clipboard.writeText(payload.text); plainCopied = true; } catch (_) { /* Manual selection remains available. */ }
+        const dialog = state.mount.querySelector("#buyerCopyDialog");
+        dialog.querySelector("#buyerCopyHelp").textContent = plainCopied
+          ? "Tab-separated text copied. The formatted table was not copied automatically. For email, select the table below and copy it, or use the text for Excel."
+          : "Clipboard access is unavailable. Select the table below and copy it for email, or select the tab-separated text for Excel. Contact has not been marked.";
+        dialog.querySelector("#buyerCopyTable").innerHTML = payload.html;
+        const field = dialog.querySelector("textarea"); field.value = payload.text;
+        state.message = plainCopied ? "Copied tab-separated text only. Formatted table is available in the copy dialog; contact has not been marked." : "Automatic copy unavailable. Use the copy dialog; contact has not been marked.";
+        state.error = false; showMessage(); dialog.showModal(); field.focus(); field.select(); dialog.scrollTop = 0;
+      }
+    } catch (error) { state.message = error.message; state.error = true; showMessage(); }
+  }
 
   // Views project the same demand/plan records; moving stages never copies records.
   function buildViewModel(model, search = "") {
     const data = { demands: [], plans: [], purchases: [], ...model };
     const planned = new Map();
     data.plans.forEach(plan => (plan.coverage || []).forEach(link => planned.set(link.demandId, (planned.get(link.demandId) || 0) + Number(link.quantity || 0))));
-    const unplanned = data.demands.filter(d => d.state === "ACCEPTED").map(d => ({ ...d, unplanned: true,
-      uncoveredQuantity: Math.max(0, Number(d.shortQuantity) - (planned.get(d.demandId) || 0)) })).filter(d => d.uncoveredQuantity > 0);
+    const unplanned = data.demands.filter(d => d.state === "ACCEPTED" && !d.customerSupply).map(d => ({ ...d, unplanned: true,
+      uncoveredQuantity: Math.max(0, Math.min(Number(d.remainingShortQuantity ?? d.shortQuantity), Number(d.shortQuantity) - (planned.get(d.demandId) || 0))) })).filter(d => d.uncoveredQuantity > 0);
     const all = {
-      shortages: data.demands.filter(d => d.state === "INCOMING"),
+      shortages: data.demands.filter(d => (d.state === "INCOMING" || (d.customerSupply && d.state === "ACCEPTED")) && !currentAcknowledgment(d)),
       sorting: [...unplanned, ...data.plans.filter(p => p.state === "DRAFT")],
       shop: data.plans.filter(p => p.state === "READY_FOR_PO"),
-      purchased: data.purchases
+      purchased: [...data.purchases, ...data.demands.filter(currentAcknowledgment).map(d => ({ ...d, customerFollowup: true }))]
     };
     const needle = String(search || "").trim().toLowerCase();
     const counts = Object.fromEntries(stages.map(([key]) => [key, all[key].length]));
-    const matches = item => !needle || [demandText(item), item.supplier, item.vendorPartNumber, item.poNumber, item.poLine, item.state, item.status, ...planDemands(data, item).map(demandText)].join(" ").toLowerCase().includes(needle);
+    const matches = item => !needle || [demandText(item), item.customerFollowup ? "C/S Emailed Awaiting Customer Material" : (item.purchaseId || item.poLineId) ? purchaseStatus(item) : "", item.customerContact?.actor, item.customerContact?.expectedDate, item.customerPoNumber, item.supplier, item.vendorPartNumber, item.poNumber, item.poLine, item.state, item.status, ...planDemands(data, item).map(demandText)].join(" ").toLowerCase().includes(needle);
     return { counts, ...Object.fromEntries(stages.map(([key]) => [key, all[key].filter(matches)])) };
   }
 
@@ -107,12 +175,13 @@
     return `<div class="buyer-table-scroll"><table class="buyer-table"><thead><tr>${headers.map(h => `<th scope="col">${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${headers.length}" class="buyer-empty">${esc(empty)}</td></tr>`}</tbody></table></div>`;
   }
   function shortageRows(rows) {
-    return table(["Find", "DLE P/N / Approved P/N", "Description", "Required", "Kitted", "Short", "UOM", "Customer Due", "Material Need-By", "WO / SO", "Customer / Assembly", "Buyer State", "Action"], rows.map(d => `<tr>
-      <td>${esc(d.findNumber)}</td><td><strong>${esc(d.partNumber)}</strong><small>${esc(d.approvedPartNumber || d.partNumber)}</small></td><td class="buyer-description">${esc(d.description)}</td>
-      <td class="buyer-number">${qty(d.requiredQuantity)}</td><td class="buyer-number">${qty(d.kittedQuantity)}</td><td class="buyer-number buyer-short">${qty(d.shortQuantity)}</td><td>${esc(d.uom)}</td>
+    return (followupEnabled() ? `<div class="buyer-copy-toolbar">${button("copy-selected", "Copy Selected for Email")}<span id="buyerCopyCount">${state.copySelection.size} selected</span></div>` : "") + table([...(followupEnabled() ? ["Select C/S"] : []), "Find", "DLE P/N / Approved P/N", "Description", "Required", "Kitted", "Short", "UOM", "Customer Due", "Material Need-By", "WO / SO", "Customer / Assembly", "Buyer State", "Action"], rows.map(d => `<tr>
+      ${followupEnabled() ? `<td>${currentCustomerShortage(d) ? `<input type="checkbox" class="buyer-copy-check" data-copy-id="${esc(d.demandId)}" aria-label="Select Find ${esc(d.customerSupply?.findNumber || d.findNumber)} WO ${esc(d.workOrderNumber)} for email"${state.copySelection.has(d.demandId) ? " checked" : ""}>` : ""}</td>` : ""}
+      <td>${esc(d.customerSupply?.findNumber || d.findNumber)}</td><td><strong>${esc(d.partNumber)}</strong><small>${esc(d.approvedPartNumber || d.partNumber)}</small>${d.customerSupply ? `<small>C/S (Customer supplied) · ${esc(d.customerSupply.customerPartNumber)}</small>` : ""}</td><td class="buyer-description">${esc(d.description)}${(d.supplyConflicts || []).map(c=>`<small role="status">${esc(c)}</small>`).join("")}</td>
+      <td class="buyer-number">${qty(d.requiredQuantity)}</td><td class="buyer-number">${qty(d.kittedQuantity)}</td><td class="buyer-number buyer-short">${qty(d.remainingShortQuantity ?? d.shortQuantity)}</td><td>${esc(d.uom)}</td>
       <td>${date(d.customerDueDate)}</td><td>${needBy(d)}</td><td>WO ${esc(d.workOrderNumber)}<small>SO ${esc(d.salesOrderNumber)} / ${esc(d.salesOrderLineNumber)}</small></td>
-      <td>${esc(d.customer)}<small>${esc(d.assemblyItemNumber)} / ${esc(d.revision)}</small></td><td>${badge(d.sourceCurrent === false ? "Source changed" : "Incoming", d.sourceCurrent === false ? "buyer-warning" : "")}</td>
-      <td class="buyer-actions">${button("accept", "Accept", d.demandId, disabled() || (d.sourceCurrent === false ? " disabled" : ""))}${button("demand", "Details", d.demandId)}</td></tr>`), "No incoming material shortages. Accepted demand appears in Sorting.");
+      <td>${esc(d.customer)}<small>${esc(d.assemblyItemNumber)} / ${esc(d.revision)}</small></td><td>${badge(d.sourceCurrent === false ? "Source changed" : currentAcknowledgment(d) ? "Awaiting Customer" : d.customerSupply ? "C/S - Customer follow-up" : "Incoming", d.sourceCurrent === false ? "buyer-warning" : "")}</td>
+      <td class="buyer-actions">${d.customerSupply ? "" : button("accept", "Accept", d.demandId, disabled() || (d.sourceCurrent === false ? " disabled" : ""))}${followupEnabled() && currentCustomerShortage(d) ? button("copy-email", "Copy for Email", d.demandId) + button("customer-emailed", "Customer Emailed", d.demandId, disabled()) : ""}${button("demand", d.customerSupply ? "Contact / Details" : "Details", d.demandId)}</td></tr>`), "No incoming material shortages. Accepted demand appears in Sorting.");
   }
   function planRows(rows, shop = false) {
     return table(["DLE / Approved P/N", "Description", "Vendor / Vendor P/N", "Demand Qty", "Buy Qty", "UOM", "Unit Cost", "Extended", "Customer Due", "Material Need-By", "Expected", "WO(s)", "Status / Action"], rows.map(item => {
@@ -131,6 +200,13 @@
       <td class="buyer-number">${qty(p.orderedQuantity)} ${esc(p.purchasingUom)}</td><td class="buyer-number">${qty(p.receivedQuantity)}</td><td class="buyer-number">${qty(p.openQuantity)}</td><td class="buyer-number">${money(p.unitCost, p.currency)}</td><td class="buyer-number">${money(p.extendedCost, p.currency)}</td>
       <td>${date(p.requestedDate)}</td><td>${date(p.expectedDate)}</td><td>${customerDates(p)}</td><td>${esc(works(p))}</td><td class="buyer-actions">${badge(purchaseStatus(p))}${materialOutcome(p)}${button("purchase", "Details", p.purchaseId || p.poLineId)}</td></tr>`), "No purchases recorded. Shop List contains plans ready for PO entry.");
   }
+  function trackingRows(rows) {
+    const customers = rows.filter(row => row.customerFollowup);
+    const purchases = rows.filter(row => !row.customerFollowup);
+    return `<section aria-label="Customer-supplied tracking"><h2>Customer-supplied material</h2>${table(
+      ["Find No.", "Customer P/N", "Description", "Remaining", "UOM", "Customer / PO", "Assembly / WO", "Emailed By / Date", "Expected Delivery", "Status / Action"],
+      customers.map(d => `<tr data-customer-tracking="${esc(d.demandId)}"><td>${esc(d.customerSupply?.findNumber || d.findNumber)}</td><td>${esc(d.customerSupply?.customerPartNumber || "Not recorded")}</td><td class="buyer-description">${esc(d.description)}${(d.supplyConflicts || []).map(c => `<small>${esc(c)}</small>`).join("")}</td><td class="buyer-number">${qty(d.remainingShortQuantity ?? d.shortQuantity)}</td><td>${esc(d.uom)}</td><td>${esc(d.customer)}<small>${esc(d.customerPoNumber || d.customerSupply?.poNumber || "Not recorded")}</small></td><td>${esc(d.assemblyItemNumber)} / ${esc(d.revision)}<small>WO ${esc(d.workOrderNumber)}</small></td><td>${esc(d.customerContact.actor)}<small>${esc(d.customerContact.atUtc)}</small></td><td>${date(d.customerContact.expectedDate)}</td><td class="buyer-actions">${badge("C/S - Emailed / Awaiting Customer Material")}${button("demand", "Details", d.demandId)}${button("copy-email", "Copy for Email", d.demandId)}</td></tr>`), "No customer-supplied material awaiting delivery.")}</section><section aria-label="Purchase order tracking"><h2>Purchase orders</h2>${purchasedRows(purchases)}</section>`;
+  }
   function draw() {
     if (!state.mount) return;
     const view = buildViewModel(state.model);
@@ -141,11 +217,18 @@
       <div class="buyer-status ${state.error ? "buyer-error" : ""}" role="${state.error ? "alert" : "status"}" aria-live="polite">${esc(state.message)}${state.model && !canManage() ? " · Read-only access" : ""}</div>
       <section aria-label="Purchasing work"><div id="buyerRows"></div></section><div id="buyerDetails"></div>
       <dialog class="buyer-dialog" id="buyerBomDialog" aria-labelledby="buyerBomTitle"><div id="buyerBomContent"></div></dialog>
+      <dialog class="buyer-dialog" id="buyerCopyDialog" aria-labelledby="buyerCopyTitle"><div class="buyer-dialog-header"><h2 id="buyerCopyTitle">Copy for Email</h2>${button("copy-close", "Close")}</div><p id="buyerCopyHelp"></p>${button("copy-select-table", "Select Table")}<div id="buyerCopyTable" tabindex="0" aria-label="Formatted customer shortage table"></div><label for="buyerCopyText">Tab-separated text (Excel / plain text)</label><textarea id="buyerCopyText" rows="8" readonly aria-label="Tab-separated customer shortages"></textarea>${button("copy-select-text", "Select Text")}</dialog>
       </div>`;
     drawRows(); drawDetail();
     const root = state.mount.querySelector(".buyer-workspace");
     root.addEventListener("click", handleClick);
     root.addEventListener("submit", handleSubmit);
+    root.addEventListener("change", event => {
+      const id = event.target.dataset.copyId;
+      if (!id) return;
+      if (event.target.checked) state.copySelection.add(id); else state.copySelection.delete(id);
+      const counter = state.mount.querySelector("#buyerCopyCount"); if (counter) counter.textContent = `${state.copySelection.size} selected`;
+    });
     root.addEventListener("input", event => {
       if (event.target.id === "buyerSearch") { state.search = event.target.value; drawRows(); }
       else if (event.target.closest("form")) { state.dirty = true; updatePreview(); }
@@ -154,8 +237,9 @@
   function drawRows() {
     const target = state.mount?.querySelector("#buyerRows");
     if (!target) return;
+    state.copySelection = new Set([...state.copySelection].filter(id => currentCustomerShortage(byId(id)) && !currentAcknowledgment(byId(id))));
     const view = buildViewModel(state.model, state.search);
-    target.innerHTML = state.stage === "shortages" ? shortageRows(view.shortages) : state.stage === "sorting" ? planRows(view.sorting) : state.stage === "shop" ? planRows(view.shop, true) : purchasedRows(view.purchased);
+    target.innerHTML = state.stage === "shortages" ? shortageRows(view.shortages) : state.stage === "sorting" ? planRows(view.sorting) : state.stage === "shop" ? planRows(view.shop, true) : trackingRows(view.purchased);
   }
   function fact(label, value) { return `<div><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`; }
   function audit(item) {
@@ -169,15 +253,26 @@
     const known = value => value === true ? "Required" : value === false ? "Not Required" : "Not Established";
     return `<details class="buyer-audit"><summary>Reviewed receiving requirements</summary><div class="buyer-facts">${fact("Material / PO Traceability", known(q.poTraceabilityRequired) + (q.traceabilityAmendmentId ? " · Amended" : ""))}${fact("CoC", known(q.cocRequired))}${fact("Material Cert", known(q.materialCertRequired))}${fact("Inspection", known(q.inspectionRequired))}</div>${q.specialReceivingNotes ? `<p>${esc(q.specialReceivingNotes)}</p>` : ""}<p>Requirements are inherited read-only from reviewed source evidence.</p></details>`;
   }
+  function supplyDetail(d) {
+    const c=d.customerSupply;if(!c)return '';
+    return `<section aria-label="C/S (Customer supplied)"><h3>C/S (Customer supplied)</h3><p>Customer follow-up for the recorded shortage. Copying does not send an email or mark contact.</p><div class="buyer-facts">${fact("Customer P/N",c.customerPartNumber)}${fact("Approved P/N",c.approvedPartNumber)}${fact("Per assembly",qty(c.requiredEach)+' '+c.uom)}${fact("Job minimum",qty(c.requiredQuantity)+' '+c.uom)}${fact("Source quote",c.quoteNumber)}${fact("Customer PO",d.customerPoNumber || c.poNumber)}${fact("PO evidence",(c.poDocumentNames||[]).join(", "))}</div><p>Supply responsibility does not record receipt, availability or kit completion.</p>
+      ${contactSummary(d)}
+      ${followupEnabled() && currentCustomerShortage(d) ? `<div class="buyer-copy-toolbar">${button("copy-email", "Copy for Email", d.demandId)}</div><form id="buyerContactForm" data-demand-id="${esc(d.demandId)}"><fieldset${disabled()}><div class="buyer-contact-controls"><label>Expected delivery (optional)<input name="expectedDate" type="date" value="${esc(d.customerContact?.expectedDate || "")}"></label><button class="buyer-button" type="submit">${currentAcknowledgment(d) ? "Record Another Email" : "Customer Emailed"}</button></div></fieldset><p class="buyer-muted">Acknowledges an email you already sent. Moves this item to Supply Tracking; the shortage stays open until material is covered.</p></form>` : ""}</section>`;
+  }
+  function balanceChoice(d) {
+    if (!state.model?.mixedSourcesSupported || !d.sourceCurrent || Number(d.remainingShortQuantity ?? d.shortQuantity) <= 0) return '';
+    return button(d.customerSupply ? 'buy-balance' : 'customer-balance', d.customerSupply ? 'Buy remaining balance' : 'Customer supplies remaining balance', d.demandId, disabled()) +
+      (d.balanceSource ? `<p>Balance source recorded by ${esc(d.balanceSource.actor)} at ${esc(d.balanceSource.atUtc)}. Existing counts and purchase commitments are retained.</p>` : '');
+  }
   function demandDetail(d) {
-    return `<h2>${esc(d.partNumber)} <span class="buyer-muted">${esc(d.description)}</span></h2><div class="buyer-context">${context(d)}</div><div class="buyer-facts">${fact("Required", qty(d.requiredQuantity))}${fact("Kitted", qty(d.kittedQuantity))}${fact("Short", qty(d.shortQuantity))}${fact("Customer Due", date(d.customerDueDate))}${fact("Material Need-By", needBy(d))}${fact("Original Material Status", "KIT SHORT")}${fact("Current Material Status", planningFor(d)[0]?.materialStatus === "KIT_COMPLETE" ? "Kit Complete" : planningFor(d)[0]?.progress || "Not Established")}</div>${planningFacts(d)}
-      <p class="buyer-muted">Accept assigns buyer ownership. The submitted shortage remains unchanged until material is received and applied through Kitting.</p><div class="buyer-actions">${d.state === "INCOMING" ? button("accept", "Accept", d.demandId, disabled() || (d.sourceCurrent === false ? " disabled" : "")) : ""}${button("bom", "View Kitted BOM", d.demandId)}</div>${quality(d)}${audit(d)}`;
+    return `<h2>${esc(d.partNumber)} <span class="buyer-muted">${esc(d.description)}</span></h2><div class="buyer-context">${context(d)}</div><div class="buyer-facts">${fact("Required", qty(d.requiredQuantity))}${fact(d.customerSupply && d.remainingShortQuantity != null ? "Originally kitted" : "Kitted", qty(d.kittedQuantity))}${fact("Short", qty(d.remainingShortQuantity ?? d.shortQuantity))}${d.customerSupply && d.remainingShortQuantity != null ? fact("Original short", qty(d.shortQuantity)) : ""}${fact("Customer Due", date(d.customerDueDate))}${fact("Material Need-By", needBy(d))}${fact("Original Material Status", "KIT SHORT")}${fact("Current Material Status", planningFor(d)[0]?.materialStatus === "KIT_COMPLETE" ? "Kit Complete" : planningFor(d)[0]?.progress || "Not Established")}</div>${planningFacts(d)}${supplyDetail(d)}${balanceChoice(d)}
+      <p class="buyer-muted">Accept assigns buyer ownership. The submitted shortage remains unchanged until material is received and applied through Kitting.</p><div class="buyer-actions">${d.state === "INCOMING" && !d.customerSupply ? button("accept", "Accept", d.demandId, disabled() || (d.sourceCurrent === false ? " disabled" : "")) : ""}${button("bom", "View Kitted BOM", d.demandId)}</div>${d.supplyDisposition ? `<p>Job supply disposition: ${esc(d.supplyDisposition.responsibility)} — ${esc(d.supplyDisposition.actor)} / ${esc(d.supplyDisposition.atUtc)}. Original: ${esc(d.supplyDisposition.originalResponsibility)}.</p>` : ""}${(d.supplyConflicts || []).map(c=>`<p role="status">${esc(c)}</p>`).join("")}${quality(d)}${audit(d)}`;
   }
   function field(label, name, value, type = "text", extra = "") {
     return `<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value ?? "")}"${extra}></label>`;
   }
   function coverageTable(links, edit = false) {
-    return table(["WO", "SO / Line", "Customer / Assembly", "Customer Due", "Source Short", "Coverage", "Evidence"], links.map(d => `<tr><td>${esc(d.workOrderNumber)}</td><td>${esc(d.salesOrderNumber)} / ${esc(d.salesOrderLineNumber)}</td><td>${esc(d.customer)}<small>${esc(d.assemblyItemNumber)} / ${esc(d.revision)}</small></td><td>${date(d.customerDueDate)}</td><td class="buyer-number">${qty(d.shortQuantity)}</td><td class="buyer-number">${edit ? `<input aria-label="Coverage for WO ${esc(d.workOrderNumber)}" name="coverage-${esc(d.demandId)}" type="number" min="0.000001" max="${esc(d.shortQuantity)}" step="any" required value="${esc(d.quantity)}">` : qty(d.quantity)}</td><td>${button("bom", "View Kitted BOM", d.demandId)}</td></tr>`), "No demand coverage.");
+    return table(["WO", "SO / Line", "Customer / Assembly", "Customer Due", "Source Short", "Coverage", "Evidence"], links.map(d => `<tr><td>${esc(d.workOrderNumber)}</td><td>${esc(d.salesOrderNumber)} / ${esc(d.salesOrderLineNumber)}</td><td>${esc(d.customer)}<small>${esc(d.assemblyItemNumber)} / ${esc(d.revision)}</small></td><td>${date(d.customerDueDate)}</td><td class="buyer-number">${qty(d.remainingShortQuantity ?? d.shortQuantity)}</td><td class="buyer-number">${edit ? `<input aria-label="Coverage for WO ${esc(d.workOrderNumber)}" name="coverage-${esc(d.demandId)}" type="number" min="0.000001" max="${esc(d.shortQuantity)}" step="any" required value="${esc(d.quantity)}">` : qty(d.quantity)}</td><td>${button("bom", "View Kitted BOM", d.demandId)}</td></tr>`), "No demand coverage.");
   }
   function planDetail(plan, demand) {
     const isNew = !plan;
@@ -221,7 +316,7 @@
     else if (selection.kind === "purchase") { const p = state.model?.purchases?.find(p => (p.purchaseId || p.poLineId) === selection.id); if (p) body = purchaseDetail(p); }
     target.innerHTML = body ? `<section class="buyer-detail" aria-label="Selected Purchasing record"><div class="buyer-detail-close">${button("close", "Close Details")}</div>${body}</section>` : "";
   }
-  function discardAllowed() { return !state.dirty || window.confirm("Discard unsaved buying-plan changes?"); }
+  function discardAllowed() { return !state.dirty || window.confirm("Discard unsaved changes?"); }
   function select(kind, id) {
     if (!discardAllowed()) return;
     state.selected = { kind, id }; state.dirty = false; state.error = false; state.message = "Purchasing current";
@@ -263,11 +358,26 @@
     const control = event.target.closest?.("[data-buyer-action]");
     if (!control || control.disabled || state.busy) return;
     const { buyerAction: action, id } = control.dataset;
+    if (action === "copy-email" || action === "copy-selected") { await copyForEmail(action === "copy-email" ? [id] : [...state.copySelection]); return; }
+    if (action === "copy-close") { state.mount.querySelector("#buyerCopyDialog").close(); return; }
+    if (action === "copy-select-table") {
+      const table = state.mount.querySelector("#buyerCopyTable"), range = document.createRange();
+      table.focus(); range.selectNodeContents(table); const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range); return;
+    }
+    if (action === "copy-select-text") { const field = state.mount.querySelector("#buyerCopyDialog textarea"); field.focus(); field.select(); return; }
+    if (action === "customer-emailed") {
+      if (!discardAllowed()) return;
+      const d = byId(id); if (currentCustomerShortage(d) && !currentAcknowledgment(d)) await acknowledgeEmail(d);
+      return;
+    }
     if (action === "refresh") { if (discardAllowed()) { state.selected = null; state.dirty = false; await refresh(); } }
     else if (["demand", "create", "plan", "purchase"].includes(action)) select(action, id);
     else if (action === "close") { if (discardAllowed()) { state.selected = null; state.dirty = false; drawDetail(); } }
     else if (action === "bom-close") state.mount.querySelector("#buyerBomDialog").close();
     else if (action === "bom") await openBom(id);
+    else if (action === 'buy-balance' || action === 'customer-balance') {
+      const demand=byId(id);if(demand)await mutate(`/demands/${encodeURIComponent(id)}/balance-source`, 'POST', {expectedVersion:demand.version,responsibility:action==='buy-balance'?'PURCHASED':'CUSTOMER_SUPPLIED'}, {stage:action==='buy-balance'?'sorting':'shortages',message:'Remaining balance source saved; no receipt recorded.',selection:()=>({kind:'demand',id})});
+    }
     else if (action === "accept") { const demand = byId(id); if (demand) await mutate(`/demands/${encodeURIComponent(id)}/accept`, "POST", { expectedVersion: demand.version }, { stage: "sorting", message: "Demand accepted. Create a buying plan when ready." }); }
     else if (action === "ready") {
       if (state.dirty) { state.message = "Save buying-plan changes before moving to Shop List."; showMessage(); return; }
@@ -287,7 +397,20 @@
       currency: String(fields.get("currency") || "").trim().toUpperCase(), requestedDate: fields.get("requestedDate") || "", expectedDate: fields.get("expectedDate") || "", materialNeedBy: plan?.materialNeedBy || "", notes: fields.get("notes") || "", excessPurpose: fields.get("excessPurpose") || "",
       coverage: links.map(d => ({ demandId: d.demandId, quantity: Number(fields.get("coverage-" + d.demandId)), expectedDemandVersion: byId(d.demandId)?.version ?? d.version })) };
   }
+  async function acknowledgeEmail(d, expectedDate = "") {
+    await mutate(`/demands/${encodeURIComponent(d.demandId)}/customer-contact`, "POST", {
+      expectedVersion: d.version, expectedSubmissionId: d.currentSubmissionId || d.submissionId,
+      expectedSourceFingerprint: d.sourceFingerprint, expectedShortQuantity: d.remainingShortQuantity ?? d.shortQuantity,
+      expectedDate
+    }, { stage: "purchased", message: "Customer email acknowledged. Awaiting customer material in Supply Tracking; shortage remains open.", selection: () => ({ kind: "demand", id: d.demandId }) });
+  }
   async function handleSubmit(event) {
+    if (event.target.id === "buyerContactForm") {
+      event.preventDefault(); if (state.busy || !canManage() || !event.target.reportValidity()) return;
+      const d = byId(event.target.dataset.demandId); if (!currentCustomerShortage(d)) return;
+      await acknowledgeEmail(d, new FormData(event.target).get("expectedDate") || "");
+      return;
+    }
     if (!event.target.matches("#buyerPlanForm, #buyerPurchaseForm")) return;
     event.preventDefault(); if (state.busy || !canManage() || !event.target.reportValidity()) return;
     const fields = new FormData(event.target), selection = state.selected;
@@ -313,5 +436,5 @@
     window.go?.("home", false);
     return true;
   }
-  window.SimPurchasingWorkspace = Object.freeze({ purchaseStatus, render, refresh, openWorkOrder, buildViewModel, formatDate: date, planPayload, getModel: () => state.model });
+  window.SimPurchasingWorkspace = Object.freeze({ emailPayload, emailText, currentCustomerShortage, currentAcknowledgment, purchaseStatus, render, refresh, openWorkOrder, buildViewModel, formatDate: date, planPayload, getModel: () => state.model });
 })(window, document);

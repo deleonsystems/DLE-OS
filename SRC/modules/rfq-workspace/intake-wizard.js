@@ -154,7 +154,10 @@
   function renderNewOrderStep(step) {
     const review = state.contractReview;
     if (step === 'order-facts') return renderOrderFacts();
-    if (step === 'previously-quoted') return question('Was this order previously quoted?', choice('Yes — Find prior quote','yes','previously-quoted') + choice('No — Continue without prior quote','no','previously-quoted'), 'The PO supplies the order facts. A prior quote supplies the comparison baseline.');
+    if (step === 'previously-quoted') return question('Was this order quoted?', renderOrderEvidence() +
+      '<form data-order-form="quoted"><label class="intake-choice"><input type="radio" name="quoted" value="yes" required '+(state.order.previouslyQuoted===true?'checked':'')+'> Yes, find the prior quote</label>' +
+      '<label class="intake-choice"><input type="radio" name="quoted" value="no" required '+(state.order.previouslyQuoted===false?'checked':'')+'> No prior quote</label><button class="intake-primary">Continue</button></form>',
+      'Step 2 of 3: Link a prior quote, or continue with the PO alone. Your uploaded PO stays with this order.');
     if (step === 'quote-search') return renderQuoteSearch();
     if (step === 'order-comparison') return question('Compare the customer PO with the quotation', renderOrderComparison() + '<button type="button" class="intake-primary" data-order-action="continue">Continue</button>', 'Actual PO values remain separate. This comparison is not contract acceptance.');
     if (step === 'technical-source') return question('Did the customer provide new or revised technical documents with this order?',
@@ -167,7 +170,7 @@
       '<button type="button" class="intake-primary" data-order-action="technical-continue">Continue</button>',
       'Contract Review must compare these with the quoted definition and identify the necessary Technical Review scope. These files are not accepted technical authorities.');
     if (step === "customer-po-number") return question("What is the customer PO number?",
-      textInput("customer-po-number", review.customerPoNumber, "Customer PO number") + '<button type="button" class="intake-back" data-order-action="browse">Browse prior quotes (read-only)</button>',
+      textInput("customer-po-number", review.customerPoNumber, "Customer PO number"),
       "Capture the purchase-order identity exactly as received.");
     if (step === "customer-po-type") return question("Do we have a customer PO for this order?",
       choice("Yes — Customer PO", "CUSTOMER_PO", "customer-po-type") +
@@ -231,7 +234,8 @@
     const labels={assembly:'assembly',revision:'revision',quantity:'quantity',currency:'currency',unitPrice:'unit price',extendedValue:'extended value',nre:'NRE',separateCharges:'separate charges'};
     const different=Object.entries(values).filter(([key,value])=>{
       const actual=form?.elements[key]?.value ?? (['nre','separateCharges'].includes(key)?state.order.facts[key]:state.order.facts.lines[0][key]);
-      return actual!=null&&actual!==''&&String(actual)!==String(value);
+      const numeric=['quantity','unitPrice','extendedValue','nre','separateCharges'].includes(key);
+      return actual!=null&&actual!==''&&(numeric && value!=null ? Number(actual)!==Number(value) : String(actual)!==String(value));
     }).map(([key])=>labels[key]);
     return different.length?'Changes from selected quote: '+different.join(', ')+'. Review these differences against the PO.':'Entered quoted fields match the selected quote. PO verification is still required.';
   }
@@ -241,13 +245,11 @@
     return q ? '<div class="intake-order-baseline"><strong>Selected quote: '+escapeHtml(q.quoteNumber)+'</strong>'+(s?'<p>'+escapeHtml(s.assembly+' / '+s.revision+' · Qty '+s.quantity+' · '+s.currency+' '+Number(s.combinedUnitPrice).toFixed(2)+' per unit')+'</p>':'')+(s?.description?'<p>Description: '+escapeHtml(s.description)+'</p>':'')+'<p>Quoted lead time: '+escapeHtml(b?.approval?.answers?.delivery||'Not provided')+'. This is not the requested delivery date.</p><small>Quote defaults are not extracted or agreed PO facts. Verify against the attached PO.</small></div>' : '';
   }
   function renderPoAttachment() {
-    const ready=state.order.previouslyQuoted!==null;
-    return question('Attach the customer PO',selectedQuoteContext()+
+    return question('Add the customer PO',
       '<label class="intake-po-number">Customer PO number<input data-order-po-number value="'+escapeHtml(state.contractReview.customerPoNumber)+'" placeholder="Enter the number shown on the PO"></label>'+
       '<label class="intake-file-control" data-intake-drop-zone><input type="file" data-intake-files multiple><span class="intake-file-drop-title">Drop the customer PO here</span><small>or click to browse</small></label>'+renderFiles()+
-      '<p class="intake-file-note">To replace a file, remove it and choose another. The PO remains separate from the quote. Attachments are required before submission; SIM verifies its own copy when read or saved.</p>'+
-      (ready?'<div class="intake-nav"><button type="button" data-intake-action="back" class="intake-back">Back</button><button type="button" class="intake-primary" data-order-action="read-attached" '+(!state.technicalFiles.length?'disabled':'')+'>Read PO and review details</button><button type="button" class="intake-back" data-order-action="manual-facts">Enter PO details manually</button></div>':navButtons(true,'Continue')),
-      'Select quote → Attach PO → Review details → Compare and continue');
+      '<p class="intake-file-note">SIM verifies its own copy when read or saved. Selecting a quote next keeps this PO attached.</p>'+navButtons(true,'Continue'),
+      'Step 1 of 3: Add the PO. Next, link a prior quote if there is one, then review the order details.');
   }
 
   function yesNoChoice(field) {
@@ -499,8 +501,9 @@
     if (state.intakeType === 'NEW_ORDER') {
       const step=steps()[state.currentStep],form=root.querySelector('[data-order-form="facts"]');
       if(form) {try{captureOrderFacts(form);}catch(e){showInlineError(e.message);return;}}
-      if(step==='order-facts' || (step==='po-attachment'&&state.order.quote) || step==='quote-search') {
-        const target=step==='order-facts'?'po-attachment':step==='po-attachment'?'quote-search':state.technicalFiles.length?'previously-quoted':'customer-po-number';
+      if(step==='quote-search' && state.order.changingQuote && quoteReadyForReview()) { state.order.changingQuote=false; state.order.message=''; render(); return; }
+      if(step==='order-facts' || step==='quote-search') {
+        const target=step==='order-facts'&&state.order.previouslyQuoted?'quote-search':'previously-quoted';
         state.currentStep=NEW_ORDER_STEPS.indexOf(target);render();return;
       }
       do { state.currentStep = Math.max(0, state.currentStep - 1); } while (state.currentStep > 0 && isSkippedNewOrderStep(steps()[state.currentStep])); render(); return; }
@@ -555,7 +558,12 @@
 
     if(event.target.matches('[data-order-po-number]')) {state.contractReview.customerPoNumber=event.target.value.trim();return;}
 
-    if(event.target.name==='poDate') { state.order.poDateVerified=false; const c=root.querySelector('[name="poDateVerified"]'); if(c) c.checked=false; }
+    if(event.target.name==='poDate') { state.order.poDateVerified=false; const c=root.querySelector('[name="poDateVerified"]'); if(c) { c.checked=false; c.disabled=!validManualPoDate(event.target.value); } }
+    if(event.target.matches('[data-intake-due-date]')) {
+      const picker=root.querySelector('[data-intake-due-picker]');
+      try { if(picker) picker.value=parseIntakeDueDate(event.target.value) || ''; event.target.setCustomValidity(''); } catch(e) { event.target.setCustomValidity(e.message); }
+      state.order.dueDateDecision=null; return;
+    }
     if(event.target.name==='customerDueDate') { const c=root.querySelector('[data-due-comparison]'); if(c) c.textContent=quotedDateComparison(state.order.facts.poDate,state.order.baseline?.approval?.answers?.delivery,event.target.value).text; }
     if(['customerDueDate','dueDateNote'].includes(event.target.name)) { state.order.dueDateDecision=null; const c=root.querySelector('[data-due-status]'); if(c) c.textContent='Review required'; }
 
@@ -573,6 +581,22 @@
   }
 
   function handleChange(event) {
+    if(event.target.matches('[data-intake-due-picker]')) {
+      const input=root.querySelector('[data-intake-due-date]');
+      if(input) { input.value=displayIntakeDueDate(event.target.value); input.setCustomValidity(''); input.focus(); }
+      state.order.dueDateDecision=null; state.order.poFactsConfirmed=false; return;
+    }
+    if(event.target.matches('[data-cs-row], [data-cs-ack]')) {
+      const p=state.order.reviewProjection?.customerSupply;
+      if(!p) return;
+      const ids=Array.from(root.querySelectorAll('[data-cs-row]:checked')).map(e=>e.dataset.csRow);
+      state.order.customerSupplyReview={sourceToken:p.sourceToken,poRowIds:ids,acknowledged:event.target.matches('[data-cs-ack]') && event.target.checked,note:root.querySelector('[data-cs-note]')?.value || ''};
+      render(); return;
+    }
+    if(event.target.matches('[data-cs-note]')) {
+      const p=state.order.reviewProjection?.customerSupply;
+      if(p) {state.order.customerSupplyReview={sourceToken:p.sourceToken,poRowIds:state.order.customerSupplyReview?.poRowIds||[],acknowledged:false,note:event.target.value};render();} return;
+    }
     if (event.target.matches('[data-order-requirements-ack]')) { state.contractReview.requirementsIdentifiedOnAttachedDocument=event.target.checked; state.order.focusAcknowledgment=true; render(); return; }
     if (event.target.matches('[data-order-technical-files]')) {
       const files = state.order.incomingTechnicalDocuments;
@@ -722,6 +746,14 @@
     next();
   }
 
+  function setPriorQuoteAnswer(value) {
+      if (state.order.previouslyQuoted !== (value === 'yes')) {
+        state.order.technicalSourceChoice = null; state.order.technicalBaseline = null; state.order.technicalSource = null;
+        state.order.quote = null; state.order.baseline = null; state.order.comparison = []; state.order.poFactsConfirmed = false;
+      }
+      state.order.previouslyQuoted = value === 'yes';
+  }
+
   function selectChoice(field, value) {
     if (field === 'technical-source') {
       if (value === 'QUOTED_DEFINITION' && (!state.order.technicalBaseline || state.order.baseline?.customer?.customerId !== state.customer?.customerId)) return showInlineError('No verified quoted technical definition is available. Provide technical documents for review.');
@@ -729,9 +761,8 @@
       state.order.technicalSourceChoice = value; state.order.technicalSource = null; next(); return;
     }
     if (field === 'previously-quoted') {
-      state.order.technicalSourceChoice = null; state.order.technicalBaseline = null; state.order.technicalSource = null;
-      state.order.previouslyQuoted = value === 'yes'; state.order.quote = null; state.order.baseline = null; state.order.comparison = [];
-      next(); if (value === 'yes') void searchOrderQuotes(); else void preparePoFacts(); return;
+      setPriorQuoteAnswer(value);
+      next(); if (value === 'yes') { if (!quoteReadyForReview()) void searchOrderQuotes(); } else void preparePoFacts(); return;
     }
     if (field === "intake-type") { state.intakeType = value; if (value === 'NEW_ORDER') state.order.entry = 'choice'; }
     if (field === "assembly-type") {
@@ -801,19 +832,25 @@
     next();
   }
 
-  function continueFromFiles() {
+  async function continueFromFiles() {
     if (!state.technicalFiles.length) return showInlineError(state.intakeType === "NEW_ORDER" ?
       "Attach the customer PO before continuing." : "Choose at least one customer technical file.");
     if (state.intakeType === "NEW_ORDER") {
       if(!state.contractReview.customerPoNumber)return showInlineError('Enter the customer PO number.');
       state.technicalFilesProvided = true;state.contractReview.customerPoType='CUSTOMER_PO';
-      if(state.order.previouslyQuoted!==null){state.currentStep=NEW_ORDER_STEPS.indexOf('order-facts');render();return;}
+      try {
+        const result=await orderApi('?' + new URLSearchParams({customerId:state.customer.customerId,po:state.contractReview.customerPoNumber}));
+        const duplicate=result.items.find(r=>r.intakeId!==state.order.id);
+        if(duplicate){state.order.duplicate=duplicate;render();return;}
+      } catch(e){showInlineError(e.message);return;}
+      state.currentStep=NEW_ORDER_STEPS.indexOf('previously-quoted');render();return;
     }
     next();
   }
 
   function isSkippedNewOrderStep(step) {
     if (state.intakeType !== "NEW_ORDER") return false;
+    if (step === 'customer-po-number' || step === 'customer-po-type') return true;
     if (step === 'order-technical-files') return state.order.technicalSourceChoice !== 'NEW_DOCUMENTS';
     const review = state.contractReview;
     return (step === "quote-search" && state.order.previouslyQuoted === false) || (step === "payment-terms-note" && review.paymentTermsMatch === true) ||
@@ -908,8 +945,7 @@
   function dueDateLabel(value) { return ({ACCEPT:'Accepted due date',CLARIFICATION:'Needs customer clarification',CANNOT_MEET:'Cannot meet — follow-up required'})[value] || 'Review required'; }
   function captureDeliveryReview(form) {
     const o=state.order,date=parseManualDate(form.elements.customerDueDate.value);
-    if((o.facts.lines[0].customerDueDate || null)!==date) o.dueDateDecision=null;
-    o.facts.lines[0].customerDueDate=date;
+    setOrderDueDate(date);
     o.dueDateNote=form.elements.dueDateNote?.value ?? o.dueDateNote ?? '';
     if(o.dueDateDecision && o.dueDateDecision.disposition!=='ACCEPT' && (o.dueDateDecision.note || '')!==o.dueDateNote) o.dueDateDecision=null;
   }
@@ -962,30 +998,91 @@
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
     return match ? match[2] + '/' + match[3] + '/' + match[1] : (value || '');
   }
-  function renderOrderFacts() {
-    const f = state.order.facts, l = f.lines[0];
-    const e = state.order.extraction;
-    const evidence = e ? '<details><summary>PO extraction evidence</summary><ul>'+Object.entries(e.fields).map(([key,v])=>'<li>'+escapeHtml(key+': '+v.value+' · page '+v.page+' · '+v.confidence)+'<small>'+escapeHtml(v.evidence)+'</small></li>').join('')+'</ul></details>' : '';
-    return question('Review the customer PO details', selectedQuoteContext()+(state.order.quote?'<p><strong>'+ (state.order.poFactsConfirmed?'PO details confirmed for review.':'Awaiting PO verification: review the quote defaults and your edits.')+'</strong></p><p data-quote-differences>'+escapeHtml(quoteDifferenceText())+'</p><button type="button" class="intake-back" data-order-action="use-quoted-values">Use selected quote values</button>':'')+'<p role="status">'+escapeHtml(state.order.extractionMessage || 'Review each value. Unresolved fields need your input.')+'</p>'+evidence+
-      '<button type="button" class="intake-back" data-order-action="attach-po">Attach / replace customer PO</button><button type="button" class="intake-back" data-order-action="extract-po" '+(!state.technicalFiles.length?'disabled':'')+'>Read PO again</button>'+(!state.technicalFiles.length?'<p>Manual entry: attach the customer PO before confirming details.</p>':'')+'<form data-order-form="facts" class="intake-order-fields">' +
-      orderInput('poDate','PO Date (MM/DD/YYYY)',displayOrderDate(f.poDate),'text','placeholder="MM/DD/YYYY" required') + '<label><input type="checkbox" name="poDateVerified" '+(state.order.poDateVerified ? 'checked' : '')+'> I verified the PO Date against the customer PO.</label>' + renderOrderEvidence() + orderInput('assembly','Assembly / P/N',l.assembly,'text','required') +
-      orderInput('revision','Revision',l.revision,'text','required') + orderInput('quantity','Quantity',l.quantity,'number','min="1" step="1" required') +
-      orderInput('currency','Currency',l.currency,'text','pattern="[A-Z]{3}" maxlength="3" required') +
-      orderInput('unitPrice','Unit price',l.unitPrice,'number','min="0" step="any" required') +
-      orderInput('extendedValue','Extended value',l.extendedValue,'number','min="0" step="0.01" required') +
-      orderInput('nre','Total NRE (0 if none)',f.nre,'number','min="0" step="0.01" required') +
-      orderInput('separateCharges','Separate charges (0 if none)',f.separateCharges,'number','min="0" step="0.01" required') +
-      orderInput('requestedDelivery','Requested delivery / schedule',f.requestedDelivery,'text','required') +
-      '<button class="intake-primary">Confirm PO Details</button></form>', 'Enter or verify PO Date manually against the customer PO. Review other suggested values, then confirm. One order line is supported.');
+  function displayIntakeDueDate(iso) {
+    const full=displayOrderDate(iso);
+    return /^20\d{2}-\d{2}-\d{2}$/.test(iso || '') ? full.slice(0,6)+full.slice(8) : full;
   }
+  function parseIntakeDueDate(value) {
+    const text=(value || '').trim();
+    if (!text) return null;
+    const short=/^(\d{2}\/\d{2}\/)(\d{2})$/.exec(text);
+    try { return parseManualDate(short ? short[1]+'20'+short[2] : text); }
+    catch { throw new Error('Enter a valid due date as MM/DD/YY, or choose a date from the calendar.'); }
+  }
+  function setOrderDueDate(date) {
+    const o=state.order, previous=o.facts.lines[0].customerDueDate || null;
+    if(previous!==date) o.dueDateDecision=null;
+    // Preserve source/legacy delivery text. Mirror the date only when no separate text exists.
+    if(!o.facts.requestedDelivery || o.facts.requestedDelivery===previous) o.facts.requestedDelivery=date || '';
+    o.facts.lines[0].customerDueDate=date;
+  }
+  function renderIntakeDueDate() {
+    const f=state.order.facts, date=f.lines[0].customerDueDate || '';
+    const retained=f.requestedDelivery && f.requestedDelivery!==date;
+    return '<div class="intake-po-delivery-group"><label for="intakeDueDate">Due date</label><div class="intake-due-entry">'+
+      '<input id="intakeDueDate" name="customerDueDate" data-intake-due-date value="'+escapeHtml(displayIntakeDueDate(date))+'" placeholder="MM/DD/YY" inputmode="numeric" aria-describedby="poDueFormat" required>'+
+      '<button type="button" class="intake-back" data-order-action="pick-due-date" aria-label="Choose due date from calendar">Calendar</button>'+
+      '<input type="date" class="intake-due-picker" data-intake-due-picker aria-label="Due date calendar" tabindex="-1" value="'+escapeHtml(date)+'"></div>'+
+      '<small class="intake-po-help" id="poDueFormat">MM/DD/YY (20YY), or choose from the calendar.</small>'+
+      (retained?'<details class="intake-retained-delivery"><summary>Retained delivery text</summary><p>'+escapeHtml(f.requestedDelivery)+'</p><small>This text is preserved. It has not been converted into a due date.</small></details>':'')+'</div>';
+  }
+  function validManualPoDate(value) {
+    try { return !!parseManualDate(value || ''); } catch { return false; }
+  }
+  function renderOrderFacts() {
+    const o=state.order, f=o.facts, l=f.lines[0], e=o.extraction;
+    const dateReady=validManualPoDate(displayOrderDate(f.poDate));
+    const message=o.extractionMessage || '';
+    const readingAttention=/DIFFERS|differs/.test(message) ? message : /Manual entry remains available|could not resolve/i.test(message) ? 'Automatic PO reading is unavailable. Read the attached PO and fill in the fields below; you can continue without automatic reading.' : '';
+    const evidence=e ? '<details><summary>PO extraction evidence</summary><ul>'+Object.entries(e.fields).map(([key,v])=>'<li>'+escapeHtml(key+': '+v.value+' — page '+v.page+' — '+v.confidence)+'<small>'+escapeHtml(v.evidence)+'</small></li>').join('')+'</ul></details>' : '';
+    const tools='<details class="intake-po-tools"><summary>PO reading and correction tools</summary><div>'+
+      '<p>Use these only if you need to reread the file, replace it, or restore the selected quote values.</p>'+
+      (message?'<p role="status">'+escapeHtml(message)+'</p>':'')+evidence+
+      '<button type="button" class="intake-back" data-order-action="attach-po">Attach / replace customer PO</button>'+
+      '<button type="button" class="intake-back" data-order-action="extract-po" '+(!state.technicalFiles.length?'disabled':'')+'>Read PO again</button>'+
+      (o.quote?'<button type="button" class="intake-back" data-order-action="use-quoted-values">Use selected quote values</button>':'')+'</div></details>';
+    const q=o.baseline?.approval?.summary;
+    const quote=o.quote?'<div class="intake-po-quote"><strong>Reference quote: '+escapeHtml(o.quote.quoteNumber)+'</strong>'+
+      (q?'<p>'+escapeHtml(q.assembly+' / '+q.revision+' · Qty '+q.quantity+' · '+q.currency+' '+Number(q.combinedUnitPrice).toFixed(2)+' per unit')+'</p>':'')+
+      '<small>Quoted lead time: '+escapeHtml(o.baseline?.approval?.answers?.delivery || 'Not provided')+'. Verify the actual PO values below.</small></div>':'';
+    return question('Review the order against the PO', quote+renderOrderEvidence()+
+      (state.technicalFiles.some(d=>!o.id || !d.documentId)?'<p class="intake-po-help">Save draft to enable View Customer PO here.</p>':'')+
+      (o.quote?'<p data-quote-differences>'+escapeHtml(quoteDifferenceText())+'</p>':'')+
+      (readingAttention?'<p class="intake-po-help" role="status">'+escapeHtml(readingAttention)+'</p>':'')+
+      (!state.technicalFiles.length?'<p>Attach the customer PO using the tools below before continuing.</p>':'')+tools+
+      '<form data-order-form="facts" class="intake-order-fields"><div class="intake-po-date-group">'+
+      orderInput('poDate','PO Date (MM/DD/YYYY) — required',displayOrderDate(f.poDate),'text','placeholder="MM/DD/YYYY" aria-describedby="poDateHelp" required')+
+      '<label class="intake-po-verification"><input type="checkbox" name="poDateVerified" aria-describedby="poDateHelp" required '+(dateReady&&o.poDateVerified?'checked ':'')+(!dateReady?'disabled ':'')+'> I verified the PO Date against the customer PO.</label>'+
+      '<small class="intake-po-help" id="poDateHelp">PO date is the issue date printed on the customer purchase order, not the delivery date. Enter it first, then check the box after comparing it with the PO.</small></div>'+
+      orderInput('assembly','Assembly / P/N — required',l.assembly,'text','required')+
+      orderInput('revision','Revision — required',l.revision,'text','required')+orderInput('quantity','Quantity — required',l.quantity,'number','min="1" step="1" required')+
+      orderInput('currency','Currency — required',l.currency,'text','pattern="[A-Z]{3}" maxlength="3" required')+
+      orderInput('unitPrice','Unit price — required',l.unitPrice,'number','min="0" step="any" required')+
+      orderInput('extendedValue','Extended value — required',l.extendedValue,'number','min="0" step="0.01" required')+
+      orderInput('nre','Total NRE (0 if none) — required',f.nre,'number','min="0" step="0.01" required')+
+      orderInput('separateCharges','Separate charges (0 if none) — required',f.separateCharges,'number','min="0" step="0.01" required')+
+      renderIntakeDueDate()+
+      '<button class="intake-primary">Continue</button></form>',
+      'Open the customer PO below. Check the prefilled details against it, correct any differences, and fill in the missing information. Every field below is required to continue; Save draft lets you pause before finishing.');
+  }
+  function quoteReadyForReview() {
+    const o=state.order;
+    return !!o.quote && o.baseline?.customer?.customerId===state.customer?.customerId && JSON.stringify(o.baseline.reference)===JSON.stringify(o.quote);
+  }
+
   function renderQuoteSearch() {
     const o = state.order;
-    return question('Find the prior quotation', '<div class="intake-order-tabs">' + ['SUBMITTED','HISTORY'].map(b =>
+    if (quoteReadyForReview() && !o.changingQuote) return question('Review the selected quote',
+      renderOrderEvidence() + selectedQuoteContext() +
+      '<button type="button" class="intake-back" data-order-action="change-quote">Change quote</button>' +
+      '<button type="button" class="intake-primary" data-order-action="quote-continue">Continue</button>',
+      'Continue to check the order details against your PO. Use Save draft to save this selection.');
+    return question('Choose the matching prior quote', renderOrderEvidence() + selectedQuoteContext() + '<div class="intake-order-tabs">' + ['SUBMITTED','HISTORY'].map(b =>
       '<button type="button" class="intake-back" data-order-action="bucket" data-bucket="' + b + '" aria-pressed="' + (o.bucket === b) + '">' + b + '</button>').join('') + '</div>' +
-      '<form data-order-form="search">' + orderInput('query','Quote, customer, assembly / P/N or revision',o.query) + '<button class="intake-primary">Search</button></form>' +
+      '<form data-order-form="search">' + orderInput('query','Quote, customer, assembly / P/N or revision',o.query) + '<button class="intake-back">Search</button></form>' +
       '<p role="status">' + escapeHtml(o.message) + '</p>' + o.results.map((q,i) => '<button type="button" class="intake-choice" data-order-action="select" data-index="' + i + '"><span>' +
         escapeHtml(q.reference.quoteNumber + ' · ' + q.customer.customerName) + '<small>' + escapeHtml(q.approval.summary.assembly + ' / ' + q.approval.summary.revision + ' · Qty ' + q.approval.summary.quantity + ' · ' + q.commercialStatus) + '</small></span></button>').join('') +
-      '', 'Submitted first. Search History for earlier, expired or closed quotations. Selection is read-only.');
+      '', 'Step 2 of 3: Select the matching quote. Its details will prefill blank order fields for review against your PO.');
   }
   function renderOrderComparison() {
     const o = state.order, b = o.baseline, s = b?.approval.summary;
@@ -1020,7 +1117,7 @@
       customer:state.customer,poNumber:state.contractReview.customerPoNumber,facts:o.facts,previouslyQuoted:o.previouslyQuoted,quote:o.quote,
       questionnaire:state.contractReview,documents:state.technicalFiles.map(({binary,...metadata})=>metadata),wizardStep:state.currentStep,submit:false,
       technicalSourceChoice:o.technicalSourceChoice,incomingTechnicalDocuments:o.incomingTechnicalDocuments.map(({binary,...metadata})=>metadata),
-      wizardStepKey:'review',flowVersion:3,poFactsConfirmed:o.poFactsConfirmed===true,poDateVerified:o.poDateVerified===true,dueDateDecision:o.dueDateDecision,dueDateNote:o.dueDateNote};
+      wizardStepKey:'review',flowVersion:3,poFactsConfirmed:o.poFactsConfirmed===true,poDateVerified:o.poDateVerified===true,dueDateDecision:o.dueDateDecision,dueDateNote:o.dueDateNote,customerSupplyReview:o.customerSupplyReview||null};
   }
   async function loadContractReview(request,key) {
     const o=state.order;
@@ -1044,17 +1141,22 @@
       window.setTimeout(()=>URL.revokeObjectURL(url),120000);
     } catch(e) { popup.close(); o.reviewPdfError=e.message; render(); }
   }
+  function renderCustomerSupply(p) {
+    if(!p) return '';
+    const o=state.order,r=o.customerSupplyReview,selected=r?.poRowIds||[];
+    return '<section class="cr-customer-supply" aria-label="C/S (Customer supplied)"><h3>C/S (Customer supplied)</h3><p>Source: '+escapeHtml(p.lines[0]?.quoteNumber||'No quoted BOM')+'; PO '+escapeHtml(state.contractReview.customerPoNumber||'Not entered')+'.</p><p>Select the lines the PO says the customer will supply. Compare them with the retained quote. Required quantity is the BOM minimum; no extra allowance is included.</p><div style="overflow:auto"><table><thead><tr><th>PO C/S</th><th>Find / customer P/N</th><th>Approved P/N</th><th>Per assembly</th><th>Job minimum</th><th>Quote C/S</th></tr></thead><tbody>'+p.lines.map(l=>'<tr><td><input type="checkbox" data-cs-row="'+escapeHtml(l.sourceRowId)+'" aria-label="PO C/S Find '+escapeHtml(l.findNumber)+'" '+(selected.includes(l.sourceRowId)?'checked':'')+'></td><td>'+escapeHtml(l.findNumber)+' / '+escapeHtml(l.customerPartNumber||'Not specified')+'</td><td>'+escapeHtml(l.approvedPartNumber)+'</td><td>'+escapeHtml(l.requiredEach)+' '+escapeHtml(l.uom)+'</td><td>'+escapeHtml(l.requiredQuantity)+' '+escapeHtml(l.uom)+'</td><td>'+ (l.quotedCustomerSupplied?'Yes':'No')+'</td></tr>').join('')+'</tbody></table></div><label>PO / quote clarification note<textarea data-cs-note maxlength="4000">'+escapeHtml(r?.note||'')+'</textarea></label><label class="cr-ack"><input type="checkbox" data-cs-ack '+(r?.acknowledged&&r.sourceToken===p.sourceToken?'checked':'')+'><span>I reviewed and acknowledge the C/S responsibility against the PO and quote. This does not record receipt, availability or kit completion.</span></label>'+p.issues.map(i=>'<p class="cr-attention">'+escapeHtml(i)+'</p>').join('')+'</section>';
+  }
   function renderNewOrderReview() {
     const o=state.order, request=contractReviewRequest(), key=JSON.stringify(request);
     if(o.reviewKey!==key) { o.reviewKey=key; o.reviewProjection=null; o.reviewError=''; o.reviewPdfError=''; void loadContractReview(request,key); }
     const p=o.reviewProjection;
     if(!p) return '<h2>NEW ORDER FINAL REVIEW — DRAFT</h2><p role="status">'+escapeHtml(o.reviewError || 'Preparing review form…')+'</p>'+(o.reviewError ? '<button type="button" class="intake-back" data-order-action="review-retry">Retry preview</button>' : '');
     const fileTable=(files,po=false)=>'<table class="cr-documents"><tbody>'+files.map(f=>'<tr><td>'+escapeHtml(f.name)+'</td><td>'+escapeHtml(f.type)+'</td><td>'+(f.url ? '<a target="_blank" rel="noopener noreferrer" href="'+escapeHtml(f.url)+'" aria-label="View '+escapeHtml(f.name)+'">'+(po?'View Customer PO':'View')+'</a>' : 'Save draft to view')+'</td></tr>').join('')+'</tbody></table>';
-    const sections=p.sections.map(s=>'<section><h3>'+escapeHtml(s.title)+'<button type="button" data-intake-edit="'+NEW_ORDER_STEPS.indexOf(s.editStep)+'">Edit</button></h3><dl>'+s.fields.map(f=>'<div><dt>'+escapeHtml(f.label)+'</dt><dd>'+escapeHtml(f.value)+'</dd></div>').join('')+'</dl>'+(s.title==='Order'?fileTable(p.poDocuments,true):'')+(s.title==='Technical Source'?fileTable(p.technicalDocuments):'')+'</section>').join('');
-    return '<article class="contract-review-form"><header><strong>De Leon Enterprises</strong><span>DLE-OS Contract Review · Preview</span></header><h2>'+escapeHtml(p.title)+'</h2><p class="cr-status">'+escapeHtml(p.intakeId)+' · Saved package revision '+p.packageRevision+' · Current form preview</p>'+sections+
+    const sections=p.sections.filter(s=>s.title!=='C/S (Customer supplied)').map(s=>'<section><h3>'+escapeHtml(s.title)+'<button type="button" data-intake-edit="'+NEW_ORDER_STEPS.indexOf(s.editStep)+'">Edit</button></h3><dl>'+s.fields.map(f=>'<div><dt>'+escapeHtml(f.label)+'</dt><dd>'+escapeHtml(f.value)+'</dd></div>').join('')+'</dl>'+(s.title==='Order'?fileTable(p.poDocuments,true):'')+(s.title==='Technical Source'?fileTable(p.technicalDocuments):'')+'</section>').join('');
+    return '<article class="contract-review-form"><header><strong>De Leon Enterprises</strong><span>DLE-OS Contract Review · Preview</span></header><h2>'+escapeHtml(p.title)+'</h2><p class="cr-status">'+escapeHtml(p.intakeId)+' · Saved package revision '+p.packageRevision+' · Current form preview</p>'+sections+renderCustomerSupply(p.customerSupply)+
       '<section><h3>Attention Items</h3><div class="cr-attention">'+(p.attention.length?'<ul>'+p.attention.map(a=>'<li>'+escapeHtml(a)+'</li>').join('')+'</ul>':'No unresolved review items.')+'</div></section>'+
       '<details class="cr-review-details"><summary>Review details</summary><dl><div><dt>Reviewer</dt><dd>'+escapeHtml(p.reviewer)+'</dd></div><div><dt>Date</dt><dd>'+escapeHtml(p.reviewedDate)+'</dd></div></dl></details>'+
-      '<p class="cr-notice">'+escapeHtml(p.notice)+'</p><div class="cr-submit-block"><label class="cr-ack"><input type="checkbox" data-order-requirements-ack aria-describedby="crAckHelp" '+(p.acknowledged?'checked':'')+' '+(state.submit.status==='saving'?'disabled':'')+'><span>I reviewed the customer PO and captured its requirements.</span></label><p id="crAckHelp" class="cr-ack-help">'+(state.submit.status==='saving'?'Saving order…':p.acknowledged?'Ready to submit for Contract Review.':'Check the acknowledgment above to enable Submit for Contract Review.')+'</p><div class="cr-actions"><button type="button" class="intake-back" data-order-action="review-pdf">Preview Contract Review</button><button type="button" class="intake-primary" data-intake-action="submit" '+(state.submit.status==='saving'||!p.acknowledged?'disabled':'')+' aria-describedby="crAckHelp" aria-busy="'+(state.submit.status==='saving')+'">Submit for Contract Review</button></div></div><p role="alert">'+escapeHtml(o.reviewPdfError || state.submit.message)+'</p></article>';
+      '<p class="cr-notice">'+escapeHtml(p.notice)+'</p><div class="cr-submit-block"><label class="cr-ack"><input type="checkbox" data-order-requirements-ack aria-describedby="crAckHelp" '+(p.acknowledged?'checked':'')+' '+(state.submit.status==='saving'?'disabled':'')+'><span>I reviewed the customer PO and captured its requirements.</span></label><p id="crAckHelp" class="cr-ack-help">'+(state.submit.status==='saving'?'Saving order…':p.acknowledged?'Ready to submit for Contract Review.':'Check the acknowledgment above to enable Submit for Contract Review.')+'</p><div class="cr-actions"><button type="button" class="intake-back" data-order-action="review-pdf">Preview Contract Review</button><button type="button" class="intake-primary" data-intake-action="submit" '+(state.submit.status==='saving'||!p.acknowledged||(p.customerSupply&&!p.customerSupply.acknowledged)?'disabled':'')+' aria-describedby="crAckHelp" aria-busy="'+(state.submit.status==='saving')+'">Submit for Contract Review</button></div></div><p role="alert">'+escapeHtml(o.reviewPdfError || state.submit.message)+'</p></article>';
   }
   async function orderApi(url, body) {
     const response = await window.fetch('/api/sim/new-orders' + url, { credentials:'include', ...(body ? { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) } : {}) });
@@ -1062,11 +1164,11 @@
   }
   async function searchOrderQuotes() {
     const o = state.order, customerId = state.customer?.customerId;
-    const bucket = o.bucket, query = o.query || '';
+    const bucket = o.bucket, query = o.query || '', changingQuote = o.changingQuote;
     o.message = 'Searching…'; o.results = []; render();
     try {
       const result = await orderApi('/quotes?' + new URLSearchParams({customerId:customerId || '',query,bucket}));
-      if (o !== state.order || customerId !== state.customer?.customerId || bucket !== o.bucket || query !== (o.query || '')) return;
+      if (o !== state.order || customerId !== state.customer?.customerId || bucket !== o.bucket || query !== (o.query || '') || changingQuote !== o.changingQuote) return;
       o.results = result.items; o.message = result.items.length ? 'Select the exact quotation revision.' : 'No matching quotations in ' + bucket + '.';
     } catch (e) { o.message = e.message; }
     render();
@@ -1123,19 +1225,23 @@
   function captureOrderFacts(form) {
     const previous = JSON.stringify(state.order.facts);
     const poDate=parseManualDate(form.elements.poDate.value);
-    state.order.poDateVerified=!!form.elements.poDateVerified?.checked;
+    const dueDate=parseIntakeDueDate(form.elements.customerDueDate.value);
+    state.order.poDateVerified=!!poDate && !!form.elements.poDateVerified?.checked;
+    setOrderDueDate(dueDate);
     const value = name => form.elements[name].value.trim();
     const number = name => value(name) === '' ? null : Number(value(name));
-    state.order.facts = { poDate, requestedDelivery:value('requestedDelivery'), nre:number('nre'), separateCharges:number('separateCharges'),
+    state.order.facts = { poDate, requestedDelivery:state.order.facts.requestedDelivery, nre:number('nre'), separateCharges:number('separateCharges'),
       lines:[{...state.order.facts.lines[0],assembly:value('assembly'), revision:value('revision'), quantity:number('quantity'), currency:value('currency'), unitPrice:number('unitPrice'), extendedValue:number('extendedValue')}] };
     state.order.comparison = [];
     if (previous !== JSON.stringify(state.order.facts)) state.order.poFactsConfirmed = false;
   }
   async function submitOrderForm(form) {
+    if (form.dataset.orderForm === 'quoted') { selectChoice('previously-quoted',form.elements.quoted.value); return; }
     if (form.dataset.orderForm === 'delivery') return;
     if (form.dataset.orderForm === 'search') { state.order.query = form.elements.query.value.trim(); return searchOrderQuotes(); }
     try { captureOrderFacts(form); } catch(e) { showInlineError(e.message); return; }
     if(!state.technicalFiles.length || !state.contractReview.customerPoNumber){state.currentStep=NEW_ORDER_STEPS.indexOf('po-attachment');render();return showInlineError('Attach the PO and enter its number before confirming details.');}
+    if (!state.order.facts.lines[0].customerDueDate) return showInlineError('Enter the due date shown on the PO.');
     if (!state.order.poDateVerified) return showInlineError("Verify the PO Date against the customer PO.");
     state.order.poFactsConfirmed = true;
     state.currentStep = NEW_ORDER_STEPS.indexOf('order-comparison'); await previewOrder();
@@ -1144,9 +1250,10 @@
     const p = record.orderIntake;
     if (!p || p.reviewStatus !== 'DRAFT') { committed = record; state.status = 'COMPLETE'; render(); return; }
     const o = state.order;
-    o.entry = null; o.duplicate = null; o.existing = []; state.status = 'DRAFT'; state.submit = {status:'idle',message:''}; committed = null;
+    o.changingQuote = false; o.entry = null; o.duplicate = null; o.existing = []; state.status = 'DRAFT'; state.submit = {status:'idle',message:''}; committed = null;
     Object.assign(o, {id:record.intakeId,revision:p.revision,facts:p.facts,previouslyQuoted:p.previouslyQuoted,quote:p.quote?.reference || null,baseline:p.quote,comparison:p.comparison,pending:null,message:'Reopened ' + record.intakeId});
     state.requestCorrelationId = record.requestCorrelationId; state.customer = record.customer;
+    o.customerSupplyReview=p.customerSupplyReview||null;
     state.contractReview = {...createState().contractReview, ...p.questionnaire, customerPoNumber:p.poNumber};
     if ((p.flowVersion ?? 1) < 3 && state.contractReview.specialRequirements?.trim() && state.contractReview.otherCustomerRequirements == null) state.contractReview.otherCustomerRequirements='';
     Object.assign(o, {technicalSource:p.technicalSource || null,technicalSourceChoice:p.technicalSource?.choice || null,technicalBaseline:p.technicalSource?.baseline || null,incomingTechnicalDocuments:(p.technicalSource?.documents || []).map(e=>e.document)});
@@ -1211,6 +1318,17 @@
       state.contractReview.customerPoType='CUSTOMER_PO';state.currentStep=NEW_ORDER_STEPS.indexOf('order-facts');render();
       if(action==='read-attached')await preparePoFacts();return;
     }
+    if (action === 'pick-due-date') {
+      const picker=root.querySelector('[data-intake-due-picker]');
+      if(picker?.showPicker) { try { picker.showPicker(); return; } catch {} }
+      if(picker) { picker.classList.remove('intake-due-picker'); picker.focus(); }
+      return;
+    }
+    if (action === 'change-quote') { o.changingQuote=true; render(); return searchOrderQuotes(); }
+    if (action === 'quote-continue') {
+      if(!quoteReadyForReview())return showInlineError('Select a prior quote before continuing.');
+      o.message='';state.currentStep=NEW_ORDER_STEPS.indexOf('order-facts');render();await preparePoFacts();return;
+    }
     if (action === 'extract-po') return preparePoFacts();
     if (action === 'quoted-question') { state.currentStep = NEW_ORDER_STEPS.indexOf('previously-quoted'); render(); return; }
     if (action === 'browse') { const po=root.querySelector('[data-intake-form="customer-po-number"] [data-intake-value-input]');if(po)state.contractReview.customerPoNumber=po.value.trim(); o.previouslyQuoted = true; o.bucket = 'SUBMITTED'; state.currentStep = NEW_ORDER_STEPS.indexOf('quote-search'); render(); return searchOrderQuotes(); }
@@ -1218,8 +1336,9 @@
     if (action === 'select') {
       const q = o.results[Number(button.dataset.index)]; if (!q) return;
       if (JSON.stringify(o.quote) !== JSON.stringify(q.reference)) { o.technicalSourceChoice = null; o.technicalSource = null; }
-      const firstQuote=!o.quote&&!o.id&&!o.quotePrefillAttempted;
-      o.quote = q.reference; o.previouslyQuoted = true; state.contractReview.customerPoType='CUSTOMER_PO'; state.currentStep = NEW_ORDER_STEPS.indexOf('po-attachment'); await previewOrder();
+      o.changingQuote = false;
+      const firstQuote=!o.quote&&!o.quotePrefillAttempted;
+      o.quote = q.reference; o.previouslyQuoted = true; state.contractReview.customerPoType='CUSTOMER_PO'; state.currentStep = NEW_ORDER_STEPS.indexOf('quote-search'); await previewOrder();
       if(firstQuote&&o===state.order){applyQuotedOrderValues();render();}
       const existing = await orderApi('?' + new URLSearchParams({customerId:state.customer.customerId,approvalId:q.reference.approvalId})).catch(() => ({items:[]}));
       o.existing = existing.items;
@@ -1235,7 +1354,9 @@
   async function saveOrder(submit) {
     if (state.submit.status === 'saving') return;
     const o = state.order;
-    const form = root.querySelector('[data-order-form="facts"]'); if (form) captureOrderFacts(form);
+    const quoted = root.querySelector('[data-order-form="quoted"] input:checked');
+    if (quoted) setPriorQuoteAnswer(quoted.value);
+    const form = root.querySelector('[data-order-form="facts"]'); if (form) { try { captureOrderFacts(form); } catch(e) { showInlineError(e.message); return; } }
     const inputForm = root.querySelector('[data-intake-form]');
     const fieldMap = {'customer-po-number':'customerPoNumber','payment-terms-note':'paymentTermsActionNote','shipping-note':'shippingActionNote','ups-account':'upsAccountNumber','delivery-date-note':'deliveryDateActionNote','po-flowdowns':'poFlowdowns'};
     if (inputForm && fieldMap[inputForm.dataset.intakeForm]) state.contractReview[fieldMap[inputForm.dataset.intakeForm]] = inputForm.querySelector('[data-intake-value-input]').value.trim();
@@ -1262,7 +1383,7 @@
       }
       const payload = {correlationId:state.requestCorrelationId,intakeId:o.id,expectedRevision:o.revision,customer:state.customer,poNumber:state.contractReview.customerPoNumber,
         facts:o.facts,previouslyQuoted:o.previouslyQuoted,quote:o.quote,questionnaire:state.contractReview,documents:state.technicalFiles.map(({binary,...metadata})=>metadata),wizardStep:state.currentStep,submit,
-        technicalSourceChoice:o.technicalSourceChoice,incomingTechnicalDocuments:o.incomingTechnicalDocuments.map(({binary,...metadata})=>metadata),wizardStepKey:steps()[state.currentStep],flowVersion:3,poFactsConfirmed:o.poFactsConfirmed === true,poDateVerified:o.poDateVerified === true,dueDateDecision:o.dueDateDecision,dueDateNote:o.dueDateNote};
+        technicalSourceChoice:o.technicalSourceChoice,incomingTechnicalDocuments:o.incomingTechnicalDocuments.map(({binary,...metadata})=>metadata),wizardStepKey:steps()[state.currentStep],flowVersion:3,poFactsConfirmed:o.poFactsConfirmed === true,poDateVerified:o.poDateVerified === true,dueDateDecision:o.dueDateDecision,dueDateNote:o.dueDateNote,customerSupplyReview:o.customerSupplyReview||null};
       const content = JSON.stringify(payload); if (o.pending?.content !== content) o.pending = {content,requestId:window.crypto.randomUUID()};
       const result = await orderApi('', {...payload,requestId:o.pending.requestId}); o.pending = null;
       if (result.resumed) { if (result.record.intakeId === o.id) { restoreOrder(result.record); if (o.previouslyQuoted && o.quote) await previewOrder(); } else o.duplicate = result.record; o.message = 'Existing intake found; no duplicate created.'; }

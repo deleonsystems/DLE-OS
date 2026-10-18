@@ -1697,12 +1697,81 @@ body[data-view-mode="mobile"][data-workspace-view="rfq-quoting"] .intake-handoff
 .contract-review-form .intake-primary[aria-busy="true"]:disabled{cursor:wait}
 @media(max-width:700px){.contract-review-form .cr-submit-block{padding:10px}.contract-review-form .cr-ack{align-items:flex-start}.contract-review-form .cr-ack input[type="checkbox"]{margin-top:1px}.contract-review-form .cr-actions button{flex:1 1 220px}}
 
-.intake-order-complete{max-width:760px;margin:auto;color:var(--intake-ink)}
+.intake-order-complete{max-width:760px;margin:auto;color:#eef5fb}
 .intake-order-complete h2{font-size:clamp(21px,2.4vw,28px);line-height:1.25;margin:12px 0}
 .intake-order-complete-check{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#e3f2ec;color:#206344;font-size:24px}
 .intake-order-complete-status{font-weight:700;line-height:1.5}
-.intake-order-complete dl{margin:20px 0;border-top:1px solid var(--intake-line)}
-.intake-order-complete dl>div{display:grid;grid-template-columns:180px minmax(0,1fr);gap:14px;padding:9px 0;border-bottom:1px solid var(--intake-line)}
+.intake-order-complete dl{margin:20px 0;border-top:1px solid #71879d}
+.intake-order-complete dl>div{display:grid;grid-template-columns:180px minmax(0,1fr);gap:14px;padding:9px 0;border-bottom:1px solid #71879d}
 .intake-order-complete dt{font-size:13px;font-weight:600}.intake-order-complete dd{margin:0;font-size:14px;overflow-wrap:anywhere;white-space:pre-wrap}
 .intake-order-complete-note{font-size:13px;line-height:1.5}.intake-order-complete>button{min-width:130px}
 @media(max-width:650px){.intake-order-complete dl>div{grid-template-columns:1fr;gap:4px}.intake-order-complete>button{width:100%}}
+
+/* New Order: readable fields and one clear action through PO, quote and review. */
+.intake-wizard [data-order-form="quoted"] { display:grid; gap:12px; }
+.intake-wizard [data-order-form="quoted"] label { justify-content:flex-start; gap:12px; box-sizing:border-box; }
+.intake-wizard [data-order-form="quoted"] input { flex:0 0 20px; width:20px; height:20px; margin:0; accent-color:var(--intake-accent); }
+.intake-wizard [data-order-form="search"] label, .intake-wizard [data-order-form="facts"] label { color:var(--intake-ink); }
+.intake-wizard [data-order-form="search"] input, .intake-wizard [data-order-form="facts"] input:not([type="checkbox"]) { color:var(--intake-ink); background:white; min-height:44px; box-sizing:border-box; font:inherit; }
+.intake-wizard [data-order-form="facts"] .intake-po-evidence, .intake-wizard [data-order-form="facts"] > button { grid-column:1/-1; }
+.intake-wizard [data-order-form="facts"] label:has(input[type="checkbox"]) { flex-direction:row; align-items:center; gap:10px; }
+.intake-wizard [data-order-form="facts"] input[type="checkbox"] { flex:0 0 20px; width:20px; height:20px; }
+.intake-wizard .intake-order-tabs [aria-pressed="true"] { color:var(--intake-ink); border-color:var(--intake-accent); background:#f8eee6; }
+.intake-wizard [data-order-action="select"] small { display:block; margin-top:5px; color:var(--intake-muted); }
+
+/* PO attachment step: explicit colors for light controls inside the dark shell. */
+.intake-conversation-card:has(.intake-po-number) { --po-label:#172b36; --po-help:#41525f; }
+body[data-workspace-view="rfq-quoting"] .intake-conversation-card:has(.intake-po-number) { --po-label:#eef2f7; --po-help:#c8d2de; }
+.intake-wizard .intake-po-number { color:var(--po-label); }
+.intake-wizard .intake-po-number input { color:#172b36; -webkit-text-fill-color:#172b36; background:#fff; caret-color:#172b36; }
+.intake-wizard .intake-po-number input::placeholder { color:#52616f; -webkit-text-fill-color:#52616f; opacity:1; }
+.intake-wizard .intake-po-number input:focus-visible { outline:2px solid #2876b8; outline-offset:2px; border-color:#2876b8; }
+.intake-wizard .intake-po-number input:disabled { color:#41525f; -webkit-text-fill-color:#41525f; background:#e9edf1; opacity:1; }
+.intake-conversation-card:has(.intake-po-number) .intake-file-control, .intake-conversation-card:has(.intake-po-number) .intake-file-list strong { color:#172b36; }
+.intake-conversation-card:has(.intake-po-number) .intake-file-control small, .intake-conversation-card:has(.intake-po-number) .intake-file-list small { color:#41525f; }
+.intake-conversation-card:has(.intake-po-number) .intake-file-note, .intake-conversation-card:has(.intake-po-number) .intake-search-status { color:var(--po-help); }
+
+/* Quote search is shown only when choosing; match its label to the dark panel. */
+body[data-workspace-view="rfq-quoting"] .intake-wizard [data-order-form="search"] label { color:#eef2f7; }
+
+/* PO fact review: compact reference, optional tools and explicit date guidance. */
+.intake-po-quote { border:1px solid #71879d; border-radius:8px; padding:12px 14px; }
+.intake-po-quote p { margin:6px 0; }
+.intake-po-tools { border:1px solid #71879d; border-radius:8px; padding:10px 12px; }
+.intake-po-tools summary { cursor:pointer; font-weight:650; min-height:24px; }
+.intake-po-tools > div { display:grid; gap:10px; padding-top:10px; }
+.intake-po-tools p { margin:0; }
+.intake-po-tools small { display:block; }
+.intake-po-help { color:#41525f; line-height:1.5; font-size:13px; }
+.intake-po-date-group { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 14px; grid-column:1/-1; }
+.intake-po-date-group .intake-po-help, .intake-po-delivery-group { grid-column:1/-1; }
+.intake-po-delivery-group { display:grid; gap:6px; }
+.intake-wizard [data-order-form="facts"] .intake-po-verification { margin:0; }
+.intake-wizard [data-order-form="facts"] input::placeholder { color:#52616f; opacity:1; }
+body[data-workspace-view="rfq-quoting"] .intake-wizard [data-order-form="facts"] label { color:#eef2f7; }
+body[data-workspace-view="rfq-quoting"] .intake-po-help { color:#c8d2de; }
+body[data-workspace-view="rfq-quoting"] .intake-po-quote, body[data-workspace-view="rfq-quoting"] .intake-po-tools { color:#eef2f7; }
+@media(max-width:700px) { .intake-po-date-group { grid-template-columns:1fr; } }
+
+.intake-due-entry { display:flex; align-items:center; gap:10px; position:relative; }
+.intake-due-entry > [data-intake-due-date] { flex:1; min-width:0; }
+.intake-due-entry > .intake-due-picker { position:absolute; width:1px; height:1px; padding:0; min-height:0; opacity:0; pointer-events:none; }
+.intake-retained-delivery { font-size:13px; line-height:1.5; }
+.intake-retained-delivery summary { cursor:pointer; }
+.intake-retained-delivery p { white-space:pre-wrap; margin:6px 0; }
+
+/* Explicit contrast and touch targets for the C/S responsibility review. */
+.contract-review-form .cr-customer-supply table { color:#eef5fb; width:100%; }
+.contract-review-form .cr-customer-supply th { text-align:left; padding:8px; color:#eef5fb; }
+.contract-review-form .cr-customer-supply td { padding:8px; color:#eef5fb; }
+.contract-review-form .cr-customer-supply p { padding:0 9px; }
+.contract-review-form .cr-customer-supply label { display:block; padding:8px; color:#eef5fb; }
+.contract-review-form .cr-customer-supply .cr-ack { display:flex; }
+.contract-review-form .cr-customer-supply textarea { display:block; box-sizing:border-box; width:100%; min-height:70px; margin-top:6px; padding:8px; background:#fff; color:#172432; font:inherit; }
+.contract-review-form .cr-customer-supply input[type="checkbox"] { width:22px; height:22px; accent-color:#79baff; }
+
+/* Completion summary sits on the dark intake panel, independently of light-form ink tokens. */
+.intake-wizard .intake-order-complete > p,
+.intake-wizard .intake-order-complete dd { color:#eef5fb; }
+.intake-wizard .intake-order-complete dt,
+.intake-wizard .intake-order-complete > .intake-order-complete-note { color:#c7d6e5; }

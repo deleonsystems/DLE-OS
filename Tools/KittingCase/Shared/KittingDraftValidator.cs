@@ -38,6 +38,7 @@ internal static class KittingDraftValidator
                         if(allocation.TryGetProperty("quantity",out var quantityValue)&&quantityValue.ValueKind!=JsonValueKind.Null&&
                             (!decimal.TryParse(quantityValue.ToString(),NumberStyles.Number,CultureInfo.InvariantCulture,out var quantity)||quantity<0))
                             throw Bad("allocation_quantity_invalid","Allocation quantity must be zero or greater.");
+                        ValidateSource(allocation,allowSimApplications,false);
                         ValidatePo(Text(allocation,"purchaseOrder"));
                         ValidateAcceptedMaterial(allocation,part,Text(allocation,"purchaseOrder"),allowSimApplications);
                     }
@@ -75,7 +76,10 @@ internal static class KittingDraftValidator
                   ValidateAcceptedMaterial(allocation,Text(allocation,"partNumber"),Text(allocation,"purchaseOrder"),allowSimApplications);
                   if(poTraceabilityRequired&&quantity>0&&!HasPoEvidence(allocation))
                       throw Bad("po_traceability_required","Every positive material allocation requires its own P.O. traceability evidence.");
-                  total+=quantity; }
+                  ValidateSource(allocation,allowSimApplications,true);
+                  total+=Coverage(allocation); }
+                var installed=allocations.EnumerateArray().Sum(CustomerInstalled);
+                if(installed>0 && total>group.GetProperty("requiredQuantity").GetDecimal())throw Bad("customer_install_overcoverage","Customer-installed and kitted quantities cannot exceed the requirement.");
                 if(!Decimal(group,"requiredQuantity",out var required)||required<0)throw Bad("required_quantity_invalid","Requirement quantity is invalid.");
                 calculatedShort=Math.Max(required-total,0);
             }
@@ -88,6 +92,26 @@ internal static class KittingDraftValidator
         if(actionable==0)throw Bad("actionable_requirements_required","The Kitting Case has no actionable requirements.");
         if(requireComplete&&completed!=actionable)throw Bad("all_requirements_required","Every actionable requirement must be dispositioned before Submit Kitting.");
         return new(JsonSerializer.Serialize(draft),actionable,completed,shortCount,shortage);
+    }
+    internal static decimal CustomerInstalled(JsonElement allocation)=>Text(allocation,"sourceType")=="CUSTOMER_INSTALLED" && Decimal(allocation,"customerInstalledQuantity",out var q)?q:0;
+    internal static decimal Coverage(JsonElement allocation)=>Text(allocation,"sourceType")=="CUSTOMER_INSTALLED"?CustomerInstalled(allocation):Decimal(allocation,"quantity",out var q)?q:0;
+    private static void ValidateSource(JsonElement a,bool sim,bool submitted)
+    {
+        var source=Text(a,"sourceType");
+        if(string.IsNullOrEmpty(source)) {
+            if(Decimal(a,"customerInstalledQuantity",out var ignored)&&ignored!=0)throw Bad("source_required","Customer installation requires an explicit source.");
+            return;
+        }
+        if(!sim || source is not ("PURCHASED" or "CUSTOMER_SUPPLIED" or "CUSTOMER_INSTALLED"))throw Bad("source_invalid","This source is not available in this workflow.");
+        if(source=="CUSTOMER_SUPPLIED" && Text(a,"purchaseOrder")!="C/S" || source=="CUSTOMER_INSTALLED" && Text(a,"purchaseOrder")!="C/I")throw Bad("source_marker_invalid","Retain the matching customer source marker.");
+        if(source=="PURCHASED" && Text(a,"purchaseOrder") is "C/S" or "C/I")throw Bad("source_marker_invalid","Choose the matching customer source from the header.");
+        if(source!="CUSTOMER_INSTALLED") {
+            if(Decimal(a,"customerInstalledQuantity",out var other)&&other!=0)throw Bad("customer_install_source","Only customer-installed allocations carry installation quantity.");
+            return;
+        }
+        if(a.TryGetProperty("acceptedMaterial",out var receipt)&&receipt.ValueKind==JsonValueKind.Object)throw Bad("customer_install_receipt","Customer installation cannot claim accepted receipt evidence.");
+        if(a.TryGetProperty("customerInstalledQuantity",out var value)&&value.ValueKind!=JsonValueKind.Null&&(!Decimal(a,"customerInstalledQuantity",out var n)||n<=0))throw Bad("customer_install_quantity","Enter a positive quantity the customer will install.");
+        if(submitted && (!Decimal(a,"customerInstalledQuantity",out var quantity)||quantity<=0))throw Bad("customer_install_quantity","Enter the quantity the customer will install.");
     }
     // This evidence boundary intentionally centralizes allocation traceability so future governed
     // Customer Supplied Material and Approved Exception evidence can be added without changing case policy.

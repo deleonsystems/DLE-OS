@@ -8,7 +8,7 @@ internal sealed record SimRfqLanes(SimRfqLane Materials, SimRfqLane Labor,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimRfqCommercial? Commercial = null);
 internal sealed record SimRfqLaneRequest(string Status);
 internal sealed record SimRfqWorkspace(string IntakeId, SimRfqIntakeCustomer Customer, SimRfqIntakeAssembly[] Assemblies,
-    string Scope, SimRfqLanes Lanes, string Status, SimQuotationInputs Inputs, string? AssemblyType = null);
+    string Scope, SimRfqLanes Lanes, string Status, SimQuotationInputs Inputs, string? AssemblyType = null, SimCompatibleBom[]? CompatibleCustomerBoms = null);
 
 internal sealed partial class SimRfqIntakeStore
 {
@@ -22,7 +22,7 @@ internal sealed partial class SimRfqIntakeStore
         var value = lanes.GetValueOrDefault(r.IntakeId) ?? new(new(), new());
         var status = value.FinalReviews?.Length > 0 && FinalReviewView(r, value).ApprovalCurrent ? "QUOTE_APPROVED" : value.Materials.Status == "COMPLETE" && value.Labor.Status == "COMPLETE" ? "READY_FOR_QUOTE_ASSEMBLY" :
             value.Materials.Status == "NOT_STARTED" && value.Labor.Status == "NOT_STARTED" ? "READY_TO_WORK" : "IN_PROGRESS";
-        return new(r.IntakeId, r.Customer, r.Assemblies, r.DeLeonScope, value, status, r.TechnicalReview!.Workflow!.Outputs!, r.TechnicalReview.AssemblyType);
+        return new(r.IntakeId, r.Customer, r.Assemblies, r.DeLeonScope, value, status, r.TechnicalReview!.Workflow!.Outputs!, r.TechnicalReview.AssemblyType, CompatibleCustomerBoms(r));
     }
     private async Task<Dictionary<string, SimRfqLanes>> ReadRfqLanes() => !File.Exists(RfqLanesPath) ? new() :
         JsonSerializer.Deserialize<Dictionary<string, SimRfqLanes>>(await File.ReadAllTextAsync(RfqLanesPath), jsonOptions)

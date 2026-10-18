@@ -419,10 +419,7 @@
   }
 
   function getOfficialField(record, field) {
-    // Unconnected presentation only for the approved SIM trial job. This is
-    // deliberately not productionStatus, an execution fact, or persisted data.
-    if (field === 'productionPlaceholder') return ['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment) &&
-      resolveGovernedWorkOrderNumber(record) === '0999998' ? 'Not Started' : '';
+    if (field === 'productionPlaceholder') return record?.productionExecution?.label || '';
     const projectedValue = getOperationalProjectionField(record, field);
     if (projectedValue !== '') return projectedValue;
 

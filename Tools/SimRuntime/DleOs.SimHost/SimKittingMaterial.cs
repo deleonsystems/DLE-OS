@@ -112,7 +112,7 @@ internal sealed partial class SimOperationsDataStore
             throw KittingCaseProblem.Conflict("manual_rekit_correction_required", "Review and correct manual re-kit changes before applying accepted material. Original count evidence must remain intact.");
     }
     private static JsonElement Recount(JsonNode draft, JsonNode row, SimKittingCaseRecord current, SimPersona actor, DateTimeOffset now) {
-        var total = Allocations(row).Sum(a => a!["quantity"]!.GetValue<decimal>());
+        var total = Allocations(row).Sum(a => KittingDraftValidator.Coverage(JsonSerializer.SerializeToElement(a)));
         var required = row["requiredQuantity"]!.GetValue<decimal>(); var entry = row["entry"]!;
         entry["method"] = "COUNT"; entry["pickedQuantity"] = total; entry["shortageQuantity"] = Math.Max(0, required-total);
         entry["extraQuantity"] = Math.Max(0, total-required); entry["result"] = total < required ? "COUNTED_SHORT" : total > required ? "COUNTED_EXTRA" : "COUNTED_EXACT";
@@ -136,8 +136,8 @@ internal sealed partial class SimOperationsDataStore
             var corrections = allocations.ValueKind != JsonValueKind.Array ? [] : allocations.EnumerateArray()
                 .Where(a=>!originalIds.Contains(PurchasingText(a,"allocationId")) && Field(a,"acceptedMaterial").ValueKind != JsonValueKind.Object)
                 .Select(a=>new { allocationId=PurchasingText(a,"allocationId"), quantity=Number(a,"quantity"), allocationHash=SimPurchasingService.Hash(a) }).ToArray();
-            var material = receiving.Materials.Where(m=>m.StagedAtUtc is not null && m.AvailableQuantity>0 && m.Coverage.Any(a=>a.DemandId==demand.DemandId && a.Quantity>a.AppliedQuantity))
-                .Select(m=>new {m.ReceiptLineId,m.Version,m.PoNumber,m.PoLine,m.PackingSlipNumber,m.StagingLocation,
+            var material = receiving.Materials.Where(m=>(m.CustomerSource is null || SimReceivingService.CustomerSourceMatches(m.CustomerSource,demand)) && m.StagedAtUtc is not null && m.AvailableQuantity>0 && m.Coverage.Any(a=>a.DemandId==demand.DemandId && a.Quantity>a.AppliedQuantity))
+                .Select(m=>new {m.ReceiptLineId,m.Version,m.PoNumber,m.PoLine,m.PackingSlipNumber,m.StagingLocation,m.CustomerSource,
                     uom=m.PurchasingUom,availableQuantity=Math.Min(m.AvailableQuantity,m.Coverage.Single(a=>a.DemandId==demand.DemandId).Quantity-m.Coverage.Single(a=>a.DemandId==demand.DemandId).AppliedQuantity)}).ToArray();
             requirements.Add(new {demand.DemandId,demand.SubmissionId,demand.SourceRowId,requirementId=groupId,
                 findNumber=Field(original,"findNumber"),demand.PartNumber,demand.Uom,demand.RequiredQuantity,
@@ -192,7 +192,9 @@ internal sealed partial class SimOperationsDataStore
                     ??throw KittingCaseProblem.Conflict("assigned_demand_required","The exact current shortage demand and submission must match.");
                 material=(await ReceivingSnapshot(c,tx)).Materials.SingleOrDefault(m=>m.ReceiptLineId==receiptId)
                     ??throw KittingCaseProblem.Conflict("accepted_material_required","The governed accepted material was not found.");
-                if(!purchasing.Purchases.Any(p=>p.PurchaseId==material.PurchaseId&&p.Coverage.Any(a=>a.DemandId==demandId)))
+                if(material.CustomerSource is {} cs
+                    ? !SimReceivingService.CustomerSourceMatches(cs,demand)
+                    : !purchasing.Purchases.Any(p=>p.PurchaseId==material.PurchaseId&&p.Coverage.Any(a=>a.DemandId==demandId)))
                     throw KittingCaseProblem.Conflict("assigned_demand_required","Receipt is not assigned to this purchase demand.");
             } else throw KittingCaseProblem.BadRequest("command_invalid","Unknown material command.");
             if(caseId!=current.CaseId)throw KittingCaseProblem.Conflict("kitting_case_identity_changed","Selected case identity changed.");
@@ -215,7 +217,7 @@ internal sealed partial class SimOperationsDataStore
                 if(material!.Version!=materialVersion)throw KittingCaseProblem.Conflict("material_version_changed","Accepted material changed. Refresh its balance before applying.");
                 if(action=="APPLIED") {
                     RequireOriginalCounts(original,row);
-                    var remaining=Math.Max(0,row["requiredQuantity"]!.GetValue<decimal>()-allocations.Sum(a=>a!["quantity"]!.GetValue<decimal>()));
+                    var remaining=Math.Max(0,row["requiredQuantity"]!.GetValue<decimal>()-allocations.Sum(a=>KittingDraftValidator.Coverage(JsonSerializer.SerializeToElement(a))));
                     var assigned=material.Coverage.SingleOrDefault(a=>a.DemandId==demandId&&a.WorkOrderNumber==wo);
                     if(material.StagedAtUtc is null || string.IsNullOrWhiteSpace(material.StagingLocation)||assigned is null)
                         throw KittingCaseProblem.Conflict("staged_assignment_required","Accepted material must be staged and assigned to this exact demand.");
@@ -223,8 +225,8 @@ internal sealed partial class SimOperationsDataStore
                     if(material.ApprovedPartNumber!=demand.PartNumber||!row["eligibleParts"]!.AsArray().Any(p=>p!.ToString()==material.ApprovedPartNumber))throw KittingCaseProblem.Conflict("part_mismatch","Receipt part does not match this shortage.");
                     if(quantity<=0||quantity>remaining||quantity>material.AvailableQuantity||quantity>assigned.Quantity-assigned.AppliedQuantity)
                         throw KittingCaseProblem.Conflict("application_quantity_invalid","Quantity must be positive and within the shortage, assigned balance and receipt balance.");
-                    allocations.Add(JsonSerializer.SerializeToNode(new {allocationId="AM-"+id.ToString("N"),partNumber=material.ApprovedPartNumber,quantity,purchaseOrder=material.PoNumber,
-                        acceptedMaterial=new {identityType="SIM_ACCEPTED_MATERIAL_APPLICATION",applicationId=id,receiptLineId=material.ReceiptLineId,partNumber=material.ApprovedPartNumber,purchaseOrderNumber=material.PoNumber,
+                    allocations.Add(JsonSerializer.SerializeToNode(new {allocationId="AM-"+id.ToString("N"),partNumber=material.ApprovedPartNumber,quantity,sourceType=material.CustomerSource is null?"PURCHASED":"CUSTOMER_SUPPLIED",purchaseOrder=material.CustomerSource is null?material.PoNumber:"C/S",
+                        acceptedMaterial=new {identityType="SIM_ACCEPTED_MATERIAL_APPLICATION",applicationId=id,receiptLineId=material.ReceiptLineId,partNumber=material.ApprovedPartNumber,purchaseOrderNumber=material.CustomerSource is null?material.PoNumber:"C/S",customerSource=material.CustomerSource,
                             poLine=material.PoLine,material.PackingSlipNumber,material.StagingLocation,quantityAccepted=material.AcceptedQuantity,appliedQuantity=quantity,demandId,sourceSubmissionId=origin,sourceRowId=source,requirementId=requirement},
                         evidenceOperator=actor.DisplayName,evidenceAtUtc=now},KittingJson));
                 } else {

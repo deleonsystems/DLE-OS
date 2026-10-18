@@ -125,7 +125,7 @@
       return window.ShippingHandoff?.isSim() ? cell.replace('</td>', '<div data-handoff-summary="' + escapeHtml(value) + '"></div></td>') : cell;
     }
     if (column.key === 'productionPlaceholder') {
-      return '<td class="' + escapeHtml(className) + '" data-production-placeholder="unconnected" title="Placeholder; production tracking is not connected">' + escapeHtml(value) + '</td>';
+      return '<td class="' + escapeHtml(className) + '" title="Production execution; independent of material readiness">' + escapeHtml(value) + '</td>';
     }
     if (column.key === 'verifiedStatus') {
       return renderVerifiedStatusCell(record, masterRecordKey, className);

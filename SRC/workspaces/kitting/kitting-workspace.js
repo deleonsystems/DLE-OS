@@ -262,11 +262,14 @@
     const workOrderNumbers = window.KittingReadModel.collectActionableWorkOrderNumbers(
       lines, approvalsByLineKey, rmaReworkByLineKey
     );
+    const qualityHeld=document.body.dataset.simRuntime==='true'&&lines.some(l=>l.sourceRecord?.releaseState==='AWAITING_RELEASE'&&l.salesOrderNumber==='0099997'&&l.salesOrderLineNumber==='010');
+    // Held packet state comes from the Quality projection, not an execution-case lookup.
+    const materialWorkOrders=qualityHeld?workOrderNumbers.filter(wo=>wo!=='0999997'):workOrderNumbers;
     const [workOrdersByNumber, materialStatusesByWorkOrder, supplyProgressByWorkOrder] = await Promise.all([
       loadCanonicalWorkOrders(workOrderNumbers),
       hasEmbeddedProjections && !forceMaterialStatus
-        ? buildEmbeddedMaterialStatuses(lines, workOrderNumbers)
-        : loadMaterialStatuses(workOrderNumbers, { force: forceMaterialStatus }),
+        ? buildEmbeddedMaterialStatuses(lines, materialWorkOrders)
+        : loadMaterialStatuses(materialWorkOrders, { force: forceMaterialStatus }),
       loadSupplyProgress(workOrderNumbers)
     ]);
     workspaceState.canonicalRows = canonicalRows;
@@ -278,7 +281,41 @@
       supplyProgressByWorkOrder,
       rmaReworkByLineKey
     });
+    if(document.body.dataset.simRuntime==='true') {
+      await mergeQualityReleaseRow(lines);
+      const contexts = new Map(await Promise.all(workspaceState.model.queues.kitShort.map(async row => {
+        const response = await fetch('/api/kitting-cases/v1/work-orders/' + encodeURIComponent(row.workOrderNumber) + '/accepted-material', { credentials:'same-origin', cache:'no-store' });
+        if (response.status === 404) return [row.workOrderNumber, null];
+        if (!response.ok) throw Error('Accepted material is unavailable. Refresh Kitting before relying on this queue.');
+        return [row.workOrderNumber, await response.json()];
+      })));
+      workspaceState.model = window.KittingReadModel.withMaterialContexts(workspaceState.model, contexts);
+    }
     return workspaceState.model;
+  }
+
+  async function mergeQualityReleaseRow(lines){
+    const held=lines.find(l=>l.sourceRecord?.releaseState==='AWAITING_RELEASE'&&l.salesOrderNumber==='0099997'&&l.salesOrderLineNumber==='010');
+    // This trial exposes only the verified 0046 packet. Ordinary queues retain their existing projection.
+    if(!held)return;
+    const response=await fetch('/api/sim/kitting/work-orders/0999997/quality-release',{credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw Error('Quality release status is unavailable. Refresh before opening Kitting.');
+    const q=await response.json(),h=q.header;
+    const related=lines.filter(l=>l.salesOrderNumber===h.salesOrder&&l.salesOrderLineNumber===h.salesOrderLine).map(l=>({...l,authority:{relationshipState:'EXACT',governingSource:'EXACT'}}));
+    if(related.length!==1)throw Error('The Quality packet does not match the current Kitting order line.');
+    const model=workspaceState.model,old=model.readyRows.find(r=>r.workOrderNumber===q.workOrderNumber);
+    const material=q.materialStatus,queue={NEEDS_KITTING:'needsKitting',KITTING_IN_PROGRESS:'kittingInProgress',KIT_SHORT:'kitShort',KIT_COMPLETE:'kitComplete'}[material];
+    if(!queue)throw Error('The Quality job has an unsupported Kitting state.');
+    const row={...old,queueKey:'WO|'+q.workOrderNumber,workOrderNumber:q.workOrderNumber,relatedLines:related,
+      customerNumber:h.customerNumber,customerName:h.customer,assemblyItemNumber:h.billNumber,revision:h.revision,
+      canonicalWorkOrderQuantity:h.scheduledProduction,earliestDueDate:related[0].dueDate,earliestDueDateTime:Date.parse(related[0].dueDate)||0,
+      canonicalWorkOrder:old?.canonicalWorkOrder||{workOrderNumber:q.workOrderNumber,customerNumber:h.customerNumber,salesOrderNumber:h.salesOrder,salesOrderLineNumber:h.salesOrderLine,itemNumber:h.billNumber,schProdQuantity:h.scheduledProduction,workOrderStatus:'AWAITING_RELEASE'},
+      governingSource:'EXACT',relationshipState:'EXACT',acceptedDemands:old?.acceptedDemands||[],
+      primaryQueue:material,materialStatus:material,materialStatusProjection:{...old?.materialStatusProjection,machineValue:material,label:material},
+      ready:!q.awaitingQualityRelease,actionable:!q.awaitingQualityRelease,awaitingQualityRelease:q.awaitingQualityRelease};
+    const queues=Object.fromEntries(Object.entries(model.queues).map(([key,rows])=>[key,rows.filter(r=>r.workOrderNumber!==q.workOrderNumber&&!(r.relatedLines||[]).some(l=>l.lineKey===related[0].lineKey))]));
+    queues[queue].push(row);
+    workspaceState.model={...model,readyRows:[...model.readyRows.filter(r=>r.workOrderNumber!==q.workOrderNumber),row],queues};
   }
 
   async function loadSupplyProgress(workOrderNumbers) {
@@ -659,7 +696,7 @@
     const dueDate = formatQueueDueDate(row.earliestDueDate);
     return [
       '<button type="button" class="kitting-compact-row" data-kitting-queue-key="',
-      escapeHtml(row.queueKey), '" onclick="openKittingWorkOrder(event)">',
+      escapeHtml(row.queueKey), '" ', row.awaitingQualityRelease ? 'data-kitting-held="'+escapeHtml(row.workOrderNumber)+'" disabled aria-label="Awaiting Quality Release"' : 'onclick="openKittingWorkOrder(event)"', '>',
       '<span class="kitting-compact-wo">WO ', escapeHtml(row.workOrderNumber), '</span>',
       '<span class="kitting-compact-assembly"><strong>', escapeHtml(row.assemblyItemNumber || "Part N/A"),
       '</strong><small>', escapeHtml(revision), '</small></span>',
@@ -668,7 +705,7 @@
       '<span class="kitting-compact-metric kitting-compact-due"><small>DUE</small><strong>',
       escapeHtml(dueDate), '</strong></span>',
       '<span class="kitting-compact-customer">', escapeHtml(customer), '</span>',
-      '<span class="kitting-compact-status"><span class="kitting-compact-state">', escapeHtml(operatorStatus(row.materialStatus)), '</span>',
+      '<span class="kitting-compact-status"><span class="kitting-compact-state">', escapeHtml(row.awaitingQualityRelease?'Awaiting Quality Release':operatorStatus(row.materialStatus)), '</span>',
       row.materialStatus === "KIT_SHORT" && row.supplyProgress?.compactText
         ? '<small class="kitting-compact-supply">' + escapeHtml(row.supplyProgress.compactText) + '</small>' : '',
       '</span>',
@@ -1010,6 +1047,7 @@
     }[character]));
   }
 
+  window.addEventListener('dle:quality-released',()=>{workspaceState.model=null;});
   window.refreshKittingWorkspace = refreshKittingWorkspace;
   window.refreshKittingQueue = refreshKittingQueue;
   window.filterKittingWorkspace = renderActiveQueue;

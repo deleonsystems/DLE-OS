@@ -291,3 +291,12 @@
 .material-fee-picker { margin:0; padding:3px; border:1px solid #94a3b8; box-shadow:0 3px 8px #0002; min-width:190px; max-height:70vh; overflow:auto; background:white; color:#183247; }
 .material-fee-picker button { display:block; width:100%; text-align:left; padding:5px 8px; border:0; background:white; color:inherit; font:12px sans-serif; }
 .material-fee-picker button[aria-selected="true"] { background:#dbeafe; outline:1px solid #287da4; outline-offset:-1px; }
+
+/* Material sale price matches the Labor summary emphasis. */
+.material-commercial-footer { justify-content:flex-start; }
+.material-commercial-footer > span:not(.material-unit-price) { color:#506574; font-size:12px; }
+.material-commercial-footer > span:not(.material-unit-price) b { font-weight:500; }
+.material-commercial-footer .material-unit-price { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 14px; margin-left:auto; padding:10px 12px; border:1px solid #b8d3df; border-left:3px solid #326d86; border-radius:5px; background:#edf6fa; color:#183e52; font-weight:600; }
+.material-unit-price [data-live-sale] { margin-left:0; font-size:26px; line-height:1.2; font-weight:750; font-variant-numeric:tabular-nums; white-space:normal; overflow-wrap:anywhere; }
+.material-cost-breakdown { display:grid; gap:6px; margin:8px 0; color:#506574; }
+@media(max-width:760px) { .material-commercial-footer .material-unit-price { width:100%; margin-left:0; box-sizing:border-box; } }

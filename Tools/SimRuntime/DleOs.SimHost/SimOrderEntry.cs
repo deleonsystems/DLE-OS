@@ -14,7 +14,7 @@ internal sealed record SimOrderEntry(SimOrderAcceptance Acceptance, SimOrderBrid
 internal sealed record SimOrderAcceptRequest(string RequestId, int ExpectedRevision, string SourceToken, bool Confirm, string? Note);
 internal sealed record SimBridgeRequest(string RequestId, int ExpectedRevision, string Action, string? Item = null,
     bool Complete = true, SimBridgeIdentifiers? Identifiers = null, string? Reason = null);
-internal sealed record SimBridgeBomRow(string Line, string ApprovedPartNumber, string Description, decimal QuantityPerAssembly, decimal TotalRequirement, bool Dnp);
+internal sealed record SimBridgeBomRow(string Line, string ApprovedPartNumber, string Description, decimal QuantityPerAssembly, decimal TotalRequirement, bool Dnp, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerSupplyLine? CustomerSupply = null);
 
 internal sealed partial class SimRfqIntakeStore
 {
@@ -32,12 +32,13 @@ internal sealed partial class SimRfqIntakeStore
             var numbers=SimApprovedPartIdentities.Resolve(row);
             var dnp=row.ComponentType=="DNP";
             var per=decimal.TryParse(row.Values.GetValueOrDefault("quantity"),NumberStyles.Number,CultureInfo.InvariantCulture,out var n)?n:0;
-            return new SimBridgeBomRow(row.Values.GetValueOrDefault("lineNumber") ?? (row.Index+1).ToString(),dnp?"Not fitted":string.Join(" / ",numbers.Where(n=>!string.IsNullOrWhiteSpace(n))),row.Values.GetValueOrDefault("description") ?? "",per,dnp?0:per*quantity,dnp);
+            return new SimBridgeBomRow(row.Values.GetValueOrDefault("lineNumber") ?? (row.Index+1).ToString(),dnp?"Not fitted":string.Join(" / ",numbers.Where(n=>!string.IsNullOrWhiteSpace(n))),row.Values.GetValueOrDefault("description") ?? "",per,dnp?0:per*quantity,dnp,SimCustomerSupply.Lines(package.TechnicalSource?.Baseline,package.Facts,package.PoNumber,package.PoEvidence.Select(e=>e.Document).ToArray()).SingleOrDefault(l=>l.SourceRowId==row.RowId && l.QuotedCustomerSupplied));
         }).ToArray();
     }
     private static string[] OrderAcceptanceBlockers(SimNewOrderPackage p)
     {
         var errors=new List<string>();
+        errors.AddRange(SimCustomerSupply.Project(p).Issues);
         if(p.ReviewStatus!="READY_FOR_CONTRACT_REVIEW") errors.Add("Submit the reviewed New Order package for final review first. Drafts cannot enter Order Entry.");
         if(p.Questionnaire?.RequirementsIdentifiedOnAttachedDocument!=true) errors.Add("The final PO acknowledgment is required.");
         if(p.ContractDates?.PoDateVerification is not {} po || po.Date!=p.Facts.PoDate) errors.Add("Verify the current PO Date.");
@@ -65,7 +66,7 @@ internal sealed partial class SimRfqIntakeStore
         var last=p.History.Last();var actor=acceptance?.Actor ?? last.Actor;var at=acceptance?.At ?? last.At;
         var request=new SimOrderSaveRequest("",r.RequestCorrelationId,r.IntakeId,p.Revision,r.Customer,p.PoNumber,p.Facts,p.PreviouslyQuoted,p.Quote?.Reference,p.Questionnaire,
             p.PoEvidence.Select(e=>e.Document).ToArray(),p.WizardStep,false,p.TechnicalSource?.Choice,[],"review",p.PoFactsConfirmed==true,p.FlowVersion,
-            p.ContractDates?.PoDateVerification is not null,p.ContractDates?.DueDateReview is {} due?new(due.Disposition,due.Note):null);
+            p.ContractDates?.PoDateVerification is not null,p.ContractDates?.DueDateReview is {} due?new(due.Disposition,due.Note):null,CustomerSupplyReview:p.CustomerSupplyReview);
         var po=p.PoEvidence.Select(e=>new SimReviewFile(e.Document.Name,"Customer PO",$"/api/sim/new-orders/{r.IntakeId}/documents/{e.Document.DocumentId}")).ToArray();
         var baseline=p.TechnicalSource?.Baseline;
         var docs=(baseline?.Definition.Manufacturing.Package.Documents ?? []).Select(d=>new SimReviewFile(d.Name,

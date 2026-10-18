@@ -140,6 +140,9 @@ CREATE TRIGGER IF NOT EXISTS SimPurchasingCommandNoDelete BEFORE DELETE ON SimPu
                 var entry = Field(group, "entry"); var shortage = Number(entry, "shortageQuantity");
                 if (shortage <= 0 || !Flag(group, "actionable")) continue;
                 var sourceRowId = PurchasingText(group, "sourceRowId");
+                // An older submission retains only demands already accepted from that snapshot.
+                // Its unaccepted sibling rows are superseded by the latest submitted kit.
+                if(submission.SubmissionId != latest?.SubmissionId && !stored.Any(d=>d.CaseId==current.CaseId && d.SubmissionId==submission.SubmissionId && d.SourceRowId==sourceRowId)) continue;
                 if (sourceRowId.Length == 0 || stored.Any(d=>d.CaseId==current.CaseId&&d.SourceRowId==sourceRowId&&d.SubmissionId!=submission.SubmissionId)) continue;
                 var part = PurchasingText(group, "partNumber"); var uom = PurchasingText(group, "unitOfMeasure");
                 var id = SimPurchasingService.StableId($"{runtime.Generation}:{current.CaseId}:{submission.SubmissionId}:{sourceRowId}");
@@ -152,7 +155,7 @@ CREATE TRIGGER IF NOT EXISTS SimPurchasingCommandNoDelete BEFORE DELETE ON SimPu
                     PurchasingText(group, "sequence"), part, part, PurchasingText(group, "description"), Number(group, "requiredQuantity"),
                     Number(entry, "pickedQuantity"), shortage, uom, current.WorkOrderNumber, so, soLine,
                     PurchasingText(customer, "customerName"), customerNumber, current.AssemblyItemNumber, current.Revision,
-                    Number(lineage, "buildQuantity"), dueDate, "", quality, compatibility, null, null, null);
+                    Number(lineage, "buildQuantity"), dueDate, "", quality, compatibility, null, null, null, CustomerSupply: SimKittingSupplyDisposition.Effective(group), SupplyDisposition: SimKittingSupplyDisposition.Disposition(group), CustomerPoNumber: PurchasingText(canonical.Value, "customerPurchaseOrderNumber"));
             }
         }
         }
@@ -167,7 +170,7 @@ CREATE TRIGGER IF NOT EXISTS SimPurchasingCommandNoDelete BEFORE DELETE ON SimPu
                 SourceCurrent = current is not null && current.SourceFingerprint == retained.SourceFingerprint && reconciliation?.RemainingShort != 0,
                 State = reconciliation?.RemainingShort == 0 ? "RESOLVED" : retained.State,
                 RemainingShortQuantity = reconciliation?.RemainingShort,
-                ReconciliationId = reconciliation?.Id };
+                ReconciliationId = reconciliation?.Id, CustomerPoNumber = current?.CustomerPoNumber ?? retained.CustomerPoNumber };
         }
         // A successor submission is not fresh buying authority while an older accepted demand for
         // the same case/requirement remains. In particular, do not bypass purchased coverage merely
@@ -177,6 +180,29 @@ CREATE TRIGGER IF NOT EXISTS SimPurchasingCommandNoDelete BEFORE DELETE ON SimPu
             if (stored.Any(prior => prior.DemandId != incoming.DemandId && prior.CaseId == incoming.CaseId &&
                 prior.SourceRowId == incoming.SourceRowId))
                 active[incoming.DemandId] = incoming with { SourceCurrent = false };
+        }
+        // Current job responsibility follows the latest submitted kit, even for an existing
+        // accepted demand. Its original submission, PO coverage and purchase history are retained.
+        foreach (var demand in active.Values.ToArray()) {
+            var latest = submissions.Where(s=>s.CaseId==demand.CaseId).OrderByDescending(s=>s.SubmittedAtUtc).ThenByDescending(s=>s.VersionNumber).FirstOrDefault();
+            if(latest is null) { active[demand.DemandId]=demand with{CustomerContact=null}; continue; }
+            using var snapshot=JsonDocument.Parse(latest.SnapshotJson);
+            var row=Field(Field(snapshot.RootElement,"draft"),"groups").EnumerateArray().FirstOrDefault(g=>PurchasingText(g,"sourceRowId")==demand.SourceRowId);
+            if(row.ValueKind!=JsonValueKind.Object) { active[demand.DemandId]=demand with{CustomerContact=null}; continue; }
+            var effective=SimKittingSupplyDisposition.Effective(row);
+            if(demand.BalanceSource is {} balance && balance.SubmissionId==latest.SubmissionId) {
+                if(balance.Responsibility=="PURCHASED")effective=null;
+                else {
+                    var customerRow=System.Text.Json.Nodes.JsonNode.Parse(row.GetRawText())!;
+                    customerRow["supplyDisposition"]=new System.Text.Json.Nodes.JsonObject{["responsibility"]="CUSTOMER_SUPPLIED"};
+                    effective=SimKittingSupplyDisposition.Effective(JsonSerializer.SerializeToElement(customerRow));
+                }
+            }
+            var conflicts=effective is null ? Array.Empty<string>() :
+                purchases.Where(p=>p.Coverage.Any(c=>c.DemandId==demand.DemandId)&&p.OpenQuantity>0)
+                    .Select(p=>$"Existing PO {p.PoNumber} / {p.PoLine}: {p.OpenQuantity} open. Review with Buyer; not cancelled.")
+                    .Concat(plans.Where(p=>p.PurchaseId is null&&p.Coverage.Any(c=>c.DemandId==demand.DemandId)).Select(p=>$"Existing buying plan for {p.BuyQuantity} {p.PurchasingUom}. Review with Buyer; not cancelled.")).ToArray();
+            active[demand.DemandId]=demand with{CurrentSubmissionId=latest.SubmissionId,CustomerSupply=effective,SupplyDisposition=SimKittingSupplyDisposition.Disposition(row),SupplyConflicts=conflicts,CustomerContact=SimPurchasingService.CurrentContact(demand,latest.SubmissionId,effective)};
         }
         return new("SIM", runtime.Generation, canManage, active.Values.OrderBy(d => d.WorkOrderNumber)
             .ThenBy(d => d.FindNumber).ToArray(), plans.OrderBy(p => p.CreatedAtUtc).ToArray(), purchases.OrderBy(p => p.CreatedAtUtc).ToArray());

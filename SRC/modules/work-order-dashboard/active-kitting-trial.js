@@ -11,6 +11,62 @@
     return String(value ?? '').trim();
   }
 
+  // Supply responsibility comes from the frozen released group, never from P.O. text.
+  function isCustomerSupplied(group) {
+    return group?.supplyDisposition?.responsibility ? group.supplyDisposition.responsibility === 'CUSTOMER_SUPPLIED' : !!group?.customerSupply;
+  }
+
+  function allocationSource(allocation, group) {
+    return allocation?.sourceType || (allocation?.purchaseOrder === 'C/S' ? 'CUSTOMER_SUPPLIED' : allocation?.purchaseOrder === 'C/I' ? 'CUSTOMER_INSTALLED' : allocation?.purchaseOrder ? 'PURCHASED' : isCustomerSupplied(group) ? 'CUSTOMER_SUPPLIED' : 'PURCHASED');
+  }
+
+  function setAllocationSource(draft, sequence, allocationId, sourceType) {
+    const group = findGroup(draft, sequence);
+    if (!group?.actionable || group.rowState === 'SUBMITTED' || !['PURCHASED','CUSTOMER_SUPPLIED','CUSTOMER_INSTALLED'].includes(sourceType)) return null;
+    if (!group.entry || group.entry.method !== METHODS.COUNT) {
+      const previous = group.entry;
+      group.entry = calculateEntry(group, METHODS.COUNT, null, draft.employeeName);
+      if (previous?.purchaseOrder) group.entry.allocations[0].purchaseOrder = previous.purchaseOrder;
+    }
+    const allocation = group.entry.allocations.find(a => a.allocationId === allocationId) || (!allocationId ? group.entry.allocations[0] : null);
+    if (!allocation || allocation.acceptedMaterial) return null;
+    const old = allocationSource(allocation, group);
+    const changes = {sourceType, purchaseOrder: sourceType === 'CUSTOMER_SUPPLIED' ? 'C/S' : sourceType === 'CUSTOMER_INSTALLED' ? 'C/I' : ['C/S','C/I'].includes(allocation.purchaseOrder) ? '' : allocation.purchaseOrder};
+    if (sourceType === 'CUSTOMER_INSTALLED') changes.customerInstalledQuantity = old === sourceType ? allocation.customerInstalledQuantity : null;
+    else changes.customerInstalledQuantity = null;
+    // The explicitly selected source owns the remaining balance; earlier allocations stay intact.
+    if (sourceType !== 'CUSTOMER_INSTALLED') group.supplyDisposition = {...group.supplyDisposition, responsibility: sourceType};
+    return updateAllocation(draft, sequence, allocation.allocationId, changes);
+  }
+
+  function setSupplyDisposition(draft, sequence, responsibility) {
+    const group = findGroup(draft, sequence);
+    if (!group?.actionable || group.rowState === 'SUBMITTED' || !['CUSTOMER_SUPPLIED','PURCHASED'].includes(responsibility)) return null;
+    group.supplyDisposition = {...group.supplyDisposition, responsibility};
+    const previous = group.entry;
+    if (responsibility === 'CUSTOMER_SUPPLIED' && (!previous || previous.method !== METHODS.COUNT)) {
+      group.entry = calculateEntry(group, METHODS.COUNT, null, draft.employeeName);
+      if (previous?.purchaseOrder) group.entry.allocations[0].purchaseOrder = previous.purchaseOrder;
+    }
+    for (const source of [group.entry, ...(group.entry?.allocations || [])].filter(Boolean)) {
+      if (source.acceptedMaterial) continue;
+      if (responsibility === 'CUSTOMER_SUPPLIED' && !clean(source.purchaseOrder)) source.purchaseOrder = 'C/S';
+      if (responsibility === 'PURCHASED' && source.purchaseOrder === 'C/S') source.purchaseOrder = '';
+    }
+    return group;
+  }
+
+  function sourcePurchaseOrder(group, value) {
+    return clean(value) || (isCustomerSupplied(group) ? 'C/S' : '');
+  }
+
+  function prepareCustomerSupplyEntry(group) {
+    if (!isCustomerSupplied(group) || !group.entry || group.rowState === 'SUBMITTED') return;
+    for (const source of [group.entry, ...(group.entry.allocations || [])]) {
+      if (!source.sourceType && !source.acceptedMaterial && !clean(source.purchaseOrder)) source.purchaseOrder = 'C/S';
+    }
+  }
+
   function normalizeCountInput(value) {
     const text = clean(value);
     if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return null;
@@ -157,28 +213,31 @@
   function calculateCountRollup(group, allocations) {
     const eligibleParts = Array.isArray(group?.eligibleParts) ? group.eligibleParts : [];
     const normalized = (Array.isArray(allocations) ? allocations : []).map((allocation, index) => ({
+      ...(allocation?.sourceType ? {sourceType: allocation.sourceType, customerInstalledQuantity: normalizeCountInput(allocation.customerInstalledQuantity), ...(allocation.sourceHistory ? {sourceHistory: allocation.sourceHistory} : {})} : {}),
       allocationId: clean(allocation?.allocationId) || 'A' + (index + 1),
       partNumber: clean(allocation?.partNumber),
       quantity: normalizeCountInput(allocation?.quantity),
-      purchaseOrder: clean(allocation?.purchaseOrder).slice(0, 40),
+      purchaseOrder: (allocation?.sourceType ? clean(allocation.purchaseOrder) : sourcePurchaseOrder(group, allocation?.purchaseOrder)).slice(0, 40),
       acceptedMaterial: allocation?.acceptedMaterial || null,
       evidenceOperator: clean(allocation?.evidenceOperator),
       evidenceAtUtc: clean(allocation?.evidenceAtUtc)
     }));
     const valid = normalized.length > 0 && normalized.every(allocation =>
-      (!eligibleParts.length || eligibleParts.includes(allocation.partNumber)) && allocation.quantity !== null);
-    const picked = valid ? normalized.reduce((total, allocation) => total + allocation.quantity, 0) : null;
-    const shortage = picked === null ? null : Math.max(group.requiredQuantity - picked, 0);
+      (!eligibleParts.length || eligibleParts.includes(allocation.partNumber)) && allocation.quantity !== null && (allocation.sourceType !== 'CUSTOMER_INSTALLED' || allocation.customerInstalledQuantity !== null && allocation.customerInstalledQuantity > 0));
+    const installed = valid ? normalized.reduce((total, a) => total + (a.sourceType === 'CUSTOMER_INSTALLED' ? a.customerInstalledQuantity : 0), 0) : null;
+    const picked = valid ? normalized.reduce((total, allocation) => total + (allocation.sourceType === 'CUSTOMER_INSTALLED' ? 0 : allocation.quantity), 0) : null;
+    const shortage = picked === null || installed > 0 && picked + installed - group.requiredQuantity > 0.0000001 ? null : Math.max(group.requiredQuantity - picked - installed, 0);
     const extra = picked === null ? null : Math.max(picked - group.requiredQuantity, 0);
     return {
       method: METHODS.COUNT,
       selectedPartNumber: null,
-      purchaseOrder: '',
+      purchaseOrder: isCustomerSupplied(group) ? 'C/S' : '',
       allocations: normalized,
+      ...(normalized.some(a => a.sourceType) ? {customerInstalledQuantity: installed} : {}),
       pickedQuantity: picked,
       shortageQuantity: shortage,
       extraQuantity: extra,
-      result: picked === null ? 'COUNT_REQUIRED'
+      result: shortage === null ? 'COUNT_REQUIRED'
         : shortage > 0 ? 'COUNTED_SHORT' : extra > 0 ? 'COUNTED_EXTRA' : 'COUNTED_EXACT'
     };
   }
@@ -188,12 +247,12 @@
     const required = group.requiredQuantity;
     const defaultPart = group.eligibleParts?.length === 1 ? group.eligibleParts[0] : null;
     if (method === METHODS.COMPLETE) {
-      return { method, selectedPartNumber: defaultPart, purchaseOrder: '', allocations: [], pickedQuantity: null,
+      return { method, selectedPartNumber: defaultPart, purchaseOrder: sourcePurchaseOrder(group, ''), allocations: [], pickedQuantity: null,
         evidenceOperator: clean(operator), evidenceAtUtc: new Date().toISOString(),
         shortageQuantity: 0, extraQuantity: null, result: 'COMPLETE' };
     }
     if (method === METHODS.COMPLETE_MIN_EXTRA) {
-      return { method, selectedPartNumber: defaultPart, purchaseOrder: '', allocations: [], pickedQuantity: null,
+      return { method, selectedPartNumber: defaultPart, purchaseOrder: sourcePurchaseOrder(group, ''), allocations: [], pickedQuantity: null,
         evidenceOperator: clean(operator), evidenceAtUtc: new Date().toISOString(),
         shortageQuantity: 0, extraQuantity: null, result: 'COMPLETE_MIN_EXTRA' };
     }
@@ -205,6 +264,7 @@
   function applyMethod(draft, sequence, method, enteredQuantity = null) {
     const group = findGroup(draft, sequence);
     if (!group || group.rowState === 'SUBMITTED' || group.entry?.allocations?.some(a => a.acceptedMaterial?.applicationId)) return null;
+    if (group.entry?.allocations?.some(a => a.sourceType) && (group.entry.allocations.length > 1 || group.entry.allocations.some(a => a.sourceType === 'CUSTOMER_INSTALLED'))) return null;
     group.entry = calculateEntry(group, method, enteredQuantity, draft?.employeeName);
     return group.entry;
   }
@@ -244,7 +304,7 @@
     group.entry = calculateCountRollup(group, [...group.entry.allocations, {
       allocationId: 'A' + next,
       partNumber: group.eligibleParts.length === 1 ? group.eligibleParts[0] : '',
-      quantity: 0,
+      quantity: isCustomerSupplied(group) ? null : 0,
       purchaseOrder: '',
       evidenceOperator: clean(draft?.employeeName),
       evidenceAtUtc: new Date().toISOString()
@@ -256,7 +316,7 @@
     const group = findGroup(draft, sequence);
     if (!group?.entry || group.rowState === 'SUBMITTED' || group.entry.method !== METHODS.COUNT) return null;
     if (group.entry.allocations.some(a => a.allocationId === clean(allocationId) && a.acceptedMaterial?.applicationId)) return null;
-    const sourceChanged = Object.hasOwn(changes || {}, 'partNumber') || Object.hasOwn(changes || {}, 'purchaseOrder');
+    const sourceChanged = Object.hasOwn(changes || {}, 'sourceType') || Object.hasOwn(changes || {}, 'partNumber') || Object.hasOwn(changes || {}, 'purchaseOrder');
     const allocations = group.entry.allocations.map(allocation => allocation.allocationId === clean(allocationId)
       ? { ...allocation, ...changes, acceptedMaterial: sourceChanged ? null : allocation.acceptedMaterial,
           allocationId: allocation.allocationId,
@@ -292,7 +352,9 @@
   function hasRequiredPoTraceability(group) {
     if (!group?.entry) return false;
     if (group.entry.method === METHODS.COUNT) {
-      return group.entry.allocations.every(allocation => Number(allocation.quantity) <= 0 || !!clean(allocation.purchaseOrder));
+      return group.entry.allocations.every(allocation =>
+        !(allocation.sourceType === 'PURCHASED' && ['C/S','C/I'].includes(clean(allocation.purchaseOrder))) &&
+        (Number(allocation.quantity) <= 0 || !!clean(allocation.purchaseOrder)));
     }
     return !!clean(group.entry.purchaseOrder);
   }
@@ -391,6 +453,12 @@
 
   window.ActiveKittingTrial = Object.freeze({
     METHODS,
+    allocationSource,
+    setAllocationSource,
+    isCustomerSupplied,
+    setSupplyDisposition,
+    sourcePurchaseOrder,
+    prepareCustomerSupplyEntry,
     normalizeCountInput,
     sanitizeCountInput,
     parseFindMessage,

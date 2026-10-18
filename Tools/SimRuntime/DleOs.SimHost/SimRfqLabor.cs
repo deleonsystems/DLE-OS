@@ -22,16 +22,16 @@ internal sealed record SimLaborSnapshot(int Version, string DefinitionId, int Qu
     decimal Rate, decimal Markup, SimLaborTotals Totals, string UpdatedBy, DateTimeOffset AtUtc, string CalculationVersion = "LABOR_MINUTES_V1",
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborCharge[]? Charges = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimManufacturingLead? ManufacturingLead = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimDrawingContent[]? DrawingNotes = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimDrawingContent[]? DrawingNotes = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)] decimal CommissionPercent = 0);
 internal sealed record SimLaborPlan(int Revision, string DefinitionId, int Quantity, string Template, SimLaborOperation[] Operations,
     decimal? Rate, decimal Markup, string UpdatedBy, DateTimeOffset AtUtc, SimLaborSnapshot[] Versions, string CalculationVersion = "LABOR_MINUTES_V1",
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborVisual[]? RemovedVisuals = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborNote[]? RemovedNotes = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborCharge[]? Charges = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimManufacturingLead? ManufacturingLead = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborRevisionEvent[]? RevisionHistory = null);
-internal sealed record SimLaborRequest(int ExpectedRevision, string DefinitionId, int Quantity, SimLaborOperation[] Operations, decimal? Rate, decimal Markup, bool Complete = false, string CalculationVersion = "LABOR_OPERATION_QTY_V2", int VisualContractVersion = 0, int NoteContractVersion = 0, SimLaborCharge[]? Charges = null, int ChargeContractVersion = 0, SimManufacturingLead? ManufacturingLead = null, int LeadContractVersion = 0, string? DrawingContentToken = null, int RoleContractVersion = 0, int SlideContractVersion = 0);
-internal sealed record SimLaborView(SimRfqWorkspace Rfq, SimLaborPlan Plan, SimLaborTotals Totals, int RevisionContractVersion = 0, bool CanRevise = false, string? RevisionBlocker = null, string DrawingContentToken = "", int RoleContractVersion = 1, int SlideContractVersion = 8);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborRevisionEvent[]? RevisionHistory = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)] decimal CommissionPercent = 0);
+internal sealed record SimLaborRequest(int ExpectedRevision, string DefinitionId, int Quantity, SimLaborOperation[] Operations, decimal? Rate, decimal Markup, bool Complete = false, string CalculationVersion = "LABOR_OPERATION_QTY_V2", int VisualContractVersion = 0, int NoteContractVersion = 0, SimLaborCharge[]? Charges = null, int ChargeContractVersion = 0, SimManufacturingLead? ManufacturingLead = null, int LeadContractVersion = 0, string? DrawingContentToken = null, int RoleContractVersion = 0, int SlideContractVersion = 0, decimal? CommissionPercent = null);
+internal sealed record SimLaborView(SimRfqWorkspace Rfq, SimLaborPlan Plan, SimLaborTotals Totals, int RevisionContractVersion = 0, bool CanRevise = false, string? RevisionBlocker = null, string DrawingContentToken = "", int RoleContractVersion = 1, int SlideContractVersion = 8, int CommissionContractVersion = 1);
 
 internal sealed partial class SimRfqIntakeStore
 {
@@ -44,7 +44,7 @@ internal sealed partial class SimRfqIntakeStore
         bool EstimatedBelow(SimLaborOperation o) => operations.Where(c => c.ParentId == o.Id).Any(c => (c.OperationQuantity.HasValue && c.RunSeconds.HasValue) || EstimatedBelow(c));
         return !EstimatedBelow(operation) ? Own(operation) : children.Sum(child => LaborOperationSeconds(child, operations, quantity));
     }
-    internal static SimLaborTotals CalculateLabor(SimLaborOperation[] operations, int quantity, decimal rate, decimal markup, SimLaborCharge[]? charges = null)
+    internal static SimLaborTotals CalculateLabor(SimLaborOperation[] operations, int quantity, decimal rate, decimal markup, SimLaborCharge[]? charges = null, decimal commissionPercent = 0)
     {
         var setup = 0m;
         var seconds = operations.Where(o => o.ParentId is null).Sum(o => LaborOperationSeconds(o, operations, quantity));
@@ -56,7 +56,7 @@ internal sealed partial class SimRfqIntakeStore
         var consumables = (charges ?? []).Where(c => c.Kind == "RECURRING").Sum(c => c.Amount ?? 0);
         var nre = (charges ?? []).Where(c => c.Kind == "NRE").Sum(c => c.Amount ?? 0);
         var cost = baseCost + consumables;
-        var sale = (seconds * rate + consumables * 3600) * (100 + markup) / 360000;
+        var sale = (seconds * rate + consumables * 3600) * (100 + commissionPercent) * (100 + markup) / 36000000;
         var hasCharges = charges?.Length > 0;
         return new(setup, run, minutes, seconds / 3600, Round(cost), Round(sale), Round(sale), seconds,
             hasCharges ? Round(baseCost) : null, hasCharges ? Round(consumables) : null, hasCharges ? Round(nre) : null);
@@ -75,7 +75,7 @@ internal sealed partial class SimRfqIntakeStore
         if (plan.CalculationVersion != "LABOR_BATCH_ALLOCATION_V6") throw SimRfqIntakeProblem.Conflict("LABOR_LEGACY_PLAN", "This preserved setup-time plan requires review before conversion to operation quantities.");
         if (plan.DefinitionId != rfq.Inputs.Manufacturing.Id || plan.Quantity != rfq.Assemblies[0].Quantity)
             throw SimRfqIntakeProblem.Conflict("LABOR_SOURCE_CHANGED", "Manufacturing Definition or quantity changed. Preserve this Labor plan for review before continuing.");
-        return new(rfq, plan, CalculateLabor(plan.Operations, plan.Quantity, plan.Rate ?? 0, plan.Markup, plan.Charges));
+        return new(rfq, plan, CalculateLabor(plan.Operations, plan.Quantity, plan.Rate ?? 0, plan.Markup, plan.Charges, plan.CommissionPercent));
     }
     internal static SimLaborPlan NormalizeLaborHierarchy(SimLaborPlan plan)
     {
@@ -105,6 +105,11 @@ internal sealed partial class SimRfqIntakeStore
             if (request.CalculationVersion != "LABOR_BATCH_ALLOCATION_V6") throw SimRfqIntakeProblem.Conflict("LABOR_UNITS_CHANGED", "Reload Labor before saving: the time-basis contract has changed.");
             if (request.ExpectedRevision != view.Plan.Revision || request.DefinitionId != view.Plan.DefinitionId || request.Quantity != view.Plan.Quantity)
                 throw SimRfqIntakeProblem.Conflict("LABOR_STALE", "Labor or its source changed. Reopen Labor before saving again.");
+            if (request.CommissionPercent is null && view.Plan.CommissionPercent != 0)
+                throw SimRfqIntakeProblem.Conflict("LABOR_COMMISSION_CLIENT", "Reopen Labor with the current client before saving a plan with commission.");
+            var commissionPercent = request.CommissionPercent ?? view.Plan.CommissionPercent;
+            if (commissionPercent is < 0 or > 10000 || decimal.Round(commissionPercent, 6) != commissionPercent)
+                throw SimRfqIntakeProblem.BadRequest("LABOR_COMMISSION", "Commission must be from 0 to 10000 percent with at most six decimal places.");
             bool Precise(decimal? v) => v is null || decimal.Round(v.Value, 6) == v;
             if (request.Operations is null || request.Operations.Length > 200 || request.Operations.Any(o => o is null || string.IsNullOrWhiteSpace(o.Id) || o.Id.Length > 80 || !o.Id.All(c => char.IsAsciiLetterOrDigit(c) || c == '-') || (o.Name?.Length ?? 0) > 200 || (o.Instructions?.Length ?? 0) > 4000 || o.SetupMinutes is < 0 or > 1000000 || o.RunMinutes is < 0 or > 1000000 || !Precise(o.SetupMinutes) || !Precise(o.RunMinutes) || o.RunMinutes is not null || o.TimeBasis is not ("PER_UNIT" or "BATCH") || o.RunSeconds is < 0 or > 60000000 || !Precise(o.RunSeconds) || o.OperationQuantity is < 0 or > 1000000 || !Precise(o.OperationQuantity))
                 || request.Operations.Select(o => o.Id).Distinct().Count() != request.Operations.Length || request.Rate is < 0 or > 1000000 || request.Markup is < 0 or > 10000 || !Precise(request.Rate) || !Precise(request.Markup))
@@ -152,7 +157,7 @@ internal sealed partial class SimRfqIntakeStore
             if (request.Complete && (operations.Length == 0 || operations.Any(o => o.Name.Length == 0) || request.Rate is null))
                 throw SimRfqIntakeProblem.Conflict("LABOR_INCOMPLETE", "Name at least one operation and enter a Labor Rate before completing.");
             var now = DateTimeOffset.UtcNow;
-            var plan = view.Plan with { Revision = view.Plan.Revision + 1, Operations = operations, Rate = request.Rate, Markup = request.Markup, UpdatedBy = persona.DisplayName, AtUtc = now, RemovedVisuals = visualState.Removed, RemovedNotes = noteState.Removed, Charges = charges, ManufacturingLead = lead };
+            var plan = view.Plan with { Revision = view.Plan.Revision + 1, Operations = operations, Rate = request.Rate, Markup = request.Markup, CommissionPercent = commissionPercent, UpdatedBy = persona.DisplayName, AtUtc = now, RemovedVisuals = visualState.Removed, RemovedNotes = noteState.Removed, Charges = charges, ManufacturingLead = lead };
             SimDrawingContent[]? frozenNotes=null;
             if(request.Complete){
                 var layers=(await DrawingLayers()).GetValueOrDefault(id)??[];
@@ -162,7 +167,7 @@ internal sealed partial class SimRfqIntakeStore
                 if(frozenNotes.Length>0){var current=(await DrawingContext(id)).Source;if(frozenNotes.Any(n=>n.Source!=current))throw SimRfqIntakeProblem.Conflict("LABOR_DRAWING_SOURCE","Drawing Notes reference an older source. Review that source change before completing Labor.");}
             }
             if (request.Complete)
-                plan = plan with { Versions = plan.Versions.Append(new(plan.Versions.Length + 1, plan.DefinitionId, plan.Quantity, operations, plan.Rate!.Value, plan.Markup, CalculateLabor(operations, plan.Quantity, plan.Rate.Value, plan.Markup, charges), persona.DisplayName, now, "LABOR_BATCH_ALLOCATION_V6", charges, lead, frozenNotes)).ToArray() };
+                plan = plan with { Versions = plan.Versions.Append(new(plan.Versions.Length + 1, plan.DefinitionId, plan.Quantity, operations, plan.Rate!.Value, plan.Markup, CalculateLabor(operations, plan.Quantity, plan.Rate.Value, plan.Markup, charges, plan.CommissionPercent), persona.DisplayName, now, "LABOR_BATCH_ALLOCATION_V6", charges, lead, frozenNotes, plan.CommissionPercent)).ToArray() };
             // Read latest lanes under the same persistence gate as Materials, replacing only Labor fields.
             lanes[id] = view.Rfq.Lanes with { LaborQuote = plan, Labor = new(request.Complete ? "COMPLETE" : "IN_PROGRESS", persona.DisplayName, now) };
             Directory.CreateDirectory(Path.GetDirectoryName(RfqLanesPath)!);
@@ -219,7 +224,7 @@ internal static partial class SimRfqIntakeEndpoints
     {
         var identity = r.ManufacturerIdentity;
         var confirmed = identity is null ? "" : string.Join(" / ", identity.Proposals.Where(p => identity.Decision(p.Id) == "CONFIRMED").Select(p => p.PartNumber).Distinct());
-        return new[] { r.Values.GetValueOrDefault("lineNumber") ?? "", r.Values.GetValueOrDefault("partNumber") ?? "", confirmed, r.Values.GetValueOrDefault("description") ?? "", r.Values.GetValueOrDefault("designators") ?? "", r.Values.GetValueOrDefault("quantity") ?? "", r.ComponentType ?? "STANDARD_COTS" };
+        return new[] { r.Values.GetValueOrDefault("lineNumber") ?? "", SimRfqIntakeStore.CustomerNumber(r), confirmed, r.Values.GetValueOrDefault("description") ?? "", r.Values.GetValueOrDefault("designators") ?? "", r.Values.GetValueOrDefault("quantity") ?? "", r.ComponentType ?? "STANDARD_COTS" };
     }).ToArray();
     // Matches labor-bom-slides.js v3: Arial-compatible advances, compact 1200x700 source pages.
     internal static int BomReferencePageCount(SimRfqWorkspace rfq)

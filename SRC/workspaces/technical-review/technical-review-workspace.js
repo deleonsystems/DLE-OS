@@ -39,6 +39,7 @@
   function bindInteractions() {
     if (interactionsBound || !mount) return;
     interactionsBound = true;
+    mount.addEventListener('click', customerIdentityAction);
     mount.addEventListener('dragenter', reviewDragOver);
     mount.addEventListener('dragover', reviewDragOver);
     mount.addEventListener('dragleave', reviewDragLeave);
@@ -1331,7 +1332,7 @@
     const entry = !state.guided && !state.closing && !completedReview(record) && record.status !== "NO_LONGER_REQUIRED";
     mount?.classList.toggle("technical-review-entry", entry);
     if (entry) { mount?.classList.remove("technical-review-guided"); host.innerHTML = renderEntryConfirmation(record, canDisposition)+renderOriginalCustomerRequest(record); return; }
-    if (completedReview(record)) { host.innerHTML = (state.step === 'submitted' ? renderSubmittedReview(record) : renderCompletedReview(record))+renderOriginalCustomerRequest(record); return; }
+    if (completedReview(record)) { host.innerHTML = (state.step === 'submitted' ? renderSubmittedReview(record) : renderCompletedReview(record))+renderCustomerAmendmentEntry(record)+renderOriginalCustomerRequest(record); return; }
     mount?.classList.toggle("technical-review-guided", state.guided);
     if (state.step === 'scanned-setup') { host.innerHTML = renderScannedSetup(); return; }
     scanWorkbenchObserver?.disconnect();
@@ -1364,6 +1365,80 @@
   function renderSubmittedReview(record) {
     return '<section class="technical-review-entry-card"><h2 id="technicalReviewDetailTitle" tabindex="-1">Technical Review Submitted</h2><p class="technical-review-entry-customer">'+escapeHtml(record.intakeId)+' · '+escapeHtml(record.customer?.customerName || '')+'</p><p role="status">The technical package and accepted BOM have been submitted for Materials and Labor quotation.</p><div class="technical-review-entry-actions"><button type="button" class="technical-review-primary" data-technical-review-action="back">Done</button></div></section>';
   }
+    function renderCustomerAmendmentEntry(record) {
+    return '<section class="technical-review-question" id="customerIdentityAmendment"><h3>Customer / internal part numbers</h3><p>Correct customer identities through a reviewed amendment. Original BOM versions stay available.</p><button type="button" data-customer-identity="open">Review customer numbers</button> <button type="button" data-customer-identity="new">Correct a customer number</button><p role="status" data-identity-message></p></section>';
+  }
+  async function customerIdentityAction(event) {
+    const action=event.target.closest('[data-customer-identity]')?.dataset.customerIdentity;
+    if(!action)return;
+    const panel=document.getElementById('customerIdentityAmendment');
+    if(!panel || panel.dataset.busy==='true')return;
+    if(action==='back'){window.DleWorkspaceShell.navigate({workspaceId:'rfqs',requestedState:{intakeId:state.selected.record.intakeId}});return;}
+    const record=state.selected?.record;
+    const url='/api/sim/technical-reviews/'+encodeURIComponent(record.intakeId)+'/customer-identities';
+    const message=panel.querySelector('[data-identity-message]');
+    panel.dataset.busy='true';
+    panel.querySelectorAll('button').forEach(b=>b.disabled=true);
+    try {
+      let options={credentials:'same-origin',cache:'no-store'}, suffix='';
+      if(action==='save') {
+        const view=state.customerIdentityView;
+        const changes=[...panel.querySelectorAll('[data-identity-row]')].filter(el=>el.querySelector('[data-number]').value.trim()).map(el=>{
+          const row=view.accepted.candidate.rows.find(r=>r.index===Number(el.dataset.identityRow));
+          const source=view.sources.find(s=>s.documentId===el.querySelector('[data-source]').value);
+          if(!source)throw Error('Choose the source document for each changed number.');
+          const number=el.querySelector('[data-number]').value.trim();
+          return {index:row.index,rowId:row.rowId,sourcePartNumber:row.values.partNumber,customerPartNumber:number,
+            evidence:customerCorrectionEvidence(view,row.index,number,source,el.querySelector('[data-location]').value.trim())};
+        });
+        options={...options,method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedToken:view.token,reason:panel.querySelector('[data-reason]').value,changes})};
+      } else if(action==='accept') {
+        const view=state.customerIdentityView, draft=view.history.at(-1);
+        if(!panel.querySelector('[data-reviewed]').checked || !panel.querySelector('[data-saved]').checked)throw Error('Confirm source review and that every quotation editor has saved their work.');
+        suffix='/accept';options={...options,method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedToken:view.token,draftId:draft.id,mappingsReviewed:true,quotationWorkSaved:true})};
+      }
+      const response=await window.fetch(url+suffix,options), data=await response.json();
+      if(!response.ok)throw Error(data.message||'The amendment could not be saved.');
+      state.customerIdentityView=data;renderCustomerIdentityPanel(panel,data,action==='new');
+      if(action==='accept'){panel.scrollIntoView({block:'start'});panel.querySelector('h3')?.focus({preventScroll:true});}
+      const status=panel.querySelector('[data-identity-message]');
+      if(status)status.textContent=action==='accept'?'Accepted BOM version '+data.accepted.version+'. Customer identities updated; quotation records retained.':action==='save'?'Draft saved. Review each source before accepting.':'';
+    } catch(error) { message.textContent=error.message; }
+    finally {panel.dataset.busy='false';panel.querySelectorAll('button').forEach(b=>b.disabled=false);}
+  }
+  function customerCorrectionEvidence(view,index,number,source,location) {
+    const draft=view.history.at(-1),previous=draft?.acceptedVersion==null?draft?.changes.find(c=>c.index===index):null;
+    if(previous?.customerPartNumber===number && previous.evidence[0]?.documentId===source.documentId && previous.evidence[0]?.sha256===source.sha256 && previous.evidence[0]?.location===location)return previous.evidence;
+    return [{documentId:source.documentId,sha256:source.sha256,location,quotedNumber:number}];
+  }
+  function renderCustomerIdentityPanel(panel, view, editing=false) {
+    const e=escapeHtml,draft=view.history.at(-1),pending=draft && draft.acceptedVersion==null && draft.baseVersion===view.accepted.version;
+    const completed=!editing && !pending && view.history.some(d=>d.acceptedVersion===view.accepted.version);
+    const current=r=>r.customerIdentity?.partNumber||(r.identityBasis==='CUSTOMER_PN'?r.primaryIdentity?.partNumber:'')||'Not recorded';
+    const sourceLink=proof=>'<a target="_blank" rel="noopener" href="/api/sim/rfq-intakes/'+encodeURIComponent(state.selected.record.intakeId)+'/documents/'+encodeURIComponent(proof.documentId)+'">'+e(view.sources.find(s=>s.documentId===proof.documentId)?.name||proof.documentId)+'</a> - '+e(proof.location);
+    let body=completed?'<div class="customer-identity-success"><h3 tabindex="-1">Customer numbers updated</h3><p><strong>BOM v'+view.accepted.version+' is accepted.</strong> No further action is required here. Return to the RFQ to continue with Materials.</p><button type="button" class="technical-review-primary" data-customer-identity="back">Back to RFQ</button></div>':'<h3 tabindex="-1">Customer / internal part numbers - BOM v'+view.accepted.version+'</h3>';
+    if(completed) {
+      const accepted=view.history.find(d=>d.acceptedVersion===view.accepted.version);
+      body+='<p class="customer-identity-updated">'+accepted.changes.map(c=>{const r=view.accepted.candidate.rows.find(r=>r.index===c.index);return 'Find '+e(r.values.lineNumber)+': <strong>'+e(c.customerPartNumber)+'</strong>';}).join(' &middot; ')+'</p>';
+      panel.innerHTML=body;return;
+    } else if(!pending)body+='<p>No customer-number correction is waiting for review. Start a correction only if a customer number needs changing.</p><button type="button" class="technical-review-primary" data-customer-identity="back">Back to RFQ</button>';
+    if(pending) {
+      body+='<h4>Review these customer-number changes</h4><p>This draft has not been applied. Compare the proposed numbers with the source documents, then accept when ready.</p><p>'+e(draft.reason)+'</p><div style="overflow:auto"><table><thead><tr><th>Find</th><th>Current customer number</th><th>Proposed customer number</th><th>Source</th></tr></thead><tbody>'+draft.changes.map(c=>{
+        const r=view.accepted.candidate.rows.find(r=>r.index===c.index);
+        return '<tr><td data-label="Find">'+e(r.values.lineNumber)+'</td><td data-label="Current">'+e(current(r))+'</td><td data-label="Proposed">'+e(c.customerPartNumber)+'</td><td data-label="Source"><span>'+c.evidence.map(sourceLink).join('<br>')+'</span></td></tr>';
+      }).join('')+'</tbody></table></div>';
+      if(view.canAmend)body+='<p><label><input type="checkbox" data-reviewed> I compared every proposed customer number with its cited source and resolved ambiguity.</label></p><p><label><input type="checkbox" data-saved> All quotation editors have saved their work and are ready to reopen after acceptance.</label></p><button type="button" class="technical-review-primary" data-customer-identity="accept">Accept customer-number amendment</button>';
+    }
+    if(view.canAmend && (editing||pending))body+='<details class="customer-identity-editor" '+(editing?'open':'')+'><summary>'+(pending?'Edit this draft':completed?'Make another correction':'Start a customer-number correction')+'</summary><p>Open only the rows you need to correct. Enter the customer\'s internal number, then choose the document and page or cell that shows it. Manufacturer/source numbers will not change.</p><label>Why are these customer numbers changing?<input data-reason maxlength="1000" value="'+e(pending?draft.reason:'')+'"></label>'+view.accepted.candidate.rows.map(r=>{
+      const change=pending?draft.changes.find(c=>c.index===r.index):null,proof=change?.evidence[0];
+      return '<details class="customer-identity-row"><summary>Find '+e(r.values.lineNumber)+' &mdash; Customer: <strong>'+e(current(r))+'</strong>'+(change?' &rarr; '+e(change.customerPartNumber):'')+'</summary><p>Manufacturer/source number: <strong>'+e(r.values.partNumber)+'</strong></p><fieldset data-identity-row="'+r.index+'"><legend>Correction for Find '+e(r.values.lineNumber)+'</legend><label>New customer / internal number<input data-number maxlength="200" value="'+e(change?.customerPartNumber||'')+'"></label><label>Document showing this number<select data-source><option value="">Choose source</option>'+view.sources.map(s=>'<option value="'+e(s.documentId)+'" '+(proof?.documentId===s.documentId?'selected':'')+'>'+e(s.name)+'</option>').join('')+'</select></label><label>Where in the document? (page / row or sheet / cell)<input data-location maxlength="500" value="'+e(proof?.location||'')+'"></label></fieldset></details>';
+    }).join('')+'<p>Saving creates a draft for review. It does not update the accepted BOM.</p><button type="button" data-customer-identity="save">Save draft for review</button></details>';
+    else if(view.canAmend && !pending)body+='<button type="button" data-customer-identity="new">Correct a customer number</button>';
+    else if(!completed)body+='<p>This quotation is unavailable for a customer-only amendment.</p>';
+    body+='<details><summary>Correction history ('+view.history.length+')</summary>'+view.history.map(d=>'<p>'+e(d.reason)+' - '+(d.acceptedVersion?'Accepted as v'+d.acceptedVersion+' by '+e(d.acceptedBy):'Unaccepted draft')+'</p>').join('')+'</details><button type="button" data-customer-identity="open">Reload correction status</button><p role="status" data-identity-message></p>';
+    panel.innerHTML=body;
+  }
+
   function renderCompletedReview(record) {
     const review = record.technicalReview, w = review.workflow || {}, pack = review.technicalPackage || {documents:[]};
     const section = state.step || 'package';

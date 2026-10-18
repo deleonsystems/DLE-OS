@@ -338,7 +338,7 @@
         escapeOptionText(viewModel.getOfficialField(primary, 'sequenceLine')) + ' · Est. Ship ' +
         escapeOptionText(viewModel.getOfficialField(primary, 'dueDate')) + '</small>' +
         '<small>' + escapeOptionText(viewModel.getOfficialField(primary, 'customer')) + '</small>' +
-        statusBadge + '</button>';
+        (primary.releaseState === 'AWAITING_RELEASE' ? '<small class="operations-center-mobile-status">Awaiting Release</small>' : '') + statusBadge + '</button>';
       return renderMobileResultItem(group, card, inline, expanded);
     }
     const card = '<button type="button" class="operations-center-mobile-card' + active + '" data-mobile-group-key="' +
@@ -351,7 +351,7 @@
       (group.hasQuantityException ? ' · RMA/MIXED qty' : '') + '</span>' +
       '<small>' + escapeOptionText(viewModel.getOfficialField(primary, 'customer')) +
       ' · PO ' + escapeOptionText(viewModel.getOfficialField(primary, 'customerPo')) + '</small>' +
-      statusBadge + '</button>';
+      (primary.releaseState === 'AWAITING_RELEASE' ? '<small class="operations-center-mobile-status">Awaiting Release</small>' : '') + statusBadge + '</button>';
     return renderMobileResultItem(group, card, inline, expanded);
   }
 
@@ -421,6 +421,7 @@
         mobileFact('SO / Line', viewModel.getOfficialField(primary, 'salesOrder') + ' / ' + viewModel.getOfficialField(primary, 'sequenceLine')) +
         mobileDateFacts(primary) +
         mobileFact('Material', viewModel.getOfficialField(primary, 'materialStatus')) +
+        (primary.releaseState === 'AWAITING_RELEASE' ? mobileFact('Release', 'Awaiting Release') : '') +
         '</dl>' +
         '<div class="operations-center-mobile-latest"><strong>Last Verified Status</strong><span>' +
         escapeOptionText(status.statusText || 'No status logged yet.') + '</span><small>' +
@@ -440,6 +441,7 @@
       mobileDateFacts(primary) +
       mobileFact('Default Line', viewModel.getOfficialField(primary, 'salesOrder') + ' / ' + viewModel.getOfficialField(primary, 'sequenceLine')) +
       mobileFact('Material', viewModel.getOfficialField(primary, 'materialStatus')) +
+        (primary.releaseState === 'AWAITING_RELEASE' ? mobileFact('Release', 'Awaiting Release') : '') +
       '</dl>' +
       '<div class="operations-center-mobile-latest"><strong>Last Verified Status</strong><span>' +
       escapeOptionText(status.statusText || 'No status logged yet.') + '</span><small>' +

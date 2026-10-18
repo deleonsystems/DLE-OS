@@ -175,6 +175,27 @@
     return Array.from(materials.values()).sort((a, b) => a.receiptLineId.localeCompare(b.receiptLineId));
   }
 
+  // Current execution evidence is independent of manufacturing scheduling dates.
+  function withMaterialContexts(model, contexts) {
+    const lookup = asLookup(contexts);
+    const kitShort = model.queues.kitShort.map(row => {
+      const context = lookup.get(row.workOrderNumber);
+      if (!context) return row;
+      if (context.state !== "KIT_SHORT") return { ...row, acceptedDemands: [] };
+      const acceptedDemands = (context.requirements || []).filter(r => r.remainingShort > 0).map(r => ({
+        demandId: r.demandId, workOrderNumber: row.workOrderNumber, sourceRowId: r.sourceRowId,
+        partNumber: r.partNumber, short: r.remainingShort,
+        returnOrigin: { caseId: context.caseId, workingVersion: context.workingVersion,
+          submissionId: r.submissionId, sourceRowId: r.sourceRowId, requirementId: r.requirementId, findNumber: r.findNumber },
+        acceptedMaterials: r.materials || []
+      }));
+      return { ...row, acceptedDemands };
+    });
+    const queues = { ...model.queues, kitShort, needsRekit: buildAcceptedMaterialQueue(kitShort) };
+    return { ...model, queues, readyRows: model.readyRows.map(row => kitShort.find(r => r.queueKey === row.queueKey) || row),
+      counts: { ...model.counts, needsRekit: queues.needsRekit.length } };
+  }
+
   function collectActionableWorkOrderNumbers(lines, approvalsByLineKey, rmaReworkByLineKey) {
     const approvals = asLookup(approvalsByLineKey);
     const rmaMemberships = asLookup(rmaReworkByLineKey);
@@ -561,6 +582,7 @@
     RELATIONSHIP_STATES,
     PRIMARY_QUEUES,
     buildReadModel,
+    withMaterialContexts,
     collectActionableWorkOrderNumbers,
     resolveLineAuthority
   });

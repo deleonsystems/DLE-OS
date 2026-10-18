@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 internal sealed record SimKittingReleasedRequirements(string WorkOrderNumber, string AssemblyItemNumber,
     string Revision, decimal BuildQuantity, string ReleasedBomIdentity, int ReleasedBomVersion,
-    JsonElement Draft, JsonElement Lineage, bool PoTraceabilityRequired);
+    JsonElement Draft, JsonElement Lineage, bool PoTraceabilityRequired, SimQualityRelease? QualityRelease = null);
 
 internal sealed partial class SimRfqIntakeStore
 {
@@ -32,7 +32,14 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
         Func<SimKittingReleasedRequirements, Task<T>> action) =>
         intakes.WithKittingSource(async () => await action(await ResolveAsync(workOrderNumber, runtime)));
 
-    internal async Task<SimKittingReleasedRequirements> ResolveAsync(string workOrderNumber, SimStateMetadata runtime)
+    internal Task<T> WithPacketAuthoringRequirements<T>(string wo, SimStateMetadata runtime,
+        Func<SimKittingReleasedRequirements, Task<T>> action) =>
+        intakes.WithKittingSource(async () => await action(await ResolveCore(wo, runtime, true)));
+
+    internal Task<SimKittingReleasedRequirements> ResolveAsync(string workOrderNumber, SimStateMetadata runtime)
+        => ResolveCore(workOrderNumber, runtime, false);
+
+    private async Task<SimKittingReleasedRequirements> ResolveCore(string workOrderNumber, SimStateMetadata runtime, bool packetAuthoring)
     {
         var wo = (workOrderNumber ?? "").Trim();
         Require(Regex.IsMatch(wo, "^[0-9]{7}$"), "WORK_ORDER", "Select a canonical seven-digit work order.");
@@ -47,6 +54,10 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
         Require(receipt is not null, "RECEIPT", "The work order's durable import receipt was not found.");
         var r = receipt!;
         var p = r.Packet;
+        var held = p.WorkOrder.WorkOrderStatus == "AWAITING_RELEASE";
+        var qualityRelease = held ? await new SimProductionStore(operations.DatabasePath).ReadQualityRelease(wo, runtime.Generation) : null;
+        Require(packetAuthoring || !held || qualityRelease is not null, "AWAITING_RELEASE",
+            "Awaiting Release. Quality packet review has not been completed; Kitting and production are blocked.");
         var source = p.Source;
         var line = p.OrderLine;
         var work = p.WorkOrder;
@@ -66,7 +77,7 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
             r.AcceptanceId == source.AcceptanceId && r.AcceptedRevision == source.AcceptedRevision && r.BridgeId == source.BridgeId &&
             r.BridgeRevision == source.BridgeRevision,
             "RELATIONSHIP", "The imported customer, SO line and work order do not reconcile.");
-        Require(work.WorkOrderType == "STANDARD" && work.WorkOrderStatus == "OPEN" && line.QuantityOrdered > 0 &&
+        Require(work.WorkOrderType == "STANDARD" && (held ? packetAuthoring || qualityRelease is not null : !packetAuthoring && work.WorkOrderStatus == "OPEN") && line.QuantityOrdered > 0 &&
             line.ErpQuantityOpen > 0 && work.ScheduledQuantity == line.QuantityOrdered,
             "ELIGIBILITY", "Only an open standard work order with a positive exact-line build quantity is supported.");
         // The governed import currently declares EA. Never guess a component UOM from its name.
@@ -79,6 +90,8 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
             intake.Generation == runtime.Generation && intake.ScenarioId == runtime.ScenarioId,
             "ACCEPTANCE", "The imported work order has no accepted New Order in this SIM generation.");
         var record = intake!;
+        Require(!held || SimOperationsHandoffService.TrialScope(record) == "ABBOTT-0046-AWAITING-RELEASE",
+            "QUALITY_PACKET_SCOPE", "Quality packet authoring is limited to the verified held 0046 trial.");
         var entry = record.OrderEntry!;
         var acceptance = entry.Acceptance;
         var package = acceptance.Package;
@@ -118,7 +131,7 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
             package.Quote?.Reference == baseline.Quote && baseline.SourceToken == source.TechnicalDefinitionReference &&
             candidate.Id == source.AcceptedBomReference && acceptedBom.Version == baseline.Materials.BomVersion &&
             candidate.Id == baseline.Materials.CandidateId && !string.IsNullOrWhiteSpace(baseline.Definition.Manufacturing.Id) &&
-            candidate.GoverningDocumentId == acceptedBom.Package.GoverningBomDocumentId &&
+            (candidate.GoverningDocumentId == acceptedBom.Package.GoverningBomDocumentId || (held && acceptedBom.Package.Documents.Any(d => d.DocumentId == candidate.GoverningDocumentId && d.IdentityReview?.Type == "VPRO5_BOM_EXPORT"))) &&
             !string.IsNullOrWhiteSpace(candidate.GoverningSha256),
             "BASELINE", "The accepted BOM, quote and technical baseline lineage do not reconcile.");
         Require(candidate.Rows.Length > 0 && candidate.Rows.All(row => row.Confirmed && row.ReviewState.Reviewed) &&
@@ -126,7 +139,8 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
             candidate.Rows.Select(row => row.Values.GetValueOrDefault("lineNumber")).Distinct().Count() == candidate.Rows.Length,
             "BOM_ACCEPTANCE", "Every requirement must retain a distinct, fully accepted BOM row.");
 
-        var groups = candidate.Rows.OrderBy(row => row.Index).Select(row => ProjectGroup(row, work.ScheduledQuantity, work.UnitOfMeasure)).ToArray();
+        var supplyLines=package.CustomerSupplyReview is null ? [] : SimCustomerSupply.Lines(baseline,package.Facts,package.PoNumber,package.PoEvidence.Select(e=>e.Document).ToArray());
+        var groups = candidate.Rows.OrderBy(row => row.Index).Select(row => ProjectGroup(row, work.ScheduledQuantity, work.UnitOfMeasure,supplyLines.SingleOrDefault(l=>l.SourceRowId==row.RowId && l.QuotedCustomerSupplied))).ToArray();
         var poTraceability = package.Questionnaire?.TraceabilityRequired == true;
         var lineage = JsonSerializer.SerializeToElement(new
         {
@@ -152,6 +166,12 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
                 row.Confirmed, row.Reviewer, row.ReviewedAtUtc, row.PrimaryIdentity, row.AssemblyIdentity, row.ManufacturerIdentity,
                 row.Alternates, row.SourcePartNumberReview, row.WholeRowHistory, row.Corrections }).ToArray()
         }, Json);
+        if(package.CustomerSupplyReview is not null) {
+            var node=System.Text.Json.Nodes.JsonNode.Parse(lineage.GetRawText())!.AsObject();
+            node["customerSupplyReview"]=JsonSerializer.SerializeToNode(package.CustomerSupplyReview,Json);
+            node["customerSupplyLines"]=JsonSerializer.SerializeToNode(supplyLines.Where(l=>l.QuotedCustomerSupplied),Json);
+            lineage=JsonSerializer.SerializeToElement(node,Json);
+        }
         var header = new
         {
             workOrder = wo, billNumber = work.ItemNumber, revision = work.Revision,
@@ -174,10 +194,16 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
             draft = SimProductionBomRecovery.Annotate(draft, lineage, correction);
             lineage = SimProductionBomRecovery.AnnotateLineage(lineage, correction);
         }
-        return new(wo, work.ItemNumber, work.Revision, work.ScheduledQuantity, identity, 1, draft, lineage, poTraceability);
+        if(qualityRelease is not null) {
+            Require(qualityRelease.WorkOrderNumber == wo && qualityRelease.Generation == runtime.Generation &&
+                qualityRelease.RequirementsHash == SimProductionService.Hash(lineage) && qualityRelease.BaselineToken == SimProductionService.Hash(baseline.Labor) &&
+                qualityRelease.ContentHash == SimProductionService.Hash(qualityRelease.Operations),
+                "QUALITY_RELEASE_CHANGED", "The retained Quality release no longer matches the accepted source.");
+        }
+        return new(wo, work.ItemNumber, work.Revision, work.ScheduledQuantity, identity, 1, draft, lineage, poTraceability, qualityRelease);
     }
 
-    internal static object ProjectGroup(SimCandidateRow row, decimal buildQuantity, string uom)
+    internal static object ProjectGroup(SimCandidateRow row, decimal buildQuantity, string uom, SimCustomerSupplyLine? customerSupply = null)
     {
         var sequence = row.Values.GetValueOrDefault("lineNumber") ?? "";
         var dnp = row.ComponentType == "DNP";
@@ -197,20 +223,24 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
         object Part(string number) => new { sequence, itemNumber = number, description, unitOfMeasure = uom,
             requiredEach = each, totalWorkOrderUnits = required };
         var references = Regex.Split(row.Values.GetValueOrDefault("designators") ?? "", @"[\s,;]+").Where(x => x.Length > 0).Distinct(StringComparer.Ordinal).ToArray();
-        return new
+        var group = new
         {
             groupId = "G" + (row.Index + 1).ToString("D3", CultureInfo.InvariantCulture),
             primaryPart = Part(primary),
             relatedParts = approved.Skip(1).Select(number => new { row = Part(number), reason = "Accepted approved identity / alternate" }).ToArray(),
             messageRows = Array.Empty<object>(), sourceSequences = new[] { sequence },
             findNumber = int.TryParse(sequence, NumberStyles.None, CultureInfo.InvariantCulture, out var find) ? (int?)find : null,
-            references, notes = Array.Empty<string>(), sequence, partNumber = primary, eligibleParts = approved,
+            references, notes = customerSupply is null ? Array.Empty<string>() : new[]{SimCustomerSupply.Description(customerSupply)}, sequence, partNumber = primary, eligibleParts = approved,
             description, unitOfMeasure = uom, requiredEach = each, requiredQuantity = required,
             classification = dnp ? "DNP" : each % 1 != 0 ? "FRACTIONAL" : "STANDARD",
             actionable = !dnp && required > 0, entry = (object?)null, rowState = "EDITING", revisionNumber = 0,
             sourceRowId = row.RowId, sourceRowIndex = row.Index, componentType = row.ComponentType,
             sourcePartNumber = row.Values.GetValueOrDefault("partNumber"), sourceDesignators = row.Values.GetValueOrDefault("designators")
         };
+        if(customerSupply is null) return group;
+        var node=System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(group,Json))!.AsObject();
+        node["customerSupply"]=JsonSerializer.SerializeToNode(customerSupply,Json);
+        return node;
     }
 
     private static string? String(JsonElement element, string name) => element.TryGetProperty(name, out var value) &&

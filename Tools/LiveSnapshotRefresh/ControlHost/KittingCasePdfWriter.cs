@@ -38,6 +38,8 @@ internal static class KittingCasePdfWriter
             var allocations=new List<PdfAllocation>();
             if(entry is not null&&entry.Value.TryGetProperty("allocations",out var allocs)&&allocs.ValueKind==JsonValueKind.Array)
                 foreach(var allocation in allocs.EnumerateArray())allocations.Add(new(Text(allocation,"partNumber"),Number(allocation,"quantity"),Text(allocation,"purchaseOrder")));
+            if(entry is not null && Number(entry.Value,"customerInstalledQuantity")>0)
+                notes.Add($"CUSTOMER INSTALLS {Number(entry.Value,"customerInstalledQuantity")} {Text(group,"unitOfMeasure")}. Excluded from DLE installation; not a receipt or kitted quantity.");
             groups.Add(new(Text(group,"sequence"),Text(group,"findNumber"),Text(group,"partNumber"),related,
                 Text(group,"description"),refs,notes,Number(group,"requiredQuantity"),Text(group,"unitOfMeasure"),
                 entry is null?"NOT DISPOSITIONED":Text(entry.Value,"method"),entry is null?0:Number(entry.Value,"pickedQuantity"),

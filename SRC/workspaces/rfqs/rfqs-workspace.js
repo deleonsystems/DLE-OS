@@ -25,7 +25,7 @@
     mount.prepend(notice);
   }
 
-  let mount, items = [], selected = null, opened = null, saving = false, error = '', bucket = 'ACTIVE', pendingCommercial = null;
+  let mount, items = [], selected = null, opened = null, saving = false, error = '', bucket = 'ACTIVE', pendingCommercial = null, historySearch = '';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function request(url, options) {
     const response = await window.fetch(url, { credentials: 'include', cache: 'no-store', ...options });
@@ -112,6 +112,11 @@
     if (!mount) return;
     if (document.body.dataset.simRuntime !== 'true') { mount.textContent = 'RFQs is available in SIM only.'; return; }
     selected = null; opened = null; bucket = 'ACTIVE';
+    mount.oninput = event => {
+      if(!event.target.matches('[data-history-search]')) return;
+      const position=event.target.selectionStart;historySearch=event.target.value;draw();
+      const input=mount.querySelector('[data-history-search]');input.focus();input.setSelectionRange(position,position);
+    };
     mount.onclick = async event => {
       const button = event.target.closest('button'); if (!button || saving) return;
       if(button.dataset.bucket){bucket=button.dataset.bucket;selected=null;draw();return;}
@@ -149,6 +154,25 @@
   }
   const money=v=>v==null?'—':Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'});
   const date=v=>v?new Date(v).toLocaleDateString('en-US',{timeZone:'America/Los_Angeles'}):'—';
+  function historyRows(values, query='') {
+    const words=query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const time=r=>{const n=Date.parse(r.history?.activityAt||'');return Number.isFinite(n)?n:-Infinity;};
+    return values.filter(r=>{
+      const text=[r.intakeId,r.quoteNumber,r.customer?.customerName,r.customer?.customerNumber,r.status,
+        ...(r.assemblies||[]).flatMap(a=>[a.assemblyNumber,a.revision]),
+        ...(r.history?.orders||[]).flatMap(o=>[o.customerPo,o.intakeId,o.status]),
+        ...(r.commercial?.orderLinks||[]).flatMap(o=>[o.newOrderIntakeId,o.salesOrderId,o.workOrderId])].join(' ').toLowerCase();
+      return words.every(word=>text.includes(word));
+    }).slice().sort((a,b)=>time(a)>time(b)?-1:time(a)<time(b)?1:
+      (a.intakeId||'').localeCompare(b.intakeId||'')||(a.quoteNumber||'').localeCompare(b.quoteNumber||''));
+  }
+  function linkedOrders(r){
+    const orders=r.history?.orders||[];
+    return orders.length?'<ul class="rfqs-linked-orders">'+orders.map(o=>'<li>'+(
+      typeof o.poUrl==='string'&&o.poUrl.startsWith('/api/sim/new-orders/')?
+        '<a href="'+esc(o.poUrl)+'" target="_blank" rel="noopener noreferrer">'+esc(o.customerPo||'Customer PO')+'</a>':esc(o.customerPo||'PO not recorded'))+
+      '<span>'+esc(o.intakeId)+' · Qty '+esc(o.quantity??'Not recorded')+'</span><strong>'+esc(o.status)+'</strong></li>').join('')+'</ul>':'—';
+  }
   function commercialDetail(r){
     const c=r.commercial, latest=r.approvals?.at(-1), readonly=window.DleOsCapabilities?.can?.('technical_review.disposition')!==true;
     const canSubmit=r.approvalCurrent&&latest&&latest.id!==c.approvalId&&['OPEN','SUBMITTED','EXPIRED'].includes(c.status);
@@ -156,16 +180,18 @@
   }
   function draw(){
     document.body.dataset.rfqsMobileWorkbench = "false";
-    const rows=items.filter(r=>r.bucket===bucket);
+    const inBucket=items.filter(r=>r.bucket===bucket);
+    const rows=bucket==='HISTORY'?historyRows(inBucket,historySearch):inBucket;
     const toggles='<div class="rfq-lifecycle-tabs" role="group" aria-label="RFQ lifecycle">'+['ACTIVE','SUBMITTED','HISTORY'].map(b=>'<button data-bucket="'+b+'" aria-pressed="'+(bucket===b)+'" class="'+(bucket===b?'active':'')+'">'+b+' <span>'+items.filter(r=>r.bucket===b).length+'</span></button>').join('')+'</div>';
-    const columns=['RFQ / Quote Number','Customer','Assembly / Rev','Qty','Quote Total','Submitted','Expires','Status'];
+    const columns=['RFQ / Quote Number','Customer','Assembly / Rev','Quoted qty','Quote Total',bucket==='HISTORY'?'History activity (Pacific)':'Submitted','Expires','Status','Customer PO / Order'];
     const table='<div class="rfqs-scroll"><table><thead><tr>'+columns.map(t=>'<th>'+t+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+[
       '<button data-rfq="'+esc(r.intakeId)+'">'+esc(r.intakeId)+'</button><br>'+esc(r.quoteNumber||'-'),
       esc(r.customer.customerName),r.assemblies.map(a=>esc(a.assemblyNumber)+' / '+esc(a.revision)).join('<br>'),
-      r.assemblies.map(a=>a.quantity).join('<br>'),money(r.quoteTotal),date(r.commercial.submittedAt),date(r.commercial.expiresAt),
-      esc(r.status)+(r.revisionNeeded?'<br><small>Revision needed</small>':'')
+      r.assemblies.map(a=>a.quantity).join('<br>'),money(r.quoteTotal),bucket==='HISTORY'?date(r.history?.activityAt)+'<small>'+esc(r.history?.activityLabel||'Date not recorded')+'</small>':date(r.commercial.submittedAt),date(r.commercial.expiresAt),
+      esc(r.status)+(r.revisionNeeded?'<br><small>Revision needed</small>':''),linkedOrders(r)
     ].map((value,index)=>'<td data-label="'+columns[index]+'">'+value+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
-    const detail=selected?'<button data-action="queue">&larr; RFQ queue</button><div class="rfqs-context"><span class="rfqs-eyebrow">Customer</span><h2>'+esc(selected.customer.customerName)+'</h2>'+context(selected)+'<dl class="rfqs-identity"><div><dt>Intake</dt><dd>'+esc(selected.intakeId)+'</dd></div><div><dt>Intake status</dt><dd>'+esc(selected.intakeStatus)+'</dd></div><div><dt>Created</dt><dd>'+date(selected.createdAt)+'</dd></div><div><dt>Scope</dt><dd>'+esc(selected.scope.replaceAll('_',' '))+'</dd></div></dl><div class="rfqs-context-actions"><button data-action="source">View Intake / Technical Review</button><button data-open="intake-documents">Intake Documents</button></div></div><div data-intake-documents-host></div>'+commercialDetail(selected)+(selected.workbenchEligible&&selected.inputs?'<p id="rfqsMobileScope" class="rfqs-mobile-scope"'+(mobileOverview()?'':' hidden')+'>Mobile View supports the RFQ overview and Labor. Use Desktop View for Materials and Quotation Final Review.</p>'+'<div class="rfqs-lanes">'+lane('Materials')+lane('Labor')+'</div><div class="rfqs-review-action"><button data-open="final-review"'+desktopOnly()+'>Quotation Final Review</button></div>':'<p>Materials and Labor become available after Technical Review qualification.</p>'):toggles+(rows.length?table:'<p>No '+bucket.toLowerCase()+' RFQs.</p>');
+    const historyTools=bucket==='HISTORY'?'<div class="rfqs-history-tools"><label>Search History<input type="search" data-history-search value="'+esc(historySearch)+'" placeholder="Quote, customer, assembly, PO or order"></label><p>Newest activity first · Pacific time. Awarded does not mean accepted or released.</p><small>'+rows.length+' of '+inBucket.length+' records</small></div>':'';
+    const detail=selected?'<button data-action="queue">&larr; RFQ queue</button><div class="rfqs-context"><span class="rfqs-eyebrow">Customer</span><h2>'+esc(selected.customer.customerName)+'</h2>'+context(selected)+'<dl class="rfqs-identity"><div><dt>Intake</dt><dd>'+esc(selected.intakeId)+'</dd></div><div><dt>Intake status</dt><dd>'+esc(selected.intakeStatus)+'</dd></div><div><dt>Created</dt><dd>'+date(selected.createdAt)+'</dd></div><div><dt>Scope</dt><dd>'+esc(selected.scope.replaceAll('_',' '))+'</dd></div></dl><div class="rfqs-context-actions"><button data-action="source">View Intake / Technical Review</button><button data-open="intake-documents">Intake Documents</button></div></div><div data-intake-documents-host></div>'+((selected.history?.orders||[]).length?'<section class="rfqs-history-links"><h2>Linked customer orders</h2>'+linkedOrders(selected)+'</section>':'')+commercialDetail(selected)+(selected.workbenchEligible&&selected.inputs?'<p id="rfqsMobileScope" class="rfqs-mobile-scope"'+(mobileOverview()?'':' hidden')+'>Mobile View supports the RFQ overview and Labor. Use Desktop View for Materials and Quotation Final Review.</p>'+'<div class="rfqs-lanes">'+lane('Materials')+lane('Labor')+'</div><div class="rfqs-review-action"><button data-open="final-review"'+desktopOnly()+'>Quotation Final Review</button></div>':'<p>Materials and Labor become available after Technical Review qualification.</p>'):toggles+historyTools+(rows.length?table:'<p>No '+bucket.toLowerCase()+' RFQs.</p>');
     mount.innerHTML='<section class="rfqs-workspace rfqs-overview"><header class="rfqs-overview-header"><h1>RFQs</h1><button data-action="refresh" '+(saving?'disabled':'')+'>Refresh</button></header>'+(error?'<p role="alert">'+esc(error)+'</p>':'')+detail+'</section>';
     if(selected){
       const root=mount.querySelector('.rfqs-overview'),context=root.querySelector('.rfqs-context'),commercial=root.querySelector('.rfq-commercial-detail');

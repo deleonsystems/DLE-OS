@@ -65,12 +65,63 @@
       esc(state.filters[name]) + '"' + (type === 'date' ? ' aria-label="' + label + ' (MM/DD/YYYY)"' : '') + '></label>';
   }
 
+  const cs = { rows: [], selected: null, draft: {}, docs: [] };
+  const csPath = id => '/customer/' + encodeURIComponent(id);
+  function csMarkup() {
+
+    if (state.busy) return '<p role="status">Loading customer receipts.</p>';
+    const item = cs.selected;
+    const header = '<h2>Customer-supplied material</h2><p>Receipt acknowledgment by customer, job and part. Record only material received; acceptance and staging do not complete the kit.</p>';
+    if (!item) return header + (state.error?'<p role="alert">'+esc(state.error)+'</p>':'') + cs.rows.filter(x => includes([x.demand.customer,x.demand.workOrderNumber,x.demand.partNumber].join(' '),state.filters.search)).map(x =>
+      '<section class="receiving-detail"><strong>' + esc(x.demand.customer) + ' · WO ' + esc(x.demand.workOrderNumber) + ' · ' + esc(x.demand.partNumber) + '</strong><p>' +
+      quantity(x.receivedQuantity) + ' received · ' + quantity(x.openQuantity) + ' awaiting receipt (' + esc(x.demand.uom) + ')</p><button type="button" data-cs-open="' + esc(x.demand.demandId) + '">Open receipt acknowledgment</button></section>').join('');
+    const d=item.demand, v=cs.draft, disabled=state.busy||!item.canReceive?' disabled':'';
+    const input=(key,label,type='text')=>'<label>'+esc(label)+'<input data-cs-field="'+key+'" type="'+type+'" value="'+esc(v[key]||'')+'"'+(type==='number'?' min="0" step="any"':'')+disabled+'></label>';
+    const select=(key,label,values)=>'<label>'+esc(label)+'<select data-cs-field="'+key+'"'+disabled+'>'+options(values,v[key]||'')+'</select></label>';
+    const policies=[['cocRequired','CoC'],['materialCertRequired','Material certificate'],['traceabilityRequired','Material traceability'],['inspectionRequired','Additional inspection']];
+    const checks=[['packingSlip','Receipt acknowledgment matches delivery'],['partIdentity','Part identity matches'],...checkLabels.slice(2),['coc','CoC verified'],['materialCert','Material certificate verified'],['traceability','Traceability verified'],['specialInspection','Additional inspection passed']];
+    return header + '<section class="receiving-detail receiving-po"><button type="button" data-cs-close>Back to customer material</button><h3>'+esc(d.customer)+' · WO '+esc(d.workOrderNumber)+' · '+esc(d.partNumber)+'</h3><p>'+quantity(item.openQuantity)+' '+esc(d.uom)+' awaiting receipt</p>'+
+      (state.error?'<p role="alert">'+esc(state.error)+'</p>':'')+
+      (state.message?'<p role="status">'+esc(state.message)+'</p>':'')+
+      (item.openQuantity>0?'<div class="receiving-form-grid">'+input('acknowledgmentNumber','Acknowledgment reference')+input('receivedDate','Received date','date')+input('countedQuantity','Received count','number')+input('acceptedQuantity','Accepted','number')+input('holdQuantity','Hold','number')+input('rejectedQuantity','Rejected','number')+input('observedPartNumber','Observed part number')+input('notes','Receipt notes')+'</div><p>Received = Accepted + Hold + Rejected.</p><details open><summary>Acceptance requirements and evidence</summary><p>Required evidence remains required. Review any unknown applicability explicitly.</p><div class="receiving-form-grid">'+policies.map(([key,label])=>select(key,label,[['','Review applicability'],['true','Required'],['false','Not required']])).join('')+input('requirementsReason','Applicability reason')+'</div><div class="receiving-checks">'+checks.map(([key,label])=>select('check_'+key,label,[['','Select result'],['PASS','Pass'],['FAIL','Fail'],['NOT_APPLICABLE','Not applicable']])).join('')+'</div><div class="receiving-form-grid">'+[['PACKING_SLIP','Acknowledgment attachment'],['COC','CoC'],['MATERIAL_CERT','Material certificate'],['TRACEABILITY','Traceability'],['INSPECTION','Inspection']].map(([kind,label])=>'<label>'+label+'<input type="file" data-cs-upload="'+kind+'" accept="application/pdf,image/*"'+disabled+'></label>').join('')+'</div>'+cs.docs.map(retainedDocumentLink).join(' ')+'</details><button type="button" data-cs-receive'+disabled+'>Record customer receipt acknowledgment</button>':'')+
+      '<h3>Received material</h3>'+item.materials.map(m=>'<section class="receiving-material"><strong>'+esc(m.receiptLineId)+'</strong><p>Received '+quantity(m.receivedQuantity)+' · Accepted '+quantity(m.acceptedQuantity)+' · Hold '+quantity(m.holdQuantity)+' · Rejected '+quantity(m.rejectedQuantity)+' · Applied '+quantity(m.appliedQuantity)+' · Available '+quantity(m.availableQuantity)+'</p><p>Acknowledgment '+esc(m.packingSlipNumber)+'</p>'+m.evidenceDocuments.map(retainedDocumentLink).join(' ')+(m.stagedAtUtc?'<p>Staged: '+esc(m.stagingLocation)+'</p>':m.acceptedQuantity>0?'<label>Staging location<input data-cs-field="stage_'+esc(m.receiptLineId)+'" value="'+esc(v['stage_'+m.receiptLineId]||'')+'"'+disabled+'></label><button type="button" data-cs-stage="'+esc(m.receiptLineId)+'"'+disabled+'>Record staging</button>':'')+'</section>').join('')+'</section>';
+  }
+  async function csLoad(id) {
+    state.busy=true;state.error='';draw();
+    try { cs.rows=await api('/customer');cs.selected=id?await api(csPath(id)):null;
+      const q=cs.selected?.materials[0]?.requirements||cs.selected?.demand.qualityRequirements||{};
+      cs.draft={holdQuantity:'0',rejectedQuantity:'0',...Object.fromEntries(['cocRequired','materialCertRequired','inspectionRequired'].map(k=>[k,typeof q[k]==='boolean'?String(q[k]):''])),traceabilityRequired:typeof q.poTraceabilityRequired==='boolean'?String(q.poTraceabilityRequired):''};
+      cs.docs=cs.selected?.documents||[];state.dirty=false;
+    }catch(e){state.error=e.message;}finally{state.busy=false;draw();}
+  }
+  async function csCommand(kind,id,file) {
+    if(!cs.selected?.canReceive||state.busy)return;
+    state.busy=true;state.error='';state.message='';
+    const item=cs.selected,d=item.demand,v=cs.draft;
+    try {
+      if(kind==='upload') {
+        const doc=await api(csPath(d.demandId)+'/documents?kind='+encodeURIComponent(id)+'&name='+encodeURIComponent(file.name),{method:'POST',headers:{'X-SIM-Document-Upload':'1','Content-Type':file.type||'application/octet-stream'},body:file});cs.docs.push(doc);
+      }else if(kind==='stage') {
+        const m=item.materials.find(m=>m.receiptLineId===id);
+        const updated=await post('/accepted-material/'+encodeURIComponent(id)+'/stage',{expectedVersion:m.version,location:v['stage_'+id]||''});
+        cs.selected.materials=item.materials.map(x=>x.receiptLineId===id?updated:x);state.message='Staged. Kitting must still apply the material.';
+      }else {
+        const body={expectedVersion:item.version,expectedDemandVersion:d.version,expectedSubmissionId:d.submissionId,expectedSourceFingerprint:d.sourceFingerprint,
+          acknowledgmentNumber:v.acknowledgmentNumber||'',receivedDate:v.receivedDate||'',observedPartNumber:v.observedPartNumber||'',notes:v.notes||'',requirementsReason:v.requirementsReason||'',
+          checks:Object.fromEntries(Object.entries(v).filter(([k])=>k.startsWith('check_')).map(([k,value])=>[k.slice(6),value])),evidenceDocumentIds:cs.docs.map(x=>x.documentId)};
+        for(const k of ['countedQuantity','acceptedQuantity','holdQuantity','rejectedQuantity'])body[k]=amount(v[k],k);
+        for(const k of ['cocRequired','materialCertRequired','traceabilityRequired','inspectionRequired']){if(!['true','false'].includes(v[k]))throw Error('Review every acceptance requirement.');body[k]=v[k]==='true';}
+        cs.selected=await post(csPath(d.demandId)+'/receive',body);cs.draft={...v,acknowledgmentNumber:'',countedQuantity:'',acceptedQuantity:'',holdQuantity:'0',rejectedQuantity:'0'};state.dirty=false;state.message='Receipt acknowledged. Accepted material must still be staged and allocated by Kitting.';
+      }
+    }catch(e){state.error=e.message;}finally{state.busy=false;draw();}
+  }
+
   function chrome() {
     return '<section class="receiving-workspace" aria-label="Receiving"><header class="receiving-header"><div><h1>Receiving</h1>' +
       '<p>Expected supply · Receiving · Accepted material</p></div><button type="button" data-receiving-action="refresh"' +
       (state.busy ? ' disabled' : '') + '>Refresh</button></header>' +
       '<p class="receiving-notice">Operational SIM Receiving. Accepted material remains separate from Kitting completion and VPRO accounting receipts.</p>' +
-      '<nav class="receiving-views" aria-label="Receiving views">' + [['expected', 'Expected / Awaiting Receipt'], ['received', 'Received / History']].map(([key, label]) => '<button type="button" data-receiving-view="' + key + '" aria-pressed="' + (state.view === key) + '">' + label + ' · ' + queueItems(state.items, key).length + '</button>').join('') + '</nav>' +
+      '<nav class="receiving-views" aria-label="Receiving views">' + [['expected', 'Expected / Awaiting Receipt'], ['received', 'Received / History'], ['customer','Customer-supplied']].map(([key, label]) => '<button type="button" data-receiving-view="' + key + '" aria-pressed="' + (state.view === key) + '">' + label + ' · ' + (key==='customer'?cs.rows.length:queueItems(state.items, key).length) + '</button>').join('') + '</nav>' +
       '<div class="receiving-toolbar">' + filterInput('search', 'Search material') +
       '<details class="receiving-filters"><summary>Filter by date, job or supplier</summary><div>' +
       filterInput('expectedFrom', 'Expected from', 'date') + filterInput('expectedTo', 'Expected through', 'date') +
@@ -91,6 +142,7 @@
   }
 
   function resultsMarkup() {
+    if (state.view==='customer') return csMarkup();
     if (state.error) return '<p role="alert" class="receiving-error">' + esc(state.error) + '</p>';
     if (state.busy) return '<p class="receiving-empty" role="status">Loading expected material…</p>';
     const model = buildViewModel(queueItems(state.items, state.view), state.filters, state.sort, state.direction);
@@ -198,11 +250,15 @@
     mount.onclick = event => {
       const button = event.target?.closest?.('button');
       if (!button || state.busy) return;
+      if (button.dataset.csOpen) { if(mayDiscard())void csLoad(button.dataset.csOpen);return; }
+      if (button.dataset.csClose !== undefined) { if(mayDiscard())void csLoad();return; }
+      if (button.dataset.csReceive !== undefined) { void csCommand('receive');return; }
+      if (button.dataset.csStage) { void csCommand('stage',button.dataset.csStage);return; }
       if (button.dataset.receivingOpenPo) { void openPo(button.dataset.receivingOpenPo); return; }
-      if (button.dataset.receivingView) { if (!mayDiscard()) return; state.view = button.dataset.receivingView; state.po = null; state.poId = null; state.draft = null; state.dirty = false; state.selectedId = null; draw(); return; }
+      if (button.dataset.receivingView) { if (!mayDiscard()) return; state.view = button.dataset.receivingView; state.po = null; state.poId = null; state.draft = null; state.dirty = false; state.selectedId = null; if(state.view==='customer'){void csLoad();return;} draw(); return; }
       if (button.dataset.receivingCommand) { void runCommand(button.dataset.receivingCommand, button.dataset.receivingMaterial); return; }
       const action = button.dataset.receivingAction, sort = button.dataset.receivingSort;
-      if (action === 'refresh') { if (!mayDiscard()) return; if (state.poId) void openPo(state.poId, true); else void refresh(); return; }
+      if (action === 'refresh') { if (!mayDiscard()) return; if(state.view==='customer'){void csLoad(cs.selected?.demand.demandId);return;} if (state.poId) void openPo(state.poId, true); else void refresh(); return; }
       if (action === 'clear-filters') { Object.keys(state.filters).forEach(key => state.filters[key] = ''); draw(); return; }
       if (action === 'close-detail') state.selectedId = null;
       if (button.dataset.receivingId) state.selectedId = button.dataset.receivingId;
@@ -210,12 +266,13 @@
       drawResults();
     };
     mount.oninput = event => {
+      if(event.target?.dataset?.csField){cs.draft[event.target.dataset.csField]=event.target.value;state.dirty=true;return;}
       if (updateDraft(event.target)) return;
       const key = event.target?.dataset?.receivingFilter;
       if (!Object.prototype.hasOwnProperty.call(state.filters, key)) return;
       state.filters[key] = event.target.value; drawResults();
     };
-    mount.onchange = event => { if (event.target?.dataset?.receivingUpload !== undefined) { void uploadDocument(event.target.files?.[0], event.target.dataset); return; } mount.oninput(event); };
+    mount.onchange = event => { if(event.target?.dataset?.csUpload){const f=event.target.files?.[0];if(f)void csCommand('upload',event.target.dataset.csUpload,f);return;} if (event.target?.dataset?.receivingUpload !== undefined) { void uploadDocument(event.target.files?.[0], event.target.dataset); return; } mount.oninput(event); };
     await refresh();
   }
 
@@ -322,7 +379,7 @@
   }
   function retainedDocumentLink(doc) {
     if (!doc?.documentId || !doc.purchaseId) return '';
-    const url = API + '/po/' + encodeURIComponent(doc.purchaseId) + '/documents/' + encodeURIComponent(doc.documentId);
+    const url = API + (doc.customerDemandId?csPath(doc.customerDemandId):'/po/' + encodeURIComponent(doc.purchaseId)) + '/documents/' + encodeURIComponent(doc.documentId);
     return '<a class="receiving-document-link" target="_blank" rel="noopener" href="' + esc(url) + '">View ' +
       esc(doc.document?.name || 'Receiving evidence') + '</a>';
   }

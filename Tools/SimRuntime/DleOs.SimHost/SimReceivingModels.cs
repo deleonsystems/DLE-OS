@@ -26,7 +26,7 @@ internal sealed record SimReceiveRequest([property: JsonRequired] long ExpectedV
     SimReceiveLineRequest[] Lines);
 internal sealed record SimStageMaterialRequest([property: JsonRequired] long ExpectedVersion, Guid RequestId, string Location);
 internal sealed record SimReceivingDocument(string DocumentId, Guid PurchaseId, string PoKey, string Kind,
-    SimRfqIntakeDocument Document, string Sha256, string AddedBy, string ActorId, DateTimeOffset AddedAtUtc);
+    SimRfqIntakeDocument Document, string Sha256, string AddedBy, string ActorId, DateTimeOffset AddedAtUtc, string? CustomerDemandId = null);
 internal sealed record SimReceivingDelivery(Guid DeliveryId, string PoKey, string Supplier, string PoNumber,
     string PackingSlipNumber, string PackingSlipDate, string Carrier, string TrackingNumber,
     string Notes, SimReceivingDocument? PackingSlipDocument, string ReceivedBy, string ActorId,
@@ -40,7 +40,7 @@ internal sealed record SimAcceptedMaterial(string ReceiptLineId, Guid PurchaseId
     string ActorId, DateTimeOffset ReceivedAtUtc, DateTimeOffset? AcceptedAtUtc, string StagingLocation,
     DateTimeOffset? StagedAtUtc, long Version, string? VproReceiptId,
     Dictionary<string,string> Checks, SimReceivingRequirements Requirements,
-    SimReceivingDocument[] EvidenceDocuments, string Provenance = "SIM_OPERATIONAL_ACCEPTANCE", decimal AppliedQuantity = 0);
+    SimReceivingDocument[] EvidenceDocuments, string Provenance = "SIM_OPERATIONAL_ACCEPTANCE", decimal AppliedQuantity = 0, SimCustomerReceiptSource? CustomerSource = null);
 internal sealed record SimReceivingStage(Guid StageId, string ReceiptLineId, string Location,
     string ActorId, string Actor, DateTimeOffset AtUtc, long ExpectedVersion, long ResultingVersion);
 internal sealed record SimReceivingEvent(Guid EventId, string EventType, string PoKey, string EntityId,

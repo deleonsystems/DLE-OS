@@ -3,15 +3,18 @@ using System.Text;
 using System.Text.Json;
 
 internal sealed record SimFinalAnswers(string Delivery, bool? Outsourced, bool? HighUnitCost, bool? CanMeetDelivery,
-    string RiskSeverity, string RiskNotes, string Class, bool? Itar, string NewContractRequirements, int? DeliveryValue = null, string? DeliveryUnit = null);
+    string RiskSeverity, string RiskNotes, string Class, bool? Itar, string NewContractRequirements, int? DeliveryValue = null, string? DeliveryUnit = null, SimQuickTurnInput? QuickTurn = null);
+internal sealed record SimQuickTurnInput(string Mode, decimal? Value);
+internal sealed record SimQuickTurnTotal(string Mode, decimal Value, decimal Basis, decimal Amount);
 internal sealed record SimCustomerSuppliedMaterial(int Index, string FindNo, string InternalPartNumber);
 internal sealed record SimFinalSummary(string IntakeId, string Customer, string Assembly, string Revision, int Quantity,
     string? Description, string? QuoteDue, decimal? MaterialUnitSale, decimal? LaborUnitSale, decimal? CombinedUnitPrice,
     decimal? Total, decimal NreTotal, SimLaborCharge[] NreLines, int? MaterialLongestLeadDays, string? ManufacturingLead,
     bool? CustomerSuppliedMaterial, bool TechnicalPackageAvailable, bool TechnicalComplete, bool MaterialsComplete,
-    bool LaborComplete, int? MaterialsVersion, int? LaborVersion, string? ManufacturingDefinitionId, string Currency = "USD", int? ManufacturingLeadDays = null, int? SuggestedLeadDays = null, SimCustomerSuppliedMaterial[]? CustomerSuppliedItems = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialCommercialTotals? MaterialSupplemental = null)
+    bool LaborComplete, int? MaterialsVersion, int? LaborVersion, string? ManufacturingDefinitionId, string Currency = "USD", int? ManufacturingLeadDays = null, int? SuggestedLeadDays = null, SimCustomerSuppliedMaterial[]? CustomerSuppliedItems = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimMaterialCommercialTotals? MaterialSupplemental = null, SimQuickTurnTotal? QuickTurn = null)
 {
-    public decimal? QuoteTotal => Total + NreTotal + (MaterialSupplemental?.SeparateCharges ?? 0) + (MaterialSupplemental?.MaterialNre ?? 0);
+    public decimal? PreRushTotal => Total + NreTotal + (MaterialSupplemental?.SeparateCharges ?? 0) + (MaterialSupplemental?.MaterialNre ?? 0);
+    public decimal? QuoteTotal => PreRushTotal + (QuickTurn?.Amount ?? 0);
 }
 internal sealed record SimFinalApproval(string Id, int Version, string SourceToken, SimFinalSummary Summary,
     SimFinalAnswers Answers, string ApprovedBy, string ApprovedById, DateTimeOffset ApprovedAt, string ContractVersion = "QUOTATION_FINAL_REVIEW_V1");
@@ -20,6 +23,19 @@ internal sealed record SimFinalApproveRequest(string SourceToken, int ExpectedAp
 
 internal sealed partial class SimRfqIntakeStore
 {
+    internal static SimFinalSummary WithQuickTurn(SimFinalSummary summary, SimFinalAnswers answers)
+    {
+        var input = answers.QuickTurn;
+        if (input is null) return summary with {QuickTurn=null};
+        if (input.Mode is not ("LABOR_PERCENT" or "ORDER_PERCENT" or "FLAT") || input.Value is null or < 0 ||
+            input.Value > (input.Mode=="FLAT" ? 1000000000m : 10000m) ||
+            decimal.Round(input.Value.Value, input.Mode=="FLAT" ? 2 : 6) != input.Value.Value)
+            throw SimRfqIntakeProblem.BadRequest("QUICK_TURN", "Enter a nonnegative quick-turn percentage (up to six decimals) or flat amount (cents).");
+        var basis = input.Mode=="LABOR_PERCENT" ? summary.LaborUnitSale * summary.Quantity : summary.PreRushTotal;
+        if (basis is null) throw SimRfqIntakeProblem.Conflict("QUICK_TURN_BASIS", "Complete pricing before adding a quick-turn charge.");
+        var amount = input.Mode=="FLAT" ? input.Value.Value : decimal.Round(basis.Value * input.Value.Value / 100m, 2, MidpointRounding.AwayFromZero);
+        return summary with {QuickTurn=new(input.Mode,input.Value.Value,basis.Value,amount)};
+    }
     internal static string LeadDisplay(int days) => days == 0 ? "Stock" : days < 7 ? days+" "+(days==1?"Day":"Days") : ((days+6)/7)+" "+((days+6)/7==1?"Week":"Weeks");
     private static string FinalSourceToken(SimRfqIntakeRecord record, SimRfqLanes lanes) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
         JsonSerializer.Serialize(new {record.IntakeId, record.Status, record.Customer, record.Assemblies, record.TechnicalReview,
@@ -30,10 +46,10 @@ internal sealed partial class SimRfqIntakeStore
         var m = lanes.MaterialsQuote; var l = lanes.LaborQuote;
         var ms = m?.Versions.LastOrDefault(); var ls = l?.Versions.LastOrDefault();
         var inputs = record.TechnicalReview?.Workflow?.Outputs;
+        bool Compatible(int v, string id) => inputs is not null && CompatibleCustomerBoms(record).Any(b => b.Version == v && b.CandidateId == id);
         var technical = RfqEligible(record);
         var package = inputs?.Manufacturing.Package.Documents.Any(d => d.DocumentId == inputs.Manufacturing.GoverningDocumentId) == true;
-        var materials = lanes.Materials.Status == "COMPLETE" && ms is not null && m!.CandidateId == inputs?.Materials.Candidate.Id &&
-            m.BomVersion == inputs?.Materials.Version && ms.CandidateId == m.CandidateId && ms.BomVersion == m.BomVersion && ms.RfqQuantity == qty;
+        var materials = lanes.Materials.Status == "COMPLETE" && ms is not null && Compatible(m!.BomVersion, m.CandidateId) && ms.CandidateId == m.CandidateId && ms.BomVersion == m.BomVersion && ms.RfqQuantity == qty;
         var labor = lanes.Labor.Status == "COMPLETE" && ls is not null && l!.DefinitionId == inputs?.Manufacturing.Id &&
             ls.DefinitionId == l.DefinitionId && ls.Quantity == qty && l.Quantity == qty;
         var materialPrice = materials ? ms!.MaterialUnitSalePrice : null;
@@ -42,10 +58,10 @@ internal sealed partial class SimRfqIntakeStore
         var nre = labor ? ls!.Charges?.Where(c => c.Kind == "NRE").ToArray() ?? [] : [];
         int? materialDays = materials ? ms!.Rows.Where(r => r.Required && !r.Quote.CustomerSupplied).Select(r => MaterialLeadDays(r.Quote)).DefaultIfEmpty().Max() : null;
         int? manufacturingDays = labor && ls!.ManufacturingLead is {Value: not null} lead ? lead.Value * (lead.Unit=="WEEKS"?7:1) : null;
-        var materialIdentityCurrent = m is not null && m.CandidateId == inputs?.Materials.Candidate.Id && m.BomVersion == inputs?.Materials.Version;
+        var materialIdentityCurrent = m is not null && Compatible(m.BomVersion, m.CandidateId);
         var supplied = materialIdentityCurrent ? m!.Rows.Where(r => r.CustomerSupplied).Select(r => {
             var source = inputs!.Materials.Candidate.Rows.Single(s => s.Index == r.Index);
-            return new SimCustomerSuppliedMaterial(r.Index, source.Values.GetValueOrDefault("lineNumber") ?? "Not provided", source.Values.GetValueOrDefault("partNumber") ?? "Not provided");
+            return new SimCustomerSuppliedMaterial(r.Index, source.Values.GetValueOrDefault("lineNumber") ?? "Not provided", CustomerNumber(source) is { Length: > 0 } customerNumber ? customerNumber : "Not provided");
         }).ToArray() : null;
         var summary = new SimFinalSummary(record.IntakeId, record.Customer.CustomerName, a?.AssemblyNumber ?? "", a?.Revision ?? "", qty,
             record.TechnicalReview?.AssemblyType?.Replace('_',' '), null, materialPrice, laborPrice, combined, combined * qty,
@@ -62,7 +78,8 @@ internal sealed partial class SimRfqIntakeStore
         if (materialPrice is null or < 0) blockers.Add("Material Unit Sale is unavailable; complete Materials pricing.");
         if (laborPrice is null or < 0) blockers.Add("Labor Unit Sale is unavailable; complete Labor pricing.");
         var token = FinalSourceToken(record, lanes); var approvals = lanes.FinalReviews ?? [];
-        return new(summary, token, blockers.ToArray(), approvals, approvals.LastOrDefault()?.SourceToken == token && blockers.Count == 0);
+        var current=approvals.LastOrDefault()?.SourceToken == token && blockers.Count == 0;
+        return new(current ? approvals.Last().Summary : summary, token, blockers.ToArray(), approvals, current);
     }
     private static SimFinalAnswers ValidateFinalAnswers(SimFinalAnswers? a)
     {
@@ -97,7 +114,7 @@ internal sealed partial class SimRfqIntakeStore
             if(view.Blockers.Length>0)throw SimRfqIntakeProblem.Conflict("FINAL_BLOCKED",string.Join(" ",view.Blockers));
             if(view.ApprovalCurrent)throw SimRfqIntakeProblem.Conflict("FINAL_APPROVED","This source version is already approved.");
             var answers=ValidateFinalAnswers(request.Answers);
-            var approval=new SimFinalApproval(Guid.NewGuid().ToString("D"),view.Approvals.Length+1,view.SourceToken,view.Summary,answers,persona.DisplayName,persona.Id,DateTimeOffset.UtcNow);
+            var approval=new SimFinalApproval(Guid.NewGuid().ToString("D"),view.Approvals.Length+1,view.SourceToken,WithQuickTurn(view.Summary,answers),answers,persona.DisplayName,persona.Id,DateTimeOffset.UtcNow);
             lanes[id]=current with {FinalReviews=view.Approvals.Append(approval).ToArray()};
             var temporary=RfqLanesPath+".write-"+Guid.NewGuid().ToString("N");
             Directory.CreateDirectory(Path.GetDirectoryName(RfqLanesPath)!);

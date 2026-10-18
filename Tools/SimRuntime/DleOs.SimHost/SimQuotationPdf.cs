@@ -22,6 +22,7 @@ internal static class SimQuotationPdf
         return new {quoteNumber=reference,quoteDate=date.ToString("yyyy-MM-dd"),preview,
             customer=s.Customer,assembly=s.Assembly,revision=s.Revision,quantity=s.Quantity,description=s.Description,
             unitPrice=s.CombinedUnitPrice,productTotal=s.Total,nreTotal=s.NreTotal,grandTotal=s.QuoteTotal,
+            quickTurn=s.QuickTurn is null ? null : new {label="Quick-Turn Charge",amount=s.QuickTurn.Amount},
             materialCharges=(s.MaterialSupplemental?.Charges ?? []).Where(c=>c.Treatment!="BLEND").Select(c=>new{label=c.Description,amount=c.SellAmount,treatment=c.Treatment}),
             materialSeparateTotal=s.MaterialSupplemental?.SeparateCharges ?? 0,materialNreTotal=s.MaterialSupplemental?.MaterialNre ?? 0,
             delivery=answers.Delivery,nreLines=s.NreLines.Select(c=>new{label=c.Label,amount=c.Amount}),
@@ -69,7 +70,7 @@ internal sealed partial class SimRfqIntakeStore
         if(view.Blockers.Length>0)throw SimRfqIntakeProblem.Conflict("FINAL_BLOCKED",string.Join(" ",view.Blockers));
         var approved=view.ApprovalCurrent?view.Approvals.Last():null;
         var answers=approved?.Answers??ValidateFinalAnswers(request.Answers);
-        var projection=SimQuotationPdf.CustomerProjection(approved?.Summary??view.Summary,answers,
+        var projection=SimQuotationPdf.CustomerProjection(approved?.Summary??WithQuickTurn(view.Summary,answers),answers,
             "PREVIEW / "+id,approved?.ApprovedAt??DateTimeOffset.UtcNow,true);
         return await SimQuotationPdf.Render(projection,pages);
     }

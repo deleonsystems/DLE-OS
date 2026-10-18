@@ -6,7 +6,7 @@ internal sealed record SimReviewSection(string Title, string EditStep, SimReview
 internal sealed record SimReviewFile(string Name, string Type, string? Url);
 internal sealed record SimContractReviewProjection(string Title, string Status, string IntakeId, int PackageRevision,
     string Notice, SimReviewSection[] Sections, SimReviewFile[] PoDocuments, SimReviewFile[] TechnicalDocuments,
-    string[] Attention, bool Acknowledged, string Reviewer, string ReviewedDate);
+    string[] Attention, bool Acknowledged, string Reviewer, string ReviewedDate, SimCustomerSupplyProjection? CustomerSupply = null);
 
 internal sealed partial class SimRfqIntakeStore
 {
@@ -37,7 +37,7 @@ internal sealed partial class SimRfqIntakeStore
                 var attached = record?.OrderIntake?.TechnicalSource?.Documents.Any(e => e.Document.DocumentId == doc.DocumentId) == true;
                 technical.Add(new(doc.Name, "Incoming Technical Document", attached ? $"/api/sim/new-orders/{Uri.EscapeDataString(record!.IntakeId)}/documents/{Uri.EscapeDataString(doc.DocumentId!)}" : null));
             }
-            return BuildContractReview(request, preview, po.ToArray(), technical.ToArray(), persona, DateTimeOffset.Now);
+            return BuildContractReview(request, preview with {TechnicalBaseline=baseline}, po.ToArray(), technical.ToArray(), persona, DateTimeOffset.Now);
         } finally { gate.Release(); }
     }
 
@@ -96,8 +96,11 @@ internal sealed partial class SimRfqIntakeStore
         var notes = new List<SimReviewField>();
         foreach(var f in new[]{new SimReviewField("Other Customer Requirements",q?.OtherCustomerRequirements ?? q?.SpecialRequirements ?? ""),new("Legacy PO flowdowns",q?.PoFlowdowns ?? ""),new("Legacy additional quality requirements",q?.AdditionalContractQualityRequirements ?? ""),new("Legacy special requirements",q?.OtherCustomerRequirements is not null ? q?.SpecialRequirements ?? "" : "")}) if(!string.IsNullOrWhiteSpace(f.Value)) notes.Add(f);
         if(notes.Count > 0) Section("Other Customer Requirements", "additional-requirements",notes.ToArray());
+        var supply=SimCustomerSupply.Project(preview.TechnicalBaseline,r.Facts,r.PoNumber.Trim(),r.Documents,r.CustomerSupplyReview);
+        Section(SimCustomerSupply.Label,"review",supply.Lines.Where(l=>l.QuotedCustomerSupplied || supply.PoRowIds.Contains(l.SourceRowId)).Select(l=>new SimReviewField("Find "+l.FindNumber,SimCustomerSupply.Description(l))).Append(new SimReviewField("Responsibility review",supply.Acknowledged?"Acknowledged against current sources":"Not acknowledged / requires review")).Append(new SimReviewField("Review note",supply.Note)).ToArray());
+        attention.AddRange(supply.Issues);
         var acknowledged = q?.RequirementsIdentifiedOnAttachedDocument == true;
         return new("NEW ORDER FINAL REVIEW - DRAFT", "Draft / Not Yet Submitted for Contract Review",r.IntakeId ?? "Unsaved intake",r.ExpectedRevision,
-            "Preview of current form values. Not contract acceptance or authorization for Order Entry.",sections.ToArray(),po,docs,attention.ToArray(),acknowledged,acknowledged ? persona.DisplayName : "Not acknowledged",acknowledged ? now.ToString("MM/dd/yyyy",CultureInfo.InvariantCulture) + " (preview; not recorded)" : "Not recorded");
+            "Preview of current form values. Not contract acceptance or authorization for Order Entry.",sections.ToArray(),po,docs,attention.ToArray(),acknowledged,acknowledged ? persona.DisplayName : "Not acknowledged",acknowledged ? now.ToString("MM/dd/yyyy",CultureInfo.InvariantCulture) + " (preview; not recorded)" : "Not recorded",supply);
     }
 }

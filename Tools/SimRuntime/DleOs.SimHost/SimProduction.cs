@@ -70,6 +70,13 @@ internal sealed partial class SimProductionService(SimStateStore state,SimOperat
             sourceOperations=labor.Operations.Select(o=>new{o.Id,o.ParentId}).ToArray(),technicalDocuments=refs},Json);
         // Fingerprint includes only immutable accepted/frozen source, never mutable quote worksheets.
         var token=Hash(new{source,labor,release.Draft});
+        if(release.QualityRelease is {} qr){
+            var node=JsonNode.Parse(source.GetRawText())!.AsObject();
+            node["qualityRelease"]=JsonSerializer.SerializeToNode(new{qr.Id,qr.ReviewToken,qr.InstructionVersion,qr.BaselineToken,qr.ContentHash,qr.ActorId,qr.Actor,qr.At},Json);
+            source=JsonSerializer.SerializeToElement(node,Json);
+            labor=labor with{Operations=qr.Operations};
+            token=Hash(new{source,labor,release.Draft});
+        }
         var parents=labor.Operations.Where(o=>o.ParentId is null).ToArray();var projected=new List<SimTravelerOperation>();
         foreach(var op in labor.Operations){
             var parentIndex=Array.FindIndex(parents,p=>p.Id==(op.ParentId??op.Id));
@@ -122,6 +129,7 @@ internal sealed partial class SimProductionService(SimStateStore state,SimOperat
                 references=Field(g,"references"),requiredEach=Number(g,"requiredEach"),requiredQuantity=Number(g,"requiredQuantity"),uom=Text(g,"unitOfMeasure"),
                 eligibleParts=Field(g,"eligibleParts"),dnp=Text(g,"classification")=="DNP",method=Text(entry,"method"),result=Text(entry,"result"),
                 recordedKittedQuantity=counted,originalKittedQuantity=counted is null?null:counted-appliedQty,acceptedMaterialApplied=appliedQty,
+                customerInstalledQuantity=Number(entry,"customerInstalledQuantity")??0,customerInstallInstruction=(Number(entry,"customerInstalledQuantity")??0)>0?$"Customer installs {Number(entry,"customerInstalledQuantity")} {Text(g,"unitOfMeasure")}; excluded from DLE installation and purchasing shortage.":"",
                 shortage=Number(entry,"shortageQuantity"),allocations,
                 acceptedMaterials=applied.Select(x=>new{materialId=Text(x,"receiptLineId"),purchaseOrderNumber=Text(Field(x,"receipt"),"poNumber"),
                     purchaseOrderLine=Text(Field(x,"receipt"),"poLine"),quantity=Number(x,"quantity"),applicationId=Text(x,"eventId")}).ToArray()};

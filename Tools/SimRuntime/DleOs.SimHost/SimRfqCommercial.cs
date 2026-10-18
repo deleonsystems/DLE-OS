@@ -12,7 +12,7 @@ internal sealed record SimRfqCommercialRequest(string RequestId,int ExpectedRevi
 internal sealed record SimRfqListItem(string IntakeId,SimRfqIntakeCustomer Customer,SimRfqIntakeAssembly[] Assemblies,
     string IntakeStatus,DateTimeOffset CreatedAt,string Scope,bool WorkbenchEligible,string WorkStatus,string Bucket,string Status,
     string? QuoteNumber,decimal? QuoteTotal,DateTimeOffset? ApprovedAt,bool RevisionNeeded,string MaterialsStatus,string LaborStatus,
-    SimRfqCommercial Commercial);
+    SimRfqCommercial Commercial, SimRfqHistory? History = null);
 
 internal static class SimRfqCommercialClock
 {
@@ -58,8 +58,9 @@ internal sealed partial class SimRfqIntakeStore
         await gate.WaitAsync();
         try{
             var lanes=await ReadRfqLanes();var now=clock??DateTimeOffset.UtcNow;
-            return (await ReadDatasetAsync()).Records.Where(r=>r.Environment=="SIM"&&r.IntakeType=="NEW_QUOTE_REQUEST")
-                .Select(r=>CommercialView(r,lanes.GetValueOrDefault(r.IntakeId)??new(new(),new()),now)).ToArray();
+            var records=(await ReadDatasetAsync()).Records;
+            return records.Where(r=>r.Environment=="SIM"&&r.IntakeType=="NEW_QUOTE_REQUEST")
+                .Select(r=>SimRfqHistoryProjection.Apply(CommercialView(r,lanes.GetValueOrDefault(r.IntakeId)??new(new(),new()),now),records)).ToArray();
         }finally{gate.Release();}
     }
     internal async Task<SimRfqListItem> TransitionRfqCommercial(string id,SimRfqCommercialRequest request,SimPersona persona,DateTimeOffset? clock=null)

@@ -632,3 +632,18 @@
 .final-bom-note-hint { font-size: 12px; color: #b8c5d8; }
 .final-bom-plain textarea { min-height: 52px; }
 .final-bom-reference { overflow-wrap: anywhere; font-size: 13px; }
+#customerIdentityAmendment{min-width:0;color:#e5edf6;font-family:system-ui,sans-serif}
+#customerIdentityAmendment table{color:inherit}
+#customerIdentityAmendment a{color:#93c5fd}
+#customerIdentityAmendment input:not([type=checkbox]),#customerIdentityAmendment select{color:#e5edf6;background:#152338;border:1px solid #8799a8;border-radius:4px}
+#customerIdentityAmendment fieldset{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:12px 0;padding:12px;border:1px solid #8799a8;border-radius:6px;min-width:0}
+#customerIdentityAmendment label{display:block;min-width:0}
+#customerIdentityAmendment input:not([type=checkbox]),#customerIdentityAmendment select{box-sizing:border-box;display:block;width:100%;min-width:0;padding:8px;margin-top:5px}
+#customerIdentityAmendment table{border-collapse:collapse;width:100%}
+#customerIdentityAmendment th,#customerIdentityAmendment td{text-align:left;padding:9px;border-bottom:1px solid #8799a8;overflow-wrap:anywhere}
+#customerIdentityAmendment button{padding:10px 14px;margin:6px 0;min-height:44px}
+#customerIdentityAmendment [role=status]{white-space:normal;overflow-wrap:anywhere}
+@media(max-width:720px){#customerIdentityAmendment fieldset{grid-template-columns:1fr}}
+@media(max-width:720px){#customerIdentityAmendment table,#customerIdentityAmendment tbody,#customerIdentityAmendment tr{display:block}#customerIdentityAmendment thead{display:none}#customerIdentityAmendment tr{border:1px solid #8799a8;border-radius:6px;margin:10px 0;padding:8px}#customerIdentityAmendment td{display:grid;grid-template-columns:95px minmax(0,1fr);gap:10px;border:0;padding:5px}#customerIdentityAmendment td::before{content:attr(data-label);font-weight:600;color:#b8c8da}}
+
+#customerIdentityAmendment .customer-identity-success{border-left:4px solid #4ade80;padding:4px 16px 16px;background:#14532d30}#customerIdentityAmendment .customer-identity-updated{line-height:1.9}#customerIdentityAmendment .customer-identity-editor{margin:24px 0}#customerIdentityAmendment .customer-identity-row{margin:10px 0;padding:10px;border:1px solid #52647a;border-radius:6px}#customerIdentityAmendment summary{cursor:pointer;padding:8px 0}#customerIdentityAmendment .customer-identity-row p{overflow-wrap:anywhere}

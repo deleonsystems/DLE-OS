@@ -13,7 +13,8 @@ internal sealed partial class SimRfqIntakeStore
     private static string ProcessHash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     internal static string BomProcessScope(SimRfqWorkspace rfq) => ProcessHash(JsonSerializer.Serialize(new {
         rfq.Customer.CustomerId, rfq.Assemblies[0].AssemblyNumber, rfq.Assemblies[0].Revision,
-        rfq.Inputs.Materials.Version, rfq.Inputs.Materials.Candidate.Id, rfq.Inputs.Materials.Candidate.GoverningSha256
+        Version = rfq.CompatibleCustomerBoms?.LastOrDefault()?.Version ?? rfq.Inputs.Materials.Version,
+        Id = rfq.CompatibleCustomerBoms?.LastOrDefault()?.CandidateId ?? rfq.Inputs.Materials.Candidate.Id, rfq.Inputs.Materials.Candidate.GoverningSha256
     }));
     internal static string BomProcessLineKey(SimCandidateRow row) => ProcessHash(JsonSerializer.Serialize(new {
         row.RowId, Values = row.Values.OrderBy(p=>p.Key,StringComparer.Ordinal).Select(p=>new[]{p.Key,p.Value}).ToArray()

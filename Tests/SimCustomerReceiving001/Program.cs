@@ -1,0 +1,86 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+AppDomain.CurrentDomain.UnhandledException += (_,e)=>{Console.Error.WriteLine(e.ExceptionObject);Environment.Exit(1);};
+var repo=Path.GetFullPath(args[0]);var backup=Path.GetFullPath(args[1]);var root=Path.GetFullPath(args[2]);var fixtures=Path.GetFullPath(args[3]);
+if(Directory.Exists(root))throw new Exception("Use a fresh fixture");
+foreach(var folder in new[]{"data","state","intake-documents","documents"})foreach(var path in Directory.EnumerateFiles(Path.Combine(backup,folder),"*",SearchOption.AllDirectories)){
+ var dest=Path.Combine(root,Path.GetRelativePath(backup,path));Directory.CreateDirectory(Path.GetDirectoryName(dest)!);File.Copy(path,dest);
+}
+var state=new SimStateStore(root);await state.InitializeAsync();var runtime=state.Current.Metadata!;
+var ops=new SimOperationsDataStore(repo,root);await ops.InitializeAsync(runtime);
+var actor=new SimPersona("administrator","administrator","SIM Administrator","ACTIVE",[],[],true,"isolated");
+var service=new SimReceivingService(state,ops,new(root));var buyer=new SimPurchasingService(state,ops);
+var json=SimPurchasingService.Json;int n=0;
+void Check(bool ok,string label){if(!ok)throw new Exception(label);n++;Console.WriteLine("PASS "+label);}
+async Task Reject(Func<Task> run,string code){try{await run();}catch(SimPurchasingProblem e){Check(e.Code==code,"reject "+code);return;}throw new Exception("Not rejected: "+code);}
+var original=(await ops.ReadSimKittingCase("0999997",runtime))!;var before=JsonSerializer.Serialize(original,json);
+var buying=JsonSerializer.Serialize(await buyer.Read(actor),json);var history=await service.History(actor);
+var d=(await service.CustomerReceipts(actor)).Single(x=>x.Demand.WorkOrderNumber=="0999997"&&x.Demand.FindNumber=="1").Demand;
+var checks=new[]{"packingSlip","partIdentity","uom","physicalCount","condition","damage","inspection","coc","materialCert","traceability","specialInspection"}.ToDictionary(x=>x,x=>"PASS");
+SimCustomerReceiveRequest Req()=>new(0,Guid.NewGuid(),d.Version,d.SubmissionId,d.SourceFingerprint,"SIM-CS-FIXTURE-1","2026-10-18",10,8,1,1,d.PartNumber,"SIM ONLY: synthetic receipt, inspection, held/rejected units; no real material.",true,true,true,true,"SIM ONLY explicit fixture evidence",checks,[]);
+await Reject(()=>service.ReceiveCustomer(d.DemandId,Req() with{ExpectedSourceFingerprint="wrong"},actor),"customer_source_changed");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,Req() with{ExpectedSubmissionId=Guid.NewGuid()},actor),"customer_source_changed");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,Req() with{ExpectedDemandVersion=d.Version+1},actor),"customer_source_changed");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,Req() with{MaterialCertRequired=false},actor),"required_evidence_preserved");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,Req(),actor),"required_evidence");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,Req() with{AcceptedQuantity=10},actor),"quantity_reconciliation");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,Req() with{ObservedPartNumber="wrong"},actor),"part_mismatch");
+var resistor=(await buyer.Read(actor)).Demands.Single(x=>x.WorkOrderNumber=="0999997"&&x.FindNumber=="2");
+await Reject(()=>service.ReceiveCustomer(resistor.DemandId,Req(),actor),"customer_source_changed");
+var docs=new List<string>();foreach(var kind in new[]{"COC","MATERIAL_CERT","TRACEABILITY","INSPECTION"}){
+ await using var input=File.OpenRead(Path.Combine(fixtures,kind+".pdf"));
+ var doc=await service.UploadCustomer(d.DemandId,kind,"SIM-ONLY-"+kind+".pdf",input,actor);docs.Add(doc.DocumentId);
+ Check(doc.PurchaseId==Guid.Empty&&doc.CustomerDemandId==d.DemandId,"customer evidence has no purchase parent");
+ Check((await service.OpenCustomerDocument(d.DemandId,doc.DocumentId,actor)).Bytes.Length>100,"retained customer evidence readable");
+}
+var req=Req() with{EvidenceDocumentIds=docs.ToArray()};var result=await service.ReceiveCustomer(d.DemandId,req,actor);var m=result.Materials.Single();
+Check(result.ReceivedQuantity==10&&result.OpenQuantity==15&&m.AcceptedQuantity==8&&m.HoldQuantity==1&&m.RejectedQuantity==1&&m.AvailableQuantity==0,"partial receipt distinguishes acceptance, hold, rejection, availability");
+Check(m.PurchaseId==Guid.Empty&&m.ExpectedReceiptId==Guid.Empty&&m.PoNumber==""&&m.Supplier==""&&m.CustomerSource!.CustomerNumber==d.CustomerNumber,"customer receipt has source and no procurement");
+Check(m.Coverage.Single().WorkOrderNumber==d.WorkOrderNumber&&m.CustomerSource!.SubmissionId==d.SubmissionId,"exact job and immutable shortage origin");
+Check((await service.ReceiveCustomer(d.DemandId,req,actor)).Materials.Single().ReceiptLineId==m.ReceiptLineId,"idempotent acknowledgment replay");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,req with{Notes="changed"},actor),"request_reused");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,req with{RequestId=Guid.NewGuid()},actor),"receiving_version_changed");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,req with{RequestId=Guid.NewGuid(),ExpectedVersion=1},actor),"acknowledgment_already_received");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,req with{RequestId=Guid.NewGuid(),ExpectedVersion=1,AcknowledgmentNumber="SIM2",CountedQuantity=16,AcceptedQuantity=14},actor),"over_receipt");
+var transformer=(await service.CustomerReceipts(actor)).Single(x=>x.Demand.WorkOrderNumber=="0999997"&&x.Demand.FindNumber=="6").Demand;
+await Reject(()=>service.ReceiveCustomer(transformer.DemandId,req with{RequestId=Guid.NewGuid(),ExpectedVersion=0,ExpectedDemandVersion=transformer.Version,ExpectedSubmissionId=transformer.SubmissionId,ExpectedSourceFingerprint=transformer.SourceFingerprint,ObservedPartNumber=transformer.PartNumber},actor),"receiving_document");
+var stage=new SimStageMaterialRequest(1,Guid.NewGuid(),"SIM ONLY / FIXTURE STAGING");m=await service.Stage(m.ReceiptLineId,stage,actor);
+Check(m.AvailableQuantity==8&&m.AppliedQuantity==0,"staging exposes accepted only");
+Check((await service.Stage(m.ReceiptLineId,stage,actor)).Version==2,"idempotent customer staging");
+Check(JsonSerializer.Serialize(await ops.ReadSimKittingCase("0999997",runtime),json)==before,"kit unchanged by customer receiving and staging");
+Check(JsonSerializer.Serialize(await buyer.Read(actor),json)==buying,"customer receiving never creates procurement or alters demand");
+Check((await service.History(actor)).Materials.Count(x=>x.ReceiptLineId=="SIM-AM-0000002")==1,"no duplicate resistor receipt");
+var intake=new SimRfqIntakeStore(root);var kit=new SimKittingCases(state,ops,new(intake,ops));
+var context=JsonSerializer.SerializeToNode(await kit.MaterialContext("0999997",actor),json)!;
+Check(context["requirements"]!.AsArray().Single(x=>x!["demandId"]!.ToString()==d.DemandId)!["materials"]!.AsArray().Single()!["availableQuantity"]!.GetValue<decimal>()==8,"current kit context includes customer accepted receipt");
+File.WriteAllText(Path.Combine(root,"context-before.json"),context.ToJsonString());
+await kit.Resume("0999997",new(original.WorkingVersion),actor);var current=(await ops.ReadSimKittingCase("0999997",runtime))!;
+var group=current.Draft.GetProperty("groups").EnumerateArray().Single(x=>x.GetProperty("sourceRowId").GetString()==d.SourceRowId).GetProperty("groupId").GetString()!;
+await kit.ApplyMaterial("0999997",new(current.WorkingVersion,current.EditingSessionId,Guid.NewGuid(),current.CaseId,d.SubmissionId,d.SourceRowId,group,d.DemandId,m.ReceiptLineId,m.Version,3,d.Uom),actor);
+var afterApply=(await ops.ReadSimKittingCase("0999997",runtime))!;m=await service.Material(m.ReceiptLineId,actor);
+Check(afterApply.State=="KIT_SHORT"&&m.AvailableQuantity==5&&m.AppliedQuantity==3,"fixture-only application decrements accepted balance without Kit Complete");
+var allocation=afterApply.Draft.GetProperty("groups").EnumerateArray().Single(x=>x.GetProperty("groupId").GetString()==group).GetProperty("entry").GetProperty("allocations").EnumerateArray().Last();
+Check(allocation.GetProperty("purchaseOrder").GetString()=="C/S"&&allocation.GetProperty("sourceType").GetString()=="CUSTOMER_SUPPLIED","application preserves existing C/S marker without fabricated PO");
+File.WriteAllText(Path.Combine(root,"context-after.json"),JsonSerializer.Serialize(await kit.MaterialContext("0999997",actor),json));
+// Purchased receipt regression, in this disposable fixture only.
+var switched=await buyer.SetBalanceSource(transformer.DemandId,new(transformer.Version,Guid.NewGuid(),"PURCHASED"),actor);
+var currentDemand=(await buyer.Read(actor)).Demands.Single(x=>x.DemandId==transformer.DemandId);
+var plan=await buyer.SavePlan(null,new(0,Guid.NewGuid(),"SIM-TEST-SUPPLIER",currentDemand.PartNumber,50,currentDemand.Uom,0,"USD","2026-10-18","2026-10-19","2026-10-20","","",[new(currentDemand.DemandId,50,currentDemand.Version)]),actor);
+plan=await buyer.Ready(plan.PlanId,new(plan.Version,Guid.NewGuid()),actor);
+var po=await buyer.Purchase(plan.PlanId,new(plan.Version,Guid.NewGuid(),"SIM-PO-9898","001","2026-10-18","",""),actor);
+await buyer.SetBalanceSource(currentDemand.DemandId,new(currentDemand.Version,Guid.NewGuid(),"CUSTOMER_SUPPLIED"),actor);
+await Reject(()=>service.ReceiveCustomer(currentDemand.DemandId,req with{RequestId=Guid.NewGuid()},actor),"customer_source_changed");
+currentDemand=(await buyer.Read(actor)).Demands.Single(x=>x.DemandId==currentDemand.DemandId);
+await buyer.SetBalanceSource(currentDemand.DemandId,new(currentDemand.Version,Guid.NewGuid(),"PURCHASED"),actor);
+await service.Review(po.PurchaseId,new(0,Guid.NewGuid(),"Isolated legacy purchase fixture applicability",[new(po.PurchaseId,false,false,false,false)]),actor);
+var poRequest=new SimReceiveRequest(1,Guid.NewGuid(),"SIM-PURCHASE-SLIP","2026-10-18",null,null,"SIM ONLY regression",null,[new(po.PurchaseId,10,10,10,0,0,po.VendorPartNumber,null,checks)]);
+var poResult=await service.Receive(po.PurchaseId,poRequest,actor);
+Check(poResult.Lines.Single().OpenQuantity==40&&poResult.AcceptedMaterials.Single().AcceptedQuantity==10,"legacy purchased partial receipt retains open balance");
+Check((await service.Receive(po.PurchaseId,poRequest,actor)).AcceptedMaterials.Length==1,"legacy purchase duplicate replay");
+var pm=poResult.AcceptedMaterials.Single();pm=await service.Stage(pm.ReceiptLineId,new(pm.Version,Guid.NewGuid(),"SIM ONLY PO STAGING"),actor);
+Check(pm.AvailableQuantity==10&&pm.CustomerSource is null&&pm.PurchaseId==po.PurchaseId,"legacy purchased material stages with purchase identity");
+var reloaded=new SimReceivingService(state,ops,new(root));
+Check((await reloaded.ReadCustomer(d.DemandId,actor)).Materials.Single().AvailableQuantity==5,"customer receipt reopens with available minus applied balance");
+await Reject(()=>service.ReceiveCustomer(d.DemandId,req with{RequestId=Guid.NewGuid(),ExpectedVersion=1,AcknowledgmentNumber="SECOND",CocRequired=false},actor),"requirements_frozen");
+File.WriteAllText(Path.Combine(root,"customer-view.json"),JsonSerializer.Serialize(await reloaded.ReadCustomer(d.DemandId,actor),json));
+Console.WriteLine("PASS "+n+" customer receipt checks. Live data never mutated.");

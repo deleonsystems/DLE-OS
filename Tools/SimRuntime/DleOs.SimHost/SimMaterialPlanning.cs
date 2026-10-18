@@ -16,7 +16,7 @@ internal sealed record SimSupplyDemand(string DemandId, string WorkOrderNumber, 
     string PartNumber, decimal Short, string Progress, SimMaterialSchedule? Schedule,
     SimSupplyOrder[] Orders, string? UnavailableReason, SimSupplyAcceptedMaterial[]? AcceptedMaterials = null,
     SimKittingReturnOrigin? ReturnOrigin = null, decimal AppliedQuantity = 0,
-    bool Resolved = false, string? MaterialStatus = null, decimal? RemainingShortQuantity = null)
+    bool Resolved = false, string? MaterialStatus = null, decimal? RemainingShortQuantity = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerSupplyLine? CustomerSupply = null)
 {
     internal decimal Available => AcceptedMaterials?.Sum(m => m.AvailableQuantity) ?? 0;
 }
@@ -188,11 +188,11 @@ internal sealed class SimMaterialPlanning(SimStateStore state, SimOperationsData
                     orders.Any(p => p.Received > 0) ? "Received · Awaiting Acceptance / Staging" :
                     ordered >= d.ShortQuantity ? "Ordered" : ordered > 0 ? "Part Ordered" :
                     plans.Any(p => p.State == "READY_FOR_PO") ? "Ready for PO" : plans.Length > 0 ? "Buying Plan" :
-                    d.State == "ACCEPTED" ? "Accepted by Purchasing" : "Needs Buyer";
+                    d.CustomerSupply is not null ? "C/S (Customer supplied) - Customer follow-up" : d.State == "ACCEPTED" ? "Accepted by Purchasing" : "Needs Buyer";
                 return new SimSupplyDemand(d.DemandId, group.Key, d.SourceRowId, d.PartNumber, d.ShortQuantity,
                     progress, current, orders, d.SourceCurrent || resolved ? unavailable : "Shortage source changed; review required.",
                     resolved || materialStatus == "KIT_COMPLETE" ? [] : accepted,
-                    origins.GetValueOrDefault(d.DemandId), applied, resolved, materialStatus, d.RemainingShortQuantity);
+                    origins.GetValueOrDefault(d.DemandId), applied, resolved, materialStatus, d.RemainingShortQuantity, d.CustomerSupply);
             }).ToArray();
             result.Add(RollUp(group.Key, demands, materialStatus));
         }

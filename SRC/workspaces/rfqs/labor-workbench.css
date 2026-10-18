@@ -728,3 +728,50 @@ body[data-sim-runtime="true"][data-view-mode="mobile"] .labor-workbench .labor-o
 .labor-direct-slides{margin:4px 6px 0 0;min-height:36px}.labor-edit-impact,.labor-section-context,.labor-estimate-help{display:block;font-size:12px;line-height:1.35;color:#38536a;margin-top:4px;white-space:normal}.labor-edit-impact:empty{display:none}
 
 .labor-organizer .labor-group-materials{display:flex;flex-direction:row;align-items:center;gap:.5rem;justify-content:flex-start;margin:.5rem 0}.labor-organizer .labor-group-materials input{width:auto;margin:0}
+
+/* Compact supplemental entry; calculations and main worksheet stay shared. */
+.rfqs-workspace.labor-workbench.labor-supplemental { max-width:1100px; margin:0 auto; height:auto; min-height:0; font-family:system-ui,sans-serif; color:#183247; }
+.labor-supplemental .labor-toolbar { gap:8px; }
+.labor-supplemental .labor-toolbar h1 { font-size:20px; }
+.charge-workspace { display:grid; grid-template-columns:minmax(0,1fr) 285px; gap:16px; align-items:start; }
+.charge-card { background:#fff; border:1px solid #d2dee5; border-radius:8px; padding:16px; }
+.charge-card h2 { margin:0 0 6px; font-size:16px; }
+.charge-card p { margin:6px 0 14px; line-height:1.45; color:#506574; font-size:13px; }
+.charge-add label { display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-weight:600; }
+.charge-add select,.charge-estimate-settings select { border:1px solid #a9bbc9; border-radius:4px; padding:8px; font:inherit; background:#fff; color:#183247; max-width:100%; }
+.charge-column-head,.charge-entry { display:grid; grid-template-columns:minmax(0,1fr) 120px 68px; gap:8px; align-items:center; }
+.charge-column-head { margin-top:18px; font-size:11px; color:#506574; padding:0 0 6px; }
+.charge-entry { padding:6px 0; border-top:1px solid #e6edf1; }
+.labor-supplemental .charge-entry input,.labor-supplemental .charge-markup input,.labor-supplemental .charge-estimate-settings input { background:#fff; border:1px solid #b9cbd7; border-radius:4px; min-height:36px; padding:7px; }
+.charge-money { display:flex; align-items:center; gap:5px; min-width:0; }
+.charge-entry button { padding:8px 4px; background:#fff; border:1px solid #cbd8e1; border-radius:4px; color:#344f62; cursor:pointer; }
+.charge-card .charge-empty { background:#f4f8fa; border-radius:4px; padding:12px; margin:16px 0 0; }
+.charge-nre { margin-top:12px; }
+.charge-nre summary,.charge-estimate-settings summary { cursor:pointer; font-weight:600; }
+.charge-nre[open] summary { margin-bottom:12px; }
+.charge-price dl { margin:16px 0 12px; }
+.charge-price dl>div,.charge-markup,.charge-sale,.charge-nre-total { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0; }
+.charge-price dd { margin:0; font-variant-numeric:tabular-nums; }
+.charge-markup input { width:72px; }
+.charge-card .charge-price-hint { font-size:12px; margin:4px 0 12px; }
+.charge-sale { border-top:1px solid #bdced9; padding-top:14px; font-size:15px; }
+.charge-sale strong { font-size:21px; }
+.charge-nre-total { border-top:1px solid #e0e8ed; margin-top:20px; padding-top:12px; font-size:13px; }
+.charge-estimate-settings { border-top:1px solid #e0e8ed; padding-top:12px; font-size:12px; }
+.charge-estimate-settings label { display:block; margin:12px 0 6px; }
+@media(max-width:760px) { .charge-workspace { grid-template-columns:minmax(0,1fr); } .charge-card { padding:12px; } .charge-column-head,.charge-entry { grid-template-columns:minmax(0,1fr) 95px 60px; gap:6px; } .charge-add label { align-items:start; flex-direction:column; } .charge-add select { width:100%; } }
+
+/* Keep the sale price primary; inputs and base costs are supporting details. */
+.labor-workbench :is(.labor-summary-row > span,.charge-price dl > div):has([data-total="base"]) { color:#506574; font-weight:400; }
+.labor-workbench [data-total="base"] { font-size:14px; font-weight:400; }
+.labor-workbench label:has([data-plan="rate"]),.labor-workbench [data-plan="rate"] { color:#506574; font-weight:400; }
+.labor-workbench .labor-summary-row > span:has([data-total="unit"]),.labor-workbench .charge-sale { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 14px; padding:10px 12px; border:1px solid #b8d3df; border-left:3px solid #326d86; border-radius:5px; background:#edf6fa; color:#183e52; font-weight:600; }
+.labor-workbench [data-total="unit"] { font-size:26px; line-height:1.2; font-weight:750; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+
+/* Recurring price ends with the sale; one-time job costs stay separate. */
+.labor-price-row > span:has([data-total="unit"]) { margin-left:auto; }
+.labor-summary-row .labor-nre-total { color:#506574; font-size:12px; }
+.charge-nre-summary-total { float:right; margin-left:12px; color:#506574; font-size:13px; font-weight:400; }
+.charge-nre-summary-total b { font-weight:500; }
+.charge-nre > summary { display:list-item; }
+@media(max-width:760px) { .labor-price-row > span:has([data-total="unit"]) { margin-left:0; } }

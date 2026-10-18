@@ -137,7 +137,8 @@ internal sealed record SimTechnicalReviewResult(
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     SimReviewWorkflow? Workflow = null,
     SimScannedBomSetup? ScannedBomSetup = null,
-    SimScannedBomReview? ScannedBomReview = null);
+    SimScannedBomReview? ScannedBomReview = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerIdentityAmendment[]? CustomerIdentityAmendments = null);
 
 internal sealed class SimRfqIntakeProblem : Exception
 {

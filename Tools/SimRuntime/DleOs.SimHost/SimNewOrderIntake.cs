@@ -30,7 +30,7 @@ internal sealed record SimNewOrderPackage(string PoNumber, SimOrderFacts Facts, 
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] bool? PoFactsConfirmed = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] int? FlowVersion = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimOrderContractDates? ContractDates = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? PendingDueDateNote = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? PendingDueDateNote = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerSupplyReview? CustomerSupplyReview = null);
 internal sealed record SimOrderPreviewRequest(SimRfqIntakeCustomer Customer, SimOrderFacts Facts,
     bool? PreviouslyQuoted, SimOrderQuoteRef? Quote);
 internal sealed record SimOrderPreview(SimOrderQuoteBaseline? Baseline, SimOrderComparison[] Comparison,
@@ -40,7 +40,7 @@ internal sealed record SimOrderSaveRequest(string RequestId, string CorrelationI
     bool? PreviouslyQuoted, SimOrderQuoteRef? Quote, SimContractReviewRequest? Questionnaire,
     SimRfqIntakeDocument[] Documents, int WizardStep, bool Submit = false,
     string? TechnicalSourceChoice = null, SimRfqIntakeDocument[]? IncomingTechnicalDocuments = null, string? WizardStepKey = null,
-    bool PoFactsConfirmed = false, int? FlowVersion = null, bool PoDateVerified = false, SimOrderDateDecision? DueDateDecision = null, string? DueDateNote = null);
+    bool PoFactsConfirmed = false, int? FlowVersion = null, bool PoDateVerified = false, SimOrderDateDecision? DueDateDecision = null, string? DueDateNote = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerSupplyReview? CustomerSupplyReview = null);
 internal sealed record SimOrderSaveResult(bool Resumed, SimRfqIntakeRecord Record);
 
 internal sealed partial class SimRfqIntakeStore
@@ -115,8 +115,8 @@ internal sealed partial class SimRfqIntakeStore
         var labor = lane.LaborQuote?.Versions.SingleOrDefault(v => v.Version == summary.LaborVersion);
         if (!summary.TechnicalComplete || !summary.MaterialsComplete || !summary.LaborComplete ||
             materials is null || labor is null || definition.Manufacturing.Id != summary.ManufacturingDefinitionId ||
-            labor.DefinitionId != definition.Manufacturing.Id || materials.CandidateId != definition.Materials.Candidate.Id ||
-            materials.BomVersion != definition.Materials.Version) return null;
+            labor.DefinitionId != definition.Manufacturing.Id || !CompatibleCustomerBoms(source).Any(b =>
+                b.CandidateId == materials.CandidateId && b.Version == materials.BomVersion)) return null;
         return new(quote.Reference, quote.Approval.SourceToken, definition, materials, labor);
     }
     internal async Task<SimOrderPreview> PreviewOrder(SimOrderPreviewRequest request)
@@ -257,6 +257,9 @@ internal sealed partial class SimRfqIntakeStore
             var technical = request.TechnicalSourceChoice is null ? null : new SimOrderTechnicalSource(request.TechnicalSourceChoice,
                 request.TechnicalSourceChoice == "NEW_DOCUMENTS" || reasons.Count > 0 ? "TECHNICAL_REVIEW_REQUIRED" : preview.TechnicalBaseline is null ? "MISSING_DEFINITION" : "QUOTED_DEFINITION_LINKED",
                 preview.TechnicalBaseline, incoming.ToArray(), reasons.ToArray(), request.TechnicalSourceChoice == "NEW_DOCUMENTS" || reasons.Count > 0 ? "Contract Review / Technical Review scope triage" : "Contract Review");
+            var supply=SimCustomerSupply.Project(preview.TechnicalBaseline,request.Facts,request.PoNumber.Trim(),evidence.Select(e=>e.Document).ToArray(),request.CustomerSupplyReview);
+            if(request.Submit && supply.Issues.Length>0) throw SimRfqIntakeProblem.BadRequest("ORDER_CUSTOMER_SUPPLY",string.Join(" ",supply.Issues));
+            if((request.CustomerSupplyReview?.Note?.Length??0)>4000) throw SimRfqIntakeProblem.BadRequest("ORDER_CUSTOMER_SUPPLY","Keep the C/S review note within 4000 characters.");
             var now = DateTimeOffset.UtcNow; var revision = (record?.OrderIntake?.Revision ?? 0) + 1;
             var status = request.Submit ? "READY_FOR_CONTRACT_REVIEW" : "DRAFT";
             var package = new SimNewOrderPackage(request.PoNumber.Trim(), request.Facts, request.PreviouslyQuoted,
@@ -266,7 +269,7 @@ internal sealed partial class SimRfqIntakeStore
                     DeliveryDateActionNote = contractDates.DueDateReview?.Note ?? "" },
                 evidence.ToArray(), status, revision, Math.Clamp(request.WizardStep, 0, 100),
                 (record?.OrderIntake?.History ?? []).Append(new(request.RequestId, request.Submit ? "SUBMIT_FOR_CONTRACT_REVIEW" : "SAVE_DRAFT", revision, persona.Id, persona.DisplayName, now, hash)).ToArray(), technical, request.WizardStepKey,
-                factReviews.Length>0 ? factReviews : null, request.PoFactsConfirmed, request.FlowVersion, contractDates, request.DueDateNote);
+                factReviews.Length>0 ? factReviews : null, request.PoFactsConfirmed, request.FlowVersion, contractDates, request.DueDateNote, request.CustomerSupplyReview);
             if (record is null) {
                 var id = $"RFQI-SIM-{++dataset.LastIntakeSequence:0000}";
                 record = new(id, request.CorrelationId, "DLE_RFQ_INTAKE_V1", "Contract Review", status, "NEW_ORDER", request.Customer,

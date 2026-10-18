@@ -25,6 +25,11 @@
         !panel.querySelector('[data-workspace-mount="order-entry"]')) {
       panel.innerHTML = '<div data-workspace-mount="order-entry"></div>';
     }
+    if (panel && workspace.id === "quality" && workspace.modulePath &&
+        document.body.dataset.simRuntime === "true" &&
+        !panel.querySelector('[data-workspace-mount="quality"]')) {
+      panel.innerHTML = '<div data-workspace-mount="quality"></div>';
+    }
     if (panel || !workspace.modulePath) return panel;
     const home = document.getElementById("home");
     if (!home) return null;

@@ -174,6 +174,7 @@
   }
 
   function resolveMaterialStatusWorkOrder(row) {
+    if(row?.releaseState === 'AWAITING_RELEASE') return '';
     const operational = row?.workOrderApprovalReview?.operationalRelationship;
     const route = cleanText(operational?.operationalRoute);
     const active = cleanText(operational?.activeWorkOrderNumber);
@@ -357,6 +358,8 @@
       orderDate,
       customerPoDate,
       customerDueDate,
+      releaseState: cleanText(source.releaseState),
+      productionExecution: source.productionExecution || null,
       customerNumber,
       customerName: cleanText(source.customerName),
       customerPurchaseOrderNumber: cleanText(source.customerPurchaseOrderNumber),

@@ -123,3 +123,15 @@ body[data-view-mode="mobile"][data-rfqs-mobile-workbench="true"] [data-workspace
 .rfqs-overview .rfqs-review-action button{min-height:44px}
 .rfqs-overview .rfqs-secondary{padding:14px 0;border-top:1px solid var(--border)}
 .rfqs-overview .rfqs-secondary>summary{min-height:30px}.rfqs-price-summary{line-height:1.6;font-size:15px}
+
+/* Smart History keeps commercial outcome and order acceptance visible separately. */
+.rfqs-history-tools { display:grid; gap:8px; margin:16px 0; color:#eef5fb; }
+.rfqs-history-tools label { display:grid; gap:6px; max-width:560px; font-weight:600; }
+.rfqs-history-tools input { width:100%; box-sizing:border-box; min-height:44px; padding:10px 12px; border:1px solid #8298ae; border-radius:6px; background:#fff; color:#172432; font:inherit; }
+.rfqs-history-tools p,.rfqs-history-tools small { margin:0; color:#c7d6e5; }
+.rfqs-linked-orders { list-style:none; margin:0; padding:0; min-width:190px; }
+.rfqs-linked-orders li { display:grid; gap:5px; margin-bottom:10px; overflow-wrap:anywhere; }
+.rfqs-linked-orders a { color:#a9d5ff; text-decoration:underline; }
+.rfqs-linked-orders span,.rfqs-linked-orders strong { color:#eef5fb; font-size:12px; }
+.rfqs-scroll td>small { display:block; margin-top:5px; color:#c7d6e5; }
+.rfqs-history-links { margin:16px 0; padding:14px; border:1px solid #53677c; border-radius:6px; }

@@ -5,7 +5,7 @@ internal sealed record SimMaterialNote(string Id,string Owner,string Purpose,str
 internal sealed record SimMaterialAttachment(string DocumentId,string IntakeId,string Owner,string Kind,string Category,
     string Name,string Type,long Size,string Sha256,string Reference,string AddedBy,DateTimeOffset AddedAt,bool Removed=false,string? RemovedBy=null,DateTimeOffset? RemovedAt=null);
 internal sealed record SimMaterialEvidence(SimMaterialNote[] Notes,SimMaterialAttachment[] Attachments);
-internal sealed record SimMaterialEvidenceUpload(int ExpectedRevision,string CandidateId,int BomVersion,int Index,string? FeeId,string Kind,string Category);
+internal sealed record SimMaterialEvidenceUpload(int ExpectedRevision,string CandidateId,int BomVersion,int Index,string? FeeId,string Kind,string Category,int? ExpectedAcceptedBomVersion = null);
 
 internal sealed partial class SimIntakeDocuments
 {
@@ -38,6 +38,8 @@ internal sealed partial class SimRfqIntakeStore
         try {
             var record=(await ReadDatasetAsync()).Records.SingleOrDefault(r=>r.IntakeId==id&&RfqEligible(r)) ?? throw SimRfqIntakeProblem.NotFound("RFQ_NOT_READY","Qualified RFQ not found.");
             var view=MaterialView(RfqView(record,await ReadRfqLanes()));
+            if ((record.TechnicalReview?.CustomerIdentityAmendments?.Any(a=>a.AcceptedVersion is not null)==true || request.ExpectedAcceptedBomVersion is not null) && request.ExpectedAcceptedBomVersion!=view.Rfq.Inputs.Materials.Version)
+                throw SimRfqIntakeProblem.Conflict("MATERIALS_SOURCE_CHANGED","Customer identities changed. Keep your edits open and review the current BOM before attaching evidence.");
             if(view.Plan.Revision!=request.ExpectedRevision||view.Plan.CandidateId!=request.CandidateId||view.Plan.BomVersion!=request.BomVersion)
                 throw SimRfqIntakeProblem.Conflict("MATERIALS_STALE","Materials changed. Reopen before attaching evidence.");
             if(!view.Plan.Rows.Any(r=>r.Index==request.Index)||request.FeeId is not null&&!Guid.TryParseExact(request.FeeId,"D",out _))

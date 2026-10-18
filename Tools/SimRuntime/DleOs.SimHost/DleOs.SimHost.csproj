@@ -10,6 +10,7 @@
     <Compile Include="..\..\LiveSnapshotRefresh\ControlHost\KittingCasePdfWriter.cs" Link="Shared\KittingCasePdfWriter.cs" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.29" />
     <InternalsVisibleTo Include="SimAnalysis001" />
+    <InternalsVisibleTo Include="SimCustomerIdentity001" />
     <InternalsVisibleTo Include="SimLaborDrawingNotes001" />
     <InternalsVisibleTo Include="SimPdfReadability001" />
     <InternalsVisibleTo Include="SimScannedBomSetup001" />

@@ -236,8 +236,13 @@ CREATE TABLE IF NOT EXISTS SimOperationsRelationshipEvidence(
             errors.Add("Packet dates must be explicit ISO date-only values, with unknown ERP dates left unset.");
         if ((p.SchemaVersion == 1 && l.CustomerPoDate is not null) || (p.SchemaVersion == 2 && !DateOnlyValue(l.CustomerPoDate)))
             errors.Add("Schema 2 requires a separate date-only Customer PO Date; schema 1 retains its original absent field.");
-        if (w.WorkOrderType != "STANDARD" || w.WorkOrderStatus != "OPEN")
-            errors.Add("This controlled opening-order slice supports explicit STANDARD / OPEN work orders only.");
+        var heldTrial=p.Source.IntakeId=="RFQI-SIM-0046";
+        if (heldTrial && (p.DevelopmentScenario!="ABBOTT-0046-AWAITING-RELEASE" || p.Source.AcceptedRevision!=2 ||
+            p.Source.AcceptanceId!="0a15fbf0-d1f3-4123-b1af-34b1bda2410e" ||
+            p.Source.AcceptanceToken!="025540756823921B23180E73AB9F27C55C63B6CC12D46CD5833D75574035FF5C"))
+            errors.Add("The held trial requires the exact qualified acceptance.");
+        if (w.WorkOrderType != "STANDARD" || w.WorkOrderStatus != (heldTrial?"AWAITING_RELEASE":"OPEN"))
+            errors.Add("This controlled slice requires STANDARD work orders and the qualified release state; 0046 must remain AWAITING_RELEASE.");
         if (l.SimulatedFacts is null || l.SimulatedFacts.Length == 0 || l.SimulatedFacts.Any(string.IsNullOrWhiteSpace))
             errors.Add("Explicit provenance for the simulated ERP facts is required.");
         if (l.EstimatedShipDate is null) warnings.Add("Estimated ship date is not set; the reviewed customer due date remains separate.");
@@ -336,10 +341,11 @@ CREATE TABLE IF NOT EXISTS SimOperationsRelationshipEvidence(
             billNumber = "", drawingNumber = "", drawingRevision = l.Revision, bomRevision = l.Revision,
             orderMemo = "SIMULATED ERP DATA — developmental Operations handoff; ERP dates may be unset.",
             simulated = true, importProvenance = PacketProvenance(r) };
-        if (l.CustomerPoDate is null) return payload;
+        if (l.CustomerPoDate is null && r.Packet.WorkOrder.WorkOrderStatus!="AWAITING_RELEASE") return payload;
         var projection = JsonSerializer.SerializeToElement(payload, PacketJson).EnumerateObject()
             .ToDictionary(x => x.Name, x => (object?)x.Value.Clone(), StringComparer.Ordinal);
-        projection["customerPoDate"] = l.CustomerPoDate;
+        if(l.CustomerPoDate is not null)projection["customerPoDate"] = l.CustomerPoDate;
+        if(r.Packet.WorkOrder.WorkOrderStatus=="AWAITING_RELEASE")projection["releaseState"]="AWAITING_RELEASE";
         return projection;
     }
 
@@ -404,7 +410,12 @@ CREATE TABLE IF NOT EXISTS SimOperationsRelationshipEvidence(
         if (lines.TotalItems != 1 || line is null) errors.Add("Canonical SO line is missing or non-unique.");
         if (works.TotalItems != 1 || work is null) errors.Add("Canonical WO is missing or non-unique.");
         if (relations.TotalItems != 1 || relation is null) errors.Add("Canonical relationship is missing or non-unique.");
-        ComparePacketPayload(line, PacketLinePayload(receipt), "Sales Order line", errors);
+        // Import integrity must compare the retained import facts, not the current
+        // operational projection (which can legitimately report Quality-released).
+        // Keep canonical uniqueness checks and return the current projection above.
+        var importedLine = await ReadRecordAsync("SalesOrderLine", "SalesOrderLineId", receipt.SalesOrderLineId);
+        if (importedLine is null) errors.Add("Stored imported SO line is missing.");
+        ComparePacketPayload(importedLine, PacketLinePayload(receipt), "Sales Order line", errors);
         ComparePacketPayload(work, PacketWorkOrderPayload(receipt), "Work Order", errors);
         ComparePacketPayload(relation, PacketRelationshipPayload(receipt), "Relationship", errors);
         return new(errors.Count == 0, errors.ToArray(), line, work, relation);

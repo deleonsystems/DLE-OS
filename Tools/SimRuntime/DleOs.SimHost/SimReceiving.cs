@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 
-internal sealed class SimReceivingService(SimStateStore state, SimOperationsDataStore operations, SimIntakeDocuments documents)
+internal sealed partial class SimReceivingService(SimStateStore state, SimOperationsDataStore operations, SimIntakeDocuments documents)
 {
     internal Func<DateTimeOffset> UtcNow { get; set; } = () => DateTimeOffset.UtcNow;
     internal static void Permission(SimPersona actor, bool write)
@@ -131,7 +131,7 @@ internal sealed class SimReceivingService(SimStateStore state, SimOperationsData
             var location=Required(request.Location,200,"Record a SIM staging location.");
             var stage=new SimReceivingStage(Guid.NewGuid(),id,location,actor.Id,actor.DisplayName,now,prior.Version,prior.Version+1);
             var result=prior with{StagingLocation=location,StagedAtUtc=now,Version=stage.ResultingVersion,AvailableQuantity=prior.AcceptedQuantity};
-            var audit=Event("MATERIAL_STAGED",PoKey(Anchor(purchases,prior.PurchaseId)),id,actor,now,prior.Version,result.Version,stage);
+            var audit=Event("MATERIAL_STAGED",prior.CustomerSource is {} cs ? CustomerKey(cs.DemandId) : PoKey(Anchor(purchases,prior.PurchaseId)),id,actor,now,prior.Version,result.Version,stage);
             return Task.FromResult(new SimReceivingChange<SimAcceptedMaterial>(result,Stage:stage,Event:audit));
         });
 
@@ -157,11 +157,11 @@ internal sealed class SimReceivingService(SimStateStore state, SimOperationsData
     {
         var view=await ReadPo(id,actor); var doc=view.Documents.SingleOrDefault(d=>d.DocumentId==documentId)
             ??throw SimPurchasingProblem.Missing("This Receiving document does not belong to the selected supplier/PO.");
-        return(doc.Document,await documents.Bytes(doc.PurchaseId.ToString(),doc.DocumentId));
+        return(doc.Document,await documents.Bytes(doc.CustomerDemandId is {} customerId ? CustomerFolder(customerId) : doc.PurchaseId.ToString(),doc.DocumentId));
     }
     private async Task VerifyDocument(SimReceivingDocument doc)
     {
-        var bytes=await documents.Bytes(doc.PurchaseId.ToString(),doc.DocumentId);
+        var bytes=await documents.Bytes(doc.CustomerDemandId is {} customerId ? CustomerFolder(customerId) : doc.PurchaseId.ToString(),doc.DocumentId);
         if(Convert.ToHexString(SHA256.HashData(bytes))!=doc.Sha256)throw Conflict("evidence_changed","The Receiving evidence failed hash verification.");
     }
     private static SimReceivingDocument Evidence(SimReceivingSnapshot snapshot,string key,string id,string? kind=null) =>

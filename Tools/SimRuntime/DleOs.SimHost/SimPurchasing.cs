@@ -14,6 +14,12 @@ internal sealed class SimPurchasingProblem(int statusCode, string code, string m
 }
 
 internal sealed record SimPurchasingVersionRequest(long ExpectedVersion, Guid RequestId);
+internal sealed record SimCustomerContactRequest(long ExpectedVersion, Guid RequestId, Guid ExpectedSubmissionId,
+    string ExpectedSourceFingerprint, decimal ExpectedShortQuantity, string? ExpectedDate);
+internal sealed record SimCustomerContact(Guid SubmissionId, string SourceFingerprint, decimal ShortQuantity,
+    string ActorId, string Actor, DateTimeOffset AtUtc, string ExpectedDate);
+internal sealed record SimBalanceSourceRequest(long ExpectedVersion, Guid RequestId, string Responsibility);
+internal sealed record SimBalanceSource(string Responsibility, Guid SubmissionId, string ActorId, string Actor, DateTimeOffset AtUtc);
 internal sealed record SimDemandCoverageRequest(string DemandId, decimal Quantity, long ExpectedDemandVersion);
 internal sealed record SimBuyingPlanRequest(long ExpectedVersion, Guid RequestId, string Supplier,
     string VendorPartNumber, decimal BuyQuantity, string PurchasingUom, decimal UnitCost, string Currency,
@@ -32,7 +38,7 @@ internal sealed record SimPurchasingDemand(string DemandId, long Version, string
     string SalesOrderNumber, string SalesOrderLineNumber, string Customer, string CustomerNumber,
     string AssemblyItemNumber, string Revision, decimal BuildQuantity, string CustomerDueDate,
     string MaterialNeedBy, SimPurchasingQuality QualityRequirements, string CompatibilityKey,
-    string? AcceptedBy, string? AcceptedActorId, DateTimeOffset? AcceptedAtUtc, decimal? RemainingShortQuantity = null, Guid? ReconciliationId = null);
+    string? AcceptedBy, string? AcceptedActorId, DateTimeOffset? AcceptedAtUtc, decimal? RemainingShortQuantity = null, Guid? ReconciliationId = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerSupplyLine? CustomerSupply = null, JsonElement? SupplyDisposition = null, string[]? SupplyConflicts = null, SimBalanceSource? BalanceSource = null, Guid? CurrentSubmissionId = null, string CustomerPoNumber = "", SimCustomerContact? CustomerContact = null);
 internal sealed record SimDemandCoverage(string DemandId, decimal Quantity, long DemandVersion,
     string SourceFingerprint, string WorkOrderNumber, string SalesOrderNumber, string SalesOrderLineNumber,
     string Customer, string AssemblyItemNumber, string Revision, string CustomerDueDate);
@@ -53,7 +59,7 @@ internal sealed record SimPurchaseLine(Guid PurchaseId, Guid ExpectedReceiptId, 
     SimDemandCoverage[] Coverage, SimPurchasingQuality QualityRequirements, string Provenance,
     string Status, string ReceiptState, string Buyer, string ActorId, DateTimeOffset CreatedAtUtc);
 internal sealed record SimPurchasingView(string Environment, long Generation, bool CanManage,
-    SimPurchasingDemand[] Demands, SimBuyingPlan[] Plans, SimPurchaseLine[] Purchases);
+    SimPurchasingDemand[] Demands, SimBuyingPlan[] Plans, SimPurchaseLine[] Purchases, bool MixedSourcesSupported = true, bool CustomerFollowupSupported = true);
 internal sealed record SimExpectedReceivingView(string Environment, long Generation, bool CanReceive,
     SimPurchaseLine[] Items);
 internal sealed record SimPurchasingAudit(Guid EventId, string EventType, string EntityId,
@@ -99,12 +105,44 @@ internal sealed class SimPurchasingService(SimStateStore state, SimOperationsDat
             var demand = Demand(view, demandId);
             Version(demand.Version, request.ExpectedVersion);
             Current(demand);
+
             if (demand.State != "INCOMING") throw SimPurchasingProblem.Conflict("demand_already_accepted", "This demand already belongs to Purchasing. Refresh its current buyer state.");
             var next = demand with { Version = demand.Version + 1, State = "ACCEPTED", AcceptedBy = actor.DisplayName,
                 AcceptedActorId = actor.Id, AcceptedAtUtc = now };
             return new SimPurchasingChange(next, null, null,
                 Audit("SHORTAGE_ACCEPTED", demandId, actor, now, demand.Version, next.Version, demand.State, next.State, next));
         }, change => change.Demand!);
+
+    internal Task<SimPurchasingDemand> SetBalanceSource(string demandId,SimBalanceSourceRequest request,SimPersona actor)=>
+        Command("BALANCE_SOURCE:"+demandId,request.RequestId,request,actor,(view,now)=>{
+            var demand=Demand(view,demandId);Version(demand.Version,request.ExpectedVersion);
+            if(!demand.SourceCurrent || (demand.RemainingShortQuantity??demand.ShortQuantity)<=0)throw SimPurchasingProblem.Conflict("source_changed","Refresh the current shortage before changing its balance source.");
+            if(request.Responsibility is not ("PURCHASED" or "CUSTOMER_SUPPLIED"))throw SimPurchasingProblem.Invalid("balance_source_invalid","Choose purchasing or customer supply for the remaining balance.");
+            var next=demand with{Version=demand.Version+1,State="ACCEPTED",AcceptedBy=demand.AcceptedBy??actor.DisplayName,AcceptedActorId=demand.AcceptedActorId??actor.Id,AcceptedAtUtc=demand.AcceptedAtUtc??now,
+                CustomerContact=null, BalanceSource=new(request.Responsibility,demand.CurrentSubmissionId??demand.SubmissionId,actor.Id,actor.DisplayName,now)};
+            return new SimPurchasingChange(next,null,null,Audit("BALANCE_SOURCE_CHANGED",demandId,actor,now,demand.Version,next.Version,demand.State,next.State,next));
+        },change=>change.Demand!);
+
+    internal Task<SimPurchasingDemand> MarkCustomerContacted(string demandId, SimCustomerContactRequest request, SimPersona actor) =>
+        Command("CUSTOMER_CONTACT:" + demandId, request.RequestId, request, actor, (view, now) => {
+            var demand = Demand(view, demandId); Version(demand.Version, request.ExpectedVersion);
+            var submission = demand.CurrentSubmissionId ?? demand.SubmissionId;
+            var shortage = demand.RemainingShortQuantity ?? demand.ShortQuantity;
+            if (!demand.SourceCurrent || demand.CustomerSupply is null || shortage <= 0 ||
+                demand.State is not ("INCOMING" or "ACCEPTED") || submission != request.ExpectedSubmissionId ||
+                demand.SourceFingerprint != request.ExpectedSourceFingerprint || shortage != request.ExpectedShortQuantity)
+                throw SimPurchasingProblem.Conflict("source_changed", "Refresh the current customer-supplied shortage before recording contact.");
+            var next = demand with { Version = demand.Version + 1,
+                CustomerContact = new(submission, demand.SourceFingerprint, shortage, actor.Id, actor.DisplayName, now, Date(request.ExpectedDate)) };
+            return new SimPurchasingChange(next, null, null, Audit("CUSTOMER_CONTACTED", demandId, actor, now,
+                demand.Version, next.Version, demand.State, next.State, next.CustomerContact));
+        }, change => change.Demand!);
+
+    internal static SimCustomerContact? CurrentContact(SimPurchasingDemand demand, Guid submission, SimCustomerSupplyLine? supply) =>
+        supply is not null && demand.SourceCurrent && (demand.RemainingShortQuantity ?? demand.ShortQuantity) > 0 &&
+        demand.CustomerContact is { } contact && contact.SubmissionId == submission &&
+        contact.SourceFingerprint == demand.SourceFingerprint && contact.ShortQuantity == (demand.RemainingShortQuantity ?? demand.ShortQuantity)
+            ? contact : null;
 
     internal Task<SimBuyingPlan> SavePlan(Guid? planId, SimBuyingPlanRequest request, SimPersona actor) =>
         Command("SAVE_PLAN:" + planId?.ToString(), request.RequestId, request, actor, (view, now) =>
@@ -205,7 +243,8 @@ internal sealed class SimPurchasingService(SimStateStore state, SimOperationsDat
         if (plan.ExpectedDate.Length == 0) throw SimPurchasingProblem.Invalid("expected_date", "Enter an explicit expected date for this developmental order.");
         foreach (var c in plan.Coverage)
         {
-            var demand = Demand(view, c.DemandId); Current(demand); Version(demand.Version, c.DemandVersion);
+            var demand = Demand(view, c.DemandId); Current(demand);
+ Version(demand.Version, c.DemandVersion);
             if (demand.SourceFingerprint != c.SourceFingerprint) throw SimPurchasingProblem.Conflict("source_changed", "Source evidence changed. Review a new buying plan decision.");
         }
         CheckCoverage(view, plan.PlanId, plan.Coverage);
@@ -218,7 +257,7 @@ internal sealed class SimPurchasingService(SimStateStore state, SimOperationsDat
             var demand = Demand(view, c.DemandId);
             var reserved = view.Plans.Where(p => p.PlanId != planId).SelectMany(p => p.Coverage)
                 .Where(x => x.DemandId == c.DemandId).Sum(x => x.Quantity);
-            if (reserved + c.Quantity > demand.ShortQuantity)
+            if (reserved + c.Quantity > demand.ShortQuantity || c.Quantity > (demand.RemainingShortQuantity ?? demand.ShortQuantity))
                 throw SimPurchasingProblem.Conflict("demand_overcovered", "Coverage exceeds this source shortage or overlaps another saved buying plan.");
         }
     }
@@ -228,6 +267,7 @@ internal sealed class SimPurchasingService(SimStateStore state, SimOperationsDat
         ?? throw SimPurchasingProblem.Missing("The buying plan was not found.");
     private static void Current(SimPurchasingDemand demand)
     {
+        if (demand.CustomerSupply is not null) throw SimPurchasingProblem.Conflict("customer_supply_followup", "C/S (Customer supplied) requires customer follow-up, not a purchase.");
         if (!demand.SourceCurrent) throw SimPurchasingProblem.Conflict("source_changed", "The submitted Kitting or order evidence has changed. Retained purchasing history requires reviewed reconciliation before more buying.");
     }
     private static void Version(long actual, long expected)

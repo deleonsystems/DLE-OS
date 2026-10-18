@@ -1,6 +1,6 @@
 (function(window,document){
   'use strict';
-  let mount,items=[],selected=null,mode='bridge',error='',busy=false,pending=null,handoff=null,handoffError='',prepared=null;
+  let mount,items=[],selected=null,mode='review',search='',error='',busy=false,pending=null,handoff=null,handoffError='',prepared=null;
   const labels={READY_FOR_VPRO:'Ready for VPRO',IN_PROGRESS:'In Progress',READY_FOR_OPERATIONS_SYNC:'Ready for Operations Sync — Awaiting simulated Operations recognition',AWAITING_ACCEPTANCE:'Awaiting Acceptance',RELEASED_TO_OPERATIONS:'Released to Operations'};
   const checks={ASSEMBLY_ITEM:'Assembly item exists in VPRO 5',COMPONENT_ITEMS:'Component item masters verified / created without duplicates',BOM:'VPRO 5 BOM created / verified against approved DLE-OS BOM',SALES_ORDER:'Sales Order entered',WORK_ORDER:'Work Order issued'};
   const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -16,7 +16,7 @@
   async function refresh(){try{items=(await api()).items;if(selected)await select(selected.intakeId);error='';}catch(e){error=e.message;}draw();}
   const fields=section=>'<section><h3>'+esc(section.title)+'</h3><dl>'+section.fields.map(f=>'<div><dt>'+esc(f.label)+'</dt><dd>'+esc(f.value)+'</dd></div>').join('')+'</dl></section>';
   const files=docs=>docs.map(d=>'<a target="_blank" rel="noopener noreferrer" href="'+esc(d.url)+'">View '+esc(d.name)+' ('+esc(d.type)+')</a>').join('');
-  function bomTable(){return '<table><thead><tr><th>Line</th><th>Approved P/N</th><th>Description</th><th>Qty / Assy</th><th>Total Requirement</th></tr></thead><tbody>'+selected.bom.map(r=>'<tr><td>'+esc(r.line)+'</td><td>'+esc(r.approvedPartNumber)+'</td><td>'+esc(r.description)+'</td><td>'+r.quantityPerAssembly+'</td><td>'+r.totalRequirement+'</td></tr>').join('')+'</tbody></table>';}
+  function bomTable(){return '<table><thead><tr><th>Line</th><th>Approved P/N</th><th>Description</th><th>Qty / Assy</th><th>Total Requirement</th></tr></thead><tbody>'+selected.bom.map(r=>'<tr><td>'+esc(r.line)+'</td><td>'+esc(r.approvedPartNumber)+(r.customerSupply?'<small>C/S (Customer supplied) · Customer P/N '+esc(r.customerSupply.customerPartNumber)+'</small>':'')+'</td><td>'+esc(r.description)+'</td><td>'+r.quantityPerAssembly+'</td><td>'+r.totalRequirement+'</td></tr>').join('')+'</tbody></table>';}
   const recognitionLabel=value=>{
     const status=typeof value==='string'?value:value?.status;
     if(['RECOGNIZED','RECOGNIZED_IN_SIM_OPERATIONS'].includes(status))return 'Recognized in SIM Operations';
@@ -29,6 +29,7 @@
     const state=selected.orderEntry.bridge.state,allowed=handoff?.enabled===true&&handoff?.canImport===true&&can('order_entry.sim_import');
     const ready=state.status==='READY_FOR_OPERATIONS_SYNC'&&!state.holdReason;
     let content='<section class="oe-handoff" aria-label="Operations Handoff"><h3>Operations Handoff</h3><p class="oe-development"><strong>DEVELOPMENT ONLY</strong><span>SIMULATED VPRO 5 DATA</span></p>'+factList([['ERP Source','VPRO 5 — SIM'],['Bridge Status',state.status],['Recognition',recognitionLabel(handoff?.recognition)]]);
+    if(handoff?.receipt?.packet?.workOrder?.workOrderStatus==='AWAITING_RELEASE')return content+'<h4>Awaiting Release</h4><p>SIM VPRO entry is recorded. Quality packet review is pending. Kitting and production are blocked.</p></section>';
     if(handoffError)return content+'<p role="alert">'+esc(handoffError)+'</p><p>Refresh to check the SIM handoff. Import is unavailable until its safeguards are verified.</p></section>';
     if(!handoff?.enabled)return content+'<p>The developmental SIM Operations adapter is disabled.</p></section>';
     if(handoff?.scopeSupported===false)return content+'<p>'+esc(handoff.scopeMessage)+'</p></section>';
@@ -75,10 +76,14 @@
   const activeItems=()=>items.filter(r=>r.accepted&&activeStates.includes(r.status));
   function draw(){
     if(!mount)return;
-    const rows=mode==='bridge'?activeItems():items.filter(r=>!r.accepted);
-    const queue='<h2>Order Entry Queue</h2><nav><button data-mode="bridge">Active · '+activeItems().length+'</button><button data-mode="review">Awaiting Acceptance · '+items.filter(r=>!r.accepted).length+'</button></nav>'+
-      (rows.length?'<div class="oe-table-scroll"><table><thead><tr><th>Customer</th><th>PO / Source New Order</th><th>Assembly / Rev</th><th>Qty</th><th>Due Date</th><th>Status</th><th>Action</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.customer)+'</td><td>'+esc(r.poNumber)+'<br><small>'+esc(r.intakeId)+'</small></td><td>'+esc(r.assembly)+' / '+esc(r.revision)+'</td><td>'+esc(r.quantity)+'</td><td>'+date(r.customerDueDate)+'</td><td>'+esc(r.status==='READY_FOR_OPERATIONS_SYNC'?'Ready for Operations Sync':labels[r.status]||r.status)+'</td><td><button data-id="'+esc(r.intakeId)+'">Open</button></td></tr>').join('')+'</tbody></table></div>':'<p>No '+(mode==='bridge'?'active accepted orders':'submitted packages awaiting acceptance')+'. Drafts remain in Intake.</p>');
-    mount.innerHTML='<div class="order-entry-workspace"><header><h1>Order Entry (VPRO 5 Bridge)</h1><button data-action="refresh" '+(busy?'disabled':'')+'>Refresh</button></header>'+(error?'<p role="alert">'+esc(error)+'</p>':'')+(selected?detail():queue)+'</div>';
+    const stageRows=mode==='bridge'?activeItems():items.filter(r=>!r.accepted);
+    const words=search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const rows=stageRows.filter(r=>words.every(w=>[r.customer,r.poNumber,r.intakeId,r.assembly,r.revision].join(' ').toLowerCase().includes(w)));
+    const queue='<nav class="oe-stages" aria-label="Order Entry stages">'+[['review','Awaiting Acceptance',items.filter(r=>!r.accepted).length],['bridge','Active',activeItems().length]].map(([key,label,count])=>'<button data-mode="'+key+'" aria-pressed="'+(mode===key)+'" class="'+(mode===key?'active':'')+'">'+label+'<strong>'+count+'</strong></button>').join('')+'</nav>'+
+      '<div class="oe-queue-tools"><label for="oe-search">Search '+(mode==='review'?'Awaiting Acceptance':'Active')+'<input id="oe-search" type="search" value="'+esc(search)+'" placeholder="Customer, PO, source order or assembly"></label><button data-action="refresh" '+(busy?'disabled':'')+'>Refresh</button></div><h2 class="oe-queue-title">'+(mode==='review'?'Submitted packages awaiting acceptance':'Accepted orders in progress')+'</h2>'+
+      (rows.length?'<div class="oe-table-scroll oe-queue-table"><table><thead><tr><th>Customer</th><th>PO / Source New Order</th><th>Assembly / Rev</th><th>Qty</th><th>Due Date</th><th>Status</th><th>Action</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.customer)+'</td><td>'+esc(r.poNumber)+'<br><small>'+esc(r.intakeId)+'</small></td><td>'+esc(r.assembly)+' / '+esc(r.revision)+'</td><td>'+esc(r.quantity)+'</td><td>'+date(r.customerDueDate)+'</td><td>'+esc(r.status==='READY_FOR_OPERATIONS_SYNC'?'Ready for Operations Sync':labels[r.status]||r.status)+'</td><td><button data-id="'+esc(r.intakeId)+'">Open</button></td></tr>').join('')+'</tbody></table></div>':search.trim()?'<p class="oe-empty">No matching orders in this stage.</p>':'<p class="oe-empty">No '+(mode==='bridge'?'active accepted orders':'submitted packages awaiting acceptance')+'. Drafts remain in Intake.</p>');
+    mount.innerHTML='<div class="order-entry-workspace"><header class="oe-header"><div><h1>Order Entry</h1><p>Review submitted packages, then manage accepted orders through the VPRO 5 bridge.</p></div>'+ (selected?'<button data-action="refresh" '+(busy?'disabled':'')+'>Refresh</button>':'')+'</header>'+(error?'<p role="alert">'+esc(error)+'</p>':'')+(selected?detail():queue)+'</div>';
+    if(!selected){const labels=['Customer','PO / Source New Order','Assembly / Rev','Qty','Due Date','Status','Action'];mount.querySelectorAll('.oe-queue-table tbody tr').forEach(row=>Array.from(row.cells).forEach((cell,i)=>cell.dataset.label=labels[i]));}
   }
   async function mutate(path,body){const key=selected.intakeId+path+JSON.stringify(body);if(pending?.key!==key)pending={key,body:{...body,requestId:window.crypto.randomUUID()}};busy=true;error='';try{await api('/'+encodeURIComponent(selected.intakeId)+path,pending.body);pending=null;await refresh();}catch(e){error=e.message;}finally{busy=false;draw();}}
   async function prepareOperations(){
@@ -110,6 +115,7 @@
         case 'accept':if(!mount.querySelector('[name="accept-confirm"]').checked)throw new Error('Explicitly confirm acceptance of this reviewed package.');await mutate('/accept',{expectedRevision:selected.packageRevision,sourceToken:selected.sourceToken,confirm:true,note:mount.querySelector('[name="accept-note"]').value.trim()});break;
         case 'identifiers':{const identifiers=Object.fromEntries(['salesOrder','salesOrderLine','workOrder'].map(k=>[k,mount.querySelector('[name="'+k+'"]').value]));await command('IDENTIFIERS',{identifiers:{...identifiers,namespace:'SIM-VPRO5',orderLineKey:selected.orderLineKey}});break;}}
     }catch(e){error=e.message;draw();}};
+    mount.oninput=event=>{if(event.target.id!=='oe-search')return;const position=event.target.selectionStart;search=event.target.value;draw();const input=mount.querySelector('#oe-search');input.focus();input.setSelectionRange(position,position);};
     mount.onchange=async event=>{if(!event.target.dataset.check||busy)return;await command('CHECK',{item:event.target.dataset.check,complete:event.target.checked});};await refresh();}
   window.DleWorkspaces=window.DleWorkspaces||{};window.DleWorkspaces['order-entry']=Object.freeze({id:'order-entry',render,refresh});
 })(window,document);

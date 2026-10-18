@@ -37,7 +37,8 @@ internal sealed record SimCandidateRow(int Index, Dictionary<string,string> Extr
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidateWorkingState? WorkingState = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidatePrimaryIdentity? PrimaryIdentity = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? SourcePositionKind = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimSourcePartNumberReview? SourcePartNumberReview = null)
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimSourcePartNumberReview? SourcePartNumberReview = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerIdentity? CustomerIdentity = null)
 {
     public string IdentityBasis => ComponentType == "DNP" ? "DNP" : SourcePartNumberReview?.Current.Status == "CONFIRMED" ? SourcePartNumberReview.Current.Basis switch { "MFG" => "MANUFACTURER_PN", "CUSTOMER" => "CUSTOMER_PN", "ASSEMBLY" => "ASSEMBLY_PN", _ => "UNRESOLVED" } : SourcePartNumberReview is not null && PrimaryIdentity is not null ? PrimaryIdentity.Basis : ComponentType == "SUBASSEMBLY" ? "ASSEMBLY_PN" : PrimaryIdentity?.Basis ?? "MANUFACTURER_PN";
     public SimRowReviewState ReviewState => SimCandidateRowReview.Evaluate(this);

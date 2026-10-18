@@ -2,12 +2,14 @@
   'use strict';
 
   const STATES = Object.freeze({
+    AWAITING_RELEASE: 'AWAITING_RELEASE',
     NEEDS_KITTING: 'NEEDS_KITTING',
     KITTING_IN_PROGRESS: 'KITTING_IN_PROGRESS',
     KIT_SHORT: 'KIT_SHORT',
     KIT_COMPLETE: 'KIT_COMPLETE'
   });
   const LABELS = Object.freeze({
+    AWAITING_RELEASE: 'Awaiting Release',
     NEEDS_KITTING: 'Needs Kitting',
     KITTING_IN_PROGRESS: 'Kitting In Progress',
     KIT_SHORT: 'Kit Short',
@@ -123,6 +125,12 @@
     if (!response.ok) throw new Error('Supply planning unavailable');
     return response.json();
   }
+
+  // Quality approval changes material eligibility before a Kitting case exists.
+  window.addEventListener('dle:quality-released', event => {
+    if (['SIM', 'SIMULATION'].includes(window.DleOsRuntimeConfig?.environment))
+      invalidate(event.detail?.workOrderNumber);
+  });
 
   window.MaterialStatus = Object.freeze({
     getSupplyProgress,

@@ -132,7 +132,13 @@
     {
       id: "quality",
       label: "Quality",
-      purpose: "Inspection, FAIRs, nonconformances, and corrective actions."
+      purpose: "Inspection, FAIRs, nonconformances, and corrective actions.",
+      get modulePath() { return window.document?.body?.dataset?.simRuntime === "true" ? "SRC/workspaces/quality/quality-workspace.js" : undefined; },
+      get stylePath() { return window.document?.body?.dataset?.simRuntime === "true" ? "SRC/workspaces/quality/quality-workspace.css" : undefined; },
+      get home() { return window.document?.body?.dataset?.simRuntime === "true" ? Object.freeze({
+        label: "Quality", description: "Awaiting Review / Release", mark: "QA",
+        requiredPermission: "order_entry.view", preserveLabelCase: true
+      }) : undefined; }
     },
     {
       id: "shipping",
@@ -162,7 +168,12 @@
   window.DleWorkspaceRegistry = Object.freeze({
     defaultWorkspaceId: "dle-home",
     all() {
-      return WORKSPACE_DEFINITIONS.filter(available);
+      const workspaces = WORKSPACE_DEFINITIONS.filter(available);
+      if (window.document?.body?.dataset?.simRuntime !== "true") return workspaces;
+      const ordered = workspaces.filter(workspace => !["quality", "kitting"].includes(workspace.id));
+      const afterOperations = ordered.findIndex(workspace => workspace.id === "operations-center") + 1;
+      ordered.splice(afterOperations, 0, workspaceById.get("quality"), workspaceById.get("kitting"));
+      return ordered;
     },
     getById(id) {
       const workspace = workspaceById.get(id); return available(workspace) ? workspace : null;

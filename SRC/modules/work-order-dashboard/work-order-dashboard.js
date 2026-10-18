@@ -83,6 +83,7 @@
   let kittingCaseRequestId = 0;
 
   let activeKittingEditable = false;
+  let activeKittingModal = null;
 
   let activeKittingAutosaveTimer = null;
 
@@ -738,7 +739,7 @@
 
         (activeKittingTrialDraft || kittingCaseReview?.draft || releasedRequirements?.draft).groups.length + ' requirements · read only'
 
-      : releasedRequirementsError || 'No governed released requirements are available for this Work Order.');
+      : releasedRequirementsError || 'Released requirements are not available for this Work Order.');
 
     const actionLabel = !isKittingEditingAvailable()
 
@@ -860,19 +861,19 @@
 
       : isReleasedBomAvailable()
 
-      ? (!kittingCaseReview ? 'Start a governed Kitting run for WO ' + getSelectedReleasedBomWorkOrder() + '.'
+      ? (!kittingCaseReview ? 'Start Kitting for WO ' + getSelectedReleasedBomWorkOrder() + '.'
 
         : kittingCaseReview.state === 'KIT_COMPLETE'
 
-          ? 'Terminal persistent case · read only · working version ' + kittingCaseReview.workingVersion
+          ? 'Kit complete — read only.'
 
         : kittingCaseReview.isEditing && !activeKittingEditable
 
           ? kittingLeaseReadOnlyMessage(kittingCaseReview)
 
-          : 'Persistent case · working version ' + kittingCaseReview.workingVersion)
+          : 'Kitting in progress.')
 
-      : releasedRequirementsError || 'No governed released requirements are available for this Work Order.');
+      : releasedRequirementsError || 'Released requirements are not available for this Work Order.');
 
   }
 
@@ -1982,11 +1983,17 @@
 
     if (activeKittingTrialState !== 'loaded' || !ownsKittingLease()) return;
 
-    const nextValue = field === 'quantity' ? window.ActiveKittingTrial.sanitizeCountInput(value) : value;
+    const nextValue = ['quantity','customerInstalledQuantity'].includes(field) ? window.ActiveKittingTrial.sanitizeCountInput(value) : value;
 
-    if (field === 'quantity' && input && input.value !== nextValue) input.value = nextValue;
+    if (['quantity','customerInstalledQuantity'].includes(field) && input && input.value !== nextValue) input.value = nextValue;
 
-    window.ActiveKittingTrial.updateAllocation(activeKittingTrialDraft, sequence, allocationId, { [field]: nextValue });
+    const changes = { [field]: nextValue };
+    const sourceGroup = activeKittingTrialDraft?.groups?.find(g => g.sequence === String(sequence));
+    const sourceAllocation = sourceGroup?.entry?.allocations?.find(a => a.allocationId === allocationId);
+    if (isSimRuntime && kittingCaseReview?.mixedSourcesSupported && sourceAllocation && !sourceAllocation.sourceType && !sourceAllocation.acceptedMaterial) {
+      changes.sourceType = window.ActiveKittingTrial.allocationSource(sourceAllocation, sourceGroup);
+    }
+    window.ActiveKittingTrial.updateAllocation(activeKittingTrialDraft, sequence, allocationId, changes);
 
     activeKittingSubmissionPreview = '';
 
@@ -2011,7 +2018,7 @@
     const entry = window.ActiveKittingTrial.addAllocation(activeKittingTrialDraft, sequence);
 
     if (!entry) return false;
-    if (isSimRuntime) window.ActiveKittingTrial.updateAllocation(activeKittingTrialDraft, sequence, entry.allocations.at(-1).allocationId, {quantity:null});
+    if (isSimRuntime) window.ActiveKittingTrial.updateAllocation(activeKittingTrialDraft, sequence, entry.allocations.at(-1).allocationId, {quantity:null, ...(kittingCaseReview?.mixedSourcesSupported ? {sourceType:'PURCHASED',purchaseOrder:''} : {})});
 
     scheduleActiveKittingAutosave();
 
@@ -2393,14 +2400,22 @@
 
 
 
-  function openActiveKittingResultDialog(sequence, focusTarget = 'method') {
+  async function openActiveKittingResultDialog(sequence, focusTarget = 'method') {
 
     if (activeKittingTrialState !== 'loaded' || !ownsKittingLease()) return false;
+
+    if (isSimRuntime && !activeKittingModal) await activeKittingSaveQueue.catch(() => false);
 
     const group = activeKittingTrialDraft?.groups?.find(item => item.sequence === String(sequence));
 
     if (!group?.actionable || group.rowState === 'SUBMITTED') return false;
 
+    if (isSimRuntime && !activeKittingModal) activeKittingModal = {sequence:group.sequence, original:structuredClone(group), dirty:activeKittingDirty};
+    if (isSimRuntime && window.ActiveKittingTrial.isCustomerSupplied(group) && !group.entry) {
+      window.ActiveKittingTrial.applyMethod(activeKittingTrialDraft, sequence, window.ActiveKittingTrial.METHODS.COUNT, null);
+      focusTarget = 'count';
+    }
+    if (isSimRuntime) window.ActiveKittingTrial.prepareCustomerSupplyEntry(group);
     activeKittingDialogSequence = String(sequence);
 
     renderActiveKittingTrial();
@@ -2409,6 +2424,27 @@
 
     if (!dialog) return false;
 
+    if (dialog.classList.contains('stable-count-entry')) {
+      // Match keyboard order to the anchored source, part and quantity cells.
+      dialog.querySelectorAll('.active-kitting-complete-evidence, .kitting-first-allocation').forEach(row => {
+        const source = row.querySelector(':scope > .kitting-po-field');
+        if (source) row.prepend(source);
+      });
+    }
+    const inlineCount = dialog.querySelector('.kitting-inline-count');
+    const firstCount = dialog.querySelector('.kitting-first-allocation [data-active-kitting-count]');
+    if (inlineCount && firstCount) {
+      // Relocate the existing allocation input so its value and event handlers stay intact.
+      const oldLabel = firstCount.parentElement;
+      firstCount.setAttribute('aria-label', 'Count on hand');
+      inlineCount.append(firstCount);
+      oldLabel.remove();
+      const firstRow = dialog.querySelector('.kitting-first-allocation');
+      const allocationActions = dialog.querySelector('.active-kitting-allocation-ledger > header');
+      if (allocationActions) firstRow.after(allocationActions);
+      const customerInstall = dialog.querySelector('.kitting-first-allocation > .kitting-customer-install');
+      if (customerInstall) dialog.querySelector('.active-kitting-methods').prepend(customerInstall);
+    }
     dialog.showModal();
 
     if (acceptedMaterialTrialEnabledInKitting) void resolveGroupAcceptedMaterialLabels(group, true);
@@ -2514,6 +2550,7 @@
 
 
   function cancelActiveKittingResultDialog(event) {
+    if (isSimRuntime) { event?.stopPropagation?.(); return true; }
 
     const blockers = getActiveKittingRequiredPoBlockers(activeKittingDialogSequence);
 
@@ -2530,6 +2567,18 @@
 
 
   function closeActiveKittingResultDialog() {
+    if (isSimRuntime) {
+      const modal = activeKittingModal;
+      activeKittingModal = null;
+      activeKittingDialogSequence = '';
+      if (modal && activeKittingTrialDraft) {
+        const index = activeKittingTrialDraft.groups.findIndex(g=>g.sequence===modal.sequence);
+        if (index>=0) activeKittingTrialDraft.groups[index] = modal.original;
+        activeKittingDirty = modal.dirty;
+      }
+      renderActiveKittingTrial();
+      return true;
+    }
 
     const blockers = getActiveKittingRequiredPoBlockers(activeKittingDialogSequence);
 
@@ -2991,6 +3040,7 @@
 
     }
 
+    activeKittingModal = null;
     activeKittingDialogSequence = '';
 
     activeKittingDetailSequence = '';
@@ -3017,11 +3067,16 @@
 
 
 
-  function editActiveKittingRow(sequence) {
+  async function editActiveKittingRow(sequence) {
     if (isSimRuntime && kittingCaseReview?.state === 'KIT_COMPLETE') return false;
 
     if (activeKittingTrialState !== 'loaded' || !ownsKittingLease()) return false;
 
+    if (isSimRuntime) {
+      await activeKittingSaveQueue.catch(() => false);
+      const original = activeKittingTrialDraft?.groups?.find(g=>g.sequence===String(sequence));
+      if (original) activeKittingModal = {sequence:original.sequence,original:structuredClone(original),dirty:activeKittingDirty};
+    }
     const editing = window.ActiveKittingTrial.editGroup(activeKittingTrialDraft, sequence);
 
     if (!editing) return false;
@@ -3039,6 +3094,7 @@
 
 
   function scheduleActiveKittingAutosave() {
+    if (isSimRuntime && activeKittingModal) return;
 
     if (!ownsKittingLease()) return;
 
@@ -3061,6 +3117,7 @@
 
 
   function persistActiveKittingDraft(release) {
+    if (isSimRuntime && activeKittingModal) return false;
 
     if (!ownsKittingLease() || poTraceabilityAmendmentPending || kittingMaterialPending) return false;
 
@@ -3080,6 +3137,7 @@
 
       if (!ownsKittingLease() || workOrderNumber !== getSelectedReleasedBomWorkOrder() || caseId !== kittingCaseReview.caseId) return false;
 
+      if (isSimRuntime && activeKittingModal) return false;
       const blockers = getActiveKittingRequiredPoBlockers();
 
       if (blockers.length) return blockActiveKittingRequiredPoExit(blockers[0].sequence);
@@ -3136,11 +3194,7 @@
 
       if (release) renderActiveKittingTrial();
 
-      else setText('activeKittingTrialStatus', window.ActiveKittingTrial.getSummary(activeKittingTrialDraft).completedCount +
-
-        ' of ' + window.ActiveKittingTrial.getSummary(activeKittingTrialDraft).actionableCount +
-
-        ' actionable requirements dispositioned · working version ' + kittingCaseReview.workingVersion + ' · ' + activeKittingSaveState);
+      else setText('activeKittingTrialStatus', activeKittingSaveState || 'Saved');
 
       if (release) {
         window.KittingJobWorkspace?.setPrimaryTool?.('kitting', false);
@@ -3351,7 +3405,7 @@
 
         ? summary.traceabilityBlockerCount + ' submitted requirement(s) need P.O. traceability.'
 
-        : summary.remainingCount + ' actionable requirement' +
+        : summary.remainingCount + ' item' +
 
           (summary.remainingCount === 1 ? ' remains.' : 's remain.');
 
@@ -3695,7 +3749,7 @@
 
     if (activeKittingTrialState === 'error') {
 
-      setText('activeKittingTrialStatus', 'The governed Kitting Case could not open.');
+      setText('activeKittingTrialStatus', 'Kitting could not open. Try again.');
 
       body.innerHTML = '<div class="active-kitting-trial-error" role="alert">' +
 
@@ -3735,13 +3789,7 @@
 
       formatActiveKittingFocusedIdentity(draft, header, kittingCaseReview, summary));
 
-    setText('activeKittingTrialStatus', summary.completedCount + ' of ' + summary.actionableCount +
-
-      ' actionable requirements dispositioned · working version ' +
-
-      String(kittingCaseReview?.workingVersion || 0) + ' · ' +
-
-      (activeKittingSaveState || 'Persistent case current'));
+    setText('activeKittingTrialStatus', activeKittingSaveState || 'Saved');
 
     const saveExit = document.getElementById('activeKittingSaveExit');
 
@@ -3757,7 +3805,7 @@
     const restoreTableFocus = !!previousTable && (document.activeElement === previousTable || document.activeElement?.matches('tr[data-kitting-row-key]'));
     const previousTableScroll = previousTable?.scrollTop || 0;
 
-    body.innerHTML = renderActiveKittingContext(draft, summary) + renderAcceptedKittingSummary(draft) +
+    body.innerHTML = renderActiveKittingContext(draft, summary) +
 
       renderActiveKittingRecovery() +
 
@@ -3777,15 +3825,15 @@
 
       '<footer class="active-kitting-trial-footer"><div><strong>Submission preview</strong><span>' +
 
-      (terminal ? 'KIT_COMPLETE is terminal and read only.' :
+      (terminal ? 'Kit complete — read only.' :
 
-        summary.canSubmit ? 'All actionable requirements are ready. Result: ' + summary.resultingDisposition + '.' :
+        summary.canSubmit ? 'Ready to submit: ' + (summary.resultingDisposition === 'KIT_COMPLETE' ? 'Kit complete.' : 'Kit short.') :
 
-        summary.remainingCount + ' actionable requirement' + (summary.remainingCount === 1 ? '' : 's') + ' remaining.') +
+        summary.remainingCount + ' item' + (summary.remainingCount === 1 ? '' : 's') + ' remaining.') +
 
-      '</span><small>' + (canModify ? 'Draft changes autosave to the governed Kitting Case.' :
+      '</span><small>' + (canModify ? 'Changes save automatically.' :
 
-        'This view cannot modify the governed Kitting Case.') + '</small></div>' +
+        'Read only.') + '</small></div>' +
 
       '<button id="activeKittingTrialSubmit" type="button" onclick="submitWorkOrderDashboardActiveKitting()"' +
 
@@ -3876,7 +3924,7 @@
     if (!isSimRuntime) return '';
     const report=window.DleBomReport;
     const saved=group.rowState==='SUBMITTED'?group:{...group,entry:null};
-    return '<td class="kitting-bom-po">'+escapeDashboardHtml(report.purchaseOrders(saved))+'</td><td class="kitting-bom-type" data-process-type="'+escapeDashboardHtml(group.process?.componentType||'UNKNOWN')+'">'+escapeDashboardHtml(report.processLabel(group.process))+'</td><td class="kitting-bom-notes">'+escapeDashboardHtml([...(group.notes||[]),group.process?.notes||''].filter(Boolean).join('\n'))+'</td>';
+    return '<td class="kitting-bom-po">'+escapeDashboardHtml(report.purchaseOrders(saved))+'</td><td class="kitting-bom-type" data-process-type="'+escapeDashboardHtml(group.process?.componentType||'UNKNOWN')+'">'+escapeDashboardHtml(report.processLabel(group.process))+'</td><td class="kitting-bom-notes">'+escapeDashboardHtml([...report.operatorNotes(group),group.process?.notes||''].filter(Boolean).join('\n'))+'</td>';
   }
 
   function renderActiveKittingRow(group) {
@@ -3903,7 +3951,7 @@
 
     const rowClass = (entry?.result ? 'result-' + entry.result.toLowerCase().replaceAll('_', '-') : 'result-pending') +
 
-      (kittingReturnDemand(group) ? ' accepted-material-ready' : '') + (locked ? ' row-locked' : '') + (group.sequence === activeKittingNextSequence ? ' active-kitting-next-row' : '');
+      (locked ? ' row-locked' : '') + (group.sequence === activeKittingNextSequence ? ' active-kitting-next-row' : '');
 
     return '<tr id="kitting-return-' + escapeDashboardHtml(group.sourceRowId) + '" class="' + rowClass + '"' + navigationKey + ' data-active-kitting-row="' + escapeDashboardHtml(group.sequence) + '">' +
 
@@ -3943,6 +3991,25 @@
 
 
 
+  function chooseActiveKittingSupply(sequence, responsibility, allocationId = '') {
+    if (!isSimRuntime || !kittingCaseReview?.supplyDispositionSupported || !ownsKittingLease()) return;
+    if (kittingCaseReview?.mixedSourcesSupported) window.ActiveKittingTrial.setAllocationSource(activeKittingTrialDraft, String(sequence), allocationId, responsibility);
+    else window.ActiveKittingTrial.setSupplyDisposition(activeKittingTrialDraft, String(sequence), responsibility);
+    void openActiveKittingResultDialog(sequence, 'count');
+  }
+
+  function renderActiveKittingPoHeading(group, allocation = null) {
+    const showChoice = allocation !== false;
+    if (isSimRuntime && kittingCaseReview?.mixedSourcesSupported) {
+      const current = window.ActiveKittingTrial.allocationSource(allocation || group.entry, group);
+      const options = [['PURCHASED','P.O.'],['CUSTOMER_SUPPLIED','Customer Supplied'],['CUSTOMER_INSTALLED','Customer Installed']];
+      return `<div class="kitting-po-heading"><select aria-label="Material source" data-kitting-source onchange="chooseWorkOrderDashboardKittingSupply('${escapeDashboardHtml(group.sequence)}',this.value,'${escapeDashboardHtml(allocation?.allocationId || '')}')">${options.map(([value,label])=>`<option value="${value}"${value===current?' selected':''}>${label}</option>`).join('')}</select></div>`;
+    }
+    const checkbox = isSimRuntime && kittingCaseReview?.supplyDispositionSupported && showChoice
+      ? '<label class="kitting-cs-toggle"><input type="checkbox" data-kitting-cs' + (window.ActiveKittingTrial.isCustomerSupplied(group) ? ' checked' : '') + ' onchange="chooseWorkOrderDashboardKittingSupply(\'' + escapeDashboardHtml(group.sequence) + '\',this.checked ? \'CUSTOMER_SUPPLIED\' : \'PURCHASED\')">C/S</label>' : '';
+    return '<div class="kitting-po-heading"><span>P.O.</span>' + checkbox + '</div>';
+  }
+
   function renderActiveKittingResultDialog(draft) {
 
     const group = draft.groups.find(item => item.sequence === activeKittingDialogSequence);
@@ -3951,6 +4018,9 @@
 
     const entry = group.entry;
     const compact = isSimRuntime;
+    const inlineCount = compact && kittingCaseReview?.mixedSourcesSupported;
+    const fixedCount = compact && (entry?.allocations?.length > 1 || entry?.allocations?.some(a=>a.sourceType === 'CUSTOMER_INSTALLED'));
+    const customerCount = compact && window.ActiveKittingTrial.isCustomerSupplied(group) && (!entry || entry.method === 'COUNT');
     const identity = '<div class="kitting-entry-identity"><div><span>Seq</span><strong>' + escapeDashboardHtml(String(group.sequence).padStart(3, '0')) + '</strong></div><div><span>Find No.</span><strong>' + escapeDashboardHtml(group.findNumber ?? '-') + '</strong></div><div class="kitting-entry-required"><span>Qty Required</span><strong>' + escapeDashboardHtml(formatQuantity(group.requiredQuantity)) + ' <small>' + escapeDashboardHtml(group.unitOfMeasure) + '</small></strong></div></div>';
 
     const methods = window.ActiveKittingTrial.METHODS;
@@ -3969,34 +4039,22 @@
 
       escapeDashboardHtml(part) + '</option>').join('');
 
+    const commitments = window.ActiveKittingTrial.isCustomerSupplied(group) ? (kittingSupplyProgress?.demands || []).filter(d=>d.sourceRowId===group.sourceRowId).flatMap(d=>d.orders || []).filter(o=>o.open===null || o.open>0) : [];
+    const supplyWarning = commitments.length ? '<p role="status">Existing purchase commitments: ' + commitments.map(o=>escapeDashboardHtml('PO '+o.poNumber+' / '+o.poLine)).join(', ') + '. Review with Buyer; these orders are not cancelled.</p>' : '';
     const completeEvidence = entry && !needsCount
-
-      ? '<div class="active-kitting-complete-evidence"><label>Part Used<select class="active-kitting-part-select" ' +
-
-        'onchange="updateWorkOrderDashboardKittingPart(\'' + escapeDashboardHtml(group.sequence) + '\',this.value)">' +
-
-        partOptions(entry.selectedPartNumber) + '</select></label><label>P.O. (' +
-
-        (kittingCaseReview?.poTraceabilityRequired ? 'Required' : 'Optional') + ')<input class="active-kitting-po" type="text" ' +
-
-        'maxlength="40" value="' + escapeDashboardHtml(entry.purchaseOrder) + '" placeholder="' +
-
-        (kittingCaseReview?.poTraceabilityRequired ? 'Required' : 'Optional') + '" ' +
-
-        'oninput="updateWorkOrderDashboardKittingPo(\'' + escapeDashboardHtml(group.sequence) + '\',this.value)"></label></div>'
-
-      : '';
+      ? '<div class="active-kitting-complete-evidence"><label>Part Used<select class="active-kitting-part-select" onchange="updateWorkOrderDashboardKittingPart(\'' + escapeDashboardHtml(group.sequence) + '\',this.value)">' + partOptions(entry.selectedPartNumber) + '</select></label>' +
+        '<div class="kitting-po-field">' + renderActiveKittingPoHeading(group) + '<input aria-label="P.O." class="active-kitting-po" type="text" maxlength="40" ' + (window.ActiveKittingTrial.isCustomerSupplied(group) ? 'readonly ' : '') + 'value="' + escapeDashboardHtml(window.ActiveKittingTrial.isCustomerSupplied(group) ? 'C/S' : entry.purchaseOrder) + '" placeholder="' + (kittingCaseReview?.poTraceabilityRequired ? 'Required' : 'Optional') + '" oninput="updateWorkOrderDashboardKittingPo(\'' + escapeDashboardHtml(group.sequence) + '\',this.value)"></div></div>' : '';
 
     const allocationLedger = needsCount ? renderActiveKittingAllocationEditor(group) : '';
-    const emptyEvidence = compact && !entry ? '<div class="active-kitting-complete-evidence"><label>Part Used<select disabled><option>Choose a result first</option></select></label><label>P.O.<input disabled value="" placeholder="Choose a result first"></label></div>' : '';
+    const emptyEvidence = compact && !entry ? '<div class="active-kitting-complete-evidence"><label>Part Used<select disabled><option>Choose a result first</option></select></label><div class="kitting-po-field">' + renderActiveKittingPoHeading(group) + '<input aria-label="P.O." disabled value="" placeholder="Choose a result first"></div></div>' : '';
 
     const entryReady = entry && entry.shortageQuantity !== null && (needsCount || group.eligibleParts.includes(entry.selectedPartNumber)) &&
 
       (!kittingCaseReview?.poTraceabilityRequired || window.ActiveKittingTrial.hasRequiredPoTraceability(group));
 
-    return '<dialog id="activeKittingResultDialog" class="active-kitting-result-dialog active-kitting-work-card-dialog' + (compact ? ' sim-count-entry' : '') + '" ' +
+    return '<dialog id="activeKittingResultDialog" class="active-kitting-result-dialog active-kitting-work-card-dialog' + (compact ? ' sim-count-entry' + (kittingCaseReview?.mixedSourcesSupported ? ' mixed-sources-entry stable-count-entry' : '') : '') + '" ' +
 
-      'oncancel="return cancelWorkOrderDashboardKittingResultDialog(event)" onclose="closeWorkOrderDashboardKittingResultDialog()">' +
+      'onkeydown="if(event.key===&quot;Escape&quot;){event.preventDefault();event.stopPropagation();this.close();}" oncancel="return cancelWorkOrderDashboardKittingResultDialog(event)" onclose="closeWorkOrderDashboardKittingResultDialog()">' +
 
       '<header><div><small>' + (compact ? 'Selected line' : 'Governed material / bag') + '</small><strong>Kitting Result &mdash; Seq ' +
 
@@ -4006,13 +4064,15 @@
 
       (compact ? identity : renderActiveKittingMaterialCard(draft, group)) +
 
-      '<div class="active-kitting-method-heading"><span>Kitting Result</span><small>Choose one method</small></div>' +
+      (customerCount ? '<div class="active-kitting-method-heading"><span>Count on hand</span><small>C/S — Customer supplied. Enter 0 if none are on hand.</small></div>' : '<div class="active-kitting-method-heading"><span>Kitting Result</span><small>Choose one method</small></div>') +
 
-      '<div class="active-kitting-methods">' + button(methods.COMPLETE, compact ? '&#10003; Complete' : 'Complete') +
+      (inlineCount ? '<div class="active-kitting-methods">' +
+        (customerCount || fixedCount ? '' : button(methods.COMPLETE, '&#10003; Complete') + button(methods.COMPLETE_MIN_EXTRA, '&#10003;* Complete with minimal extra')) +
+        '<div class="kitting-inline-count' + (needsCount ? ' selected' : '') + '">' + button(methods.COUNT, '# Count') + '</div></div>'
+        : (customerCount || fixedCount ? '' : '<div class="active-kitting-methods">' + button(methods.COMPLETE, compact ? '&#10003; Complete' : 'Complete') +
+          button(methods.COMPLETE_MIN_EXTRA, compact ? '&#10003;* Complete with minimal extra' : 'Min Extra') + button(methods.COUNT, compact ? '# Count' : 'Count') + '</div>')) +
 
-      button(methods.COMPLETE_MIN_EXTRA, compact ? '&#10003;* Complete with minimal extra' : 'Min Extra') + button(methods.COUNT, compact ? '# Count' : 'Count') + '</div>' +
-
-      completeEvidence + emptyEvidence + allocationLedger + (compact && entry?.method === methods.COMPLETE_MIN_EXTRA ? '<p class="kitting-min-extra-note">Required quantity covered, plus a small uncounted extra.</p>' : '') + renderKittingBagLabelArea(draft, group) + '<footer>' +
+      supplyWarning + completeEvidence + emptyEvidence + allocationLedger + (compact && entry?.method === methods.COMPLETE_MIN_EXTRA ? '<p class="kitting-min-extra-note">Required quantity covered, plus a small uncounted extra.</p>' : '') + renderKittingBagLabelArea(draft, group) + '<footer>' +
 
       '<button type="button" onclick="document.getElementById(\'activeKittingResultDialog\').close()">Cancel</button>' +
 
@@ -4088,6 +4148,11 @@
 
 
 
+  function renderCustomerInstallQuantity(group, allocation) {
+    if (allocation.sourceType !== 'CUSTOMER_INSTALLED') return '';
+    return `<label class="kitting-customer-install">Customer installs<input aria-label="Customer installs" data-customer-installs type="text" inputmode="decimal" value="${escapeDashboardHtml(allocation.customerInstalledQuantity ?? '')}" oninput="updateWorkOrderDashboardKittingAllocation('${escapeDashboardHtml(group.sequence)}','${escapeDashboardHtml(allocation.allocationId)}','customerInstalledQuantity',this.value,this)"></label>`;
+  }
+
   function renderActiveKittingAllocationEditor(group) {
 
     const entry = group.entry;
@@ -4114,7 +4179,7 @@
 
       escapeDashboardHtml(group.sequence) + '\',\'' + escapeDashboardHtml(allocation.allocationId) + '\',\'partNumber\',this.value,this)">' +
 
-      options(allocation.partNumber) + '</select></label><label>Qty<input type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" value="' +
+      options(allocation.partNumber) + '</select></label><label>' + (allocation.sourceType === 'CUSTOMER_INSTALLED' ? 'Actual on hand' : 'Qty') + '<input type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" value="' +
 
       escapeDashboardHtml(allocation.quantity ?? '') + '" data-active-kitting-count data-active-kitting-allocation="' +
 
@@ -4125,29 +4190,24 @@
       (isSimRuntime ? 'onmouseup="event.preventDefault();placeWorkOrderDashboardKittingCountCaret(this)" onclick="placeWorkOrderDashboardKittingCountCaret(this)" ' : '') +
       'onfocus="placeWorkOrderDashboardKittingCountCaret(this)" onkeydown="handleWorkOrderDashboardKittingCountKeydown(event,\'' +
 
-      escapeDashboardHtml(group.sequence) + '\',\'' + escapeDashboardHtml(allocation.allocationId) + '\')"></label>' +
+      escapeDashboardHtml(group.sequence) + '\',\'' + escapeDashboardHtml(allocation.allocationId) + '\')"></label>' + renderCustomerInstallQuantity(group, allocation) +
 
-      '<label>P.O. <span>(' + (kittingCaseReview?.poTraceabilityRequired && Number(allocation.quantity) > 0 ? 'Required' : 'Optional') +
-
-      ')</span><input type="text" maxlength="40" value="' + escapeDashboardHtml(allocation.purchaseOrder) +
-
+      '<div class="kitting-po-field">' + renderActiveKittingPoHeading(group, kittingCaseReview?.mixedSourcesSupported ? allocation : index === 0) +
+      '<input aria-label="P.O." type="text" maxlength="40" ' + (kittingCaseReview?.mixedSourcesSupported ? (window.ActiveKittingTrial.allocationSource(allocation, group) !== 'PURCHASED' ? 'readonly ' : '') : window.ActiveKittingTrial.isCustomerSupplied(group) ? 'readonly ' : '') + 'value="' + escapeDashboardHtml(kittingCaseReview?.mixedSourcesSupported ? allocation.purchaseOrder : window.ActiveKittingTrial.isCustomerSupplied(group) ? 'C/S' : allocation.purchaseOrder) +
       '" placeholder="' + (kittingCaseReview?.poTraceabilityRequired && Number(allocation.quantity) > 0 ? 'Required' : 'Optional') +
-
-      '" oninput="updateWorkOrderDashboardKittingAllocation(\'' + escapeDashboardHtml(group.sequence) + '\',\'' +
-
-      escapeDashboardHtml(allocation.allocationId) + '\',\'purchaseOrder\',this.value,this)"></label><button type="button" class="active-kitting-allocation-remove" ' +
+      '" oninput="updateWorkOrderDashboardKittingAllocation(\'' + escapeDashboardHtml(group.sequence) + '\',\'' + escapeDashboardHtml(allocation.allocationId) + '\',\'purchaseOrder\',this.value,this)"></div><button type="button" class="active-kitting-allocation-remove" ' +
 
       'aria-label="Remove allocation ' + (index + 1) + '" onclick="removeWorkOrderDashboardKittingAllocation(\'' +
 
       escapeDashboardHtml(group.sequence) + '\',\'' + escapeDashboardHtml(allocation.allocationId) + '\')"' +
 
-      (entry.allocations.length === 1 ? ' disabled' : '') + '>&times;</button></div>').join('');
+      (entry.allocations.length === 1 ? ' disabled' : '') + '>&times;</button></div>');
 
     return '<section class="active-kitting-allocation-ledger"><header><div><strong>Material allocations</strong>' +
 
       '<span>Main and governed Related parts only</span></div><button type="button" onclick="addWorkOrderDashboardKittingAllocation(\'' +
 
-      escapeDashboardHtml(group.sequence) + '\')">+ Add allocation</button></header>' + rows +
+      escapeDashboardHtml(group.sequence) + '\')">+ Add another source</button></header>' + (isSimRuntime && kittingCaseReview?.mixedSourcesSupported ? (rows[0] || '') + '<div class="kitting-additional-allocations">' + rows.slice(1).join('') + '</div>' : rows.join('')) +
 
       '<output class="active-kitting-allocation-rollup" data-active-kitting-rollup="' + escapeDashboardHtml(group.sequence) +
 
@@ -4194,7 +4254,7 @@
 
       metric('Required', formatQuantity(group.requiredQuantity) + ' ' + group.unitOfMeasure) +
 
-      metric('Total Kitted', totalKitted) +
+      metric('Total Kitted', totalKitted) + (entry.customerInstalledQuantity > 0 ? metric('Customer installs', formatQuantity(entry.customerInstalledQuantity)) : '') +
 
       metric('Short', formatQuantity(entry.shortageQuantity), entry.shortageQuantity > 0 ? 'short' : '') +
 
@@ -4208,7 +4268,7 @@
 
           ? 'Accepted Material ' + escapeDashboardHtml(allocation.acceptedMaterial.receiptLineId) : 'Original Kitting') + '</small>' + escapeDashboardHtml(allocation.partNumber) + '</td><td>' +
 
-          escapeDashboardHtml(formatQuantity(allocation.quantity)) + '</td><td>' + escapeDashboardHtml(allocation.purchaseOrder || '\u2014') +
+          escapeDashboardHtml(formatQuantity(allocation.quantity)) + (allocation.sourceType === 'CUSTOMER_INSTALLED' ? ' on hand; customer installs ' + escapeDashboardHtml(formatQuantity(allocation.customerInstalledQuantity)) : '') + '</td><td>' + escapeDashboardHtml(allocation.purchaseOrder || '\u2014') +
 
           '</td></tr>').join('') + '</tbody></table></div>'
 
@@ -4258,7 +4318,7 @@
 
       escapeDashboardHtml(formatQuantity(entry.pickedQuantity)) + ' / ' + escapeDashboardHtml(formatQuantity(group?.requiredQuantity ?? 0)) + '</strong><span>' +
 
-      escapeDashboardHtml(interpretation) + '</span></span>';
+      escapeDashboardHtml(interpretation) + (entry.customerInstalledQuantity > 0 ? ' · Customer installs ' + escapeDashboardHtml(formatQuantity(entry.customerInstalledQuantity)) : '') + '</span></span>';
 
   }
 
@@ -4284,115 +4344,17 @@
 
 
 
-  function renderAcceptedKittingSummary(draft) {
-
-    const groups = draft.groups.filter(g => kittingReturnDemand(g));
-
-    if (!groups.length) return '';
-
-    return '<aside class="active-kitting-supply" aria-label="Accepted material available"><strong>Accepted Material Available</strong><p>' +
-
-      groups.length + ' shortage(s) ready for re-kit · Read-only review</p>' + groups.map(g => {
-
-        const d = kittingReturnDemand(g);
-
-        const qty = Math.min(d.short, d.acceptedMaterials.reduce((n, m) => n + Number(m.availableQuantity), 0));
-
-        return '<a class="secondary-btn" href="#kitting-return-' + escapeDashboardHtml(g.sourceRowId) +
-
-          '">Find ' + escapeDashboardHtml(g.findNumber) + ' · ' + escapeDashboardHtml(g.partNumber) +
-
-          ' · ' + qty + ' ' + escapeDashboardHtml(g.unitOfMeasure) + ' available → View shortage</a>';
-
-      }).join(' ') + '</aside>';
-
-  }
-
-
-
   function renderKittingSupply(group) {
-
     const d = kittingSupplyProgress?.demands?.find(item => item.sourceRowId === group.sourceRowId);
-
-    if (!d) return kittingSupplyProgress?.unavailable ? '<small>Supply context unavailable</small>' : '';
-
-    const date = value => /^(\d{4})-(\d{2})-(\d{2})$/.test(value || '') ? value.slice(5,7) + '/' + value.slice(8,10) + '/' + value.slice(0,4) : 'Not Established';
-
-    const eventDate = value => value && Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('en-US', {
-
-      timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric'
-
-    }).format(new Date(value)) : 'Not Established';
-
-    const applied = (group.entry?.allocations || []).filter(a => a.acceptedMaterial?.applicationId);
-
-    const complete = kittingCaseReview?.state === 'KIT_COMPLETE';
-
-    const lines = [applied.length ? 'Original Short ' + d.short + ' · Working Short ' + group.entry.shortageQuantity +
-
-      (complete ? ' · Kit Complete' : ' · Re-Kit Applied · Submission Required') :
-
-      (complete ? 'Original Short ' : 'Short ') + d.short + ' · ' + d.progress, (complete ? 'Historical Need By ' : 'Need By ') + date(d.schedule?.materialNeedBy)];
-
-    if (applied.length) {
-
-      lines.push('Original Kitting ' + (group.entry.allocations.filter(a => !a.acceptedMaterial?.applicationId).reduce((n,a) => n + Number(a.quantity),0)) + ' ' + group.unitOfMeasure);
-
-      for (const allocation of applied) lines.push('Accepted Material ' + allocation.acceptedMaterial.receiptLineId + ' · Applied ' + allocation.quantity + ' ' + group.unitOfMeasure +
-
-        ' · PO ' + allocation.purchaseOrder + ' / ' + allocation.acceptedMaterial.poLine + ' · Packing Slip ' + allocation.acceptedMaterial.packingSlipNumber);
-
-      lines.push((complete ? 'Submitted Total ' : 'Working Total ') + group.entry.pickedQuantity + ' / ' + group.requiredQuantity +
-
-        (complete ? ' · KIT COMPLETE' : ' · WO remains KIT SHORT'));
-
-    }
-
-    for (const p of d.orders || []) lines.push('Ordered ' + p.ordered + ' · PO ' + p.poNumber + ' / ' + p.poLine +
-
-      ' · ETA ' + date(p.expectedDate) + ' · Received ' + (p.received ?? 'Unassigned') + ' / ' + p.ordered + ' · ' + p.risk.status);
-
-    const accepted = d.acceptedMaterials || [];
-
-    if (accepted.length) {
-
-      const available = accepted.reduce((total, item) => total + Number(item.availableQuantity || 0), 0);
-
-      lines.push('Accepted Material Available ' + available + ' ' + (accepted[0].uom || ''));
-
-      for (const item of accepted) lines.push('Accepted Material ' + item.receiptLineId +
-
-        ' · ' + item.availableQuantity + ' ' + item.uom + ' · PO ' + item.poNumber + ' / ' + item.poLine +
-
-        ' · Packing Slip ' + item.packingSlipNumber + ' · Staged ' + item.stagingLocation +
-
-        ' · Received ' + eventDate(item.receivedAtUtc) + ' · Accepted ' + eventDate(item.acceptedAtUtc));
-
-      lines.push(kittingReturnDemand(group) ? 'READY FOR RE-KIT' + (available < d.short ? ' · Partial supply' : '') : 'Supply Review Required');
-
-      lines.push('Destination WO ' + getSelectedReleasedBomWorkOrder() + ' · Find ' + (group.findNumber ?? '—') +
-
-        ' · Released line ' + group.sequence + ' · Requirement ' + group.groupId);
-
-      lines.push('Required ' + group.requiredQuantity + ' · Previously Kitted ' + (d.returnOrigin?.previouslyKitted ?? '—') + ' · Short ' + d.short);
-
-    }
-
-    if (d.unavailableReason) lines.push(d.unavailableReason);
-
-    const canReview = isSimRuntime && kittingCaseReview?.state === 'KIT_SHORT' && d.returnOrigin && !d.unavailableReason;
-
-    const action = canReview ? '<button type="button" class="secondary-btn" onclick="reviewWorkOrderDashboardAcceptedMaterial(\'' +
-
+    if (!d) return kittingSupplyProgress?.unavailable ? '<small role="status">Supply context unavailable</small>' : '';
+    if (d.unavailableReason) return '<small role="status">' + escapeDashboardHtml(d.unavailableReason) + '</small>';
+    const canReview = isSimRuntime && kittingCaseReview?.state === 'KIT_SHORT' && d.returnOrigin;
+    if (!canReview) return '';
+    const applied = (group.entry?.allocations || []).some(a => a.acceptedMaterial?.applicationId);
+    return '<button type="button" class="kitting-material-inline-action" onclick="reviewWorkOrderDashboardAcceptedMaterial(\'' +
       escapeDashboardHtml(group.sourceRowId) + '\')"' + (!ownsKittingLease() ? ' disabled' : '') + '>' +
-
-      (applied.length ? 'Review Applied Material' : 'Apply Accepted Material') + '</button>' : '';
-
-    return '<div class="active-kitting-supply" aria-label="Supply and re-kit context"><small>' + lines.map(escapeDashboardHtml).join('<br>') + '</small>' + action + '</div>';
-
+      (applied ? 'Review applied material' : 'Apply accepted material') + '</button>';
   }
-
-
 
   async function reviewAcceptedKittingMaterial(sourceRowId) {
 
@@ -4448,7 +4410,7 @@
 
           requirement.materials.map((m,i) => '<section class="kitting-material-choice"><strong>' + e(m.receiptLineId) + '</strong>' +
 
-            '<p>Available ' + e(m.availableQuantity) + ' ' + e(m.uom) + '<br>Staging ' + e(m.stagingLocation) + '<br>PO ' + e(m.poNumber) + ' / ' + e(m.poLine) +
+            '<p>Available ' + e(m.availableQuantity) + ' ' + e(m.uom) + '<br>Staging ' + e(m.stagingLocation) + '<br>' + (m.customerSource ? 'Customer supplied: ' + e(m.customerSource.customer) : 'PO ' + e(m.poNumber) + ' / ' + e(m.poLine)) +
 
             '<br>Packing Slip ' + e(m.packingSlipNumber) + '</p><label>Qty to Apply<input type="number" min="0.0001" step="any" max="' + e(Math.min(m.availableQuantity,requirement.remainingShort)) +
 
@@ -4592,9 +4554,11 @@
 
     if (group.references.length) details.push('Refs: ' + group.references.join(', '));
 
+
     if (!isSimRuntime && group.notes.length) details.push('Note: ' + group.notes.join(' - '));
 
-    return details.length ? '<small>' + details.map(escapeDashboardHtml).join('<br>') + '</small>' : '';
+    const supply = !isSimRuntime && window.ActiveKittingTrial.isCustomerSupplied(group) ? '<small>C/S — Customer supplied</small>' : '';
+    return (details.length ? '<small>' + details.map(escapeDashboardHtml).join('<br>') + '</small>' : '') + supply;
 
   }
 
@@ -6440,6 +6404,7 @@
   window.closeWorkOrderDashboardKittingDetail = closeActiveKittingSubmittedDetail;
 
   window.chooseWorkOrderDashboardKittingMethod = chooseActiveKittingMethod;
+  window.chooseWorkOrderDashboardKittingSupply = chooseActiveKittingSupply;
 
   window.updateWorkOrderDashboardKittingAllocation = updateActiveKittingAllocation;
 

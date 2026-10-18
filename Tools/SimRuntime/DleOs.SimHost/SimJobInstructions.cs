@@ -9,6 +9,27 @@ internal sealed record SimJobInstructionAsset(string DocumentId,string Sha256,st
 
 internal sealed partial class SimProductionService
 {
+    // Authoring is not release: only instruction routes may enter this held-trial path.
+    private Task<T> WithInstructionSource<T>(string wo,SimPersona actor,bool write,bool quality,
+        Func<SimProductionSource,SimStateMetadata,Task<T>> action){
+        wo=SimKittingCases.Normalize(wo);
+        if(!quality)return WithSource(wo,actor,write,async(source,runtime)=>{
+            Require(!write || await store.ReadQualityRelease(wo,runtime.Generation) is null,"QUALITY_RELEASE_LOCKED","Released instructions are read-only. A reviewed amendment is required for changes.");
+            return await action(source,runtime);
+        });
+        return state.WithStableRuntime(async runtime=>{
+            Permission(actor,write);
+            if(!actor.Can("order_entry.view"))throw new SimOrderEntryPermissionException();
+            wo=SimKittingCases.Normalize(wo);
+            return await provider.WithPacketAuthoringRequirements(wo,runtime,async requirements=>{
+                var source=await Source(wo,runtime,requirements);
+                var ownership=await store.Read(wo,runtime.Generation);
+                Require(!write || requirements.QualityRelease is null,"QUALITY_RELEASE_LOCKED","Released instructions are read-only. A reviewed amendment is required for changes.");
+                Require(!write || (source.Case is null && ownership.Bound is null && !ownership.Execution),"QUALITY_PACKET_STARTED","This job already has shop activity. Resolve its state before held-packet authoring.");
+                return await action(source,runtime);
+            });
+        });
+    }
     private async Task<SimLaborSnapshot> InstructionBaseline(SimProductionSource source){
         var record=(SimRfqIntakeRecord)(await intakes.ReadAsync(source.Package.GetProperty("source").GetProperty("acceptedIntakeId").GetString()!))!;
         return record.OrderEntry!.Acceptance.Package.TechnicalSource!.Baseline!.Labor;
@@ -19,7 +40,7 @@ internal sealed partial class SimProductionService
         var context=source.Package.GetProperty("context");
         return new(baseline.Quote.IntakeId,record.Customer,[new(1,context.GetProperty("assembly").GetString()!,context.GetProperty("revision").GetString()!,baseline.Labor.Quantity)],"",new(new(),new()),"ACCEPTED",baseline.Definition);
     }
-    internal Task<object> ReadInstructionSources(string wo,SimPersona actor)=>WithSource(wo,actor,false,async(source,runtime)=>{
+    internal Task<object> ReadInstructionSources(string wo,SimPersona actor,bool quality=false)=>WithInstructionSource(wo,actor,false,quality,async(source,runtime)=>{
         var rfq=await FrozenInstructionRfq(source);var baseline=await InstructionBaseline(source);
         var html=SimRfqIntakeEndpoints.BomReference(rfq);
         var groups=source.Case?.Draft.GetProperty("groups").EnumerateArray().ToArray()??[];
@@ -31,7 +52,7 @@ internal sealed partial class SimProductionService
         return (object)new{baselineToken=Hash(baseline),html,rfq,quantity=baseline.Quantity,
             process=new{canEdit=false,rows=process,source="RETAINED_WORK_ORDER_BOM"}};
     });
-    internal Task<byte[]> ReadInstructionPage(string wo,string id,string hash,int page,int pixels,SimPersona actor)=>WithSource(wo,actor,false,async(source,runtime)=>{
+    internal Task<byte[]> ReadInstructionPage(string wo,string id,string hash,int page,int pixels,SimPersona actor,bool quality=false)=>WithInstructionSource(wo,actor,false,quality,async(source,runtime)=>{
         var reference=source.Package.GetProperty("technicalDocuments").EnumerateArray().FirstOrDefault(r=>Text(r,"documentId")==id&&Text(r,"sha256")==hash);
         Require(reference.ValueKind==JsonValueKind.Object,"instructions_drawing_scope","Drawing must match the frozen accepted source.");
         var bytes=await documents.Bytes(source.SourceCorrelationId,id);
@@ -44,15 +65,24 @@ internal sealed partial class SimProductionService
     private static SimLaborOperation[] InstructionOperations(SimLaborSnapshot baseline)=>baseline.Operations.Select(o=>o with{
         Notes=(o.Notes??[]).Where(n=>!n.Removed&&n.Purpose=="PRODUCTION").ToArray()
     }).ToArray();
-    internal Task<object> ReadJobInstructions(string wo,SimPersona actor)=>WithSource(wo,actor,false,async(source,runtime)=>{
+    internal Task<object> ReadJobInstructions(string wo,SimPersona actor,bool quality=false,int? version=null)=>WithInstructionSource(wo,actor,false,quality,async(source,runtime)=>{
         var baseline=await InstructionBaseline(source);var token=Hash(baseline);
-        var saved=await store.ReadInstructions(SimKittingCases.Normalize(wo),runtime.Generation);
+        Require(version is null || version >= 0,"instructions_version","Select a nonnegative instruction version.");
+        var released=await store.ReadQualityRelease(SimKittingCases.Normalize(wo),runtime.Generation);
+        var effectiveVersion=version??released?.InstructionVersion;
+        var saved=effectiveVersion==0?null:await store.ReadInstructions(SimKittingCases.Normalize(wo),runtime.Generation,effectiveVersion);
+        Require(version is null or 0 || saved is not null,"instructions_version","The requested instruction version does not exist.");
         Require(saved is null||saved.BaselineToken==token,"instructions_baseline_changed","The accepted instruction baseline changed. Retained edits require review.");
-        return (object)new {version=saved?.Version??0,baselineToken=token,baselineVersion=baseline.Version,
-            canEdit=actor.Can("production.manage"),baseline.DefinitionId,baseline.Quantity,
-            operations=saved?.Operations??InstructionOperations(baseline)};
+        var selected=version is null && released is not null ? released.Operations : saved?.Operations??InstructionOperations(baseline);
+        return (object)new {version=effectiveVersion??saved?.Version??0, released=released is not null,baselineToken=token,baselineVersion=baseline.Version,
+            canEdit=released is null && version is null && actor.Can("production.manage"),baseline.DefinitionId,baseline.Quantity,
+            updatedBy=saved?.UpdatedBy,updatedAt=saved?.UpdatedAt,
+            reference=new{workOrderNumber=SimKittingCases.Normalize(wo),generation=runtime.Generation,version=effectiveVersion??saved?.Version??0,
+                baselineToken=token,contentHash=Hash(selected)},
+            provenance=source.Package.GetProperty("source"),
+            operations=selected};
     });
-    internal Task<object> SaveJobInstructions(string wo,SimJobInstructionSave request,SimPersona actor)=>WithSource(wo,actor,true,async(source,runtime)=>{
+    internal Task<object> SaveJobInstructions(string wo,SimJobInstructionSave request,SimPersona actor,bool quality=false)=>WithInstructionSource(wo,actor,true,quality,async(source,runtime)=>{
         var baseline=await InstructionBaseline(source);var token=Hash(baseline);wo=SimKittingCases.Normalize(wo);
         Require(request.BaselineToken==token,"instructions_baseline_changed","The accepted instruction baseline changed. Reopen before saving.");
         var original=InstructionOperations(baseline);var incoming=request.Operations;
@@ -65,7 +95,8 @@ internal sealed partial class SimProductionService
         }
         await ValidateJobSlides(wo,runtime.Generation,baseline,incoming!,source);
         var saved=await store.SaveInstructions(wo,runtime.Generation,request,actor.DisplayName,UtcNow());
-        return (object)new{version=saved.Version,baselineToken=token};
+        return (object)new{version=saved.Version,baselineToken=token,updatedBy=saved.UpdatedBy,updatedAt=saved.UpdatedAt,
+            reference=new{workOrderNumber=wo,generation=runtime.Generation,version=saved.Version,baselineToken=token,contentHash=Hash(saved.Operations)}};
     });
     private async Task ValidateJobSlides(string wo,long gen,SimLaborSnapshot baseline,SimLaborOperation[] ops,SimProductionSource source){
         var rfq=await FrozenInstructionRfq(source);
@@ -115,7 +146,7 @@ internal sealed partial class SimProductionService
             ||baseline.Operations.SelectMany(o=>o.Slides??[]).Any(c=>c.ImageDocumentId==id&&c.ImageSha256==hash||c.Stages.SelectMany(s=>s.Photos??[]).Any(p=>p.DocumentId==id&&p.Sha256==hash));
         Require(asset?.Sha256==hash&&asset is not null||frozen,"instructions_asset_scope","Use a retained image from this job or its accepted baseline.");
     }
-    internal Task<SimJobInstructionAsset> UploadInstructionAsset(string wo,string token,string name,byte[] bytes,SimPersona actor)=>WithSource(wo,actor,true,async(source,runtime)=>{
+    internal Task<SimJobInstructionAsset> UploadInstructionAsset(string wo,string token,string name,byte[] bytes,SimPersona actor,bool quality=false)=>WithInstructionSource(wo,actor,true,quality,async(source,runtime)=>{
         Require(token==Hash(await InstructionBaseline(source)),"instructions_baseline_changed","The accepted baseline changed.");
         Require(bytes.Length is >0 and <=8388608,"instructions_asset_size","Choose an image up to 8 MB.");
         var type=bytes.AsSpan().StartsWith(new byte[]{137,80,78,71,13,10,26,10})?"image/png":bytes.AsSpan().StartsWith(new byte[]{255,216,255})?"image/jpeg":"";
@@ -123,7 +154,7 @@ internal sealed partial class SimProductionService
         var asset=new SimJobInstructionAsset(Guid.NewGuid().ToString(),Convert.ToHexString(SHA256.HashData(bytes)),Path.GetFileName(name)[..Math.Min(Path.GetFileName(name).Length,200)],type,bytes);
         await store.AddInstructionAsset(SimKittingCases.Normalize(wo),runtime.Generation,asset);return asset;
     });
-    internal Task<(byte[] Bytes,string Type)> OpenInstructionAsset(string wo,string id,SimPersona actor)=>WithSource(wo,actor,false,async(source,runtime)=>{
+    internal Task<(byte[] Bytes,string Type)> OpenInstructionAsset(string wo,string id,SimPersona actor,bool quality=false)=>WithInstructionSource(wo,actor,false,quality,async(source,runtime)=>{
         var asset=await store.InstructionAsset(SimKittingCases.Normalize(wo),runtime.Generation,id);
         if(asset is not null){Require(Convert.ToHexString(SHA256.HashData(asset.Bytes))==asset.Sha256,"instructions_asset_integrity","Image integrity check failed.");return(asset.Bytes,asset.Type);}
         var baseline=await InstructionBaseline(source);
@@ -138,10 +169,10 @@ internal sealed partial class SimProductionService
 
 internal sealed partial class SimProductionStore
 {
-    internal async Task<SimJobInstructionDraft?> ReadInstructions(string wo,long gen){await using var c=Open(false);await c.OpenAsync();return await Instructions(c,null,wo,gen);}
-    private static async Task<SimJobInstructionDraft?> Instructions(SqliteConnection c,SqliteTransaction? t,string wo,long gen){
+    internal async Task<SimJobInstructionDraft?> ReadInstructions(string wo,long gen,int? version=null){await using var c=Open(false);await c.OpenAsync();return await Instructions(c,null,wo,gen,version);}
+    private static async Task<SimJobInstructionDraft?> Instructions(SqliteConnection c,SqliteTransaction? t,string wo,long gen,int? version=null){
         if(!await Exists(c,t,"SimJobInstructionDraft"))return null;
-        await using var q=c.CreateCommand();q.Transaction=t;q.CommandText="SELECT PayloadJson FROM SimJobInstructionDraft WHERE WorkOrderNumber=@wo AND Generation=@gen ORDER BY Version DESC LIMIT 1";q.Parameters.AddWithValue("@wo",wo);q.Parameters.AddWithValue("@gen",gen);
+        await using var q=c.CreateCommand();q.Transaction=t;q.CommandText="SELECT PayloadJson FROM SimJobInstructionDraft WHERE WorkOrderNumber=@wo AND Generation=@gen AND (@version IS NULL OR Version=@version) ORDER BY Version DESC LIMIT 1";q.Parameters.AddWithValue("@version",(object?)version??DBNull.Value);q.Parameters.AddWithValue("@wo",wo);q.Parameters.AddWithValue("@gen",gen);
         return await q.ExecuteScalarAsync() is string text?JsonSerializer.Deserialize<SimJobInstructionDraft>(text,Json):null;
     }
     internal async Task<SimJobInstructionDraft> SaveInstructions(string wo,long gen,SimJobInstructionSave r,string actor,DateTimeOffset now){
