@@ -11,7 +11,10 @@
    iso=text; // Calendar dates never pass through the browser's local timezone.
   }else{
    const date=new Date(text);if(!Number.isFinite(date.getTime()))return text;
-   iso=date.toISOString().slice(0,10); // Retain the traveler's existing UTC semantics.
+   // Completion instants use the factory day, independent of the viewing computer.
+   const parts=new Intl.DateTimeFormat('en-US',{timeZone:window.DleOperatorHeader?.factoryTimeZone||'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+   const part=type=>parts.find(p=>p.type===type).value;
+   iso=part('year')+'-'+part('month')+'-'+part('day');
   }
   return ['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)?iso.slice(5,7)+'-'+iso.slice(8,10)+'-'+iso.slice(2,4):iso;
  }
@@ -45,20 +48,32 @@
   if(matches[0])Object.assign(result,{completedBy:matches[0].submittedBy,completedAtUtc:matches[0].submittedAtUtc});
   return result;
  }
- async function loadMaterialEvidence(wo){
+ async function loadMaterialEvidence(wo,expected=null){
   if(!/^\d{7}$/.test(wo))throw Error('Select a canonical work order.');
   const url='/api/kitting-cases/v1/work-orders/'+wo;
   const read=async suffix=>{const r=await fetch(url+suffix,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Kitting status unavailable ('+r.status+').');return r.json();};
-  const before=await read('');
+  const validate=review=>{
+   if(!expected)return;
+   const kit=review?.kittingCase;
+   if(review?.workOrderNumber!==wo||kit&&(kit.workOrderNumber!==wo||kit.caseId!==expected.caseId||kit.releasedBomIdentity!==expected.releasedBomIdentity||kit.workingVersion!==expected.workingVersion||kit.state!==expected.state))throw Error('Material evidence no longer matches this job. Reopen to refresh.');
+   if(!kit&&expected.caseId)throw Error('Material case is unavailable. Reopen to refresh.');
+  };
+  const before=await read('');validate(before);
   if(before.kittingCase?.state!=='KIT_COMPLETE')return materialEvidence(before);
   const history=await read('/submissions'),after=await read('');
   if(before.kittingCase.caseId!==after.kittingCase?.caseId||before.kittingCase.workingVersion!==after.kittingCase.workingVersion)throw Error('Kitting changed while loading the traveler. Reopen to refresh.');
-  return materialEvidence(after,history);
+  validate(after);
+  if(expected&&history.workOrderNumber!==wo)throw Error('Material submission belongs to a different job.');
+  const evidence=materialEvidence(after,expected?{submissions:(history.submissions||[]).filter(s=>s.submissionId===expected.submissionId)}:history);
+  if(expected&&!evidence.completedAtUtc)throw Error('Verified final material submission is unavailable.');
+  return evidence;
  }
  function build(plan,rfq,api=window.DleLaborWorkbench,presentation={}){
   const operationLabel=api.operationLabel||(o=>!o?.parentId&&String(o?.name||'').trim().toLowerCase()==='inspection'?'Quality-Inspection':o?.name||'');
   const assembly=rfq.assemblies?.[0]||{},excluded=api.materialPreparationIds(plan.operations||[]),allRows=api.displayRows(plan.operations||[]);
   const metadata={assembly:assembly.assemblyNumber||'',revision:assembly.revision||'',quantity:plan.quantity??'',customer:rfq.customer?.customerName||'',description:assembly.description||''};
+  const job=presentation.job?.released?presentation.job:null;
+  if(job)Object.assign(metadata,{assembly:job.assembly||'',revision:job.revision||'',quantity:job.quantity??'',customer:job.customer||'',description:job.description||''});
   const typeOf=o=>{const root=api.sectionRoot(plan.operations,o),side=api.smtSide(root);return side?'SMT-'+side:(api.workAreaLabel?.(api.workArea(root))||api.workArea(root)||root.name);};
   const focused=o=>presentation.focusType&&typeOf(o)===presentation.focusType;
   const rowNotes=o=>presentation.focusType&&!o.parentId&&!focused(o)?'':notes(api.resolvedInstruction(plan.operations,o));
@@ -89,14 +104,14 @@
     return header+sectionRows(p.rows)+acceptance;
   }).join('');}
   const blankRow=(columns)=>'<tr>'+Array.from({length:columns},()=>'<td></td>').join('')+'</tr>';
-  const html=`<header class="quote-header"><img src="ASSETS/LOGOS/DLE_Logo.JPG" alt="De Leon Enterprises"><div><h1>PRELIMINARY TRAVELER</h1><p>QUOTE - Not a production release</p></div></header>
-   <div class="quote-identities">${[['Sales Order #','QUOTE'],['Work Order #','QUOTE'],['Purchase Order #','QUOTE'],['Customer',metadata.customer]].map(([label,value])=>`<div class="quote-field"><span>${label}</span><strong>${esc(value)}</strong></div>`).join('')}</div>
-   <table class="quote-facts"><colgroup><col style="width:12%"><col style="width:24%"><col style="width:9%"><col><col style="width:15%"></colgroup><thead><tr>${['Quote Qty','Part Number','Rev','Description','Release Date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody><tr><td>${esc(metadata.quantity)}</td><td>${esc(metadata.assembly)}</td><td>${esc(metadata.revision)}</td><td>${esc(metadata.description)}</td><td></td></tr></tbody></table>
+  const html=`<header class="quote-header"><img src="ASSETS/LOGOS/DLE_Logo.JPG" alt="De Leon Enterprises"><div><h1>${job?'Traveler':'PRELIMINARY TRAVELER'}</h1><p>${job?'Released work-order instructions':'QUOTE - Not a production release'}</p></div></header>
+   <div class="quote-identities">${[['Sales Order #',job?job.salesOrder||'':'QUOTE'],['Work Order #',job?job.workOrder||'':'QUOTE'],[job?'Customer PO #':'Purchase Order #',job?job.purchaseOrder||'':'QUOTE'],['Customer',metadata.customer]].map(([label,value])=>`<div class="quote-field"><span>${label}</span><strong>${esc(value)}</strong></div>`).join('')}</div>
+   <table class="quote-facts"><colgroup><col style="width:12%"><col style="width:24%"><col style="width:9%"><col><col style="width:15%"></colgroup><thead><tr>${[job?'Order Qty':'Quote Qty','Part Number','Rev','Description',job?'Instruction Release Date':'Release Date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody><tr><td>${esc(metadata.quantity)}</td><td>${esc(metadata.assembly)}</td><td>${esc(metadata.revision)}</td><td>${esc(metadata.description)}</td><td>${job?.releasedAt?esc(formatDate(job.releasedAt)):''}</td></tr></tbody></table>
    <table class="quote-splits"><caption>Split order details</caption><thead><tr>${['Stockroom split qty','Production split qty','Employee #','Reason','Split date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${blankRow(5)}</tbody></table>
-   ${['Materials','Production'].map(section=>{const rows=allRows.filter(({o})=>excluded.has(o.id)===(section==='Materials'));if(!rows.length&&section==='Materials')return '';const columns=section==='Materials'?['Step','Operation / Instructions','Kit Qty','Status','Completed By','Date Completed']:['Step','Operation / Instructions','Status','Completed By','Date Completed','Acc Qty','Rej Qty'];const widths=section==='Materials'?[7,43,8,14,15,13]:[7,43,12,12,12,7,7];return `<table class="quote-operations quote-${section.toLowerCase()}"><colgroup>${widths.map(n=>'<col style="width:'+n+'%">').join('')}</colgroup><thead><tr><th colspan="${columns.length}" class="quote-repeat">${section} <span>PRELIMINARY / QUOTE &middot; ${esc(metadata.assembly)} &middot; Rev ${esc(metadata.revision)} &middot; Qty ${esc(metadata.quantity)}</span></th></tr><tr>${columns.map(h=>'<th>'+h+'</th>').join('')}</tr></thead>${phaseRows(section)||'<tbody><tr><td colspan="'+columns.length+'">No production operations in this draft.</td></tr></tbody>'}</table>`;}).join('')}
+   ${['Materials','Production'].map(section=>{const rows=allRows.filter(({o})=>excluded.has(o.id)===(section==='Materials'));if(!rows.length&&section==='Materials')return '';const columns=section==='Materials'?['Step','Operation / Instructions','Kit Qty','Status','Completed By','Date Completed']:['Step','Operation / Instructions','Status','Completed By','Date Completed','Acc Qty','Rej Qty'];const widths=section==='Materials'?[7,43,8,14,15,13]:[7,43,12,12,12,7,7];return `<table class="quote-operations quote-${section.toLowerCase()}"><colgroup>${widths.map(n=>'<col style="width:'+n+'%">').join('')}</colgroup><thead><tr><th colspan="${columns.length}" class="quote-repeat">${section}</th></tr><tr>${columns.map(h=>'<th>'+h+'</th>').join('')}</tr></thead>${phaseRows(section)||'<tbody><tr><td colspan="'+columns.length+'">No production operations in this draft.</td></tr></tbody>'}</table>`;}).join('')}
    <section class="quote-records"><h2>Discrepancy / Rework Record</h2><table><colgroup><col style="width:7%"><col style="width:30%"><col><col><col><col><col><col></colgroup><thead><tr>${['Op #','Discrepancy','S/N','Insp.','Disp.','Rework by','Insp.','Date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${blankRow(8).repeat(2)}</tbody></table><div class="quote-line">Corrective action:</div><div class="quote-signoffs">${['Approved by:','Date:','Production:','Q.A. / M.R.B.:'].map(label=>'<div class="quote-line">'+label+'</div>').join('')}</div></section>
-   <p class="quote-footer">PRELIMINARY / QUOTE - Not a production release. ${presentation.material?'Completion fields are populated only from recorded completion.':'Execution fields intentionally blank.'}</p>`;
-  return {documentName:'Preliminary Quote Traveler - '+metadata.assembly,paperSize:'letter',orientation:'portrait',margins:'.35in',html:(presentation.focusType?'<p class="quote-focus-key">Current focus: '+esc(presentation.focusType)+' - gray highlighting indicates focus, not completion.</p>':'')+html,css:css+(presentation.focusType?' .quote-operations .quote-main{background:white}.quote-operations [data-focus="true"]{background:#e8eaec}.quote-focus-key{font:10.5pt/1.3 Arial;margin:0 0 10px;color:#34495e}':'')};
+   <p class="quote-footer">${job?'Released instructions. Viewing does not record production or inspection completion.':'PRELIMINARY / QUOTE - Not a production release.'} ${presentation.material?'Completion fields are populated only from recorded completion.':'Execution fields intentionally blank.'}</p>`;
+  return {documentName:(job?'Traveler - '+(job.workOrder||'')+' - ':'Preliminary Quote Traveler - ')+metadata.assembly,paperSize:'letter',orientation:'portrait',margins:'.35in',html:(presentation.focusType?'<p class="quote-focus-key">Current focus: '+esc(presentation.focusType)+' - gray highlighting indicates focus, not completion.</p>':'')+html,css:css+(presentation.focusType?' .quote-operations .quote-main{background:white}.quote-operations [data-focus="true"]{background:#e8eaec}.quote-focus-key{font:10.5pt/1.3 Arial;margin:0 0 10px;color:#34495e}':'')};
  }
  async function open({plan,rfq,trigger,dirty=false,engine}){
   engine=engine||(typeof DlePrintEngine==='undefined'?window.DlePrintEngine:DlePrintEngine);

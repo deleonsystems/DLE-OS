@@ -11,14 +11,30 @@
   return compose(legacy,view.rfq,quantity,process);
  }
  async function fromFrozen(snapshot,identity){
-  await ready();return compose(await window.DleLaborBomSlidesV3.fromHtml(snapshot.html,identity),snapshot.rfq,snapshot.quantity,snapshot.process);
+  await ready();const data=await compose(await window.DleLaborBomSlidesV3.fromHtml(snapshot.html,identity),snapshot.rfq,snapshot.quantity,snapshot.process);
+  data.sourceRowIds=snapshot.rfq?.inputs?.materials?.candidate?.rows?.map(r=>r.rowId);return data;
  }
  async function compose(legacy,rfq,quantity,process){
   const sourceFor=async version=>({...legacy.source,documentId:version,sha256:[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(version+'\n'+legacy.source.sha256+'\n'+quantity)))].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase()});
   const v4={...legacy,source:await sourceFor('bom-reference-v4')};
   return {...legacy,legacy,v4,rfq,quantity,process,source:await sourceFor('bom-reference-v5')};
  }
- // Saved results join by the immutable BOM process key, never displayed sequence/index.
+ async function loadSavedDraft(wo,expected){
+  if(!expected)throw Error('Verified work-order material source is unavailable. Reopen this job.');
+  const base='/api/kitting-cases/v1/work-orders/'+encodeURIComponent(wo);
+  const read=async suffix=>{const r=await fetch(base+suffix,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Saved Kitting evidence unavailable ('+r.status+').');return r.json();};
+  const review=await read(''),kit=review.kittingCase;
+  const matches=k=>k&&k.caseId===expected.caseId&&k.workOrderNumber===wo&&k.releasedBomIdentity===expected.releasedBomIdentity&&k.workingVersion===expected.workingVersion&&k.state===expected.state;
+  if(review.workOrderNumber!==wo||!matches(kit))throw Error('Saved Kitting source/version does not match this work order. Reopen to refresh.');
+  if(kit.state!=='KIT_COMPLETE')return kit.draft;
+  const history=await read('/submissions'),sub=history.submissions?.find(s=>s.submissionId===expected.submissionId&&s.caseId===kit.caseId&&s.submissionType==='KIT_COMPLETE');
+  if(history.workOrderNumber!==wo||!sub)throw Error('Final Kitting submission is unavailable.');
+  let snapshot;try{snapshot=JSON.parse(sub.snapshotJson);}catch{throw Error('Final Kitting evidence is unreadable.');}
+  if(snapshot.workOrderNumber!==wo||snapshot.caseId!==kit.caseId||snapshot.releasedBomIdentity!==kit.releasedBomIdentity||snapshot.submissionId!==sub.submissionId||snapshot.submissionType!=='KIT_COMPLETE'||!sub.submittedBy||snapshot.submittedBy!==sub.submittedBy||snapshot.submittedAtUtc!==sub.submittedAtUtc||!Number.isFinite(Date.parse(sub.submittedAtUtc)))throw Error('Final Kitting evidence identity mismatch.');
+  const after=await read('');if(after.workOrderNumber!==wo||!matches(after.kittingCase))throw Error('Kitting changed while loading this BOM. Reopen to refresh.');
+  return snapshot.draft;
+ }
+ // Frozen source-row IDs identify evidence; older references retain their immutable process-key join.
  async function refresh(data){
   if(!data?.loadWorkOrderDraft)return;
   const request=(data.resultReadVersion||0)+1;data.resultReadVersion=request;
@@ -28,6 +44,13 @@
   if(!draft)return;
   const assembly=data.rfq?.assemblies?.[0],header=draft.header||{};
   if(String(draft.workOrder)!==String(data.workOrder)||header.billNumber!==assembly?.assemblyNumber||header.revision!==assembly?.revision||Number(header.scheduledProduction)!==Number(data.quantity))throw Error('Saved Kitting BOM identity changed. Reopen this work order.');
+  if(data.sourceRowIds){
+   const expected=new Set(data.sourceRowIds),ids=new Set();
+   if(expected.size!==data.rows.length||data.sourceRowIds.length!==data.rows.length||expected.has(undefined)||expected.has(''))throw Error('Accepted BOM source-row identities are unavailable or ambiguous.');
+   for(const g of draft.groups||[]){if(!g.sourceRowId||ids.has(g.sourceRowId)||!expected.has(g.sourceRowId))throw Error('Saved Kitting source row does not match the accepted BOM.');ids.add(g.sourceRowId);}
+   if(ids.size!==expected.size)throw Error('Saved Kitting evidence is missing accepted BOM rows.');
+   data.savedDraft=draft;return;
+  }
   const keys=new Set(),ids=new Set(),expected=new Set(data.process.rows.map(r=>r.key));
   if(expected.size!==data.rows.length||expected.has(undefined)||expected.has(''))throw Error('Accepted BOM line keys are unavailable or ambiguous.');
   for(const g of draft.groups||[]){if(!g.sourceRowId||ids.has(g.sourceRowId)||!g.process?.key||keys.has(g.process.key)||!expected.has(g.process.key))throw Error('Saved Kitting line identity is unavailable or ambiguous.');keys.add(g.process.key);ids.add(g.sourceRowId);}
@@ -36,9 +59,9 @@
  }
  function displayDraft(data,indices){
   const draft=window.DleBomReport.quoteDraft(indices.map(i=>data.rows[i]),data.rfq,data.quantity);
-  const saved=new Map((data.savedDraft?.groups||[]).map(g=>[g.process.key,g]));
-  draft.groups=draft.groups.map((g,i)=>{const index=indices[i],process=data.process?.rows[index],match=saved.get(process?.key);
-   return match?{...structuredClone(match),entry:match.rowState==='SUBMITTED'?structuredClone(match.entry):null}:{...g,sequence:String(index+1),requiredQuantity:data.workOrder?window.DleBomReport.multiply(g.requiredEach,data.quantity):undefined,process};
+  const saved=new Map((data.savedDraft?.groups||[]).map(g=>[data.sourceRowIds?g.sourceRowId:g.process.key,g]));
+  draft.groups=draft.groups.map((g,i)=>{const index=indices[i],process=data.process?.rows[index],match=saved.get(data.sourceRowIds?data.sourceRowIds[index]:process?.key);
+   return match?{...structuredClone(match),process:match.process||process,entry:match.rowState==='SUBMITTED'?structuredClone(match.entry):null}:{...g,sequence:String(index+1),requiredQuantity:data.workOrder?window.DleBomReport.multiply(g.requiredEach,data.quantity):undefined,process};
   });
   if(data.workOrder){draft.workOrder=data.workOrder;draft.header={...draft.header,...data.savedDraft?.header,workOrder:data.workOrder};}
   return draft;
@@ -64,5 +87,5 @@
    return forms.document(result);
   }
   return window.DleBomReport.document(window.DleBomReport.quoteDraft(data.rows,data.rfq,data.quantity),{context:'QUOTE',returnUrl:'/',fairLabels:true});}
- window.DleLaborBomSlides=Object.freeze({read,fromFrozen,refresh,displayDraft,svg,flowSvg,matches,ready,quoteDocument,paginate:rows=>window.DleLaborBomSlidesV3.paginate(rows)});
+ window.DleLaborBomSlides=Object.freeze({read,fromFrozen,loadSavedDraft,refresh,displayDraft,svg,flowSvg,matches,ready,quoteDocument,paginate:rows=>window.DleLaborBomSlidesV3.paginate(rows)});
 })(window,document);

@@ -83,7 +83,7 @@
 
       const notes = (group.notes || []).map(clean).filter(Boolean).map(n=>navigation.fairLabels?n.replace(/^Component type:/,'FAIR Component Type:'):n);
 
-      if(employee)return '<tr data-process-key="'+escapeHtml(group.process?.key||'')+'" data-sequence="'+escapeHtml(group.sequence)+'"><td>'+escapeHtml(group.sequence)+'</td><td>'+escapeHtml(group.findNumber??'—')+'</td><td class="part-numbers">'+partNumbers(group)+'</td><td>'+escapeHtml(group.description||group?.primaryPart?.description||'NOT ON FILE')+(!quote&&(group.supplyDisposition?.responsibility ? group.supplyDisposition.responsibility==='CUSTOMER_SUPPLIED' : group.customerSupply)?'<small>C/S — Customer supplied</small>':'')+(references.length?'<small>Refs: '+escapeHtml(references.join(', '))+'</small>':'')+'</td><td class="number"><span class="required-inline">'+escapeHtml(quantity(group.requiredEach))+(clean(group.unitOfMeasure)?' '+escapeHtml(group.unitOfMeasure):'')+'/ea · '+'<strong class="required-total">'+escapeHtml(quote?multiply(group.requiredEach,header.scheduledProduction):quantity(group.requiredQuantity))+'</strong>'+(clean(group.unitOfMeasure)?' '+escapeHtml(group.unitOfMeasure):'')+'</span></td><td class="pending-kitting">'+escapeHtml(quote?'—':kittingResult(group))+'</td><td class="pending-po">'+escapeHtml(quote?'—':purchaseOrders(group))+'</td><td class="process-type" data-process-type="'+escapeHtml(group.process?.componentType||'UNKNOWN')+'">'+escapeHtml(processLabel(group.process))+'</td><td class="process-notes">'+escapeHtml(quote?(group.process?.notes||''):[...operatorNotes(group),group.process?.notes||''].filter(Boolean).join('\n'))+'</td></tr>';
+      if(employee)return '<tr data-process-key="'+escapeHtml(group.process?.key||'')+'" data-sequence="'+escapeHtml(group.sequence)+'"><td>'+escapeHtml(group.sequence)+'</td><td>'+escapeHtml(group.findNumber??'—')+'</td><td class="part-numbers">'+partNumbers(group)+'</td><td>'+escapeHtml(group.description||group?.primaryPart?.description||'NOT ON FILE')+(!quote&&(group.supplyDisposition?.responsibility ? group.supplyDisposition.responsibility==='CUSTOMER_SUPPLIED' : group.customerSupply)?'<small>C/S — Customer supplied</small>':'')+(references.length?'<small>Refs: '+escapeHtml(references.join(', '))+'</small>':'')+'</td><td class="number"><span class="required-inline">'+escapeHtml(quantity(group.requiredEach))+(clean(group.unitOfMeasure)?' '+escapeHtml(group.unitOfMeasure):'')+'/ea · '+'<strong class="required-total">'+escapeHtml(quote?multiply(group.requiredEach,header.scheduledProduction):quantity(group.requiredQuantity))+'</strong>'+(clean(group.unitOfMeasure)?' '+escapeHtml(group.unitOfMeasure):'')+'</span></td><td class="pending-kitting">'+(quote?'-':compactKittingResult(group))+'</td><td class="pending-po">'+escapeHtml(quote?'-':purchaseOrderLabels(group))+'</td><td class="process-type" data-process-type="'+escapeHtml(group.process?.componentType||'UNKNOWN')+'">'+escapeHtml(processLabel(group.process))+'</td><td class="process-notes">'+escapeHtml(quote?(group.process?.notes||''):[...operatorNotes(group),group.process?.notes||''].filter(Boolean).join('\n'))+'</td></tr>';
 
       return '<tr '+(quote?'tabindex="0" aria-selected="false" data-quantity="'+escapeHtml(group.requiredEach)+'" ':'')+'data-sequence="' + escapeHtml(group.sequence) + '"><td><strong>' +
 
@@ -149,7 +149,7 @@
 
       (employee?'body{font-size:11px}.material-table{font:11px/1.1 Arial,Helvetica,sans-serif}.material-table small{font-size:10px}.material-table col.seq{width:26px}.material-table col.find{width:28px}.material-table col.part{width:148px}.material-table col.required{width:91px}.material-table col.result{width:50px}.material-table col.po{width:30px}.material-table col.process{width:64px}.material-table col.notes{width:115px}.material-table .part-number{display:block;white-space:nowrap;overflow-wrap:normal;word-break:normal}.process-notes{white-space:pre-wrap}.process-type{background:#fff;color:#172d3d}.process-type[data-process-type=SMT]{background:#dceefb}.process-type[data-process-type=TH]{background:#fff3c4}@media print{.process-type{background:#fff!important;color:#000!important}}.material-table th{font-size:9px}.material-table td{padding:2px 3px}.material-table td:nth-child(4) small{display:block}.material-table td.number{font-size:11px;line-height:1.1;vertical-align:top}.required-inline{font:inherit;font-weight:400}.material-table td.number .required-total{display:inline;font-size:inherit;font-weight:700;line-height:inherit;margin:0}.pending-kitting,.pending-po{text-align:center!important;color:#52616b;white-space:pre-wrap;overflow-wrap:anywhere}.material-table th{overflow-wrap:normal}':'')+
 
-      (employee&&!quote?'.material-table col.result{width:100px}.material-table col.po{width:45px}.material-table col.notes{width:100px}':'')+
+      (employee&&!quote?'.material-table col.result{width:50px}.material-table col.po{width:45px}.material-table col.notes{width:100px}':'')+
       '</style></head><body data-shared-bom="'+(quote?'quote':'released')+'"><header class="toolbar"><strong>'+(quote?'Quotation BOM':'Released BOM \u00b7 Kitting Pick View')+'</strong><span id="reportIdentity">'+(quote?'Quote ':'WO ') +
 
       escapeHtml(workOrder) + ' \u00b7 ' + escapeHtml(header.billNumber) + ' Rev ' + escapeHtml(header.revision) +
@@ -223,7 +223,22 @@
 
  }
 
- function purchaseOrders(group){const e=group.entry;if(!e)return (group.supplyDisposition?.responsibility ? group.supplyDisposition.responsibility==='CUSTOMER_SUPPLIED' : group.customerSupply)?'C/S':'-';return [...new Set([(group.supplyDisposition?.responsibility ? group.supplyDisposition.responsibility==='CUSTOMER_SUPPLIED' : group.customerSupply)?'C/S':'',e.purchaseOrder,...(e.allocations||[]).map(a=>a.purchaseOrder)].map(clean).filter(Boolean))].join('\n')||'-';}
+ function allocationSource(a){return clean(a.purchaseOrder)||({CUSTOMER_SUPPLIED:'C/S',CUSTOMER_INSTALLED:'C/I'}[a.sourceType])||'Not recorded';}
+ function purchaseOrderLabels(group){const e=group.entry;if(!e)return '-';return e.allocations?.length?[...new Set(e.allocations.map(allocationSource))].join('\n'):clean(e.purchaseOrder)||'-';}
+ function compactKittingResult(group){
+  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const e=group.entry;if(!e)return '-';
+  const complete=['COMPLETE','COMPLETE_MIN_EXTRA','COUNTED_EXACT','COUNTED_EXTRA'].includes(e.result)&&!(e.shortageQuantity>0);
+  const label=complete?'Complete':e.shortageQuantity>0||e.result==='COUNTED_SHORT'?'Short':'Incomplete';
+  const detail=kittingResult(group)+'\nSources:\n'+purchaseOrders(group)+(e.pickedQuantity==null?'\nNo numeric count recorded.':'');
+  return '<details class="bom-count-detail" style="position:relative;white-space:normal"><summary title="'+escapeHtml(detail)+'" aria-label="'+escapeHtml(label+'. Show saved count and source details')+'" style="list-style:none;cursor:pointer;min-height:22px;line-height:22px">'+(complete?'&#10003;':escapeHtml(label))+'</summary><div class="bom-count-popup" style="position:absolute;right:0;top:100%;width:250px;z-index:20;white-space:pre-wrap;text-align:left;background:white;color:#172d3d;border:1px solid #64748b;padding:8px;box-shadow:0 2px 6px #64748b;font:12px/1.4 Arial">'+escapeHtml(detail)+'</div></details>';
+ }
+ function purchaseOrders(group){
+  const e=group.entry;if(!e)return '-';
+  const source=allocationSource;
+  if(e.allocations?.length)return e.allocations.map(a=>source(a)+(a.quantity!=null?' — '+String(a.quantity)+(clean(group.unitOfMeasure)?' '+clean(group.unitOfMeasure):''):'')+(a.sourceType==='CUSTOMER_INSTALLED'&&a.customerInstalledQuantity!=null?' on hand; customer installs '+String(a.customerInstalledQuantity):'')).join('\n');
+  return clean(e.purchaseOrder)||'-';
+ }
 
  let letterReady;
 
@@ -251,7 +266,7 @@
 
  }
 
- window.DleBomReport=Object.freeze({customerSupplyNote,operatorNotes,partIdentity,partNumbers,processLabel,kittingResult,purchaseOrders,document:documentHtml,quoteDraft,multiply,svg,releasedDocument,version:'bom-reference-v4'});
+ window.DleBomReport=Object.freeze({customerSupplyNote,operatorNotes,partIdentity,partNumbers,processLabel,kittingResult,compactKittingResult,purchaseOrders,purchaseOrderLabels,document:documentHtml,quoteDraft,multiply,svg,releasedDocument,version:'bom-reference-v4'});
 
 
 

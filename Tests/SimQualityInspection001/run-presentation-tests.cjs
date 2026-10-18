@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),path=require('path');
+const root=process.env.DLE_TEST_REPO||path.resolve(__dirname,'../..');
+const w={DleOsRuntimeConfig:{environment:'SIMULATION'}};const c=vm.createContext({window:w,document:{}});vm.runInContext(fs.readFileSync(path.join(root,'SRC/workspaces/rfqs/labor-traveler-print.js'),'utf8'),c);
+const api={materialPreparationIds:()=>new Set(),displayRows:()=>[],firstPiecePhases:()=>[]};
+const plan={quantity:9,operations:[]},rfq={customer:{customerName:'Quote customer'},assemblies:[{assemblyNumber:'QUOTE-PART'}]};
+const build=p=>w.DleLaborTravelerPrint.build(plan,rfq,api,p);
+const quote=build({});assert(quote.html.includes('PRELIMINARY TRAVELER'));assert(quote.html.includes('Quote Qty'));assert(quote.html.includes('<strong>QUOTE</strong>'));
+const job={released:true,workOrder:'0999997',salesOrder:'0099997',purchaseOrder:'PO<&',customer:'Abbott',assembly:'B11165-32',revision:'A',quantity:25,description:'',releasedAt:'2026-10-17T22:10:33Z'};
+const released=build({job});assert(released.html.includes('<h1>Traveler</h1>'));for(const value of ['0999997','0099997','PO&lt;&amp;','Abbott','B11165-32','Order Qty','Instruction Release Date','10-17-26'])assert(released.html.includes(value),value);assert(!released.html.includes('Quote customer'));assert(!released.html.includes('PRELIMINARY'));assert(!released.html.includes('<strong>QUOTE</strong>'));assert(!released.html.includes('Quote Qty'));assert.equal(released.documentName,'Traveler - 0999997 - B11165-32');
+const missing=build({job:{released:true}});assert(!missing.html.includes('QUOTE-PART'));assert(!missing.html.includes('Quote customer'));assert(!missing.html.includes('undefined'));assert(missing.html.includes('<strong></strong>'));assert(missing.html.includes('<td></td><td></td><td></td><td></td><td></td>'));
+assert(build({job:{...job,released:false}}).html.includes('PRELIMINARY TRAVELER'));
+console.log('PASS released vs quotation traveler titles, authoritative field overrides, missing values, escaping, date and document name.');

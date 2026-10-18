@@ -10,7 +10,7 @@
   if(window.DleLaborSlides)return;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/SRC/workspaces/rfqs/labor-slides.js';s.onload=resolve;s.onerror=reject;document.head.append(s);});
  }
  window.addEventListener('beforeunload',e=>{if([...drafts.values()].some(d=>d.dirty)){e.preventDefault();e.returnValue='';}});
- async function open({wo,job,order,frame,trigger,material,quality=false,readOnly=false,sourceOperationIds=null,startAtTraveler=false,backLabel,onViewerMount,isCurrent,onExit,onSaved}){
+ async function open({wo,job,order,frame,trigger,material,quality=false,readOnly=false,sourceOperationIds=null,startAtTraveler=false,startGroup=null,backLabel,onViewerMount,isCurrent,onExit,onSaved}){
   const base=(quality?'/api/sim/quality/work-orders/':'/api/production/v1/work-orders/')+encodeURIComponent(wo)+'/instructions';
   const probe=await fetch(base,{credentials:'same-origin',cache:'no-store'});if(probe.status===404)return false;if(!probe.ok)throw Error('Work order instructions unavailable ('+probe.status+').');const remote=await probe.json();await script();
   const kit=!quality&&['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)?await json('/api/kitting-cases/v1/work-orders/'+encodeURIComponent(wo)):null;
@@ -28,6 +28,23 @@
   }
   const baseline=order.orderEntry.acceptance.package.technicalSource.baseline;
   const frozen=await json(base+'/sources');if(frozen.baselineToken!==remote.baselineToken)throw Error('Accepted source changed. Reopen this job.');
+  // Resolve evidence here for every work-order entry point, never trust a caller's cached completion.
+  let materialNotice='',travelerJob=null,materialIdentity=null;material=undefined;
+  try{
+   if(!window.DleLaborTravelerPrint)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/SRC/workspaces/rfqs/labor-traveler-print.js';s.onload=resolve;s.onerror=()=>reject(Error('Material evidence viewer unavailable.'));document.head.append(s);});
+   const packet=await json('/api/production/v1/work-orders/'+encodeURIComponent(wo));
+   const accepted=order.orderEntry.acceptance,source=packet.source;
+   if(packet.workOrderNumber!==wo||source?.acceptanceId!==accepted.id||source?.acceptedRevision!==accepted.packageRevision||source?.manufacturingDefinitionId!==remote.definitionId||source?.laborVersion!==remote.baselineVersion||!source?.releasedBomIdentity||
+      packet.context?.assembly!==job.context.assembly||packet.context?.revision!==job.context.revision||packet.context?.quantity!==remote.quantity||
+      quality&&remote.released&&(source.qualityRelease?.baselineToken!==remote.baselineToken||source.qualityRelease?.instructionVersion!==remote.version))throw Error('Material source does not match the selected instruction packet.');
+   if(source.qualityRelease?.id){
+    const bridge=order.orderEntry.bridge,ids=bridge?.state?.identifiers;
+    const line=accepted.package.facts?.lines?.length===1?accepted.package.facts.lines[0]:null;
+    travelerJob={released:true,workOrder:wo,salesOrder:bridge?.acceptanceId===accepted.id&&ids?.workOrder===wo?ids.salesOrder||'':'',purchaseOrder:accepted.package.poNumber||'',customer:packet.context.customer||'',assembly:packet.context.assembly,revision:packet.context.revision,quantity:packet.context.quantity,description:line?.assembly===packet.context.assembly&&line?.revision===packet.context.revision?line.description||'':'',releasedAt:source.qualityRelease.at||''};
+   }
+   materialIdentity={caseId:packet.kitting?.caseId,state:packet.kitting?.state,submissionId:packet.kitting?.submissionId,workingVersion:packet.kitting?.workingVersion,releasedBomIdentity:source.releasedBomIdentity};
+   material=await window.DleLaborTravelerPrint.loadMaterialEvidence(wo,materialIdentity);
+  }catch(error){materialNotice='Material completion unavailable: '+error.message;}
   const source=baseline.labor.operations.flatMap(o=>o.slides||[]).find(c=>c.kind==='DRAWING')?.source;
   const save=async()=>{
    if(d.saving)return d.saving;
@@ -40,7 +57,7 @@
   const locationKey='dle-os:job-slides:'+wo+':'+d.token;
   let anchor=null;
   try { anchor=JSON.parse(sessionStorage.getItem(locationKey)||'null'); } catch (_) {}
-  if(selectedPreview||startAtTraveler)anchor=null;
+  if(selectedPreview||startAtTraveler||startGroup)anchor=null;
   if(isCurrent&&!isCurrent())return false;
   const adapter=window.DleLaborSlides.connect({
    onPosition:position=>{try {sessionStorage.setItem(locationKey,JSON.stringify(position));} catch (_) {}},
@@ -49,26 +66,26 @@
    drawingBase:base+'/pages',bomIdentity:()=>({assembly:job.context.assembly,revision:job.context.revision}),
    loadBomReference:async()=>{
     const data=await window.DleLaborBomSlides.fromFrozen(frozen,{definitionId:plan.definitionId,assembly:job.context.assembly,revision:job.context.revision});
-    if(!quality){data.workOrder=wo;
-    data.loadWorkOrderDraft=async()=>{const review=await json('/api/kitting-cases/v1/work-orders/'+encodeURIComponent(wo));return review.kittingCase?.draft||null;};
-    await window.DleLaborBomSlides.refresh(data);}return data;
+    data.workOrder=wo;
+    data.loadWorkOrderDraft=()=>window.DleLaborBomSlides.loadSavedDraft(wo,materialIdentity);
+    await window.DleLaborBomSlides.refresh(data);return data;
    },
    isDirty:()=>!viewOnly&&d.dirty,saveLabor:save,saveLabel:'Save to Work Order',visualBase:base,
    backLabel,onMount:(dialog,heading)=>{dialog.classList.add('job-instruction-viewer');return onViewerMount?.(dialog,heading);},
-   contextNotice:'WO '+wo+(remote.released?' - Released Quality instructions v'+remote.version:' - Job instruction draft based on accepted Labor v'+remote.baselineVersion+'. Not a production release.'),
+   contextNotice:'WO '+wo+(remote.released?' - Released Quality instructions v'+remote.version:' - Job instruction draft based on accepted Labor v'+remote.baselineVersion+'. Not a production release.')+(materialNotice?' | '+materialNotice:''),
    drawingContext:async()=>{if(!source)throw Error('No frozen drawing source is available.');return {source,layers:(baseline.labor.drawingNotes||[]).map(layer=>({layer,reviewRequired:false}))};},
    uploadPhoto:file=>viewOnly?Promise.reject(Error('Read-only job instructions.')):json(base+'/visuals',{method:'POST',headers:{'X-Instruction-Baseline':d.token,'X-File-Name':encodeURIComponent(file.name),'Content-Type':file.type},body:file}),
-   travelerMaterial:()=>material,travelerMetadata:()=>({...job.context,workOrder:wo}),travelerRfq:()=>({customer:order.customer,assemblies:[{assemblyNumber:job.context.assembly,revision:job.context.revision}]}),
+   travelerJob:()=>travelerJob,travelerMaterial:()=>material,travelerMetadata:()=>({...job.context,workOrder:wo}),travelerRfq:()=>({customer:order.customer,assemblies:[{assemblyNumber:job.context.assembly,revision:job.context.revision}]}),
    onExit:()=>quality||selectedPreview?onExit?.():window.KittingJobWorkspace.toggleProductionSlides(false),
    prefixGroup:quality||selectedPreview?null:'Kitting',
    prefixSlides:quality||selectedPreview?[]:[
-    {label:'Traveler',mount:host=>{host.classList.add('job-traveler-sheet');const restore=move(frame,host);return ()=>{restore();host.classList.remove('job-traveler-sheet');};}},
+    {label:'Traveler',mount:host=>{host.classList.add('job-traveler-sheet');if(travelerJob){const definition=window.DleLaborTravelerPrint.build(plan,{customer:order.customer,assemblies:[]},window.DleLaborWorkbench,{job:travelerJob,material});const page=window.DleLaborTravelerPrint.mount(host,definition);return ()=>{page.remove();host.classList.remove('job-traveler-sheet');};}const restore=move(frame,host);return ()=>{restore();host.classList.remove('job-traveler-sheet');};}},
     {label:'Kitting / BOM',mount:host=>{host.classList.add('job-kitting-sheet');const dialog=host.closest('dialog');dialog?.classList.add('job-kitting-active');const active=document.getElementById('workOrderDashboardActiveKitting');const restore=move(active,host);const exit=()=>{dialog?.addEventListener('close',()=>window.KittingJobWorkspace.toggleProductionSlides(false),{once:true});dialog?.close();};active?.addEventListener('dle:kitting-saved-exit',exit);active?.addEventListener('dle:kitting-submitted',exit);if(active?.hidden){const p=document.createElement('p');p.textContent='Return to the workspace and use Kitting to start or resume this kit.';host.prepend(p);}return ()=>{active?.removeEventListener('dle:kitting-saved-exit',exit);active?.removeEventListener('dle:kitting-submitted',exit);restore();host.classList.remove('job-kitting-sheet');dialog?.classList.remove('job-kitting-active');};}}
    ],
    editSource:(id,resume)=>{if(viewOnly)return;const op=d.plan.operations.find(o=>o.id===id);const dialog=document.createElement('dialog');dialog.className='labor-slide-dialog';const heading=document.createElement('h2');heading.textContent='Instructions — '+op.name;const text=document.createElement('textarea');text.value=op.instructions||'';text.maxLength=4000;text.rows=8;const apply=document.createElement('button');apply.textContent='Apply to job draft';apply.onclick=()=>{op.instructions=text.value;d.dirty=true;dialog.close();};const cancel=document.createElement('button');cancel.textContent='Cancel';cancel.onclick=()=>dialog.close();dialog.append(heading,text,apply,cancel);dialog.addEventListener('close',()=>{dialog.remove();resume();},{once:true});document.body.append(dialog);dialog.showModal();}
   });
   if(!quality&&!selectedPreview)await window.WorkOrderDashboardModule.prepareKittingPreview?.();
-  const result=await adapter.playSequence(viewOnly?structuredClone(plan.operations):plan.operations,trigger,null,{includeMaterials:!quality&&!selectedPreview,anchor,startAtTraveler});return result!==false;
+  const result=await adapter.playSequence(viewOnly?structuredClone(plan.operations):plan.operations,trigger,null,{includeMaterials:!quality&&!selectedPreview,anchor,startAtTraveler,startGroup});return result!==false;
  }
  window.DleJobInstructions=Object.freeze({open,hasUnsavedChanges:wo=>!!(drafts.get(wo)?.dirty||drafts.get(wo)?.saving)});
 })(window,document);
