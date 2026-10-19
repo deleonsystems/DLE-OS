@@ -173,7 +173,7 @@
     const session = window.DleOsSession, capabilities = window.DleOsCapabilities;
     return window.document?.body?.dataset?.simRuntime === "true" &&
       window.DleOsRuntimeConfig?.rfqIntakeMode === "SIM_PHASE1" &&
-      (window.DleOperatorHeader?.getViewMode?.() || window.document?.body?.dataset?.viewMode) === "desktop" &&
+      ["desktop", "ipad"].includes(window.DleOperatorHeader?.getViewMode?.() || window.document?.body?.dataset?.viewMode) &&
       session?.user?.accountStatus === "ACTIVE" &&
       (capabilities?.isSuperAdmin === true || (Array.isArray(session?.roles) && session.roles.includes("ADMIN"))) &&
       capabilities?.can?.("order_entry.view") === true;

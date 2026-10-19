@@ -74,7 +74,13 @@ internal sealed partial class SimProductionService(SimStateStore state,SimOperat
             var node=JsonNode.Parse(source.GetRawText())!.AsObject();
             node["qualityRelease"]=JsonSerializer.SerializeToNode(new{qr.Id,qr.ReviewToken,qr.InstructionVersion,qr.BaselineToken,qr.ContentHash,qr.ActorId,qr.Actor,qr.At},Json);
             source=JsonSerializer.SerializeToElement(node,Json);
-            labor=labor with{Operations=qr.Operations};
+            var packet=await store.ReadPacketHead(JobPacketKey(wo,runtime.Generation));
+            if(packet is not null){
+                Require(packet.Identity.Compatibility==Hash(baseline.Labor),"packet_source_changed","The released instruction packet does not match the accepted technical baseline.");
+                node["instructionPacket"]=JsonSerializer.SerializeToNode(new{packet.Id,revision=packet.JobRevision,packet.ActorId,packet.Actor,packet.At,packet.Reason},Json);
+                source=JsonSerializer.SerializeToElement(node,Json);
+            }
+            labor=labor with{Operations=packet?.Operations??qr.Operations};
             token=Hash(new{source,labor,release.Draft});
         }
         var parents=labor.Operations.Where(o=>o.ParentId is null).ToArray();var projected=new List<SimTravelerOperation>();

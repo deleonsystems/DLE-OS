@@ -83,3 +83,65 @@
 /* Fill the screen host without changing the traveler document or print rules. */
 .job-instruction-viewer .job-traveler-sheet { overflow:hidden!important; }
 .job-instruction-viewer .job-traveler-sheet #kittingAcceptedTraveler { width:100%;height:100%;min-height:0;display:block; }
+
+.job-packet-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;background:#152b40;color:#e2e8f0}
+.job-packet-tools button,.job-packet-release button{min-height:44px;padding:8px 12px}
+.job-packet-tools [role=alert]{width:100%;color:#fecaca}
+.job-packet-release{width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;background:#152333;color:#f1f5f9;border:1px solid #64748b;border-radius:12px;padding:20px}
+.job-packet-release label{display:grid;gap:8px;margin:16px 0}.job-packet-release select,.job-packet-release textarea{width:100%;min-height:44px;font:inherit;padding:8px;box-sizing:border-box}.job-packet-release [role=alert]{color:#fecaca}
+
+/* Main work-order viewer only; document composition and the annotation editor stay separate. */
+.job-compact-viewer.labor-slide-reading.drawing-first .labor-drawing-heading {
+ display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 8px;position:relative;z-index:5;overflow:visible;
+}
+.job-compact-viewer .job-viewer-identity { min-width:0;font-size:12px;line-height:1.4; }
+.job-compact-viewer .job-viewer-identity>strong { display:block;font-size:13px;overflow-wrap:anywhere; }
+.job-compact-viewer .job-viewer-statuses { display:flex;align-items:center;flex-wrap:wrap;gap:3px 8px;font-size:11px; }
+.job-compact-viewer .job-viewer-state { color:#ffdda0; }
+.job-compact-viewer .job-viewer-state[data-dirty="true"] { font-weight:700;color:#ffe1a8; }
+.job-compact-viewer .job-viewer-actions { display:flex;gap:5px;align-items:center;flex-wrap:wrap; }
+.job-compact-viewer .job-viewer-actions button,.job-compact-viewer .job-viewer-more summary,
+.job-compact-viewer.labor-slide-reading.drawing-first .labor-drawing-heading>[data-back] { min-height:44px;min-width:44px;padding:6px 9px;font-size:12px; }
+.job-compact-viewer [data-packet-save] { background:#146a9f;color:white; }
+.job-compact-viewer .job-viewer-more { position:relative; }
+.job-compact-viewer .job-viewer-more summary { box-sizing:border-box;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid #64748b;border-radius:5px;background:#1b3448;color:#eef6fc;list-style:none; }
+.job-compact-viewer .job-viewer-more summary::-webkit-details-marker { display:none; }
+.job-compact-viewer .job-viewer-menu { position:absolute;right:0;top:calc(100% + 5px);width:min(330px,calc(100vw - 32px));max-height:calc(100dvh - 180px);overflow:auto;box-sizing:border-box;padding:10px;display:grid;gap:7px;background:#172b3c;color:#edf5fc;border:1px solid #748da0;border-radius:8px;box-shadow:0 6px 24px #0008; }
+.job-compact-viewer .job-viewer-menu button { text-align:left;width:100%; }
+.job-compact-viewer .job-viewer-menu .labor-preview-materials { display:flex;align-items:center;min-height:44px;white-space:normal; }
+.job-compact-viewer .job-viewer-menu .labor-slide-caption,.job-compact-viewer .job-viewer-menu .labor-slide-draft-notice { position:static;display:block;margin:0;padding:6px;font-size:12px;max-height:none;max-width:none;white-space:normal;overflow-wrap:anywhere; }
+.job-compact-viewer .job-viewer-operation { font-size:12px; }
+.job-compact-viewer .job-viewer-error:empty { display:none; }
+.job-compact-viewer .job-viewer-error,.job-compact-viewer .job-viewer-warning { margin:0;padding:5px 10px;background:#54282a;color:#fff0ef;font-size:12px;flex:none; }
+.job-compact-viewer .labor-slide-context-bar { flex-wrap:nowrap;gap:8px;padding-right:10px; }
+.job-compact-viewer .labor-slide-context-bar .labor-operation-tabs { flex:1 1 auto; }
+.job-compact-viewer .labor-slide-context-bar .labor-operation-tabs button { min-height:44px;font-size:12px; }
+.job-compact-viewer .job-viewer-progress { flex:none;font-size:11px;color:#e4eef5;white-space:nowrap; }
+.job-compact-viewer button:focus-visible,.job-compact-viewer summary:focus-visible { outline:3px solid #75cfff;outline-offset:2px; }
+@media(max-width:950px) {
+ .job-compact-viewer.labor-slide-reading.drawing-first .labor-drawing-heading { grid-template-columns:auto minmax(0,1fr);gap:4px 8px; }
+ .job-compact-viewer .job-viewer-actions { grid-column:1 / -1;justify-content:flex-end; }
+}
+@media(max-width:550px) {
+ .job-compact-viewer .job-viewer-actions { gap:4px; }
+ .job-compact-viewer .job-viewer-actions button { padding:5px 7px; }
+ .job-compact-viewer .job-viewer-progress { max-width:105px;white-space:normal; }
+}
+
+.job-compact-viewer .job-viewer-state[data-released="true"] { color:#96e2c0; }
+
+@media(max-width:950px) {
+ .job-compact-viewer.job-viewer-readonly.labor-slide-reading.drawing-first .labor-drawing-heading { grid-template-columns:auto minmax(0,1fr) auto; }
+ .job-compact-viewer.job-viewer-readonly .job-viewer-actions { grid-column:auto; }
+}
+
+.job-compact-viewer [data-slide-jump-trigger]{min-height:44px;padding:4px 8px;background:#203b50;color:#eef6fc;border:1px solid #64839a;border-radius:5px;font:inherit;white-space:nowrap;cursor:pointer}
+.job-compact-viewer .job-slide-jump-popup{position:fixed;z-index:30;overflow:auto;overscroll-behavior:contain;padding:6px;box-sizing:border-box;background:#142a3c;border:1px solid #718a9e;border-radius:8px;box-shadow:0 6px 24px #0009;color:#eff7ff}
+.job-compact-viewer .job-slide-jump-popup[hidden]{display:none}
+.job-compact-viewer [data-slide-choice]{display:flex;align-items:center;gap:12px;width:100%;min-height:110px;padding:6px;text-align:left;background:#1d3548;border:2px solid transparent;border-radius:5px;color:#eff7ff;margin:3px 0;cursor:pointer;white-space:normal;font:13px Arial,sans-serif}
+.job-compact-viewer [data-slide-choice][aria-selected=true]{border-color:#80d8f1;background:#224d65}
+.job-compact-viewer [data-slide-choice]:focus-visible{outline:2px solid white;outline-offset:-4px}
+.job-compact-viewer [data-jump-preview]{display:block;flex:none;width:128px;height:96px;overflow:hidden;background:#dfe5eb;border-radius:3px}
+.job-compact-viewer [data-jump-preview] iframe{display:block;width:400px;height:300px;border:0;transform:scale(.32);transform-origin:0 0;pointer-events:none}
+.job-compact-viewer .job-slide-jump-label{display:grid;gap:6px;min-width:0;overflow-wrap:anywhere}
+.job-compact-viewer [data-jump-status]{font-size:11px;color:#c5d5e0}

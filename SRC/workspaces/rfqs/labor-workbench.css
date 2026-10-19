@@ -775,3 +775,96 @@ body[data-sim-runtime="true"][data-view-mode="mobile"] .labor-workbench .labor-o
 .charge-nre-summary-total b { font-weight:500; }
 .charge-nre > summary { display:list-item; }
 @media(max-width:760px) { .labor-price-row > span:has([data-total="unit"]) { margin-left:0; } }
+
+/* Brush width stays normalized to the drawing; the readout follows the current zoom. */
+.story-tools .labor-tool-tray .labor-ink-width { display:flex;flex-direction:column;align-items:stretch;gap:4px;flex:1 1 240px;min-width:0; }
+.story-tools .labor-ink-width-row { display:flex;align-items:center;gap:8px;min-width:0; }
+.story-tools .labor-ink-width-row input[type="range"] { flex:1;min-width:0;width:100%;height:44px;margin:0;padding:0;accent-color:#69c9ff;touch-action:pan-y; }
+.story-tools .labor-ink-width-row output { min-width:64px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap; }
+.story-tools .labor-ink-width-row input:focus-visible { outline:2px solid #9bdefa;outline-offset:2px;border-radius:4px; }
+
+.story-tools .labor-highlighter-palette { flex:1 0 100%;min-width:0; }
+.story-tools .labor-highlighter-grid { display:grid;grid-template-columns:repeat(7,44px);gap:4px; }
+.story-tools .labor-highlighter-palette button { width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:2px solid transparent;border-radius:7px;background:var(--highlighter-swatch);color:#101827;box-sizing:border-box; }
+.story-tools .labor-highlighter-palette button span { visibility:hidden;font-size:22px;font-weight:700; }
+.story-tools .labor-highlighter-palette button[aria-pressed="true"] { border-color:#fff;outline:2px solid #101827;outline-offset:-5px; }
+.story-tools .labor-highlighter-palette button[aria-pressed="true"] span { visibility:visible; }
+.story-tools .labor-highlighter-palette button:focus-visible { outline:3px solid #fff;outline-offset:2px; }
+.story-tools .labor-tool-tray:has(.labor-highlighter-palette:not([hidden])) { max-height:calc(100dvh - 100px);overflow:auto; }
+
+/* Compact controls are opt-in for QC amendment annotation editing only. */
+.labor-compact-editor .labor-drawing-heading { min-height:48px;padding:2px 6px;gap:6px; }
+.labor-compact-editor .labor-drawing-heading>button { min-width:44px;min-height:44px;padding:4px 8px; }
+.labor-compact-editor .labor-drawing-heading>strong { flex:1;white-space:nowrap;font-size:12px; }
+.labor-compact-editor>.labor-drawing-status { margin:0;padding:2px 8px;font-size:12px; }
+.labor-compact-editor>.labor-drawing-status[data-routine="true"] { display:none; }
+.labor-compact-dock { position:fixed;z-index:5;display:flex;align-items:center;gap:3px;padding:4px;background:#152b3c;border:1px solid #7893a5;border-radius:10px;max-width:calc(100vw - 16px);box-sizing:border-box; }
+.labor-compact-dock button { min-height:44px;min-width:44px;padding:4px 6px;background:#243f53;color:#f1f5f9;border:1px solid #7893a5;border-radius:6px;font-size:12px; }
+.labor-compact-dock [data-compact-tools] { max-width:95px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.labor-compact-dock [data-compact-move] { touch-action:none;cursor:move;font-size:24px; }
+.labor-compact-dock [data-compact-color] span { display:inline-block;width:12px;height:12px;background:var(--ink-color);border:1px solid white;margin-right:3px; }
+.labor-compact-dock button:focus-visible { outline:3px solid #9bdefa;outline-offset:2px; }
+.labor-compact-editor .labor-tool-tray { width:min(360px,calc(100vw - 16px));right:auto;max-height:calc(100dvh - 64px);padding:10px;border-radius:10px;background:#152b3c;overflow:auto; }
+.labor-compact-editor .labor-tool-tray>.labor-quick-tools { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:auto; }
+.labor-compact-editor .labor-tool-tray>.labor-quick-tools[hidden] { display:none; }
+.labor-compact-editor .labor-tool-tray>.labor-quick-tools button { min-width:44px;min-height:44px;padding:4px;font-size:12px; }
+.labor-compact-editor .labor-compact-info { font-size:12px;max-height:50vh;overflow:auto; }
+.labor-compact-editor .labor-compact-info .labor-slide-draft-notice { padding:4px; }
+.labor-compact-editor .labor-tool-tray[data-compact-mode="color"] .labor-annotation-tools { display:block; }
+.labor-compact-editor .labor-tool-tray[data-compact-mode="width"] .labor-ink-width { width:100%; }
+
+/* Names remain available to assistive technology without surrounding swatch text. */
+.story-tools [data-highlighter-current] { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap; }
+.labor-compact-editor .labor-tool-tray[data-compact-mode="color"]:has(.labor-highlighter-palette:not([hidden])) { width:354px;box-sizing:border-box; }
+.labor-compact-editor .labor-tool-tray[data-compact-mode="color"]:has(.labor-highlighter-palette:not([hidden]))>.labor-tray-heading,
+.labor-compact-editor .labor-tool-tray[data-compact-mode="color"]:has(.labor-highlighter-palette:not([hidden]))>[data-tool-hint] { display:none; }
+@media(max-width:379px) {
+ .story-tools .labor-highlighter-grid { grid-template-columns:repeat(3,44px); }
+ .labor-compact-editor .labor-tool-tray[data-compact-mode="color"]:has(.labor-highlighter-palette:not([hidden])) { width:162px; }
+}
+
+.labor-compact-editor .labor-tool-tray[data-compact-mode="color"] .labor-ink-width { display:none; }
+
+/* Reference-style Highlighter popup; settings apply only to subsequent strokes. */
+.labor-compact-editor .labor-tool-tray[data-compact-mode="color"]:has(.labor-highlighter-palette:not([hidden])) { background:#fff;color:#172d3d;border-color:#aeb8c2; }
+.story-tools .labor-highlight-title { font-size:13px;font-weight:500;margin:0 0 10px; }
+.story-tools .labor-highlighter-palette button { border-radius:0;border:1px solid #aeb8c2; }
+.story-tools .labor-highlighter-palette button[aria-pressed="true"] { border-color:#172d3d;outline:2px solid #fff;outline-offset:-3px; }
+.story-tools .labor-highlighter-palette button[aria-pressed="true"] span { color:#fff;text-shadow:0 1px #172d3d,1px 0 #172d3d,-1px 0 #172d3d,0 -1px #172d3d; }
+.story-tools .labor-highlighter-palette button:focus-visible { outline:3px solid #147ace;outline-offset:1px; }
+.story-tools .labor-tool-tray .labor-highlight-opacity { display:block;width:100%;margin:12px 0 0;font-size:13px; }
+.story-tools .labor-highlight-opacity>span { display:flex;align-items:center;gap:10px; }
+.story-tools .labor-highlight-opacity input { min-width:0;flex:1;height:44px;margin:0;accent-color:#147ace; }
+.story-tools .labor-highlight-opacity output { min-width:4ch;text-align:right;font-size:12px; }
+
+/* Pen shares the sampled ink palette and keeps the existing normalized width control. */
+.story-tools .labor-highlight-opacity[hidden],
+.labor-compact-editor [data-compact-width][hidden] { display:none; }
+.labor-compact-editor[data-ink-tool="freehand"] .labor-tool-tray[data-compact-mode="color"] .labor-ink-width:not([hidden]) {
+ display:block;width:100%;margin:12px 0 0;font-size:13px;
+}
+.labor-compact-editor[data-ink-tool="freehand"] .labor-tool-tray[data-compact-mode="color"] .labor-ink-width-row { display:flex;align-items:center;gap:8px; }
+.labor-compact-editor[data-ink-tool="freehand"] .labor-tool-tray[data-compact-mode="color"] [data-thickness] { min-width:0;flex:1;height:44px;margin:0;accent-color:#147ace; }
+
+/* Text is entered once, on the drawing, using native selection and keyboard input. */
+.story-tools .labor-inline-text { position:absolute; z-index:5; margin:0; padding:0 3px; min-width:0; max-width:none; max-height:none; border:1px solid #147ace; border-radius:2px; background:rgba(255,255,255,.95); font-family:Arial,sans-serif; font-weight:400; line-height:1.2; letter-spacing:normal; resize:none; overflow:hidden; transform-origin:0 0; white-space:pre; touch-action:auto; user-select:text; -webkit-user-select:text; }
+.story-tools .labor-inline-text[hidden] { display:none; }
+.story-tools .labor-tool-tray.labor-inline-text-tools { width:min(260px,calc(100vw - 16px)); padding:8px; }
+.story-tools .labor-inline-text-tools>.labor-tray-heading,.story-tools .labor-inline-text-tools>[data-tool-hint] { display:none; }
+.story-tools .labor-inline-text-tools .labor-annotation-tools { display:flex; align-items:center; gap:10px; flex-wrap:nowrap; }
+.story-tools .labor-inline-text-tools [data-text-transform-controls] { display:block; flex:1; min-width:0; }
+.story-tools .labor-inline-text-tools [data-text-transform-controls]>label { display:flex; flex-direction:column; gap:4px; margin:0; }
+.story-tools .labor-inline-text-tools [data-text-transform-controls]>label[hidden] { display:none; }
+.story-tools .labor-inline-text-tools [data-text-size] { width:100%; min-width:0; min-height:32px; }
+.story-tools .labor-inline-text-tools [data-color] { min-width:44px; min-height:44px; }
+.story-tools .labor-inline-text-tools [hidden],.story-tools .labor-inline-text-tools .labor-ink-width { display:none!important; }
+.story-tools .labor-inline-text-tools .labor-annotation-tools>label { flex:0 0 auto; min-width:0; }
+.story-tools .labor-inline-text-tools .labor-annotation-tools { min-width:0; width:100%; }
+.story-tools[data-ink-tool="text"] .labor-ink-width { display:none!important; }
+
+/* Selection actions remain readable on drawings of any color. */
+.labor-drawing-viewer .labor-delete-annotation { min-width:44px; min-height:44px; font-size:24px; color:#fff; background:#7c2330; border:2px solid #fff; border-radius:6px; }
+.labor-drawing-viewer .labor-delete-annotation[hidden] { display:none !important; }
+.labor-drawing-viewer [data-quick-tool="pan"][aria-pressed="true"] { color:#fff; background:#143d66; outline:2px solid #fff; outline-offset:-4px; }
+.labor-drawing-viewer .labor-drawing-heading .labor-delete-annotation { min-height:44px!important; min-width:44px!important; flex-shrink:0; }
+.story-tools[data-ink-tool="pan"] [data-compact-tools] { background:#143d66; color:#fff; box-shadow:inset 0 0 0 2px #fff; }

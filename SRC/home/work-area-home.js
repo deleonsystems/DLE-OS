@@ -89,7 +89,7 @@
   // remain authoritative; an arrow never grants access or advances a job.
   function usesAdminFlow(session, capabilities) {
     const mode = window.DleOperatorHeader?.getViewMode?.() || document.body?.dataset?.viewMode;
-    return isSimIntakeEnabled() && mode === "desktop" &&
+    return isSimIntakeEnabled() && ["desktop", "ipad"].includes(mode) &&
       session.user?.accountStatus === "ACTIVE" &&
       (capabilities.isSuperAdmin === true || (Array.isArray(session.roles) && session.roles.includes("ADMIN")));
   }
@@ -97,7 +97,7 @@
   function renderAdminFlow(root, firstName, entries) {
     const byId = new Map(entries.map(entry => [entry.id, entry]));
     // Both QC entry points use the existing Quality permission, only in this
-    // admin desktop presentation. Inspection has no business workflow yet.
+    // admin desktop and tablet presentation. Inspection has no business workflow yet.
     const quality = byId.get("quality");
     if (quality) {
       byId.set("quality", {...quality, home:{...quality.home, label:"QC - Packet Review/Release", preserveLabelCase:true}});

@@ -30,6 +30,17 @@ internal static class SimProductionEndpoints
             var file=await service.OpenInstructionAsset(workOrderNumber,documentId,a);c.Response.Headers["X-Content-Type-Options"]="nosniff";return Results.File(file.Bytes,file.Type);
         }));
         const string qualityRoute="/api/sim/quality/work-orders/{workOrderNumber}";
+        app.MapGet(qualityRoute+"/instructions/draft",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadPacketDraft(workOrderNumber,a))));
+        app.MapPut(qualityRoute+"/instructions/draft",(string workOrderNumber,SimPacketSave r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.SavePacketDraft(workOrderNumber,r,a))));
+        app.MapPost(qualityRoute+"/instructions/release-changes",(string workOrderNumber,SimPacketPublish r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.ReleasePacket(workOrderNumber,r,a))));
+        app.MapGet(qualityRoute+"/instructions/history",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadPacketHistory(workOrderNumber,a))));
+        app.MapGet(qualityRoute+"/instructions/main-packet",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadMainAssemblyPacket(workOrderNumber,a))));
+        app.MapPost(qualityRoute+"/instructions/draft/visuals",(string workOrderNumber,HttpContext c)=>Guard(c,true,async a=>{
+            using var bytes=new MemoryStream();var buffer=new byte[81920];int count;
+            while((count=await c.Request.Body.ReadAsync(buffer))>0){if(bytes.Length+count>8388608)return Results.StatusCode(413);bytes.Write(buffer,0,count);}
+            var asset=await service.UploadPacketAsset(workOrderNumber,c.Request.Headers["X-Instruction-Baseline"].ToString(),Uri.UnescapeDataString(c.Request.Headers["X-File-Name"].ToString()),bytes.ToArray(),a);
+            return Results.Json(new{asset.DocumentId,asset.Sha256,asset.Name,asset.Type});
+        }));
         app.MapGet(qualityRoute+"/release",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadQualityReview(workOrderNumber,a))));
         app.MapPost(qualityRoute+"/release",(string workOrderNumber,SimQualityReleaseRequest r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.ApproveQualityRelease(workOrderNumber,r,a))));
         app.MapGet("/api/sim/kitting/work-orders/{workOrderNumber}/quality-release",async(string workOrderNumber,HttpContext c)=>{

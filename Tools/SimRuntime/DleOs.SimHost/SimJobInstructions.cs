@@ -3,8 +3,8 @@ using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 
 internal sealed record SimJobInstructionDraft(string WorkOrderNumber,long Generation,int Version,string BaselineToken,
-    SimLaborOperation[] Operations,string UpdatedBy,DateTimeOffset UpdatedAt);
-internal sealed record SimJobInstructionSave(int ExpectedVersion,string BaselineToken,SimLaborOperation[] Operations);
+    SimLaborOperation[] Operations,string UpdatedBy,DateTimeOffset UpdatedAt,string? MainPacketId=null);
+internal sealed record SimJobInstructionSave(int ExpectedVersion,string BaselineToken,SimLaborOperation[] Operations,string? MainPacketId=null);
 internal sealed record SimJobInstructionAsset(string DocumentId,string Sha256,string Name,string Type,byte[] Bytes);
 
 internal sealed partial class SimProductionService
@@ -73,9 +73,12 @@ internal sealed partial class SimProductionService
         var saved=effectiveVersion==0?null:await store.ReadInstructions(SimKittingCases.Normalize(wo),runtime.Generation,effectiveVersion);
         Require(version is null or 0 || saved is not null,"instructions_version","The requested instruction version does not exist.");
         Require(saved is null||saved.BaselineToken==token,"instructions_baseline_changed","The accepted instruction baseline changed. Retained edits require review.");
-        var selected=version is null && released is not null ? released.Operations : saved?.Operations??InstructionOperations(baseline);
+        var packet=version is null&&released is not null?await store.ReadPacketHead(JobPacketKey(wo,runtime.Generation)):null;
+        var main=version is null&&released is null&&saved is null?await CompatibleMain(source,runtime.Generation):null;
+        var selected=version is null && released is not null ? packet?.Operations??released.Operations : saved?.Operations??main?.Operations??InstructionOperations(baseline);
         return (object)new {version=effectiveVersion??saved?.Version??0, released=released is not null,baselineToken=token,baselineVersion=baseline.Version,
             canEdit=released is null && version is null && actor.Can("production.manage"),baseline.DefinitionId,baseline.Quantity,
+            markerOpacitySupported=true,packetContractVersion=1,travelerRevision=released is null?(int?)null:packet?.JobRevision??1,instructionPacketId=packet?.Id??released?.Id.ToString(),mainPacketId=saved?.MainPacketId??main?.Id??released?.MainPacketId,
             updatedBy=saved?.UpdatedBy,updatedAt=saved?.UpdatedAt,
             reference=new{workOrderNumber=SimKittingCases.Normalize(wo),generation=runtime.Generation,version=effectiveVersion??saved?.Version??0,
                 baselineToken=token,contentHash=Hash(selected)},
@@ -85,6 +88,10 @@ internal sealed partial class SimProductionService
     internal Task<object> SaveJobInstructions(string wo,SimJobInstructionSave request,SimPersona actor,bool quality=false)=>WithInstructionSource(wo,actor,true,quality,async(source,runtime)=>{
         var baseline=await InstructionBaseline(source);var token=Hash(baseline);wo=SimKittingCases.Normalize(wo);
         Require(request.BaselineToken==token,"instructions_baseline_changed","The accepted instruction baseline changed. Reopen before saving.");
+        if(request.MainPacketId is not null){
+            var main=await CompatibleMain(source,runtime.Generation);var prior=await store.ReadInstructions(wo,runtime.Generation);
+            Require(request.MainPacketId==main?.Id||request.MainPacketId==prior?.MainPacketId,"instructions_main_changed","The selected Main Assembly Packet changed. Reopen before saving.");
+        }
         var original=InstructionOperations(baseline);var incoming=request.Operations;
         Require(incoming is not null&&incoming.Length==original.Length&&incoming.All(o=>o is not null)&&incoming.Select(o=>o.Id).SequenceEqual(original.Select(o=>o.Id)),"instructions_operation_scope","Keep the accepted operation identities and order.");
         for(int i=0;i<original.Length;i++){
@@ -125,7 +132,7 @@ internal sealed partial class SimProductionService
                 var version=card.Source?.DocumentId;
                 var expected=version=="bom-reference-v3"?bomHash:Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(version+"\n"+bomHash+"\n"+baseline.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture))));
                 Valid(version is "bom-reference-v3" or "bom-reference-v4" or "bom-reference-v5" && card.Source==new SimDrawingSource(version!,expected,baseline.DefinitionId,rfq.Assemblies[0].AssemblyNumber,rfq.Assemblies[0].Revision,"View BOM") && card.Page<=SimRfqIntakeEndpoints.BomReferencePageCount(rfq),"BOM references must originate in the accepted baseline.");
-            }else if(card.Kind=="IMAGE")await CheckInstructionAsset(wo,gen,baseline,card.ImageDocumentId,card.ImageSha256);
+            }else if(card.Kind=="IMAGE")await CheckInstructionAsset(wo,gen,baseline,card.ImageDocumentId,card.ImageSha256,source);
             else Valid(card.Page==1&&card.Source is null&&card.ImageDocumentId is null&&card.ImageSha256 is null,"Text and canvas slides cannot reference external assets.");
             foreach(var stage in card.Stages!){
                 Valid(stage is not null,"Missing stage.");Id(stage!.Id);
@@ -135,13 +142,13 @@ internal sealed partial class SimProductionService
                 Valid((stage.Photos?.Length??0)<=20,"Use up to 20 photos per stage.");
                 foreach(var photo in stage.Photos??[]){Id(photo.Id);
                     Valid(double.IsFinite(photo.X)&&double.IsFinite(photo.Y)&&double.IsFinite(photo.Width)&&double.IsFinite(photo.Height)&&double.IsFinite(photo.Rotation)&&photo.X>=0&&photo.Y>=0&&photo.Width>=.001&&photo.Height>=.001&&photo.X+photo.Width<=1.000001&&photo.Y+photo.Height<=1.000001&&photo.Rotation is >=-180 and <=180,"Invalid photo bounds.");
-                    await CheckInstructionAsset(wo,gen,baseline,photo.DocumentId,photo.Sha256);
+                    await CheckInstructionAsset(wo,gen,baseline,photo.DocumentId,photo.Sha256,source);
                 }
             }
         }
     }
-    private async Task CheckInstructionAsset(string wo,long gen,SimLaborSnapshot baseline,string? id,string? hash){
-        var asset=id is null?null:await store.InstructionAsset(wo,gen,id);
+    private async Task CheckInstructionAsset(string wo,long gen,SimLaborSnapshot baseline,string? id,string? hash,SimProductionSource source){
+        var asset=id is null?null:await store.InstructionAsset(wo,gen,id)??await SharedPacketAsset(source,gen,id,hash);
         var frozen=baseline.Operations.SelectMany(o=>o.Visuals??[]).Any(v=>v.DocumentId==id&&v.Sha256==hash)
             ||baseline.Operations.SelectMany(o=>o.Slides??[]).Any(c=>c.ImageDocumentId==id&&c.ImageSha256==hash||c.Stages.SelectMany(s=>s.Photos??[]).Any(p=>p.DocumentId==id&&p.Sha256==hash));
         Require(asset?.Sha256==hash&&asset is not null||frozen,"instructions_asset_scope","Use a retained image from this job or its accepted baseline.");
@@ -155,14 +162,14 @@ internal sealed partial class SimProductionService
         await store.AddInstructionAsset(SimKittingCases.Normalize(wo),runtime.Generation,asset);return asset;
     });
     internal Task<(byte[] Bytes,string Type)> OpenInstructionAsset(string wo,string id,SimPersona actor,bool quality=false)=>WithInstructionSource(wo,actor,false,quality,async(source,runtime)=>{
-        var asset=await store.InstructionAsset(SimKittingCases.Normalize(wo),runtime.Generation,id);
+        var asset=await store.InstructionAsset(SimKittingCases.Normalize(wo),runtime.Generation,id)??await SharedPacketAsset(source,runtime.Generation,id);
         if(asset is not null){Require(Convert.ToHexString(SHA256.HashData(asset.Bytes))==asset.Sha256,"instructions_asset_integrity","Image integrity check failed.");return(asset.Bytes,asset.Type);}
         var baseline=await InstructionBaseline(source);
         var ids=baseline.Operations.SelectMany(o=>o.Slides??[]).SelectMany(c=>c.Stages.SelectMany(s=>s.Photos??[]).Select(p=>p.DocumentId).Append(c.ImageDocumentId)).Concat(baseline.Operations.SelectMany(o=>o.Visuals??[]).Select(v=>v.DocumentId));
         Require(ids.Contains(id),"instructions_asset_scope","Image does not belong to the accepted job.");
         var bytes=await documents.Bytes(source.SourceCorrelationId,id);
         var hash=Convert.ToHexString(SHA256.HashData(bytes));
-        await CheckInstructionAsset(SimKittingCases.Normalize(wo),runtime.Generation,baseline,id,hash);
+        await CheckInstructionAsset(SimKittingCases.Normalize(wo),runtime.Generation,baseline,id,hash,source);
         return(bytes,bytes.AsSpan().StartsWith(new byte[]{137,80,78,71})?"image/png":"image/jpeg");
     });
 }
@@ -180,7 +187,7 @@ internal sealed partial class SimProductionStore
             var prior=await Instructions(c,t,wo,gen);
             if((prior?.Version??0)!=r.ExpectedVersion)throw KittingCaseProblem.Conflict("instructions_version_changed","Another session saved this job. Keep your draft and reopen to review before retrying.");
             if(prior is not null&&prior.BaselineToken!=r.BaselineToken)throw KittingCaseProblem.Conflict("instructions_baseline_changed","The accepted baseline changed.");
-            var next=new SimJobInstructionDraft(wo,gen,r.ExpectedVersion+1,r.BaselineToken,r.Operations,actor,now);
+            var next=new SimJobInstructionDraft(wo,gen,r.ExpectedVersion+1,r.BaselineToken,r.Operations,actor,now,r.MainPacketId??prior?.MainPacketId);
             await Exec(c,t,"CREATE TABLE IF NOT EXISTS SimJobInstructionDraft(WorkOrderNumber TEXT NOT NULL,Generation INTEGER NOT NULL,Version INTEGER NOT NULL,PayloadJson TEXT NOT NULL,PRIMARY KEY(WorkOrderNumber,Generation,Version))");
             await Exec(c,t,"INSERT INTO SimJobInstructionDraft VALUES(@wo,@gen,@version,@json)",("@wo",wo),("@gen",gen),("@version",next.Version),("@json",JsonSerializer.Serialize(next,Json)));await t.CommitAsync();return next;
         }finally{gate.Release();}

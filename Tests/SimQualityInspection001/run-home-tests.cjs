@@ -18,11 +18,11 @@ async function setup({role='SUPER_ADMIN',superAdmin=true,mode='desktop',sim=true
  },{role,superAdmin,mode,sim,active,permissions});
  await page.addScriptTag({content:registry});await page.addScriptTag({content:source});await page.evaluate(()=>DleWorkAreaHome.render());
 }
-(async()=>{browser=await chromium.launch({channel:'msedge'});page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+(async()=>{browser=await chromium.launch({channel:'msedge'});page=await browser.newPage({hasTouch:true,viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  for(const [role,superAdmin,expected] of [['SUPER_ADMIN',true,true],['ADMIN',false,true],['SIM_OPERATIONS_MANAGER',false,false],['NOT_ADMIN',false,false]]){
   await setup({role,superAdmin});assert.equal(await page.locator('.home-flow-map').count(),expected?1:0);passed.push('scope '+role);
  }
- for(const mode of ['ipad','mobile'])for(const role of ['ADMIN','SUPER_ADMIN']){await setup({role,mode});assert.equal(await page.locator('.home-flow-map').count(),0);const after=await page.locator('#dleWorkAreaHome').innerHTML();await setup({role,mode,source:before});assert.equal(await page.locator('#dleWorkAreaHome').innerHTML(),after);passed.push(mode+' unchanged '+role);}
+ for(const mode of ['mobile'])for(const role of ['ADMIN','SUPER_ADMIN']){await setup({role,mode});assert.equal(await page.locator('.home-flow-map').count(),0);const after=await page.locator('#dleWorkAreaHome').innerHTML();await setup({role,mode,source:before});assert.equal(await page.locator('#dleWorkAreaHome').innerHTML(),after);passed.push(mode+' unchanged '+role);}
  for(const options of [{sim:false},{active:false},{role:'SIM_KITTING_OPERATOR',superAdmin:false,permissions:['kitting.view']},{role:'SIM_NO_ACCESS',superAdmin:false,permissions:[]}]){
   await setup(options);assert.equal(await page.locator('.home-flow-map').count(),0);const after=await page.locator('#dleWorkAreaHome').innerHTML();await setup({...options,source:before});assert.equal(await page.locator('#dleWorkAreaHome').innerHTML(),after);passed.push('unchanged '+JSON.stringify(options));
  }
@@ -42,6 +42,47 @@ async function setup({role='SUPER_ADMIN',superAdmin=true,mode='desktop',sim=true
  }
  await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>document.body.style.zoom='2');await page.waitForTimeout(60);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.locator('[data-work-area]').count(),13);passed.push('200% CSS zoom');
  await setup({role:'ADMIN',superAdmin:false,permissions:['technical_review.view','kitting.view']});await page.waitForTimeout(40);assert.equal(await page.locator('[data-work-area="quality"]').count(),0);assert.equal(await page.locator('[data-from="order-entry"],[data-to="quality"],[data-from="quality"],[data-to="receiving"]').count(),0);passed.push('restricted Admin removes unavailable endpoints without bypass');
- await page.evaluate(()=>{document.body.dataset.viewMode='ipad';document.dispatchEvent(new Event('dle:view-mode-change'));});assert.equal(await page.locator('.uses-admin-flow').count(),0);await page.evaluate(()=>{document.body.dataset.viewMode='desktop';document.dispatchEvent(new Event('dle:view-mode-change'));});assert.equal(await page.locator('.home-flow-map').count(),1);passed.push('presentation switching cleans up map');
+ await page.evaluate(()=>{document.body.dataset.viewMode='ipad';document.dispatchEvent(new Event('dle:view-mode-change'));});assert.equal(await page.locator('.uses-admin-flow').count(),1);await page.evaluate(()=>{document.body.dataset.viewMode='desktop';document.dispatchEvent(new Event('dle:view-mode-change'));});assert.equal(await page.locator('.home-flow-map').count(),1);passed.push('presentation switching cleans up map');
+
+ for(const [role,superAdmin] of [['ADMIN',false],['SUPER_ADMIN',true]]){
+  await setup({role,superAdmin,mode:'ipad'});
+  assert.equal(await page.locator('.home-flow-map').count(),1);
+  assert.equal(await page.locator('.home-flow-materials').count(),1);
+  assert.equal(await page.locator('.home-flow-production').count(),1);
+  for(const [width,height] of [[768,1024],[820,1180],[834,1194],[1024,768],[1180,820],[1194,834],[1366,1024]]){
+   await page.setViewportSize({width,height});await page.waitForTimeout(60);
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'tablet overflow '+width);
+   assert.equal(await page.locator('.home-flow-lines').isVisible(),true);
+   assert.equal(await page.locator('.home-flow-edge').count(),11);
+   const geometry=await page.evaluate(()=>{
+    const cards=[...document.querySelectorAll('.home-flow-map [data-work-area]')];
+    const bad=cards.filter(e=>{const r=e.getBoundingClientRect();return r.width<44||r.height<44||e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1||parseFloat(getComputedStyle(e.querySelector('strong')).fontSize)<18;}).map(e=>e.dataset.workArea);
+    const collisions=[];const svg=document.querySelector('.home-flow-lines'),matrix=svg.getScreenCTM();
+    for(const edge of document.querySelectorAll('.home-flow-edge'))for(let i=1;i<50;i++){
+     const p=edge.getPointAtLength(edge.getTotalLength()*i/50),q=new DOMPoint(p.x,p.y).matrixTransform(matrix);
+     for(const card of cards){if([edge.dataset.from,edge.dataset.to].includes(card.dataset.workArea))continue;const b=card.getBoundingClientRect();if(q.x>b.left+1&&q.x<b.right-1&&q.y>b.top+1&&q.y<b.bottom-1)collisions.push(card.dataset.workArea);}
+    }
+    return {bad,collisions};
+   });
+   assert.deepEqual(geometry,{bad:[],collisions:[]},'tablet card/connector geometry '+width);
+   if(role==='ADMIN'&&[768,1024].includes(width)){
+    for(const id of ids){assert.equal(await page.evaluate(id=>!!DleWorkspaceRegistry.getById(id),id),true,'real tablet route '+id);await page.locator('[data-work-area="'+id+'"]').tap();assert.deepEqual(await page.evaluate(()=>calls.splice(0)),[['workspace',id],['screen',id==='operations-center'?'operationsCenter':'home',false]]);}
+    await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(out,'home-ipad-'+width+'.png'),fullPage:true});
+   }
+   passed.push(role+' tablet '+width+'x'+height);
+  }
+ }
+ await page.setViewportSize({width:768,height:1024});await setup({mode:'ipad'});
+ await page.evaluate(()=>{document.body.dataset.workspaceView='dle-home';document.body.style.cssText='display:grid;grid-template-columns:1100px';const home=document.querySelector('#dleWorkAreaHome'),shell=document.createElement('main');home.before(shell);shell.append(home);});
+ await page.waitForTimeout(60);
+ assert.equal(await page.locator('.home-flow-map [data-work-area]').evaluateAll(es=>es.every(e=>e.getBoundingClientRect().right<=innerWidth)),true,'oversized app grid cannot clip tablet home');passed.push('tablet outer-shell width containment');
+ for(const options of [{role:'SIM_KITTING_OPERATOR',superAdmin:false},{role:'NOT_ADMIN',superAdmin:false},{active:false},{sim:false}]){
+  await setup({...options,mode:'ipad'});const current=await page.locator('#dleWorkAreaHome').innerHTML();assert.equal(await page.locator('.home-flow-map').count(),0);
+  await setup({...options,mode:'ipad',source:before});assert.equal(await page.locator('#dleWorkAreaHome').innerHTML(),current);passed.push('tablet unchanged '+JSON.stringify(options));
+ }
+ await setup({role:'ADMIN',superAdmin:false,mode:'ipad',permissions:['kitting.view']});
+ assert.equal(await page.locator('[data-work-area="quality"],[data-work-area="quality-inspection"]').count(),0);
+ assert.equal(await page.locator('.home-flow-edge').count(),2);assert.equal(await page.locator('[data-to="quality"],[data-to="quality-inspection"],[data-from="quality-inspection"],[data-to="receiving"],[data-to="shipping" ]').count(),0);passed.push('tablet permission filters');
+ await page.evaluate(()=>{document.body.dataset.viewMode='mobile';document.dispatchEvent(new Event('dle:view-mode-change'));});assert.equal(await page.locator('.home-flow-map').count(),0);passed.push('tablet to phone cleans up map');
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'home-results.json'),JSON.stringify({passed,errors},null,2));console.log('PASS '+passed.length+' browser checks.');await browser.close();
 })().catch(async e=>{console.error(e);if(browser)await browser.close();process.exitCode=1;});

@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 internal sealed record SimQualityReleaseRequest(string ReviewToken);
 internal sealed record SimQualityRelease(Guid Id,string WorkOrderNumber,long Generation,string ReviewToken,
     string RequirementsHash,int InstructionVersion,string BaselineToken,string ContentHash,SimLaborOperation[] Operations,
-    string ActorId,string Actor,DateTimeOffset At,JsonElement References);
+    string ActorId,string Actor,DateTimeOffset At,JsonElement References,string? MainPacketId=null);
 internal sealed partial class SimProductionService
 {
     private async Task<(string Token,int Version,string BaselineToken,SimLaborOperation[] Operations,JsonElement References)> QualityReview(
@@ -14,7 +14,9 @@ internal sealed partial class SimProductionService
         var baseline=await InstructionBaseline(source);var baselineToken=Hash(baseline);
         var saved=await store.ReadInstructions(wo,runtime.Generation);
         Require(saved is null||saved.BaselineToken==baselineToken,"instructions_baseline_changed","The saved instructions need baseline review.");
-        var ops=saved?.Operations??InstructionOperations(baseline);
+        var main=saved is null&&requirements.QualityRelease is null?await CompatibleMain(source,runtime.Generation):null;
+        var identity=await PacketIdentity(source,runtime.Generation);
+        var ops=requirements.QualityRelease?.Operations??saved?.Operations??main?.Operations??InstructionOperations(baseline);
         var record=(SimRfqIntakeRecord)(await intakes.ReadAsync(requirements.Lineage.GetProperty("source").GetProperty("intakeId").GetString()!))!;
         var po=new List<object>();
         foreach(var evidence in record.OrderEntry!.Acceptance.Package.PoEvidence){
@@ -24,7 +26,7 @@ internal sealed partial class SimProductionService
             po.Add(new{evidence.Document.DocumentId,evidence.Document.Name,sha256=hash});
         }
         var references=JsonSerializer.SerializeToElement(new{requirements.Lineage,source=source.Package.GetProperty("source"),
-            purchaseOrderDocuments=po,baselineToken,instructionVersion=saved?.Version??0,contentHash=Hash(ops)},Json);
+            purchaseOrderDocuments=po,baselineToken,instructionVersion=saved?.Version??0,contentHash=Hash(ops),mainPacketKey=identity.Key,mainPacketId=requirements.QualityRelease?.MainPacketId??saved?.MainPacketId??main?.Id},Json);
         // Source contains the release stamp after approval. Exclude that stamp from the original review fingerprint.
         var node=System.Text.Json.Nodes.JsonNode.Parse(references.GetRawText())!.AsObject();
         node["source"]?.AsObject().Remove("qualityRelease");
@@ -57,7 +59,7 @@ internal sealed partial class SimProductionService
                 "quality_activity_exists","This job already has downstream activity. Resolve it before release.");
             await ValidateJobSlides(wo,runtime.Generation,await InstructionBaseline(source),review.Operations,source);
             var release=new SimQualityRelease(Guid.NewGuid(),wo,runtime.Generation,review.Token,Hash(requirements.Lineage),review.Version,
-                review.BaselineToken,Hash(review.Operations),review.Operations,actor.Id,actor.DisplayName,UtcNow(),review.References);
+                review.BaselineToken,Hash(review.Operations),review.Operations,actor.Id,actor.DisplayName,UtcNow(),review.References,Text(review.References,"mainPacketId") is {Length:>0} mainId?mainId:null);
             return ReleaseEvidence(await store.SaveQualityRelease(release));
         });
     });
@@ -87,6 +89,12 @@ internal sealed partial class SimProductionStore
             var prior=await QualityRelease(c,t,release.WorkOrderNumber,release.Generation);
             if(prior is not null){if(prior.ReviewToken!=release.ReviewToken)throw KittingCaseProblem.Conflict("quality_release_conflict","A different packet was already released.");return prior;}
             var latest=await Instructions(c,t,release.WorkOrderNumber,release.Generation);
+            if(latest is null&&release.References.TryGetProperty("mainPacketKey",out var mainKey)){
+                var main=await PacketHead(c,t,mainKey.GetString()!);
+                // An incompatible main is not a candidate; compatible publication races invalidate review.
+                var candidate=main?.Identity.Compatibility==release.BaselineToken?main:null;
+                if(candidate?.Id!=release.MainPacketId)throw KittingCaseProblem.Conflict("quality_review_changed","The Main Assembly Packet changed during review. Reopen the packet before release.");
+            }
             if((latest?.Version??0)!=release.InstructionVersion)throw KittingCaseProblem.Conflict("quality_review_changed","Instructions changed during review.");
             await Exec(c,t,"CREATE TABLE IF NOT EXISTS SimQualityRelease(WorkOrderNumber TEXT NOT NULL,Generation INTEGER NOT NULL,PayloadJson TEXT NOT NULL,PRIMARY KEY(WorkOrderNumber,Generation))");
             await Exec(c,t,"CREATE TRIGGER IF NOT EXISTS SimQualityReleaseNoUpdate BEFORE UPDATE ON SimQualityRelease BEGIN SELECT RAISE(ABORT,'Quality releases are immutable'); END; CREATE TRIGGER IF NOT EXISTS SimQualityReleaseNoDelete BEFORE DELETE ON SimQualityRelease BEGIN SELECT RAISE(ABORT,'Quality releases are immutable'); END;");
