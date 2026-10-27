@@ -1,0 +1,16 @@
+{
+  "hostName": "DLE-OS-HOST",
+  "complete": false,
+  "capturedUtc": null,
+  "hasReparsePoint": null,
+  "releaseManifestSha256": null,
+  "targetRelease": null,
+  "unknownPartialState": null,
+  "portInUse": null,
+  "urlReservationPresent": null,
+  "urlReservationOwner": null,
+  "targetExists": null,
+  "targetMatches": null,
+  "bindingsQualified": false,
+  "service": null
+}

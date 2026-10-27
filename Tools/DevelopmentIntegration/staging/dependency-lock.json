@@ -1,0 +1,42 @@
+[
+  {
+    "Path": "microsoft.extensions.hosting.windowsservices/8.0.1/microsoft.extensions.hosting.windowsservices.8.0.1.nupkg",
+    "Sha256": "241AD9BAFD51C6925FE7047CD60F756C4D7F25080178EB67243BC0F7CAE560A1"
+  },
+  {
+    "Path": "microsoft.data.sqlclient/6.0.2/microsoft.data.sqlclient.6.0.2.nupkg",
+    "Sha256": "424BC6A2E714F23A383D7082819D74BF9239846D20C9A540DFAACE72EDC804B0"
+  },
+  {
+    "Path": "microsoft.data.sqlclient.sni.runtime/6.0.2/microsoft.data.sqlclient.sni.runtime.6.0.2.nupkg",
+    "Sha256": "090B897E3658A11C5F734EDC4B350D08E39DCE6509BB4A75D09F96A5C1B6049D"
+  },
+  {
+    "Path": "microsoft.identitymodel.abstractions/7.7.3/microsoft.identitymodel.abstractions.7.7.3.nupkg",
+    "Sha256": "1A919533FFB7B259E566160D637B16D1A17B5F6D929DA56CCF5EAE1FE2B1E488"
+  },
+  {
+    "Path": "microsoft.identitymodel.jsonwebtokens/7.7.3/microsoft.identitymodel.jsonwebtokens.7.7.3.nupkg",
+    "Sha256": "90DD93C1127979A096D4CBE159E112AE2AB5FECD1323E679E639A54328BD3775"
+  },
+  {
+    "Path": "microsoft.identitymodel.logging/7.7.3/microsoft.identitymodel.logging.7.7.3.nupkg",
+    "Sha256": "7C167A2319409FE9C239EBE87EABACDB6E597509A1D904D3471ABFE21D9D4BE3"
+  },
+  {
+    "Path": "microsoft.identitymodel.protocols/7.7.3/microsoft.identitymodel.protocols.7.7.3.nupkg",
+    "Sha256": "A79C24604E27F104F6F03062D896F0D321842B2D1750002952C7CCFA85B8C327"
+  },
+  {
+    "Path": "microsoft.identitymodel.protocols.openidconnect/7.7.3/microsoft.identitymodel.protocols.openidconnect.7.7.3.nupkg",
+    "Sha256": "1DD5A0353122373B95FBB75A5DF7805CDBB27BE1A92C5B5912BA5F10AB1379BB"
+  },
+  {
+    "Path": "microsoft.identitymodel.tokens/7.7.3/microsoft.identitymodel.tokens.7.7.3.nupkg",
+    "Sha256": "8BBE1FB35AC56446ABA9B221BD2D30DFFA3B9EE84DDC09EE11FFF7C9883C44F3"
+  },
+  {
+    "Path": "system.identitymodel.tokens.jwt/7.7.3/system.identitymodel.tokens.jwt.7.7.3.nupkg",
+    "Sha256": "501732B0D50CC071DA0B856D59B89AD116362E8F379B5E80CB61C2B555CD8B27"
+  }
+]

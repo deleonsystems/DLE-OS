@@ -6,9 +6,13 @@ if(!$output.StartsWith((Join-Path $candidate 'packages')+[IO.Path]::DirectorySep
 New-Item -ItemType Directory -Path $output | Out-Null
 $env:DOTNET_CLI_HOME=Join-Path $candidate '.build-home'
 $env:NUGET_PACKAGES=$NuGetPackages
+foreach($dependency in (Get-Content (Join-Path $candidate 'staging\dependency-lock.json') -Raw | ConvertFrom-Json)){
+ $path=Join-Path $NuGetPackages $dependency.Path
+ if(!(Test-Path -LiteralPath $path) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $dependency.Sha256){throw "Qualified cached package missing or changed: $($dependency.Path)"}
+}
 & $PythonExecutable (Join-Path $candidate 'connected\make-fixtures.py')
 if($LASTEXITCODE -ne 0){throw 'Synthetic fixture generation failed'}
-foreach($entry in @(@('runtime\QuotingRuntime.csproj','backend'),@('frontend-host\FrontendHost.csproj','frontend'),@('auth-tests\IdentityChecks.csproj','qualification'))){
+foreach($entry in @(@('runtime\QuotingRuntime.csproj','backend'),@('frontend-host\FrontendHost.csproj','frontend'),@('auth-tests\IdentityChecks.csproj','qualification'),@('service-tests\ServiceChecks.csproj','service-qualification'))){
  & dotnet restore (Join-Path $candidate $entry[0]) --configfile (Join-Path $candidate 'NuGet.Config')
  if($LASTEXITCODE -ne 0){throw 'Required cached dependencies unavailable'}
  & dotnet publish (Join-Path $candidate $entry[0]) -c Release --no-restore -o (Join-Path $output $entry[1])
@@ -25,8 +29,10 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Run-Qualification.ps1') -Destin
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'backend.template.json') -Destination (Join-Path $output 'backend')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'frontend.template.json') -Destination (Join-Path $output 'frontend')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ACTIVATION_GATE.txt') -Destination $output
-$sourceFiles=@(foreach($folder in @('auth','auth-tests','runtime','baseline-source','frontend-host','connected','src','quote-adapter','package-tools')){
- Get-ChildItem -LiteralPath (Join-Path $candidate $folder) -File -Recurse | Where-Object {$_.FullName -notmatch '\\(bin|obj|fixtures)\\' -and ($_.Extension -in @('.cs','.csproj','.js','.mjs','.css','.ps1','.props') -or $_.Name -eq 'roles.json')}
+New-Item -ItemType Directory -Path (Join-Path $output 'staging-review') | Out-Null
+Get-ChildItem -LiteralPath (Join-Path $candidate 'staging') -File | Where-Object Name -NotLike '*results.json' | Copy-Item -Destination (Join-Path $output 'staging-review')
+$sourceFiles=@(foreach($folder in @('auth','auth-tests','service-tests','staging','shared-assemblies','runtime','baseline-source','frontend-host','connected','src','quote-adapter','package-tools')){
+ Get-ChildItem -LiteralPath (Join-Path $candidate $folder) -File -Recurse | Where-Object {$_.FullName -notmatch '\\(bin|obj|fixtures)\\' -and $_.Name -notlike '*results.json' -and $_.Name -notlike '*.local.json' -and ($_.Extension -in @('.cs','.csproj','.js','.mjs','.css','.ps1','.psm1','.props','.sql','.md','.json','.txt'))}
 })
 $sourceEntries=@($sourceFiles|Sort-Object FullName|ForEach-Object{[ordered]@{Path=[IO.Path]::GetRelativePath($candidate,$_.FullName).Replace('\','/');Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}})
 $sourceEntries|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $output 'source-manifest.json') -Encoding utf8
@@ -35,7 +41,7 @@ $sourceDigest=(Get-FileHash -LiteralPath (Join-Path $output 'source-manifest.jso
 $files=@(Get-ChildItem -LiteralPath $output -File -Recurse | Sort-Object FullName | ForEach-Object {
  [ordered]@{Path=[IO.Path]::GetRelativePath($output,$_.FullName).Replace('\','/');Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}
 })
-$manifest=[ordered]@{Schema=1;SourceCheckpoint='66251559a3b062020101956971b02b0adbf05829';FrontendBaseline='20260904T230955Z';SourceDirty=$true;SourceDigestSha256=$sourceDigest;State='OFFLINE_NOT_DEPLOYMENT_APPROVED';Files=$files}
+$manifest=[ordered]@{Schema=1;SourceCheckpoint='66251559a3b062020101956971b02b0adbf05829';IntegrationBase='5f3c60dc353bfdac57c4c5a494e1bb27ed1550ed';FrontendBaseline='20260904T230955Z';SourceDirty=$true;SourceDigestSha256=$sourceDigest;State='OFFLINE_NOT_DEPLOYMENT_APPROVED';Files=$files}
 $manifest|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $output 'manifest.json') -Encoding utf8
 (Get-FileHash -LiteralPath (Join-Path $output 'manifest.json') -Algorithm SHA256).Hash|Set-Content -LiteralPath (Join-Path $output 'manifest.sha256')
 Write-Output $output

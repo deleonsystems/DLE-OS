@@ -9,6 +9,10 @@ $before=@(Get-ChildItem -LiteralPath $disposable -Directory -ErrorAction Silentl
 try {
  & dotnet (Join-Path $PSScriptRoot 'qualification\IdentityChecks.dll') --fixture-root $fixtureRoot --package
  if($LASTEXITCODE -ne 0){throw 'Packaged qualification failed'}
+ $serviceResults=Join-Path $fixtureRoot 'service-lifecycle'
+ & dotnet (Join-Path $PSScriptRoot 'service-qualification\ServiceChecks.dll') $serviceResults
+ if($LASTEXITCODE -ne 0){throw 'Packaged service lifecycle qualification failed'}
+ & (Join-Path $PSScriptRoot 'staging-review\Test-StagingPlan.ps1') -ResultPath (Join-Path $serviceResults 'staging-results.json')
 } finally {
  $env:DLE_OS_SIM_BOM_PYTHON=$priorPython
  foreach($directory in @(Get-ChildItem -LiteralPath $disposable -Directory -ErrorAction SilentlyContinue)){

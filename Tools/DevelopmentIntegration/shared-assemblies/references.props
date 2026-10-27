@@ -2,11 +2,11 @@
 <Reference Include="DleOs.Security"><HintPath>$(MSBuildThisFileDirectory)DleOs.Security.dll</HintPath><Private>true</Private></Reference>
 <Reference Include="DleOs.TrustedIdentity"><HintPath>$(MSBuildThisFileDirectory)DleOs.TrustedIdentity.dll</HintPath><Private>true</Private></Reference>
 <Reference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect"><HintPath>$(MSBuildThisFileDirectory)Microsoft.AspNetCore.Authentication.OpenIdConnect.dll</HintPath><Private>true</Private></Reference>
-<Reference Include="Microsoft.Data.SqlClient"><HintPath>$(MSBuildThisFileDirectory)Microsoft.Data.SqlClient.dll</HintPath><Private>true</Private></Reference>
-<Reference Include="Microsoft.IdentityModel.Abstractions"><HintPath>$(MSBuildThisFileDirectory)Microsoft.IdentityModel.Abstractions.dll</HintPath><Private>true</Private></Reference>
-<Reference Include="Microsoft.IdentityModel.JsonWebTokens"><HintPath>$(MSBuildThisFileDirectory)Microsoft.IdentityModel.JsonWebTokens.dll</HintPath><Private>true</Private></Reference>
-<Reference Include="Microsoft.IdentityModel.Logging"><HintPath>$(MSBuildThisFileDirectory)Microsoft.IdentityModel.Logging.dll</HintPath><Private>true</Private></Reference>
-<Reference Include="Microsoft.IdentityModel.Protocols"><HintPath>$(MSBuildThisFileDirectory)Microsoft.IdentityModel.Protocols.dll</HintPath><Private>true</Private></Reference>
-<Reference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect"><HintPath>$(MSBuildThisFileDirectory)Microsoft.IdentityModel.Protocols.OpenIdConnect.dll</HintPath><Private>true</Private></Reference>
-<Reference Include="Microsoft.IdentityModel.Tokens"><HintPath>$(MSBuildThisFileDirectory)Microsoft.IdentityModel.Tokens.dll</HintPath><Private>true</Private></Reference>
-<Reference Include="System.IdentityModel.Tokens.Jwt"><HintPath>$(MSBuildThisFileDirectory)System.IdentityModel.Tokens.Jwt.dll</HintPath><Private>true</Private></Reference></ItemGroup></Project>
+<PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2"/>
+<PackageReference Include="Microsoft.IdentityModel.Abstractions" Version="7.7.3"/>
+<PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="7.7.3"/>
+<PackageReference Include="Microsoft.IdentityModel.Logging" Version="7.7.3"/>
+<PackageReference Include="Microsoft.IdentityModel.Protocols" Version="7.7.3"/>
+<PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="7.7.3"/>
+<PackageReference Include="Microsoft.IdentityModel.Tokens" Version="7.7.3"/>
+<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.7.3"/></ItemGroup></Project>

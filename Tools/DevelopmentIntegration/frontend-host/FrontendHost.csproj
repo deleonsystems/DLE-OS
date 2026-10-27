@@ -6,7 +6,7 @@
 <Content Include="../connected/roles.json" Link="roles.json" CopyToOutputDirectory="PreserveNewest"/>
 <Reference Include="DleOs.Security"><HintPath>../shared-assemblies/DleOs.Security.dll</HintPath></Reference>
 <Reference Include="DleOs.TrustedIdentity"><HintPath>../shared-assemblies/DleOs.TrustedIdentity.dll</HintPath></Reference>
-<Reference Include="Microsoft.Data.SqlClient"><HintPath>../shared-assemblies/Microsoft.Data.SqlClient.dll</HintPath></Reference>
+<PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2"/><PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="7.7.3"/>
 <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.29"/>
 <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0"/><PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1"/>
 </ItemGroup></Project>

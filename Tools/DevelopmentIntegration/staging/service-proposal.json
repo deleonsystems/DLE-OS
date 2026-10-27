@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "sourceBase": "5f3c60dc353bfdac57c4c5a494e1bb27ed1550ed",
+  "serviceName": "DleOsDevelopmentQuoting",
+  "identity": "NT SERVICE\\DleOsDevelopmentQuoting",
+  "startup": "Manual",
+  "listenUrl": "http://127.0.0.1:5060/",
+  "releaseRoot": "C:\\ProgramData\\DLE-OS\\DevelopmentQuotingService\\releases",
+  "configPath": "C:\\ProgramData\\DLE-OS\\DevelopmentQuotingService\\config\\backend.json",
+  "dataRoot": "C:\\ProgramData\\DLE-OS\\DevelopmentQuoting",
+  "trustedCaller": "DLE-OS-HOST\\DLE-OS-DEV-FRONTEND",
+  "activationApproved": false,
+  "reviewerUserIds": [],
+  "publicKeyPath": null,
+  "libraryPackage": null,
+  "librarySha256": null,
+  "pythonExecutable": null,
+  "pythonSha256": null,
+  "securityConnectionString": null
+}
