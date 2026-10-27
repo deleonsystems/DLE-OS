@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "sourceBase": "5f3c60dc353bfdac57c4c5a494e1bb27ed1550ed",
+  "sourceBase": "f018f92eb68f39803406e78cefa541dea2467802",
   "serviceName": "DleOsDevelopmentQuoting",
   "identity": "NT SERVICE\\DleOsDevelopmentQuoting",
   "startup": "Manual",
@@ -16,5 +16,7 @@
   "librarySha256": null,
   "pythonExecutable": null,
   "pythonSha256": null,
-  "securityConnectionString": null
+  "authorizationEndpoint": null,
+  "authorizationMode": "frontend-fresh-callback-v1",
+  "sqlAccess": "none"
 }

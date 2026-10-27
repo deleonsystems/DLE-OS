@@ -10,8 +10,9 @@ public static class QuotingRegistration
   // No handler, ticket store, key file or credential is created here.
   services.AddSingleton(TimeProvider.System);
   services.AddScoped<BffQuotingIdentity>();
-  services.AddHttpClient("quoting-compatibility").ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{UseDefaultCredentials=true,UseCookies=false,AllowAutoRedirect=false});
-  services.AddScoped(sp=>new QuotingBffProxy(sp.GetRequiredService<BffQuotingIdentity>(),sp.GetRequiredService<IIdentityAssertionIssuer>(),sp.GetRequiredService<IHttpClientFactory>().CreateClient("quoting-compatibility"),destination));
+  services.AddSingleton<PendingQuotingAuthorizations>();
+  services.AddHttpClient("quoting-compatibility").ConfigurePrimaryHttpMessageHandler(FreshAuthorization.DirectTransport);
+  services.AddScoped(sp=>new QuotingBffProxy(sp.GetRequiredService<BffQuotingIdentity>(),sp.GetRequiredService<IIdentityAssertionIssuer>(),sp.GetRequiredService<IHttpClientFactory>().CreateClient("quoting-compatibility"),destination,sp.GetRequiredService<PendingQuotingAuthorizations>()));
   return services;
  }
  public static IServiceCollection AddQuotingBackendAdapters(this IServiceCollection services,string trustedServiceIdentity){

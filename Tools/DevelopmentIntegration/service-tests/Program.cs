@@ -6,14 +6,13 @@ using Microsoft.Extensions.Options;
 
 var results = new List<string>();
 void Check(bool ok, string message) { if (!ok) throw new Exception(message); results.Add(message); Console.WriteLine("PASS " + message); }
-void Refuse(Action action, string message) { try { action(); } catch (InvalidOperationException) { Check(true,message); return; } throw new Exception("Unexpected allow: " + message); }
+void Refuse(Action action, string message) { try { action(); } catch (Exception e) when(e is InvalidOperationException or DleOs.Quoting.Identity.IdentityDenied or JsonException) { Check(true,message); return; } throw new Exception("Unexpected allow: " + message); }
 string root = Path.GetFullPath(args.Single());
 Directory.CreateDirectory(root);
 string config = Path.Combine(root,"synthetic-config.json");
 var settings = new RuntimeSettings(true,"http://127.0.0.1:5060",@"C:\ProgramData\DLE-OS\DevelopmentQuoting",
     Path.Combine(root,"library.json"),new string('A',64),@"DLE-OS-HOST\DLE-OS-DEV-FRONTEND",
-    Path.Combine(root,"public.pem"),@"Server=lpc:.\SQLEXPRESS;Database=DLE_OS_SECURITY_DEV;Integrated Security=true;Encrypt=True;TrustServerCertificate=False",
-    "DLE_OS_SECURITY_DEV",[Guid.NewGuid()],Path.Combine(root,"python.exe"),new string('B',64));
+    Path.Combine(root,"public.pem"),"http://127.0.0.1:5051/internal/quoting/v1/authorization",[Guid.NewGuid()],Path.Combine(root,"python.exe"),new string('B',64));
 void Validate(RuntimeSettings value) { File.WriteAllText(config,JsonSerializer.Serialize(value)); RuntimeApplication.Validate(config); }
 try {
     Validate(settings); Check(true,"pure configuration validation accepts explicit synthetic bindings without opening SQL/files");
@@ -24,8 +23,9 @@ try {
     Refuse(()=>Validate(settings with{ReviewerUserIds=[]}),"empty reviewer set denied");
     Refuse(()=>Validate(settings with{ReviewerUserIds=[Guid.Empty]}),"empty reviewer ID denied");
     Refuse(()=>Validate(settings with{ReviewerUserIds=[settings.ReviewerUserIds![0],settings.ReviewerUserIds[0]]}),"duplicate reviewer denied");
-    Refuse(()=>Validate(settings with{SecurityConnectionString=settings.SecurityConnectionString!.Replace("Encrypt=True","Encrypt=False")}),"SQL encryption downgrade denied");
-    Refuse(()=>Validate(settings with{SecurityConnectionString=settings.SecurityConnectionString!.Replace("TrustServerCertificate=False","TrustServerCertificate=True")}),"SQL certificate bypass denied");
+    Refuse(()=>Validate(settings with{AuthorizationEndpoint="https://remote.invalid/internal/quoting/v1/authorization"}),"remote authority denied");
+    Refuse(()=>Validate(settings with{AuthorizationEndpoint="http://127.0.0.1:5051/other"}),"arbitrary authority path denied");
+    Refuse(()=>{File.WriteAllText(config,JsonSerializer.Serialize(settings).TrimEnd('}')+",\"SecurityConnectionString\":\"forbidden\"}");RuntimeApplication.Validate(config);},"legacy SQL configuration rejected rather than ignored");
     Refuse(()=>Validate(settings with{ApplicationRoot=root}),"alternate data root denied");
     Refuse(()=>QuotingServiceLifecycle.Arguments([]),"missing arguments denied");
     Refuse(()=>QuotingServiceLifecycle.Arguments(["--config","relative.json"]),"relative service config denied");

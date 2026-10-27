@@ -1,1 +1,13 @@
-{"activationApproved":false,"listenUrl":null,"applicationRoot":null,"libraryPackage":null,"librarySha256":null,"trustedCaller":null,"publicKeyPath":null,"securityConnectionString":null,"securityDatabase":null,"reviewerUserIds":null,"pythonExecutable":null,"pythonSha256":null}
+{
+  "activationApproved": false,
+  "listenUrl": null,
+  "applicationRoot": null,
+  "libraryPackage": null,
+  "librarySha256": null,
+  "trustedCaller": null,
+  "publicKeyPath": null,
+  "reviewerUserIds": null,
+  "pythonExecutable": null,
+  "pythonSha256": null,
+  "authorizationEndpoint": null
+}

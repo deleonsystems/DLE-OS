@@ -33,20 +33,23 @@ all ancestor paths are local, non-reparse, and administrator controlled. Refuse 
 unknown existing service, nonmatching release, occupied prefix, or interrupted step
 without an authoritative receipt. Each future mutation needs a before/after receipt;
 repeat matching stopped registration is a no-op, uncertainty is never a blind retry.
-The virtual account, URL reservation and SQL login/user require future specific
-approval; no stored password is proposed. Column-level SELECT grants are documented
-in Resolver-Grants.REVIEW.sql. No database owner, broad reader or write permission.
-The new runtime explicitly rejects Encrypt=False/Optional and TrustServerCertificate.
-The shared-instance certificate failure is unresolved; do not use the old bootstrap
-to obtain access. No live SQL is performed by preparation scripts.
+The virtual account and URL reservation require future specific approval; no stored
+password is proposed. Path B requires NO quoting SQL connection, login, user or grant.
+Resolver-Grants.REVIEW.sql is retired and throws unconditionally. Unknown legacy SQL
+settings are rejected, not silently ignored. The existing frontend continues its
+established security database access; its local SQL encryption posture is inherited,
+not repaired or certified by this change. No live SQL is performed by preparation.
 
 Trust only the existing frontend service identity and dedicated quoting assertion
 audience. Pin the matching ES256 public key hash; do not copy or rotate its private
 key. Require approved reviewer UserIds, valid Library snapshot/hash, canonical customer
 read access on 5052 and qualified Python path/hash/components. Vendor sourcing remains
-unavailable without its approved reference. These live values stay unset in templates.
+unavailable without its approved reference. These live values stay unset in templates. The new authorizationEndpoint must be
+the exact /internal/quoting/v1/authorization path on an approved existing frontend
+loopback listener; no listener or reservation is added by this package. Both sides
+require matching approved reviewer IDs. See PATH_B_TRUST.md for transport gates.
 
-SQL client packaging uses cached Microsoft.Data.SqlClient 6.0.2, matching the original
+The preserved shared-assembly SQL client binary dependency uses cached Microsoft.Data.SqlClient 6.0.2, matching the original
 security project. Its Windows runtime DLL SHA-256 is
 6FD84BCAD321F66DBB6ED1DEDD9E5B77E21E195BD3C3DDFE6484E1CF8FA6BEBC, matching the deployed
 release. A bare top-level DLL reference omitted runtime assets and was corrected.
@@ -62,7 +65,7 @@ assets and dependency files. No packages are downloaded or installed.
 
 1. Review this source diff and exact package; checkpoint/publication remain separate.
 2. Authorize exact setup only after preconditions have concrete verified values:
-   stopped/manual service, immutable release/config, narrow storage/URL/SQL access,
+   stopped/manual service, immutable release/config, narrow storage/URL access,
    public trust and reference bindings. Leave frontend and activation disabled.
 3. Separately authorize synthetic SCM/HTTP.sys staging start and real authenticated
    browser acceptance. Verify valid identity, stop/drain, failure/recovery and cleanup.
@@ -82,3 +85,5 @@ Provision via the existing editable Username UI only after separate account appr
 Do not use these human labels as immutable IDs. Capture the normal administration GET
 projection before/after, without credential responses. Current Miguel SUPER_ADMIN
 stays unchanged; second Miguel Jr. is deferred. No accounts are created by this package.
+
+Path B transport: direct numeric loopback, proxies/cookies/redirects disabled; HTTP.sys callback requires exact DleOsDevelopmentQuoting name AND PrimarySid documented in PATH_B_TRUST.md. Probe success does not authorize registration. Quoting has no SQL grants or fallback. Rollback removes no business records or accounts.

@@ -1,5 +1,5 @@
-Activation metadata deliberately absent: this candidate has uncommitted lifecycle changes
-on top of published integration commit 5f3c60dc353bfdac57c4c5a494e1bb27ed1550ed.
+Activation metadata deliberately absent: this candidate has uncommitted Path B authorization changes
+on top of published integration commit f018f92eb68f39803406e78cefa541dea2467802.
 The retained DevRuntimeBuildInfo validator requires SourceDirty=false and a real
 clean source identity. Do not fabricate it or reuse the old deployed build identity.
 After authorized review/commit, generate runtime-build-info.json and matching

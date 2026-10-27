@@ -5,7 +5,7 @@ namespace DleOs.Quoting.Identity;
 
 // Bind to the existing Windows-authenticated development-compatibility HttpClient.
 // Explicit configured loopback destination; never derives a target from browser input.
-public sealed class QuotingBffProxy(BffQuotingIdentity identities,IIdentityAssertionIssuer issuer,HttpClient downstream,Uri baseUri)
+public sealed class QuotingBffProxy(BffQuotingIdentity identities,IIdentityAssertionIssuer issuer,HttpClient downstream,Uri baseUri,PendingQuotingAuthorizations pending)
 {
  public async Task Forward(HttpContext context){
   if(baseUri.Scheme!="http"||!baseUri.IsLoopback||baseUri.AbsolutePath!="/"||!string.IsNullOrEmpty(baseUri.Query)||!string.IsNullOrEmpty(baseUri.UserInfo))throw new IdentityDenied(503,"QUOTING_DESTINATION_INVALID");
@@ -14,7 +14,10 @@ public sealed class QuotingBffProxy(BffQuotingIdentity identities,IIdentityAsser
   var user=await identities.Resolve(context);
   var correlation=Guid.NewGuid().ToString("D");
   using var request=new HttpRequestMessage(new HttpMethod(context.Request.Method),new Uri(baseUri,context.Request.Path+context.Request.QueryString));
-  request.Headers.Add(TrustedIdentityContract.HeaderName,BffQuotingIdentity.Issue(user,issuer,correlation));
+  var assertion=BffQuotingIdentity.Issue(user,issuer,correlation);
+  var requestHash=await FreshAuthorization.RequestHash(context);
+  using var lease=pending.Add(assertion,user,requestHash,context.RequestAborted,BffSessionRecheck.For(context));
+  request.Headers.Add(TrustedIdentityContract.HeaderName,assertion);
   request.Headers.Add("X-DLE-OS-Correlation-ID",correlation);
   // No browser cookies, Authorization, fixture headers or asserted permissions forwarded.
   if(context.Request.Method is not ("GET" or "HEAD")){

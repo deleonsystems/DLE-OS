@@ -4,10 +4,12 @@ using DleOs.Security;
 // Reflection is confined to the qualification binary: the production frontend
 // references these hooks directly. Tests can run against old or packaged assembly.
 internal static class PackagedFrontend {
+ internal static Guid[] ReviewerIds=[];
  internal static bool Enabled=>Environment.GetCommandLineArgs().Contains("--package");
  static Type Setup=>typeof(CurrentUserContext).Assembly.GetType("QuotingFrontendSetup",true)!;
- static object Settings(Uri backend){var t=Setup.Assembly.GetType("QuotingFrontendSettings",true)!;return Activator.CreateInstance(t,true,backend.ToString(),Path.Combine(TestPaths.Root,"connected/web"))!;}
+ static object Settings(Uri backend){var t=Setup.Assembly.GetType("QuotingFrontendSettings",true)!;return Activator.CreateInstance(t,true,backend.ToString(),Path.Combine(TestPaths.Root,"connected/web"),ReviewerIds)!;}
  internal static void Register(IServiceCollection services,Uri backend)=>Setup.GetMethod("Register")!.Invoke(null,[services,Settings(backend)]);
+ internal static void Authority(WebApplication app)=>Setup.GetMethod("Authority")!.Invoke(null,[app]);
  internal static void Map(WebApplication app,Uri backend)=>Setup.GetMethod("Map")!.Invoke(null,[app,Settings(backend)]);
  internal static string Inject(string html,ResolvedSecurityUser user)=>(string)Setup.GetMethod("Inject")!.Invoke(null,[html,"{}",user])!;
  internal static void Check(Action<bool,string> check){

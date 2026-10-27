@@ -24,7 +24,7 @@ function Get-QuotingInstallPlan($Desired,$Observed) {
   return [pscustomobject]@{ReviewOnly=$true;Disposition='NoOp';Actions=@();PreserveData=$true}
  }
  if($Observed.urlReservationPresent -ne $false){throw 'URL reservation occupied or unknown; do not alter it'}
- if($Observed.bindingsQualified -ne $true){throw 'Unqualified identity, SQL, reference, renderer or public-key bindings'}
+ if($Observed.bindingsQualified -ne $true){throw 'Unqualified frontend authorization, reference, renderer or public-key bindings'}
  [pscustomobject]@{ReviewOnly=$true;Disposition='ProposedInstall';PreserveData=$true;Actions=@(
   'Capture original state and exact artifact/config digests in administrator-owned receipt; revalidate before each later mutation',
   'Stage verified immutable release; stop on existing nonmatching path; no overwrite or recursive delete',
@@ -45,7 +45,7 @@ function Get-QuotingRollbackPlan($Desired,$Observed,$Receipt) {
   'Revalidate receipt and service identity/binary/config before removal; no stop or kill is implicit',
   'Remove only the stopped service registration created by this receipt',
   'Remove only its exact URL reservation if receipt proves this operation created it and current owner still matches',
-  'Retain all data, releases, configuration, logs, ACL and SQL grant evidence for recovery; no file deletion, account deletion or role rollback',
+  'Retain all data, releases, configuration, logs and ACL evidence for recovery; no file deletion, account deletion or role rollback',
   'If business data has been written, require separately reviewed format-compatible recovery; binary rollback alone is insufficient')}
 }
 Export-ModuleMember -Function Get-QuotingInstallPlan,Get-QuotingRollbackPlan

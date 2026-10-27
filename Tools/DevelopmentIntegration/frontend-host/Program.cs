@@ -219,6 +219,7 @@ builder.Services.AddHttpClient("KeycloakLoopback")
         ConnectTimeout = TimeSpan.FromSeconds(10)
     });
 builder.Services.AddSingleton<IIdentityResolver>(new SqlIdentityResolver(securityConnectionString));
+builder.Services.AddSingleton<IUserAuthorizationResolver>(new SqlUserAuthorizationResolver(securityConnectionString));
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddSingleton(new EmployeeDirectoryService(securityConnectionString));
 if (runtime.EnableUserProvisioning)
@@ -273,6 +274,7 @@ void NoStore(HttpResponse response)
 
 app.UseResponseCompression();
 app.UseMiddleware<KeycloakGatewayMiddleware>();
+DleOs.Quoting.Identity.FrontendAuthorizationEndpoint.UseQuotingAuthorization(app);
 app.UseAuthentication();
 app.UseAuthorization();
 QuotingFrontendSetup.Map(app,quotingSettings);

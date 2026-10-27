@@ -1,1 +1,6 @@
-{"activationApproved":false,"backendUrl":null,"assetsRoot":null}
+{
+  "activationApproved": false,
+  "backendUrl": null,
+  "assetsRoot": null,
+  "reviewerUserIds": []
+}

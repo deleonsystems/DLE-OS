@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.DataProtection;
 
 var checks=new List<string>();
 void Check(bool value,string label){if(!value)throw new Exception(label);checks.Add(label);Console.WriteLine("PASS "+label);}
+if(args.Contains("--composed-only")){await ComposedChecks.Run(Check);return;}
 async Task Deny(Func<Task> action,int status,string label){try{await action();throw new Exception("Unexpected allow: "+label);}catch(IdentityDenied e){Check(e.Status==status,label+": "+e.Code);}}
 ResolvedSecurityUser User(params string[] personas){var roles=CandidateRoles.All.Where(r=>personas.Contains(r.Persona)).ToArray();return new(Guid.NewGuid(),"synthetic","Synthetic fixture","ACTIVE",roles.Select(r=>new SecurityRole(Guid.NewGuid(),r.Code,false)).ToArray(),roles.SelectMany(r=>r.Permissions).ToHashSet());}
 var user=User("ray");var users=new FakeUsers{User=user};
@@ -41,7 +42,7 @@ var absent=new BackendQuotingIdentity(verifier,users,replay,TimeProvider.System,
 
 // Real antiforgery service with in-memory data protection. Authentication result is
 // an explicit test double for the pre-existing OIDC handler, not a new login mechanism.
-var auth=new FakeAuthentication();var services=new ServiceCollection();services.AddLogging();services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());services.AddAntiforgery(o=>o.HeaderName="RequestVerificationToken");services.AddSingleton<IAuthenticationService>(auth);using var sp=services.BuildServiceProvider();var csrf=sp.GetRequiredService<IAntiforgery>();
+var auth=new FakeAuthentication();var services=new ServiceCollection();services.AddLogging();FixtureDataProtection.Configure(services);services.AddAntiforgery(o=>o.HeaderName="RequestVerificationToken");services.AddSingleton<IAuthenticationService>(auth);using var sp=services.BuildServiceProvider();var csrf=sp.GetRequiredService<IAntiforgery>();
 var endUser=new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub","synthetic-sub"),new Claim(ClaimTypes.NameIdentifier,"synthetic-sub")],"test-ticket"));
 auth.Result=AuthenticateResult.Success(new AuthenticationTicket(endUser,new AuthenticationProperties{ExpiresUtc=DateTimeOffset.UtcNow.AddMinutes(5)},QuotingPolicy.CookieScheme));
 DefaultHttpContext Browser(string method="GET"){var c=new DefaultHttpContext{RequestServices=sp,User=endUser};c.Request.Method=method;c.Request.Scheme="https";c.Request.Host=new("fixture.invalid");return c;}
@@ -55,13 +56,13 @@ var issue=Browser();var tokens=csrf.GetAndStoreTokens(issue);var post=Browser("P
 var forgedPost=Browser("POST");forgedPost.Request.Headers.Cookie=post.Request.Headers.Cookie;forgedPost.Request.Headers["RequestVerificationToken"]="forged";await Deny(()=>bff.Resolve(forgedPost),403,"forged CSRF denied on fresh request");
 var canceled=Browser();canceled.RequestAborted=new CancellationToken(true);try{await bff.Resolve(canceled);throw new Exception("Cancellation ignored");}catch(OperationCanceledException){Check(true,"canceled request stops before identity work");}
 var capture=new CaptureHandler();using(var client=new HttpClient(capture)){
- var proxy=new QuotingBffProxy(bff,signer,client,new Uri("http://127.0.0.1:55000/"));
+ var proxy=new QuotingBffProxy(bff,signer,client,new Uri("http://127.0.0.1:55000/"),new PendingQuotingAuthorizations(TimeProvider.System));
  var incoming=Browser();incoming.Request.Path="/api/quoting/v1/session";incoming.Request.Headers[TrustedIdentityContract.HeaderName]="forged";incoming.Request.Headers["X-Fixture-Session"]="junior";incoming.Request.Headers.Authorization="forged";
  await proxy.Forward(incoming);
  Check(capture.Fixture==null&&capture.Authorization==null,"BFF strips client fixture and authorization headers");
  var assertion=verifier.Validate(capture.Assertion,QuotingPolicy.Audience,"DEVELOPMENT");Check(assertion.IsValid&&assertion.User!.UserId==user.UserId,"BFF issues established signed assertion from current user");
- await Deny(()=>new QuotingBffProxy(bff,signer,client,new Uri("http://127.0.0.1:5056/")).Forward(incoming),503,"BFF cannot target protected worker");
- await Deny(()=>new QuotingBffProxy(bff,signer,client,new Uri("https://other.invalid/")).Forward(incoming),503,"BFF cannot target remote service");
+ await Deny(()=>new QuotingBffProxy(bff,signer,client,new Uri("http://127.0.0.1:5056/"),new PendingQuotingAuthorizations(TimeProvider.System)).Forward(incoming),503,"BFF cannot target protected worker");
+ await Deny(()=>new QuotingBffProxy(bff,signer,client,new Uri("https://other.invalid/"),new PendingQuotingAuthorizations(TimeProvider.System)).Forward(incoming),503,"BFF cannot target remote service");
 }
 
 // Actual non-rehearsal route assembly: no fixture persona selector is compiled.
@@ -80,6 +81,7 @@ using var http=new HttpClient{BaseAddress=new Uri(app.Urls.Single())};try{
  Check(await Status("/api/quoting/v1/session",null)==403,"client fixture headers cannot authorize runtime route");
  foreach(var persona in new[]{"ray","michelle","adan"}){users.User=User(persona);var token=Token(users.User);Check(await Status("/api/quoting/v1/session",token)==200,persona+" authenticated session route");Check(await Status("/api/quoting/v1/technical-reviews",token)==403,persona+" direct technical route denied");Check(await Status("/api/quoting/v1/rfqs",token)==(persona=="adan"?403:200),persona+" direct RFQ route agrees with workspace");}
 }finally{await app.StopAsync();using var probe=new System.Net.Sockets.TcpClient();try{await probe.ConnectAsync("127.0.0.1",port);throw new Exception("Listener open");}catch(System.Net.Sockets.SocketException){Check(true,"temporary identity test listener closed");}}
+await FreshAuthorizationChecks.Run(Check);
 await ReferenceChecks.Run(Check);
 await FileTickets.Qualify(Check);
 PackagedFrontend.Check(Check);

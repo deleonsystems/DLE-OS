@@ -18,6 +18,10 @@ foreach($entry in @(@('runtime\QuotingRuntime.csproj','backend'),@('frontend-hos
  & dotnet publish (Join-Path $candidate $entry[0]) -c Release --no-restore -o (Join-Path $output $entry[1])
  if($LASTEXITCODE -ne 0){throw "Publish failed: $($entry[0])"}
 }
+# Shared legacy security/frontend assemblies retain their SqlClient binary dependency.
+# The quoting executable itself must have no SQL construction/configuration path.
+$backendSource=Get-Content (Join-Path $candidate 'runtime\RuntimeApplication.cs') -Raw
+if($backendSource -match 'new Sql|SecurityConnectionString|SecurityDatabase'){throw 'Unexpected backend SQL binding'}
 Copy-Item -LiteralPath (Join-Path $output 'frontend\DleOs.DevelopmentFrontend.dll') -Destination (Join-Path $output 'qualification\DleOs.DevelopmentFrontend.dll') -Force
 Copy-Item -LiteralPath (Join-Path $candidate 'baseline-frontend') -Destination (Join-Path $output 'frontend\frontend') -Recurse
 Copy-Item -LiteralPath (Join-Path $candidate 'connected\web') -Destination (Join-Path $output 'frontend\quoting-assets') -Recurse
@@ -32,7 +36,7 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ACTIVATION_GATE.txt') -Destinat
 New-Item -ItemType Directory -Path (Join-Path $output 'staging-review') | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $candidate 'staging') -File | Where-Object Name -NotLike '*results.json' | Copy-Item -Destination (Join-Path $output 'staging-review')
 $sourceFiles=@(foreach($folder in @('auth','auth-tests','service-tests','staging','shared-assemblies','runtime','baseline-source','frontend-host','connected','src','quote-adapter','package-tools')){
- Get-ChildItem -LiteralPath (Join-Path $candidate $folder) -File -Recurse | Where-Object {$_.FullName -notmatch '\\(bin|obj|fixtures)\\' -and $_.Name -notlike '*results.json' -and $_.Name -notlike '*.local.json' -and ($_.Extension -in @('.cs','.csproj','.js','.mjs','.css','.ps1','.psm1','.props','.sql','.md','.json','.txt'))}
+ Get-ChildItem -LiteralPath (Join-Path $candidate $folder) -File -Recurse | Where-Object {$_.FullName -notmatch '\\(bin|obj|fixtures)\\' -and $_.Name -notlike '*results.json' -and $_.Name -ne 'listener-closed.json' -and $_.Name -notlike '*.local.json' -and ($_.Extension -in @('.cs','.csproj','.js','.mjs','.css','.ps1','.psm1','.props','.sql','.md','.json','.txt'))}
 })
 $sourceEntries=@($sourceFiles|Sort-Object FullName|ForEach-Object{[ordered]@{Path=[IO.Path]::GetRelativePath($candidate,$_.FullName).Replace('\','/');Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}})
 $sourceEntries|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $output 'source-manifest.json') -Encoding utf8
@@ -41,7 +45,7 @@ $sourceDigest=(Get-FileHash -LiteralPath (Join-Path $output 'source-manifest.jso
 $files=@(Get-ChildItem -LiteralPath $output -File -Recurse | Sort-Object FullName | ForEach-Object {
  [ordered]@{Path=[IO.Path]::GetRelativePath($output,$_.FullName).Replace('\','/');Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}
 })
-$manifest=[ordered]@{Schema=1;SourceCheckpoint='66251559a3b062020101956971b02b0adbf05829';IntegrationBase='5f3c60dc353bfdac57c4c5a494e1bb27ed1550ed';FrontendBaseline='20260904T230955Z';SourceDirty=$true;SourceDigestSha256=$sourceDigest;State='OFFLINE_NOT_DEPLOYMENT_APPROVED';Files=$files}
+$manifest=[ordered]@{Schema=1;SourceCheckpoint='66251559a3b062020101956971b02b0adbf05829';IntegrationBase='f018f92eb68f39803406e78cefa541dea2467802';FrontendBaseline='20260904T230955Z';SourceDirty=$true;SourceDigestSha256=$sourceDigest;State='OFFLINE_NOT_DEPLOYMENT_APPROVED';Files=$files}
 $manifest|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $output 'manifest.json') -Encoding utf8
 (Get-FileHash -LiteralPath (Join-Path $output 'manifest.json') -Algorithm SHA256).Hash|Set-Content -LiteralPath (Join-Path $output 'manifest.sha256')
 Write-Output $output
