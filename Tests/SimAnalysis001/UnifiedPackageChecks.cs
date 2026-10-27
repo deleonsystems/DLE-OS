@@ -191,9 +191,10 @@ internal static class UnifiedPackageChecks
         await store.PublishAnalysis(staleJob.Input.JobId,new(result,"UNIT_TEST_OFFLINE","1","none"));
         Check(Current().TechnicalReview!.CandidateBom is null,"result from changed sources cannot replace current candidate");
         await File.WriteAllTextAsync(path,saved);store=new SimRfqIntakeStore(root);
-        Check(JsonSerializer.Serialize(await store.ReleaseReadinessAsync(record.IntakeId)).Contains("\"ready\":true"), "release readiness passes before COMPLETE");
-        await store.WorkflowAsync(record.IntakeId,new("COMPLETE"),persona);
-        Check(JsonSerializer.Serialize(await store.ReleaseReadinessAsync(record.IntakeId)).Contains("\"ready\":false"), "released review remains protected");
+        var submissionToken=await SubmissionFixtureChecks.AcceptSlides(store,record.IntakeId,files[1].DocumentId!,persona);
+        Check(((SimReviewCompletionState)await store.ReleaseReadinessAsync(record.IntakeId)).Ready, "release readiness passes before COMPLETE");
+        await store.WorkflowAsync(record.IntakeId,new("COMPLETE",ExpectedSubmissionToken:submissionToken),persona);
+        Check(!((SimReviewCompletionState)await store.ReleaseReadinessAsync(record.IntakeId)).Ready, "released review remains protected");
         current=Current();
         Check(current.TechnicalReview!.Workflow!.Outputs!.Manufacturing.GoverningDocumentId==files[1].DocumentId,"Labor handoff resolves independent primary drawing");
         Check(((SimRfqIntakeRecord)(await new SimRfqIntakeStore(root).ReadAsync(record.IntakeId))!).TechnicalReview!.Workflow!.Outputs!.Manufacturing.Id==current.TechnicalReview.Workflow.Manufacturing!.Id,"completed review survives restart with stable outputs");

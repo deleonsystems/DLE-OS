@@ -6,6 +6,11 @@ using System.Text.RegularExpressions;
 internal sealed record SimQuotePdfOutput(string QuoteNumber, string Url, string Sha256);
 internal static class SimQuotationPdf
 {
+    internal const string PendingPartRequestsMessage="Customer quotes with proposed parts or alternate requests are not available yet. Continue the part request in Technical Review.";
+    internal static void RequireCustomerPartDisclosure(SimFinalSummary summary)
+    {
+        if(summary.MaterialPartFlags is {Length:>0})throw SimRfqIntakeProblem.Conflict("QUOTE_PART_REVIEW",PendingPartRequestsMessage);
+    }
     internal static string QuoteNumber(SimFinalApproval approval)
     {
         var match=Regex.Match(approval.Summary.IntakeId,@"^RFQI-SIM-(\d+)$");
@@ -16,6 +21,9 @@ internal static class SimQuotationPdf
         => CustomerProjection(approval.Summary, approval.Answers, QuoteNumber(approval), approval.ApprovedAt, false);
     internal static object CustomerProjection(SimFinalSummary s, SimFinalAnswers answers, string reference, DateTimeOffset date, bool preview)
     {
+        // This allowlist cannot silently omit an unresolved quotation-only part. A conditional
+        // customer disclosure/issuance workflow is outside the request-routing slice.
+        RequireCustomerPartDisclosure(s);
         if(!s.MaterialsComplete||!s.LaborComplete||s.CombinedUnitPrice is null||s.Total is null)
             throw SimRfqIntakeProblem.Conflict("QUOTE_INCOMPLETE","Approved pricing is incomplete.");
         // Deliberate allowlist: internal review notes, split costs, rates and markup never cross this boundary.
@@ -112,6 +120,7 @@ internal sealed partial class SimRfqIntakeStore
     {
         var view=await ReadFinalReview(id);var approval=view.Approvals.SingleOrDefault(a=>a.Version==version)
             ??throw SimRfqIntakeProblem.NotFound("QUOTE_APPROVAL","Approved quotation not found.");
+        SimQuotationPdf.RequireCustomerPartDisclosure(approval.Summary);
         return(await VerifiedQuotationPdf(approval,layout),SimQuotationPdf.QuoteNumber(approval)+".pdf");
     }
 }
@@ -121,7 +130,7 @@ internal static partial class SimRfqIntakeEndpoints
     private static void MapQuotationPdf(WebApplication app,SimStateStore state,SimRfqIntakeStore store,SimPersonaSessionStore personas)
     {
         app.MapPost("/api/sim/rfqs/{id}/final-review/preview/pages",async Task<IResult>(string id,SimFinalApproveRequest request,HttpContext context)=>{
-            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.view");if(denied is not null)return denied;
+            var denied=DeniedTechnicalReview(context,state,personas,"rfq.readiness.view");if(denied is not null)return denied;
             try{
                 var bytes=await store.PreviewQuotationPdf(id,request,true);
                 context.Response.Headers.CacheControl="no-store";
@@ -131,7 +140,7 @@ internal static partial class SimRfqIntakeEndpoints
             catch(Exception e) when(e is IOException or System.ComponentModel.Win32Exception){return Results.Json(new{message="Quotation preview could not be rendered."},statusCode:503);}
         });
         app.MapPost("/api/sim/rfqs/{id}/final-review/preview",async Task<IResult>(string id,SimFinalApproveRequest request,HttpContext context)=>{
-            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.view");if(denied is not null)return denied;
+            var denied=DeniedTechnicalReview(context,state,personas,"rfq.readiness.view");if(denied is not null)return denied;
             try{
                 var bytes=await store.PreviewQuotationPdf(id,request);
                 context.Response.Headers.CacheControl="no-store";
@@ -150,7 +159,7 @@ internal static partial class SimRfqIntakeEndpoints
         });
         app.MapGet("/api/sim/rfqs/{id}/final-review/{version:int}/pdf",async Task<IResult>(string id,int version,int? layout,HttpContext context)=>{
             if(layout is not (null or 1 or 2))return Results.BadRequest();
-            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.view");if(denied is not null)return denied;
+            var denied=DeniedTechnicalReview(context,state,personas,"rfq.readiness.view");if(denied is not null)return denied;
             try{var pdf=await store.ReadQuotationPdf(id,version,layout??1);context.Response.Headers.CacheControl="no-store";context.Response.Headers["X-Content-Type-Options"]="nosniff";context.Response.Headers.ContentDisposition="inline; filename=\""+pdf.Name+"\"";return Results.File(pdf.Bytes,"application/pdf");}
             catch(SimRfqIntakeProblem p){return Results.Json(new{message=p.Message},statusCode:p.StatusCode);}
             catch(IOException){return Results.Json(new{message="Quotation PDF integrity verification failed."},statusCode:503);}

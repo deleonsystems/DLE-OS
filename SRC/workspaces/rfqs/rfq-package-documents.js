@@ -1,0 +1,33 @@
+(function(window,document){
+ 'use strict';
+ const labels={DRAWING:'Drawing',BOM_SOURCE:'BOM source',WORK_INSTRUCTION:'Work instruction',IMAGE:'Image',REFERENCE:'Reference',OTHER:'Other',PART_APPROVAL:'Part approval',TRAVELER:'Traveler',REVISION_NOTES:'Revision notes',QUOTE:'Quote reference',NOTES:'Notes',VPRO5_TXT:'VPRO5 Export',VPRO5_BMM:'VPRO5 BMM'};
+ const el=(name,text)=>{const n=document.createElement(name);if(text!==undefined)n.textContent=text;return n;};
+ const binding=rfq=>rfq?.libraryRfq;
+ const route=(rfq,department,id)=>'/api/sim/rfqs/'+encodeURIComponent(rfq.intakeId)+'/documents'+(id?'/'+encodeURIComponent(id):'')+'?department='+department;
+ async function get(url){const response=await window.fetch(url,{credentials:'include',cache:'no-store'});let data;try{data=await response.json();}catch{throw Error('The saved file could not be read. Try again.');}if(!response.ok)throw Error(data.message||'The approved documents are unavailable.');return data;}
+ function matches(actual,expected){return actual&&expected&&['projectId','parentIntakeId','lineNumber','displayId','libraryKey','packageId','packageVersion','packageHash','preparationId','bomId','bomVersion'].every(k=>actual[k]===expected[k]);}
+ async function openFile(rfq,department,documentId,trigger){
+  if(!binding(rfq)||!['materials','labor'].includes(department)||!documentId)throw Error('Choose a document from this approved package.');
+  const before=trigger?.disabled;if(trigger)trigger.disabled=true;
+  try{const file=await get(route(rfq,department,documentId));if(typeof file.name!=='string'||typeof file.base64!=='string')throw Error('The saved document response was incomplete.');
+   const bytes=Uint8Array.from(atob(file.base64),c=>c.charCodeAt(0));const url=URL.createObjectURL(new Blob([bytes],{type:file.type||'application/octet-stream'}));
+   const link=el('a');link.href=url;link.download=file.name;link.dataset.rfqPackageDownload='true';document.body.append(link);link.click();link.remove();window.setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }finally{if(trigger?.isConnected)trigger.disabled=before;}
+ }
+ function mount(host,rfq,department,{open=false}={}){
+  if(!host||!binding(rfq)||!['materials','labor'].includes(department))return;
+  const b=binding(rfq),panel=el('details'),summary=el('summary'),content=el('div'),message=el('p');panel.className='rfq-package-documents';panel.open=open;message.setAttribute('role','status');
+  const name=department==='materials'?'Materials':'Labor';summary.textContent=name+' documents';panel.append(summary,content,message);host.replaceChildren(panel);let loaded=false,loading=false;
+  function list(rows,title){const section=el('section'),heading=el('h4',title),table=el('table'),head=el('thead'),tr=el('tr'),body=el('tbody');for(const text of ['File','Type',''])tr.append(el('th',text));head.append(tr);table.append(head,body);table.setAttribute('aria-label',title);section.append(heading,table);
+   for(const d of rows){const row=el('tr'),file=el('td',d.name);file.append(el('small',({MATERIALS:'Materials',PRODUCTION:'Production',BOTH:'Materials + Production'})[d.use]||'Use not identified'));const type=el('td',(d.purposes||[]).map(p=>labels[p]||p.replaceAll('_',' ')).join(' · ')||'Not identified'),action=el('td'),button=el('button','Open file');button.type='button';button.setAttribute('aria-label','Open '+d.name);button.onclick=async e=>{e.stopPropagation();message.textContent='';try{await openFile(rfq,department,d.id,button);}catch(error){message.textContent=error.message;}};action.append(button);row.append(file,type,action);body.append(row);}return section;
+  }
+  async function load(){if(loading||loaded)return;loading=true;message.textContent='Loading approved documents.';try{const data=await get(route(rfq,department));if(!host.isConnected)return;if(!matches(data.libraryRfq,b))throw Error('These documents do not match this RFQ version. Return to the queue and reopen it.');if(!Array.isArray(data.items))throw Error('Approved document list unavailable.');
+    const routine=data.items.filter(d=>!d.sourceEvidence),sources=data.items.filter(d=>d.sourceEvidence);summary.textContent=name+' documents ('+data.items.length+')';content.replaceChildren(el('small','Approved package v'+b.packageVersion+' · BOM v'+b.bomVersion));
+    if(routine.length)content.append(list(routine,name==='Materials'?'Materials supporting files':'Production files for labor'));else content.append(el('p','No additional '+name.toLowerCase()+' documents selected.'));
+    if(sources.length){const details=el('details');details.className='rfq-source-evidence';details.append(el('summary','Source evidence ('+sources.length+')'),list(sources,'Retained source files'));content.append(details);}loaded=true;message.textContent='';
+   }catch(error){if(host.isConnected){message.textContent=error.message;const retry=el('button','Retry');retry.type='button';retry.onclick=e=>{e.stopPropagation();void load();};content.replaceChildren(retry);}}finally{loading=false;}}
+  panel.addEventListener('toggle',()=>{if(panel.open)void load();});if(open)void load();return {load};
+ }
+ const css=el('style');css.textContent='.rfq-package-documents{color-scheme:dark;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:7px 10px;margin:8px 0;font:13px/1.4 system-ui;min-width:0}.rfq-package-documents summary{cursor:pointer;color:#bfdbfe}.rfq-package-documents h4{font-size:13px;margin:8px 0 3px}.rfq-package-documents table{border-collapse:collapse;width:100%;min-width:0!important;table-layout:fixed}.rfq-package-documents th,.rfq-package-documents td{padding:5px 6px;text-align:left;border-bottom:1px solid #334155;vertical-align:top;white-space:normal;overflow-wrap:anywhere}.rfq-package-documents th:first-child{width:55%}.rfq-package-documents th:last-child{width:90px}.rfq-package-documents small{display:block;color:#cbd5e1;margin:5px 0}.rfq-package-documents button{font:inherit;padding:5px 8px;min-height:34px;background:#1e293b;color:#f1f5f9;border:1px solid #64748b;border-radius:4px}.rfq-package-documents button:disabled{opacity:.55}.rfq-package-documents :is(summary,button):focus-visible{outline:2px solid #7dd3fc;outline-offset:3px}.rfq-package-documents [role=status]{color:#fde68a;margin:5px 0}.rfq-package-documents [role=status]:empty{display:none}.rfq-source-evidence{margin-top:8px}@media(max-width:600px){.rfq-package-documents button{min-height:44px}.rfq-package-documents th:first-child{width:45%}.rfq-package-documents th:last-child{width:78px}}';document.head.append(css);
+ window.DleRfqPackageDocuments=Object.freeze({mount,openFile,matches});
+})(window,document);

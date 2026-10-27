@@ -2,7 +2,7 @@ using System.Text.Json;
 
 internal static class WorkflowChecks
 {
-    internal static async Task Run(byte[] bytes)
+    internal static async Task Run(byte[] bytes,bool includeDownstream = true)
     {
         var json = DleAnalysisContract.Json;
         var persona = new SimPersona("fixture", "fixture", "Workflow Fixture Reviewer", "ACTIVE", [], [], true, "test");
@@ -50,9 +50,12 @@ internal static class WorkflowChecks
             candidate=Current().TechnicalReview!.CandidateBom!;
             await store.CompleteBomReview(record.IntakeId,new(candidate),persona);
             var accepted=JsonSerializer.Serialize(Current().TechnicalReview!.BomAcceptances,json);
-            await store.WorkflowAsync(record.IntakeId,new("COMPLETE"),persona);
+            await Block(()=>store.WorkflowAsync(record.IntakeId,new("COMPLETE"),persona),"saved production slides require explicit acceptance before submission");
+            var submissionToken=await SubmissionFixtureChecks.AcceptSlides(store,record.IntakeId,file.DocumentId!,persona);
+            await Block(()=>store.WorkflowAsync(record.IntakeId,new("COMPLETE"),persona),"submission requires current readiness token");
+            await store.WorkflowAsync(record.IntakeId,new("COMPLETE",ExpectedSubmissionToken:submissionToken),persona);
             var done=Current();
-            await RfqChecks.Run(root, done, persona);
+            if(includeDownstream)await RfqChecks.Run(root, done, persona);
             Check(done.Status=="READY_FOR_RFQ_WORKING_QUEUE" && done.TechnicalReview!.Workflow!.Outputs is {Status:"READY"},"both durable quotation inputs released");
             Check(JsonSerializer.Serialize(done.TechnicalReview!.BomAcceptances,json)==accepted,"acceptance unchanged by overall release");
             await Block(()=>store.WorkflowAsync(record.IntakeId,new("START"),persona),"completed review cannot restart");

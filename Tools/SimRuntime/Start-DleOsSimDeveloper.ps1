@@ -15,6 +15,10 @@ $module = Join-Path $PSScriptRoot 'Developer\SimDeveloperTools.psm1'
 Import-Module $module -Force
 
 $profile = Get-DleOsSimProfile $ProfilePath
+# Explicit, nonsecret source roots from the installed SIM profile; never inherit a stale mapping.
+$env:DLE_OS_SIM_DRAWING_ROOTS = if ($profile.PSObject.Properties['drawingSourceRoots']) {
+    ConvertTo-Json -InputObject @($profile.drawingSourceRoots) -Depth 6 -Compress
+} else { $null }
 # Explicit per-profile opt-in; ordinary SIM profiles keep the adapter disabled.
 $env:DLE_OS_SIM_OPERATIONS_IMPORT = if ($profile.PSObject.Properties['developmentalOperationsImport'] -and $profile.developmentalOperationsImport -eq $true) { 'true' } else { 'false' }
 $runtime = Get-DleOsSimRuntimeStatus $profile

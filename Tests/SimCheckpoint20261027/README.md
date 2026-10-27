@@ -1,0 +1,9 @@
+# Portable focused SIM checkpoint tests
+
+These are existing synthetic task harnesses, copied deliberately for source control. No customer files, saved estimates, evidence or live state are included. The only adaptations are repository-relative source references, configurable repository/results paths and normal Playwright module resolution. They compile **current repository source**, not old staged copies. Source history remains in the local task receipts.
+
+Requirements: .NET 8 SDK, Microsoft.Data.Sqlite 8.0.29 and dependencies, Node with Playwright and Edge, Python with ReportLab/pdfplumber/Pillow/pypdfium2. Set DLE_OS_SIM_BOM_PYTHON to that Python, NODE_PATH if Playwright is installed outside normal module resolution, DLE_TEST_REPOSITORY to this checkout and DLE_CHECKPOINT_RESULTS to an isolated results directory. Use a short isolated output path on Windows; long quote-cache paths may exceed platform limits.
+
+Build each Checks.csproj with an isolated `-o` output path and `-p:UseAppHost=false`. Never build into the running SIM output. QuoteFlow default executes manual-send/PDF/archive/backend checks; `--aggregate` checks multi-line parent aggregation; `--serve` starts a loopback-only synthetic HTTP fixture and writes SERVER.json in the result directory. While that fixture runs, run QuoteFlow/ui.cjs, then POST /fixture/stop to its exact loopback URL. EstimateSubmission runs independent-line stale/idempotent/sibling tests. LibraryRoles uses the configured result directory and exercises clerk permissions plus other persona restrictions. Never point fixtures at .sim-state or a real service.
+
+The tests produce synthetic PDF/JSON/HTML and fixture state below isolated outputs only; do not commit those outputs. Saved customer output is still DRAFT - NOT ISSUED. Passing these tests is not DEV service/auth/storage qualification, email delivery, part approval or production release.

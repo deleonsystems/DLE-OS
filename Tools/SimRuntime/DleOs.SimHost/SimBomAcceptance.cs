@@ -4,8 +4,9 @@ using System.Text.Json.Nodes;
 
 // RFQ-scoped acceptance; this is not a production BOM or overall review release.
 internal sealed record SimBomAcceptance(int Version, SimCandidateBom Candidate,
-    SimTechnicalPackage Package, string ReviewedBy, DateTimeOffset ReviewedAtUtc);
-internal sealed record SimBomCompletionRequest(SimCandidateBom Candidate);
+    SimTechnicalPackage Package, string ReviewedBy, DateTimeOffset ReviewedAtUtc,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimManualSourceAcceptance? ManualSource = null);
+internal sealed record SimBomCompletionRequest(SimCandidateBom Candidate, SimManualSourceRequest? ManualSource = null);
 
 internal sealed partial class SimRfqIntakeStore
 {
@@ -29,7 +30,7 @@ internal sealed partial class SimRfqIntakeStore
             catch(SimRfqIntakeProblem problem) { return new { ready = false, message = problem.Message }; }
         } finally { gate.Release(); }
     }
-    private async Task RequireBomCompletionReady(SimRfqIntakeDataset dataset, SimRfqIntakeRecord record, SimBomCompletionRequest request)
+    private async Task<SimManualSourceAcceptance?> RequireBomCompletionReady(SimRfqIntakeDataset dataset, SimRfqIntakeRecord record, SimBomCompletionRequest request, SimPersona? persona = null)
     {
         var review=record.TechnicalReview;
         var bom=review?.CandidateBom;
@@ -37,10 +38,13 @@ internal sealed partial class SimRfqIntakeStore
             throw SimRfqIntakeProblem.Conflict("SIM_BOM_MISSING", "Build a Candidate BOM before completing BOM Review.");
         if (request.Candidate is null || !JsonNode.DeepEquals(ComparableSnapshot(JsonSerializer.SerializeToNode(request.Candidate, jsonOptions)), ComparableSnapshot(JsonSerializer.SerializeToNode(bom, jsonOptions))))
             throw SimRfqIntakeProblem.Conflict("SIM_BOM_CHANGED", "The candidate changed. Reopen and review the latest version before completing BOM Review.");
+        SimPreparation.RequireDownstream(bom);
+        if (bom.ManualDraft is not null)
+            return await RequireManualAcceptance(dataset, record, request, persona);
         if (bom.VproImport is not null)
         {
             await RequireVproAcceptance(dataset, record);
-            return;
+            return null;
         }
         var sources = await AnalysisDocuments(record, bom.Analysis?.SourceSnapshot.SourceSelectionVersion);
         RequireCurrentScanCandidate(record, bom);
@@ -54,6 +58,7 @@ internal sealed partial class SimRfqIntakeStore
             .Select(row => "Row " + (row.Index + 1) + ": " + string.Join(" ", row.ReviewState.Reasons)).ToArray();
         if (blockers.Length > 0)
             throw SimRfqIntakeProblem.Conflict("SIM_BOM_UNRESOLVED", string.Join("; ", blockers));
+        return null;
     }
     internal async Task<object> CompleteBomReview(string intakeId, SimBomCompletionRequest request, SimPersona persona)
     {
@@ -66,13 +71,18 @@ internal sealed partial class SimRfqIntakeStore
             var record = dataset.Records[index];
             var review = record.TechnicalReview;
             var bom = review?.CandidateBom;
-            await RequireBomCompletionReady(dataset, record, request);
+            var manualSource = await RequireBomCompletionReady(dataset, record, request, persona);
             var acceptances = review!.BomAcceptances ?? [];
+            if (bom!.ManualDraft is not null && acceptances.LastOrDefault(a => a.Candidate.Id == bom.Id) is { } existing)
+            {
+                await RequireCurrentManualAcceptance(record, existing);
+                return WorkflowEnvelope(record);
+            }
             if (!acceptances.Any(a => a.Candidate.Id == bom!.Id))
             {
                 // Full immutable snapshot includes corrections, alternate tombstones and evidence.
                 var snapshot = JsonSerializer.Deserialize<SimCandidateBom>(JsonSerializer.Serialize(bom, jsonOptions), jsonOptions)!;
-                acceptances = acceptances.Append(new(acceptances.Length + 1, snapshot, review.TechnicalPackage!, persona.DisplayName, DateTimeOffset.UtcNow)).ToArray();
+                acceptances = acceptances.Append(new(acceptances.Length + 1, snapshot, review.TechnicalPackage!, persona.DisplayName, DateTimeOffset.UtcNow, manualSource)).ToArray();
             }
             record = record with { TechnicalReview = review with { BomAcceptances = acceptances,
                 MaterialsReviewStatus = "QUALIFIED", NextReviewPhase = "MANUFACTURING_LABOR_REVIEW" } };

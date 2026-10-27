@@ -43,7 +43,20 @@ internal static partial class SimShellRenderer
             (lanMode ? " · LAN MODE · " + System.Net.WebUtility.HtmlEncode(safeUrl) : string.Empty) +
             "</span>", 1);
 
-        return DevelopmentIdentityUi.Inject(html);
+        // Use scoped RFQ viewing in SIM. Preserve prior Technical Review navigation
+        // compatibility without granting that authority to RFQ-only personas.
+        const string workspaceRules = "const workspaceRules=Object.freeze({'dle-home':null,";
+        var authorizedShell = DevelopmentIdentityUi.Inject(html);
+        if (!authorizedShell.Contains(workspaceRules, StringComparison.Ordinal))
+            throw new InvalidOperationException("The SIM workspace permission mapping is unavailable.");
+        const string workspacePermission = "const permission=workspaceRules[option.value];";
+        if (!authorizedShell.Contains(workspacePermission, StringComparison.Ordinal))
+            throw new InvalidOperationException("The SIM workspace selector permission check is unavailable.");
+        return authorizedShell.Replace(workspaceRules,
+            "const workspaceRules=Object.freeze({'assembly-library':'assembly_library.view','technical-review':'technical_review.view','rfqs':'rfq.view','rfq-quoting':'rfq.intake.create','dle-home':null,",
+            StringComparison.Ordinal).Replace(workspacePermission,
+            "const permission=option.value==='rfqs'&&this.can('technical_review.view')?'technical_review.view':workspaceRules[option.value];",
+            StringComparison.Ordinal);
     }
 
     private const string SimStyles = """

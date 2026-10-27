@@ -1,0 +1,641 @@
+{
+  "id": "79C826C324E3FD8FA67BE6D27F03A0AAD4471D7F897AA860FD275110F57E8CE1",
+  "revision": 13,
+  "intakeId": "RFQI-TEST-0049",
+  "correlationId": "correlation",
+  "lineNumber": 1,
+  "customerId": "customer",
+  "assemblyNumber": "TEST-18",
+  "incomingRevision": "U ECR 30251",
+  "status": "IN_PREPARATION",
+  "libraryKey": "01TEST-18           ",
+  "drawingRevision": "U*",
+  "bomRevision": "U*",
+  "work": "",
+  "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8",
+  "files": [
+    {
+      "documentId": "doc-1",
+      "name": "BOM.xls",
+      "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+      "size": 29
+    },
+    {
+      "documentId": "doc-2",
+      "name": "BOM.xls",
+      "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+      "size": 29
+    }
+  ],
+  "history": [
+    {
+      "action": "SEND",
+      "notes": "",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.5586356+00:00"
+      },
+      "libraryKey": null,
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+          "size": 34
+        },
+        {
+          "documentId": "doc-2",
+          "name": "BOM.xls",
+          "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+          "size": 34
+        }
+      ],
+      "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3",
+      "drawingRevision": "",
+      "bomRevision": "",
+      "tasks": [
+        "BUILD_BOM",
+        "COMPARE_FILES"
+      ]
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "DO_NOT_USE",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.6025564+00:00"
+      },
+      "libraryKey": null,
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+          "size": 34
+        }
+      ],
+      "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3",
+      "drawingRevision": "",
+      "bomRevision": "",
+      "disposition": {
+        "requestId": "3e5acfba-0c15-4912-b772-f5bb3ae936bf",
+        "commandHash": "305C6DDD7593A6CDFF6F850F6C453BDCC573FC164F026CFE93A5864FB845F801",
+        "value": {
+          "documentId": "doc-1",
+          "decision": "DO_NOT_USE",
+          "file": {
+            "documentId": "doc-1",
+            "name": "BOM.xls",
+            "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+            "size": 34
+          },
+          "libraryKey": null,
+          "drawingRevision": "",
+          "bomRevision": "",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.6025564+00:00"
+          },
+          "existingDocument": null
+        },
+        "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3"
+      }
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "REOPEN",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.6282273+00:00"
+      },
+      "libraryKey": null,
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+          "size": 34
+        }
+      ],
+      "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3",
+      "drawingRevision": "",
+      "bomRevision": "",
+      "disposition": {
+        "requestId": "d31bf346-8a35-4cd4-99b5-40729446dd98",
+        "commandHash": "476583BC967D696810C8782F4DED570ACE2C2701AEA5C81F9F2DCBDF2566005E",
+        "value": {
+          "documentId": "doc-1",
+          "decision": "REOPEN",
+          "file": {
+            "documentId": "doc-1",
+            "name": "BOM.xls",
+            "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+            "size": 34
+          },
+          "libraryKey": null,
+          "drawingRevision": "",
+          "bomRevision": "",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.6282273+00:00"
+          },
+          "existingDocument": null
+        },
+        "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3"
+      }
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "DO_NOT_USE",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.6456072+00:00"
+      },
+      "libraryKey": null,
+      "files": [
+        {
+          "documentId": "doc-2",
+          "name": "BOM.xls",
+          "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+          "size": 34
+        }
+      ],
+      "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3",
+      "drawingRevision": "",
+      "bomRevision": "",
+      "disposition": {
+        "requestId": "71be24aa-0b05-44f1-946d-d6f62d5d091a",
+        "commandHash": "ACF1AE3C27980FBF2BC713C7D90041D92F81BEF0EEC36F8A9371977007F48EC2",
+        "value": {
+          "documentId": "doc-2",
+          "decision": "DO_NOT_USE",
+          "file": {
+            "documentId": "doc-2",
+            "name": "BOM.xls",
+            "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+            "size": 34
+          },
+          "libraryKey": null,
+          "drawingRevision": "",
+          "bomRevision": "",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.6456072+00:00"
+          },
+          "existingDocument": null
+        },
+        "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3"
+      }
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "REOPEN",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.6562528+00:00"
+      },
+      "libraryKey": null,
+      "files": [
+        {
+          "documentId": "doc-2",
+          "name": "BOM.xls",
+          "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+          "size": 34
+        }
+      ],
+      "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3",
+      "drawingRevision": "",
+      "bomRevision": "",
+      "disposition": {
+        "requestId": "20e8e84c-1fc7-44b6-8e09-6375bc08227e",
+        "commandHash": "2ABADD14D24CDACBDA24E7CEE4AC2D7BA11FD4EC214D15F18BAA8AFF5A7F506C",
+        "value": {
+          "documentId": "doc-2",
+          "decision": "REOPEN",
+          "file": {
+            "documentId": "doc-2",
+            "name": "BOM.xls",
+            "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+            "size": 34
+          },
+          "libraryKey": null,
+          "drawingRevision": "",
+          "bomRevision": "",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.6562528+00:00"
+          },
+          "existingDocument": null
+        },
+        "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3"
+      }
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "DO_NOT_USE",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.665963+00:00"
+      },
+      "libraryKey": null,
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+          "size": 34
+        }
+      ],
+      "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3",
+      "drawingRevision": "",
+      "bomRevision": "",
+      "disposition": {
+        "requestId": "b2c2a09a-c592-46df-baf1-97470d01341f",
+        "commandHash": "6BC7336E90223F8B6F94FFB4CDC42613EB9BC0D99B5E2CEE8E98729F34A573D5",
+        "value": {
+          "documentId": "doc-1",
+          "decision": "DO_NOT_USE",
+          "file": {
+            "documentId": "doc-1",
+            "name": "BOM.xls",
+            "sha256": "766C495D9437FAA16332A4F57FDFAADF082460D0D37F3F62D6D6304241067D51",
+            "size": 34
+          },
+          "libraryKey": null,
+          "drawingRevision": "",
+          "bomRevision": "",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.665963+00:00"
+          },
+          "existingDocument": null
+        },
+        "sourceFingerprint": "1550023F5B941B8999891B4291B8381233CBB81791185DA170DD570835C99EC3"
+      }
+    },
+    {
+      "action": "SEND",
+      "notes": "",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.6761198+00:00"
+      },
+      "libraryKey": null,
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+          "size": 29
+        },
+        {
+          "documentId": "doc-2",
+          "name": "BOM.xls",
+          "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+          "size": 29
+        }
+      ],
+      "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8",
+      "drawingRevision": "",
+      "bomRevision": "",
+      "tasks": [
+        "BUILD_BOM",
+        "COMPARE_FILES"
+      ]
+    },
+    {
+      "action": "START",
+      "notes": "Library destination: existing",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.6917842+00:00"
+      },
+      "libraryKey": "01TEST-18           ",
+      "files": null,
+      "sourceFingerprint": null,
+      "drawingRevision": "U*",
+      "bomRevision": "U*"
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "ALREADY_IN_RECORDS",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.7050796+00:00"
+      },
+      "libraryKey": "01TEST-18           ",
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+          "size": 29
+        }
+      ],
+      "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8",
+      "drawingRevision": "U*",
+      "bomRevision": "U*",
+      "disposition": {
+        "requestId": "a4c4ee84-9795-4d12-9de5-6eabdd0cf66c",
+        "commandHash": "AF0EA8AF9858070CD028886D57DF5CED8AE26B79F448204E4B6B6A3A26554DB1",
+        "value": {
+          "documentId": "doc-1",
+          "decision": "ALREADY_IN_RECORDS",
+          "file": {
+            "documentId": "doc-1",
+            "name": "BOM.xls",
+            "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+            "size": 29
+          },
+          "libraryKey": "01TEST-18           ",
+          "drawingRevision": "U*",
+          "bomRevision": "U*",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.7050796+00:00"
+          },
+          "existingDocument": null
+        },
+        "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8"
+      }
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "REOPEN",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.7213076+00:00"
+      },
+      "libraryKey": "01TEST-18           ",
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+          "size": 29
+        }
+      ],
+      "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8",
+      "drawingRevision": "U*",
+      "bomRevision": "U*",
+      "disposition": {
+        "requestId": "a59b3d51-d27c-4d44-aa5b-8a7ff4392073",
+        "commandHash": "7453E82F62F7AC7758031AD8F5FA62B9DED3F67607DFEFB223C8FCA03B49FBFA",
+        "value": {
+          "documentId": "doc-1",
+          "decision": "REOPEN",
+          "file": {
+            "documentId": "doc-1",
+            "name": "BOM.xls",
+            "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+            "size": 29
+          },
+          "libraryKey": "01TEST-18           ",
+          "drawingRevision": "U*",
+          "bomRevision": "U*",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.7213076+00:00"
+          },
+          "existingDocument": null
+        },
+        "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8"
+      }
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "ALREADY_IN_RECORDS",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.7920726+00:00"
+      },
+      "libraryKey": "01TEST-18           ",
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+          "size": 29
+        }
+      ],
+      "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8",
+      "drawingRevision": "U*",
+      "bomRevision": "U*",
+      "disposition": {
+        "requestId": "9e801c0b-3755-45e9-8c24-bf4dc35d4916",
+        "commandHash": "0DF32B2210ECC9F65B64E366D75BFE8BBE2DEB1313D2CE58165199BBEFCC2BF7",
+        "value": {
+          "documentId": "doc-1",
+          "decision": "ALREADY_IN_RECORDS",
+          "file": {
+            "documentId": "doc-1",
+            "name": "BOM.xls",
+            "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+            "size": 29
+          },
+          "libraryKey": "01TEST-18           ",
+          "drawingRevision": "U*",
+          "bomRevision": "U*",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.7920726+00:00"
+          },
+          "existingDocument": {
+            "libraryKey": "01TEST-18           ",
+            "drawingRevision": "U*",
+            "bomRevision": "U*",
+            "documentsToken": "67B22C1081D3E688935A73392F786D576B31E7CE3EF94CC4A68C1B05F4591C2E",
+            "document": {
+              "id": "library-doc",
+              "version": 1,
+              "association": {
+                "id": "link",
+                "sourceKeyRaw": "01TEST-18           ",
+                "assemblyNumber": "TEST-18",
+                "drawingRevision": "U*",
+                "bomRevision": "U*",
+                "rootId": "fixture-root",
+                "relativePath": "Fixture/TEST-18/U",
+                "folderName": "U",
+                "actor": {
+                  "id": "fixture",
+                  "name": "Fixture",
+                  "atUtc": "2026-10-23T22:57:10.7307889+00:00"
+                }
+              },
+              "source": {
+                "rootId": "fixture-root",
+                "relativePath": "Fixture/TEST-18/U/older.xls",
+                "folderAssociationId": "link",
+                "lineNumber": 0,
+                "customerId": "customer",
+                "assemblyNumber": "TEST-18",
+                "revision": "U*",
+                "role": "LIBRARY_DOCUMENT",
+                "size": 12,
+                "lastWriteUtc": "2026-10-23T22:57:10.7307889+00:00",
+                "createdUtc": "2026-10-23T22:57:10.7307889+00:00",
+                "sha256": "DIFFERENT_BYTES",
+                "sourceToken": "source-token",
+                "selectionId": "source-selection"
+              },
+              "purposes": [
+                "BOM_SOURCE"
+              ],
+              "use": "MATERIALS",
+              "number": "",
+              "revision": "",
+              "status": "UNKNOWN",
+              "evidenceHash": null,
+              "savedBy": {
+                "id": "fixture",
+                "name": "Fixture",
+                "atUtc": "2026-10-23T22:57:10.7307889+00:00"
+              }
+            }
+          }
+        },
+        "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8"
+      }
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "REOPEN",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.8080255+00:00"
+      },
+      "libraryKey": "01TEST-18           ",
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+          "size": 29
+        }
+      ],
+      "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8",
+      "drawingRevision": "U*",
+      "bomRevision": "U*",
+      "disposition": {
+        "requestId": "55b30aa5-3cb6-4a7b-b33c-fa65d9475393",
+        "commandHash": "C8C2F4B7DFC45A10B31F9003FAE6D03EB14DD74BEEEAF2A4F60541942A5AD33C",
+        "value": {
+          "documentId": "doc-1",
+          "decision": "REOPEN",
+          "file": {
+            "documentId": "doc-1",
+            "name": "BOM.xls",
+            "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+            "size": 29
+          },
+          "libraryKey": "01TEST-18           ",
+          "drawingRevision": "U*",
+          "bomRevision": "U*",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.8080255+00:00"
+          },
+          "existingDocument": null
+        },
+        "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8"
+      }
+    },
+    {
+      "action": "FILE_DISPOSITION",
+      "notes": "DO_NOT_USE",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.8334643+00:00"
+      },
+      "libraryKey": "01TEST-18           ",
+      "files": [
+        {
+          "documentId": "doc-1",
+          "name": "BOM.xls",
+          "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+          "size": 29
+        }
+      ],
+      "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8",
+      "drawingRevision": "U*",
+      "bomRevision": "U*",
+      "disposition": {
+        "requestId": "2d128c11-c89a-4752-99f1-63087391a9d3",
+        "commandHash": "9EBA6092268CB80B59210EAA3118CCFE8FED47367B44E159227F709F4DB20A57",
+        "value": {
+          "documentId": "doc-1",
+          "decision": "DO_NOT_USE",
+          "file": {
+            "documentId": "doc-1",
+            "name": "BOM.xls",
+            "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+            "size": 29
+          },
+          "libraryKey": "01TEST-18           ",
+          "drawingRevision": "U*",
+          "bomRevision": "U*",
+          "actor": {
+            "id": "fixture",
+            "name": "Fixture",
+            "atUtc": "2026-10-23T22:57:10.8334643+00:00"
+          },
+          "existingDocument": null
+        },
+        "sourceFingerprint": "721C3938425B4EAAC85B81E3889B5FBA4B2A217684B0347B01C76D947153A8A8"
+      }
+    }
+  ],
+  "promoted": [],
+  "projectId": "8fe332f7-f460-405a-ab28-c95f2c60f486",
+  "displayId": "RFQI-TEST-0049.1",
+  "requestedQuantity": 50,
+  "requestedScope": "MATERIAL_AND_LABOR",
+  "tasks": [
+    "BUILD_BOM",
+    "COMPARE_FILES"
+  ],
+  "fileDispositions": [
+    {
+      "documentId": "doc-1",
+      "decision": "DO_NOT_USE",
+      "file": {
+        "documentId": "doc-1",
+        "name": "BOM.xls",
+        "sha256": "D89C5FF18538003AE7EF880F98D8D5ED8AA037A6311C2FF13DD90E4EEA4F65F2",
+        "size": 29
+      },
+      "libraryKey": "01TEST-18           ",
+      "drawingRevision": "U*",
+      "bomRevision": "U*",
+      "actor": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.8334643+00:00"
+      },
+      "existingDocument": null
+    }
+  ]
+}

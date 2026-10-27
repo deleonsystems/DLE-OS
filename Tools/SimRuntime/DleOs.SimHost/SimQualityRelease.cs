@@ -40,13 +40,13 @@ internal sealed partial class SimProductionService
             var released=requirements.QualityRelease;
             var ownership=await store.Read(wo,runtime.Generation);
             return new{reviewToken=review.Token,instructionVersion=review.Version,baselineToken=review.BaselineToken,contentHash=Hash(review.Operations),
-                canApprove=actor.Can("production.manage")&&released is null&&source.Case is null&&ownership.Definition is null&&ownership.Bound is null&&!ownership.Execution,
+                canApprove=CanReviewQuality(actor)&&released is null&&source.Case is null&&ownership.Definition is null&&ownership.Bound is null&&!ownership.Execution,
                 release=released is null?null:ReleaseEvidence(released)};
         });
     });
     private static object ReleaseEvidence(SimQualityRelease r)=>new{r.Id,r.WorkOrderNumber,r.Generation,r.ReviewToken,r.InstructionVersion,r.BaselineToken,r.ContentHash,r.ActorId,r.Actor,r.At,r.References};
     internal Task<object> ApproveQualityRelease(string wo,SimQualityReleaseRequest request,SimPersona actor)=>state.WithStableRuntime(async runtime=>{
-        Permission(actor,true);if(!actor.Can("order_entry.view"))throw new SimOrderEntryPermissionException();wo=SimKittingCases.Normalize(wo);
+        QualityPermission(actor);if(!actor.Can("order_entry.view"))throw new SimOrderEntryPermissionException();wo=SimKittingCases.Normalize(wo);
         return await provider.WithPacketAuthoringRequirements<object>(wo,runtime,async requirements=>{
             if(requirements.QualityRelease is {} prior){
                 Require(prior.ReviewToken==request.ReviewToken,"quality_release_conflict","This job was already released against another review.");

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 
-const root = path.resolve(import.meta.dirname, "..", "..");
+const root = process.env.DLE_TEST_REPO || path.resolve(import.meta.dirname, "..", "..");
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), "utf8");
 const source = read("SRC/workspaces/production/production-workspace.js");
 const markup = read("SRC/workspaces/production/production-workspace.html");
@@ -115,7 +115,7 @@ const context = {
     },
     go(screenId) { navigation.push(["screen", screenId]); }
   },
-  document: { getElementById: () => null, querySelector: () => null },
+  document: { addEventListener:()=>{}, body:{dataset:{workspaceView:'production'}}, getElementById: () => null, querySelector: () => null },
   console,
   Map,
   Object,
@@ -182,5 +182,7 @@ assert.equal(await production.openWorkOrder(complete), true);
 assert.deepEqual(navigation, [["workspace", "production"]]);
 assert.equal(production.getPackage().workOrderNumber, "1001");
 assert.equal(await production.openWorkOrder({ ...complete, actionable: false }), false);
+context.window.DleOsCapabilities={can:()=>false};
+assert.equal(await production.openWorkOrder({...complete,workOrderNumber:"1999"}),false);
 
 console.log("Production Workspace queue, search, navigation, and preservation contracts: PASS");

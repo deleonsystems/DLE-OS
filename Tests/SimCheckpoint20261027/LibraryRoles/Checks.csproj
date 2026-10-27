@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems><EnableDefaultContentItems>false</EnableDefaultContentItems><NuGetAudit>false</NuGetAudit></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../Tools/SimRuntime/DleOs.SimHost/*.cs" Exclude="../../../Tools/SimRuntime/DleOs.SimHost/Program.cs" />
+    <Compile Include="../../../Tools/KittingCase/Shared/KittingDraftValidator.cs" />
+    <Compile Include="../../../Tools/LiveSnapshotRefresh/ControlHost/KittingCasePdfWriter.cs" />
+    <Compile Include="../../../Tools/DevelopmentRuntime/DleOs.DevelopmentFrontend/DevelopmentIdentityUi.cs" />
+    <Compile Include="*.cs" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.29" />
+    <Content Include="../../../Tools/SimRuntime/DleOs.SimHost/sim_quote_copy_pdf.py" Link="sim_quote_copy_pdf.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../../Tools/SimRuntime/DleOs.SimHost/Quotation/no back-black font.png" Link="Quotation/no back-black font.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

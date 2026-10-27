@@ -38,8 +38,11 @@ internal sealed record SimCandidateRow(int Index, Dictionary<string,string> Extr
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidatePrimaryIdentity? PrimaryIdentity = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? SourcePositionKind = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimSourcePartNumberReview? SourcePartNumberReview = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerIdentity? CustomerIdentity = null)
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerIdentity? CustomerIdentity = null,
+    SimApprovedAlternateChoice? SelectedApprovedAlternate = null, SimApprovedAlternateChoice[]? ApprovedAlternateSelectionHistory = null)
 {
+    public SimCandidateAlternate[] ApprovedAlternates => SimApprovedAlternateChoices.Eligible(this);
+    public bool ApprovedAlternateSelectionCurrent => SimApprovedAlternateChoices.Valid(this);
     public string IdentityBasis => ComponentType == "DNP" ? "DNP" : SourcePartNumberReview?.Current.Status == "CONFIRMED" ? SourcePartNumberReview.Current.Basis switch { "MFG" => "MANUFACTURER_PN", "CUSTOMER" => "CUSTOMER_PN", "ASSEMBLY" => "ASSEMBLY_PN", _ => "UNRESOLVED" } : SourcePartNumberReview is not null && PrimaryIdentity is not null ? PrimaryIdentity.Basis : ComponentType == "SUBASSEMBLY" ? "ASSEMBLY_PN" : PrimaryIdentity?.Basis ?? "MANUFACTURER_PN";
     public SimRowReviewState ReviewState => SimCandidateRowReview.Evaluate(this);
 }
@@ -49,11 +52,18 @@ internal sealed record SimCandidateBom(string Id, string Label, string Governing
     string ContractVersion = "DLE_CANDIDATE_BOM_V1",
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     SimReviewedScanSource? ReviewedScanSource = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidateProgressStamp? Progress = null, SimVproImport? VproImport = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidateProgressStamp? Progress = null, SimVproImport? VproImport = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimManualBomOrigin? ManualDraft = null, SimPreparationGroup[]? PreparationGroups = null, SimPreparationAudit[]? PreparationHistory = null)
+{
+    public string PreparationToken => SimPreparation.Token(this);
+    public bool PreparationAvailable => true;
+    public SimPreparationDemand[] PreparationDemand => SimPreparation.Demand(this);
+    public string? PreparationStatus => PreparationGroups?.Length > 0 ? SimPreparation.Pending : null;
+}
 internal sealed record SimPrimarySelection(string? ProposalId, string? PartNumber, string? ManufacturerName, string ExpectedToken);
 internal sealed record SimCandidateReviewRequest(string CandidateId, int RowIndex, Dictionary<string,string>? Values,
     SimCandidateAlternateChange? AlternateChange = null, SimCandidateComponentChange? ComponentChange = null,
-    SimManufacturerChange? ManufacturerChange = null, SimWholeRowApproval? WholeRowApproval = null, SimPrimarySelection? PrimarySelection = null, SimWorksheetAcceptance? WorksheetAcceptance = null, SimCandidateProgressRow[]? ProgressRows = null, SimApprovedPartChange? ApprovedPartChange = null, SimIdentityBasisChange? IdentityBasisChange = null, SimSourcePartNumberChange? SourcePartNumberChange = null);
+    SimManufacturerChange? ManufacturerChange = null, SimWholeRowApproval? WholeRowApproval = null, SimPrimarySelection? PrimarySelection = null, SimWorksheetAcceptance? WorksheetAcceptance = null, SimCandidateProgressRow[]? ProgressRows = null, SimApprovedPartChange? ApprovedPartChange = null, SimIdentityBasisChange? IdentityBasisChange = null, SimSourcePartNumberChange? SourcePartNumberChange = null, SimCandidateBulkReview? BulkReview = null, SimApprovedAlternateRequest? ApprovedAlternateSelection = null, SimPreparationChange? PreparationChange = null);
 
 internal static partial class SimCandidateBomProvider
 {
@@ -117,6 +127,9 @@ internal static partial class SimCandidateBomProvider
 
     private static SimCandidateBom ReviewCore(SimCandidateBom bom, SimCandidateReviewRequest request, SimPersona persona, string? documentBasis = null)
     {
+        if(request.PreparationChange is not null)return SimPreparation.Apply(bom,request,persona);
+        if(request.ApprovedAlternateSelection is not null)return SelectApprovedAlternate(bom,request,persona);
+        if (request.BulkReview is not null) throw SimRfqIntakeProblem.BadRequest("SIM_BULK_MANUAL_REQUIRED","Selected-row actions must use the DLE-authored working BOM path.");
         if (request.SourcePartNumberChange is not null) {
             if (request.CandidateId != bom.Id || request.RowIndex < 0 || request.RowIndex >= bom.Rows.Length ||
                 request.Values is not null || request.ProgressRows is not null || request.WorksheetAcceptance is not null || request.PrimarySelection is not null || request.WholeRowApproval is not null || request.ComponentChange is not null || request.ManufacturerChange is not null || request.AlternateChange is not null || request.ApprovedPartChange is not null || request.IdentityBasisChange is not null)
@@ -209,10 +222,10 @@ internal static partial class SimCandidateBomProvider
         }
         if (request.AlternateChange is not null) return ReviewAlternate(bom, request, persona);
         if (request.Values is null || request.Values.Count != 5 || Fields.Any(f => !request.Values.TryGetValue(f, out var value) || value is null || value.Length > 2000) ||
-            !int.TryParse(request.Values["lineNumber"], out var line) || line < 1 ||
+            !SimPreparation.LiteralFind(bom.Rows[request.RowIndex],request.Values["lineNumber"]) ||
             !ValidQuantity(request.Values["quantity"],bom.Rows[request.RowIndex].ComponentType=="DNP") ||
             (bom.Rows[request.RowIndex].ComponentType!="DNP" && string.IsNullOrWhiteSpace(request.Values["partNumber"])))
-            throw SimRfqIntakeProblem.BadRequest("SIM_CANDIDATE_VALUES_INVALID", "Provide a positive line number and quantity, a part number, and the five candidate fields.");
+            throw SimRfqIntakeProblem.BadRequest("SIM_CANDIDATE_VALUES_INVALID", "Provide a valid Find label and quantity, a part number, and the five candidate fields. Imported decimal/NOB Find labels must match the source.");
         var row = bom.Rows[request.RowIndex];
         var now = DateTimeOffset.UtcNow;
         var corrections = CurrentCorrections(row, request.Values, persona, now);

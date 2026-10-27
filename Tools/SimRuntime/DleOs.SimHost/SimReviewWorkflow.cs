@@ -3,16 +3,21 @@ using System.Text.Json;
 internal sealed record SimReviewEvent(string Action, string? Detail, string Reviewer, DateTimeOffset AtUtc);
 internal sealed record SimManufacturingDefinition(string Id, string GoverningDocumentId, string[] SupportingDocumentIds,
     string[] SubassemblyDocumentIds, string[] TechnicalDocumentIds, SimTechnicalPackage Package,
-    bool NothingMissing, string Reviewer, DateTimeOffset AtUtc);
+    bool NothingMissing, string Reviewer, DateTimeOffset AtUtc,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Scope = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ReferenceStatus = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? OriginalDocumentId = null);
 internal sealed record SimQuotationInputs(string Status, string MaterialsTarget, SimBomAcceptance Materials,
-    string ManufacturingTarget, SimManufacturingDefinition Manufacturing, string Reviewer, DateTimeOffset AtUtc);
+    string ManufacturingTarget, SimManufacturingDefinition Manufacturing, string Reviewer, DateTimeOffset AtUtc,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimProductionSlidesAcceptance? ProductionSlides = null);
 internal sealed record SimReviewWorkflow(string Version = "PACKAGE_REVIEW_V1", bool PackageConfirmed = false,
     bool Sufficient = false, bool HistoryReviewed = false, string? HoldReason = null,
     SimManufacturingDefinition? Manufacturing = null, SimQuotationInputs? Outputs = null,
     SimReviewEvent[]? Events = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ManufacturingDrawingId = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ManufacturingDrawingId = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimRfqPackageAcceptance? RfqPackageAcceptance = null);
 internal sealed record SimWorkflowRequest(string Action, string? Needed = null, string? GoverningDocumentId = null,
-    bool NothingMissing = false);
+    bool NothingMissing = false,string? ExpectedSubmissionToken = null);
 
 internal sealed partial class SimRfqIntakeStore
 {
@@ -21,7 +26,7 @@ internal sealed partial class SimRfqIntakeStore
         ((d.Role == "GOVERNING" && d.Applicability == "PARENT_ASSEMBLY") ||
          (d.IdentityReview?.Type is "DRAWING" or "DRAWING_AND_BOM" && d.Role == "UNRESOLVED" && d.Applicability is "PARENT_ASSEMBLY" or "SUPPORTING_REFERENCE" && string.IsNullOrWhiteSpace(d.SubassemblyPartNumber))))
         .Select(d => d.DocumentId).ToArray();
-    private static object WorkflowEnvelope(SimRfqIntakeRecord record) => new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), manufacturingDrawingIds = ManufacturingDrawingIds(record), packageReviewToken = PackageReviewToken(record), assemblyHistoryContext = record.TechnicalReview?.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record), record };
+    private static object WorkflowEnvelope(SimRfqIntakeRecord record) => new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), manufacturingDrawingIds = ManufacturingDrawingIds(record), manualBomAvailable = true, presentationAvailable = true, packageReviewToken = PackageReviewToken(record), assemblyHistoryContext = record.TechnicalReview?.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record), record };
     private static void RequireWorkflowMaterials(SimRfqIntakeRecord record)
     {
         if (record.TechnicalReview?.Workflow is { } w &&
@@ -30,25 +35,11 @@ internal sealed partial class SimRfqIntakeStore
     }
     private async Task<SimBomAcceptance> RequireReleaseReady(SimRfqIntakeRecord record, SimRfqIntakeDataset dataset)
     {
-        var review = record.TechnicalReview!;
-        var w = review.Workflow ?? throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_NOT_STARTED", "Start Technical Review first.");
-        if (!string.IsNullOrEmpty(review.DownstreamHandoffState))
-            throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_CLOSED", "This historical or released review is read-only.");
-        RequireWorkflowMaterials(record);
-        if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == record.IntakeId && DleAnalysisContract.Active(j.Status)))
-            throw SimRfqIntakeProblem.Conflict("SIM_ANALYSIS_ACTIVE", "Wait for analysis before release.");
-        var accepted = review.BomAcceptances?.LastOrDefault(a => a.Candidate.Id == review.CandidateBom?.Id);
-        if (review.MaterialsReviewStatus != "QUALIFIED" || accepted is null ||
-            (w.Version == UnifiedPackageVersion ? !SameMaterialPackage(accepted.Package, review.TechnicalPackage) :
-             JsonSerializer.Serialize(accepted.Package.Documents, jsonOptions) != JsonSerializer.Serialize(review.TechnicalPackage?.Documents, jsonOptions)) ||
-            accepted.Package.GoverningBomDocumentId != review.TechnicalPackage?.GoverningBomDocumentId)
-            throw SimRfqIntakeProblem.Conflict("SIM_DEFINITIONS_REQUIRED", "Complete both definitions using the current package before releasing Technical Review.");
-        var releaseSources = await AnalysisDocuments(record, accepted.Candidate.Analysis?.SourceSnapshot.SourceSelectionVersion);
-        RequireCurrentScanCandidate(record, accepted.Candidate);
-        if (accepted.Candidate.Analysis is { } analysis && !SameAnalysisSources(analysis.SourceSnapshot, record, releaseSources))
-            throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "The accepted source snapshot changed. Rebuild and review before release.");
-        return accepted;
+        var state=await ReviewCompletionState(record,dataset);
+        if(!state.Ready)throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_GATE",state.Message);
+        return record.TechnicalReview!.BomAcceptances!.Last(a=>a.Candidate.Id==record.TechnicalReview.CandidateBom!.Id);
     }
+
     internal async Task<object> ReleaseReadinessAsync(string intakeId)
     {
         await gate.WaitAsync();
@@ -57,8 +48,7 @@ internal sealed partial class SimRfqIntakeStore
             var dataset = await ReadDatasetAsync();
             var record = dataset.Records.SingleOrDefault(r => r.IntakeId == intakeId && r.Environment == "SIM" && r.IntakeType == "NEW_QUOTE_REQUEST")
                 ?? throw SimRfqIntakeProblem.NotFound("SIM_REVIEW_NOT_FOUND", "RFQ review not found.");
-            try { await RequireReleaseReady(record, dataset); return new { ready = true, message = "" }; }
-            catch (SimRfqIntakeProblem p) { return new { ready = false, message = p.Message }; }
+            return await ReviewCompletionState(record,dataset);
         }
         finally { gate.Release(); }
     }
@@ -67,13 +57,15 @@ internal sealed partial class SimRfqIntakeStore
         await gate.WaitAsync();
         try
         {
+            if(request.Action is "CONFIRM_RFQ_PACKAGE" or "COMPLETE" && !persona.Can("technical_review.disposition"))
+                throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_PERMISSION","Technical Review permission is required.");
             var dataset = await ReadDatasetAsync();
             var index = dataset.Records.FindIndex(r => r.IntakeId == intakeId && r.IntakeType == "NEW_QUOTE_REQUEST" && r.Environment == "SIM");
             if (index < 0) throw SimRfqIntakeProblem.NotFound("SIM_REVIEW_NOT_FOUND", "RFQ review not found.");
             var record = dataset.Records[index];
             var review = record.TechnicalReview ?? throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_MISSING", "Review state is unavailable.");
             var w = review.Workflow;
-            if (w?.Version == UnifiedPackageVersion && request.Action is not ("START" or "COMPLETE"))
+            if (w?.Version == UnifiedPackageVersion && request.Action is not ("START" or "COMPLETE" or "CONFIRM_RFQ_PACKAGE" or "RESUME"))
                 throw SimRfqIntakeProblem.Conflict("SIM_COMBINED_PACKAGE_REQUIRED", "Use the combined Technical Package Review to update this package.");
             var now = DateTimeOffset.UtcNow;
             if (record.Status is "NO_LONGER_REQUIRED" or "READY_FOR_RFQ_WORKING_QUEUE" || w?.Outputs is not null || !string.IsNullOrEmpty(review.DownstreamHandoffState))
@@ -97,8 +89,8 @@ internal sealed partial class SimRfqIntakeStore
                 if (request.Action == "HOLD")
                 {
                     if (string.IsNullOrWhiteSpace(request.Needed) || request.Needed.Length > 1000)
-                        throw SimRfqIntakeProblem.BadRequest("SIM_HOLD_REASON", "Describe what is needed in 1–1000 characters.");
-                    w = w with { HoldReason = request.Needed.Trim(), Sufficient = false };
+                        throw SimRfqIntakeProblem.BadRequest("SIM_HOLD_REASON", "Describe what is needed in 1Ã¢â‚¬â€œ1000 characters.");
+                    w = w with { HoldReason = request.Needed.Trim(), Sufficient = false, RfqPackageAcceptance = null };
                     record = record with { Status = "ON_HOLD" };
                 }
                 else if (request.Action == "RESUME")
@@ -152,10 +144,29 @@ internal sealed partial class SimRfqIntakeStore
                         pack.Documents.Where(d => d.DocumentType is "GERBER" or "SUPPORTING_DOCUMENT").Select(d => d.DocumentId).ToArray(),
                         pack, true, persona.DisplayName, now) };
                 }
+                else if (request.Action == "CONFIRM_RFQ_PACKAGE")
+                {
+                    if(!persona.Can("technical_review.disposition"))
+                        throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_PERMISSION","Technical Review permission is required.");
+                    var current=await ReviewCompletionState(record,dataset);
+                    if(request.ExpectedSubmissionToken!=current.SubmissionToken)
+                        throw SimRfqIntakeProblem.Conflict("SIM_SUBMISSION_STALE","The review changed. Refresh before confirming the package.");
+                    var packageState=await EngineeringPackageState(record);
+                    if(!packageState.Applicable||packageState.Requirements.Length>0)
+                        throw SimRfqIntakeProblem.Conflict("SIM_RFQ_PACKAGE_REQUIRED",packageState.Applicable?string.Join(" ",packageState.Requirements.Select(r=>r.Message)):"Use the existing technical package review for this reference.");
+                    if(packageState.Accepted)return WorkflowEnvelope(record);
+                    var draft=review.PresentationDraft!;
+                    w=w with{RfqPackageAcceptance=new(packageState.Fingerprint,draft.TeamDocumentId!,draft.RenditionDocumentId,draft.ReferenceStatus,persona.DisplayName,now)};
+                }
                 else if (request.Action == "COMPLETE")
                 {
+                    var current=await ReviewCompletionState(record,dataset);
+                    if(!current.Ready)throw SimRfqIntakeProblem.Conflict("SIM_REVIEW_GATE",current.Message);
+                    if(request.ExpectedSubmissionToken!=current.SubmissionToken)
+                        throw SimRfqIntakeProblem.Conflict("SIM_SUBMISSION_STALE","The review changed. Reopen the submission checks before submitting to RFQs.");
                     var accepted = await RequireReleaseReady(record, dataset);
-                    w = w with { Outputs = new("READY", "QUOTATION_MATERIALS", accepted, "QUOTATION_LABOR", w.Manufacturing!, persona.DisplayName, now) };
+                    var definition=current.EngineeringReference?EngineeringQuotationDefinition(record,persona,now):w.Manufacturing!;
+                    w = w with { Outputs = new("READY", "QUOTATION_MATERIALS", accepted, "QUOTATION_LABOR", definition, persona.DisplayName, now, current.Slides.Acceptance) };
                     record = record with { Status = "READY_FOR_RFQ_WORKING_QUEUE" };
                     review = review with { Disposition = "TECHNICAL_REVIEW_COMPLETE", DownstreamHandoffTarget = "QUOTATION_INPUTS", DownstreamHandoffState = "READY" };
                 }
@@ -164,7 +175,7 @@ internal sealed partial class SimRfqIntakeStore
             w = w! with { Events = (w!.Events ?? []).Append(new(request.Action, request.Action == "HOLD" ? request.Needed?.Trim() : request.Action == "SELECT_MANUFACTURING_DRAWING" ? request.GoverningDocumentId : null, persona.DisplayName, now)).ToArray() };
             review = review with { Workflow = w, ReviewStatus = record.Status, ReviewedBy = persona.DisplayName, ReviewedAtUtc = now,
                 ReviewPhaseOrder = ["MANUFACTURING_DEFINITION", "MATERIAL_BOM_DEFINITION"],
-                ManufacturingReviewStatus = w.Manufacturing is null ? "IN_PROGRESS" : "COMPLETE" };
+                ManufacturingReviewStatus = EngineeringReference(record) ? review.ManufacturingReviewStatus : w.Manufacturing is null ? "IN_PROGRESS" : "COMPLETE" };
             record = record with { TechnicalReview = review };
             dataset.Records[index] = record; dataset.UpdatedAtUtc = now;
             await WriteVerifiedAsync(dataset);

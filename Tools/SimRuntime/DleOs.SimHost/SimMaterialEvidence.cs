@@ -36,7 +36,8 @@ internal sealed partial class SimRfqIntakeStore
     {
         await gate.WaitAsync();
         try {
-            var record=(await ReadDatasetAsync()).Records.SingleOrDefault(r=>r.IntakeId==id&&RfqEligible(r)) ?? throw SimRfqIntakeProblem.NotFound("RFQ_NOT_READY","Qualified RFQ not found.");
+            var record=await RequireRfqRecord(id);
+            RequireRequestedRfqDepartment(record,"materials");
             var view=MaterialView(RfqView(record,await ReadRfqLanes()));
             if ((record.TechnicalReview?.CustomerIdentityAmendments?.Any(a=>a.AcceptedVersion is not null)==true || request.ExpectedAcceptedBomVersion is not null) && request.ExpectedAcceptedBomVersion!=view.Rfq.Inputs.Materials.Version)
                 throw SimRfqIntakeProblem.Conflict("MATERIALS_SOURCE_CHANGED","Customer identities changed. Keep your edits open and review the current BOM before attaching evidence.");
@@ -78,7 +79,7 @@ internal sealed partial class SimRfqIntakeStore
     internal async Task<(SimMaterialAttachment Attachment,byte[] Bytes)> OpenMaterialAttachment(string id,string documentId)
     {
         await gate.WaitAsync();try{
-            var record=(await ReadDatasetAsync()).Records.SingleOrDefault(r=>r.IntakeId==id) ?? throw SimRfqIntakeProblem.NotFound("RFQ_NOT_FOUND","RFQ not found.");
+            var record=(await ReadDatasetAsync()).Records.SingleOrDefault(r=>r.IntakeId==id) ?? await RequireRfqRecord(id);
             var value=await VerifiedMaterialAttachment(record,documentId);
             return (value,await documents.Bytes(record.RequestCorrelationId,documentId));
         }finally{gate.Release();}
@@ -132,7 +133,7 @@ internal static partial class SimRfqIntakeEndpoints
     private static void MapMaterialEvidence(WebApplication app,SimStateStore state,SimRfqIntakeStore store,SimPersonaSessionStore personas)
     {
         app.MapPost("/api/sim/rfqs/{id}/materials/attachments",async Task<IResult>(string id,HttpContext context)=>{
-            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.disposition");if(denied is not null)return denied;
+            var denied=DeniedTechnicalReview(context,state,personas,"rfq.materials.edit");if(denied is not null)return denied;
             if(!context.Request.Headers.ContainsKey("X-SIM-Document-Upload")||!context.Request.HasFormContentType)return Results.BadRequest();
             try{
                 if(context.Request.ContentLength>21*1024*1024)return Results.StatusCode(413);
@@ -147,7 +148,7 @@ internal static partial class SimRfqIntakeEndpoints
             catch(IOException){return Results.Json(new{message="Evidence could not be staged. Retry."},statusCode:503);}
         });
         app.MapGet("/api/sim/rfqs/{id}/materials/attachments/{documentId}",async Task<IResult>(string id,string documentId,HttpContext context)=>{
-            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.view");if(denied is not null)return denied;
+            var denied=DeniedTechnicalReview(context,state,personas,"rfq.view");if(denied is not null)return denied;
             try{
                 var result=await store.OpenMaterialAttachment(id,documentId);var a=result.Attachment;
                 context.Response.Headers.CacheControl="private, no-store";context.Response.Headers["X-Content-Type-Options"]="nosniff";

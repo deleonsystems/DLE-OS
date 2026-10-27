@@ -1,0 +1,3 @@
+# Inactive phase-one boundary prototypes
+
+Copied from the reviewed local candidate for versioned design review only. Not wired into DEV or SIM and not a complete API map, service, installer or deployment overlay. Incoming modules default off; the five illustrative contracts deny unknown paths. Integrate only after exact deployed-base/auth/storage/permission/route review. Preserve existing DEV modules and services. See Documentation/DEV_PHASE1_49_2_HANDOFF.md. The prior local rehearsal passed 10 layout/policy groups and 9 compiled boundary checks; those results are inherited, not DEV qualification.

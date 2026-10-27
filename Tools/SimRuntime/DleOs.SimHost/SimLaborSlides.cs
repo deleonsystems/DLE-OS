@@ -8,12 +8,32 @@ internal sealed record SimLaborSlidePhoto(string Id, string DocumentId, string S
 internal sealed record SimLaborSlideStage(string Id, string Name, SimDrawingMark[] Marks, SimDrawingCamera SavedView,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLaborSlidePhoto[]? Photos = null);
 internal sealed record SimLaborSlide(string Id, string Kind, string Title, string Body, int Page,
-    SimLaborSlideStage[] Stages, SimDrawingSource? Source = null, string? ImageDocumentId = null, string? ImageSha256 = null);
+    SimLaborSlideStage[] Stages, SimDrawingSource? Source = null, string? ImageDocumentId = null, string? ImageSha256 = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ReflowStepId = null);
 
 internal sealed partial class SimRfqIntakeStore
 {
-    private async Task ValidateLaborSlides(SimRfqIntakeRecord record, SimLaborPlan plan, SimLaborOperation[] operations, int contract)
+    internal static void ValidateReflowOwnership(SimLaborPlan plan, SimLaborOperation[] operations, int contract)
     {
+        var old = plan.Operations.SelectMany(o => o.Slides ?? []).Where(c => c.ReflowStepId is not null).ToArray();
+        var incoming = operations.SelectMany(o => o.Slides ?? []).Where(c => c is not null).ToArray();
+        if ((old.Length > 0 || incoming.Any(c => c.ReflowStepId is not null)) && contract != 1)
+            throw SimRfqIntakeProblem.Conflict("LABOR_REFLOW_CLIENT", "Refresh Labor before saving Reflow setup. Existing setup links are preserved.");
+        foreach (var previous in old)
+            if (incoming.FirstOrDefault(c => c.Id == previous.Id) is {} current && current.ReflowStepId != previous.ReflowStepId)
+                throw SimRfqIntakeProblem.Conflict("LABOR_REFLOW_OWNER", "A Reflow setup stays with its Reflow step. Duplicate the step for another pass.");
+        foreach (var operation in operations)
+        {
+            var profiles = (operation.Slides ?? []).Where(c => c is not null && c.ReflowStepId is not null).ToArray();
+            if (profiles.Length > 1 || profiles.Any(c => c.ReflowStepId != operation.Id || c.Kind != "NOTE" || c.Stages is not {Length:1}) ||
+                profiles.Length > 0 && (operation.ParentId is null || !operations.Any(o => o.Id == operation.ParentId) ||
+                !System.Text.RegularExpressions.Regex.IsMatch(operation.Name.Trim(), @"^Reflow(?:$|[\s(-])", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)))
+                throw SimRfqIntakeProblem.BadRequest("LABOR_REFLOW_STEP", "Reflow setup belongs to its Reflow sub-step. Move or preserve the setup before changing that step to another operation.");
+        }
+    }
+    private async Task ValidateLaborSlides(SimRfqIntakeRecord record, SimLaborPlan plan, SimLaborOperation[] operations, int contract, int reflowContract = 0)
+    {
+        ValidateReflowOwnership(plan, operations, reflowContract);
         var old = plan.Operations.SelectMany(o => o.Slides ?? []).ToArray();
         var incoming = operations.SelectMany(o => o.Slides ?? []).ToArray();
         if (contract is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8) && (old.Length > 0 || incoming.Length > 0))
@@ -133,7 +153,7 @@ internal sealed partial class SimRfqIntakeStore
                 var key = JsonSerializer.Serialize(source) + ":" + card.Page;
                 // Existing unchanged references remain saveable if an asset goes missing; playback shows an explicit warning.
                 if (previous is not null || !verified.Add(key)) continue;
-                var doc = await OpenDocument(record.IntakeId, source.DocumentId);
+                var doc = await OpenRfqDrawingDocument(record, source.DocumentId);
                 var a = record.Assemblies[0];
                 if (doc.Document.Type != "application/pdf" || source.Sha256 != Convert.ToHexString(SHA256.HashData(doc.Bytes)) || source.DefinitionId != plan.DefinitionId || source.Assembly != a.AssemblyNumber || source.Revision != a.Revision || source.Name != doc.Document.Name)
                     Invalid("The drawing source must match the authorized immutable PDF and manufacturing definition.");
@@ -149,5 +169,6 @@ internal sealed partial class SimRfqIntakeStore
             else if (card.Source is not null || card.ImageDocumentId is not null || card.ImageSha256 is not null || card.Page != 1)
                 Invalid("Note, blank and boundary cards do not reference external assets.");
         }
+        ValidateInspectionLinks(operations,plan.DefinitionId);
     }
 }

@@ -1,0 +1,41 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+let source=fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js',import.meta.url),'utf8');
+source=source.replace('  function renderDetail() {','  function renderDetail() { return;').replace('  window.DleWorkspaces = window.DleWorkspaces || {};','window.test={state,useSourceSetup,renderSourceSetup,sourceChoices,sourceAction,sourceInput,sourceChoicesDirty,reviewNavigationBlock,drawingFolderAction,setMount:m=>mount=m};window.DleWorkspaces = window.DleWorkspaces || {};');
+const requests=[];let permission=true,confirm=true,token='t1',sourceToken='s1',sourceMatches=false,record;
+const clone=v=>JSON.parse(JSON.stringify(v));
+const envelope=()=>({record:clone(record),sourceSetupAvailable:true,sourceSetupToken:token});
+const document={addEventListener(){},getElementById(){return null;}};
+const window={document,DleOsRuntimeConfig:{environment:'SIM'},DleOsCapabilities:{can:()=>permission},confirm:()=>confirm,fetch:async(url,options={})=>{
+ requests.push({url,options});let payload;
+ if(url.includes('/source-setup?'))payload={token,sourceToken,sourceMatches,source:{drawing:'TEST-A REV A*',notes:[{sequence:'001',text:'*** DRAWING: TEST-A REV A-ECR123 ***'}]},target:'TEST-A REV A (ECR123)',bomSha256:'hash'};
+ else if(options.method==='POST') {const b=JSON.parse(options.body);record.reviewSourceSetup={current:{drawingDocumentId:b.drawingDocumentId,bomDocumentId:b.bomDocumentId},builtCandidateId:b.action==='BUILD'?'candidate':null};if(b.action==='BUILD')record.technicalReview.candidateBom={id:'candidate',vproImport:{}};token='t'+(requests.length+1);payload=envelope();}
+ else payload=envelope();
+ return {ok:true,json:async()=>payload};
+}};
+vm.runInNewContext(source,{window,document,URLSearchParams});const t=window.test;
+record={intakeId:'SYN',intakeType:'NEW_QUOTE_REQUEST',status:'ON_HOLD',assemblies:[{lineNumber:1}],technicalFiles:[{documentId:'pdf',name:'drawing.pdf',type:'application/pdf',binaryStatus:'VERIFIED'},{documentId:'txt',name:'bom.txt',type:'text/plain',binaryStatus:'VERIFIED'}],technicalReview:{workflow:{},presentationDraft:{teamDocumentId:'pdf'}}};
+t.state.selected=envelope();assert.ok(t.useSourceSetup());let html=t.renderSourceSetup();assert.match(html,/1\. Production drawing/);assert.match(html,/2\. BOM source/);assert.match(html,/Save Draft/);assert.match(html,/Save &amp; Build Candidate/);assert.doesNotMatch(html,/MFG P\/N Source|Generate draft|Accept changes/);assert.equal(requests.length,0,'render does not save or import');
+assert.equal(t.sourceChoices().bomId,'txt');assert.equal(t.sourceChoicesDirty(),false,'inferred proposal alone is not phantom dirty');
+await t.sourceAction('source-save');let post=requests.find(r=>r.options.method==='POST');assert.equal(JSON.parse(post.options.body).action,'SAVE_DRAFT');assert.equal(record.status,'ON_HOLD');assert.equal(record.technicalReview.candidateBom,undefined);
+requests.length=0;await t.sourceAction('source-build');assert.equal(requests.filter(r=>r.options.method==='POST').length,0,'mismatch has no write');assert.match(t.renderSourceSetup(),/TEST-A REV A\*/);assert.match(t.renderSourceSetup(),/I confirm this source/);
+t.state.sourceConfirm=true;t.state.sourceConfirmReason='Fixture applicability reviewed';sourceToken='changed';await t.sourceAction('source-build');assert.equal(t.state.sourceConfirm,false,'new bytes/identity invalidates checkbox');assert.equal(requests.filter(r=>r.options.method==='POST').length,0);
+t.state.sourceConfirm=true;t.state.sourceConfirmReason='Fixture applicability reviewed';await t.sourceAction('source-build');assert.equal(t.state.step,'candidate');assert.equal(t.state.sourceChoices.dirty,false);post=requests.find(r=>r.options.method==='POST');assert.equal(JSON.parse(post.options.body).confirmIdentity,true);assert.equal(JSON.parse(post.options.body).action,'BUILD');
+requests.length=0;permission=false;await t.sourceAction('source-save');assert.equal(requests.length,0);assert.match(t.renderSourceSetup(),/data-technical-review-action="source-save" disabled/);permission=true;
+t.sourceInput({target:{dataset:{sourceChoice:'bomId'},value:'new-txt'}});assert.equal(t.sourceChoicesDirty(),true);assert.match(t.reviewNavigationBlock(),/Save Draft/);
+await t.sourceAction('source-review');assert.match(t.state.sourceMessage,/Save source choices/);
+requests.length=0;token='concurrent';await t.sourceAction('source-save');assert.equal(requests.filter(r=>r.options.method==='POST').length,0,'concurrent change not silently overwritten');assert.equal(t.sourceChoices().bomId,'new-txt');assert.match(t.state.sourceMessage,/Reload saved status/);
+await t.sourceAction('source-reload');assert.equal(t.sourceChoices().bomId,'new-txt','reload keeps unsaved selection');assert.equal(t.state.selected.sourceSetupToken,token);
+t.state.selected.sourceSetupAvailable=false;assert.ok(!t.useSourceSetup(),'old server retains existing workflow');
+t.state.selected.sourceSetupAvailable=true;t.state.selected.record.technicalReview.candidateBom={id:'existing',parser:'OTHER'};delete t.state.selected.record.reviewSourceSetup;assert.ok(!t.useSourceSetup(),'existing non-VPRO candidate retains workflow');
+t.state.selected=envelope();t.state.sourceChoices=null;t.state.sourceConfirm=false;t.state.sourceConfirmReason='';t.state.sourceUpload=null;t.state.selected.record.technicalReview.candidateBom=null;delete t.state.selected.record.reviewSourceSetup;t.state.selected.record.technicalReview.technicalPackage={documents:[],governingBomDocumentId:null};t.state.selected.record.drawingFolders=[{lineNumber:1,rootId:'drawings',relativePath:'Fixture/A',folderName:'A'}];t.state.selected.linkedDrawingFilesAvailable=true;
+const host={innerHTML:'',scrollIntoView(){},focus(){}};t.setMount({querySelector:()=>host,querySelectorAll:()=>[]});window.crypto={randomUUID:()=> 'selection'};
+window.fetch=async(url,options={})=>{requests.push({url,options});let body;
+if(options.method==='POST'){const req=JSON.parse(options.body);assert.equal(req.type,'VPRO5_BOM_EXPORT');body={...t.state.selected,record:clone(t.state.selected.record)};body.record.technicalFiles.push({documentId:'newcopy',name:'new.txt',binaryStatus:'VERIFIED',reviewOrigin:{linkedSource:{selectionId:req.selectionId}}});}
+else if(url.includes('/file?'))body={name:'new.txt',folderToken:'folder',source:{relativePath:'Fixture/A/new.txt',sourceToken:'fingerprint',size:50}};
+else if(url.includes('/contents?'))body={rootId:'drawings',relativePath:'Fixture/A',entries:[{name:'new.txt',relativePath:'Fixture/A/new.txt',isDirectory:false}],truncated:false};
+else body={roots:[{id:'drawings',label:'Fixture'}],review:{association:t.state.selected.record.drawingFolders[0]}};
+return{ok:true,json:async()=>body};};
+const click=(action)=>t.drawingFolderAction({target:{closest:()=>({dataset:{drawingFolder:action,line:'1',relative:'Fixture/A/new.txt'}})}});
+await click('pick-bom');await click('select-file');assert.match(host.innerHTML,/Use this file/);assert.doesNotMatch(host.innerHTML,/Document type<select/);await click('save-file');assert.equal(t.sourceChoices().bomId,'newcopy');assert.ok(t.state.teamDraft==null);assert.equal(t.state.selected.record.technicalReview.candidateBom,null);
+requests.length=0;confirm=false;await t.sourceAction('source-discard');assert.equal(t.sourceChoices().bomId,'newcopy');confirm=true;await t.sourceAction('source-discard');assert.equal(requests.length,0);assert.ok(t.state.selected.record.technicalFiles.some(f=>f.documentId==='newcopy'),'discard choices preserves saved copy');
+console.log('PASS simple source UI: separate roles, draft, explicit hash-bound confirmation, candidate navigation, permission, stale save, retained edits, legacy fallback; no live browser used');

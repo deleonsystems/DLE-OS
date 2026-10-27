@@ -8,18 +8,18 @@ internal sealed record SimDrawingContent(string StepId, SimDrawingSource Source,
 
 internal sealed partial class SimRfqIntakeStore
 {
-    private static string? LaborRevisionBlocker(SimLaborView view, IEnumerable<SimRfqIntakeRecord> records)
+    private static string? QuotationEditBlocker(string intakeId, SimRfqCommercial? commercial, IEnumerable<SimRfqIntakeRecord> records)
     {
-        var commercial=view.Rfq.Lanes.Commercial;
         if(commercial is not null && (commercial.Status!="OPEN" || commercial.SubmittedAt is not null || commercial.ApprovalId is not null ||
             (commercial.History??[]).Any(h=>h.Action=="SUBMIT") || (commercial.OrderLinks?.Length??0)>0))
             return "This quotation has a commercial commitment. A separate governed revision workflow is required.";
-        if(records.Any(r=>r.OrderIntake?.Quote?.Reference.IntakeId==view.Rfq.IntakeId ||
-            r.OrderIntake?.TechnicalSource?.Baseline?.Quote.IntakeId==view.Rfq.IntakeId ||
-            r.OrderEntry?.Acceptance.Package.Quote?.Reference.IntakeId==view.Rfq.IntakeId))
+        if(records.Any(r=>r.OrderIntake?.Quote?.Reference.IntakeId==intakeId ||
+            r.OrderIntake?.TechnicalSource?.Baseline?.Quote.IntakeId==intakeId ||
+            r.OrderEntry?.Acceptance.Package.Quote?.Reference.IntakeId==intakeId))
             return "An order references this quotation. Its committed baseline cannot be reopened here.";
         return null;
     }
+    private static string? LaborRevisionBlocker(SimLaborView view, IEnumerable<SimRfqIntakeRecord> records) => QuotationEditBlocker(view.Rfq.IntakeId,view.Rfq.Lanes.Commercial,records);
     private static SimDrawingContent[] DrawingContent(SimDrawingLayer[] layers, SimLaborOperation[] operations) =>
         layers.Where(l=>DrawingSteps(l).Any(id=>operations.Any(o=>o.Id==id)) && (l.LayerId is not null || l.Marks.Length>0 || !string.IsNullOrWhiteSpace(l.Note)))
             .OrderBy(l=>l.StepId,StringComparer.Ordinal).ThenBy(l=>l.Source.Sha256,StringComparer.Ordinal).ThenBy(l=>l.LayerId,StringComparer.Ordinal)
@@ -28,6 +28,12 @@ internal sealed partial class SimRfqIntakeStore
     private async Task<SimLaborView> LaborCapabilities(SimLaborView view, IEnumerable<SimRfqIntakeRecord> records)
     {
         var blocker=LaborRevisionBlocker(view,records);
+        // Present a corrected draft preview; no persisted plan or frozen version is rewritten.
+        if(blocker is null&&view.Rfq.Lanes.Labor.Status!="COMPLETE"&&view.Plan.CalculationVersion=="LABOR_BATCH_ALLOCATION_V6"){
+            var preview=view.Plan with{CalculationVersion=LaborUnitBatchCalculation};
+            view=view with{Plan=preview,Totals=CalculateLabor(preview.Operations,preview.Quantity,preview.Rate??0,preview.Markup,preview.Charges,preview.CommissionPercent,preview.PricingQuantity,preview.CalculationVersion),TimingCalculationPendingSave=true};
+        }
+
         var layers=(await DrawingLayers()).GetValueOrDefault(view.Rfq.IntakeId)??[];
         return view with {RevisionContractVersion=1,CanRevise=view.Rfq.Lanes.Labor.Status=="COMPLETE" && view.Plan.Versions.Length>0 && blocker is null,
             RevisionBlocker=blocker,DrawingContentToken=DrawingContentToken(DrawingContent(layers,view.Plan.Operations))};
@@ -39,7 +45,7 @@ internal sealed partial class SimRfqIntakeStore
             throw SimRfqIntakeProblem.BadRequest("LABOR_REVISE_REASON","Record a reason from 1 to 2000 characters and a valid request ID.");
         await gate.WaitAsync();
         try {
-            var records=(await ReadDatasetAsync()).Records;var record=records.SingleOrDefault(r=>r.IntakeId==id&&RfqEligible(r))??throw SimRfqIntakeProblem.NotFound("RFQ_NOT_READY","Qualified RFQ not found.");
+            var records=(await ReadDatasetAsync()).Records;var record=await RequireRfqRecord(id);
             var lanes=await ReadRfqLanes();var view=LaborView(RfqView(record,lanes));
             var duplicate=(view.Plan.RevisionHistory??[]).SingleOrDefault(e=>e.RequestId==request.RequestId);
             if(duplicate is not null){
@@ -54,7 +60,7 @@ internal sealed partial class SimRfqIntakeStore
             var now=DateTimeOffset.UtcNow;
             var entry=new SimLaborRevisionEvent(request.RequestId,view.Plan.Revision,view.Plan.Revision+1,request.BaseVersion,request.Reason.Trim(),actor.Id,actor.DisplayName,now);
             var plan=view.Plan with {Revision=view.Plan.Revision+1,UpdatedBy=actor.DisplayName,AtUtc=now,RevisionHistory=(view.Plan.RevisionHistory??[]).Append(entry).ToArray()};
-            lanes[id]=view.Rfq.Lanes with {LaborQuote=plan,Labor=new("IN_PROGRESS",actor.DisplayName,now)};
+            lanes[id]=RetainEstimatePairs(record,view.Rfq.Lanes) with {LaborQuote=plan,Labor=new("IN_PROGRESS",actor.DisplayName,now)};
             var temporary=RfqLanesPath+".write-"+Guid.NewGuid().ToString("N");
             try{var text=JsonSerializer.Serialize(lanes,jsonOptions);await File.WriteAllTextAsync(temporary,text);if(await File.ReadAllTextAsync(temporary)!=text)throw new IOException("Revision verification failed.");File.Move(temporary,RfqLanesPath,true);}
             finally{if(File.Exists(temporary))File.Delete(temporary);}

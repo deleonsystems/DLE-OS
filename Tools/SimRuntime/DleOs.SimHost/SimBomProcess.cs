@@ -11,7 +11,7 @@ internal sealed partial class SimRfqIntakeStore
 {
     private string BomProcessPath => Path.Combine(Path.GetDirectoryName(dataPath)!, "bom-process.json");
     private static string ProcessHash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
-    internal static string BomProcessScope(SimRfqWorkspace rfq) => ProcessHash(JsonSerializer.Serialize(new {
+    internal static string BomProcessScope(SimRfqWorkspace rfq) => rfq.LibraryRfq is {} binding ? ProcessHash(JsonSerializer.Serialize(new{binding.ProjectId,binding.PackageId,binding.PackageHash})) : ProcessHash(JsonSerializer.Serialize(new {
         rfq.Customer.CustomerId, rfq.Assemblies[0].AssemblyNumber, rfq.Assemblies[0].Revision,
         Version = rfq.CompatibleCustomerBoms?.LastOrDefault()?.Version ?? rfq.Inputs.Materials.Version,
         Id = rfq.CompatibleCustomerBoms?.LastOrDefault()?.CandidateId ?? rfq.Inputs.Materials.Candidate.Id, rfq.Inputs.Materials.Candidate.GoverningSha256
@@ -34,8 +34,7 @@ internal sealed partial class SimRfqIntakeStore
     }
     private async Task<SimRfqWorkspace> BomProcessRfq(string id)
     {
-        var record=(await ReadDatasetAsync()).Records.SingleOrDefault(r=>r.IntakeId==id&&RfqEligible(r))
-            ??throw SimRfqIntakeProblem.NotFound("RFQ_NOT_READY","Qualified RFQ not found.");
+        var record=await RequireRfqRecord(id);
         return RfqView(record,await ReadRfqLanes());
     }
     internal async Task<SimBomProcessView> ReadBomProcess(string id,SimPersona persona)

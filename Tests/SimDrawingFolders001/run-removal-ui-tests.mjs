@@ -1,0 +1,25 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+let source=fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js',import.meta.url),'utf8');
+source=source.replace('  function renderDetail() {','  function renderDetail() { return;');
+source=source.replace('  window.DleWorkspaces = window.DleWorkspaces || {};','  window.test={state,reviewDocumentRemoveButton,renderRemovedReviewDocuments,changeReviewDocumentRemoval,setMount:m=>mount=m}; window.DleWorkspaces = window.DleWorkspaces || {};');
+const alerts=[],requests=[];let confirm=false,allowed=true,stale=false,inputs=[];
+const document={addEventListener(){},getElementById(){return null;}};
+const window={document,DleOsRuntimeConfig:{environment:'SIM'},DleOsCapabilities:{can:()=>true},alert:m=>alerts.push(m),confirm:()=>confirm};
+vm.runInNewContext(source,{window,document,URLSearchParams});const t=window.test;
+t.setMount({querySelector:()=>null,querySelectorAll:()=>inputs});
+const file={documentId:'doc',name:'<drawing>.pdf'};
+const record={intakeId:'SYNTHETIC',status:'TECHNICAL_REVIEW_IN_PROGRESS',technicalFiles:[file],technicalReview:{technicalPackage:{documents:[]}}};
+t.state.selected={record};assert.equal(t.reviewDocumentRemoveButton('doc'),'');t.state.selected.documentRemovalAvailable=true;assert.match(t.reviewDocumentRemoveButton('doc'),/Remove from review/);
+window.fetch=async(url,options={})=>{requests.push({url,options});if(options.method==='POST'){
+ if(stale)return{ok:false,json:async()=>({message:'Review changed; reopen'})};
+ const restore=JSON.parse(options.body).action==='RESTORE';return{ok:true,json:async()=>({documentRemovalAvailable:true,record:{...record,technicalFiles:restore?[file]:[],reviewDocumentRemovals:restore?[]:[{file,removedBy:'Fixture',removedAtUtc:'2026-01-01T00:00:00Z'}]}})};
+}return{ok:true,json:async()=>({token:'version',canRemove:allowed,canRestore:allowed,reason:'Drawing is in use'})};};
+await t.changeReviewDocumentRemoval('doc',false);assert.equal(requests.filter(r=>r.options.method==='POST').length,0,'cancel never writes');assert.equal(t.state.selected.record,record);
+allowed=false;confirm=true;await t.changeReviewDocumentRemoval('doc',false);assert.match(alerts.at(-1),/in use/);assert.equal(requests.filter(r=>r.options.method==='POST').length,0);
+allowed=true;inputs=[{tagName:'INPUT',type:'text',value:'unsaved',defaultValue:''}];let n=requests.length;await t.changeReviewDocumentRemoval('doc',false);assert.equal(requests.length,n,'unsaved editor blocks without rerender or request');assert.equal(inputs[0].value,'unsaved');inputs=[];
+stale=true;await t.changeReviewDocumentRemoval('doc',false);assert.equal(t.state.selected.record,record);assert.match(alerts.at(-1),/Review changed/);
+stale=false;await t.changeReviewDocumentRemoval('doc',false);assert.equal(t.state.selected.record.technicalFiles.length,0);assert.match(t.renderRemovedReviewDocuments(),/Restore to review/);assert.match(t.renderRemovedReviewDocuments(),/&lt;drawing&gt;/);
+await t.changeReviewDocumentRemoval('doc',true);assert.equal(t.state.selected.record.technicalFiles[0].documentId,'doc');assert.equal(t.renderRemovedReviewDocuments(),'');assert.equal(JSON.parse(requests.at(-1).options.body).expectedToken,'version');
+t.state.selected.record.status='COMPLETED';assert.equal(t.reviewDocumentRemoveButton('doc'),'');t.state.selected.record.status='TECHNICAL_REVIEW_IN_PROGRESS';window.DleOsCapabilities.can=()=>false;assert.equal(t.reviewDocumentRemoveButton('doc'),'');
+assert.equal((source.match(/\+renderRemovedReviewDocuments\(\)\+/g)||[]).length,0,'removed history stays out of normal package tables');
+console.log('PASS removal UI: capability/permission, cancel/no writes, dependencies, unsaved edits, stale response, explicit remove/restore, escaped names, closed review');

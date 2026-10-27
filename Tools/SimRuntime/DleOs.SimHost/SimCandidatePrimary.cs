@@ -9,6 +9,14 @@ internal static partial class SimCandidateBomProvider
             throw SimRfqIntakeProblem.BadRequest("SIM_ROW_APPROVAL_INVALID","Accept the worksheet row independently.");
         var typed=Review(bom,new(bom.Id,request.RowIndex,null,ComponentChange:new(accept.ComponentType,original.ComponentTypeRevision)),persona);
         var row=typed.Rows[request.RowIndex];
+        if(row.SelectedApprovedAlternate is not null){
+            if(!SimApprovedAlternateChoices.Valid(row))throw SimRfqIntakeProblem.Conflict("SIM_ALTERNATE_SELECTION_STALE","The selected alternate changed or is no longer approved. Choose a current approved P/N before accepting.");
+            if(!string.IsNullOrWhiteSpace(accept.ManualPartNumber)||!string.IsNullOrEmpty(accept.ProposalId))throw SimRfqIntakeProblem.Conflict("SIM_ALTERNATE_SELECTION_CONFLICT","Change the saved Approved P/N selection separately before accepting.");
+            var reviewed=Review(typed,request with{WorksheetAcceptance=null},persona);
+            var acceptedRow=reviewed.Rows[request.RowIndex] with{WorkingState=null};
+            if(!SimApprovedAlternateChoices.Valid(acceptedRow)||!acceptedRow.ReviewState.Reviewed)throw SimRfqIntakeProblem.Conflict("SIM_ROW_APPROVAL_BLOCKED",string.Join(" ",acceptedRow.ReviewState.Reasons));
+            var acceptedRows=reviewed.Rows.ToArray();acceptedRows[request.RowIndex]=acceptedRow with{WholeRowHistory=(acceptedRow.WholeRowHistory??[]).Append(new(persona.DisplayName,DateTimeOffset.UtcNow,accept.ExpectedToken)).ToArray()};return reviewed with{Rows=acceptedRows};
+        }
         if (row.SourcePartNumberReview?.Current.Status == "CONFIRMED" && accept.ComponentType != "DNP") {
             if (row.IdentityBasis == "MANUFACTURER_PN" && row.ManufacturerIdentity is { } sourceIdentity &&
                 sourceIdentity.Proposals.Any(p => sourceIdentity.Decision(p.Id) == "PROPOSED"))

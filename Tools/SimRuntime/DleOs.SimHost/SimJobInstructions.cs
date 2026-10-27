@@ -18,7 +18,7 @@ internal sealed partial class SimProductionService
             return await action(source,runtime);
         });
         return state.WithStableRuntime(async runtime=>{
-            Permission(actor,write);
+            if(write)QualityPermission(actor);else Permission(actor,false);
             if(!actor.Can("order_entry.view"))throw new SimOrderEntryPermissionException();
             wo=SimKittingCases.Normalize(wo);
             return await provider.WithPacketAuthoringRequirements(wo,runtime,async requirements=>{
@@ -77,8 +77,8 @@ internal sealed partial class SimProductionService
         var main=version is null&&released is null&&saved is null?await CompatibleMain(source,runtime.Generation):null;
         var selected=version is null && released is not null ? packet?.Operations??released.Operations : saved?.Operations??main?.Operations??InstructionOperations(baseline);
         return (object)new {version=effectiveVersion??saved?.Version??0, released=released is not null,baselineToken=token,baselineVersion=baseline.Version,
-            canEdit=released is null && version is null && actor.Can("production.manage"),baseline.DefinitionId,baseline.Quantity,
-            markerOpacitySupported=true,packetContractVersion=1,travelerRevision=released is null?(int?)null:packet?.JobRevision??1,instructionPacketId=packet?.Id??released?.Id.ToString(),mainPacketId=saved?.MainPacketId??main?.Id??released?.MainPacketId,
+            canEdit=released is null && version is null && (quality?CanReviewQuality(actor):actor.Can("production.manage")),baseline.DefinitionId,baseline.Quantity,
+            inspectionLinksSupported=true,inspectionSymbolsSupported=true,markerOpacitySupported=true,productionAdditionsVersion=2,productionProposalsVersion=1,productionCanPropose=CanAddProduction(actor),packetContractVersion=1,travelerRevision=released is null?(int?)null:packet?.JobRevision??1,instructionPacketId=packet?.Id??released?.Id.ToString(),mainPacketId=saved?.MainPacketId??main?.Id??released?.MainPacketId,
             updatedBy=saved?.UpdatedBy,updatedAt=saved?.UpdatedAt,
             reference=new{workOrderNumber=SimKittingCases.Normalize(wo),generation=runtime.Generation,version=effectiveVersion??saved?.Version??0,
                 baselineToken=token,contentHash=Hash(selected)},
@@ -146,6 +146,7 @@ internal sealed partial class SimProductionService
                 }
             }
         }
+        SimRfqIntakeStore.ValidateInspectionLinks(ops,baseline.DefinitionId);
     }
     private async Task CheckInstructionAsset(string wo,long gen,SimLaborSnapshot baseline,string? id,string? hash,SimProductionSource source){
         var asset=id is null?null:await store.InstructionAsset(wo,gen,id)??await SharedPacketAsset(source,gen,id,hash);

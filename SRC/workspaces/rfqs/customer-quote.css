@@ -1,0 +1,32 @@
+.customer-quote{max-width:1420px;margin:auto;padding:14px;background:#fff;color:#18334a;color-scheme:light;font:14px system-ui}
+.customer-quote header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#eef3f7;color:#18334a;border-bottom:1px solid #bdcad6}
+.customer-quote h1{font-size:21px;margin:0;color:#173e60}
+.customer-quote header span{font-size:12px;color:#31516e}
+.customer-quote>p{color:#29465f}
+.customer-quote :is(button,a){background:#174a75;color:#fff;border:1px solid #123b60;border-radius:6px;padding:8px 11px;text-decoration:none;cursor:pointer}
+.customer-quote :is(button,a):not(:disabled):hover{background:#103653;color:#fff;border-color:#0c2c46}
+.customer-quote button:disabled{opacity:1;background:#e6ebf1;color:#4a5d72;border-color:#91a0b1;cursor:default}
+.customer-quote :focus-visible{outline:3px solid #075ac2;outline-offset:2px}
+.customer-quote-lines{overflow:auto;margin:12px 0}
+.customer-quote table{width:100%;border-collapse:collapse;min-width:760px;background:#fff;color:#18334a}
+.customer-quote th,.customer-quote td{padding:8px;text-align:left;border-bottom:1px solid #bdcad6;vertical-align:top;color:#18334a}
+.customer-quote th{background:#eef3f7;color:#294963}
+.customer-quote input[type=checkbox]{accent-color:#174a75}
+.customer-quote-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.customer-quote-fields label{display:grid;gap:5px;color:#243f57}
+.customer-quote-fields small{color:#486278}
+.customer-quote-fields input,.customer-quote-fields textarea{background:#f8fafc;color:#18334a;border:1px solid #697f96;border-radius:5px;padding:7px;font:inherit;box-sizing:border-box;width:100%}
+.customer-quote-fields :is(input,textarea)::placeholder{color:#52677c;opacity:1}
+.customer-quote-fields :is(input,textarea):disabled{background:#e6ebf1;color:#4a5d72;border-color:#91a0b1;opacity:1}
+.customer-quote-terms{grid-column:1/-1}
+.customer-quote-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.customer-quote .customer-quote-status{min-height:20px;color:#294963}
+.customer-quote .customer-quote-status[data-error=true]{color:#952d20}
+.customer-quote .customer-quote-help{color:#435a70;font-size:12px;max-width:900px}
+.customer-quote-preview{max-width:850px;margin:16px auto;display:grid;gap:14px}
+.customer-quote-preview img{display:block;width:100%;height:auto;box-shadow:0 3px 18px #0008;background:white}
+@media(max-width:650px){.customer-quote{padding:10px}.customer-quote-fields{grid-template-columns:1fr}.customer-quote header{gap:8px}.customer-quote-actions :is(a,button){min-height:42px}}
+
+.quote-copy-list{margin:18px 0;border-top:1px solid #bdcad6;padding-top:10px;color:#18334a}
+.quote-copy-list h2{font-size:18px;color:#173e60}.quote-copy-list article{margin:10px 0;padding:12px;background:#f8fafc;border:1px solid #bdcad6;border-radius:6px;overflow-wrap:anywhere}.quote-copy-list article p{color:#29465f}.quote-copy-list .quote-copy-sent{color:#215b42;font-weight:600}
+.quote-manual-send{background:#fff;color:#18334a;border:1px solid #71869b;border-radius:6px;padding:14px;margin:12px 0;overflow-wrap:anywhere;font:14px system-ui}.quote-manual-send h3,.quote-manual-send p,.quote-manual-send li{color:#18334a}.quote-manual-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quote-manual-send label{display:grid;gap:4px;color:#243f57}.quote-manual-send .quote-manual-fields small{color:#486278}.quote-manual-send input{box-sizing:border-box;width:100%;min-width:0;padding:8px;background:#f8fafc;color:#18334a;border:1px solid #697f96;border-radius:5px;font:inherit}.quote-manual-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.quote-manual-send button{padding:8px 11px;background:#174a75;color:#fff;border:1px solid #123b60;border-radius:6px;cursor:pointer}.quote-manual-send button:hover:not(:disabled){background:#103653}.quote-manual-send button:disabled,.quote-manual-send input:disabled{background:#e6ebf1;color:#4a5d72;border-color:#91a0b1;opacity:1;cursor:default}.quote-manual-send :focus-visible{outline:3px solid #075ac2;outline-offset:2px}.quote-manual-send [role=status]{color:#952d20}@media(max-width:650px){.quote-manual-fields{grid-template-columns:1fr}.quote-manual-send button{min-height:42px}}

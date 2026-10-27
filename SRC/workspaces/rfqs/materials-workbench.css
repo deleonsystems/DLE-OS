@@ -300,3 +300,51 @@
 .material-unit-price [data-live-sale] { margin-left:0; font-size:26px; line-height:1.2; font-weight:750; font-variant-numeric:tabular-nums; white-space:normal; overflow-wrap:anywhere; }
 .material-cost-breakdown { display:grid; gap:6px; margin:8px 0; color:#506574; }
 @media(max-width:760px) { .material-commercial-footer .material-unit-price { width:100%; margin-left:0; box-sizing:border-box; } }
+
+
+/* Keep approval exceptions compact within the existing manufacturer selector. */
+.material-part-flag{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.material-part-flag .material-mfg-status{font-size:10px;color:#9c590b}.materials-workbench .material-part-flag button{font-size:10px;padding:0 2px;min-height:0;background:transparent;border:0;color:#286784;text-decoration:underline}.materials-workbench [data-material-action="review-parts"]{border-color:#49788b;color:#1c536b}.materials-workbench .material-mfg-menu summary[aria-disabled="true"]{cursor:default;opacity:.7}
+
+/* Reuse the compact vendor popover; only eight canonical matches can appear. */
+.material-vendor:has([data-vendor-results]){width:270px;max-width:calc(100vw - 24px);max-height:65vh;overflow:auto;box-sizing:border-box}
+.material-vendor-results{max-height:255px;overflow:auto;margin:4px 0}.material-vendor-results>button{display:block;width:100%;text-align:left;white-space:normal}.material-vendor-results>button>small{display:block;color:#526777;font-size:10px}.material-vendor>.material-vendor-extras{display:flex;flex-wrap:wrap;gap:3px;border-top:1px solid #c2d1da;padding-top:4px}.material-vendor-extras>button{font-size:11px!important;min-height:26px!important;padding:3px 5px!important;width:auto!important}
+
+/* Materials owns its screen while the RFQs work area is active. Returning
+   removes this match and immediately restores the unchanged global shell. */
+@media screen {
+ body:has(#home.active .workspace-home.active .materials-workbench){grid-template-rows:minmax(0,1fr) auto}
+ body:has(#home.active .workspace-home.active .materials-workbench)>header.dle-app-header{display:none}
+ body:has(#home.active .workspace-home.active .materials-workbench)>main{grid-row:1!important;margin:0;padding:6px 8px;min-height:0}
+ body:has(#home.active .workspace-home.active .materials-workbench)>footer{grid-row:2!important}
+ body:has(#home.active .workspace-home.active .materials-workbench) main :is(#home.active,.workspace-home.active),
+ body:has(#home.active .workspace-home.active .materials-workbench) .workspace-home.active>div:has(>.materials-workbench){height:100%;min-height:0}
+ body:has(#home.active .workspace-home.active .materials-workbench) .materials-workbench{height:100%;min-height:0;display:flex;flex-direction:column;padding:6px 8px;gap:3px;border-radius:5px;box-sizing:border-box}
+ body:has(#home.active .workspace-home.active .materials-workbench) .materials-workbench>:not(.material-grid-scroll){flex-shrink:0}
+ body:has(#home.active .workspace-home.active .materials-workbench) .materials-workbench>.material-grid-scroll{flex:1 1 auto;min-height:180px;max-height:none}
+ .materials-workbench .material-toolbar{gap:4px 6px;align-items:center}
+ .materials-workbench .material-workspace-title{min-width:0;flex:1 1 250px}
+ .materials-workbench .material-workspace-title h1{font-size:15px;line-height:1.2;margin:0;color:#183247}
+ .materials-workbench .material-context{font-size:12px;line-height:1.35;margin:1px 0 0;overflow-wrap:anywhere;color:#38566a}
+ .materials-workbench .material-toolbar button{padding:4px 7px;font-size:12px;min-height:29px;white-space:normal}
+ .materials-workbench .material-toolbar .material-view-toggle button{padding:3px 6px}
+ .materials-workbench .material-toolbar .materials-message{flex:0 1 auto;max-width:100%;min-height:0;margin:0;font-size:11px;line-height:1.3;color:#73501f;overflow-wrap:anywhere}
+ .materials-workbench .rfq-package-documents{margin:0;padding:3px 8px;font-size:12px}
+ .materials-workbench .rfq-section-hold{margin:0;padding-block:3px;font-size:12px}
+ .materials-workbench .material-commercial-footer{gap:4px 10px;padding:4px 6px}
+ .materials-workbench .material-commercial-footer .material-unit-price{padding:4px 8px;gap:6px 10px}
+ .materials-workbench .material-unit-price [data-live-sale]{font-size:21px}
+ .materials-workbench .material-footer{margin-top:0;gap:4px 10px;font-size:10px;line-height:1.3}
+}
+@media screen and (max-width:760px){
+ .materials-workbench .material-workspace-title{flex-basis:calc(100% - 130px)}
+ .materials-workbench .material-toolbar button{min-height:34px}
+ .materials-workbench .material-toolbar .materials-message{flex-basis:100%}
+}
+
+/* Routine required input stays beside its field; only the current hint takes space. */
+.materials-workbench [data-completion-invalid] { outline:1px solid #ad8d4e; outline-offset:1px; }
+.materials-workbench .material-validation-hint { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.materials-workbench .material-validation-hint.is-current { position:static; display:block; width:auto; height:auto; margin:3px 0 0; overflow:visible; clip-path:none; white-space:normal; font-size:11px; line-height:1.25; font-weight:normal; color:#8a6525; }
+body[data-sim-runtime="true"] .materials-workbench .material-validation-hint.is-current { color:#d4b77a; }
+
+.materials-workbench .material-review-target{outline:2px solid #73baf0;outline-offset:-2px}

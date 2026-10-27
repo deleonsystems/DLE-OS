@@ -1,6 +1,8 @@
 .rfqs-workspace.labor-workbench { max-width:none; padding:10px 12px; font-size:13px; border-radius:8px; }
 .labor-toolbar,.labor-status,.labor-summary,.labor-audit { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .labor-toolbar h1 { font-size:21px; margin:0 auto 0 0; }
+.labor-document-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; max-width:100%; }
+@media (max-width:760px) { .labor-document-controls { flex:1 1 100%; } .labor-document-controls :is(button,a) { min-height:44px; flex:1 1 130px; text-align:center; } }
 .labor-toolbar button,.labor-drawing,.labor-status button { font:inherit; padding:6px 10px; }
 .labor-drawing { color:#245b78; border:1px solid #a9bbc9; border-radius:4px; text-decoration:none; background:white; }
 .labor-context { margin:8px 0; }
@@ -868,3 +870,109 @@ body[data-sim-runtime="true"][data-view-mode="mobile"] .labor-workbench .labor-o
 .labor-drawing-viewer [data-quick-tool="pan"][aria-pressed="true"] { color:#fff; background:#143d66; outline:2px solid #fff; outline-offset:-4px; }
 .labor-drawing-viewer .labor-drawing-heading .labor-delete-annotation { min-height:44px!important; min-width:44px!important; flex-shrink:0; }
 .story-tools[data-ink-tool="pan"] [data-compact-tools] { background:#143d66; color:#fff; box-shadow:inset 0 0 0 2px #fff; }
+
+
+/* Compact symbol authoring; coverage is not an inspection result. */
+.labor-inspection-tools[hidden],.labor-inspection-group[hidden] { display:none; }
+.story-tools .labor-tool-tray:has(.labor-inspection-tools:not([hidden])) { width:264px;max-width:calc(100vw - 16px);padding:8px;box-sizing:border-box; }
+.story-tools .labor-tool-tray:has(.labor-inspection-tools:not([hidden]))>[data-tool-hint] { display:none; }
+.labor-inspection-tools { color:inherit; }
+.labor-inspection-shapes { display:grid;grid-template-columns:repeat(4,1fr);gap:4px; }
+.labor-inspection-tools button { min-height:44px;min-width:44px;padding:4px;font-size:12px; }
+.labor-inspection-shapes svg { width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.5; }
+.labor-inspection-tools button[aria-pressed="true"] { background:#dceeff;border:2px solid #147ace;color:#12394b; }
+.labor-inspection-style { display:flex;gap:4px;margin:4px 0;align-items:center; }
+.labor-inspection-style button { flex:1; }
+.labor-inspection-tools input[type="color"] { width:44px;height:44px;padding:2px; }
+.labor-inspection-tools>label { display:grid;grid-template-columns:70px minmax(0,1fr) 28px;gap:4px;align-items:center;font-size:12px; }
+.labor-inspection-tools input[type="range"] { width:100%;height:32px;min-width:0;margin:0; }
+.labor-inspection-parent { display:flex;gap:4px;align-items:end;margin-top:4px;flex-wrap:wrap; }
+.labor-inspection-parent label { display:flex;flex-direction:column;font-size:11px; }
+.labor-inspection-parent input { width:64px;min-height:36px;box-sizing:border-box; }
+.labor-inspection-tools p { font-size:11px;line-height:1.25;margin:4px 0 0; }
+.labor-inspection-group { position:absolute;left:8px;bottom:8px;z-index:8;display:flex;align-items:center;gap:5px;max-width:calc(100% - 16px);padding:4px 6px;background:#173244;color:#fff;border:1px solid #718796;border-radius:8px;font-size:12px; }
+.labor-inspection-group span { min-width:0;max-width:220px; }
+.labor-inspection-group button { min-height:44px;min-width:44px;font-size:12px; }
+
+.labor-drawing-stack { background:#dce3e8!important; overscroll-behavior:contain; outline:none; }
+.labor-drawing-stack > section { margin:0 0 12px; background:white; }
+.labor-drawing-stack > section > img { display:block; width:100%; height:auto; }
+.labor-drawing-stack > section > p { margin:0; padding:24px; color:#172d3d; }
+.labor-drawing-stack > section.is-unavailable { min-height:160px; }
+
+/* Labor pricing allocation keeps the requested quantity in view. */
+.labor-workbench .labor-pricing-quantity { display:inline-flex; align-items:center; gap:6px; margin-left:14px; white-space:nowrap; font-size:inherit; }
+.labor-workbench .labor-pricing-quantity input { width:6rem; min-width:0; padding:5px 7px; text-align:right; background:white; border:1px solid #a9bbc9; }
+.labor-workbench .labor-pricing-quantity input[aria-invalid="true"] { border-color:#ef9090; }
+@media (max-width:600px) {
+  .labor-workbench .labor-pricing-quantity { margin:6px 0 0; display:flex; width:max-content; max-width:100%; }
+  .labor-workbench .labor-pricing-quantity input { min-height:36px; }
+}
+
+/* Keep operation editing the main desktop work area inside the real application shell. */
+@media (min-width:1024px) and (min-height:700px) {
+  body[data-view-mode="desktop"] > main:has(.labor-workbench:not(.labor-supplemental)) { padding-top:6px; padding-bottom:6px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) { padding:7px 10px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-toolbar { gap:5px 7px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-toolbar h1 { font-size:18px; line-height:1.2; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-document-controls { gap:5px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) :is(.labor-toolbar button,.labor-drawing,.labor-status button,.rfq-section-hold button,.labor-supplemental-nav button) { padding:4px 7px; min-height:28px; line-height:1.25; border-radius:4px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-context { margin:4px 0; line-height:1.35; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-pricing-quantity input { padding:3px 6px; }
+  body[data-view-mode="desktop"] .labor-control-strip { display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; margin:0 0 5px; min-width:0; }
+  body[data-view-mode="desktop"] .labor-control-strip .rfq-section-hold { flex:0 1 auto; margin:0; padding:0; border:0; gap:6px; }
+  body[data-view-mode="desktop"] .labor-control-strip .rfq-section-hold:has(:is(input,.rfq-hold-status,[role="alert"])) { flex:1 1 100%; }
+  body[data-view-mode="desktop"] .labor-control-strip .rfq-section-hold input { padding:5px 7px; min-width:220px; width:auto; }
+  body[data-view-mode="desktop"] .labor-control-strip .labor-package-controls { min-width:0; flex:0 1 auto; }
+  body[data-view-mode="desktop"] .labor-control-strip .labor-package-controls:has(details[open]) { flex:1 1 100%; order:2; }
+  body[data-view-mode="desktop"] .labor-control-strip .rfq-package-documents { margin:0; padding:4px 8px; color-scheme:light; color:#183247; background:#edf4f8; border-color:#a9bbc9; }
+  body[data-view-mode="desktop"] .labor-control-strip .rfq-package-documents :is(summary,small) { color:#245b78; }
+  body[data-view-mode="desktop"] .labor-control-strip .rfq-package-documents [role="status"] { color:#7b3d0a; }
+  body[data-view-mode="desktop"] .labor-control-strip .labor-status { flex:1 1 360px; min-width:0; margin:0; min-height:28px; gap:6px; }
+  body[data-view-mode="desktop"] .labor-control-strip .labor-status [role="status"] { flex:1 1 220px; min-width:0; line-height:1.3; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) > .labor-grid-scroll { flex:1 0 50%; min-height:300px; max-height:none; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-grid th { padding:5px; line-height:1.2; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-grid .labor-section-row th { position:static; padding:4px 5px; font-size:13px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-grid .labor-section-row .labor-materials-kit-heading { padding:0; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-materials-kit-toggle { min-height:28px; padding:4px 8px; font-size:13px; }
+
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-grid td { padding:2px 5px; vertical-align:middle; line-height:1.25; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-grid :is(input,textarea) { padding:3px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-grid textarea { min-height:25px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-actions > [data-action="options"] { width:30px; height:28px; min-height:28px; padding:0; font-size:18px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-summary { padding:5px 7px; margin-top:5px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-summary-row { gap:4px 10px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-summary-row + .labor-summary-row { padding-top:4px; margin-top:4px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-summary input { padding:2px 4px; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-audit { gap:5px 12px; padding-top:4px; background:#f3f6f9; }
+  body[data-view-mode="desktop"] .labor-workbench:not(.labor-supplemental) .labor-supplemental-nav { padding:0; }
+}
+
+/* Labor uses the same focused shell allocation as Materials. No view value or
+   global shell source is changed; inactive/cached work areas do not match. */
+@media screen {
+ body:has(#home.active .workspace-home.active .labor-workbench){grid-template-rows:minmax(0,1fr) auto}
+ body:has(#home.active .workspace-home.active .labor-workbench)>header.dle-app-header{display:none}
+ body:has(#home.active .workspace-home.active .labor-workbench)>main{grid-row:1!important;margin:0;padding:6px 8px;min-height:0}
+ body:has(#home.active .workspace-home.active .labor-workbench)>footer{grid-row:2!important}
+ body:has(#home.active .workspace-home.active .labor-workbench) main :is(#home.active,.workspace-home.active),
+ body:has(#home.active .workspace-home.active .labor-workbench) .workspace-home.active>div:has(>.labor-workbench){height:100%;min-height:0}
+ .labor-workbench .labor-toolbar{gap:4px 6px}
+ .labor-workbench .labor-toolbar h1{font-size:15px;line-height:1.2}
+ .labor-workbench .labor-toolbar button,.labor-workbench .labor-document-controls a{font-size:12px;padding:4px 7px;min-height:29px}
+ .labor-workbench .labor-context{margin:3px 0;font-size:12px;line-height:1.3}
+ .labor-workbench .labor-control-strip{margin-bottom:3px}
+ .labor-workbench .labor-status{font-size:12px}
+}
+@media screen and (min-width:761px){
+ body:has(#home.active .workspace-home.active .labor-workbench) .labor-workbench:not(.labor-supplemental){height:100%;min-height:0;display:flex;flex-direction:column;padding:6px 8px;box-sizing:border-box}
+ body:has(#home.active .workspace-home.active .labor-workbench) .labor-workbench:not(.labor-supplemental)>:not(.labor-grid-scroll){flex-shrink:0}
+ body:has(#home.active .workspace-home.active .labor-workbench) .labor-workbench:not(.labor-supplemental)>.labor-grid-scroll{flex:1 1 auto;min-height:260px;max-height:none}
+ .labor-workbench:not(.labor-supplemental) .labor-summary{padding:4px 7px;margin-top:4px}
+ .labor-workbench:not(.labor-supplemental) .labor-summary-row{gap:3px 9px}
+ .labor-workbench:not(.labor-supplemental) .labor-summary-row>span:has([data-total="unit"]){padding:4px 8px;gap:6px 10px}
+ .labor-workbench:not(.labor-supplemental) [data-total="unit"]{font-size:21px}
+ .labor-workbench:not(.labor-supplemental) .labor-audit{gap:4px 10px;padding-top:3px}
+}
+
+@media screen and (max-width:760px){.labor-workbench .labor-document-controls :is(button,a){min-height:44px}}

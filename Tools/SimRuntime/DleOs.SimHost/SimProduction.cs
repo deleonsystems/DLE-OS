@@ -10,6 +10,8 @@ internal sealed partial class SimProductionService(SimStateStore state,SimOperat
     private readonly SimProductionStore store=new(operations.DatabasePath);
     internal Func<DateTimeOffset> UtcNow {get;set;}=()=>DateTimeOffset.UtcNow;
     internal static string Hash(object value)=>Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value,Json)));
+    internal static bool CanReviewQuality(SimPersona actor)=>actor.Can("quality.review");
+    private static void QualityPermission(SimPersona actor){if(!CanReviewQuality(actor))throw new SimOrderEntryPermissionException();}
     private static void Permission(SimPersona actor,bool write){if(!actor.Can(write?"production.manage":"production.view"))throw new SimOrderEntryPermissionException();}
     private static void Require(bool valid,string code,string message){if(!valid)throw KittingCaseProblem.Conflict(code,message);}
     internal static string Status(string material,bool validTraveler)=>material switch{
@@ -42,6 +44,8 @@ internal sealed partial class SimProductionService(SimStateStore state,SimOperat
         Require(labor.Operations.Select(o=>o.Id).Distinct().Count()==labor.Operations.Length&&labor.Operations.All(o=>!string.IsNullOrWhiteSpace(o.Id)),
             "production_source_identity","Frozen Labor operation identities must be unique and nonempty.");
         var manufacturing=baseline.Definition.Manufacturing;
+        Require(!SimRfqIntakeStore.RfqOnlyDefinition(manufacturing),"production_reference_scope",
+            "The engineering reference is accepted for RFQ only. Complete production technical review before production.");
         var authorityIds=new[]{manufacturing.GoverningDocumentId,baseline.Definition.Materials.Candidate.GoverningDocumentId}
             .Concat(manufacturing.SupportingDocumentIds).Concat(manufacturing.SubassemblyDocumentIds).Concat(manufacturing.TechnicalDocumentIds).ToHashSet(StringComparer.Ordinal);
         var documentsInPackage=manufacturing.Package.Documents.Concat(baseline.Definition.Materials.Package.Documents)

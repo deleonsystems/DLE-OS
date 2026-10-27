@@ -145,3 +145,6 @@
 .job-compact-viewer [data-jump-preview] iframe{display:block;width:400px;height:300px;border:0;transform:scale(.32);transform-origin:0 0;pointer-events:none}
 .job-compact-viewer .job-slide-jump-label{display:grid;gap:6px;min-width:0;overflow-wrap:anywhere}
 .job-compact-viewer [data-jump-status]{font-size:11px;color:#c5d5e0}
+
+/* Review state accompanies the existing viewer/editor; no separate contribution form. */
+.production-pending-stamp{flex:none;margin:0;padding:5px 10px;background:#fff2cc;color:#493900;font:600 13px/1.3 Arial,sans-serif;border-block:1px solid #c2a447}

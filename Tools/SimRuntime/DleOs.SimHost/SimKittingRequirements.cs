@@ -119,6 +119,8 @@ internal sealed partial class SimKittingRequirementsProvider(SimRfqIntakeStore i
             "TECHNICAL_SOURCE", "This adapter requires a single accepted order line and its frozen quoted technical definition.");
         var orderLine = package.Facts.Lines[0];
         var baseline = package.TechnicalSource!.Baseline!;
+        Require(!SimRfqIntakeStore.RfqOnlyDefinition(baseline.Definition.Manufacturing),
+            "PRODUCTION_REVIEW_REQUIRED", "The engineering reference is accepted for RFQ only. Complete production technical review before Kitting release.");
         var acceptedBom = baseline.Definition.Materials;
         var candidate = acceptedBom.Candidate;
         Require(record.Customer.CustomerNumber == line.CustomerNumber && record.Customer.CustomerName == line.CustomerName &&

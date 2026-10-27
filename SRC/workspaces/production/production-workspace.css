@@ -345,3 +345,8 @@ body[data-workspace-view="production"] main{margin-top:12px}
 .production-operation-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.production-operation-choices small{display:block;color:#b8d0eb;margin-top:5px}.production-overview button:focus-visible,.production-job-table button:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}#productionOperationPreview:not(:empty){margin-top:20px;padding:16px;border:1px solid #526b8d;border-radius:8px}
 @media(max-width:800px){.production-workspace-controls{grid-template-columns:1fr}.production-progress{grid-template-columns:1fr}.production-job-table{min-width:780px}}
 .production-overview-route ol{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 20px;margin:0;padding:0}.production-overview-route li{border-bottom:1px solid #26384e;font-size:13px}
+
+/* Keep the jobs table scrolling inside the tablet viewport. */
+.production-workspace{grid-template-columns:minmax(0,1fr)}
+.production-workspace>[data-production-queue-view],.production-operator-queue,.production-table-scroll{min-width:0}
+.production-workspace [data-production-queue-view],.production-operator-queue{grid-template-columns:minmax(0,1fr)} .production-job-list{min-width:0}

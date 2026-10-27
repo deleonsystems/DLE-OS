@@ -11,16 +11,31 @@
   <section id="technicalReviewQueueView" class="technical-review-view" aria-labelledby="technicalReviewQueueTitle">
     <div class="technical-review-section-heading">
       <div><p class="technical-review-eyebrow">PRIMARY WORKLIST</p><h2 id="technicalReviewQueueTitle">Review Queue</h2></div>
-      <button type="button" class="technical-review-secondary" data-technical-review-action="refresh">Refresh queue</button>
+      <div>
+
+        <button type="button" class="technical-review-secondary" data-technical-review-action="refresh">Refresh queue</button>
+      </div>
     </div>
     <div class="technical-review-queue-summary">
       <strong id="technicalReviewQueueCount">0</strong><span>open items requiring technical review</span>
     </div>
     <div id="technicalReviewQueue" class="technical-review-queue" aria-live="polite"></div>
+    <section id="technicalReviewPartRequestQueue" aria-label="Part requests"></section>
+    <section id="technicalReviewLibraryBomQueue" aria-label="Library BOM reviews"></section>
   </section>
+
+  <section id="technicalReviewPartRequestView" class="technical-review-view" hidden aria-label="Part request"></section>
 
   <section id="technicalReviewDetailView" class="technical-review-view" hidden aria-labelledby="technicalReviewDetailTitle">
     <button type="button" class="technical-review-back" data-technical-review-action="back">← Back to Technical Review queue</button>
     <div id="technicalReviewDetail"></div>
+  </section>
+  <section id="technicalReviewLibraryView" class="technical-review-view" hidden aria-labelledby="technicalReviewLibraryTitle">
+    <div class="technical-review-card">
+      <h2 id="technicalReviewLibraryTitle" tabindex="-1">Assembly Library</h2>
+      <p>A place to prepare drawing, prints, and BOM references for known assemblies, outside an individual intake or RFQ.</p>
+      <p>This workspace is being planned. No assemblies or references are added here yet.</p>
+      <button type="button" class="technical-review-back" data-technical-review-action="library-back">Back to Technical Review</button>
+    </div>
   </section>
 </main>

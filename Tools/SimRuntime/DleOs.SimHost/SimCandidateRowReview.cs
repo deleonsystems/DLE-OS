@@ -21,6 +21,9 @@ internal static class SimCandidateRowReview
     {
         var reasons = new List<string>();
         var blockers = new List<string>();
+        var selectedAlternate=SimApprovedAlternateChoices.Valid(row);
+        if(row.SelectedApprovedAlternate is not null&&!selectedAlternate)blockers.Add("Selected alternate is stale, changed or no longer approved; choose a current Approved P/N.");
+        if (row.ComponentType == "UNKNOWN") blockers.Add("Choose a component type before accepting this row.");
         if (row.SourcePartNumberReview?.Current.Status == "CONFIRMED" && !row.Confirmed)
             reasons.Add("Source P/N identity is confirmed; the whole row still requires Accept.");
         if (row.SourcePartNumberReview?.Current is { Status: "CONFIRMED", Basis: "MFG" } && row.ManufacturerIdentity is { } sourceIdentity &&
@@ -31,15 +34,15 @@ internal static class SimCandidateRowReview
         if (row.SourcePartNumberReview?.Current.Status == "CONFIRMED" && !SimCandidateBomProvider.SourceIdentityMatches(row))
             blockers.Add("Source P/N identity changed; confirm it again before accepting.");
         if (SimCandidateBomProvider.Fields.Any(f => !row.Values.TryGetValue(f, out var v) || v is null || v.Length > 2000) ||
-            !int.TryParse(row.Values.GetValueOrDefault("lineNumber"), out var line) || line < 1 ||
-            !SimCandidateBomProvider.ValidQuantity(row.Values.GetValueOrDefault("quantity"),row.ComponentType=="DNP") ||
+            !SimPreparation.LiteralFind(row,row.Values.GetValueOrDefault("lineNumber")) ||
+            !SimCandidateBomProvider.ValidQuantity(row.Values.GetValueOrDefault("quantity"),row.ComponentType=="DNP" || SimRfqIntakeStore.LibraryOptionalZero(row)) ||
             (row.ComponentType!="DNP" && string.IsNullOrWhiteSpace(row.Values.GetValueOrDefault("partNumber"))))
             blockers.Add("Required BOM values are missing or invalid; correct them in details.");
         // A reviewed DLE build identity satisfies identity review for subassemblies only.
         // Keep the manufacturer evidence/stale flag intact; all other row and source guards still apply.
         if (row.IdentityBasis == "CUSTOMER_PN" && !SimCandidateBomProvider.HasCustomerIdentity(row))
             blockers.Add("Customer P/N identity is missing or changed; confirm it in Approved P/Ns.");
-        if (row.ComponentType!="DNP" && !HasConfirmedSubassemblyIdentity(row) && row.IdentityBasis != "CUSTOMER_PN" && row.ManufacturerIdentity is { } m)
+        if (!selectedAlternate && row.ComponentType!="DNP" && !HasConfirmedSubassemblyIdentity(row) && row.IdentityBasis != "CUSTOMER_PN" && row.ManufacturerIdentity is { } m)
         {
             if (m.Stale) blockers.Add("Manufacturer reconciliation is stale after a governing edit; rebuild/review the candidate.");
             if (m.Proposals.Any(p => m.Decision(p.Id) == "PROPOSED")) reasons.Add("Manufacturer identity proposals need review.");
@@ -67,6 +70,8 @@ internal static class SimCandidateRowReview
             row.ReviewedAtUtc, row.Corrections, row.ManufacturerIdentity, row.Alternates, row.AlternateRevision,
             row.ComponentType, row.ComponentTypeRevision, row.WholeRowHistory, row.AssemblyIdentity, row.AssemblyIdentityHistory };
         var tokenNode=JsonSerializer.SerializeToNode(tokenData)!;
+        if(row.SelectedApprovedAlternate is not null)tokenNode["SelectedApprovedAlternate"]=JsonSerializer.SerializeToNode(row.SelectedApprovedAlternate);
+        if(row.ApprovedAlternateSelectionHistory is not null)tokenNode["ApprovedAlternateSelectionHistory"]=JsonSerializer.SerializeToNode(row.ApprovedAlternateSelectionHistory);
         if(row.PrimaryIdentity is not null)tokenNode["PrimaryIdentity"]=JsonSerializer.SerializeToNode(row.PrimaryIdentity);
         if(row.SourcePartNumberReview is not null)tokenNode["SourcePartNumberReview"]=JsonSerializer.SerializeToNode(row.SourcePartNumberReview);
         if(row.ComponentType=="DNP"&&!row.Confirmed)reasons.Add("DNP disposition needs explicit row Accept.");

@@ -38,8 +38,8 @@ internal sealed partial class SimRfqIntakeStore
         await gate.WaitAsync();
         try
         {
-            var record = (await ReadDatasetAsync()).Records.SingleOrDefault(r => r.IntakeId == id && RfqEligible(r))
-                ?? throw SimRfqIntakeProblem.NotFound("RFQ_NOT_READY", "Qualified RFQ not found.");
+            var record = await RequireRfqRecord(id);
+            RequireRequestedRfqDepartment(record,"labor");
             var view = LaborView(RfqView(record, await ReadRfqLanes()));
             if(view.Rfq.Lanes.Labor.Status=="COMPLETE")throw SimRfqIntakeProblem.Conflict("LABOR_COMPLETE","Use Revise Labor before attaching images.");
             if(LaborRevisionBlocker(view,(await ReadDatasetAsync()).Records) is {} commitment)throw SimRfqIntakeProblem.Conflict("LABOR_COMMITTED",commitment);
@@ -81,8 +81,7 @@ internal sealed partial class SimRfqIntakeStore
         await gate.WaitAsync();
         try
         {
-            var record = (await ReadDatasetAsync()).Records.SingleOrDefault(r => r.IntakeId == id)
-                ?? throw SimRfqIntakeProblem.NotFound("RFQ_NOT_FOUND", "RFQ not found.");
+            var record = (await ReadDatasetAsync()).Records.SingleOrDefault(r => r.IntakeId == id) ?? await RequireRfqRecord(id);
             var visual = await VerifiedLaborVisual(record, documentId);
             return (visual, await documents.Bytes(record.RequestCorrelationId, documentId));
         }
@@ -145,7 +144,7 @@ internal static partial class SimRfqIntakeEndpoints
         });
         app.MapGet("/api/sim/rfqs/{id}/labor/visuals/{documentId}", async Task<IResult> (string id, string documentId, HttpContext context) =>
         {
-            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.view"); if (denied is not null) return denied;
+            var denied = DeniedTechnicalReview(context, state, personas, "rfq.view"); if (denied is not null) return denied;
             try
             {
                 var result = await store.OpenLaborVisual(id, documentId);

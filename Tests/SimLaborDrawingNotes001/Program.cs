@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
+if(args.Contains("--inspection-symbols")){await InspectionSymbolTests.Run(Path.GetFullPath(args[0]));return;}
 if(args.Contains("--commission")){await CommissionTests.Run(Path.GetFullPath(args[0]),args[1]);return;}
 if(args.Contains("--exclusions")){await ExclusionTests.Run(Path.GetFullPath(args[0]));return;}
 if(args.Contains("--bom")){await BomSlideTests.Run(Path.GetFullPath(args[0]));return;}

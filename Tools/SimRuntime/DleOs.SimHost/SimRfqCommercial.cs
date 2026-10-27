@@ -12,7 +12,9 @@ internal sealed record SimRfqCommercialRequest(string RequestId,int ExpectedRevi
 internal sealed record SimRfqListItem(string IntakeId,SimRfqIntakeCustomer Customer,SimRfqIntakeAssembly[] Assemblies,
     string IntakeStatus,DateTimeOffset CreatedAt,string Scope,bool WorkbenchEligible,string WorkStatus,string Bucket,string Status,
     string? QuoteNumber,decimal? QuoteTotal,DateTimeOffset? ApprovedAt,bool RevisionNeeded,string MaterialsStatus,string LaborStatus,
-    SimRfqCommercial Commercial, SimRfqHistory? History = null);
+    SimRfqCommercial Commercial, SimRfqHistory? History = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimRfqSectionHold? MaterialsHold = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimRfqSectionHold? LaborHold = null, SimLibraryRfqBinding? LibraryRfq = null,int BomUpdateContractVersion=1, SimEstimateSubmissionView? EstimateSubmission=null,SimQuoteManualSummary? ManualQuote=null);
 
 internal static class SimRfqCommercialClock
 {
@@ -36,13 +38,18 @@ internal sealed partial class SimRfqIntakeStore
         var c=lanes.Commercial??new();var review=FinalReviewView(r,lanes);
         var latest=review.Approvals.LastOrDefault();
         var governing=c.ApprovalId is null?latest:review.Approvals.SingleOrDefault(a=>a.Id==c.ApprovalId&&a.Version==c.ApprovalVersion);
-        var eligible=RfqEligible(r);
+        var eligible=r.LibraryRfq is not null || RfqEligible(r);
         var work=!eligible?(r.TechnicalReview is null?"Intake":"Technical Review"):
             review.ApprovalCurrent?"Approved — Not Submitted":
             lanes.Materials.Status=="COMPLETE"&&lanes.Labor.Status=="COMPLETE"?"Final Review":
             lanes.Materials.Status=="NOT_STARTED"&&lanes.Labor.Status=="NOT_STARTED"?"Ready to Quote":
             lanes.Materials.Status!="COMPLETE"&&lanes.Labor.Status!="COMPLETE"?"Materials & Labor":
             lanes.Materials.Status!="COMPLETE"?"Materials":"Labor";
+        if(r.LibraryRfq is not null){
+            var materialsRequested=r.DeLeonScope!="LABOR_ONLY";var laborRequested=r.DeLeonScope!="MATERIAL_ONLY";
+            var materialDone=!materialsRequested||lanes.Materials.Status=="COMPLETE";var laborDone=!laborRequested||lanes.Labor.Status=="COMPLETE";
+            work=materialDone&&laborDone?"Estimates complete":(!materialsRequested||lanes.Materials.Status=="NOT_STARTED")&&(!laborRequested||lanes.Labor.Status=="NOT_STARTED")?"Ready to Quote":!materialDone&&!laborDone?"Materials & Labor":!materialDone?"Materials":"Labor";
+        }
         var effective=SimRfqCommercialClock.EffectiveStatus(c,now);
         var status=effective switch {"OPEN"=>work,"SUBMITTED"=>c.ExpiresAt is {} expiry&&SimRfqCommercialClock.AddCalendarDays(now,7)>=expiry?"Expiring Soon":"Submitted",
             "AWARDED"=>"Awarded","EXPIRED"=>"Expired","LOST"=>"Lost","CLOSED"=>"Closed",_=>work};
@@ -51,24 +58,28 @@ internal sealed partial class SimRfqIntakeStore
         return new(r.IntakeId,governing is null?r.Customer:r.Customer with{CustomerName=governing.Summary.Customer},assemblies,r.Status,r.CreatedAtUtc,r.DeLeonScope,eligible,work,
             SimRfqCommercialClock.Completed(effective)?"HISTORY":effective=="SUBMITTED"?"SUBMITTED":"ACTIVE",status,
             governing is null?null:SimQuotationPdf.QuoteNumber(governing),governing?.Summary.QuoteTotal??review.Summary.QuoteTotal,
-            governing?.ApprovedAt,revisionNeeded,lanes.Materials.Status,lanes.Labor.Status,c);
+            governing?.ApprovedAt,revisionNeeded,lanes.Materials.Status,lanes.Labor.Status,c,MaterialsHold:lanes.MaterialsHold,LaborHold:lanes.LaborHold,LibraryRfq:r.LibraryRfq);
     }
     internal async Task<SimRfqListItem[]> ReadRfqCommercialList(DateTimeOffset? clock=null)
     {
         await gate.WaitAsync();
         try{
             var lanes=await ReadRfqLanes();var now=clock??DateTimeOffset.UtcNow;
-            var records=(await ReadDatasetAsync()).Records;
-            return records.Where(r=>r.Environment=="SIM"&&r.IntakeType=="NEW_QUOTE_REQUEST")
-                .Select(r=>SimRfqHistoryProjection.Apply(CommercialView(r,lanes.GetValueOrDefault(r.IntakeId)??new(new(),new()),now),records)).ToArray();
+            var records=(await ReadDatasetAsync()).Records.Concat((await RfqRecords()).Where(r=>r.LibraryRfq is not null)).ToArray();
+            var result=new List<SimRfqListItem>();foreach(var r in records.Where(r=>r.Environment=="SIM"&&r.IntakeType=="NEW_QUOTE_REQUEST"&&r.QuoteComposition is null)){var lane=lanes.GetValueOrDefault(r.IntakeId)??new(new(),new());var item=SimRfqHistoryProjection.Apply(CommercialView(r,lane,now),records);if(r.LibraryRfq is not null){var submission=await EstimateSubmissionView(r,lane,null);item=item with{EstimateSubmission=submission,Status=submission.Current?"Estimate submitted for quote review":item.Status,WorkStatus=submission.Current?"Estimate submitted for quote review":item.WorkStatus};var manual=await ManualQuoteSummary(r,lane);if(manual is not null)item=item with{ManualQuote=manual,Status=manual.MatchesCurrentEstimate?"Sent manually":"Sent manually - working changes"};}result.Add(item);}return result.ToArray();
         }finally{gate.Release();}
+    }
+    internal async Task<object> ReadRfqCommercialQueue()
+    {
+        var items=await ReadRfqCommercialList();
+        await gate.WaitAsync();try{return new{items,unavailableItems=(await RfqEntries()).Unavailable,parentGroups=EstimateParentGroups((await ReadDatasetAsync()).Records,items)};}finally{gate.Release();}
     }
     internal async Task<SimRfqListItem> TransitionRfqCommercial(string id,SimRfqCommercialRequest request,SimPersona persona,DateTimeOffset? clock=null)
     {
         await gate.WaitAsync();
         try{
-            var r=(await ReadDatasetAsync()).Records.SingleOrDefault(r=>r.IntakeId==id&&r.Environment=="SIM"&&r.IntakeType=="NEW_QUOTE_REQUEST")
-                ??throw SimRfqIntakeProblem.NotFound("RFQ_NOT_FOUND","RFQ not found.");
+            var r=(await ReadDatasetAsync()).Records.SingleOrDefault(r=>r.IntakeId==id&&r.Environment=="SIM"&&r.IntakeType=="NEW_QUOTE_REQUEST") ?? await RequireRfqRecord(id);
+            RequireCustomerQuoteDeliveryAvailable(r);
             var lanes=await ReadRfqLanes();var lane=lanes.GetValueOrDefault(id)??new(new(),new());var c=lane.Commercial??new();var now=clock??DateTimeOffset.UtcNow;
             if(!Guid.TryParse(request.RequestId,out _)||request.Reason is null||request.Reason.Length>2000)
                 throw SimRfqIntakeProblem.BadRequest("COMMERCIAL_VALUES","Use a request ID and a reason up to 2000 characters.");
@@ -84,6 +95,7 @@ internal sealed partial class SimRfqIntakeStore
             if(action!="SUBMIT"&&(request.ApprovalId!=c.ApprovalId||request.ApprovalVersion!=c.ApprovalVersion))
                 throw SimRfqIntakeProblem.Conflict("COMMERCIAL_APPROVAL","Identify the governing commercial approval.");
             if(action=="SUBMIT"){
+                RequireRfqSectionsNotHeld(lane);
                 var review=FinalReviewView(r,lane);var approval=review.Approvals.LastOrDefault();
                 if(!review.ApprovalCurrent||approval is null||approval.Id!=request.ApprovalId||approval.Version!=request.ApprovalVersion)
                     throw SimRfqIntakeProblem.Conflict("COMMERCIAL_APPROVAL","Submit the exact current approved quotation.");
@@ -121,9 +133,11 @@ internal static partial class SimRfqIntakeEndpoints
 {
     private static void MapRfqCommercial(WebApplication app,SimStateStore state,SimRfqIntakeStore store,SimPersonaSessionStore personas)
     {
+        MapEstimateSubmissions(app,state,store,personas);
+        MapQuoteCopies(app,state,store,personas);
         app.MapGet("/api/sim/rfqs/commercial",async Task<IResult>(HttpContext context)=>{
-            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.view");if(denied is not null)return denied;
-            return Results.Json(new{items=await store.ReadRfqCommercialList()});
+            var denied=DeniedTechnicalReview(context,state,personas,"rfq.view");if(denied is not null)return denied;
+            return Results.Json(await store.ReadRfqCommercialQueue());
         });
         app.MapPost("/api/sim/rfqs/{id}/commercial",async Task<IResult>(string id,SimRfqCommercialRequest request,HttpContext context)=>{
             var denied=DeniedTechnicalReview(context,state,personas,"technical_review.disposition");if(denied is not null)return denied;

@@ -1,9 +1,9 @@
 (function registerWorkAreaHome(window, document) {
   "use strict";
 
-  const MOBILE_READY_WORKSPACE_IDS = new Set(["operations-center", "invoice-history", "rfq-quoting"]);
-  const HOME_WORKSPACE_ORDER = ["technical-review", "rfqs", "order-entry", "operations-center",
-    "quality", "kitting", "purchasing", "receiving", "production", "shipping", "invoice-history"];
+  const MOBILE_READY_WORKSPACE_IDS = new Set(["operations-center", "invoice-history", "rfq-quoting", "assembly-library", "vendors"]);
+  const HOME_WORKSPACE_ORDER = ["technical-review", "assembly-library", "rfqs", "order-entry", "operations-center",
+    "quality", "kitting", "purchasing", "vendors", "receiving", "production", "shipping", "invoice-history"];
   const INTAKE_WIZARD_HOME_ENTRY = Object.freeze({
     id: "rfq-quoting",
     home: Object.freeze({
@@ -39,7 +39,7 @@
     const firstName = String(session.user?.displayName || "").trim().split(/\s+/)[0] || "there";
     const workAreas = window.DleWorkspaceRegistry.all().filter(workspace => {
       const assignment = workspace.home;
-      return assignment && (!workspace.simOnly || isSimIntakeEnabled()) && capabilities.can(assignment.requiredPermission);
+      return assignment && (!workspace.simOnly || isSimIntakeEnabled()) && (capabilities.can(assignment.requiredPermission)||(workspace.id==='rfqs'&&capabilities.can('rfq.view')));
     });
     workAreas.sort((a, b) => {
       const rank = id => {
@@ -48,7 +48,7 @@
       };
       return rank(a.id) - rank(b.id);
     });
-    const homeEntries = isSimIntakeEnabled()
+    const homeEntries = isSimIntakeEnabled() && capabilities.can("rfq.intake.create")
       ? [INTAKE_WIZARD_HOME_ENTRY, ...workAreas]
       : workAreas;
 
@@ -115,7 +115,8 @@
         '<span><strong>' + escapeHtml(homeLabel(workspace)) + '</strong><small>' + escapeHtml(workspace.home.description) + '</small></span></button>';
     };
     const materials = ["kitting", "purchasing", "receiving"].map(card).join("");
-    const main = ["rfq-quoting", "technical-review", "rfqs", "order-entry", "quality"].map(card).join("");
+    const vendors = card("vendors");
+    const main = ["rfq-quoting", "technical-review", "assembly-library", "rfqs", "order-entry", "quality"].map(card).join("");
     const production = ["production", "quality-inspection"].map(card).join("");
     const downstream = card("shipping");
     const supporting = ["operations-center", "invoice-history"].map(card).join("");
@@ -124,8 +125,8 @@
     root.innerHTML = '<section class="work-area-home-hero"><p class="work-area-home-kicker">DLE-OS HOME</p>' +
       '<h1>' + escapeHtml(greeting()) + ', ' + escapeHtml(firstName) + '</h1><p>What are you working on?</p></section>' +
       '<p class="home-flow-help" id="homeFlowHelp">Navigation map. Lines show general process relationships, not job status or required steps.</p>' +
-      '<section class="home-flow-map" aria-label="Assigned work areas" aria-describedby="homeFlowHelp">' +
-      '<svg class="home-flow-lines" aria-hidden="true" focusable="false"></svg>' + main +
+      '<section class="home-flow-map' + (vendors ? ' has-vendors' : '') + '" aria-label="Assigned work areas" aria-describedby="homeFlowHelp">' +
+      '<svg class="home-flow-lines" aria-hidden="true" focusable="false"></svg>' + main + vendors +
       (materials ? '<section class="home-flow-materials" aria-label="Materials"><h2>Materials</h2>' + materials + '</section>' : '') +
       (production ? '<section class="home-flow-production" aria-label="Production"><h2>Production</h2>' + production + '</section>' : '') +
       downstream + (supporting ? '<aside class="home-flow-support" aria-label="Overview and history">' + supporting + '</aside>' : '') +
@@ -152,7 +153,9 @@
         const a = rect(from), b = rect(to);
         if (!a || !b) return; // Never connect around a missing / unauthorized module.
         let d;
-        if (kind === "left" || kind === "forward-left") d = `M${a.left},${a.y} H${b.right+2}`;
+        if (kind === "reference") d = `M${a.right},${a.y} H${b.left}`;
+        else if (kind === "left" || kind === "forward-left") d = `M${a.left},${a.y} H${b.right+2}`;
+        else if (kind === "vendor-out") d = `M${a.right},${b.y} H${b.left-2}`;
         else if (kind === "return") {
           const gap = (a.right+b.left)/2, target = b.bottom-18;
           d = `M${a.right},${a.y} H${gap} V${target} H${b.left-2}`;
@@ -160,19 +163,25 @@
           const middle = (a.bottom+b.top)/2;
           d = `M${a.x},${a.bottom} V${middle} H${b.x} V${b.top-2}`;
         }
-        paths.push('<path data-from="'+from+'" data-to="'+to+'" class="home-flow-edge'+(kind === "left" ? ' conditional' : '')+'" d="'+d+'"/>');
+        paths.push('<path data-from="'+from+'" data-to="'+to+'" class="home-flow-edge'+(kind === "left" ? ' conditional' : kind === 'reference' ? ' reference' : '')+'" d="'+d+'"/>');
       };
       edge("rfq-quoting", "technical-review");
+      edge("technical-review", "assembly-library", "reference");
       edge("technical-review", "rfqs");
       edge("technical-review", "order-entry");
       edge("order-entry", "quality");
       edge("quality", "kitting");
       edge("kitting", "purchasing", "left");
-      edge("purchasing", "receiving");
+      if (vendors) {
+        edge("purchasing", "vendors", "forward-left");
+        edge("vendors", "receiving", "vendor-out");
+      } else edge("purchasing", "receiving");
       edge("receiving", "kitting", "return");
       edge("kitting", "production");
       edge("production", "quality-inspection", "forward-left");
       edge("quality-inspection", "shipping");
+      const review=rect('technical-review'),library=rect('assembly-library');
+      if(review&&library)paths.push('<text class="home-library-link-label" x="'+((review.right+library.left)/2)+'" y="'+(review.y-8)+'" text-anchor="middle">Mgd by Tech Rvw</text>');
       svg.setAttribute("viewBox", `0 0 ${bounds.width} ${bounds.height}`);
       svg.innerHTML = '<defs><marker id="homeFlowArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#60a5fa"/></marker></defs>' + paths.join("");
     };

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js',import.meta.url),'utf8');
-const names=['renderWorkflowStep','unifiedEligible','resumeWorkflow','packageDraft','flowButton','renderUnifiedGoverning','isBomSource','bomSourceLabel','escapeHtml'];
+const names=['renderWorkflowStep','unifiedEligible','resumeWorkflow','packageDraft','savedPackageProjection','flowButton','renderUnifiedGoverning','isBomSource','bomSourceLabel','escapeHtml'];
 const parts=names.map(name=>{const start=source.indexOf('  function '+name+'(');const line=source.slice(start,source.indexOf('\n',start));return line.trimEnd().endsWith('}')?line:source.slice(start,source.indexOf('\n  }',start)+4);});
 const state={selected:{record:{intakeType:'NEW_QUOTE_REQUEST',status:'TECHNICAL_REVIEW_IN_PROGRESS',technicalReview:{workflow:{}},technicalFiles:[{documentId:'pdf',name:'drawing.pdf',initialIdentification:{type:'DRAWING_AND_BOM'}},{documentId:'xls',name:'bom.xls',initialIdentification:{type:'BOM_ONLY'}}]}}};
 const c={state,renderDetail(){},packageMessage(){return ''}};vm.createContext(c);vm.runInContext(parts.join('\n'),c);

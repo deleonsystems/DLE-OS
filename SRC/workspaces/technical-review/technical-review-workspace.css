@@ -647,3 +647,97 @@
 @media(max-width:720px){#customerIdentityAmendment table,#customerIdentityAmendment tbody,#customerIdentityAmendment tr{display:block}#customerIdentityAmendment thead{display:none}#customerIdentityAmendment tr{border:1px solid #8799a8;border-radius:6px;margin:10px 0;padding:8px}#customerIdentityAmendment td{display:grid;grid-template-columns:95px minmax(0,1fr);gap:10px;border:0;padding:5px}#customerIdentityAmendment td::before{content:attr(data-label);font-weight:600;color:#b8c8da}}
 
 #customerIdentityAmendment .customer-identity-success{border-left:4px solid #4ade80;padding:4px 16px 16px;background:#14532d30}#customerIdentityAmendment .customer-identity-updated{line-height:1.9}#customerIdentityAmendment .customer-identity-editor{margin:24px 0}#customerIdentityAmendment .customer-identity-row{margin:10px 0;padding:10px;border:1px solid #52647a;border-radius:6px}#customerIdentityAmendment summary{cursor:pointer;padding:8px 0}#customerIdentityAmendment .customer-identity-row p{overflow-wrap:anywhere}
+
+.review-flow{display:grid;gap:16px}.review-flow>section>label{display:block;margin:10px 0}.review-flow>section>label select{display:block;width:min(100%,650px);padding:9px}.review-route{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.review-route [aria-pressed=true]{outline:2px solid #70caff}
+
+.review-flow{width:min(100%,1100px);margin:0 auto}.review-flow>section{box-sizing:border-box;width:100%;max-width:none;margin:0;padding:22px}.review-flow h3{font-size:22px}.review-flow button{font:inherit;border:1px solid #627e97;border-radius:6px;padding:10px 14px;background:#24394c;color:#eef7ff;cursor:pointer}.review-flow button:hover{background:#304e68}.review-flow button:focus-visible{outline:2px solid #80caff;outline-offset:2px}.review-flow button:disabled{opacity:.55;cursor:default}.review-flow .review-route [aria-pressed=true]{background:#245fd4}.review-flow>section>.technical-review-question{background:transparent;border:0;box-shadow:none;width:100%;max-width:none;padding:12px 0;margin:0}.review-flow details{min-width:0}.review-flow .package-table-scroll{max-width:100%;overflow:auto}@media(max-width:800px){.review-flow>section{padding:16px}.review-flow h3{font-size:20px}}
+/* Technical Review uses the shared QC slide viewer and flat organizer. */
+.review-draft-status{display:inline-flex;align-items:center;white-space:nowrap;font:600 12px/1.2 system-ui,sans-serif;color:#fae7ae;background:#493c21;border:1px solid #88713e;border-radius:5px;padding:6px 9px}
+.labor-organizer-flat .labor-organizer-tools{flex-wrap:wrap}
+.review-draft-form form label{display:block;margin:12px 0}
+.review-draft-form form input,.review-draft-form form textarea{box-sizing:border-box;width:100%;display:block;margin-top:5px;padding:9px;font:inherit}
+
+.review-draft-viewer>.labor-drawing-status[data-routine=true]{display:none}
+
+/* Manual BOM bulk review stays in the existing worksheet. */
+.candidate-bulk-toolbar{grid-column:1 / -1;border-top:1px solid #334155;padding-top:8px}
+.candidate-bulk-actions{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap}
+.candidate-bulk-actions label{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.candidate-bulk-actions [data-bulk-selected-count]{font-size:12px;color:#cbd5e1}
+.candidate-bulk-actions input[type=checkbox],.manual-line-content input[type=checkbox]{width:16px;min-width:16px;height:16px;margin:0;accent-color:#60a5fa}
+.candidate-bulk-notice{font-size:12px;color:#cbd5e1;margin:6px 0 0;line-height:1.4}
+.manual-line-content{display:grid;grid-template-columns:16px minmax(0,1fr);gap:5px;align-items:center}
+.manual-line-content input[data-manual-field]{min-width:0;width:100%;padding-inline:3px}
+.candidate-bulk-row-result{display:block;font-size:11px;line-height:1.4;margin-top:5px;overflow-wrap:anywhere;color:#cbd5e1}
+.candidate-bulk-row-result[data-bulk-row-status=BLOCKED]{color:#fbbf24}
+
+/* Manual source review uses the existing final BOM form. */
+.final-bom-review .final-bom-source-choice,
+.final-bom-review .final-bom-manual-confirm { display:flex; align-items:flex-start; gap:.6rem; margin:.8rem 0; }
+.final-bom-review .final-bom-source-choice input,
+.final-bom-review .final-bom-manual-confirm input { flex:0 0 auto; margin-top:.15rem; }
+.final-bom-review .final-bom-source-choice a { margin-left:auto; white-space:nowrap; }
+/* Assembly-level source-folder reference; document review remains independent. */
+.drawing-folder-link { margin: 12px 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; }
+.drawing-folder-summary, .drawing-folder-browser-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.drawing-folder-summary > span, .drawing-folder-browser-title > strong { flex: 1; min-width: 180px; overflow-wrap: anywhere; }
+.drawing-folder-link button { padding: 6px 10px; cursor: pointer; }
+.drawing-folder-link button:disabled { cursor: default; opacity: .6; }
+.drawing-folder-browser { border-top: 1px solid #cbd5e1; margin-top: 10px; padding-top: 10px; }
+.drawing-folder-browser nav, .drawing-folder-roots { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.drawing-folder-entries { max-height: 280px; overflow: auto; list-style: none; padding: 0; margin: 8px 0; }
+.drawing-folder-entries li { display: flex; align-items: center; gap: 10px; padding: 5px; border-bottom: 1px solid #e2e8f0; overflow-wrap: anywhere; }
+.drawing-folder-entries button { text-align: left; max-width: 100%; overflow-wrap: anywhere; }
+.drawing-folder-entries small, .drawing-folder-note, .drawing-folder-link > small { color: #475569; }
+.drawing-folder-browser [role="alert"] { color: #991b1b; }
+.technical-review-workspace .drawing-folder-link,
+.technical-review-workspace .drawing-folder-link :is(strong, span, p, li) { color: #0f172a; }
+.technical-review-workspace .drawing-folder-link button { border: 1px solid #94a3b8; border-radius: 6px; background: #fff; color: #1e3a5f; font: inherit; font-size: 13px; }
+.technical-review-workspace .drawing-folder-link button:hover,
+.technical-review-workspace .drawing-folder-link button:focus-visible { border-color: #2563eb; outline: 2px solid #93c5fd; outline-offset: 1px; }
+.technical-review-workspace .drawing-folder-link [data-drawing-folder="save"] { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.technical-review-workspace .drawing-folder-link [role="alert"] { color: #991b1b; }
+/* Keep source alternates visible before opening their decision panel. */
+.candidate-alternate-numbers { margin-top:8px; padding-top:5px; border-top:1px solid #475569; white-space:normal; overflow-wrap:anywhere; font-size:12px; }
+.candidate-alternate-numbers>small { display:block; color:#b8c6d6; }
+.candidate-alternate-numbers div>small { display:block; font-size:11px; color:#b8c6d6; }
+[data-candidate-leave-prompt]:focus { outline:2px solid #8fc8ff; outline-offset:3px; }
+.alternate-review-compact { max-width:600px; display:flex; flex-wrap:wrap; align-items:end; gap:8px; }
+.alternate-review-compact>label { margin:0!important; }
+.alternate-review-compact #alternateChoice { width:240px; height:32px; }
+.alternate-inline-actions { display:flex; gap:6px; }
+.alternate-review-compact>small,.alternate-review-compact>details { flex-basis:100%; }
+.alternate-review-compact details label { display:block; margin:8px 0; }
+.alternate-review-compact details input { max-width:100%; }
+
+/* Inline alternate review keeps the source row and table position in view. */
+.candidate-workbench .candidate-workbench-table .candidate-alternate-detail>td { padding:6px 12px; }
+.candidate-alternate-detail .candidate-inspector-heading { margin:0 0 4px; }
+.candidate-alternate-detail .candidate-inspector-heading h4 { margin:0; font-size:13px; }
+.candidate-alternate-detail .alternate-review-compact { margin:0; padding:0; max-width:760px; gap:4px 8px; font:inherit; font-size:13px; }
+.candidate-alternate-detail .alternate-review-compact>label { flex-direction:row; align-items:center; gap:6px; max-width:none; }
+.candidate-alternate-detail .alternate-review-compact #alternateChoice { width:clamp(280px,34vw,480px); height:28px; padding:3px 24px 3px 7px; font:inherit; }
+.candidate-alternate-detail button { min-height:28px; padding:3px 8px; font:inherit; font-size:13px; }
+.alternate-review-compact .alternate-inline-actions { gap:4px; }
+.alternate-review-compact .alternate-saved-status { margin:0; line-height:1.3; }
+.alternate-review-compact details { font-size:12px; }
+.alternate-review-compact details[open] { max-width:720px; }
+.alternate-review-compact details p { margin:4px 0; overflow-wrap:anywhere; }
+.candidate-inline-guard .candidate-leave-prompt { margin:0; padding:6px 8px; }
+
+.preparation-mark {display:flex;flex-direction:column;align-items:start;gap:3px;white-space:normal;margin-top:4px;font-size:12px;font-weight:400}
+.preparation-mark>span {border:1px solid #b98b40;border-radius:4px;padding:1px 5px;color:#f0ce8e;font-size:11px}
+.preparation-mark button {font:inherit;padding:2px 5px;min-height:24px}
+.preparation-piece-label {white-space:normal;font-size:11px;font-weight:400;color:#bbd4eb}
+.preparation-editor {max-width:850px;font-size:13px;white-space:normal}
+.preparation-editor p {margin:6px 0;line-height:1.4}
+.preparation-fields {display:flex;gap:12px}
+.preparation-editor label {font-size:12px}
+.preparation-editor input,.preparation-editor select {font:inherit;padding:4px;min-height:26px;box-sizing:border-box}
+.preparation-fields input {width:90px}
+.preparation-piece-list {max-height:260px;overflow:auto;border-block:1px solid #40536b;margin:6px 0}
+.preparation-piece-list>div {display:grid;grid-template-columns:minmax(200px,1fr) 100px 145px 135px;align-items:center;gap:6px;padding:4px 0}
+.preparation-piece-list input[type=checkbox] {min-height:0}
+.preparation-piece-list input[type=number] {width:135px}
+.preparation-editor [data-prep-instructions] {width:100%;max-width:800px}
+.preparation-editor details {overflow-wrap:anywhere}

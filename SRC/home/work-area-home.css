@@ -78,3 +78,48 @@ body[data-view-mode="ipad"] .home-flow-other{grid-template-columns:repeat(2,minm
 body[data-view-mode="ipad"] .home-flow-lines{display:block}
 
 body[data-view-mode="ipad"][data-workspace-view="dle-home"]:has(.uses-admin-flow)>main{min-width:0;max-width:100vw;box-sizing:border-box}
+
+/* Independent reference workspace beside Technical Review; no workflow edge. */
+.home-flow-map>[data-work-area="assembly-library"]{grid-area:2/3}
+body[data-view-mode="ipad"] .home-flow-map>[data-work-area="technical-review"]{grid-area:2/1}
+body[data-view-mode="ipad"] .home-flow-map>[data-work-area="assembly-library"]{grid-area:2/2}
+
+/* Reference relationship only; no change to permissions or workflow gates. */
+body[data-view-mode] .home-flow-map .work-area-card[data-work-area="assembly-library"] {
+ width:128px;max-width:100%;min-height:128px;height:128px;box-sizing:border-box;
+ grid-template-columns:1fr;gap:5px;padding:12px;justify-items:center;text-align:center;align-self:center;justify-self:start;
+}
+body[data-view-mode] .home-flow-map .work-area-card[data-work-area="assembly-library"] .work-area-card-mark {width:28px;height:28px;font-size:11px}
+body[data-view-mode] .home-flow-map .work-area-card[data-work-area="assembly-library"] strong {font-size:16px;line-height:1.15;letter-spacing:0}
+body[data-view-mode] .home-flow-map .work-area-card[data-work-area="assembly-library"] small {font-size:11px;line-height:1.25;margin-top:5px}
+.home-flow-edge.reference {stroke:#91a6bf;stroke-width:1.5;stroke-dasharray:4 4;marker-end:none}
+.home-flow-map [data-work-area="assembly-library"]:focus-visible {outline:3px solid #93c5fd;outline-offset:3px}
+body[data-view-mode="mobile"] [data-mobile-work-area="assembly-library"] {width:128px;min-height:128px;grid-template-columns:1fr;gap:5px;justify-items:center;text-align:center;position:relative;padding:12px;margin-top:6px}
+body[data-view-mode="mobile"] [data-mobile-work-area="assembly-library"] .mobile-home-card-mark {width:28px;height:28px;font-size:11px}
+body[data-view-mode="mobile"] [data-mobile-work-area="assembly-library"] strong {font-size:16px;line-height:1.15}
+body[data-view-mode="mobile"] [data-mobile-work-area="assembly-library"] small {font-size:11px;line-height:1.25}
+body[data-view-mode="mobile"] [data-mobile-work-area="assembly-library"] :is(.mobile-home-card-arrow,.mobile-home-card-state) {display:none}
+body[data-view-mode="mobile"] [data-mobile-work-area="assembly-library"]::before {content:"";position:absolute;left:50%;top:-18px;height:17px;border-left:1px dashed #91a6bf}
+@media(max-width:999px){body[data-view-mode="desktop"] .home-flow-map [data-work-area="assembly-library"]::before {content:"";position:absolute;left:50%;top:-19px;height:18px;border-left:1px dashed #91a6bf}}
+
+.home-flow-map [data-work-area="assembly-library"] small, [data-mobile-work-area="assembly-library"] small {display:none}body[data-view-mode="mobile"] [data-mobile-work-area="assembly-library"] {box-sizing:border-box;height:128px}
+body[data-view-mode] .home-flow-map .work-area-card[data-work-area="assembly-library"] {justify-self:center}
+.home-library-link-label {font:10px system-ui,sans-serif;fill:#a6b8cd}
+body[data-view-mode="mobile"] [data-mobile-work-area="assembly-library"] small {display:block;font-size:10px;margin:0;line-height:1.15}
+@media(max-width:999px){body[data-view-mode="desktop"] .home-flow-map [data-work-area="assembly-library"] small {display:block;font-size:10px;margin:0;line-height:1.15}}
+
+/* Vendors occupies the user-marked side position outside Materials. Reserve
+   the gutter inside the map so the card never extends beyond the viewport. */
+@media(min-width:1000px){
+ .work-area-home.uses-admin-flow:has(.home-flow-map.has-vendors){max-width:1480px}
+ .home-flow-map.has-vendors{padding-left:172px}
+ body[data-view-mode="desktop"] .home-flow-map.has-vendors>[data-work-area="vendors"]{position:absolute;grid-area:5/1/6/2;left:-172px;top:0;width:128px;height:100%;min-height:128px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:14px 10px;gap:14px}
+}
+.home-flow-map>[data-work-area="vendors"] strong{font-size:17px;letter-spacing:0;overflow-wrap:normal}
+.home-flow-map>[data-work-area="vendors"] small{font-size:12px}
+body[data-view-mode="ipad"] .home-flow-map.has-vendors{padding-left:148px}
+body[data-view-mode="ipad"] .home-flow-map.has-vendors>[data-work-area="vendors"]{position:absolute;grid-area:5/1/6/2;left:-148px;top:0;width:108px;height:100%;min-height:128px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:12px 8px;gap:12px}
+@media(max-width:999px){
+ body[data-view-mode="desktop"] .home-flow-map.has-vendors{padding-left:0}
+ body[data-view-mode="desktop"] .home-flow-map.has-vendors>[data-work-area="vendors"]{position:relative;left:auto;top:auto;width:100%;height:auto}
+}

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 
 const source=fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js',import.meta.url),'utf8');
 const names=['renderEntryConfirmation','renderIntakeSummary','manufacturingIsNext'];
 const code=names.map(n=>{const a=source.indexOf('  function '+n+'(');return source.slice(a,source.indexOf('\n  }',a)+4);}).join('\n');
-const context={state:{saving:false},packageMessage:()=>'',escapeHtml:v=>String(v??'')};vm.createContext(context);vm.runInContext(code,context);
+// Folder browsing is exercised by SimDrawingFolders001; keep this entry-routing test isolated.
+const context={state:{saving:false},renderDrawingFolders:()=>'',packageMessage:()=>'',escapeHtml:v=>String(v??'')};vm.createContext(context);vm.runInContext(code,context);
 const record={intakeId:'SYNTHETIC-ENTRY',customer:{customerName:'Synthetic Customer'},status:'READY_FOR_RFQ_QUALIFICATION',deLeonScope:'MATERIAL_AND_LABOR',preliminaryAssemblyType:{type:'PCB_ASSEMBLY'},assemblies:[{assemblyNumber:'TEST-ASSEMBLY',revision:'C',quantity:25}],technicalFiles:[{},{}]};
 const before=JSON.stringify(record);let html=context.renderEntryConfirmation(record,true);
 for(const label of ['SYNTHETIC-ENTRY','Synthetic Customer','TEST-ASSEMBLY','Rev C · Qty 25','Material + Labor','PCB Assembly','2 received','Start Technical Review','Back to Queue'])assert.ok(html.includes(label),label);

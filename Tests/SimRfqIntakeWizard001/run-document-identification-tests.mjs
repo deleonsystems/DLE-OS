@@ -17,12 +17,18 @@ const pdf = {name:'B11283-17 REV. B.pdf',size:10,type:'application/pdf',lastModi
 const xls = {name:'B11283-17-BOMCR1.xls',size:20,type:'application/vnd.ms-excel',lastModified:2};
 context.setTechnicalFiles([pdf]); context.setTechnicalFiles([xls]);
 let html = context.renderFiles();
-assert.equal((html.match(/<option /g)||[]).length,10);
+assert.equal((html.match(/<option /g)||[]).length,12);
 assert.equal((html.match(/value="UNKNOWN" selected/g)||[]).length,2);
 const choose = (index,value) => context.handleChange({target:{matches:s=>s==='[data-intake-identification]',dataset:{intakeIdentification:String(index)},value}});
 for (const type of ['DRAWING','DRAWING_AND_BOM','BOM_ONLY','OTHER','UNKNOWN']) {
   choose(0,type); assert.equal(context.state.technicalFiles[0].initialIdentification.type,type);
 }
+choose(0,'ENGINEERING_TEST_PROTOTYPE');
+assert.equal(context.state.technicalFiles[0].initialIdentification.type,'OTHER');
+assert.equal(context.state.technicalFiles[0].initialIdentification.otherDescription,'Engineering / Test / Prototype');
+context.state.technicalFiles=JSON.parse(JSON.stringify(context.state.technicalFiles));
+assert.match(context.renderFiles(),/value="ENGINEERING_TEST_PROTOTYPE" selected/);
+assert.doesNotMatch(context.renderFiles(),/Describe this file/);
 choose(0,'DRAWING_AND_BOM'); choose(1,'BOM_ONLY');
 assert.equal(context.state.technicalFiles[0].initialIdentification.type,'DRAWING_AND_BOM');
 assert.equal(context.state.technicalFiles[1].initialIdentification.type,'BOM_ONLY');
@@ -38,4 +44,4 @@ context.setTechnicalFiles([pdf]);
 assert.equal(context.state.technicalFiles[1].initialIdentification,undefined);
 assert.match(context.renderFiles(),/value="UNKNOWN" selected/);
 assert.match(context.renderFiles(),/Preliminary/);
-console.log('PASS: five preliminary choices, Unknown default, independent files, Other text, removal/re-add and escaped labels.');
+console.log('PASS: six preliminary choices including persisted Engineering / Test / Prototype preset, Unknown default, independent files, Other text, removal/re-add and escaped labels.');

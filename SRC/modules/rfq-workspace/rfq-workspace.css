@@ -1775,3 +1775,79 @@ body[data-workspace-view="rfq-quoting"] .intake-po-quote, body[data-workspace-vi
 .intake-wizard .intake-order-complete dd { color:#eef5fb; }
 .intake-wizard .intake-order-complete dt,
 .intake-wizard .intake-order-complete > .intake-order-complete-note { color:#c7d6e5; }
+
+
+/* Compact customer matching and an independent, keyboard-accessible directory. */
+.intake-customer-matches:empty { display:none; }
+.intake-customer-matches { max-height:320px; overflow:auto; border:1px solid #c8d4d8; border-radius:10px; }
+.intake-customer-matches .intake-customer-result,
+.intake-customer-directory .intake-customer-result { display:grid; grid-template-columns:90px minmax(0,1fr); gap:16px; align-items:center; border:0; border-bottom:1px solid #e1e7ea; border-radius:0; padding:13px 15px; min-height:48px; font:inherit; transform:none; box-shadow:none; }
+.intake-customer-number { font-variant-numeric:tabular-nums; }
+.intake-customer-name { overflow-wrap:anywhere; }
+.intake-customer-result.is-selected { background:#e3f0f2; box-shadow:inset 4px 0 #286574; }
+.intake-customer-result:focus-visible { outline:3px solid #286574; outline-offset:-3px; background:#edf6f7; }
+.intake-open-customers { justify-self:start; border:1px solid #b9cbd1; border-radius:9px; padding:11px 16px; min-height:44px; background:#fff; color:#245967; font:inherit; cursor:pointer; }
+.intake-customer-directory { width:min(760px,calc(100vw - 32px)); max-height:calc(100dvh - 40px); box-sizing:border-box; padding:22px; border:1px solid #becdd2; border-radius:16px; color:#183341; background:white; font:16px system-ui,sans-serif; }
+.intake-customer-directory::backdrop { background:#132c3c80; }
+.intake-customer-directory header { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.intake-customer-directory h2 { margin:0 0 14px; font-size:23px; }
+.intake-customer-directory label { display:grid; gap:7px; }
+.intake-customer-directory input { box-sizing:border-box; width:100%; min-height:46px; padding:10px 12px; border:1px solid #b6c8cf; border-radius:8px; font:inherit; }
+.intake-customer-directory button { min-height:44px; cursor:pointer; }
+.intake-directory-heading { display:grid; grid-template-columns:90px minmax(0,1fr); gap:16px; padding:10px 15px; background:#edf2f4; font-size:13px; font-weight:600; }
+.intake-customer-directory [data-directory-results] { max-height:52dvh; overflow:auto; }
+.intake-customer-directory [data-directory-status] { font-size:14px; margin:10px 0; }
+.intake-customer-directory [data-directory-status]:empty { display:none; }
+.intake-customer-directory nav { display:flex; gap:12px; align-items:center; justify-content:space-between; margin-top:14px; font-size:13px; }
+.intake-customer-directory nav button,.intake-customer-directory header button { padding:8px 12px; border:1px solid #b9cbd1; border-radius:8px; background:#fff; color:inherit; font:inherit; }
+@media(max-width:600px) { .intake-customer-directory { padding:14px; } .intake-customer-directory nav { gap:6px; } }
+
+/* Compact quote-intake evidence cards; New Order presentation remains unchanged. */
+.intake-file-list.intake-file-list-compact{gap:.5rem}
+.intake-file-list.intake-file-list-compact>li{display:block;padding:.6rem .7rem;min-width:0}
+.intake-file-list-compact .intake-file-main{display:block;min-width:0;width:100%}
+.intake-file-list-compact .intake-file-heading{display:flex;align-items:center;gap:.5rem;min-width:0}
+.intake-file-list-compact .intake-file-heading strong{flex:1;min-width:0;font-size:.9rem;overflow-wrap:anywhere;line-height:1.3}
+.intake-file-list-compact .intake-file-heading small{white-space:nowrap;color:#43566a}
+.intake-file-list-compact button{min-height:32px;padding:.25rem .5rem;font-size:.82rem}
+.intake-file-list-compact .intake-file-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.5rem;margin-top:.45rem;align-items:start}
+.intake-file-list-compact .intake-file-identification,.intake-file-list-compact .intake-file-assignment{display:grid;gap:.2rem;margin:0;min-width:0;font-size:.78rem;color:#243b53}
+.intake-file-list-compact .intake-file-identification select,.intake-file-list-compact .intake-file-identification input{width:100%;min-width:0;min-height:34px;margin:0;padding:.3rem .4rem;font:inherit;color:#182b40;background:#fff;border:1px solid #74899e;border-radius:4px}
+.intake-file-list-compact details{min-width:0;background:#fff;border:1px solid #74899e;border-radius:4px;color:#182b40}
+.intake-file-list-compact summary{min-height:34px;box-sizing:border-box;padding:.35rem .4rem;cursor:pointer;overflow-wrap:anywhere;line-height:1.3}
+.intake-file-list-compact .intake-project-options{padding:.25rem .4rem;border-top:1px solid #b6c4d1;max-height:180px;overflow:auto}
+.intake-file-list-compact .intake-project-options label{display:flex;align-items:center;gap:.4rem;min-height:34px;margin:0;font:inherit;overflow-wrap:anywhere}
+.intake-file-list-compact .intake-project-options input{width:16px;height:16px;min-height:0;flex:none;margin:0;accent-color:#235e97}
+.intake-file-list-compact [data-intake-readability]{display:block;margin-top:.25rem;font-size:.78rem;line-height:1.35}
+.intake-file-list-compact .intake-readability-actions{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.25rem}
+.intake-file-list-compact :focus-visible{outline:3px solid #2366b1;outline-offset:2px}
+.intake-file-preliminary{display:block;color:#43566a;font-size:.78rem}
+@media(max-width:520px){.intake-file-list-compact .intake-file-fields{grid-template-columns:1fr}.intake-file-list-compact summary,.intake-file-list-compact button,.intake-file-list-compact .intake-project-options label{min-height:40px}.intake-file-list-compact .intake-file-heading{flex-wrap:wrap}.intake-file-list-compact .intake-file-heading strong{flex-basis:70%}}
+
+/* Explicit foreground on white assignment menus, including dark workspace themes. */
+.intake-wizard .intake-file-list-compact .intake-project-options,
+.intake-wizard .intake-file-list-compact .intake-project-options label,
+.intake-wizard .intake-file-list-compact .intake-project-options label span,
+.intake-wizard .intake-file-list-compact details summary{color:#182b40;background-color:#fff;opacity:1}
+.intake-wizard .intake-file-list-compact .intake-project-options label:has(input:disabled){color:#43566a;opacity:1}
+.intake-wizard .intake-file-list-compact .intake-project-options label:has(input:disabled) span{color:#43566a}
+.intake-wizard .intake-file-preliminary{color:var(--intake-muted,#becbd8)}
+
+.intake-wizard .intake-file-list-compact .intake-readability-ack{border:0;background:transparent;color:#43566a;font-size:.78rem}
+.intake-wizard .intake-file-list-compact .intake-readability-ack summary{min-height:0;padding:0;color:#43566a;background:transparent;font-size:inherit;line-height:1.35;cursor:pointer}
+.intake-wizard .intake-file-list-compact .intake-readability-ack label{display:block;color:#243b53}
+
+.intake-review-table-wrap{max-width:100%;overflow-x:auto;border:1px solid #8b9eae;border-radius:6px;background:#fff;color:#182b40}
+.intake-review-table{width:100%;border-collapse:collapse;font-size:.85rem;line-height:1.4;min-width:540px}
+.intake-review-table caption{text-align:left;padding:.6rem .7rem;color:#243b53;background:#edf3f7;font-weight:600}
+.intake-review-table th,.intake-review-table td{padding:.5rem .6rem;text-align:left;vertical-align:top;color:#182b40;background:#fff;border-bottom:1px solid #d1dbe3}
+.intake-review-table thead th{background:#e4edf5;font-weight:700;white-space:nowrap}
+.intake-review-table tbody+tbody{border-top:2px solid #8b9eae}
+.intake-review-table tbody th{font-weight:700;overflow-wrap:anywhere;min-width:95px}
+.intake-review-table .intake-review-filename{overflow-wrap:anywhere;min-width:150px;max-width:300px}
+.intake-review-table small{display:block;color:#43566a;font-size:.75rem}
+.intake-review-table .intake-review-missing{color:#8c3500}
+.intake-review-edit{display:flex;gap:.5rem;flex-wrap:wrap;margin:.7rem 0}
+.intake-review-help{font-size:.8rem}
+.intake-review-table-wrap:focus-visible{outline:3px solid #2366b1;outline-offset:2px}
+.intake-conversation-card:has(.intake-review-table),.intake-answer-control:has(.intake-review-table){min-width:0}.intake-review-table-wrap{min-width:0;width:100%;box-sizing:border-box}

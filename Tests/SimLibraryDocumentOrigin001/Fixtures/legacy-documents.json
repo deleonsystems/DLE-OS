@@ -1,0 +1,56 @@
+{
+  "sourceKeyRaw": "01TEST-18           ",
+  "drawingRevision": "U*",
+  "bomRevision": "U*",
+  "revision": 1,
+  "history": [
+    {
+      "id": "library-doc",
+      "version": 1,
+      "association": {
+        "id": "link",
+        "sourceKeyRaw": "01TEST-18           ",
+        "assemblyNumber": "TEST-18",
+        "drawingRevision": "U*",
+        "bomRevision": "U*",
+        "rootId": "fixture-root",
+        "relativePath": "Fixture/TEST-18/U",
+        "folderName": "U",
+        "actor": {
+          "id": "fixture",
+          "name": "Fixture",
+          "atUtc": "2026-10-23T22:57:10.7307889+00:00"
+        }
+      },
+      "source": {
+        "rootId": "fixture-root",
+        "relativePath": "Fixture/TEST-18/U/older.xls",
+        "folderAssociationId": "link",
+        "lineNumber": 0,
+        "customerId": "customer",
+        "assemblyNumber": "TEST-18",
+        "revision": "U*",
+        "role": "LIBRARY_DOCUMENT",
+        "size": 12,
+        "lastWriteUtc": "2026-10-23T22:57:10.7307889+00:00",
+        "createdUtc": "2026-10-23T22:57:10.7307889+00:00",
+        "sha256": "DIFFERENT_BYTES",
+        "sourceToken": "source-token",
+        "selectionId": "source-selection"
+      },
+      "purposes": [
+        "BOM_SOURCE"
+      ],
+      "use": "MATERIALS",
+      "number": "",
+      "revision": "",
+      "status": "UNKNOWN",
+      "evidenceHash": null,
+      "savedBy": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.7307889+00:00"
+      }
+    }
+  ]
+}

@@ -71,11 +71,16 @@ internal sealed partial class SimRfqIntakeStore
                     (SimTechnicalPackageProvider.BomBearing(target) && target.PartNumberReview?.Basis is not ("MANUFACTURER" or "CUSTOMER_INTERNAL" or "MIXED")) ||
                     (target.Applicability == "SUBASSEMBLY" && string.IsNullOrWhiteSpace(target.SubassemblyPartNumber)))
                     throw SimRfqIntakeProblem.BadRequest("SIM_ROW_REVIEW", "Resolve the document identity, BOM P/N Type, MFG P/N Source and scope before accepting.");
-                var priorPackage = review.TechnicalPackage ?? SimTechnicalPackageProvider.Inventory(record);
-                if (!priorPackage.Documents.Any(d => d.DocumentId == target.DocumentId))
+                var inventory = SimTechnicalPackageProvider.Inventory(record);
+                var priorPackage = review.TechnicalPackage ?? inventory;
+                // A viewing rendition can be added after package review. Preserve saved decisions and
+                // account for new files without copying source authority or accepting another row.
+                var currentDocuments = priorPackage.Documents.Concat(inventory.Documents.Where(d => !priorPackage.Documents.Any(p => p.DocumentId == d.DocumentId))
+                    .Select(d => d with { ProductionUse = "NOT_FOR_PRODUCTION", BomUse = "NO_BOM_ROLE" })).ToArray();
+                if (!inventory.Documents.Any(d => d.DocumentId == target.DocumentId))
                     throw SimRfqIntakeProblem.BadRequest("SIM_ROW_REVIEW", "Select a received document.");
                 // Only the selected row is accepted. Other client drafts cannot leak into this save.
-                var merged = priorPackage.Documents.Select(d => d.DocumentId == target.DocumentId ? target : d with {
+                var merged = currentDocuments.Select(d => d.DocumentId == target.DocumentId ? target : d with {
                     ProductionUse = target.ProductionUse == "PRIMARY_DRAWING" && ProductionUse(d, workflow.Manufacturing) == "PRIMARY_DRAWING" ? "NOT_FOR_PRODUCTION" : ProductionUse(d, workflow.Manufacturing),
                     BomUse = target.BomUse == "GOVERNING_BOM" && BomUse(priorPackage,d) == "GOVERNING_BOM" ? "NO_BOM_ROLE" : BomUse(priorPackage,d) }).ToArray();
                 request = request with { Documents = merged, Complete = false,
@@ -90,6 +95,7 @@ internal sealed partial class SimRfqIntakeStore
                 throw SimRfqIntakeProblem.BadRequest("SIM_SUBASSEMBLY_SCOPE", "Identify the customer / BOM P/N for each subassembly document.");
             var primary = package.Documents.Where(d => d.ProductionUse == "PRIMARY_DRAWING").ToArray();
             var governing = package.Documents.Where(d => d.BomUse == "GOVERNING_BOM").ToArray();
+            var manualMaterials=review.CandidateBom?.ManualDraft is not null;
             if (primary.Length > 1 || primary.Any(d => d.RowAssociation is not null || d.DocumentType != "ASSEMBLY_DRAWING" || d.Applicability != "PARENT_ASSEMBLY"))
                 throw SimRfqIntakeProblem.BadRequest("SIM_PRIMARY_DRAWING", "Select one eligible parent assembly drawing for Production.");
             if (governing.Length > 1 || governing.Any(d => !SimTechnicalPackageProvider.IsBomSource(d) || d.Applicability != "PARENT_ASSEMBLY") ||
@@ -98,26 +104,33 @@ internal sealed partial class SimRfqIntakeStore
                 throw SimRfqIntakeProblem.BadRequest("SIM_BOM_USE", "Select one eligible parent Governing BOM; Supporting BOM requires a BOM-bearing document.");
             if (request.Complete)
             {
-                if (primary.Length != 1 || governing.Length != 1)
-                    throw SimRfqIntakeProblem.BadRequest("SIM_PACKAGE_AUTHORITY", "Select a Primary Production Drawing and a Governing BOM.");
+                if (primary.Length != 1 || (!manualMaterials && governing.Length != 1))
+                    throw SimRfqIntakeProblem.BadRequest("SIM_PACKAGE_AUTHORITY", manualMaterials?"Select one Main Production Drawing for the main assembly.":"Select a Primary Production Drawing and a Governing BOM.");
+                if(manualMaterials)
+                {
+                    var accepted=(review.BomAcceptances??[]).LastOrDefault(a=>a.Candidate.Id==review.CandidateBom!.Id);
+                    if(review.MaterialsReviewStatus!="QUALIFIED"||accepted is null)
+                        throw SimRfqIntakeProblem.Conflict("SIM_MANUAL_SOURCE_REQUIRED","Complete BOM Review to explicitly establish the DLE-authored materials source before completing the package.");
+                    await RequireCurrentManualAcceptance(record with{TechnicalReview=review with{TechnicalPackage=package}},accepted);
+                }
                 if (package.Documents.Any(d => d.RowAssociation is null && (d.DocumentType == "UNKNOWN" ||
                     (d.IdentityReview is null && review.TechnicalPackage?.Documents.Any(old => old.DocumentId == d.DocumentId && old.DocumentType != "UNKNOWN") != true))))
                     throw SimRfqIntakeProblem.BadRequest("SIM_IDENTITY_REQUIRED", "Review each received document identity before proceeding.");
                 SimTechnicalPackageProvider.RequirePartNumberReview(package.Documents);
                 // Validate enrichment scope and the existing source-count limit before committing.
-                var sources = SimAnalysisSourceSelection.Select(package, DleAnalysisContract.SourceSelectionVersion);
-                if (package.Documents.Any(d => d.RowAssociation is null && SimTechnicalPackageProvider.BomBearing(d) && d.PartNumberReview?.Basis is "CUSTOMER_INTERNAL" or "MIXED") &&
+                var sources = manualMaterials?Array.Empty<SimPackageDocument>():SimAnalysisSourceSelection.Select(package, DleAnalysisContract.SourceSelectionVersion);
+                if (!manualMaterials && package.Documents.Any(d => d.RowAssociation is null && SimTechnicalPackageProvider.BomBearing(d) && d.PartNumberReview?.Basis is "CUSTOMER_INTERNAL" or "MIXED") &&
                     !sources.Any(d => d.PartNumberReview?.ProvidesManufacturerPartNumbers == true))
                     throw SimRfqIntakeProblem.BadRequest("SIM_MANUFACTURER_SOURCE_SCOPE", "Identify manufacturer P/N evidence in the governing BOM's assembly scope.");
                 foreach (var doc in package.Documents.Where(d => d.DocumentType != "UNKNOWN"))
                 {
                     var file = record.TechnicalFiles.SingleOrDefault(f => f.DocumentId == doc.DocumentId && f.BinaryStatus == "VERIFIED")
                         ?? throw SimRfqIntakeProblem.Conflict("SIM_MANUFACTURING_BINARY", "Package references require verified staged files.");
-                    await documents.Verify(record.RequestCorrelationId, file, record.CreatedBy);
+                    await documents.VerifyPresentationSource(record.RequestCorrelationId, file);
                 }
             }
             else if (!rowAccept && (string.IsNullOrWhiteSpace(request.Missing) || request.Missing.Length > 1000))
-                throw SimRfqIntakeProblem.BadRequest("SIM_HOLD_REASON", "Describe what is missing in 1–1000 characters.");
+                throw SimRfqIntakeProblem.BadRequest("SIM_HOLD_REASON", "Describe what is missing in 1â€“1000 characters.");
 
             var now = DateTimeOffset.UtcNow;
             var sameMaterials = SameMaterialPackage(review.TechnicalPackage, package);
@@ -143,7 +156,7 @@ internal sealed partial class SimRfqIntakeStore
             {
                 var file = record.TechnicalFiles.SingleOrDefault(f => f.DocumentId == request.AcceptDocumentId && f.BinaryStatus == "VERIFIED")
                     ?? throw SimRfqIntakeProblem.Conflict("SIM_MANUFACTURING_BINARY", "The document requires a verified staged file.");
-                await documents.Verify(record.RequestCorrelationId, file, record.CreatedBy);
+                await documents.VerifyPresentationSource(record.RequestCorrelationId, file);
                 // Validate and preserve unchanged evidence; acceptance never queues analysis.
                 var samePackage = JsonSerializer.Serialize(package, jsonOptions) == JsonSerializer.Serialize(review.TechnicalPackage, jsonOptions);
                 if (samePackage) return WorkflowEnvelope(record);
@@ -155,8 +168,8 @@ internal sealed partial class SimRfqIntakeStore
                 var rowReview = review with { TechnicalPackage = package, Workflow = rowWorkflow,
                     ReviewedBy = persona.DisplayName, ReviewedAtUtc = now,
                     ManufacturingReviewStatus = sameProduction ? review.ManufacturingReviewStatus : "IN_PROGRESS",
-                    CandidateBom = sameMaterials ? review.CandidateBom : null,
-                    CandidateBomVersions = !sameMaterials && review.CandidateBom is not null ? (review.CandidateBomVersions ?? []).Append(review.CandidateBom).ToArray() : review.CandidateBomVersions,
+                    CandidateBom = sameMaterials || review.CandidateBom?.ManualDraft is not null ? review.CandidateBom : null,
+                    CandidateBomVersions = !sameMaterials && review.CandidateBom is not null && review.CandidateBom.ManualDraft is null ? (review.CandidateBomVersions ?? []).Append(review.CandidateBom).ToArray() : review.CandidateBomVersions,
                     MaterialsDefinition = sameMaterials ? review.MaterialsDefinition : null,
                     SubassemblyCoverage = sameMaterials ? review.SubassemblyCoverage : null,
                     MaterialsReviewStatus = sameMaterials ? review.MaterialsReviewStatus : null,
@@ -169,6 +182,7 @@ internal sealed partial class SimRfqIntakeStore
             var updatedWorkflow = workflow with { Version = UnifiedPackageVersion, PackageConfirmed = request.Complete,
                 Sufficient = request.Complete, HistoryReviewed = workflow.HistoryReviewed,
                 HoldReason = request.Complete ? null : request.Missing!.Trim(), Manufacturing = manufacturing,
+                RfqPackageAcceptance = request.Complete ? workflow.RfqPackageAcceptance : null,
                 ManufacturingDrawingId = primary.SingleOrDefault()?.DocumentId };
             var status = request.Complete ? "TECHNICAL_REVIEW_IN_PROGRESS" : "ON_HOLD";
             if (record.Status == status && JsonSerializer.Serialize(updatedWorkflow, jsonOptions) == JsonSerializer.Serialize(workflow, jsonOptions) &&
@@ -183,8 +197,8 @@ internal sealed partial class SimRfqIntakeStore
                 SubassemblyCoverage = sameMaterials ? review.SubassemblyCoverage : null,
                 MaterialsReviewStatus = sameMaterials ? review.MaterialsReviewStatus : null,
                 NextReviewPhase = sameMaterials ? review.NextReviewPhase : null,
-                CandidateBom = sameMaterials ? review.CandidateBom : null,
-                CandidateBomVersions = !sameMaterials && review.CandidateBom is not null ?
+                CandidateBom = sameMaterials || review.CandidateBom?.ManualDraft is not null ? review.CandidateBom : null,
+                CandidateBomVersions = !sameMaterials && review.CandidateBom is not null && review.CandidateBom.ManualDraft is null ?
                     (review.CandidateBomVersions ?? []).Append(review.CandidateBom).ToArray() : review.CandidateBomVersions };
             record = record with { Status = status, TechnicalReview = review };
             dataset.Records[index] = record; dataset.UpdatedAtUtc = now;

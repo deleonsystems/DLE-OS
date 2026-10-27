@@ -1,7 +1,8 @@
 internal sealed record SimSourcePartNumberChange(string Basis, string ExpectedToken);
 internal sealed record SimSourcePartNumberDecision(string Basis, string SourcePartNumber, string GoverningDocumentId,
     string GoverningSha256, string RowReference, string InheritedBasis, string Origin, string Reviewer,
-    DateTimeOffset AtUtc, string? IdentityReference, string Status, string? Reason = null);
+    DateTimeOffset AtUtc, string? IdentityReference, string Status, string? Reason = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCandidatePrimaryIdentity? PreviousPrimaryIdentity = null);
 internal sealed record SimSourcePartNumberReview(SimSourcePartNumberDecision Current, SimSourcePartNumberDecision[] History);
 
 internal static partial class SimCandidateBomProvider
@@ -23,6 +24,7 @@ internal static partial class SimCandidateBomProvider
         if (row.WorkingState is { ManualPartNumber.Length: > 0 } or { AssemblyPartNumber.Length: > 0 })
             throw SimRfqIntakeProblem.Conflict("SIM_SOURCE_PN_DRAFT", "Resolve saved manual identity edits before confirming the source P/N.");
         var inherited = SourceBasisDefault(bom.Analysis?.SourceSnapshot.Sources.FirstOrDefault(s => s.DocumentId == bom.GoverningDocumentId)?.Profile?.PartNumberContext.Basis ?? documentBasis);
+        var manual=bom.ManualDraft is not null;
         var now = DateTimeOffset.UtcNow;
         var updated = row.SourcePartNumberReview?.Current.Basis == change.Basis && SourceIdentityMatches(row)
             ? row : InvalidateSourceReview(row, persona, "Source basis was explicitly changed.");
@@ -32,10 +34,11 @@ internal static partial class SimCandidateBomProvider
             var active = identity.Proposals.Where(p => identity.Decision(p.Id) is not ("REJECTED" or "NOT_SELECTED" or "SUPERSEDED")).ToArray();
             if (active.Any(p => p.PartNumber.Trim() != number || p.Conflicts.Length > 0) || active.Select(p => p.ManufacturerName).Distinct().Count() > 1)
                 throw SimRfqIntakeProblem.Conflict("SIM_SOURCE_PN_CONFLICT", "Resolve competing or conflicting manufacturer proposals in Approved P/Ns before confirming the source MPN.");
-            var evidence = row.AnalysisFields?.GetValueOrDefault("partNumber")?.Evidence ?? new(bom.GoverningDocumentId, bom.Page, null, "BOM row " + row.Values.GetValueOrDefault("lineNumber"));
+            var evidence = manual ? new DleAnalysisEvidence("",null,null,"DLE-authored BOM row "+row.Values.GetValueOrDefault("lineNumber")+"; reviewer-declared entered P/N; no document extraction claimed")
+                : row.AnalysisFields?.GetValueOrDefault("partNumber")?.Evidence ?? new(bom.GoverningDocumentId, bom.Page, null, "BOM row " + row.Values.GetValueOrDefault("lineNumber"));
             var proposal = active.FirstOrDefault() ?? new DleManufacturerProposal("source-" + Guid.NewGuid().ToString("N"), null, number,
-                evidence, evidence, evidence, "Governing BOM — reviewer-confirmed supplied MPN", ["Explicit source P/N review"], [],
-                new() { ["partNumber"] = row.Values["partNumber"] }, "HUMAN_REVIEWED", "Source identifier confirmed; no catalog or manufacturer-name verification claimed.");
+                evidence, evidence, evidence, manual ? "DLE-authored BOM — reviewer-declared MPN" : "Governing BOM — reviewer-confirmed supplied MPN", [manual ? "Explicit reviewer classification of entered P/N" : "Explicit source P/N review"], [],
+                new() { ["partNumber"] = row.Values["partNumber"] }, "HUMAN_REVIEWED", manual ? "Reviewer-declared identity; no document extraction, catalog or manufacturer-name verification claimed." : "Source identifier confirmed; no catalog or manufacturer-name verification claimed.");
             var proposals = identity.Proposals.Any(p => p.Id == proposal.Id) ? identity.Proposals : identity.Proposals.Append(proposal).ToArray();
             updated = updated with { ManufacturerIdentity = identity with { Proposals = proposals, Stale = false, Revision = identity.Revision + 1,
                 History = identity.History.Append(new(proposal.Id, "CONFIRMED", persona.DisplayName, now)).ToArray() },
@@ -51,10 +54,10 @@ internal static partial class SimCandidateBomProvider
         }
         var decision = new SimSourcePartNumberDecision(change.Basis, row.Values["partNumber"], bom.GoverningDocumentId, bom.GoverningSha256,
             row.RowId ?? row.Index.ToString(System.Globalization.CultureInfo.InvariantCulture), inherited,
-            change.Basis == inherited ? "DOCUMENT_DEFAULT_CONFIRMED" : "ROW_OVERRIDE", persona.DisplayName, now, reference,
-            change.Basis == "UNRESOLVED" ? "UNRESOLVED" : "CONFIRMED");
+            manual ? "DLE_AUTHORED_REVIEWER_DECLARATION" : change.Basis == inherited ? "DOCUMENT_DEFAULT_CONFIRMED" : "ROW_OVERRIDE", persona.DisplayName, now, reference,
+            change.Basis == "UNRESOLVED" ? "UNRESOLVED" : "CONFIRMED", PreviousPrimaryIdentity: row.PrimaryIdentity != updated.PrimaryIdentity ? row.PrimaryIdentity : null);
         updated = updated with { SourcePartNumberReview = new(decision, (updated.SourcePartNumberReview?.History ?? []).Append(decision).ToArray()),
-            Confirmed = false, Reviewer = null, ReviewedAtUtc = null, WorkingState = null };
+            Confirmed = false, Reviewer = null, ReviewedAtUtc = null, WorkingState = manual ? row.WorkingState : null };
         var rows = bom.Rows.ToArray(); rows[index] = updated;
         return bom with { Rows = rows };
     }

@@ -143,7 +143,18 @@
   function updateContextualBackButton() {
     window.updateBackButton?.();
     const backButton = document.querySelector(".back-btn");
-    if (backButton && contextualNavigationHistory.length) backButton.disabled = false;
+    if (backButton && (workspaceBackTarget() || contextualNavigationHistory.length)) backButton.disabled = false;
+  }
+
+  function workspaceBackTarget() {
+    if (!['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)) return null;
+    if (selectedWorkspaceId === 'assembly-library') {
+      const library = window.DleWorkspaces?.['assembly-library'];
+      return library?.canReturnToLibrary?.() ? {returnToQueue: () => library.returnToLibrary()} : null;
+    }
+    if (selectedWorkspaceId !== 'technical-review') return null;
+    const workspace = window.DleWorkspaces?.[selectedWorkspaceId];
+    return workspace?.canReturnToQueue?.() ? workspace : null;
   }
 
   function navigate(request, addToHistory = true) {
@@ -167,6 +178,8 @@
   }
 
   function navigateBack() {
+    const local = workspaceBackTarget();
+    if (local) return local.returnToQueue();
     const previous = contextualNavigationHistory.pop();
     if (!previous) return null;
     return navigate(previous, false);
@@ -191,12 +204,13 @@
     },
     navigate,
     navigateBack,
-    canNavigateBack: () => contextualNavigationHistory.length > 0,
+    canNavigateBack: () => !!workspaceBackTarget() || contextualNavigationHistory.length > 0,
+    refreshBackButton: updateContextualBackButton,
     getCurrentWorkspace
   });
 
   document.addEventListener("click", event => {
-    if (!contextualNavigationHistory.length || !event.target?.closest?.(".back-btn")) return;
+    if (!(workspaceBackTarget() || contextualNavigationHistory.length) || !event.target?.closest?.(".back-btn")) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     navigateBack();

@@ -44,6 +44,13 @@
       })
     },
     {
+      id: "assembly-library", label: "Library", simOnly: true,
+      purpose: "Reusable forms and existing assembly records.",
+      modulePath: "SRC/workspaces/assembly-library/assembly-library-workspace.js",
+      stylePath: "SRC/workspaces/assembly-library/assembly-library-workspace.css",
+      home: Object.freeze({label:"Library",description:"Forms Library \u2022 Assembly Library",mark:"LI",requiredPermission:"assembly_library.view",preserveLabelCase:true})
+    },
+    {
       id: "order-entry",
       label: "Order Entry (VPRO 5 Bridge)", simOnly: true,
       purpose: "Accepted New Orders and manual VPRO setup, awaiting Operations recognition.",
@@ -96,6 +103,16 @@
       })
     },
     {
+      id: "vendors", label: "Vendors", simOnly: true,
+      purpose: "Read-only vendor names and numbers from the VPRO5 snapshot.",
+      modulePath: "SRC/workspaces/vendors/vendors-workspace.js",
+      stylePath: "SRC/workspaces/vendors/vendors-workspace.css",
+      home: Object.freeze({
+        label: "Vendors", description: "Vendor names and numbers", mark: "VE",
+        requiredPermission: "sync.operations", preserveLabelCase: true
+      })
+    },
+    {
       id: "receiving", label: "Receiving", simOnly: true,
       purpose: "Expected purchased PO lines and read-only incoming material context.",
       modulePath: "SRC/workspaces/receiving/receiving-workspace.js",
@@ -131,7 +148,8 @@
     },
     {
       id: "quality-inspection", label: "QC - Inspection", simOnly: true,
-      purpose: "Read-only inspection job preparation; no submission or release actions.",
+      purpose: "Quality inspection, pending Production additions and controlled instruction release.",
+      home: Object.freeze({label:"QC - Inspection",description:"Review Production additions and instruction drafts",mark:"QC",requiredPermission:"quality.review"}),
       modulePath: "SRC/workspaces/quality-inspection/quality-inspection-workspace.js",
       stylePath: "SRC/workspaces/quality-inspection/quality-inspection-workspace.css"
     },
@@ -169,17 +187,25 @@
 
   const workspaceById = new Map(WORKSPACE_DEFINITIONS.map(workspace => [workspace.id, workspace]));
   const workspaceByLabel = new Map(WORKSPACE_DEFINITIONS.map(workspace => [workspace.label, workspace]));
+  // Existing saved navigation labels still resolve to the same workspace identity.
+  workspaceByLabel.set("Assembly Library", workspaceById.get("assembly-library"));
   const inspectionAvailable = () => {
     const session = window.DleOsSession, capabilities = window.DleOsCapabilities;
     return window.document?.body?.dataset?.simRuntime === "true" &&
       window.DleOsRuntimeConfig?.rfqIntakeMode === "SIM_PHASE1" &&
       ["desktop", "ipad"].includes(window.DleOperatorHeader?.getViewMode?.() || window.document?.body?.dataset?.viewMode) &&
       session?.user?.accountStatus === "ACTIVE" &&
-      (capabilities?.isSuperAdmin === true || (Array.isArray(session?.roles) && session.roles.includes("ADMIN"))) &&
+      (capabilities?.isSuperAdmin === true || capabilities?.can?.("quality.review") === true || (Array.isArray(session?.roles) && session.roles.includes("ADMIN"))) &&
       capabilities?.can?.("order_entry.view") === true;
   };
-  const available = workspace => workspace && (!workspace.simOnly || window.document?.body?.dataset?.simRuntime === "true") &&
-    (workspace.id !== "quality-inspection" || inspectionAvailable());
+  const vendorsAvailable = () => window.document?.body?.dataset?.simRuntime === "true" &&
+    window.DleOsRuntimeConfig?.rfqIntakeMode === "SIM_PHASE1" &&
+    window.DleOsSession?.user?.accountStatus === "ACTIVE" &&
+    window.DleOsCapabilities?.isSuperAdmin === true &&
+    window.DleOsCapabilities?.can?.("sync.operations") === true;
+  const available = workspace => workspace && (!Array.isArray(window.DleOsSession?.allowedWorkspaces)||window.DleOsSession.allowedWorkspaces.includes(workspace.id)) && (!workspace.simOnly || window.document?.body?.dataset?.simRuntime === "true") &&
+    (workspace.id !== "quality-inspection" || inspectionAvailable()) &&
+    (workspace.id !== "vendors" || vendorsAvailable());
 
   window.DleWorkspaceRegistry = Object.freeze({
     defaultWorkspaceId: "dle-home",
@@ -188,7 +214,7 @@
       if (window.document?.body?.dataset?.simRuntime !== "true") return workspaces;
       const ordered = workspaces.filter(workspace => !["quality", "kitting"].includes(workspace.id));
       const afterOperations = ordered.findIndex(workspace => workspace.id === "operations-center") + 1;
-      ordered.splice(afterOperations, 0, workspaceById.get("quality"), workspaceById.get("kitting"));
+      ordered.splice(afterOperations, 0, ...[workspaceById.get("quality"), workspaceById.get("kitting")].filter(available));
       return ordered;
     },
     getById(id) {

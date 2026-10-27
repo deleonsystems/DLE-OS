@@ -23,7 +23,7 @@ internal sealed partial class SimProductionService
     }
     private static string JobPacketKey(string wo,long gen)=>"W:"+gen+":"+SimKittingCases.Normalize(wo);
     private Task<T> WithPacket<T>(string wo,SimPersona actor,bool write,Func<SimProductionSource,SimStateMetadata,Task<T>> action)=>
-        WithInstructionSource(wo,actor,false,true,async(s,r)=>{Permission(actor,write);return await action(s,r);});
+        WithInstructionSource(wo,actor,false,true,async(s,r)=>{if(write)QualityPermission(actor);return await action(s,r);});
     private async Task<SimInstructionPacket?> CompatibleMain(SimProductionSource source,long gen){
         var identity=await PacketIdentity(source,gen);var main=await store.ReadMainPacket(identity.Key);
         return main?.Identity.Compatibility==identity.Compatibility?main:null;
@@ -40,11 +40,11 @@ internal sealed partial class SimProductionService
         var consumed=d is not null&&await store.PacketDraftConsumed(wo,r.Generation,d.Version);
         var parent=x.Current?.Id??x.Initial.Id.ToString();var ops=d is not null&&!consumed?d.Operations:x.Current?.Operations??x.Initial.Operations;
         var baseline=await InstructionBaseline(s);var stale=d is not null&&!consumed&&(d.ParentJobId!=parent||d.Identity!=x.Identity);
-        return (object)new{markerOpacitySupported=true,packetContractVersion=1,editingDraft=true,released=true,version=x.Initial.InstructionVersion,
+        return (object)new{inspectionLinksSupported=true,inspectionSymbolsSupported=true,markerOpacitySupported=true,packetContractVersion=1,editingDraft=true,released=true,version=x.Initial.InstructionVersion,
             baselineToken=Hash(baseline),baselineVersion=baseline.Version,baseline.DefinitionId,baseline.Quantity,operations=ops,
             draftVersion=d?.Version??0,hasSavedDraft=d is not null&&!consumed,parentJobId=d is not null&&!consumed?d.ParentJobId:parent,
             parentMainId=d is not null&&!consumed?d.ParentMainId:x.Main?.Id,travelerRevision=x.Current?.JobRevision??1,
-            canEdit=actor.Can("production.manage")&&!stale,stale,
+            canEdit=CanReviewQuality(actor)&&!stale,stale,
             mainPacket=new{x.Identity.Customer,x.Identity.Assembly,x.Identity.Revision,id=x.Main?.Id,packetRevision=x.Main?.MainRevision,
                 compatible=x.Main is null||x.Main.Identity.Compatibility==x.Identity.Compatibility},
             scopeDefault="WO_ONLY",updatedBy=d?.Actor,updatedAt=d?.At};

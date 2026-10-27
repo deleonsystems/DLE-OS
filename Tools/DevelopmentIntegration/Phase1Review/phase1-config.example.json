@@ -1,0 +1,10 @@
+{
+  "environment": "ISOLATED_DEVELOPMENT",
+  "phase1Enabled": false,
+  "quotingContract": null,
+  "identityContract": null,
+  "storageApproved": false,
+  "backendDestination": null,
+  "deployable": false,
+  "note": "Example only. These values must be server-owned qualification, never trusted browser permission or storage authority. No fallback to SIM, legacy ports or production."
+}

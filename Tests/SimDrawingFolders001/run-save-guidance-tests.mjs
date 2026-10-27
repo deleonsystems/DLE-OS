@@ -1,0 +1,17 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+let source=fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js',import.meta.url),'utf8');
+source=source.replace('  function renderDetail() {','  function renderDetail() { return;').replace('  window.DleWorkspaces = window.DleWorkspaces || {};',' window.test={state,renderIncompleteSave,renderVproImport,saveUnifiedPackage,buildVproDraft,packageAnswers,setMount:m=>mount=m}; window.DleWorkspaces = window.DleWorkspaces || {};');
+const requests=[],alerts=[],document={addEventListener(){},getElementById(){return null;}};
+const window={document,DleOsRuntimeConfig:{environment:'SIM'},DleOsCapabilities:{can:()=>true},alert:m=>alerts.push(m)};
+vm.runInNewContext(source,{window,document,URLSearchParams});const t=window.test;
+const record={intakeId:'SYN',status:'TECHNICAL_REVIEW_IN_PROGRESS',assemblies:[{assemblyNumber:'FIXTURE',revision:'R1'}],technicalFiles:[{documentId:'txt',name:'fixture.txt',binaryStatus:'VERIFIED'}],technicalReview:{workflow:{},technicalPackage:{documents:[{documentId:'txt',name:'fixture.txt',documentType:'SUPPORTING_DOCUMENT',applicability:'PARENT_ASSEMBLY',role:'UNRESOLVED',identityReview:{type:'VPRO5_BOM_EXPORT'}}],governingBomDocumentId:null}}};
+const envelope={documentRemovalAvailable:true,packageReviewToken:'token',record};t.state.selected=envelope;
+t.setMount({querySelector:()=>null,querySelectorAll:()=>[]});
+assert.match(t.renderIncompleteSave(),/Save incomplete setup \(On Hold\)/);assert.match(t.renderIncompleteSave(),/no independent draft-save/);assert.equal(requests.length,0);
+t.state.showIncompleteSave=true;t.packageAnswers().missing='Source identity needs review';assert.match(t.renderIncompleteSave(),/Save setup and place On Hold/);
+window.fetch=async(url,options={})=>{requests.push({url,options});return {ok:true,json:async()=>url.endsWith('/technical-reviews')?{items:[]}:envelope};};
+await t.saveUnifiedPackage(false);const req=requests.find(x=>x.options.method==='PUT'),body=JSON.parse(req.options.body);assert.equal(body.complete,false);assert.equal(body.missing,'Source identity needs review');assert.equal(body.documents[0].partNumberReview,undefined,'no invented manufacturer answers');assert.equal(body.acceptDocumentId,undefined);assert.ok(!requests.some(x=>x.url.includes('analysis-jobs')||x.url.includes('vpro-bom-draft')));
+assert.match(t.renderVproImport(),/FIXTURE REV R1/);assert.match(t.renderVproImport(),/Generate draft from fixture.txt/);
+window.fetch=async()=>({ok:false,json:async()=>({message:'Export drawing/revision does not match this RFQ. No draft created.'})});
+await t.buildVproDraft('txt');assert.match(t.renderVproImport(),/role="alert"/);assert.match(t.renderVproImport(),/Export drawing\/revision does not match/);assert.equal(t.state.selected.record.technicalReview.candidateBom,undefined);
+console.log('PASS visible incomplete-save semantics, unresolved PN preservation, no acceptance/extraction, exact target guidance and persistent generation error; synthetic only');

@@ -8,24 +8,29 @@ internal sealed record SimPersona(
     string[] Roles,
     string[] Permissions,
     bool IsSuperAdmin,
-    string Purpose)
+    string Purpose, string[]? AllowedWorkspaces = null)
 {
     internal bool IsActive => string.Equals(AccountStatus, "ACTIVE", StringComparison.Ordinal);
 
     internal bool Can(string permission) =>
-        IsActive && (IsSuperAdmin || Permissions.Contains(permission, StringComparer.Ordinal));
+        IsActive && (IsSuperAdmin || Permissions.Contains(permission, StringComparer.Ordinal) ||
+            permission == "rfq.view" && Permissions.Contains("technical_review.view", StringComparer.Ordinal) ||
+            permission == "rfq.materials.edit" && Permissions.Contains("technical_review.disposition", StringComparer.Ordinal) ||
+            permission == "rfq.readiness.view" && Permissions.Contains("technical_review.view", StringComparer.Ordinal) ||
+            permission == "rfq.part_requests.create" && Permissions.Contains("technical_review.disposition", StringComparer.Ordinal));
 
-    internal object CurrentUserContract() => new
+    internal object CurrentUserContract()
     {
-        isAuthenticated = true,
-        user = new { userName = UserName, displayName = DisplayName, accountStatus = AccountStatus },
-        roles = Roles,
-        permissions = Permissions.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
-        isSuperAdmin = IsSuperAdmin && IsActive,
-        synthetic = true,
-        environment = "SIM",
-        personaId = Id
-    };
+        var value = new Dictionary<string, object?> {
+            ["isAuthenticated"] = true,
+            ["user"] = new { userName = UserName, displayName = DisplayName, accountStatus = AccountStatus },
+            ["roles"] = Roles, ["permissions"] = Permissions.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+            ["isSuperAdmin"] = IsSuperAdmin && IsActive, ["synthetic"] = true,
+            ["environment"] = "SIM", ["personaId"] = Id
+        };
+        if (AllowedWorkspaces is not null) value["allowedWorkspaces"] = AllowedWorkspaces;
+        return value;
+    }
 
     internal object CatalogContract() => new
     {
@@ -64,9 +69,27 @@ internal static class SimPersonaCatalog
         new SimPersona(DefaultPersonaId, "sim.admin", "SIM Administrator", "ACTIVE",
             ["SUPER_ADMIN"], [], true,
             "Safe default with full authority inside the isolated SIM runtime."),
+        new SimPersona("miguel-jr", "sim.miguel-jr", "Miguel Jr.", "ACTIVE",
+            ["SUPER_ADMIN"], [], true,
+            "Miguel Jr. synthetic SIM profile; same simulated rights and workspace as SIM Administrator."),
+        new SimPersona("michelle", "sim.michelle", "Michelle", "ACTIVE",
+            ["SIM_MATERIALS_LIBRARY_CLERK"], ["rfq.view", "rfq.materials.edit", "assembly_library.view", "assembly_library.edit"], false,
+            "Materials entry/completion, Labor read-only and Library preparation/submission; no technical or commercial approval.",
+            ["dle-home", "rfqs", "assembly-library"]),
+        new SimPersona("ray", "sim.ray", "Ray", "ACTIVE",
+            ["SIM_MATERIALS_ESTIMATOR"], ["rfq.intake.create", "rfq.view", "rfq.materials.edit", "rfq.readiness.view", "rfq.part_requests.create", "rfq.quote.prepare", "assembly_library.view"], false,
+            "Intake, Materials completion and part-request preparation, Labor/Library read-only, Readiness view; no technical, estimate-allowance or customer quote approval.",
+            ["dle-home", "rfq-quoting", "rfqs", "assembly-library"]),
+        new SimPersona("adan", "sim.adan", "Adan", "ACTIVE",
+            ["SIM_LIBRARY_CLERK"], ["assembly_library.view", "assembly_library.edit"], false,
+            "Library-only preparation, editing and request submission for separate final review; no RFQ, Intake, technical approval or server copying.",
+            ["dle-home", "assembly-library"]),
         new SimPersona("production-team", "sim.production", "Production Team", "ACTIVE",
-            ["SIM_PRODUCTION_TEAM"], ["production.view", "production.team_input"], false,
+            ["SIM_PRODUCTION_TEAM"], ["production.view", "production.team_input", "kitting.view", "work_orders.view", "order_entry.view"], false,
             "Production operational notes and images only; no Traveler management or approval authority."),
+        new SimPersona("quality-reviewer", "sim.quality", "Quality Reviewer", "ACTIVE",
+            ["SIM_QUALITY_REVIEWER"], ["quality.review", "production.view", "kitting.view", "work_orders.view", "order_entry.view"], false,
+            "SIM Quality instruction authoring, addition review and explicit packet release; no Production management authority."),
         new SimPersona("operations-manager", "sim.operations", "Operations Manager", "ACTIVE",
             ["SIM_OPERATIONS_MANAGER"],
             ["work_orders.view", "kitting.view", "production.view", "production.manage", "rma_rework.view", "shipments.view",

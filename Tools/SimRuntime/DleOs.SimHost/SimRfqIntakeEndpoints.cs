@@ -26,6 +26,9 @@ internal static partial class SimRfqIntakeEndpoints
         SimRfqIntakeStore store, SimPersonaSessionStore personas)
     {
         MapRfqs(app, state, store, personas);
+        MapDrawingFolders(app, state, store, personas);
+        MapReviewDocumentRemoval(app, state, store, personas);
+        MapReviewSourceSetup(app, state, store, personas);
         MapNewOrders(app, state, store, personas);
         MapOrderEntry(app, state, store, personas);
         app.MapGet("/api/sim/technical-reviews/{intakeId}/vpro-source-decisions", async Task<IResult> (string intakeId, HttpContext context) => {
@@ -127,22 +130,7 @@ internal static partial class SimRfqIntakeEndpoints
         {
             var denied = Denied(context, state, personas, write: false);
             if (denied is not null) return denied;
-            var query = context.Request.Query["q"].ToString().Trim();
-            var items = Customers.Where(item => string.IsNullOrWhiteSpace(query) ||
-                item.ToString()!.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
-            return Results.Json(new
-            {
-                query,
-                items,
-                returnedCount = items.Length,
-                totalItems = items.Length,
-                page = 1,
-                pageSize = 25,
-                totalPages = items.Length == 0 ? 0 : 1,
-                hasMore = false,
-                environment = "SIM",
-                synthetic = true
-            });
+            return SearchCustomerReferences(context, store);
         });
 
         app.MapPost("/api/sim/rfq-intakes/{intakeId}/customer-request-documents", async Task<IResult> (string intakeId, HttpContext context) =>
@@ -362,6 +350,48 @@ internal static partial class SimRfqIntakeEndpoints
             catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
             catch (IOException) { return Results.Json(new { message = "BOM Review could not be saved. Reopen before retrying." }, statusCode: 503); }
         });
+        app.MapGet("/api/sim/technical-reviews/{intakeId}/presentation", async Task<IResult> (string intakeId,HttpContext context) => {
+            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.view");if(denied is not null)return denied;
+            try{return Results.Json(await store.ReadPresentation(intakeId));}catch(SimRfqIntakeProblem p){return Results.Json(new{code=p.Code,message=p.Message},statusCode:p.StatusCode);}catch(IOException){return Results.Json(new{message="Draft preview unavailable."},statusCode:503);}
+        });
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/presentation/reference", async Task<IResult> (string intakeId,SimReviewReferenceRequest request,HttpContext context) => {
+            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.disposition");if(denied is not null)return denied;
+            try{return Results.Json(await store.SaveReviewReference(intakeId,request,personas.Resolve(context)));}catch(SimRfqIntakeProblem p){return Results.Json(new{code=p.Code,message=p.Message},statusCode:p.StatusCode);}catch(IOException){return Results.Json(new{message="Reference preparation failed. Original files and saved review remain unchanged. Check local Word/PDF availability and retry."},statusCode:503);}
+        });
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/presentation/accept-production", async Task<IResult> (string intakeId,SimProductionSlidesAcceptanceRequest request,HttpContext context) => {
+            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.disposition");if(denied is not null)return denied;
+            try{return Results.Json(await store.AcceptProductionSlides(intakeId,request,personas.Resolve(context)));}
+            catch(SimRfqIntakeProblem p){return Results.Json(new{code=p.Code,message=p.Message},statusCode:p.StatusCode);}
+            catch(IOException){return Results.Json(new{message="Slide acceptance unavailable. Reopen before retrying."},statusCode:503);}
+        });
+        app.MapPut("/api/sim/technical-reviews/{intakeId}/presentation", async Task<IResult> (string intakeId,SimReviewPresentationRequest request,HttpContext context) => {
+            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.disposition");if(denied is not null)return denied;
+            try{return Results.Json(await store.SavePresentation(intakeId,request,personas.Resolve(context)));}catch(SimRfqIntakeProblem p){return Results.Json(new{code=p.Code,message=p.Message},statusCode:p.StatusCode);}catch(IOException){return Results.Json(new{message="Draft save unavailable; keep your edits and retry."},statusCode:503);}
+        });
+        app.MapGet("/api/sim/technical-reviews/{intakeId}/manual-bom/completion-info", async Task<IResult> (string intakeId,HttpContext context) => {
+            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.view");if(denied is not null)return denied;
+            try{return Results.Json(await store.ReadManualCompletionInfo(intakeId));}catch(SimRfqIntakeProblem p){return Results.Json(new{code=p.Code,message=p.Message},statusCode:p.StatusCode);}catch(IOException){return Results.Json(new{message="Manual qualification evidence is unavailable. Reopen before retrying."},statusCode:503);}
+        });
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/manual-bom/revisions", async Task<IResult> (string intakeId,SimManualRevisionRequest request,HttpContext context) => {
+            var denied=DeniedTechnicalReview(context,state,personas,"technical_review.disposition");if(denied is not null)return denied;
+            try{return Results.Json(await store.StartManualBomRevision(intakeId,request,personas.Resolve(context)));}catch(SimRfqIntakeProblem p){return Results.Json(new{code=p.Code,message=p.Message},statusCode:p.StatusCode);}catch(IOException){return Results.Json(new{message="BOM revision could not be saved. Retry the same revision request."},statusCode:503);}
+        });
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/manual-bom", async Task<IResult> (string intakeId, SimManualBomRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.CreateManualBom(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "Working BOM storage is unavailable. Reopen before retrying." }, statusCode: 503); }
+        });
+        app.MapPost("/api/sim/technical-reviews/{intakeId}/manual-bom/rows", async Task<IResult> (string intakeId, SimManualRowRequest request, HttpContext context) =>
+        {
+            var denied = DeniedTechnicalReview(context, state, personas, "technical_review.disposition");
+            if (denied is not null) return denied;
+            try { return Results.Json(await store.AddManualBomRow(intakeId, request, personas.Resolve(context))); }
+            catch (SimRfqIntakeProblem p) { return Results.Json(new { code = p.Code, message = p.Message }, statusCode: p.StatusCode); }
+            catch (IOException) { return Results.Json(new { message = "Working BOM storage is unavailable. Retry with the same row request." }, statusCode: 503); }
+        });
         app.MapPost("/api/sim/technical-reviews/{intakeId}/candidate-bom", (string intakeId, HttpContext context) => Candidate(intakeId, null, context));
         app.MapPost("/api/sim/technical-reviews/{intakeId}/analysis-jobs", async Task<IResult> (string intakeId, HttpContext context) =>
         {
@@ -431,6 +461,8 @@ internal static partial class SimRfqIntakeEndpoints
         var persona = personas.Resolve(context);
         if (!persona.IsActive)
             return Results.Json(new { code = "DLE_OS_USER_DISABLED", message = "The selected synthetic persona is disabled." }, statusCode: 403);
+        if (!write && (persona.Can("rfq.view") || persona.AllowedWorkspaces is not null) && !persona.Can("rfq.intake.create") && !persona.Can("technical_review.view"))
+            return Results.Json(new { code = "DLE_OS_PERMISSION_DENIED", message = "Intake access is not assigned to this SIM profile." }, statusCode: 403);
         if (write && !persona.Can("rfq.intake.create"))
             return Results.Json(new { code = "DLE_OS_PERMISSION_DENIED", message = "The selected SIM persona cannot create RFQ intakes.", requiredPermission = "rfq.intake.create" }, statusCode: 403);
         return null;

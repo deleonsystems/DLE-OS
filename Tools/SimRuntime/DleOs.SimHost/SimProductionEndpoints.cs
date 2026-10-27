@@ -6,7 +6,8 @@ internal static class SimProductionEndpoints
     {
         async Task<IResult> Guard(HttpContext context,bool write,Func<SimPersona,Task<IResult>> action){
             if(!state.Current.IsHealthy)return Results.StatusCode(503);var actor=personas.Resolve(context);
-            if(!actor.Can(write?"production.manage":"production.view"))return Results.StatusCode(403);
+            if(write&&context.Request.Path.StartsWithSegments("/api/sim/quality")){if(!SimProductionService.CanReviewQuality(actor))return Results.StatusCode(403);}
+            else if(!actor.Can(write?"production.manage":"production.view"))return Results.StatusCode(403);
             context.Response.Headers.CacheControl="private, no-store";
             try{return await action(actor);}
             catch(KittingCaseProblem e){return Results.Json(new{code=e.Code,message=e.Message},statusCode:e.StatusCode);}
@@ -29,6 +30,27 @@ internal static class SimProductionEndpoints
         app.MapGet(route+"/instructions/visuals/{documentId}",(string workOrderNumber,string documentId,HttpContext c)=>Guard(c,false,async a=>{
             var file=await service.OpenInstructionAsset(workOrderNumber,documentId,a);c.Response.Headers["X-Content-Type-Options"]="nosniff";return Results.File(file.Bytes,file.Type);
         }));
+        app.MapGet(route+"/proposal",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadProductionProposal(workOrderNumber,null,a))));
+        app.MapPut(route+"/proposals/{id}",(string workOrderNumber,string id,SimProposalSave r,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.SaveProductionProposal(workOrderNumber,id,r,a))));
+        app.MapPost(route+"/proposals/visuals",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>{
+            using var bytes=new MemoryStream();var buffer=new byte[81920];int count;
+            while((count=await c.Request.Body.ReadAsync(buffer))>0){if(bytes.Length+count>8388608)return Results.StatusCode(413);bytes.Write(buffer,0,count);}
+            var asset=await service.UploadProposalAsset(workOrderNumber,c.Request.Headers["X-Proposal-Parent"].ToString(),Uri.UnescapeDataString(c.Request.Headers["X-File-Name"].ToString()),bytes.ToArray(),a);
+            return Results.Json(new{asset.DocumentId,asset.Sha256,asset.Name,asset.Type});
+        }));
+        app.MapGet("/api/sim/quality/work-orders/{workOrderNumber}/proposals",(string workOrderNumber,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.ListProductionProposals(workOrderNumber,a))));
+        app.MapGet("/api/sim/quality/work-orders/{workOrderNumber}/proposals/{id}",(string workOrderNumber,string id,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.ReadProductionProposal(workOrderNumber,id,a))));
+        app.MapPost("/api/sim/quality/work-orders/{workOrderNumber}/proposals/{id}/review",(string workOrderNumber,string id,SimProposalReview r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.ReviewProductionProposal(workOrderNumber,id,r,a))));
+        app.MapPut(route+"/additions/{id}/slide",(string workOrderNumber,string id,SimAdditionSlideSave r,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.SaveAdditionSlide(workOrderNumber,id,r,a))));
+        app.MapPost(route+"/additions/visuals",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>{
+            using var bytes=new MemoryStream();var buffer=new byte[81920];int count;
+            while((count=await c.Request.Body.ReadAsync(buffer))>0){if(bytes.Length+count>8388608)return Results.StatusCode(413);bytes.Write(buffer,0,count);}
+            var asset=await service.UploadAdditionAsset(workOrderNumber,c.Request.Headers["X-Addition-Parent"].ToString(),c.Request.Headers["X-Addition-Operation"].ToString(),Uri.UnescapeDataString(c.Request.Headers["X-File-Name"].ToString()),bytes.ToArray(),a);
+            return Results.Json(new{asset.DocumentId,asset.Sha256,asset.Name,asset.Type});
+        }));
+        app.MapGet(route+"/additions",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadAdditions(workOrderNumber,a))));
+        app.MapPost(route+"/additions",(string workOrderNumber,SimAdditionCreate r,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.CreateAddition(workOrderNumber,r,a))));
+        app.MapPost("/api/sim/quality/work-orders/{workOrderNumber}/additions/{id}/review",(string workOrderNumber,string id,SimAdditionReview r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.ReviewAddition(workOrderNumber,id,r,a))));
         const string qualityRoute="/api/sim/quality/work-orders/{workOrderNumber}";
         app.MapGet(qualityRoute+"/instructions/draft",(string workOrderNumber,HttpContext c)=>Guard(c,false,async a=>Results.Json(await service.ReadPacketDraft(workOrderNumber,a))));
         app.MapPut(qualityRoute+"/instructions/draft",(string workOrderNumber,SimPacketSave r,HttpContext c)=>Guard(c,true,async a=>Results.Json(await service.SavePacketDraft(workOrderNumber,r,a))));

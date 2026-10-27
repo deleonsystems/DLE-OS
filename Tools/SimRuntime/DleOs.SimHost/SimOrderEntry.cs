@@ -46,6 +46,8 @@ internal sealed partial class SimRfqIntakeStore
         if(p.PoEvidence.Length==0 || p.PoFactsConfirmed!=true) errors.Add("Verified PO evidence and confirmed order facts are required.");
         if(p.Comparison.Any(c=>c.Result is "DIFFERENCE" or "MISSING")) errors.Add("Resolve the PO/quote differences or missing facts before acceptance.");
         if(p.TechnicalSource is not {Status:"QUOTED_DEFINITION_LINKED",Baseline:not null}) errors.Add("This bridge slice requires the retained verified quoted definition; incoming-document review must be resolved first.");
+        if(RfqOnlyDefinition(p.TechnicalSource?.Baseline?.Definition.Manufacturing))
+            errors.Add("The engineering reference is accepted for RFQ only. Complete production technical review before order acceptance.");
         var rows=p.TechnicalSource?.Baseline?.Definition.Materials.Candidate.Rows ?? [];
         if(rows.Length==0 || rows.Any(r=>!r.Confirmed || !r.ReviewState.Reviewed) || OrderEntryBom(p).Any(r=>!r.Dnp && string.IsNullOrWhiteSpace(r.ApprovedPartNumber))) errors.Add("A fully accepted BOM with approved identities is required.");
         return errors.ToArray();

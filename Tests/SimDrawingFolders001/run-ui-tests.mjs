@@ -1,0 +1,38 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const source=fs.readFileSync(new URL('../../SRC/workspaces/technical-review/technical-review-workspace.js',import.meta.url),'utf8').replace('  window.DleWorkspaces = window.DleWorkspaces || {};','  window.test={state,renderDrawingFolders,drawingFolderAction};\n  window.DleWorkspaces = window.DleWorkspaces || {};');
+const document={addEventListener(){},getElementById(){return null;}};
+const window={document,DleOsRuntimeConfig:{environment:'SIM'},DleOsCapabilities:{can:()=>true}};
+vm.runInNewContext(source,{window,document,URLSearchParams});
+const t=window.test, requests=[];
+const record={intakeId:'SYNTHETIC',status:'READY_FOR_RFQ_QUALIFICATION',customer:{customerName:'Fixture'},assemblies:[{lineNumber:1,assemblyNumber:'TEST-A',revision:'A',quantity:1},{lineNumber:2,assemblyNumber:'TEST-B',revision:'B',quantity:2}],technicalFiles:[],technicalReview:{reviewerNotes:'unsaved reviewer note'}};
+t.state.selected={record};
+assert.equal(t.renderDrawingFolders(record),'','old backend cannot expose new controls before activation');
+t.state.selected.drawingFoldersAvailable=true;
+const click=(action,line=1,root='',relative='')=>t.drawingFolderAction({target:{closest:()=>({dataset:{drawingFolder:action,line:String(line),root,relative}})}});
+let roots=[], saved=null;
+window.fetch=async(url,options)=>{
+  requests.push({url,options});
+  if(options.method==='PUT'){saved=JSON.parse(options.body);return {ok:true,json:async()=>({id:'link-1',lineNumber:saved.lineNumber,rootId:saved.rootId,relativePath:saved.relativePath,folderName:'Rev A',linkedBy:'Fixture',linkedAtUtc:'2026-01-01T00:00:00Z'})};}
+  if(url.includes('/contents'))return {ok:true,json:async()=>({rootId:'drawings',rootLabel:'Drawings',relativePath:'Customer/Assembly/Rev A',entries:[{name:'<drawing>.pdf',relativePath:'Customer/Assembly/Rev A/<drawing>.pdf',isDirectory:false},{name:'Nested',relativePath:'Customer/Assembly/Rev A/Nested',isDirectory:true}],truncated:false})};
+  return {ok:true,json:async()=>({roots,review:{token:'TOKEN',canChange:true,association:record.drawingFolders?.[0]}})};
+};
+assert.equal((t.renderDrawingFolders(record).match(/Link Drawing \/ Prints Folder/g)||[]).length,2,'one selector per assembly');
+await click('change');assert.match(t.renderDrawingFolders(record),/not configured/);assert.equal(saved,null);
+roots=[{id:'drawings',label:'Drawings'}];await click('change');assert.match(t.renderDrawingFolders(record),/Drawings/);assert.equal(saved,null);
+await click('root',1,'drawings');let html=t.renderDrawingFolders(record);
+assert.match(html,/&lt;drawing&gt;\.pdf/);assert.doesNotMatch(html,/<drawing>/);assert.match(html,/Save Folder Link/);assert.match(html,/Files are not imported or approved/);
+assert.equal(saved,null,'browsing does not save');
+await click('close');assert.equal(saved,null,'cancel does not save');
+await click('change');await click('folder',1,'drawings','Customer/Assembly/Rev A');await click('save');
+assert.equal(saved.rootId,'drawings');assert.equal(saved.relativePath,'Customer/Assembly/Rev A');assert.equal(saved.expectedToken,'TOKEN');assert.equal(record.technicalReview.reviewerNotes,'unsaved reviewer note');assert.equal(record.technicalFiles.length,0);
+assert.equal(record.drawingFolders.length,1);assert.match(t.renderDrawingFolders(record),/Browse Folder/);assert.match(t.renderDrawingFolders(record),/Change Folder/);
+await click('browse');assert.doesNotMatch(t.renderDrawingFolders(record),/Save Folder Link/,'browse mode cannot silently change association');
+await click('close');await click('change',2);await click('folder',2,'drawings','Customer');await click('save',2);assert.equal(record.drawingFolders.length,2,'second assembly has independent mapping');
+const originalFetch=window.fetch;window.fetch=async()=>({ok:false,json:async()=>({message:'Folder unavailable'})});await click('change');assert.match(t.renderDrawingFolders(record),/Folder unavailable/);window.fetch=originalFetch;
+t.state.saving=true;const count=requests.length;await click('change');assert.equal(requests.length,count);t.state.saving=false;
+record.status='READY_FOR_RFQ_WORKING_QUEUE';assert.doesNotMatch(t.renderDrawingFolders(record),/Change Folder|Link Drawing \/ Prints Folder/);assert.match(t.renderDrawingFolders(record),/Browse Folder/);
+window.DleOsRuntimeConfig.environment='DEV';assert.equal(t.renderDrawingFolders(record),'');
+assert.ok(requests.every(r=>r.url.startsWith('/api/sim/technical-reviews/SYNTHETIC/drawing-folder')));
+console.log('PASS: assembly selectors, unconfigured state, explicit save/change, browse/cancel without writes, escaped names, stale/access errors, preserved unsaved fields, SIM-only UI.');

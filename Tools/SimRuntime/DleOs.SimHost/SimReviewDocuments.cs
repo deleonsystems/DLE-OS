@@ -1,7 +1,8 @@
 using System.Security.Cryptography;
 
 internal sealed record SimReviewDocumentOrigin(string SourceStage, string AddedBy, DateTimeOffset AddedAtUtc,
-    string OriginalFilename, string DocumentId, string Sha256, string? Note, SimRowDocumentContext? RowContext = null);
+    string OriginalFilename, string DocumentId, string Sha256, string? Note, SimRowDocumentContext? RowContext = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLinkedSource? LinkedSource = null);
 internal sealed record SimRowDocumentTarget(string CandidateId, string RowId, int RowIndex, string ExpectedToken);
 internal sealed record SimRowDocumentContext(string CandidateId, string RowId, int RowIndex, string ParentAssembly, string ParentRevision,
     string CustomerBomPartNumber, string ComponentType, string[] ProposedSubassemblyIdentities);
@@ -11,7 +12,7 @@ internal sealed record SimReviewDocumentRequest(string Type, string Applicabilit
 internal sealed partial class SimRfqIntakeStore
 {
     internal async Task<object> AddReviewDocument(string intakeId, string name, long modified,
-        SimReviewDocumentRequest request, Stream stream, SimPersona persona)
+        SimReviewDocumentRequest request, Stream stream, SimPersona persona, SimLinkedFileRequest? linked = null, SimDrawingFolders? sources = null)
     {
         await gate.WaitAsync();
         try
@@ -47,13 +48,31 @@ internal sealed partial class SimRfqIntakeStore
                 (request.SubassemblyPartNumber?.Length ?? 0) > 120 || (request.ProposedSubassemblyIdentity?.Length ?? 0) > 120 || (request.Note?.Length ?? 0) > 500)
                 throw SimRfqIntakeProblem.BadRequest("SIM_REVIEW_DOCUMENT_METADATA", "Choose a document type and applies-to scope. Subassembly files require the customer/BOM part number. Identities allow 120 characters and the optional note allows 500.");
 
+            SimLinkedFileRead? linkedRead = null;
+            if (linked is not null)
+            {
+                if(record.ReviewDocumentRemovals?.Any(x=>x.RestoredAtUtc is null && x.File.ReviewOrigin?.LinkedSource?.SelectionId==linked.SelectionId)==true)
+                    throw SimRfqIntakeProblem.Conflict("SIM_LINKED_COPY_REMOVED", "This selected copy was removed from the review. Restore it from Removed files or make a new explicit selection.");
+                var prior = record.TechnicalFiles.SingleOrDefault(f => f.ReviewOrigin?.LinkedSource?.SelectionId == linked.SelectionId);
+                if (prior is not null)
+                {
+                    var saved = prior.ReviewOrigin!.LinkedSource!;
+                    if (saved.SourceToken != linked.SourceToken || saved.Role != linked.Role || saved.RelativePath != linked.RelativePath || saved.LineNumber != linked.LineNumber || record.TechnicalReview.TechnicalPackage?.Documents.SingleOrDefault(d => d.DocumentId == prior.DocumentId)?.IdentityReview?.Type != linked.Type)
+                        throw SimRfqIntakeProblem.Conflict("SIM_LINKED_RETRY", "This selection was already saved with different context. Reopen the review.");
+                    return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), packageReviewToken = PackageReviewToken(record), record };
+                }
+                linkedRead = await ValidateLinkedDrawingFile(record, linked, sources!);
+                name = linkedRead.Name; modified = linkedRead.Source.LastWriteUtc.ToUnixTimeMilliseconds();
+            }
+            using var linkedStream = linkedRead is null ? null : new MemoryStream(linkedRead.Bytes, writable: false);
+            if (linkedStream is not null) stream = linkedStream;
             var staged = await documents.Stage(record.RequestCorrelationId, name, modified, stream, persona.DisplayName);
             try
             {
                 var bytes = await documents.Bytes(record.RequestCorrelationId, staged.DocumentId!);
                 var at = DateTimeOffset.UtcNow;
                 var file = staged with { ReviewOrigin = new("Technical Review", persona.DisplayName, at, staged.Name,
-                    staged.DocumentId!, Convert.ToHexString(SHA256.HashData(bytes)), request.Note?.Trim(), association) };
+                    staged.DocumentId!, Convert.ToHexString(SHA256.HashData(bytes)), request.Note?.Trim(), association, linkedRead?.Source) };
                 var type = request.Type switch { "DRAWING" or "DRAWING_AND_BOM" => "ASSEMBLY_DRAWING", "BOM_ONLY" => "BOM", "GERBER_FILES" => "GERBER", "VPRO5_BOM_EXPORT" or "OTHER" or "DATASHEET" or "SPECIFICATION" => "SUPPORTING_DOCUMENT", _ => "UNKNOWN" };
                 var doc = new SimPackageDocument(staged.DocumentId!, staged.Name, type, "UNRESOLVED", request.Applicability,
                     request.Applicability == "SUBASSEMBLY" ? request.SubassemblyPartNumber!.Trim() : null,
@@ -76,7 +95,7 @@ internal sealed partial class SimRfqIntakeStore
                 if (!committed) await documents.Remove(record.RequestCorrelationId, staged.DocumentId!, persona.DisplayName);
                 throw;
             }
-            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), packageReviewToken = PackageReviewToken(record), record };
         }
         finally { gate.Release(); }
     }

@@ -5,6 +5,7 @@ internal static class SimApprovedPartIdentities
     {
         if (row.ComponentType == "DNP") return [];
         var numbers = new List<string>();
+        if(SimApprovedAlternateChoices.Valid(row))numbers.Add(row.SelectedApprovedAlternate!.PartNumber!);
         if (row.IdentityBasis == "ASSEMBLY_PN")
         {
             if (!string.IsNullOrWhiteSpace(row.AssemblyIdentity?.PartNumber)) numbers.Add(row.AssemblyIdentity.PartNumber);

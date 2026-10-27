@@ -1,0 +1,22 @@
+using System.Text.Json;
+internal static class StoreChecks {
+ internal static async Task Run(byte[] bytes,SimPersona actor,SimPreparationPiece[] pieces){
+ var json=new JsonSerializerOptions(JsonSerializerDefaults.Web);var root=Path.Combine(Path.GetTempPath(),"sim-approved-alternate-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(Path.Combine(root,"data"));var correlation=Guid.NewGuid().ToString();var docs=new SimIntakeDocuments(root);var file=await docs.Stage(correlation,"fixture.txt",0,new MemoryStream(bytes),actor.DisplayName);
+ var r=JsonSerializer.Deserialize<SimRfqIntakeRecord>("""
+ {"intakeId":"RFQI-SIM-9001","requestCorrelationId":"","schema":"DLE_RFQ_INTAKE_V1","handoffTarget":"Technical Review","status":"TECHNICAL_REVIEW_IN_PROGRESS","intakeType":"NEW_QUOTE_REQUEST","customer":{"customerId":"fixture","customerNumber":"999999","customerName":"Synthetic","resolutionSource":"fixture"},"assemblyCount":1,"assemblies":[{"lineNumber":1,"assemblyNumber":"TEST","revision":"A","quantity":1}],"deLeonScope":"MATERIAL_AND_LABOR","technicalFilesProvided":true,"technicalFiles":[],"documentPreservationState":"PRESERVED","customerRequirements":[],"createdBy":"Fixture","createdAtUtc":"2026-01-01T00:00:00Z","scenarioId":"fixture","generation":1,"environment":"SIM","technicalReview":{"reviewType":"RFQ_REVIEW","assemblyType":"","assemblyDrawingFile":"","bomFile":"","gerbersRequired":false,"gerberFiles":[],"subAssemblyDocuments":[],"materialResponsibility":"","customerSuppliedItems":[],"technicalPackageSufficient":false,"disposition":"TECHNICAL_REVIEW_IN_PROGRESS","reviewStatus":"TECHNICAL_REVIEW_IN_PROGRESS","reviewedBy":"","reviewedAtUtc":"2026-01-01T00:00:00Z","reviewerNotes":"","workflow":{}}}
+ """,json)!;
+ r=r with{CreatedBy=actor.DisplayName,RequestCorrelationId=correlation,TechnicalFiles=[file],TechnicalReview=r.TechnicalReview! with{CandidateBom=SimVproParser.Parse(bytes,file.DocumentId!,"TEST","A","Fixture")}};r=r with{TechnicalReview=r.TechnicalReview! with{TechnicalPackage=SimTechnicalPackageProvider.Inventory(r)}};
+ var other=r with{IntakeId="RFQI-SIM-9002"};var path=Path.Combine(root,"data","rfq-intakes.json");await File.WriteAllTextAsync(path,JsonSerializer.Serialize(new{schema="DLE_RFQ_INTAKE_DATASET_V1",version=1,lastIntakeSequence=9002,updatedAtUtc=DateTimeOffset.UtcNow,records=new[]{r,other},analysisJobs=Array.Empty<DleAnalysisJob>()},json));
+ var store=new SimRfqIntakeStore(root);var bom=r.TechnicalReview!.CandidateBom!;
+ var request=new SimCandidateReviewRequest(bom.Id,0,null,PreparationChange:new(bom.PreparationToken,null,bom.Rows[0].RowId!,"18","CUSTOMER",pieces,"")); async Task<bool> Choose(){try{await store.CandidateBomAsync(r.IntakeId,actor,request);return true;}catch(SimRfqIntakeProblem){return false;}}
+ var results=await Task.WhenAll(Choose(),Choose());if(results.Count(x=>x)!=1)throw new Exception("Concurrent selection should succeed exactly once");
+ store=new SimRfqIntakeStore(root);var loaded=JsonSerializer.SerializeToElement(await store.ReadTechnicalReviewAsync(r.IntakeId),json).GetProperty("record").Deserialize<SimRfqIntakeRecord>(json)!;if(loaded.TechnicalReview!.CandidateBom!.PreparationGroups?.Length!=1)throw new Exception("Persisted grouping lost");
+ var readiness=JsonSerializer.SerializeToElement(await store.BomCompletionReadiness(r.IntakeId,new(loaded.TechnicalReview.CandidateBom)),json);if(readiness.GetProperty("ready").GetBoolean()||!readiness.GetProperty("message").GetString()!.Contains("Preparation details pending"))throw new Exception("Completion guard missing");
+ var slides=await store.ProductionSlidesState(loaded);if(slides.CanAccept||slides.Ready||!slides.Message.Contains("Preparation details pending"))throw new Exception("Slides guard missing");
+ using var dataset=JsonDocument.Parse(await File.ReadAllTextAsync(path));var unchanged=dataset.RootElement.GetProperty("records")[1].Deserialize<SimRfqIntakeRecord>(json)!;if(JsonSerializer.Serialize(unchanged,json)!=JsonSerializer.Serialize(other,json))throw new Exception("Unrelated record changed");
+ if(!bytes.SequenceEqual(await docs.Bytes(correlation,file.DocumentId!)))throw new Exception("Source altered");
+ Console.WriteLine("PASS isolated store grouping, concurrent save conflict, reopen, actual completion guard, unrelated record and source bytes unchanged");
+ }
+}
+
+

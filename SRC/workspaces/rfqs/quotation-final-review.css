@@ -72,3 +72,14 @@
 .quick-turn-fields input,.quick-turn-fields select { box-sizing:border-box; min-height:36px; padding:6px; font:inherit; }
 .final-quick-turn small { color:#506574; }
 @media(max-width:650px) { .quick-turn-fields [data-quick-result] { flex-basis:100%; } }
+
+.final-part-flags{margin:12px 0;padding:12px;border:1px solid #927441;border-radius:6px;background:#15202e;color:#edf2f7}.final-part-flags h2{font-size:15px;margin:0 0 8px;color:#ffd18a}.final-part-flags table{width:100%;min-width:560px;border-collapse:collapse}.final-part-flags th,.final-part-flags td{padding:7px 10px;text-align:left;vertical-align:top;border-bottom:1px solid #364151;overflow-wrap:anywhere}.final-part-flags th{background:#202f40;color:#edf2f7}.final-part-flags small{display:block;color:#ffd18a}.final-part-flags p{margin:8px 0 0;font-size:12px}.final-part-flags .final-price-scroll{overflow:auto;max-width:100%;outline-offset:2px}
+
+.quotation-final-review .final-part-flags{background:#15202e;color:#edf2f7;border-color:#927441}
+.quotation-final-review .final-part-flags h2{color:#ffd18a;font-weight:700}
+.quotation-final-review .final-part-flags :is(td,p,small){color:#edf2f7}
+.quotation-final-review .final-part-flags td{background:#15202e}
+.quotation-final-review .final-part-flags th{background:#202f40;color:#edf2f7}
+.quotation-final-review > header{flex-wrap:wrap}
+
+.quotation-final-review .final-estimate-pending{padding:10px}.quotation-final-review .final-estimate-pending>summary{font-size:14px;font-weight:700;color:#b9ddf7;cursor:pointer}.quotation-final-review .final-estimate-pending .final-price-scroll{margin-top:8px}.quotation-final-review .final-part-boundary{font-size:12px}

@@ -2,6 +2,8 @@ using System.Text.Json;
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 
+if(args.Contains("--inspection-links")){await InspectionPacketTests.Run(args[0],args[1],args[2],args.Contains("--job")?args[Array.IndexOf(args,"--job")+1]:null);return;}
+
 var repo=Path.GetFullPath(args[0]);var backup=Path.GetFullPath(args[1]);var root=Path.GetFullPath(args[2]);
 if(Directory.Exists(root)||root.StartsWith(repo,StringComparison.OrdinalIgnoreCase))throw new Exception("Use a new isolated fixture directory outside the repository.");
 foreach(var folder in new[]{"data","state","intake-documents","documents"})foreach(var p in Directory.EnumerateFiles(Path.Combine(backup,folder),"*",SearchOption.AllDirectories)){

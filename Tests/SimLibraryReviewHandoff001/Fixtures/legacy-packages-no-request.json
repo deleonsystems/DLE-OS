@@ -1,0 +1,133 @@
+{
+  "sourceKeyRaw": " key ",
+  "revision": 2,
+  "versions": [
+    {
+      "id": "c5fa5cc1-bea2-4c59-bbca-97ebbbc4a0f3",
+      "version": 1,
+      "status": "APPROVED",
+      "bom": {
+        "id": "8ae50a79-fc59-43c2-b711-659ad514acdb",
+        "assemblyNumber": "PART",
+        "drawingRevision": "A",
+        "bomRevision": "A",
+        "changeNotes": "",
+        "quantityBasis": "PER_ASSEMBLY",
+        "preparationAssessed": false,
+        "rows": [
+          {
+            "id": "7edfd587-5f06-4101-b8c2-987901cef9ea",
+            "find": "1",
+            "sourcePartNumber": "CUSTOMER-BOARD",
+            "description": "Bare board",
+            "quantity": "1",
+            "unit": "EA",
+            "referenceDesignators": "",
+            "identityBasis": "CUSTOMER",
+            "manufacturerPartNumber": "",
+            "manufacturerName": "",
+            "identityConfirmed": true,
+            "dnp": false,
+            "notes": "",
+            "preparationRequired": false,
+            "alternates": [],
+            "selectedAlternateId": null,
+            "source": null,
+            "acceptance": {
+              "hash": "1190DD8EE8CC4024DD43AED26DA975D00DEDDCBC8B07799550BC73C0E5F950AC",
+              "actor": {
+                "id": "author",
+                "name": "author",
+                "atUtc": "2026-10-23T23:19:30.3522148+00:00"
+              }
+            }
+          }
+        ],
+        "author": {
+          "id": "author",
+          "name": "author",
+          "atUtc": "2026-10-23T23:19:30.3373537+00:00"
+        },
+        "savedBy": {
+          "id": "author",
+          "name": "author",
+          "atUtc": "2026-10-23T23:19:30.3522148+00:00"
+        },
+        "import": null,
+        "evidenceHash": null,
+        "evidenceName": null,
+        "rowAcceptanceRequired": true,
+        "internalVersion": 1
+      },
+      "documents": [
+        {
+          "identification": {
+            "id": "7F4A8B0A6B3D6F569E5D0A9FEACCDACD4E58131A3FCE35C43BAF7B099CA3A39B",
+            "version": 7,
+            "association": {
+              "id": "24fbb866-de9e-477d-9ee4-ccf367c95a28",
+              "sourceKeyRaw": " key ",
+              "assemblyNumber": "PART",
+              "drawingRevision": "A",
+              "bomRevision": "A",
+              "rootId": "fixture",
+              "relativePath": "A",
+              "folderName": "A",
+              "actor": {
+                "id": "author",
+                "name": "author",
+                "atUtc": "2026-10-23T23:19:30.1549404+00:00"
+              }
+            },
+            "source": {
+              "rootId": "fixture",
+              "relativePath": "A/Customer-VPRO5-DLE-copy.pdf",
+              "folderAssociationId": "24fbb866-de9e-477d-9ee4-ccf367c95a28",
+              "lineNumber": 0,
+              "customerId": "",
+              "assemblyNumber": "PART",
+              "revision": "A",
+              "role": "LIBRARY_DOCUMENT",
+              "size": 31,
+              "lastWriteUtc": "2026-10-23T23:19:30.3114482+00:00",
+              "createdUtc": "2026-10-23T23:19:30.1591024+00:00",
+              "sha256": "F5C4DC61498C77A46CC1A885EB9C80D1A580F11EEA769F938FAADB8D5402F0C7",
+              "sourceToken": "AD8B1E2F3877BDCAB9F6D3A5D146E41B6AFAE452A4CC76C73E04864FDCA267C2",
+              "selectionId": ""
+            },
+            "purposes": [
+              "DRAWING",
+              "BOM_SOURCE"
+            ],
+            "use": "BOTH",
+            "number": "",
+            "revision": "",
+            "status": "UNKNOWN",
+            "evidenceHash": "F5C4DC61498C77A46CC1A885EB9C80D1A580F11EEA769F938FAADB8D5402F0C7",
+            "savedBy": {
+              "id": "author",
+              "name": "author",
+              "atUtc": "2026-10-23T23:19:30.3173653+00:00"
+            },
+            "origin": "CUSTOMER_ORIGINAL"
+          },
+          "evidenceHash": "F5C4DC61498C77A46CC1A885EB9C80D1A580F11EEA769F938FAADB8D5402F0C7"
+        }
+      ],
+      "contentHash": "15BD5F28D30E5ECC1BF3979C8F7FC1FB9626CEC6E87F110799AE818D9C095938",
+      "submittedBy": {
+        "id": "author",
+        "name": "author",
+        "atUtc": "2026-10-23T23:19:30.3833802+00:00"
+      },
+      "preparation": null,
+      "reviewedBy": {
+        "id": "reviewer",
+        "name": "reviewer",
+        "atUtc": "2026-10-23T23:19:30.4150353+00:00"
+      },
+      "comments": "Synthetic existing reviewer approval comment; keep separate from future handoff note.",
+      "withdrawnBy": null
+    }
+  ]
+}

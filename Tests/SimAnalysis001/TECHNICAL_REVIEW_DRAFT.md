@@ -1,0 +1,21 @@
+# Technical Review draft presentation
+
+The authoring details below record the initial implementation. Later SIM work added local PDF rendition preparation, shared QC-style editing/organization, persistent reference-page exclusions and the explicit completion flow described below.
+
+The SIM Technical Package screen has three revisitable sections: Team Drawing / Reference; Materials — Build DLE-OS BOM; Production Slides — Draft Preview. The existing source classification/extraction/qualification controls remain available under Materials. Reference selection is independent of governing production authority and does not qualify or release a package.
+
+`SimTechnicalReview.PresentationDraft` is an optional existing-record extension, omitted when absent. It stores a revision, selected team document, optional separately uploaded PDF rendition, explicit reference status and draft instruction/annotation pages. It creates no Labor operations. GET `/api/sim/technical-reviews/{id}/presentation` returns the current saved candidate and dynamically derived source identity; PUT uses the current draft revision and BOM content token. Both use existing Technical Review permissions. Editing is limited to active or held SIM reviews without downstream handoff/output.
+
+The shared `labor-traveler-print` renderer accepts an opt-in `technicalDraft` presentation flag: draft title, blank unknown order identifiers, no invented operations or completion. Normal quote/released modes are unchanged. The shared `DleLaborBomSlidesV3` renderer/paginator displays rows from the current candidate. `DleLaborDrawingNotes.open` provides the existing editor for BOM, PDF and instruction annotations. Draft saves go to the Technical Review record, not Labor or production release storage.
+
+Preview order: draft traveler, current BOM pages (including an empty working page if there are no rows), selected PDF pages, user-authored instruction slides. A Word original remains separate; the user must upload a PDF rendition for page viewing/annotations. There is no external conversion. A missing or unavailable PDF has an actionable message.
+
+BOM edits are reflected when reopening the preview or choosing Refresh saved BOM / reference. Annotation pages retain their source token and page. Changed BOM content/pagination or reference selection leaves old annotations retained and marked for review, never silently transferred. The first implementation offers a readable inspection of retained annotation text/shape counts, not automatic rebasing or reconstruction of an old BOM-page image. New annotations can be authored on the current page. Removing/reordering existing draft annotation pages, photo overlays and multiple replacement stages are outside this initial draft-context UI.
+
+The completion flow now adds explicit Accept Production Slides for the current saved deck. It records reviewer/time, saved revision and a fingerprint covering content, order, exclusions, BOM and reference sources. Unsaved changes block acceptance; later material changes require acceptance again. Manual BOM qualification remains a separate explicit action. Submission requires both current acceptances plus the existing Technical Package checks, with a current submission token. The saved deck is retained without copying slides or creating operations; these acceptances do not release production. No SIM records, annotations, credentials or machine-specific paths should be promoted as DEV data.
+
+## Tests and activation
+
+Build SimAnalysis001 to an isolated output path. Run its DLL with `--presentation <synthetic-two-page-pdf> <output-fixture-root-file>` for persistence, PDF rendition, source-change and concurrency checks. `--manual-bom` retains the manual-authoring regression checks. Do not use real saved user records for mutation tests.
+
+The screen is gated by the backend's `presentationAvailable` flag. Activation requires the established SIM-only restart after the user saves current work and explicitly approves the restart. Do not reset data. Before use, rollback only the reviewed source delta; after draft data exists, preserve it and use compatible code rather than an older client that could erase or misinterpret it.

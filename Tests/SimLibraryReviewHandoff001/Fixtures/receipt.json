@@ -1,0 +1,27 @@
+{
+  "generatedUtc": "2026-10-24T03:35:35.1178229+00:00",
+  "syntheticOnly": true,
+  "legacyAssemblySha256": "C751BD8FEC4D233FA38C06CD423ECA9419E442DD81E564BD2154BF17BE0263AE",
+  "legacyHasHandoffProperty": false,
+  "includesOrigin": true,
+  "fixtures": [
+    {
+      "file": "legacy-packages-no-request.json",
+      "packageToken": "049FCC53BBAA70C9B460927887E6A4BAD04C0D2C3DF01BD5579595C15E73802F",
+      "contentHash": "15BD5F28D30E5ECC1BF3979C8F7FC1FB9626CEC6E87F110799AE818D9C095938",
+      "linkedPreparation": false,
+      "status": "APPROVED",
+      "documentOrigin": "CUSTOMER_ORIGINAL",
+      "documents": 1
+    },
+    {
+      "file": "legacy-packages-request.json",
+      "packageToken": "A7BA78CD87DFCB5873D211B6EA2D680C3CD586566477224FE8FF4AD066815F93",
+      "contentHash": "21E9C125C5C78D8F8602D5DF3F68FFB00E750DB13A61B0BF077FAB83DAEB97D8",
+      "linkedPreparation": true,
+      "status": "APPROVED",
+      "documentOrigin": "CUSTOMER_ORIGINAL",
+      "documents": 1
+    }
+  ]
+}

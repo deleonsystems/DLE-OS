@@ -135,3 +135,18 @@ body[data-view-mode="mobile"][data-rfqs-mobile-workbench="true"] [data-workspace
 .rfqs-linked-orders span,.rfqs-linked-orders strong { color:#eef5fb; font-size:12px; }
 .rfqs-scroll td>small { display:block; margin-top:5px; color:#c7d6e5; }
 .rfqs-history-links { margin:16px 0; padding:14px; border:1px solid #53677c; border-radius:6px; }
+
+/* Independent quotation-section holds do not change saved progress. */
+.rfqs-workspace .rfq-section-hold{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0;padding:10px 0;border-top:1px solid #cbd5e1}
+.rfqs-workspace .rfq-section-hold label{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.rfqs-workspace .rfq-section-hold input{min-width:220px;max-width:100%;padding:8px;border:1px solid #a8bac8;border-radius:6px;font:inherit;color:#183247;background:#fff}
+.rfqs-workspace .rfq-hold-actions{display:flex;gap:8px}
+.rfqs-workspace .rfq-hold-status{margin:0;flex:1 1 260px}
+.rfqs-workspace .rfq-on-hold{color:#854d0e}
+.rfqs-workspace.rfqs-overview .rfq-on-hold{color:#fbbf24}
+.rfqs-workspace .rfq-hold-reason{display:block;overflow-wrap:anywhere;white-space:pre-wrap}
+.rfqs-workspace .rfq-section-hold [role=alert]{flex-basis:100%;margin:0}
+.rfqs-workspace [data-hold-final-note]:empty{display:none}
+
+/* Approved assembly project reference, kept separate from quote issuance. */
+.rfqs-workspace .rfqs-queue-sort{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:6px 0;color:#cbd5e1;font-size:13px}.rfqs-queue-sort select{color-scheme:dark;background:#17253a;color:#f1f5f9;border:1px solid #64748b;border-radius:4px;padding:5px 7px}.rfqs-package-reference{padding:7px 9px;border:1px solid #475569;border-radius:6px;color:#bfdbfe;overflow-wrap:anywhere}.rfqs-unavailable{border:1px solid #64748b;border-radius:6px;padding:5px 10px;color:#fde68a}.rfqs-unavailable p{margin:5px 0}.rfqs-approved-documents{min-width:0}.rfqs-workspace .rfqs-queue-sort select:focus-visible{outline:2px solid #7dd3fc;outline-offset:2px}@media(max-width:600px){.rfqs-queue-sort select{min-height:44px}.rfqs-package-reference{font-size:13px}}

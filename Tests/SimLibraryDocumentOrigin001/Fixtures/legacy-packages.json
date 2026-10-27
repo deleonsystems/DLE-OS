@@ -1,0 +1,97 @@
+{
+  "sourceKeyRaw": "01TEST-18           ",
+  "revision": 1,
+  "versions": [
+    {
+      "id": "package",
+      "version": 1,
+      "status": "SUBMITTED",
+      "bom": {
+        "id": "draft",
+        "assemblyNumber": "TEST-18",
+        "drawingRevision": "U*",
+        "bomRevision": "U*",
+        "changeNotes": "",
+        "quantityBasis": "PER_ASSEMBLY",
+        "preparationAssessed": false,
+        "rows": [],
+        "author": {
+          "id": "fixture",
+          "name": "Fixture",
+          "atUtc": "2026-10-23T22:57:10.7307889+00:00"
+        },
+        "savedBy": {
+          "id": "fixture",
+          "name": "Fixture",
+          "atUtc": "2026-10-23T22:57:10.7307889+00:00"
+        },
+        "import": null,
+        "evidenceHash": null,
+        "evidenceName": null
+      },
+      "documents": [
+        {
+          "identification": {
+            "id": "library-doc",
+            "version": 1,
+            "association": {
+              "id": "link",
+              "sourceKeyRaw": "01TEST-18           ",
+              "assemblyNumber": "TEST-18",
+              "drawingRevision": "U*",
+              "bomRevision": "U*",
+              "rootId": "fixture-root",
+              "relativePath": "Fixture/TEST-18/U",
+              "folderName": "U",
+              "actor": {
+                "id": "fixture",
+                "name": "Fixture",
+                "atUtc": "2026-10-23T22:57:10.7307889+00:00"
+              }
+            },
+            "source": {
+              "rootId": "fixture-root",
+              "relativePath": "Fixture/TEST-18/U/older.xls",
+              "folderAssociationId": "link",
+              "lineNumber": 0,
+              "customerId": "customer",
+              "assemblyNumber": "TEST-18",
+              "revision": "U*",
+              "role": "LIBRARY_DOCUMENT",
+              "size": 12,
+              "lastWriteUtc": "2026-10-23T22:57:10.7307889+00:00",
+              "createdUtc": "2026-10-23T22:57:10.7307889+00:00",
+              "sha256": "DIFFERENT_BYTES",
+              "sourceToken": "source-token",
+              "selectionId": "source-selection"
+            },
+            "purposes": [
+              "BOM_SOURCE"
+            ],
+            "use": "MATERIALS",
+            "number": "",
+            "revision": "",
+            "status": "UNKNOWN",
+            "evidenceHash": null,
+            "savedBy": {
+              "id": "fixture",
+              "name": "Fixture",
+              "atUtc": "2026-10-23T22:57:10.7307889+00:00"
+            }
+          },
+          "evidenceHash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        }
+      ],
+      "contentHash": "12558A059F1AD4C36871A84AEC9510BD6F11B11C95400DC5C36C36382ECBE21D",
+      "submittedBy": {
+        "id": "fixture",
+        "name": "Fixture",
+        "atUtc": "2026-10-23T22:57:10.7307889+00:00"
+      },
+      "preparation": null,
+      "reviewedBy": null,
+      "comments": null,
+      "withdrawnBy": null
+    }
+  ]
+}

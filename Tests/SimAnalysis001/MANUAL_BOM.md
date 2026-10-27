@@ -1,0 +1,23 @@
+# Manual working BOM in SIM
+
+Technical Package Review offers **Create Blank BOM** when no candidate already exists. It creates the existing candidate model with zero rows and `manualDraft.kind = DLE_AUTHORED`, rather than designating a customer document as its governing source. **Add Row** creates an unresolved row. Its line number is a worksheet position; no component, quantity, MPN, designator or description is inferred. Use **Save Progress** for incomplete drafts and **Open Working BOM** to resume.
+
+Draft authoring and row acceptance remain separate from final qualification. Complete BOM Review opens a compact **Accept this BOM for RFQ?** confirmation showing the assembly/revision and reviewed row count, with **Accept BOM**, **Cancel** and optional review notes. Current accepted rows and genuine structured validation remain required; source checkboxes, discrepancy narratives and quantity-basis narratives are not required. Description and designator text do not impose keyword-based acceptance gates. Wording such as AWG/TBD or unknown is preserved as entered. Acceptance is for the RFQ stage; engineering details may remain open. Required row fields, valid quantities, identity decisions, explicit review and permissions still apply. The server records reviewer identity, time, the current candidate version, manual authorship, RFQ_PREPARATION scope and all existing linked source references/hashes automatically. LINKED_REFERENCES_ONLY explicitly does not attest that the reviewer inspected every attachment. Original and viewing-rendition references remain distinct; a manually authored BOM may have no linked files. Any linked bytes must retain their verified integrity. No manufacturer/catalog verification or production release is implied. Historical acceptance evidence remains readable and is not retroactively reclassified. Accepted manual BOMs remain read-only; Start new BOM revision preserves the prior acceptance and requires fresh row review. Package completeness and saved production-slide acceptance are separate submission requirements.
+
+## Persistence and safeguards
+
+Uses the existing RFQ intake candidate store and editor; no separate BOM database. Nullable origin is omitted from existing candidate JSON. Source-role edits preserve independently authored rows. Existing source/import paths remain in place; creating a manual draft cannot replace an existing candidate/history. Analysis submission is blocked while a manual draft is current. Creation and row addition are idempotent; row additions also require the expected manual revision. Row edits use the existing review-token contract.
+
+Authorization uses `technical_review.disposition`. Endpoints are SIM-only:
+- POST `/api/sim/technical-reviews/{id}/manual-bom` with `expectedReviewToken`.
+- POST `/api/sim/technical-reviews/{id}/manual-bom/rows` with `candidateId`, fresh GUID `rowId`, and `expectedRevision`. Reuse that request on an uncertain retry.
+
+The UI requires the server's `manualBomAvailable` flag. Deploying frontend files alone does not expose unsupported controls on the older running host. Activate with the established SIM-only restart after the user has saved active work. Never reset state to activate.
+
+## Verification
+
+Build `Tests/SimAnalysis001/SimAnalysis001.csproj` with an isolated output path and `UseAppHost=false`; run the resulting DLL with `--manual-bom`. This creates unique temporary synthetic state and tests empty creation, idempotency, stale requests, manual edits, incomplete save/reopen, unresolved acceptance, final gate, no extraction, unrelated-record preservation and continued authoring while on hold. Do not point tests at saved user scenarios.
+
+Code can be reviewed/promoted separately from SIM records. Do not transfer SIM candidates, customer references, documents, credentials or machine paths into DEV. For rollback before use, reverse only this change's source delta and rebuild; preserve unrelated work. After use, retain the manual-origin records and arrange a compatible application rollback rather than deleting them or allowing an older source-based UI to reinterpret them.
+
+Completion endpoints reuse the existing BOM readiness and complete-review routes. GET /manual-bom/completion-info supplies current evidence and row blockers; POST /manual-bom/revisions requires the candidate ID, current revision and a reason. All are under the same SIM Technical Review permission. Focused isolated checks: --manual-completion <source-state> <new-fixture-root>, --review-completion <source-state> <new-fixture-root>, and --submission-regressions <synthetic-pdf-folder>. The source-state argument is copied read-only before any test mutation.

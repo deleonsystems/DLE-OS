@@ -16,7 +16,7 @@ internal static partial class SimCandidateBomProvider
             var row=rows[edit.RowIndex];
             if(edit.ExpectedToken!=row.ReviewState.Token)throw SimRfqIntakeProblem.Conflict("SIM_PROGRESS_STALE","A row changed. Reopen before saving progress.");
             if(edit.Values is null || edit.Values.Count!=Fields.Length || Fields.Any(f=>!edit.Values.TryGetValue(f,out var v)||v is null||v.Length>2000) ||
-                edit.ComponentType is not ("STANDARD_COTS" or "SUBASSEMBLY" or "DNP" or "REFERENCE_ONLY" or "OTHER") ||
+                (edit.ComponentType is not ("STANDARD_COTS" or "SUBASSEMBLY" or "DNP" or "REFERENCE_ONLY" or "OTHER") && !(bom.ManualDraft is not null && edit.ComponentType == "UNKNOWN")) ||
                 new[]{edit.AssemblyPartNumber,edit.ManualPartNumber,edit.ManufacturerName}.Any(v=>v?.Length>200))
                 throw SimRfqIntakeProblem.BadRequest("SIM_PROGRESS_INVALID","Review the Candidate field values before saving progress.");
             if(edit.IdentityBasisChange is not null) {

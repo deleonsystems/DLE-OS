@@ -3,7 +3,7 @@
 
   const WORKSPACE_ID = "technical-review";
   const TEMPLATE_PATH = "SRC/workspaces/technical-review/technical-review-workspace.html";
-  const state = { items: [], selected: null, loading: false, guided: false, materials: false, step: '', packageDraft: null, documentIndex: 0, closing: false, saving: false, error: "", message: "", messageState: "" };
+  const state = { items: [], completedItems: [], queueBucket:'ACTIVE', selected: null, loading: false, guided: false, materials: false, step: '', packageDraft: null, documentIndex: 0, closing: false, saving: false, error: "", message: "", messageState: "" };
   let mount = null;
   let identityChanges = {};
   let packageRowErrors = {};
@@ -13,9 +13,47 @@
   let interactionsBound = false;
   let scanWorkbenchObserver = null;
   let candidateWorkbenchObserver = null;
+  let partRequestQueue = null;
+  let partRequestReview = null;
+  let partRequestOpening = false;
+  let partRequestGeneration = 0;
+  let partRequestCount = 0;
+  async function loadPartRequests() {
+    if(window.DleMaterialPartRequestReview)return;
+    if(!window.DleMaterialPartRequestReviewLoading)window.DleMaterialPartRequestReviewLoading=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='SRC/workspaces/technical-review/material-part-request-review.js';script.onload=resolve;script.onerror=()=>{window.DleMaterialPartRequestReviewLoading=null;reject(Error('Part requests could not load.'));};document.head.append(script);});
+    await window.DleMaterialPartRequestReviewLoading;
+  }
+  function updatePartRequestCount() {
+    const completed=state.queueBucket==='COMPLETED',count=document.getElementById('technicalReviewQueueCount');
+    if(count)count.textContent=String(completed?state.completedItems.length:state.items.length+partRequestCount);
+    const active=mount?.querySelector('[data-review-bucket="ACTIVE"]');if(active)active.textContent='Active ('+(state.items.length+partRequestCount)+')';
+  }
+  async function loadPartRequestQueue() {
+    if(!['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment))return;
+    const host=document.getElementById('technicalReviewPartRequestQueue');if(!host)return;
+    try {await loadPartRequests();partRequestQueue?.destroy();partRequestQueue=await window.DleMaterialPartRequestReview.queue(host,{role:'technical-review',onCount:count=>{partRequestCount=count;updatePartRequestCount();},onOpen:openPartRequest});if(state.queueBucket==='COMPLETED')host.hidden=true;}
+    catch(error){host.hidden=false;host.textContent=error.message;}
+  }
+  async function openPartRequest(batch,trigger) {
+    if(partRequestOpening||state.saving)return;
+    const blocked=reviewNavigationBlock();if(blocked){window.alert(blocked);return;}
+    partRequestOpening=true;const generation=++partRequestGeneration,scroll={x:window.scrollX,y:window.scrollY};
+    try {await loadPartRequests();if(generation!==partRequestGeneration)return;const host=document.getElementById('technicalReviewPartRequestView');if(!host)return;
+      document.getElementById('technicalReviewQueueView').hidden=true;document.getElementById('technicalReviewDetailView').hidden=true;host.hidden=false;window.scrollTo(0,0);
+      partRequestReview?.destroy();const opened=await window.DleMaterialPartRequestReview.open(host,batch.id,{role:'technical-review',titleId:'technicalReviewPartRequestTitle',back:()=>{showQueue();void partRequestQueue?.refresh();window.scrollTo(scroll.x,scroll.y);trigger?.focus({preventScroll:true});},onChanged:()=>{void partRequestQueue?.refresh();}});
+      if(generation!==partRequestGeneration||opened.disposed){opened.destroy();return;}partRequestReview=opened;
+      setStatus('Part request','ready');
+    }catch(error){if(generation===partRequestGeneration)setStatus(error.message,'error');}finally{if(generation===partRequestGeneration)partRequestOpening=false;}
+  }
   let showCandidateDnps = false;
 
+  async function loadPreparation() {
+    if(window.DleLibraryPreparation)return;
+    if(!window.DleLibraryPreparationLoading)window.DleLibraryPreparationLoading=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='SRC/workspaces/assembly-library/library-preparation.js';script.onload=resolve;script.onerror=()=>{window.DleLibraryPreparationLoading=null;reject(Error('Preparation workspace could not load.'));};document.head.append(script);});
+    await window.DleLibraryPreparationLoading;
+  }
   async function renderWorkspace() {
+    if(partRequestReview&&!partRequestReview.canLeave())return;
     mount = document.querySelector('[data-workspace-mount="' + WORKSPACE_ID + '"]');
     if (!mount) return;
     if (mount.dataset.workspaceLoaded !== "true") {
@@ -32,6 +70,8 @@
         return;
       }
     }
+    const libraryButton=mount.querySelector('[data-technical-review-action="assembly-library"]');
+    if(libraryButton)libraryButton.hidden=!['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment);
     if (!state.saving) showQueue();
     await loadQueue();
   }
@@ -40,6 +80,7 @@
     if (interactionsBound || !mount) return;
     interactionsBound = true;
     mount.addEventListener('click', customerIdentityAction);
+    mount.addEventListener('click', drawingFolderAction);
     mount.addEventListener('dragenter', reviewDragOver);
     mount.addEventListener('dragover', reviewDragOver);
     mount.addEventListener('dragleave', reviewDragLeave);
@@ -71,8 +112,8 @@
     mount.addEventListener('copy', copyCandidatePartNumber);
     mount.addEventListener('focusout', event=>{if(event.target.matches?.('[data-inline-description]')&&event.target.isConnected&&!event.target.dataset.finishing)candidateDescriptionKey({target:event.target,key:'Enter',type:'focusout',preventDefault(){},stopPropagation(){}});});
     mount.addEventListener('click', selectCandidateCell);
-    mount.addEventListener('input',()=>window.queueMicrotask?.(updateCandidateProgressStatus));
-    mount.addEventListener('change',()=>window.queueMicrotask?.(updateCandidateProgressStatus));
+    mount.addEventListener('input',event=>{if(!event.target.matches?.('[data-candidate-select-all], [data-candidate-select-row]'))window.queueMicrotask?.(()=>{updateCandidateProgressStatus();if(state.step==='inventory')renderSubmissionStatus();});});
+    mount.addEventListener('change',event=>{if(!event.target.matches?.('[data-candidate-select-all], [data-candidate-select-row]'))window.queueMicrotask?.(()=>{updateCandidateProgressStatus();if(state.step==='inventory')renderSubmissionStatus();});});
     mount.addEventListener('keydown', event=>{
       if(event.key==='Escape' && state.scanLeavePrompt){event.preventDefault();setScanLeavePrompt(false);}
     });
@@ -91,8 +132,19 @@
       if (packageRow) state.documentIndex = Number(packageRow.dataset.packageRow);
       const actionButton = event.target.closest?.("[data-technical-review-action]");
       const action = actionButton?.dataset.technicalReviewAction;
+      if(action==='remove-review-document'||action==='restore-review-document'){void changeReviewDocumentRemoval(actionButton.dataset.documentId,action==='restore-review-document');return;}
+      if(state.preparationDraft&&action&&!['preparation-save','preparation-cancel'].includes(action)){const message=mount.querySelector('[data-preparation-message]');if(message)message.textContent='Save preparation draft or Cancel edits before continuing.';return;}
+      if(action?.startsWith('preparation-')){void preparationAction(action,actionButton);return;}
+      if(action==='cancel-reference-selection'&&!state.saving){state.teamDraft=null;const select=mount?.querySelector('#reviewTeamReference');if(select)select.value=state.selected?.record?.technicalReview?.presentationDraft?.teamDocumentId||'';actionButton.hidden=true;return;}
+      if(action?.startsWith('source-')){void sourceAction(action);return;}
+      if(action==='cancel-package-row'){cancelPackageRow(actionButton.dataset.documentId);return;}
+      if(action==='show-incomplete-save'){state.showIncompleteSave=true;renderDetail();mount?.querySelector?.('#packageDraftHoldReason')?.focus?.({preventScroll:true});return;}
+      if(action==='use-drawing-for-bom'){stageDrawingForBom();return;}
+      if(action==='assembly-library'){openAssemblyLibrary();return;}
+      if(action==='library-back'){returnToQueue();return;}
+      if(action==='back'&&canReturnToQueue()){returnToQueue();return;}
       if(state.step==='candidate'&&state.saving&&action)return;
-      if(action==='final-bom-back'&&!state.saving){state.finalBomDraft=state.finalBomReview;state.finalBomReview=null;renderDetail();mount.querySelector('[data-technical-review-action="complete-bom"]')?.focus();return;}
+      if(action==='final-bom-back'&&!state.saving){cancelFinalBomReview();return;}
       if(action==='final-bom-retry'){void loadFinalBomReview();return;}
       if(action==='final-bom-submit'){void submitFinalBomReview();return;}
       if(action==='complete-bom'&&usesFinalBomReview()){void openFinalBomReview();return;}
@@ -103,20 +155,29 @@
       if(action==='vpro-open'){state.guided=true;state.step='candidate';state.candidateIndex=null;renderDetail();return;}
       if(action==='complete-bom'&&!candidateCompletionEnabled())return;
       if(action==='assembly-pn-save'){const index=Number(actionButton.dataset.candidateRow),row=state.selected.record.technicalReview.candidateBom.rows[index];const ui=rowReviewUi(row);if((ui.componentType||row.componentType)!=='SUBASSEMBLY')return;ui.assemblyNumber=document.getElementById('assembly-panel-'+index)?.value??ui.assemblyNumber;if(!ui.assemblyNumber?.trim()){state.message='Enter the approved Assembly P/N.';state.messageState='error';renderDetail();return;}ui.editing=true;void saveCandidateProgress(false,index);return;}
+      if(action==='save-team-reference'){void saveTeamReference();return;}
+      if(action==='draft-slides'){void openDraftSlides(actionButton);return;}
+      if(action==='bom-source'||action==='bom-manual'){state.bomRoute=action==='bom-source'?'source':'manual';const details=mount.querySelector('[data-review-source-details]');if(details)details.open=state.bomRoute==='source';renderDetail();return;}
+      if(action==='manual-bom-create'){void createManualBom();return;}
+      if(action==='manual-bom-revise'){void reviseManualBom();return;}
+      if(action==='submission-requirement'){void resolveSubmissionRequirement(actionButton.dataset.requirement,actionButton);return;}
+      if(action==='manual-bom-open'){if(Object.keys(identityChanges).length){state.message='Accept or finish pending document edits before opening the working BOM.';renderDetail();return;}void reopenCandidate();return;}
+      if(action==='manual-bom-add-row'){void addManualBomRow();return;}
       if(action==='candidate-save-progress'){void saveCandidateProgress();return;}
       if(action==='candidate-leave-cancel'){state.candidateLeaveIntent=null;renderDetail();return;}
       if(action==='candidate-leave-discard'){const intent=state.candidateLeaveIntent;clearCandidateDrafts();state.candidateLeaveIntent=null;renderDetail();continueCandidateAction(intent);return;}
       if(action==='candidate-leave-save'){void saveCandidateProgress(true);return;}
       if(state.step==='candidate' && action && candidateProgressRows().length && (['back','governing-back','refresh','complete-bom','accepted-bom','candidate-detail'].includes(action) || (actionButton.dataset.candidateRow!==undefined&&Number(actionButton.dataset.candidateRow)!==state.candidateIndex&&state.candidateDraft))) {
-        state.candidateLeaveIntent={...actionButton.dataset};renderDetail();return;
+        state.candidateLeaveIntent={...actionButton.dataset};renderDetail();const prompt=mount?.querySelector('[data-candidate-leave-prompt]');if(action!=='worksheet-options')prompt?.scrollIntoView?.({block:'nearest'});prompt?.focus?.({preventScroll:true});return;
       }
       if(action==='candidate-row-edit') {
         const row=state.selected.record.technicalReview.candidateBom.rows[Number(actionButton.dataset.candidateRow)];
         if(!state.saving&&!completedReview(state.selected.record)&&!state.acceptedVersion){rowReviewUi(row).editing=true;renderDetail();}return;
       }
       if (action === 'candidate-reset-widths') { candidateColumnWidths={}; saveCandidateColumnWidths(); applyCandidateColumnWidths(); return; }
+      if(action==='submitted-done' && !state.saving && state.step==='submitted' && completedReview(state.selected?.record)){window.goHome();return;}
       if (completedReview(state.selected?.record)) {
-        if (action === 'rfq-back') { window.DleWorkspaceShell.navigate({workspaceId:'rfqs',requestedState:{intakeId:state.selected.record.intakeId}}); return; }
+        if (action === 'review-queue') { returnToQueue(); return; }
         if (action?.startsWith('view-')) { state.step = action.slice(5); state.candidateIndex = null; state.acceptedVersion = null; renderDetail(); return; }
         if (action && !['back','refresh','accepted-bom','accepted-back','candidate-detail','worksheet-options','candidate-panel-close'].includes(action)) return;
       }
@@ -196,6 +257,8 @@
       if (action === "candidate-confirm") void confirmCandidate();
       if (action === 'mfg-confirm' || action === 'mfg-reject') void reviewManufacturer(actionButton.dataset.proposalId, action === 'mfg-confirm' ? 'CONFIRMED' : 'REJECTED');
       if (action === 'mfg-approve') void quickApproveManufacturer(Number(actionButton.dataset.candidateRow));
+      if(action==='bulk-entered-mpn'){void reviewSelectedCandidateRows('USE_ENTERED_MPN');return;}
+      if(action==='bulk-accept'){void reviewSelectedCandidateRows('ACCEPT_SELECTED');return;}
       if(action==='source-pn-open'){openSourcePartNumber(actionButton);return;}
       if(action==='source-pn-confirm'){void confirmSourcePartNumber(actionButton);return;}
       if(action?.startsWith('identity-basis-')){void identityBasisAction(action,actionButton);return;}
@@ -208,14 +271,14 @@
         if(state.candidateIndex!=null&&state.candidateIndex!==Number(actionButton.dataset.candidateRow)&&(reviewUploads.length||rowReviewUi(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]).alternateDraft)){state.message='Save or cancel pending file or alternate changes before switching rows.';renderDetail();return;}
         state.candidateInlineRow=null;
         if(state.candidateIndex!==Number(actionButton.dataset.candidateRow))state.candidateDraft=null;
-        state.candidateIndex=Number(actionButton.dataset.candidateRow);state.rowOption=actionButton.dataset.panel;
+        state.candidateIndex=Number(actionButton.dataset.candidateRow);state.rowOption=actionButton.dataset.panel;state.message='';state.messageState='';
         const review=state.selected.record.technicalReview;const row=(review.bomAcceptances?.find(a=>state.acceptedVersion?a.version===state.acceptedVersion:a.candidate.id===review.candidateBom?.id)?.candidate||review.candidateBom).rows[state.candidateIndex];
         if(state.rowOption==='edit')rowReviewUi(row).editing=true;
         renderDetail();
         const selectedRow=mount?.querySelector?.('tr[data-worksheet-row="'+state.candidateIndex+'"]');
         const viewport=mount?.querySelector?.('.candidate-table-scroll');
-        if(selectedRow&&viewport){const r=selectedRow.getBoundingClientRect(),v=viewport.getBoundingClientRect();if(r.top<v.top+40||r.bottom>v.bottom)viewport.scrollTop+=r.top-v.top-40;}
-        if(state.rowOption==='alternates'&&viewport){const panel=mount.querySelector('#candidate-detail-'+state.candidateIndex);if(panel){viewport.scrollTop+=panel.getBoundingClientRect().top-viewport.getBoundingClientRect().top-45;panel.querySelector('h4')?.focus({preventScroll:true});}}
+        if(!['alternates','preparation'].includes(state.rowOption)&&selectedRow&&viewport){const r=selectedRow.getBoundingClientRect(),v=viewport.getBoundingClientRect();if(r.top<v.top+40||r.bottom>v.bottom)viewport.scrollTop+=r.top-v.top-40;}
+        if(state.rowOption==='alternates'&&viewport){const panel=mount.querySelector('#candidate-detail-'+state.candidateIndex);if(panel){panel.querySelector('#alternateChoice')?.focus({preventScroll:true});}}
         return;
       }
       if(action==='alternate-draft-cancel'&&!state.saving){const ui=rowReviewUi(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]);delete ui.alternateDraft;renderDetail();return;}
@@ -235,6 +298,14 @@
       if (row) void openReview(row.dataset.technicalReviewIntake);
     });
     mount.addEventListener('input', event => {
+      if(preparationInput(event))return;
+      if(sourceInput(event))return;
+      if(event.target.id==='manualBomRevisionReason'){state.manualRevisionReason={intakeId:state.selected.record.intakeId,value:event.target.value};return;}
+      if(event.target.dataset?.manualField){
+        const row=state.selected.record.technicalReview.candidateBom.rows[Number(event.target.dataset.manualRow)];
+        const ui=rowReviewUi(row);ui.manualValues={...(ui.manualValues||row.values),[event.target.dataset.manualField]:event.target.value};
+        updateCandidateProgressStatus();return;
+      }
       if(event.target.dataset?.worksheetField && !state.saving && !completedReview(state.selected?.record)) {
         const row=state.selected?.record?.technicalReview?.candidateBom?.rows[Number(event.target.dataset.worksheetRow)];
         if(row)rowReviewUi(row)[event.target.dataset.worksheetField]=event.target.value;
@@ -246,7 +317,7 @@
       }
       if(['primaryManual','primaryManufacturer','primaryAssembly'].includes(event.target.id)&&state.candidateIndex!=null&&!state.saving)rememberPrimaryInputs(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]);
       if(['compactAlternateNumber','compactAlternateManufacturer','compactAlternateNote'].includes(event.target.id)&&state.candidateIndex!=null){const ui=rowReviewUi(state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex]);ui.alternateDraft={partNumber:document.getElementById('compactAlternateNumber').value,manufacturerName:document.getElementById('compactAlternateManufacturer').value,note:document.getElementById('compactAlternateNote').value};const savedStatus=mount.querySelector('.alternate-saved-status');if(savedStatus)savedStatus.textContent='Unsaved edits — choose a decision to save, or Cancel edits.';}
-      if (event.target.id === 'packageMissing') { packageAnswers().missing = event.target.value; return; }
+      if (['packageMissing','packageDraftHoldReason'].includes(event.target.id)) { packageAnswers().missing = event.target.value; return; }
       if (updateReviewUpload(event.target)) return;
       if (event.target.id?.startsWith('candidate-') && state.candidateIndex != null && !state.saving) { const field=event.target.id.slice(10); if(candidateFields[field])state.candidateDraft={...(state.candidateDraft||state.selected.record.technicalReview.candidateBom.rows[state.candidateIndex].values),[field]:event.target.value}; }
       const packageRow=event.target.closest?.('[data-package-row]'); if(packageRow)state.documentIndex=Number(packageRow.dataset.packageRow);
@@ -254,6 +325,10 @@
       if (!completedReview(state.selected?.record) && !state.saving && ['subassemblyPartNumber','proposedSubassemblyIdentity'].includes(event.target.dataset?.packageField)) packageDraft().documents[state.documentIndex || 0][event.target.dataset.packageField] = event.target.value;
     });
     mount.addEventListener('change', event => {
+      if(preparationInput(event))return;
+      if(sourceInput(event))return;
+      if(['reviewTeamReference','reviewReferenceStatus'].includes(event.target.id)){state.teamDraft={intakeId:state.selected.record.intakeId,teamDocumentId:document.getElementById('reviewTeamReference').value||null,referenceStatus:document.getElementById('reviewReferenceStatus').value};renderSubmissionStatus();const cancel=mount?.querySelector('[data-technical-review-action="cancel-reference-selection"]');if(cancel)cancel.hidden=!pendingReferenceSelection();return;}
+      if(event.target.matches?.('[data-candidate-select-all], [data-candidate-select-row]')){selectCandidateRows(event.target);return;}
       if(event.target.dataset?.sourcePnBasis!==undefined){const row=state.selected.record.technicalReview.candidateBom.rows[Number(event.target.dataset.sourcePnBasis)];rowReviewUi(row).sourcePnBasis=event.target.value;const panel=event.target.closest('.source-pn-popover');panel.querySelector('[data-source-pn-result]').textContent=sourcePartNumberResult(event.target.value,row.values.partNumber);panel.querySelector('[data-technical-review-action=source-pn-confirm]').textContent=event.target.value==='UNRESOLVED'?'Mark P/N Unresolved':'Confirm P/N Identity';return;}
       if(event.target.matches?.('[data-candidate-show-dnps]')) {
         showCandidateDnps=event.target.checked;
@@ -263,6 +338,10 @@
       const packageRow=event.target.closest?.('[data-package-row]'); if(packageRow)state.documentIndex=Number(packageRow.dataset.packageRow);
       if (completedReview(state.selected?.record) || state.saving || !state.selected || state.step === 'accepted-bom') return;
       if (event.target.name === 'packageComplete') { packageAnswers().complete = event.target.value; renderDetail(); return; }
+      if(event.target.dataset?.worksheetField==='primaryChoice'){
+        const index=Number(event.target.dataset.worksheetRow),row=state.selected.record.technicalReview.candidateBom.rows[index];
+        if(event.target.value.startsWith('ALT:')||row.selectedApprovedAlternate){void chooseApprovedAlternate(index,event.target.value);return;}
+      }
       if(event.target.dataset?.worksheetField){
         const index=Number(event.target.dataset.worksheetRow),row=state.selected.record.technicalReview.candidateBom.rows[index];
         const ui=rowReviewUi(row);ui[event.target.dataset.worksheetField]=event.target.value;
@@ -334,8 +413,30 @@
   function isBomSource(doc) { return doc.documentType === 'BOM' || (doc.documentType === 'ASSEMBLY_DRAWING' && doc.embeddedBom === true); }
   function bomSourceLabel(doc) { return doc.documentType === 'ASSEMBLY_DRAWING' ? 'BOM embedded in Assembly Drawing' : 'Standalone BOM'; }
   function packageDraft() {
-    return state.packageDraft ||= JSON.parse(JSON.stringify(state.selected.record.technicalReview?.technicalPackage || { documents: (state.selected.record.technicalFiles || []).map((file, i) => ({ documentId: file.documentId || 'DOC-' + String(i + 1).padStart(3, '0'), name: file.name, documentType: ({VPRO5_BOM_EXPORT:'SUPPORTING_DOCUMENT',DRAWING:'ASSEMBLY_DRAWING',DRAWING_AND_BOM:'ASSEMBLY_DRAWING',BOM_ONLY:'BOM',OTHER:'SUPPORTING_DOCUMENT'})[file.initialIdentification?.type] || 'UNKNOWN', embeddedBom:file.initialIdentification?.type === 'DRAWING_AND_BOM', role: 'UNRESOLVED', applicability: 'SUPPORTING_REFERENCE', subassemblyPartNumber: null })), governingBomDocumentId: null }));
+    return state.packageDraft ||= savedPackageProjection();
   }
+  function savedPackageProjection() {
+    const record=state.selected.record;
+    const initial=file=>({documentId:file.documentId,name:file.name,documentType:({VPRO5_BOM_EXPORT:'SUPPORTING_DOCUMENT',DRAWING:'ASSEMBLY_DRAWING',DRAWING_AND_BOM:'ASSEMBLY_DRAWING',BOM_ONLY:'BOM',OTHER:'SUPPORTING_DOCUMENT'})[file.initialIdentification?.type]||'UNKNOWN',embeddedBom:file.initialIdentification?.type==='DRAWING_AND_BOM',role:'UNRESOLVED',applicability:'SUPPORTING_REFERENCE',subassemblyPartNumber:null});
+    const pack=JSON.parse(JSON.stringify(record.technicalReview?.technicalPackage||{documents:[],governingBomDocumentId:null}));
+    for(const file of record.technicalFiles||[])if(!pack.documents.some(d=>d.documentId===file.documentId))pack.documents.push(initial(file));
+    return pack;
+  }
+  function pendingPackageValues() {
+    return !!state.packageDraft && JSON.stringify(unifiedPackageDraft(state.packageDraft))!==JSON.stringify(unifiedPackageDraft(savedPackageProjection()));
+  }
+  function pendingReferenceSelection() {
+    const record=state.selected.record,draft=state.teamDraft,saved=record.technicalReview.presentationDraft||{};
+    return draft?.intakeId===record.intakeId && ((draft.teamDocumentId||null)!==(saved.teamDocumentId||null)||(draft.referenceStatus||'UNKNOWN')!==(saved.referenceStatus||'UNKNOWN'));
+  }
+  function engineeringReferenceSelected() {
+    return state.selected?.record?.technicalReview?.presentationDraft?.referenceStatus==='PRELIMINARY';
+  }
+  function linkedViewingRendition(doc) {
+    const record=state.selected.record,draft=record.technicalReview.presentationDraft;
+    return !!draft?.teamDocumentId && draft.renditionDocumentId===doc.documentId && record.technicalFiles.some(f=>f.documentId===doc.documentId&&f.type==='application/pdf'&&f.binaryStatus==='VERIFIED');
+  }
+
   async function enterPackage() {
     if (state.saving) return;
     if (state.selected?.record?.technicalReview?.workflow && state.step !== 'inventory') {
@@ -464,7 +565,7 @@
         controls+='<label class="package-pn-question">Provides manufacturer P/N information<select aria-label="Manufacturer P/N source for '+escapeHtml(doc.name)+'" data-pn-field="providesManufacturerPartNumbers" '+disabled+'>'+[['','Not reviewed'],['yes','Yes'],['no','No']].map(([k,v])=>'<option value="'+k+'" '+((doc.partNumberReview?.providesManufacturerPartNumbers==null?'':doc.partNumberReview.providesManufacturerPartNumbers?'yes':'no')===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label>';
       }
       const view=source?.binaryStatus==='VERIFIED'?'<a target="'+(source.type==='application/pdf'?'_blank':'_self')+'" rel="noopener noreferrer" href="/api/sim/rfq-intakes/'+encodeURIComponent(state.selected.record.intakeId)+'/documents/'+encodeURIComponent(source.documentId)+'">View File</a>':'<span title="No staged binary is available">File unavailable</span>';
-      return '<tr data-package-row="'+index+'"><th scope="row" title="'+escapeHtml(doc.name)+'">'+escapeHtml(doc.name)+(source?.readability?'<small>Document Readability: '+escapeHtml(({TEXT_READABLE:'Text-readable',IMAGE_ONLY:'Scanned / image-only',MIXED:'Mixed — some pages may require image/OCR processing',UNKNOWN:'Unable to determine — Readability check unavailable'})[source.readability.status] || 'Unable to determine')+'</small>':'')+'<small>Source: '+(source?.reviewOrigin?'Technical Review':'Intake')+'</small><small>'+escapeHtml(doc.rowAssociation?'BOM row '+(doc.rowAssociation.rowIndex+1)+' · '+doc.rowAssociation.customerBomPartNumber+' · '+doc.rowAssociation.componentType:applicability[doc.applicability])+(doc.applicability==='SUBASSEMBLY'?' · Customer / BOM P/N: '+escapeHtml(doc.subassemblyPartNumber)+(doc.proposedSubassemblyIdentity?' · DLE proposed: '+escapeHtml(doc.proposedSubassemblyIdentity):''):'')+'</small>'+(source?.reviewOrigin?'<small>Added by '+escapeHtml(source.reviewOrigin.addedBy)+' · '+escapeHtml(formatDateTime(source.reviewOrigin.addedAtUtc))+'</small>'+(source.reviewOrigin.note?'<small>'+escapeHtml(source.reviewOrigin.note)+'</small>':''):'')+'</th><td>'+proposal+'</td><td>'+view+'</td><td>'+controls+'</td><td><strong>'+status+'</strong>'+(doc.identityReview?'<small>'+(doc.identityReview.reviewedBy?escapeHtml(doc.identityReview.reviewedBy)+' · '+escapeHtml(formatDateTime(doc.identityReview.reviewedAtUtc)):'Unsaved')+'</small>':'')+'</td></tr>';
+      return '<tr data-package-row="'+index+'"><th scope="row" title="'+escapeHtml(doc.name)+'">'+escapeHtml(doc.name)+(source?.readability?'<small>Document Readability: '+escapeHtml(({TEXT_READABLE:'Text-readable',IMAGE_ONLY:'Scanned / image-only',MIXED:'Mixed — some pages may require image/OCR processing',UNKNOWN:'Unable to determine — Readability check unavailable'})[source.readability.status] || 'Unable to determine')+'</small>':'')+'<small>Source: '+(source?.reviewOrigin?'Technical Review':'Intake')+'</small><small>'+escapeHtml(doc.rowAssociation?'BOM row '+(doc.rowAssociation.rowIndex+1)+' · '+doc.rowAssociation.customerBomPartNumber+' · '+doc.rowAssociation.componentType:applicability[doc.applicability])+(doc.applicability==='SUBASSEMBLY'?' · Customer / BOM P/N: '+escapeHtml(doc.subassemblyPartNumber)+(doc.proposedSubassemblyIdentity?' · DLE proposed: '+escapeHtml(doc.proposedSubassemblyIdentity):''):'')+'</small>'+(source?.reviewOrigin?'<small>Added by '+escapeHtml(source.reviewOrigin.addedBy)+' · '+escapeHtml(formatDateTime(source.reviewOrigin.addedAtUtc))+'</small>'+(source.reviewOrigin.note?'<small>'+escapeHtml(source.reviewOrigin.note)+'</small>':''):'')+'</th><td>'+proposal+'</td><td>'+view+reviewDocumentRemoveButton(doc.documentId)+'</td><td>'+controls+'</td><td><strong>'+status+'</strong>'+(doc.identityReview?'<small>'+(doc.identityReview.reviewedBy?escapeHtml(doc.identityReview.reviewedBy)+' · '+escapeHtml(formatDateTime(doc.identityReview.reviewedAtUtc)):'Unsaved')+'</small>':'')+'</td></tr>';
     }).join('');
     return '<section class="technical-review-question package-review-table"><h3>Technical Package Review</h3>'+renderReviewUploads()+'<p role="status">'+docs.length+' files received · '+docs.filter(rowAccepted).length+' reviewed · '+docs.filter(d=>!rowAccepted(d)).length+' need review</p><div class="package-table-scroll"><table><thead><tr>'+['Technical Document','Identified As','View File','Review','Status'].map(label=>'<th scope="col">'+label+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+(docs.length?'':'<p>No technical files were received.</p>')+(pnIssue()?'<p role="alert">'+escapeHtml(pnIssue())+'</p>':'')+'<div class="package-page-actions"><button class="technical-review-primary" data-technical-review-action="save-package" '+(state.saving||addingDocuments||docs.some(d=>!rowAccepted(d))||pnIssue()||Object.keys(identityChanges).length?'disabled':'')+'>Save and Continue</button><button class="technical-review-back" data-technical-review-action="history-back">Back to Technical Review</button></div>'+packageMessage()+'</section>';
   }
@@ -490,7 +591,10 @@
     if(docs.some(d=>!d.rowAssociation&&(!packageRowLocked(d)||d.documentType==='UNKNOWN')) || Object.keys(identityChanges).length)return 'Accept each document row before completing the package.';
     if(pnIssue())return pnIssue();
     if(docs.filter(d=>d.productionUse==='PRIMARY_DRAWING'&&d.applicability==='PARENT_ASSEMBLY'&&d.documentType==='ASSEMBLY_DRAWING'&&!d.rowAssociation).length!==1)return 'Select one Main Production Drawing for the Main Assembly.';
-    if(docs.filter(d=>d.bomUse==='GOVERNING_BOM'&&d.applicability==='PARENT_ASSEMBLY'&&isBomSource(d)&&!d.rowAssociation).length!==1)return 'Select one Main BOM for the Main Assembly.';
+    const review=state.selected.record.technicalReview;
+    if(review.candidateBom?.manualDraft){
+      if(review.materialsReviewStatus!=='QUALIFIED'||!finalBomAccepted(state.selected.record,review.candidateBom.id))return 'Complete BOM Review to accept the DLE-authored BOM for RFQ.';
+    }else if(docs.filter(d=>d.bomUse==='GOVERNING_BOM'&&d.applicability==='PARENT_ASSEMBLY'&&isBomSource(d)&&!d.rowAssociation).length!==1)return 'Select one Main BOM for the Main Assembly.';
     return '';
   }
   function packageRowIssue(d) {
@@ -500,6 +604,21 @@
     if(!applicability[d.applicability])return 'Choose Applies To.';
     if(d.applicability==='SUBASSEMBLY'&&!d.subassemblyPartNumber?.trim())return 'Enter the subassembly P/N.';
     return '';
+  }
+  function unchangedPackageRow(id) {
+    const current=unifiedPackageDraft().documents.find(d=>d.documentId===id),saved=unifiedPackageDraft(savedPackageProjection()).documents.find(d=>d.documentId===id),choice=identityChanges[id];
+    return !!saved && JSON.stringify(current)===JSON.stringify(saved) && (!choice||(choice.type===identityType(saved)&&(choice.otherDescription||'')===(saved.identityReview?.otherDescription||'')));
+  }
+  function cancelPackageRow(id) {
+    if(state.saving||!identityChanges[id])return;
+    const pack=unifiedPackageDraft(),savedPack=unifiedPackageDraft(savedPackageProjection()),saved=savedPack.documents.find(d=>d.documentId===id);
+    if(!saved)return;
+    if((saved.productionUse==='PRIMARY_DRAWING'&&pack.documents.some(d=>d.documentId!==id&&d.productionUse==='PRIMARY_DRAWING'))||
+      (saved.bomUse==='GOVERNING_BOM'&&pack.documents.some(d=>d.documentId!==id&&d.bomUse==='GOVERNING_BOM'))){window.alert('Another row now holds this document’s saved role. Resolve that role change first; other row edits will not be discarded.');return;}
+    if(!unchangedPackageRow(id)&&!window.confirm('Cancel unsaved edits to "'+saved.name+'" only? Other document rows, the drawing choice and files are kept.'))return;
+    pack.documents=pack.documents.map(d=>d.documentId===id?saved:d);
+    if(saved.bomUse==='GOVERNING_BOM')pack.governingBomDocumentId=id;else if(pack.governingBomDocumentId===id)pack.governingBomDocumentId=null;
+    delete identityChanges[id];delete packageRowErrors[id];state.message='Unsaved edits to this document row cancelled. Saved file and other edits retained.';renderDetail();
   }
   function packageRowLocked(d) {
     const saved=state.selected.record.technicalReview.technicalPackage?.documents.find(x=>x.documentId===d.documentId);
@@ -531,6 +650,69 @@
     const dirty=pendingReview || Object.keys(identityChanges).length>0 || !!saved && JSON.stringify(unifiedPackageDraft())!==JSON.stringify(unifiedPackageDraft(JSON.parse(JSON.stringify(saved))));
     return {active, dirty, pendingReview, ready:!!review.candidateBom, stale:!review.candidateBom && !!review.candidateBomVersions?.length};
   }
+  function manualBomPanel() {
+    if (!state.selected?.manualBomAvailable || completedReview(state.selected.record)) return '';
+    const bom=state.selected.record.technicalReview?.candidateBom;
+    if(bom && !bom.manualDraft)return '';
+    const accepted=bom&&finalBomAccepted(state.selected.record,bom.id);
+    return '<section class="technical-review-question"><h3>DLE-authored BOM</h3><p>'+
+      (bom?bom.rows.length+' saved rows · manual revision '+bom.manualDraft.revision+'.':'Start an empty worksheet and enter parts manually.')+
+      '</p><button class="technical-review-primary" data-technical-review-action="'+(bom?'manual-bom-open':'manual-bom-create')+'" '+(state.saving?'disabled':'')+'>'+
+      (accepted?'View Reviewed BOM':bom?'Open Working BOM':'Create Blank BOM')+'</button>'+
+      (accepted?'<details><summary>Revise accepted BOM</summary><label>Reason for revision<textarea id="manualBomRevisionReason" maxlength="1000">'+escapeHtml(state.manualRevisionReason?.intakeId===state.selected.record.intakeId?state.manualRevisionReason.value:'')+'</textarea></label><p>The accepted version is retained. The new revision requires row review, BOM acceptance for RFQ and slide acceptance again.</p><button data-technical-review-action="manual-bom-revise" '+(state.saving?'disabled':'')+'>Start new BOM revision</button></details>':'<p>Accept the rows, then use Complete BOM Review to accept this BOM for RFQ.</p>')+'</section>';
+  }
+  async function reviseManualBom(){
+    if(state.saving)return;
+    const bom=state.selected.record.technicalReview.candidateBom,reason=document.getElementById('manualBomRevisionReason')?.value?.trim();
+    if(!reason){state.message='Enter a reason for the new BOM revision.';state.messageState='error';renderDetail();return;}
+    state.saving=true;renderDetail();
+    try{
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/manual-bom/revisions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,expectedRevision:bom.manualDraft.revision,reason})});
+      clearCandidateDrafts();state.manualRevisionReason=null;state.acceptedVersion=null;state.finalBomReview=null;state.finalBomDraft=null;state.step='candidate';releaseReadiness=null;
+      state.message='New BOM revision opened. Prior acceptance is retained in history; review this revision before submitting.';state.messageState='';
+    }catch(e){state.message=e.message;state.messageState='error';}finally{state.saving=false;renderDetail();}
+  }
+  async function createManualBom() {
+    if(state.saving)return;
+    if(Object.keys(identityChanges).length){state.message='Accept or finish the pending document edits before creating the working BOM.';renderDetail();return;}
+    state.saving=true;state.message='';renderDetail();
+    try {
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/manual-bom',
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedReviewToken:state.selected.packageReviewToken})});
+      clearCandidateDrafts();state.step='candidate';state.materials=false;state.acceptedVersion=null;
+    } catch(e){state.message=e.message;state.messageState='error';}
+    finally{state.saving=false;renderDetail();}
+  }
+  async function addManualBomRow() {
+    if(state.saving)return;
+    if(candidateProgressRows().length){state.message='Save Progress before adding another row.';renderDetail();return;}
+    const bom=state.selected.record.technicalReview.candidateBom;
+    // Retain the operation ID on a failed request so a retry cannot add the same row twice.
+    state.manualRowRequest ||= {candidateId:bom.id,rowId:window.crypto.randomUUID(),expectedRevision:bom.manualDraft.revision};
+    state.saving=true;renderDetail();
+    try {
+      state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/manual-bom/rows',
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state.manualRowRequest)});
+      state.manualRowRequest=null;clearCandidateDrafts();state.message='Blank row added. Enter the known values; leave unresolved fields blank.';state.messageState='';
+    } catch(e){state.message=e.message;state.messageState='error';}
+    finally{state.saving=false;renderDetail();}
+  }
+  function manualRow(row,index,readOnly,bom) {
+    const ui=rowReviewUi(row),locked=readOnly||row.reviewState?.reviewed&&!ui.editing,values=ui.manualValues||row.values;
+    const field=(key,label)=>'<td>'+(locked?escapeHtml(values[key]||'Unresolved'):'<input aria-label="'+label+' for row '+(index+1)+'" data-manual-field="'+key+'" data-manual-row="'+index+'" '+(state.saving?'disabled':'')+' maxlength="2000" placeholder="Unresolved" value="'+escapeHtml(values[key]||'')+'">')+'</td>';
+    const type=ui.componentType||row.componentType;
+    const types={UNKNOWN:'Not determined',...componentTypes};
+    const expanded=state.candidateIndex===index&&state.rowOption==='approved-pns';
+    const line=field('lineNumber','Line number');
+    return '<tr data-worksheet-row="'+index+'">'+(candidateBulkEnabled(bom,readOnly)?line.replace('<td>','<td class="manual-select-line"><div class="manual-line-content">'+candidateRowCheckbox(bom,row,index)).replace('</td>','</div></td>'):line)+
+      '<td><span class="candidate-status">'+(locked?'Accepted':'Needs Review')+'</span>'+
+      (readOnly?'':'<button data-technical-review-action="'+(locked?'candidate-row-edit':'worksheet-accept')+'" data-candidate-row="'+index+'" '+(state.saving?'disabled':'')+'>'+(locked?'Edit':'Accept')+'</button>')+candidateBulkRowResult(bom,row)+'</td>'+
+      field('partNumber','Part number')+'<td>'+worksheetIdentity(row,index,locked,type)+'</td>'+field('description','Description')+field('quantity','Quantity per assembly')+
+      '<td>'+(locked?escapeHtml(types[type]):'<select aria-label="Component type for row '+(index+1)+'" data-worksheet-field="componentType" data-worksheet-row="'+index+'" '+(state.saving?'disabled':'')+'>'+Object.entries(types).map(([k,v])=>'<option value="'+k+'" '+(k===type?'selected':'')+'>'+v+'</option>').join('')+'</select>')+'</td>'+
+      field('designators','Connection / wire references')+'<td><button data-technical-review-action="worksheet-options" data-panel="approved-pns" data-candidate-row="'+index+'">Approved P/Ns</button><small>DLE-authored; no extracted source values.</small></td></tr>'+
+      (expanded?'<tr><td colspan="9">'+renderCandidateInspector(bom,row,index,readOnly)+'</td></tr>':'');
+  }
+
   function packageBuildAction(unsupported, issue) {
     if (scannedMainBom()) return scannedSetupPrompt(issue);
     const c=packageCandidateState();
@@ -933,26 +1115,27 @@
   function watchCandidateWorkbench() {
     const sheet=mount?.querySelector('.candidate-workbench');if(!sheet)return;
     sizeCandidateWorkbench();
+    updateCandidateBulkControls();
     if(!window.ResizeObserver)return;
     candidateWorkbenchObserver ||= new window.ResizeObserver(sizeCandidateWorkbench);
     for(const element of [document.querySelector('body > header.dle-app-header'),sheet.querySelector('.candidate-workbench-toolbar'),sheet.querySelector('.candidate-workbench-footer')])if(element)candidateWorkbenchObserver.observe(element);
   }
   window.addEventListener?.('resize',sizeCandidateWorkbench);
-  window.addEventListener?.('beforeunload',event=>{if(state.step==='candidate'&&candidateProgressRows().length){event.preventDefault();event.returnValue='';}});
+  window.addEventListener?.('beforeunload',event=>{if(state.preparationDraft||state.step==='candidate'&&candidateProgressRows().length){event.preventDefault();event.returnValue='';}});
   function captureCandidatePosition() {
     const scroll=mount?.querySelector('.candidate-workbench .candidate-table-scroll');if(!scroll)return null;
     const active=document.activeElement, activeRow=active?.closest?.('tr[data-worksheet-row]');
     const top=scroll.getBoundingClientRect().top;
     const row=activeRow||Array.from(scroll.querySelectorAll('tr[data-worksheet-row]')).find(r=>r.getBoundingClientRect().bottom>top+40);
-    return {id:scroll.dataset.candidateId,top:scroll.scrollTop,left:scroll.scrollLeft,row:row?.dataset.worksheetRow,offset:row?row.getBoundingClientRect().top-top:null,focus:!!activeRow};
+    return {inlineAlternate:state.rowOption==='preparation'||!!scroll.querySelector('[data-preparation-editor]')||state.rowOption==='alternates'||!!scroll.querySelector('.alternate-review-compact')||state.candidateLeaveIntent?.technicalReviewAction==='worksheet-options',pageX:window.scrollX,pageY:window.scrollY,focusId:active?.id,focusAction:active?.dataset?.technicalReviewAction,detailId:active?.closest?.('section[id^="candidate-detail-"]')?.id,id:scroll.dataset.candidateId,top:scroll.scrollTop,left:scroll.scrollLeft,row:row?.dataset.worksheetRow,offset:row?row.getBoundingClientRect().top-top:null,focus:!!activeRow};
   }
   function restoreCandidatePosition(position) {
     if(!position)return;
     const scroll=mount?.querySelector('.candidate-workbench .candidate-table-scroll');if(!scroll||scroll.dataset.candidateId!==position.id)return;
     scroll.scrollTop=position.top;scroll.scrollLeft=position.left;
     const row=Array.from(scroll.querySelectorAll('tr[data-worksheet-row]')).find(r=>r.dataset.worksheetRow===position.row);
-    if(row&&position.offset!==null)scroll.scrollTop+=row.getBoundingClientRect().top-scroll.getBoundingClientRect().top-position.offset;
-    if(position.focus)row?.querySelector('.candidate-row-controls button')?.focus({preventScroll:true});
+    if(!position.inlineAlternate&&row&&position.offset!==null)scroll.scrollTop+=row.getBoundingClientRect().top-scroll.getBoundingClientRect().top-position.offset;
+    if(position.inlineAlternate){if(position.focusId)document.getElementById(position.focusId)?.focus({preventScroll:true});else if(position.focusAction){const detail=document.getElementById(position.detailId);const control=detail?.querySelector('[data-technical-review-action="'+position.focusAction+'"]')||mount.querySelector('[aria-controls="'+position.detailId+'"][data-panel="alternates"]');control?.focus({preventScroll:true});}window.scrollTo(position.pageX,position.pageY);}else if(position.focus)row?.querySelector('.candidate-row-controls button')?.focus({preventScroll:true});
   }
   const scanWidthPreference='dle.scanned-bom.column-widths.v1';
   let scanColumnWidths=null, scanColumnDrag=null;
@@ -1121,31 +1304,197 @@
     renderDetail();
   }
   let releaseReadiness = null;
-  function renderPackageRelease() {
-    const r=state.selected.record, c=packageCandidateState();
-    if(r.technicalReview.materialsReviewStatus !== 'QUALIFIED' || c.active) return '';
-    if(c.dirty || c.pendingReview) return '<p>Accept and save the package changes before release.</p>';
-    const key=r.intakeId+':'+state.selected.packageReviewToken;
-    if(releaseReadiness?.key !== key) {
-      releaseReadiness={key, pending:true};
-      fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(r.intakeId)+'/release-readiness')
-        .then(result=>{if(releaseReadiness?.key===key)releaseReadiness={key,...result};})
-        .catch(error=>{if(releaseReadiness?.key===key)releaseReadiness={key,ready:false,message:error.message};})
-        .finally(()=>{if(state.selected?.record?.intakeId===r.intakeId && state.step==='inventory')renderDetail();});
+  function pendingSubmissionEdits(){
+    return sourceChoicesDirty()||pendingSubmissionRequirements().length>0;
+  }
+  function pendingSubmissionRequirements(){
+    const w=state.selected.record.technicalReview.workflow,a=state.packageAnswers,items=[];
+    if(a&&(a.complete!==(w.sufficient?'yes':w.holdReason?'no':'')||(a.complete==='no'&&a.missing!==(w.holdReason||''))))items.push({message:'Save the package decision.',action:a.complete==='no'?'SAVE_HOLD':'SAVE_PACKAGE'});
+    if(pendingReferenceSelection())items.push({message:'Save the selected reference.',action:'SAVE_REFERENCE'});
+    if(reviewUploads.length)items.push({message:'Save the selected documents.',action:'SAVE_DOCUMENTS'});
+    if(Object.keys(identityChanges).length||pendingPackageValues())items.push({message:'Finish the document edits.',action:'REVIEW_DOCUMENTS'});
+    return items;
+  }
+  function renderSubmissionStatus(){
+    if(state.step!=='inventory'||!state.selected)return;
+    const panel=mount?.querySelector?.('.technical-review-release');
+    if(panel)panel.outerHTML=renderPackageRelease();
+  }
+  async function refreshSubmissionState(returnedFromSlides=false){
+    if(state.submissionRefreshing){if(returnedFromSlides)state.submissionRefreshQueued=true;return;}
+    if(state.saving||state.step!=='inventory'||!state.selected||completedReview(state.selected.record)||state.finalBomReview||(!returnedFromSlides&&document.querySelector?.('dialog[open]')))return;
+    const id=state.selected.record.intakeId,dirty=pendingSubmissionEdits();
+    state.submissionRefreshing=true;
+    try{
+      const latest=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(id));
+      if(state.selected?.record?.intakeId!==id||state.step!=='inventory'||state.saving||state.finalBomReview||(!returnedFromSlides&&document.querySelector?.('dialog[open]')))return;
+      if(!dirty&&!pendingSubmissionEdits()){
+        state.selected=latest;state.packageDraft=null;state.packageAnswers=null;
+        if(state.teamDraft?.intakeId===id)state.teamDraft=null;
+        releaseReadiness=null;renderDetail();
+      }else{releaseReadiness=null;renderSubmissionStatus();}
+    }catch(error){
+      if(state.selected?.record?.intakeId===id){releaseReadiness=null;renderSubmissionStatus();}
+    }finally{state.submissionRefreshing=false;if(state.submissionRefreshQueued){state.submissionRefreshQueued=false;void refreshSubmissionState(true);}}
+  }
+  async function resolveSubmissionRequirement(action,button){
+    if(state.saving||!state.selected)return;
+    if(action==='CONFIRM_RFQ_PACKAGE')return workflowAction('CONFIRM_RFQ_PACKAGE');
+    if(action==='ACCEPT_BOM')return reopenCandidate();
+    if(action==='ACCEPT_SLIDES')return openDraftSlides(button);
+    if(action==='RESUME_REVIEW')return workflowAction('RESUME');
+    if(action==='SAVE_REFERENCE')return saveTeamReference();
+    if(action==='SAVE_DOCUMENTS')return uploadReviewDocuments();
+    if(action==='SAVE_HOLD')return saveUnifiedPackage(false);
+    if(action==='SAVE_PACKAGE')return saveUnifiedPackage(true);
+    if(action==='REVIEW_REFERENCE'){
+      const reference=mount?.querySelector('#reviewTeamReference');reference?.scrollIntoView?.({block:'center'});reference?.focus?.();return;
     }
-    const accepted=(r.technicalReview.bomAcceptances || []).findLast(a=>a.candidate.id===r.technicalReview.candidateBom?.id);
-    const bom=accepted ? '<div><h5>Accepted BOM</h5><p class="release-bom-meta">Version '+accepted.version+' · Accepted by '+escapeHtml(accepted.reviewedBy)+' · '+escapeHtml(formatDateTime(accepted.reviewedAtUtc))+'</p><button type="button" class="technical-review-secondary" data-technical-review-action="accepted-bom" data-accepted-version="'+accepted.version+'">View Accepted BOM</button></div>' : '';
-    const ready=releaseReadiness.ready===true;
-    return '<section class="technical-review-card technical-review-release"><h4>'+(ready?'Technical Review Ready':'Technical Review Submission')+'</h4><div class="release-summary">'+bom+'<div><h5>Technical Package</h5><p>'+(ready?'Ready':'Awaiting release validation')+'</p></div></div>'+
-      (releaseReadiness.pending?'<p role="status">Checking release readiness…</p>':!ready?'<p role="alert">'+escapeHtml(releaseReadiness.message)+'</p>':'<p>Submit the reviewed technical package and accepted BOM to the RFQ workspace for Materials and Labor quotation.</p>'+flowButton('Submit to RFQs','COMPLETE'))+'</section>';
+    if(action==='REVIEW_INTAKE'){state.guided=false;state.step='';renderDetail();return;}
+    if(action==='REVIEW_DOCUMENTS'||action==='RESTORE_SOURCE'){
+      const details=mount?.querySelector('[data-review-source-details]');if(details)details.open=true;
+      const table=mount?.querySelector('.unified-package-review');table?.scrollIntoView?.({block:'start'});
+      table?.querySelector('select:not([disabled]),button:not([disabled])')?.focus?.();
+    }
+  }
+  function renderPackageRelease() {
+    const r=state.selected.record;if(completedReview(r))return '';
+    const key=r.intakeId+':'+JSON.stringify(r.technicalReview)+':'+state.selected.packageReviewToken;
+    if(releaseReadiness?.key!==key){
+      const check={key,pending:true};releaseReadiness=check;
+      fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(r.intakeId)+'/release-readiness')
+        .then(result=>{if(releaseReadiness===check)releaseReadiness={key,...result};})
+        .catch(()=>{if(releaseReadiness===check)releaseReadiness={key,ready:false,unavailable:true};})
+        .finally(()=>{if(state.selected?.record?.intakeId===r.intakeId)renderSubmissionStatus();});
+    }
+    const pending=pendingSubmissionRequirements(),dirty=pending.length>0,ready=releaseReadiness.ready===true&&!dirty;
+    const labels={CONFIRM_RFQ_PACKAGE:'Confirm package is sufficient for RFQ',REVIEW_DOCUMENTS:'Review documents',ACCEPT_BOM:'Review BOM',ACCEPT_SLIDES:'Open draft slides',RESUME_REVIEW:'Resume review',REVIEW_REFERENCE:'Review reference',REVIEW_INTAKE:'View intake details',RESTORE_SOURCE:'View source documents',SAVE_REFERENCE:'Save reference selection',SAVE_DOCUMENTS:'Save documents',SAVE_HOLD:'Place on hold',SAVE_PACKAGE:'Save package decision'};
+    const requirements=[...(releaseReadiness.requirements||[]),...pending];
+    const tasks=requirements.map(item=>'<div class="technical-review-submission-task"><p>'+escapeHtml(item.message)+'</p>'+(labels[item.action]?'<button type="button" data-technical-review-action="submission-requirement" data-requirement="'+item.action+'" '+(state.saving||(item.action==='CONFIRM_RFQ_PACKAGE'&&dirty)?'disabled':'')+'>'+labels[item.action]+'</button>':'')+'</div>').join('');
+    return '<section class="technical-review-card technical-review-release"><h3>Submit to RFQs</h3><div class="release-summary"><div><h4>'+(releaseReadiness.bomAccepted===true?'BOM Accepted':'BOM '+(releaseReadiness.pending?'Checking…':'Needs Review'))+'</h4></div><div><h4>'+(releaseReadiness.slidesAccepted===true?'Slides Accepted':'Slides '+(releaseReadiness.pending?'Checking…':'Need Review'))+'</h4></div></div>'+ 
+      (releaseReadiness.pending?'<p role="status">Checking readiness…</p>':releaseReadiness.unavailable?'<p role="status">Submission checks are unavailable. Return to this page to try again.</p>':tasks?'<div role="status">'+tasks+'</div>':ready?'':'<p role="status">Finish the remaining Technical Review checks.</p>')+
+      '<button class="technical-review-primary" data-technical-review-action="flow-COMPLETE" '+(ready&&!state.saving?'':'disabled')+'>Submit to RFQs</button></section>';
   }
 
+  function useSourceSetup() {
+    const r=state.selected?.record;
+    return state.selected?.sourceSetupAvailable===true && !state.legacySourceReview && !completedReview(r) && r?.intakeType==='NEW_QUOTE_REQUEST' && r?.technicalReview?.workflow && r?.assemblies?.length===1 &&
+      (r?.reviewSourceSetup || !r?.technicalReview?.candidateBom || r.technicalReview.candidateBom.vproImport);
+  }
+  function sourceChoices() {
+    const r=state.selected.record,saved=r.reviewSourceSetup?.current;
+    if(state.sourceChoices?.id!==r.intakeId){
+      const txt=r.technicalFiles.filter(f=>/\.txt$/i.test(f.name)&&f.binaryStatus==='VERIFIED');
+      state.sourceChoices={id:r.intakeId,drawingId:saved?.drawingDocumentId||r.technicalReview?.presentationDraft?.teamDocumentId||'',bomId:saved?.bomDocumentId||(txt.length===1?txt[0].documentId:''),dirty:false};
+    }
+    return state.sourceChoices;
+  }
+  function sourceChoicesDirty(){return !!state.selected?.sourceSetupAvailable && state.sourceChoices?.id===state.selected.record.intakeId && (!!state.sourceChoices.dirty||!!state.sourceUpload||!!state.sourceConfirmReason||!!state.sourceConfirm);}
+  function renderSourceSetup() {
+    const r=state.selected.record,c=sourceChoices(),busy=(state.saving||window.DleOsCapabilities?.can?.('technical_review.disposition')!==true)?'disabled':'',candidate=r.technicalReview?.candidateBom;
+    const selector=(role,label,accept,predicate,id)=>'<section class="technical-review-question" data-review-step="'+(role==='DRAWING_REFERENCE'?'drawing':'bom')+'" tabindex="-1"><h3>'+label+'</h3><label>Saved review file<select data-source-choice="'+(role==='DRAWING_REFERENCE'?'drawingId':'bomId')+'" '+busy+'><option value="">Choose a file</option>'+r.technicalFiles.filter(predicate).map(f=>'<option value="'+escapeHtml(f.documentId)+'" '+(f.documentId===id?'selected':'')+'>'+escapeHtml(f.name)+' (copy '+escapeHtml(f.documentId.slice(0,8))+')</option>').join('')+'</select></label>'+linkedFileButtons(role)+'<label>Or choose a file from this device<input type="file" data-source-upload="'+role+'" accept="'+accept+'" '+busy+'></label>'+inlineFilePicker(role)+'</section>';
+    const identity=state.sourceIdentity, mismatch=identity?.source&&!identity.sourceMatches;
+    const reconciliation=identity?'<section class="technical-review-question" data-source-identity tabindex="-1"><h3>'+(mismatch?'Check that this BOM applies to this job':'Source identity')+'</h3>'+(identity.sourceProblem?'<p role="alert">'+escapeHtml(identity.sourceProblem)+'</p>':'')+
+      (identity.source?'<p>Export: <strong>'+escapeHtml(identity.source.drawing)+'</strong></p><p>Job: <strong>'+escapeHtml(identity.target)+'</strong></p><ul>'+identity.source.notes.filter(n=>n.text.trim()).map(n=>'<li>Source line '+escapeHtml(n.sequence)+': '+escapeHtml(n.text)+'</li>').join('')+'</ul><details><summary>Exact source version</summary><code>'+escapeHtml(identity.bomSha256)+'</code></details>':'')+
+      (mismatch?'<p>Nothing is assumed equivalent. Confirm only if this exact export applies to this job, including its revision and change notes.</p><label><input type="checkbox" data-source-confirm '+(state.sourceConfirm?'checked':'')+' '+busy+'> I confirm this source applies to the displayed job</label><label>Reason<textarea data-source-reason maxlength="2000" '+busy+'>'+escapeHtml(state.sourceConfirmReason||'')+'</textarea></label>':'')+'</section>':'';
+    return '<div class="review-flow"><p>Choose the production drawing and the BOM source. Folder files and uploads are saved as separate review copies; originals are unchanged. Replacing a selection keeps the prior file and its history.</p>'+
+      selector('DRAWING_REFERENCE','1. Production drawing','.pdf',f=>f.type==='application/pdf'&&f.binaryStatus==='VERIFIED',c.drawingId)+
+      selector('BOM_REFERENCE','2. BOM source (VPRO5 TXT)','.txt',f=>/\.txt$/i.test(f.name)&&f.binaryStatus==='VERIFIED',c.bomId)+
+      (state.sourceUpload?'<section class="technical-review-question"><p>'+escapeHtml(state.sourceUpload.file.name)+' will be saved as a review copy for '+(state.sourceUpload.role==='DRAWING_REFERENCE'?'Production drawing':'BOM source')+'.</p><button data-technical-review-action="source-upload-save" '+busy+'>Use this file</button><button data-technical-review-action="source-upload-cancel" '+busy+'>Cancel file selection</button></section>':'')+
+      '<p>The selected TXT supplies the candidate BOM, even when the production drawing also contains a BOM. No P/N classification is needed to save these choices.</p>'+reconciliation+
+      '<p role="status">'+escapeHtml(state.sourceMessage||'')+'</p>'+
+      '<button data-technical-review-action="source-save" '+busy+'>Save Draft</button> <button class="technical-review-primary" data-technical-review-action="source-build" '+(busy||!c.drawingId||!c.bomId?'disabled':'')+'>Save &amp; Build Candidate</button>'+
+      (candidate?'<button data-technical-review-action="source-review" '+(state.saving||c.dirty||(r.reviewSourceSetup&&r.reviewSourceSetup.builtCandidateId!==candidate.id)?'disabled':'')+'>Review Candidate BOM</button>':'')+
+      '<p>Save Draft keeps incomplete choices without putting the review On Hold or approving anything. Save &amp; Build resumes an On Hold review and creates a working candidate. Final BOM acceptance remains explicit.</p>'+
+      (sourceChoicesDirty()?'<button data-technical-review-action="source-discard" '+busy+'>Discard unsaved choices</button> ':'')+'<button data-technical-review-action="source-reload" '+busy+'>Reload saved status (keep choices)</button> <button data-technical-review-action="source-other" '+busy+'>Other BOM formats / existing review tools</button></div>';
+  }
+  function sourceInput(event) {
+    if(!useSourceSetup()||state.saving||window.DleOsCapabilities?.can?.('technical_review.disposition')!==true)return false;
+    const el=event.target;
+    if(el.dataset?.sourceChoice){if(sourceChoices()[el.dataset.sourceChoice]===el.value)return true;sourceChoices()[el.dataset.sourceChoice]=el.value;sourceChoices().dirty=true;state.sourceIdentity=null;state.sourceConfirm=false;state.sourceConfirmReason='';state.sourceMessage='Choice changed. Save Draft or Save & Build Candidate.';renderDetail();return true;}
+    if(el.dataset?.sourceUpload){if(el.files?.[0]){state.sourceUpload={file:el.files[0],role:el.dataset.sourceUpload};renderDetail();}return true;}
+    if(el.hasAttribute?.('data-source-confirm')){state.sourceConfirm=el.checked;return true;}
+    if(el.hasAttribute?.('data-source-reason')){state.sourceConfirmReason=el.value;return true;}
+    return false;
+  }
+  async function sourceAction(action) {
+    if(state.saving)return;
+    const r=state.selected.record,c=sourceChoices();
+    if(!['source-review','source-reload','source-other','source-upload-cancel'].includes(action)&&window.DleOsCapabilities?.can?.('technical_review.disposition')!==true){state.sourceMessage='This persona can view sources but cannot save or build.';renderDetail();return;}
+    if(action==='source-discard'){if(!window.confirm('Discard only the unsaved source choices and pending file selection? Saved review copies and existing candidates will remain.'))return;state.sourceChoices=null;state.sourceUpload=null;state.sourceIdentity=null;state.sourceConfirm=false;state.sourceConfirmReason='';state.sourceMessage='Unsaved choices discarded. Saved files and candidates are unchanged.';renderDetail();return;}
+    if(action==='source-upload-cancel'){state.sourceUpload=null;renderDetail();return;}
+    if(action==='source-other'){if(sourceChoicesDirty()){state.sourceMessage='Save your source choices or cancel the pending file selection before switching workflows.';renderDetail();return;}state.legacySourceReview=true;renderDetail();return;}
+    if(action==='source-review'){if(c.dirty||(r.reviewSourceSetup&&r.reviewSourceSetup.builtCandidateId!==r.technicalReview?.candidateBom?.id)){state.sourceMessage='Save source choices before reviewing the existing candidate.';renderDetail();return;}state.guided=true;state.step='candidate';renderDetail();return;}
+    if(state.sourceUpload&&action!=='source-upload-save'){state.sourceMessage='Use or cancel the selected file first. Your current choices are retained.';renderDetail();return;}
+    state.saving=true;state.sourceMessage='';renderDetail();
+    try {
+      const base='/api/sim/technical-reviews/'+encodeURIComponent(r.intakeId);
+      if(action==='source-upload-save'){
+        const upload=state.sourceUpload,form=new window.FormData();form.append('file',upload.file,upload.file.name);form.append('lastModified',String(upload.file.lastModified||0));
+        form.append('metadata',JSON.stringify({type:upload.role==='DRAWING_REFERENCE'?'DRAWING':'VPRO5_BOM_EXPORT',applicability:'PARENT_ASSEMBLY'}));
+        const response=await window.fetch(base+'/documents',{method:'POST',credentials:'same-origin',headers:{'X-SIM-Document-Upload':'1'},body:form});const payload=await response.json();if(!response.ok)throw Error(payload.message||'File copy could not be saved.');
+        const file=payload.record.technicalFiles.find(f=>!r.technicalFiles.some(old=>old.documentId===f.documentId));if(!file)throw Error('Reopen saved status to identify the saved file; no second copy was requested.');
+        state.selected=payload;c[upload.role==='DRAWING_REFERENCE'?'drawingId':'bomId']=file.documentId;c.dirty=true;state.sourceUpload=null;state.sourceIdentity=null;state.sourceMessage='Review copy saved. Choose Save Draft or Save & Build Candidate.';return;
+      }
+      if(action==='source-reload'){state.selected=await fetchJson(base);state.sourceIdentity=null;state.sourceConfirm=false;state.sourceConfirmReason='';state.sourceMessage='Saved status reloaded. Your source choices are retained; check them before saving.';return;}
+      const view=await fetchJson(base+'/source-setup?'+new URLSearchParams({drawingId:c.drawingId,bomId:c.bomId}));
+      if(view.token!==state.selected.sourceSetupToken)throw Error('The saved review changed. Use Reload saved status to inspect it while keeping your choices, then retry.');
+      let replace=false;
+      if(action==='source-build'){
+        if(view.sourceProblem)throw Error(view.sourceProblem);
+        if(!view.sourceMatches){
+          if(state.sourceIdentity?.sourceToken!==view.sourceToken){state.sourceConfirm=false;state.sourceConfirmReason='';}
+          state.sourceIdentity=view;
+          if(!state.sourceConfirm||!state.sourceConfirmReason?.trim()){state.sourceMessage='Check the displayed source and job identities. Confirm applicability and give a reason before building.';return;}
+        }
+        if(r.technicalReview.candidateBom&&r.reviewSourceSetup?.builtCandidateId!==r.technicalReview.candidateBom.id||r.technicalReview.candidateBom&&c.dirty){replace=window.confirm('Replace the current working candidate with these selected sources? The prior version will remain in history. Accepted BOMs cannot be replaced here.');if(!replace)return;}
+      }
+      const payload=await fetchJson(base+'/source-setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedToken:view.token,drawingDocumentId:c.drawingId||null,bomDocumentId:c.bomId||null,action:action==='source-build'?'BUILD':'SAVE_DRAFT',expectedSourceToken:view.sourceToken,confirmIdentity:action==='source-build'&&!!state.sourceConfirm,identityReason:state.sourceConfirmReason||null,replaceCandidate:replace})});
+      state.selected=payload;c.dirty=false;state.sourceIdentity=null;state.sourceConfirm=false;state.sourceConfirmReason='';state.packageDraft=null;state.teamDraft=null;releaseReadiness=null;
+      state.sourceMessage=action==='source-build'?'Candidate built. Review the rows and source notes; no BOM was accepted.':'Draft saved. Review status and approvals are unchanged.';
+      if(action==='source-build'){state.guided=true;state.step='candidate';}
+    }catch(e){state.sourceMessage=e.message||'Unable to save. Your choices are retained.';}
+    finally{state.saving=false;renderDetail();if(state.sourceIdentity)mount?.querySelector('[data-source-identity]')?.focus?.({preventScroll:true});}
+  }
+
+  function reviewFlow(packageHtml) {
+    if(useSourceSetup())return renderSourceSetup();
+    if(!state.selected?.presentationAvailable)return packageHtml;
+    const r=state.selected.record,d=state.teamDraft?.intakeId===r.intakeId?state.teamDraft:(r.technicalReview?.presentationDraft||{}),docs=r.technicalFiles||[],mode=state.bomRoute||(r.technicalReview?.candidateBom?.manualDraft?'manual':'source');
+    const shown=mount?.querySelector?.('[data-review-source-details]'),sourceOpen=shown?.dataset.intakeId===r.intakeId?shown.open:mode==='source';
+    const options='<option value="">No drawing / reference selected</option>'+docs.filter(f=>f.documentId!==r.technicalReview?.presentationDraft?.renditionDocumentId).map(f=>'<option value="'+escapeHtml(f.documentId)+'" '+(f.documentId===d.teamDocumentId?'selected':'')+'>'+escapeHtml(f.name)+(docs.filter(x=>x.name===f.name).length>1?' (copy '+escapeHtml(f.documentId.slice(0,8))+')':'')+'</option>').join('');
+    return '<div class="review-flow"><section class="technical-review-question" data-review-step="drawing" tabindex="-1"><h3>1. Select Drawing / Reference</h3><label>Drawing / Reference<select id="reviewTeamReference" '+(state.saving?'disabled':'')+'>'+options+'</select></label><label>Drawing Status<select id="reviewReferenceStatus" disabled>'+Object.entries({UNKNOWN:'Unknown',PRELIMINARY:'Engineering / Test / Prototype',CUSTOMER_RELEASED:'Released Drawing'}).map(([v,l])=>'<option value="'+v+'" '+((d.referenceStatus||'UNKNOWN')===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label><button data-technical-review-action="save-team-reference" '+(state.saving?'disabled':'')+'>Save reference selection</button> <button data-technical-review-action="add-document">Add document</button>'+'<button data-technical-review-action="cancel-reference-selection" '+(pendingReferenceSelection()?'':'hidden')+' '+(state.saving?'disabled':'')+'>Cancel reference selection</button>'+linkedFileButtons('DRAWING_REFERENCE')+inlineFilePicker('DRAWING_REFERENCE')+renderReviewUploads()+'<p class="technical-review-message" role="status">'+escapeHtml(state.message||'')+'</p></section>'+ 
+      '<section class="technical-review-question" data-review-step="bom" tabindex="-1"><h3>2. Select BOM file(s)</h3>'+'<p>Choose the BOM source separately. Use a VPRO5 BMM export when that is your source, or explicitly use the drawing when it contains the BOM.</p>'+linkedFileButtons('BOM_REFERENCE')+inlineFilePicker('BOM_REFERENCE')+bomSelectionSummary()+renderVproImport()+'<div class="review-route"><button data-technical-review-action="bom-source" aria-pressed="'+(mode==='source')+'">Extract / Import from documents</button><button data-technical-review-action="bom-manual" aria-pressed="'+(mode==='manual')+'">Build manually</button></div>'+(mode==='manual'?manualBomPanel()+(r.technicalReview?.candidateBom&&!r.technicalReview.candidateBom.manualDraft?'<button data-technical-review-action="manual-bom-open">Open working BOM</button>':''):'')+'<details data-review-source-details data-intake-id="'+escapeHtml(r.intakeId)+'" '+(sourceOpen?'open':'')+'><summary>Source documents</summary>'+packageHtml+'</details></section>'+ 
+      '<section class="technical-review-question"><h3>3. Production Slides</h3><button data-technical-review-action="draft-slides">Open draft slides</button></section>'+renderPackageRelease()+'</div>';
+  }
+  async function saveTeamReference() {
+    if(state.saving)return;
+    if(Object.keys(identityChanges).length||reviewUploads.length){state.message='Finish pending document edits before saving the reference selection.';renderDetail();return;}
+    if(pendingPackageValues()){state.message='Finish the document edits before saving the reference.';renderDetail();return;}
+    const teamDocumentId=document.getElementById('reviewTeamReference').value||null;
+    const pendingAnswers=pendingSubmissionRequirements().some(x=>x.action==='SAVE_PACKAGE'||x.action==='SAVE_HOLD');
+    state.saving=true;
+    state.message='Preparing reference pages…';
+    renderDetail();
+    try {const base='/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/presentation';const v=await fetchJson(base);const saved=await fetchJson(base+'/reference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedRevision:v.draft.revision,expectedBomToken:v.bomToken,teamDocumentId})});state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId));state.packageDraft=null;releaseReadiness=null;state.teamDraft=null;state.message=saved.warning||'Reference saved.';state.messageState='';if(!pendingAnswers)state.packageAnswers=null;}
+    catch(e){state.message=e.message;state.messageState='error';}finally{state.saving=false;renderDetail();focusReviewStep('DRAWING_REFERENCE');}
+  }
+  async function refreshAfterPresentation(){
+    return refreshSubmissionState(true);
+  }
+  async function openDraftSlides(trigger) {
+    if(state.saving)return;
+    if(pendingReferenceSelection()){state.message='Save the reference selection before opening slides.';renderDetail();return;}
+    if(Object.keys(identityChanges).length||reviewUploads.length){state.message='Save or finish pending document edits before opening slides.';renderDetail();return;}
+    try{if(!window.DleTechnicalSlides)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/SRC/workspaces/technical-review/review-draft-slides.js';s.onload=resolve;s.onerror=()=>{s.remove();reject(Error('Draft slides could not load. Retry.'));};document.head.append(s);});await window.DleTechnicalSlides.open({intakeId:state.selected.record.intakeId,entryContext:'technical-review',trigger,onError:e=>{state.message=e.message;state.messageState='error';renderDetail();},onClose:()=>{void refreshAfterPresentation();},onSaved:r=>{state.selected.record.technicalReview.presentationDraft=r.technicalReview.presentationDraft;releaseReadiness=null;}});}catch(e){state.message=e.message;state.messageState='error';renderDetail();}
+  }
   function renderUnifiedPackage() {
     const pack=unifiedPackageDraft(), docs=pack.documents, answers=packageAnswers(), record=state.selected.record;
     const disabled=state.saving?'disabled':'';
     const editableSelect=(label,attribute,options,value)=>'<select aria-label="'+escapeHtml(label)+'" '+attribute+' '+disabled+'>'+Object.entries(options).map(([k,v])=>'<option value="'+k+'" '+(k===value?'selected':'')+'>'+v+'</option>').join('')+'</select>';
     const rows=docs.map((d,i)=>{
       const f=record.technicalFiles.find(f=>f.documentId===d.documentId), choice=identityChanges[d.documentId],locked=packageRowLocked(d);
+      if(linkedViewingRendition(d))return '<tr><th scope="row">'+escapeHtml(d.name)+'</th><td colspan="5">PDF viewing copy of the selected reference</td><td><a target="_blank" rel="noopener noreferrer" href="/api/sim/rfq-intakes/'+encodeURIComponent(record.intakeId)+'/documents/'+encodeURIComponent(d.documentId)+'">View PDF</a></td></tr>';
       const select=(label,attribute,options,value)=>locked?escapeHtml(options[value]||'—'):editableSelect(label,attribute,options,value);
       const view=f?.binaryStatus==='VERIFIED'?'<a target="'+(f.type==='application/pdf'?'_blank':'_self')+'" rel="noopener noreferrer" href="/api/sim/rfq-intakes/'+encodeURIComponent(record.intakeId)+'/documents/'+encodeURIComponent(d.documentId)+'">View File</a>':'<small>File unavailable</small>';
       let identity=locked?escapeHtml(identityLabels[identityType(d)]):editableSelect('Classification for '+d.name,'data-identity-type',identityLabels,choice?.type||identityType(d))+((choice?.type||identityType(d))==='OTHER'?'<input aria-label="Other description for '+escapeHtml(d.name)+'" data-identity-other maxlength="500" value="'+escapeHtml(choice?.otherDescription||d.identityReview?.otherDescription||'')+'">':'');
@@ -1159,21 +1508,25 @@
         (d.identityReview?'<small>'+(d.identityReview.reviewedBy?escapeHtml(d.identityReview.reviewedBy)+' · '+escapeHtml(formatDateTime(d.identityReview.reviewedAtUtc)):'Unsaved review')+'</small>':'')+
         (d.rowAssociation?'<small>Scope inherited from BOM row '+(d.rowAssociation.rowIndex+1)+' · '+escapeHtml(d.rowAssociation.customerBomPartNumber)+'</small>':'')+
         (d.applicability==='SUBASSEMBLY'?'<label>Customer / BOM P/N<input data-package-field="subassemblyPartNumber" maxlength="120" value="'+escapeHtml(d.subassemblyPartNumber)+'" '+(d.rowAssociation||locked?'readonly':'')+' '+disabled+'></label><label>DLE proposed subassembly identity<input data-package-field="proposedSubassemblyIdentity" maxlength="120" value="'+escapeHtml(d.proposedSubassemblyIdentity)+'" '+(d.rowAssociation||locked?'readonly':'')+' '+disabled+'></label>':'')+
-        (f?.reviewOrigin?'<small>Added by '+escapeHtml(f.reviewOrigin.addedBy)+' · '+escapeHtml(formatDateTime(f.reviewOrigin.addedAtUtc))+'</small><small>'+escapeHtml(f.reviewOrigin.note||'')+'</small>':'')+'</details>';
-      return '<tr data-package-row="'+i+'"><th scope="row"><span>'+escapeHtml(d.name)+'</span><div>'+view+'</div>'+context+'</th><td>'+identity+'</td><td>'+(d.rowAssociation?escapeHtml(applicability[d.applicability]):select('Applies to for '+d.name,'data-package-field="applicability"',applicability,d.applicability))+'</td><td>'+select('Production Use for '+d.name,'data-package-use="productionUse"',production,d.productionUse)+'</td><td>'+select('Materials Use for '+d.name,'data-package-use="bomUse"',bom,d.bomUse)+'</td><td>'+select('Manufacturer P/N source for '+d.name,'data-pn-field="providesManufacturerPartNumbers" title="Does this document show the manufacturer&#39;s P/N in a dedicated field or column?"',{'':'Not Reviewed',yes:'Yes',no:'No'},d.partNumberReview?.providesManufacturerPartNumbers==null?'':d.partNumberReview.providesManufacturerPartNumbers?'yes':'no')+'</td><td>'+(locked?'Accepted':'Needs Review')+'<div class="package-row-actions"><button data-technical-review-action="'+(locked?'identity-change':'accept-package-row')+'" '+disabled+'>'+(locked?'Edit':identityReviewed(d)?'Accept Changes':'Accept')+'</button></div>'+(packageRowErrors[d.documentId]?'<small role="alert">'+escapeHtml(packageRowErrors[d.documentId])+'</small>':'')+'</td></tr>';
+        (f?.reviewOrigin?.linkedSource?'<small>Saved source copy: '+escapeHtml(f.reviewOrigin.linkedSource.rootId+' / '+f.reviewOrigin.linkedSource.relativePath)+'</small><small>Source SHA-256: '+escapeHtml(f.reviewOrigin.linkedSource.sha256)+' · Modified '+escapeHtml(formatDateTime(f.reviewOrigin.linkedSource.lastWriteUtc))+'</small><small>Source changes do not update this copy.</small>':'')+(f?.reviewOrigin?'<small>Added by '+escapeHtml(f.reviewOrigin.addedBy)+' · '+escapeHtml(formatDateTime(f.reviewOrigin.addedAtUtc))+'</small><small>'+escapeHtml(f.reviewOrigin.note||'')+'</small>':'')+'</details>';
+      return '<tr data-package-row="'+i+'"><th scope="row"><span>'+escapeHtml(d.name)+'</span>'+(record.technicalReview.presentationDraft?.teamDocumentId===d.documentId?'<small>Current drawing reference</small>':'')+(record.technicalFiles.filter(x=>x.name===d.name).length>1?'<small>Copy '+escapeHtml(d.documentId.slice(0,8))+'</small>':'')+(record.technicalReview.presentationDraft?.renditionDocumentId===d.documentId?'<small>Linked PDF viewing rendition · original retained</small>':'')+'<div>'+view+'</div>'+context+'</th><td>'+identity+'</td><td>'+(d.rowAssociation?escapeHtml(applicability[d.applicability]):select('Applies to for '+d.name,'data-package-field="applicability"',applicability,d.applicability))+'</td><td>'+select('Production Use for '+d.name,'data-package-use="productionUse"',production,d.productionUse)+'</td><td>'+select('Materials Use for '+d.name,'data-package-use="bomUse"',bom,d.bomUse)+'</td><td>'+select('Manufacturer P/N source for '+d.name,'data-pn-field="providesManufacturerPartNumbers" title="Does this document show the manufacturer&#39;s P/N in a dedicated field or column?"',{'':'Not Reviewed',yes:'Yes',no:'No'},d.partNumberReview?.providesManufacturerPartNumbers==null?'':d.partNumberReview.providesManufacturerPartNumbers?'yes':'no')+'</td><td>'+(locked?'Accepted':'Needs Review')+'<div class="package-row-actions"><button data-technical-review-action="'+(locked?'identity-change':'accept-package-row')+'" '+disabled+'>'+(locked?'Edit':identityReviewed(d)?'Accept Changes':'Accept')+'</button>'+(identityChanges[d.documentId]?'<button type="button" data-technical-review-action="cancel-package-row" data-document-id="'+escapeHtml(d.documentId)+'" '+disabled+'>Cancel row edits</button>':'')+reviewDocumentRemoveButton(d.documentId)+'</div>'+(packageRowErrors[d.documentId]?'<small role="alert">'+escapeHtml(packageRowErrors[d.documentId])+'</small>':'')+'</td></tr>';
     }).join('');
     const summary=(heading,rolesFor)=>{
       const rows=(record.technicalReview.technicalPackage?.documents||[]).filter(d=>identityReviewed(d)&&!packageRowIssue(d)).map(d=>{const roles=rolesFor(unifiedPackageDraft({documents:[{...d}],governingBomDocumentId:record.technicalReview.technicalPackage.governingBomDocumentId}).documents[0]);return roles.length?'<li><span class="package-summary-name">'+escapeHtml(d.name)+'</span><span class="package-summary-roles">'+roles.map(escapeHtml).join(' · ')+'</span></li>':'';}).join('');
       return '<section><h4>'+heading+'</h4>'+(rows?'<ul class="package-summary-list">'+rows+'</ul>':'<p class="package-summary-empty">None selected</p>')+'</section>';
     };
-    const issue=unifiedPackageIssue(), unsupported=pack.governingBomDocumentId&&!packageCanBuild();
-    return '<section class="technical-review-question package-review-table unified-package-review"><div class="package-review-heading"><div><h3>Technical Package Review</h3><p>'+docs.length+' files received · '+docs.filter(packageRowLocked).length+' accepted · '+docs.filter(d=>!packageRowLocked(d)).length+' need review</p></div>'+((window.DleOsCapabilities?.can?.("technical_review.disposition")===true && ['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(record.status))?'<button type="button" class="technical-review-secondary" data-technical-review-action="add-document" '+(state.saving||addingDocuments?'disabled':'')+'>+ Add Document</button>':'')+'</div>'+renderVproImport()+renderReviewUploads()+'<div class="package-table-scroll"><table><thead><tr>'+['Document','What is it?','Applies To','Production Use','Materials Use','MFG P/N Source','Status'].map(x=>'<th scope="col">'+(x==='MFG P/N Source'?'<span class="package-help" tabindex="0" title="Does this document show the manufacturer&#39;s P/N in a dedicated field or column?">'+x+' <span aria-hidden="true">ⓘ</span><span class="package-help-text" role="tooltip">Does this document show the manufacturer&#39;s P/N in a dedicated field or column?</span></span>':x)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-      '<div class="package-authority-summary">'+summary('Production',d=>d.productionUse==='PRIMARY_DRAWING'?['Main Drawing']:d.productionUse==='SUPPORTING_PRODUCTION'?['Supporting']:[])+summary('Materials',d=>[...(d.bomUse==='GOVERNING_BOM'?['Main BOM']:d.bomUse==='SUPPORTING_BOM'?['Supporting BOM']:[]),...(d.partNumberReview?.providesManufacturerPartNumbers===true?['MFG P/N Source']:[])])+'</div>'+
-      '<section class="package-history"><h4>Assembly History</h4><p>Coming soon</p><button type="button" disabled>View Assembly History</button><p class="technical-review-inline-note">Prior revision and build history will be available here in a future release.</p></section>'+
-      '<fieldset class="package-completeness" '+disabled+'><legend>Is the technical package complete enough to proceed, including the documents Production needs?</legend><label><input name="packageComplete" type="radio" value="yes" '+(answers.complete==='yes'?'checked':'')+'> Yes</label><label><input name="packageComplete" type="radio" value="no" '+(answers.complete==='no'?'checked':'')+'> No</label>'+
-      (answers.complete==='no'?'<label class="package-missing">What is missing?<textarea id="packageMissing" maxlength="1000">'+escapeHtml(answers.missing)+'</textarea></label><button class="technical-review-primary" data-technical-review-action="hold-package" '+(state.saving||addingDocuments?'disabled':'')+'>Place On Hold</button>':answers.complete==='yes'?(issue?'<p role="alert">'+escapeHtml(issue)+'</p>':'')+(unsupported?'<p role="note">These document roles can be saved. Candidate BOM extraction requires a verified Main BOM PDF, either standalone or embedded in an Assembly Drawing. A spreadsheet Main BOM is not supported.</p>':'')+packageBuildAction(unsupported, issue):'')+'</fieldset><div id="technicalReviewAnalysisProgress">'+renderAnalysisProgress()+'</div>'+renderPackageRelease()+packageMessage()+'<button class="technical-review-back" data-technical-review-action="history-back">Back to Technical Review</button></section>';
+    const issue=unifiedPackageIssue(), unsupported=!record.technicalReview.candidateBom?.manualDraft&&pack.governingBomDocumentId&&!packageCanBuild();
+    const packageHtml = '<section class="technical-review-question package-review-table unified-package-review"><div class="package-review-heading"><div><h3>Technical Package Review</h3><p>'+docs.length+' files received · '+docs.filter(packageRowLocked).length+' accepted · '+docs.filter(d=>!packageRowLocked(d)&&!linkedViewingRendition(d)).length+' need review</p></div>'+((window.DleOsCapabilities?.can?.("technical_review.disposition")===true && ['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(record.status))?'<button type="button" class="technical-review-secondary" data-technical-review-action="add-document" '+(state.saving||addingDocuments?'disabled':'')+'>+ Add Document</button>':'')+'</div>'+renderIncompleteSave()+(state.selected?.presentationAvailable?'':renderVproImport())+(state.selected?.presentationAvailable?'':manualBomPanel()+renderReviewUploads())+'<div class="package-table-scroll"><table><thead><tr>'+['Document','What is it?','Applies To','Production Use','Materials Use','MFG P/N Source','Status'].map(x=>'<th scope="col">'+(x==='MFG P/N Source'?'<span class="package-help" tabindex="0" title="Does this document show the manufacturer&#39;s P/N in a dedicated field or column?">'+x+' <span aria-hidden="true">ⓘ</span><span class="package-help-text" role="tooltip">Does this document show the manufacturer&#39;s P/N in a dedicated field or column?</span></span>':x)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="package-authority-summary">'+summary('Production',d=>d.productionUse==='PRIMARY_DRAWING'?['Main Drawing']:d.productionUse==='SUPPORTING_PRODUCTION'?['Supporting']:[])+(record.technicalReview.candidateBom?.manualDraft?'<section><h4>Materials</h4><p>DLE-authored BOM · '+(record.technicalReview.materialsReviewStatus==='QUALIFIED'?'accepted for RFQ':'RFQ acceptance pending')+'</p></section>':summary('Materials',d=>[...(d.bomUse==='GOVERNING_BOM'?['Main BOM']:d.bomUse==='SUPPORTING_BOM'?['Supporting BOM']:[]),...(d.partNumberReview?.providesManufacturerPartNumbers===true?['MFG P/N Source']:[])]))+'</div>'+
+      (engineeringReferenceSelected()?'':'<section class="package-history"><h4>Assembly History</h4><p>Coming soon</p><button type="button" disabled>View Assembly History</button><p class="technical-review-inline-note">Prior revision and build history will be available here in a future release.</p></section>')+
+      (engineeringReferenceSelected()&&!pendingSubmissionRequirements().some(x=>x.action==='SAVE_PACKAGE'||x.action==='SAVE_HOLD')?'':'<fieldset class="package-completeness" '+disabled+'><legend>Is the technical package complete enough to proceed, including the documents Production needs?</legend><label><input name="packageComplete" type="radio" value="yes" '+(answers.complete==='yes'?'checked':'')+'> Yes</label><label><input name="packageComplete" type="radio" value="no" '+(answers.complete==='no'?'checked':'')+'> No</label>'+
+      (answers.complete==='no'?'<label class="package-missing">What is missing?<textarea id="packageMissing" maxlength="1000">'+escapeHtml(answers.missing)+'</textarea></label><button class="technical-review-primary" data-technical-review-action="hold-package" '+(state.saving||addingDocuments?'disabled':'')+'>Place On Hold</button>':answers.complete==='yes'?(issue?'<p role="alert">'+escapeHtml(issue)+'</p>':'')+(unsupported?'<p role="note">These document roles can be saved. Candidate BOM extraction requires a verified Main BOM PDF, either standalone or embedded in an Assembly Drawing. A spreadsheet Main BOM is not supported.</p>':'')+packageBuildAction(unsupported, issue):'')+'</fieldset>')+'<div id="technicalReviewAnalysisProgress">'+renderAnalysisProgress()+'</div>'+(state.selected?.presentationAvailable?'':renderPackageRelease())+packageMessage()+'<button class="technical-review-back" data-technical-review-action="history-back">Back to Technical Review</button></section>';
+    return reviewFlow(packageHtml);
   }
   async function saveUnifiedPackage(complete, setupOnly = false) {
+    if(!complete && (pendingReferenceSelection()||reviewUploads.length||drawingFolderBrowser?.selection)){window.alert('Save or cancel the Step 1 drawing choice, selected folder file and pending uploads before saving setup. Your edits remain here.');return;}
+    if(!complete && Object.entries(identityChanges).some(([id,c])=>{const old=state.selected.record.technicalReview.technicalPackage.documents.find(d=>d.documentId===id);return c.type!==identityType(old||{})||(c.type==='OTHER'&&(c.otherDescription||'')!==(old?.identityReview?.otherDescription||''));})){window.alert('A document classification change is still unsaved. This backend cannot save it as an independent draft. Keep the tab open; do not guess review answers to accept it.');return;}
+    const holdInput=mount?.querySelector?.('#packageDraftHoldReason');if(!complete&&holdInput)packageAnswers().missing=holdInput.value;
     if(state.saving || packageCandidateState().active || (complete&&unifiedPackageIssue()))return;
     const hadCandidate=!!state.selected.record.technicalReview.candidateBom;
     const p=unifiedPackageDraft(), answers=packageAnswers(), canBuild=packageCanBuild();
@@ -1186,9 +1539,14 @@
       await refreshQueueModel();
     } catch(error) {state.message=error.message;state.messageState='error';}
     finally {state.saving=false;renderDetail();}
-    if(complete&&canBuild&&!setupOnly&&!scannedMainBom()&&state.messageState!=='error') {
+    if(!state.selected.record.technicalReview?.candidateBom?.manualDraft&&complete&&canBuild&&!setupOnly&&!scannedMainBom()&&state.messageState!=='error') {
       if(!hadCandidate && !state.selected.record.technicalReview.candidateBom) await buildCandidate();
     }
+  }
+  function renderIncompleteSave() {
+    if(!canManageReviewDocuments())return '';
+    return '<section class="technical-review-question"><button type="button" data-technical-review-action="show-incomplete-save" '+(state.saving?'disabled':'')+'>Save incomplete setup (On Hold)</button><p>Accept Changes confirms a document row. Generate draft creates a candidate for review. Final BOM acceptance is separate. There is no independent draft-save mode yet; incomplete setup can be saved by deliberately placing this review On Hold. Unknown P/N answers may remain unresolved.</p>'+
+      (state.showIncompleteSave?'<label>Reason for holding this review<textarea id="packageDraftHoldReason" maxlength="1000">'+escapeHtml(packageAnswers().missing||'')+'</textarea></label><button type="button" data-technical-review-action="hold-package" '+(state.saving?'disabled':'')+'>Save setup and place On Hold</button><p>This saves document setup and the hold reason, not a candidate or final BOM approval. Save or cancel the drawing choice and pending uploads separately first.</p>':'')+'</section>';
   }
   function packageMessage() { return '<p role="status" class="technical-review-message" data-state="' + escapeHtml(state.messageState) + '">' + escapeHtml(state.message) + '</p>'; }
   function renderGoverning() {
@@ -1216,6 +1574,18 @@
     return '<section class="technical-review-question">' + progress('Subassemblies') + '<h3>Have we accounted for every subassembly?</h3><div class="technical-review-subassemblies">' + rows.map(row => '<div><strong>' + escapeHtml(row.partNumber) + ' · Qty ' + row.quantityPerAssembly + ' per parent</strong><p>Known history/package: ' + escapeHtml(row.knownReference || 'None found') + '</p><p>Current customer documents: ' + (row.customerDocumentIds.length ? row.customerDocumentIds.map(id => { const doc = pack.documents.find(d => d.documentId === id); return escapeHtml(doc?.name || id) + ' (' + escapeHtml(documentRoles[doc?.role] || 'Unresolved') + ')'; }).join(' · ') : 'None classified for this subassembly') + '</p><strong>' + (row.coverageState === 'COVERED' ? 'Covered / reference found' : 'Missing / unresolved — technical reference required') + '</strong></div>').join('') + (rows.length ? '' : '<p>No subassemblies identified in the governing BOM.</p>') + '</div><p>Coverage is saved with the comparison. Document associations are reviewer classifications; contents have not been validated.</p><p class="technical-review-inline-note">Material-side review stops here. Manufacturing Definition is not implemented. The RFQ remains active and is not qualified.</p><button class="technical-review-back" data-technical-review-action="materials">← Back to BOM comparison</button></section>';
   }
 
+  async function loadLibraryBomQueue() {
+    if(!['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment))return;
+    const host=document.getElementById('technicalReviewLibraryBomQueue');if(!host)return;
+    try {
+      if(!document.querySelector('link[data-library-bom-style]')){const link=document.createElement('link');link.rel='stylesheet';link.href='SRC/workspaces/assembly-library/assembly-library-workspace.css';link.dataset.libraryBomStyle='true';document.head.append(link);}
+      if(!window.DleLibraryBom){
+        if(!window.DleLibraryBomLoading)window.DleLibraryBomLoading=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='SRC/workspaces/assembly-library/library-bom.js';script.onload=resolve;script.onerror=()=>{window.DleLibraryBomLoading=null;reject(Error('Library review queue could not load.'));};document.head.append(script);});
+        await window.DleLibraryBomLoading;
+      }
+      await window.DleLibraryBom.queue(host,{excludePackageIds:state.finalReviewRoundtrip===true?[...state.items,...state.completedItems].filter(i=>i.projectId&&i.finalReview).map(i=>i.finalReview.packageId):[],getExcludePackageIds:()=>state.finalReviewRoundtrip===true?[...state.items,...state.completedItems].filter(i=>i.projectId&&i.finalReview).map(i=>i.finalReview.packageId):[]});
+    } catch(error){host.textContent=error.message;}
+  }
   async function loadQueue() {
     if (state.loading) return;
     state.loading = true;
@@ -1226,7 +1596,13 @@
     try {
       const payload = await fetchJson("/api/sim/technical-reviews");
       state.items = Array.isArray(payload.items) ? payload.items : [];
+      state.finalReviewRoundtrip = payload.finalReviewRoundtrip===true;
+      state.rfqProjectHandoff = payload.rfqProjectHandoff===true;
+      state.completedItems = state.rfqProjectHandoff && Array.isArray(payload.completedItems) ? payload.completedItems : [];
+      if(!state.rfqProjectHandoff)state.queueBucket='ACTIVE';
       renderQueue();
+      void loadLibraryBomQueue();
+      void loadPartRequestQueue();
       setStatus("Technical Review queue current", "ready");
     } catch (error) {
       state.items = [];
@@ -1241,17 +1617,20 @@
   function renderQueue() {
     const host = document.getElementById("technicalReviewQueue");
     const count = document.getElementById("technicalReviewQueueCount");
-    if (count) count.textContent = String(state.items.length);
-    if (!host) return;
-    if (!state.items.length) {
-      host.innerHTML = '<div class="technical-review-empty">No RFQ Reviews are currently in the Technical Review queue.</div>';
-      return;
-    }
-    host.innerHTML = state.items.map(renderQueueRow).join("");
+    const completed=state.queueBucket==='COMPLETED',values=completed?state.completedItems:state.items;
+    if(count){count.textContent=String(values.length+(completed?0:partRequestCount));if(count.nextElementSibling)count.nextElementSibling.textContent=completed?'completed reviews':'active review items';}
+    if(!host)return;
+    const controls=state.rfqProjectHandoff?'<div class="technical-review-history-tabs" role="group" aria-label="Review queue"><button type="button" data-review-bucket="ACTIVE" aria-pressed="'+!completed+'">Active ('+(state.items.length+partRequestCount)+')</button><button type="button" data-review-bucket="COMPLETED" aria-pressed="'+completed+'">Completed / history ('+state.completedItems.length+')</button></div>':'';
+    host.innerHTML=controls+(values.length?values.map(renderQueueRow).join(''):'<div class="technical-review-empty">'+(completed?'No completed reviews yet.':'No active reviews.')+'</div>');
+    for(const button of host.querySelectorAll('[data-review-bucket]'))button.onclick=e=>{e.stopPropagation();state.queueBucket=button.dataset.reviewBucket;renderQueue();};
+    const other=document.getElementById('technicalReviewLibraryBomQueue');if(other)other.hidden=completed;
+    const parts=document.getElementById('technicalReviewPartRequestQueue');if(parts)parts.hidden=completed;
+    if(['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment))void loadPreparation().then(()=>window.DleLibraryPreparation.attachQueue(host,values,{finalReviewRoundtrip:state.finalReviewRoundtrip===true,rfqProjectHandoff:state.rfqProjectHandoff===true})).catch(error=>{const p=document.createElement('p');p.textContent=error.message;host.append(p);});
   }
 
   function renderQueueRow(item) {
     const assembly = item.assembly || {};
+    if(item.projectId)return '<button type="button" class="technical-review-row" data-preparation-intake="'+escapeHtml(item.intakeId)+'" data-preparation-project="'+escapeHtml(item.projectId)+'">'+queueCell('Assembly project',item.displayId,true)+queueCell('Customer',item.customer?.customerName,true)+queueCell('Assembly',assembly.assemblyNumber,true)+queueCell('Revision',assembly.revision,true)+queueCell('Qty',assembly.quantity,true)+queueCell('Status',state.rfqProjectHandoff&&item.rfqReceipt?'Sent to RFQs':state.finalReviewRoundtrip===true&&item.finalReview?.status==='SUBMITTED'?'Ready for final review':item.reviewStatusLabel,true)+'<span>'+(state.finalReviewRoundtrip===true&&item.finalReview?'Open review':'Initial assessment')+'</span></button>';
     const qualified = item.status === "READY_FOR_RFQ_WORKING_QUEUE";
     return '<button type="button" class="technical-review-row" data-technical-review-intake="' + escapeHtml(item.intakeId) + '">' +
       queueCell("Review Type", item.reviewTypeLabel || "RFQ Review", true) +
@@ -1274,11 +1653,12 @@
     addingDocuments = false; reviewUploads = [];
     state.acceptedVersion = null;
     if (state.saving) return;
-    state.finalBomReview=null;
+    state.finalBomReview=null;state.candidateBulk=null;
     clearCandidateDrafts();state.candidateLeaveIntent=null;
     identityChanges={};packageRowErrors={};state.packageAnswers=null;
     state.guided = false;
     state.materials = false; state.step = ""; state.packageDraft = null; state.documentIndex = 0;
+    state.sourceChoices=null;state.sourceUpload=null;state.sourceIdentity=null;state.sourceConfirm=false;state.sourceConfirmReason='';state.sourceMessage='';state.legacySourceReview=false;
     state.closing = false;
     state.analysisJob = null; state.analysisError = ''; state.candidateIndex = null;
     setStatus("Opening " + intakeId + "…", "");
@@ -1298,17 +1678,67 @@
     }
   }
 
+  function canReturnToQueue() {
+    return ['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment) && (!!state.selected || !!state.assemblyLibrary || !!partRequestReview);
+  }
+  function selectValueChanged(input) {
+    const options=Array.from(input.options);
+    if(input.multiple)return options.some(option=>option.selected!==option.defaultSelected);
+    const defaults=options.map((option,index)=>option.defaultSelected?index:-1).filter(index=>index>=0);
+    return input.selectedIndex!==(defaults.length?defaults[defaults.length-1]:(options.length?0:-1));
+  }
+  function reviewNavigationBlock() {
+    if(partRequestOpening)return 'Wait for the part request to open.';
+    if(partRequestReview?.blockMessage)return partRequestReview.blockMessage;
+    if(state.preparationDraft)return 'Save preparation draft or Cancel edits before leaving.';
+    if(state.saving || drawingFolderBrowser?.busy)return 'Wait for the current operation to finish before returning to Technical Review.';
+    if(!state.selected)return '';
+    if(sourceChoicesDirty())return 'Save Draft or finish the pending source choice before leaving this review.';
+    if((drawingFolderBrowser?.mode==='change' && drawingFolderBrowser.listing)||drawingFolderBrowser?.selection)return 'Save your selection or close the folder selector before returning to Technical Review.';
+    if(state.scanSheetDirty || (state.scanEdit && state.scanEdit.input.value!==state.scanEdit.before))return 'Save Review or cancel your worksheet edits before leaving.';
+    if(state.step==='scanned-setup' || state.finalBomReview)return 'Finish or cancel the current review panel before returning to Technical Review.';
+    const rows=state.selected.record.technicalReview?.candidateBom?.rows||[];
+    if(candidateProgressRows().length || rows.some(row=>rowReviewUi(row).alternateDraft))return 'Save Progress or cancel pending BOM row edits before leaving.';
+    if(reviewUploads.length || Object.keys(identityChanges).length || pendingReferenceSelection() || pendingPackageValues() ||
+      (state.selected.record.technicalReview?.workflow && pendingSubmissionEdits()))return 'Save or cancel your pending document, reference, or package edits before returning to Technical Review.';
+    // Catch text/select fields in legacy review forms without replacing or re-rendering the editor.
+    const inputs=mount?.querySelectorAll?.('#technicalReviewDetail input, #technicalReviewDetail textarea, #technicalReviewDetail select')||[];
+    if(Array.from(inputs).some(input=>!input.disabled && (input.tagName==='SELECT' ? selectValueChanged(input) :
+      ['checkbox','radio'].includes(input.type) ? input.checked!==input.defaultChecked : !['button','submit','hidden','search'].includes(input.type) && input.value!==input.defaultValue)))
+      return 'Save or cancel your pending edits before returning to Technical Review.';
+    return '';
+  }
+  function returnToQueue() {
+    if(!canReturnToQueue())return false;
+    const blocked=reviewNavigationBlock();
+    if(blocked){window.alert(blocked);return false;}
+    showQueue();
+    document.getElementById('technicalReviewQueueTitle')?.focus?.();
+    return true;
+  }
+  function openAssemblyLibrary() {
+    if(!['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)||state.selected||state.saving)return;
+    window.DleWorkspaceShell?.navigate?.({workspaceId:'assembly-library',screenId:'home'});
+  }
+
   function showQueue() {
+    partRequestGeneration++;partRequestOpening=false;
+    partRequestReview?.destroy();partRequestReview=null;
+    const partView=document.getElementById('technicalReviewPartRequestView');if(partView)partView.hidden=true;
     clearTimeout(analysisPoll); clearInterval(analysisClock);
     state.analysisJob = null; state.analysisError = '';
     state.guided = false;
     mount?.classList.remove("technical-review-guided");
     mount?.classList.remove("technical-review-entry");
     state.selected = null;
+    state.assemblyLibrary = false;
+    drawingFolderBrowser = null;
     state.closing = false;
     state.message = "";
     document.getElementById("technicalReviewDetailView").hidden = true;
     document.getElementById("technicalReviewQueueView").hidden = false;
+    const library=document.getElementById('technicalReviewLibraryView');if(library)library.hidden=true;
+    window.DleWorkspaceShell?.refreshBackButton?.();
     setStatus("Technical Review queue current", "ready");
   }
 
@@ -1318,6 +1748,7 @@
     return '<section class="technical-review-card" aria-label="Original Customer Request"><h3>Original Customer Request</h3><p>Owned by Intake · Commercial source · Read-only</p><ul>'+docs.map(a=>'<li><a target="_blank" rel="noopener noreferrer" href="/api/sim/rfq-intakes/'+encodeURIComponent(record.intakeId)+'/customer-request-documents/'+encodeURIComponent(a.document.documentId)+'">'+escapeHtml(a.document.name)+'</a> · Customer RFQ / Request</li>').join('')+'</ul></section>';
   }
   function renderDetail() {
+    window.DleWorkspaceShell?.refreshBackButton?.();
     const host = document.getElementById("technicalReviewDetail");
     const envelope = state.selected || {};
     const record = envelope.record || {};
@@ -1332,7 +1763,10 @@
     const entry = !state.guided && !state.closing && !completedReview(record) && record.status !== "NO_LONGER_REQUIRED";
     mount?.classList.toggle("technical-review-entry", entry);
     if (entry) { mount?.classList.remove("technical-review-guided"); host.innerHTML = renderEntryConfirmation(record, canDisposition)+renderOriginalCustomerRequest(record); return; }
-    if (completedReview(record)) { host.innerHTML = (state.step === 'submitted' ? renderSubmittedReview(record) : renderCompletedReview(record))+renderCustomerAmendmentEntry(record)+renderOriginalCustomerRequest(record); return; }
+    if (completedReview(record)) {
+      host.innerHTML = state.step === 'submitted' ? renderSubmittedReview(record) : renderCompletedReview(record)+renderCustomerAmendmentEntry(record)+renderOriginalCustomerRequest(record);
+      return;
+    }
     mount?.classList.toggle("technical-review-guided", state.guided);
     if (state.step === 'scanned-setup') { host.innerHTML = renderScannedSetup(); return; }
     scanWorkbenchObserver?.disconnect();
@@ -1344,6 +1778,7 @@
       '<h2 id="technicalReviewDetailTitle" tabindex="-1">' + escapeHtml(record.customer?.customerName || "Customer") + '</h2>' +
       (!state.guided && record.intakeType === 'NEW_QUOTE_REQUEST' ? renderIntakeSummary(record) : '<p>' + escapeHtml(assembly.assemblyNumber) + ' · Rev ' + escapeHtml(assembly.revision) + ' · Qty ' + escapeHtml(assembly.quantity) + '</p>') + '</div>' +
       '<span class="technical-review-status-pill">' + escapeHtml(envelope.reviewStatusLabel) + '</span></div>' +
+      renderDrawingFolders(record) +
       renderOriginalCustomerRequest(record) +
       (canDisposition && state.step !== 'candidate' && !(record.technicalReview?.workflow && state.step === 'inventory') && ['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(record.status) ? '<p><button data-technical-review-action="add-document" '+(state.saving||addingDocuments?'disabled':'')+'>Add Technical Document</button></p>' : '') +
       (state.step === 'candidate' || (record.technicalReview?.workflow && state.step === 'inventory') ? '' : '<div id="technicalReviewAnalysisProgress">' + renderAnalysisProgress() + '</div>') +
@@ -1352,6 +1787,201 @@
     void checkCandidateCompletion();
     restoreCandidatePosition(candidatePosition);
   }
+
+  let drawingFolderBrowser = null;
+  let drawingFoldersAvailable = false;
+  let documentRemovalAvailable=false;
+  function canManageReviewDocuments() {
+    documentRemovalAvailable ||= state.selected?.documentRemovalAvailable===true;
+    const r=state.selected?.record;
+    return documentRemovalAvailable && ['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment) && window.DleOsCapabilities?.can?.('technical_review.disposition')===true &&
+      ['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(r?.status) && !completedReview(r);
+  }
+  function reviewDocumentRemoveButton(id) {
+    const file=state.selected?.record?.technicalFiles?.find(f=>f.documentId===id),name=file?.name||'file';
+    return canManageReviewDocuments()?'<button type="button" class="technical-review-secondary" title="Remove from review (original retained)" aria-label="Remove '+escapeHtml(name)+' from review" data-technical-review-action="remove-review-document" data-document-id="'+escapeHtml(id)+'" '+(state.saving?'disabled':'')+'><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button><small role="alert" tabindex="-1" data-removal-message="'+escapeHtml(id)+'"></small>':'';
+  }
+  function renderRemovedReviewDocuments() {
+    const removed=(state.selected?.record?.reviewDocumentRemovals||[]).filter(x=>!x.restoredAtUtc);
+    if(!removed.length)return '';
+    return '<details class="technical-review-question"><summary>Removed files ('+removed.length+')</summary><p>Copies and provenance are retained in SIM. Originals on the server are untouched.</p>'+removed.map(x=>
+      '<div><strong>'+escapeHtml(x.file.name)+'</strong><small> Removed by '+escapeHtml(x.removedBy)+' · '+escapeHtml(formatDateTime(x.removedAtUtc))+'</small> '+
+      (canManageReviewDocuments()?'<button type="button" data-technical-review-action="restore-review-document" data-document-id="'+escapeHtml(x.file.documentId)+'" '+(state.saving?'disabled':'')+'>Restore to review</button>':'')+'</div>').join('')+'</details>';
+  }
+  async function changeReviewDocumentRemoval(id, restore) {
+    if(state.saving||!canManageReviewDocuments())return;
+    if(identityChanges[id]&&unchangedPackageRow(id))delete identityChanges[id]; // Opening Edit alone is not a changed document.
+    const blocked=pendingReferenceSelection()?'Save or cancel the drawing choice in Step 1 before removing a file.':reviewNavigationBlock();if(blocked){reportRemovalIssue(id,blocked.replace(/before returning to Technical Review\./g,'before removing a file.'));return;}
+    const r=state.selected.record, file=restore?(r.reviewDocumentRemovals||[]).find(x=>x.file.documentId===id&&!x.restoredAtUtc)?.file:r.technicalFiles.find(f=>f.documentId===id);
+    if(!file)return;
+    removalIssue=null;state.saving=true;renderDetail();
+    const base='/api/sim/technical-reviews/'+encodeURIComponent(r.intakeId)+'/documents/'+encodeURIComponent(id)+'/removal';
+    try {
+      const eligibility=await fetchJson(base);
+      if(!(restore?eligibility.canRestore:eligibility.canRemove)){reportRemovalIssue(id,eligibility.reason||'This file cannot be changed. Reopen the review.');return;}
+      const message=restore?'Restore "'+file.name+'" to this review? Existing review decisions stay unchanged.':'Remove "'+file.name+'" from this review? Its copy and history are retained for Restore. The original server file will not be deleted.';
+      if(!window.confirm(message))return;
+      const payload=await fetchJson(base,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedToken:eligibility.token,action:restore?'RESTORE':'REMOVE'})});
+      state.selected=payload;state.packageDraft=null;state.teamDraft=null;releaseReadiness=null;
+      state.message=restore?'File restored to review.':'File removed from active review. The copy and recovery history are retained.';state.messageState='';
+    }catch(error){reportRemovalIssue(id,error.message||'Could not change the file. Reopen the package before retrying.');}
+    finally{state.saving=false;renderDetail();if(removalIssue?.id===id)reportRemovalIssue(id,removalIssue.message);}
+  }
+
+  let removalIssue=null;
+  function reportRemovalIssue(id,message) {
+    removalIssue={id,message};
+    const el=Array.from(mount?.querySelectorAll?.('[data-removal-message]')||[]).find(e=>e.dataset?.removalMessage===id);
+    if(el){el.textContent=message;el.focus?.({preventScroll:true});}else window.alert(message);
+  }
+  function focusReviewStep(role) {
+    const step=mount?.querySelector('[data-review-step="'+(role==='DRAWING_REFERENCE'?'drawing':'bom')+'"]');
+    step?.scrollIntoView?.({block:'nearest'});step?.focus?.({preventScroll:true});
+  }
+  function fileBrowserHost(b) {
+    if(!b)return null;
+    return (b.mode==='file'?mount?.querySelector('[data-linked-file-browser="'+b.role+'"]'):null)||mount?.querySelector('[data-drawing-folder-browser="'+b.line+'"]');
+  }
+  function inlineFilePicker(role) {
+    const b=drawingFolderBrowser,r=state.selected.record;
+    return '<div data-linked-file-browser="'+role+'">'+(b?.mode==='file'&&b.role===role?drawingFolderBrowserHtml(r,b.line):'')+'</div>';
+  }
+  function bomSelectionSummary() {
+    const r=state.selected.record,pack=unifiedPackageDraft(),drawing=r.technicalReview?.presentationDraft?.teamDocumentId;
+    const sources=pack.documents.filter(d=>d.bomUse==='GOVERNING_BOM'||d.bomUse==='SUPPORTING_BOM'||identityType(d)==='VPRO5_BOM_EXPORT'||r.technicalFiles.find(f=>f.documentId===d.documentId)?.reviewOrigin?.linkedSource?.role==='BOM_REFERENCE');
+    return '<p>Selected BOM files: '+(sources.length?sources.map(d=>escapeHtml(d.name)+(identityChanges[d.documentId]?' (pending Accept changes)':'')).join('; '):'None')+'</p>'+
+      (drawing?'<button type="button" data-technical-review-action="use-drawing-for-bom" '+(state.saving?'disabled':'')+'>Use the selected drawing for BOM review too</button>':'')+'<p>Review each file and accept its changes below. File selection does not accept or build a BOM.</p>';
+  }
+  function stageDrawingForBom() {
+    if(state.saving||!canManageReviewDocuments())return;
+    const r=state.selected.record,id=r.technicalReview?.presentationDraft?.teamDocumentId,pack=unifiedPackageDraft(),doc=pack.documents.find(d=>d.documentId===id);
+    if(!doc){window.alert('Save the drawing reference in Step 1 first.');return;}
+    if(doc.rowAssociation||doc.applicability!=='PARENT_ASSEMBLY'){window.alert('Choose a main assembly drawing in package review before assigning its BOM role.');return;}
+    if(reviewNavigationBlock()){window.alert('Save or cancel pending edits before assigning the drawing as a BOM source.');return;}
+    if(r.technicalReview.candidateBom||r.technicalReview.bomAcceptances?.length){window.alert('A BOM review already exists. Keep its source history; use the existing source-change workflow.');return;}
+    if(pack.governingBomDocumentId&&pack.governingBomDocumentId!==id){window.alert('Another Main BOM is selected. Change its Materials Use explicitly before choosing the drawing.');return;}
+    identityChanges[id]={type:'DRAWING_AND_BOM',otherDescription:''};doc.documentType='ASSEMBLY_DRAWING';doc.embeddedBom=true;doc.bomUse='GOVERNING_BOM';pack.governingBomDocumentId=id;
+    state.message='Drawing also selected for BOM review. Review its Materials Use and Accept changes below; nothing has been saved or extracted.';
+    renderDetail();focusReviewStep('BOM_REFERENCE');
+  }
+
+  function linkedFileButtons(role) {
+    const r=state.selected?.record;
+    if(!state.selected?.linkedDrawingFilesAvailable || !['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment) ||
+      !window.DleOsCapabilities?.can?.('technical_review.disposition') || !['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(r?.status) || completedReview(r))return '';
+    return (r.assemblies||[]).filter(a=>r.drawingFolders?.some(f=>f.lineNumber===a.lineNumber)).map(a=>
+      '<button type="button" data-drawing-folder="'+(role==='DRAWING_REFERENCE'?'pick-drawing':'pick-bom')+'" data-line="'+a.lineNumber+'" '+(state.saving?'disabled':'')+'>'+
+      'Choose '+(role==='DRAWING_REFERENCE'?'drawing / reference':'BOM reference')+' from linked folder'+(r.assemblies.length>1?' — '+escapeHtml(a.assemblyNumber):'')+'</button>').join(' ');
+  }
+  function linkedFileConfirmation(b) {
+    if(!b.selection)return '';
+    if(useSourceSetup())return '<section class="technical-review-question"><strong>'+escapeHtml(b.selection.name)+'</strong><p>Use this file as '+(b.role==='DRAWING_REFERENCE'?'the production drawing':'the VPRO5 BOM source')+'? A verified review copy will be saved. The original and any previous source stay unchanged.</p><button type="button" data-drawing-folder="save-file" data-line="'+b.line+'" '+(b.busy?'disabled':'')+'>Use this file</button><button type="button" data-drawing-folder="clear-file" data-line="'+b.line+'" '+(b.busy?'disabled':'')+'>Choose another file</button></section>';
+    const f=b.selection, choices=b.role==='DRAWING_REFERENCE'?{DRAWING:'Drawing',DRAWING_AND_BOM:'Drawing + BOM'}:{BOM_ONLY:'BOM Only',DRAWING_AND_BOM:'Drawing + BOM',VPRO5_BOM_EXPORT:'VPRO5 BOM Export'};
+    return '<section class="technical-review-question"><strong>'+escapeHtml(f.name)+'</strong><p>'+escapeHtml(b.role==='DRAWING_REFERENCE'?'Drawing / Reference':'BOM reference')+' · '+f.source.size+' bytes · Source modified '+escapeHtml(formatDateTime(f.source.lastWriteUtc))+'</p>'+
+      '<p>Save one verified copy in SIM for this review. The original stays on the share. Later source changes will not update this copy. This does not approve a document, release a drawing, or extract a BOM.</p>'+
+      '<label>Document type<select data-linked-file-type '+(b.busy?'disabled':'')+'><option value="">Select document type</option>'+Object.entries(choices).map(([v,l])=>'<option value="'+v+'" '+(b.type===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label>'+
+      '<button type="button" data-drawing-folder="clear-file" data-line="'+b.line+'" '+(b.busy?'disabled':'')+'>Clear file selection</button><button type="button" data-drawing-folder="save-file" data-line="'+b.line+'" '+(b.busy?'disabled':'')+'>Save selected copy to review</button></section>';
+  }
+  function renderDrawingFolders(record) {
+    drawingFoldersAvailable ||= state.selected?.drawingFoldersAvailable === true;
+    if (!drawingFoldersAvailable || !['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)) return '';
+    return (record.assemblies || []).map(a => {
+      const link = record.drawingFolders?.find(f => f.lineNumber === a.lineNumber);
+      const editable = window.DleOsCapabilities?.can?.('technical_review.disposition') === true &&
+        ['READY_FOR_RFQ_QUALIFICATION','TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(record.status) && !completedReview(record);
+      const button = (action, label) => '<button type="button" data-drawing-folder="'+action+'" data-line="'+a.lineNumber+'" '+(state.saving?'disabled':'')+'>'+label+'</button>';
+      return '<section class="drawing-folder-link" data-drawing-folder-panel="'+a.lineNumber+'" aria-label="Drawing / Prints Folder for '+escapeHtml(a.assemblyNumber)+'">'+
+        ((record.assemblies.length>1)?'<strong>'+escapeHtml(a.assemblyNumber+' · Rev '+a.revision)+'</strong>':'')+
+        '<div class="drawing-folder-summary"><span>Drawing / Prints Folder'+(link?': <strong>'+escapeHtml(link.folderName)+'</strong>':'')+'</span> '+
+        (link?button('browse','Browse Folder'):'')+' '+(editable?button('change',link?'Change Folder':'Link Drawing / Prints Folder'):'')+'</div>'+
+        (link?'<small>Linked by '+escapeHtml(link.linkedBy)+' · '+escapeHtml(formatDateTime(link.linkedAtUtc))+'</small>':'')+
+        '<div data-drawing-folder-browser="'+a.lineNumber+'">'+(drawingFolderBrowser?.mode==='file'?'':drawingFolderBrowserHtml(record,a.lineNumber))+'</div></section>';
+    }).join('');
+  }
+  function drawingFolderBrowserHtml(record, line) {
+    const b=drawingFolderBrowser;
+    if(!b||b.id!==record.intakeId||b.line!==line)return '';
+    const e=escapeHtml, disabled=b.busy?'disabled':'';
+    const button=(action,label,root='',relative='')=>'<button type="button" data-drawing-folder="'+action+'" data-line="'+line+'" data-root="'+e(root)+'" data-relative="'+e(relative)+'" '+disabled+'>'+e(label)+'</button>';
+    let html='<div class="drawing-folder-browser"><div class="drawing-folder-browser-title"><strong>'+(b.mode==='change'?'Choose Drawing / Prints Folder':'Drawing / Prints Folder')+'</strong>'+button('close','Close')+'</div>';
+    if(b.busy)html+='<p role="status">Loading…</p>';
+    if(b.error)html+='<p role="alert">'+e(b.error)+'</p>';
+    if(b.view) {
+      if(!b.view.roots.length)html+='<p>Drawing folder browsing is not configured. Ask the SIM administrator to configure an approved source root.</p>';
+      else if(!b.listing)html+='<div class="drawing-folder-roots">'+b.view.roots.map(r=>button('root',r.label,r.id)).join('')+'</div>';
+      if(b.listing){
+        const l=b.listing, parts=l.relativePath?l.relativePath.split('/'):[];
+        const boundary=b.mode==='file'?(b.view.review.association?.relativePath||''):'';
+        html+='<nav aria-label="Folder location">'+(b.mode==='file'?button('folder',b.view.review.association.folderName,l.rootId,boundary):button('roots','Sources')+button('root',l.rootLabel,l.rootId))+
+          parts.map((p,i)=>{const relative=parts.slice(0,i+1).join('/');return b.mode==='file'&&(relative===boundary||!relative.startsWith(boundary?boundary+'/':''))?'':button('folder',p,l.rootId,relative);}).join('')+'</nav>';
+        html+='<ul class="drawing-folder-entries">'+l.entries.filter(f=>!useSourceSetup()||b.mode!=='file'||f.isDirectory||(b.role==='DRAWING_REFERENCE'?/\.pdf$/i:/\.txt$/i).test(f.name)).map(f=>'<li>'+(f.isDirectory?button('folder',f.name,l.rootId,f.relativePath):(b.mode==='file'?button('select-file',f.name,l.rootId,f.relativePath):'<span>'+e(f.name)+'</span><small>File</small>'))+'</li>').join('')+'</ul>';
+        if(!l.entries.length)html+='<p>No supported entries in this folder.</p>';
+        if(l.truncated)html+='<p role="status">Only the first 200 entries were checked. This listing is incomplete; a narrower configured source may be needed.</p>';
+        html+=b.mode==='file'?(useSourceSetup()?'<p>Choose a PDF drawing (up to 20 MB) or an ASCII tab-delimited VPRO5 TXT BOM (up to 1 MB), according to this step.</p>':'<p>Choose one file. Drawing references: PDF or DOCX. BOM references: PDF, DOCX, XLS, XLSX, CSV or TXT. Maximum 20 MB. Preview and extraction follow existing format support.</p>')+linkedFileConfirmation(b):'<p class="drawing-folder-note">Folder reference only. Files are not imported or approved.</p>';
+        if(b.mode==='change'&&b.view.review.canChange)html+=button('save','Save Folder Link',l.rootId,l.relativePath);
+      }
+    }
+    return html+'</div>';
+  }
+  function refreshDrawingFolderPanel() {
+    const b=drawingFolderBrowser, record=state.selected?.record;
+    if(!b||record?.intakeId!==b.id)return;
+    const host=fileBrowserHost(b);
+    if(host)host.innerHTML=drawingFolderBrowserHtml(record,b.line);
+  }
+  async function drawingFolderAction(event) {
+    const button=event.target.closest?.('[data-drawing-folder]');
+    if(!button||button.disabled||state.saving)return;
+    const action=button.dataset.drawingFolder,line=Number(button.dataset.line),r=state.selected?.record;
+    if(!r||!r.assemblies?.some(a=>a.lineNumber===line))return;
+    if(drawingFolderBrowser?.busy)return;
+    if((action==='pick-drawing'||action==='pick-bom')&&!state.selected?.linkedDrawingFilesAvailable)return;
+    if(action==='clear-file'&&drawingFolderBrowser){drawingFolderBrowser.selection=null;drawingFolderBrowser.type='';refreshDrawingFolderPanel();return;}
+    if(action==='close') {const old=drawingFolderBrowser,host=fileBrowserHost(old);drawingFolderBrowser=null;if(host)host.innerHTML='';if(old?.mode==='file')focusReviewStep(old.role);return;}
+    if(['pick-drawing','pick-bom','change','browse'].includes(action)){const previous=fileBrowserHost(drawingFolderBrowser);if(previous)previous.innerHTML='';}
+    if(action==='pick-drawing'||action==='pick-bom'){drawingFolderBrowser={id:r.intakeId,line,mode:'file',role:action==='pick-drawing'?'DRAWING_REFERENCE':'BOM_REFERENCE',busy:false,error:''};}
+    if(action==='change'||action==='browse')drawingFolderBrowser={id:r.intakeId,line,mode:action==='browse'?'browse':'change',busy:false,error:''};
+    const b=drawingFolderBrowser;
+    if(!b||b.id!==r.intakeId||b.line!==line)return;
+    const base='/api/sim/technical-reviews/'+encodeURIComponent(r.intakeId)+'/drawing-folder';
+    if(action==='save-file'){
+      b.type=useSourceSetup()?(b.role==='DRAWING_REFERENCE'?'DRAWING':'VPRO5_BOM_EXPORT'):mount?.querySelector('[data-linked-file-type]')?.value||'';
+      if(!b.type){b.error='Choose the document type before saving.';refreshDrawingFolderPanel();return;}
+      if(reviewUploads.length||Object.keys(identityChanges).length||pendingPackageValues()||pendingReferenceSelection()||candidateProgressRows().length||state.scanSheetDirty||state.scanEdit||state.finalBomReview){b.error='Save or cancel pending review edits before adding this copy.';refreshDrawingFolderPanel();return;}
+    }
+    b.busy=true;b.error='';refreshDrawingFolderPanel();
+    try {
+      if(['change','browse','pick-drawing','pick-bom'].includes(action)) {
+        b.view=await fetchJson(base+'?line='+line);
+        if((action==='browse'||b.mode==='file')&&b.view.review.association){const a=b.view.review.association;b.listing=await fetchJson(base+'/contents?'+new URLSearchParams({line,rootId:a.rootId,relativePath:a.relativePath}));}
+      } else if(action==='select-file'&&b.mode==='file') {
+        b.selection=null;b.type='';
+        b.selection=await fetchJson(base+'/file?'+new URLSearchParams({line,relativePath:button.dataset.relative,role:b.role}));
+        b.selectionId=window.crypto.randomUUID();
+      } else if(action==='save-file'&&b.mode==='file'&&b.selection) {
+        state.saving=true;
+        const payload=await fetchJson(base+'/file',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lineNumber:line,expectedFolderToken:b.selection.folderToken,relativePath:b.selection.source.relativePath,role:b.role,sourceToken:b.selection.source.sourceToken,selectionId:b.selectionId,type:b.type})});
+        if(state.selected?.record===r){
+          state.selected={...state.selected,...payload};state.packageDraft=null;releaseReadiness=null;
+          const file=payload.record.technicalFiles.find(f=>f.reviewOrigin?.linkedSource?.selectionId===b.selectionId);
+          if(useSourceSetup()&&file){sourceChoices()[b.role==='DRAWING_REFERENCE'?'drawingId':'bomId']=file.documentId;sourceChoices().dirty=true;state.sourceIdentity=null;state.sourceConfirm=false;state.sourceConfirmReason='';state.sourceMessage='File selected. Save Draft or Save & Build Candidate.';}
+          else if(b.role==='DRAWING_REFERENCE'&&file)state.teamDraft={intakeId:r.intakeId,teamDocumentId:file.documentId,referenceStatus:payload.record.technicalReview?.presentationDraft?.referenceStatus||'UNKNOWN'};
+          state.message=b.role==='DRAWING_REFERENCE'?'Copy saved. Choose Save reference selection to use it as the drawing reference.':'BOM reference copy saved in Source documents. Choose its Materials Use and review it before requesting extraction.';
+          drawingFolderBrowser=null;state.saving=false;renderDetail();focusReviewStep(b.role);
+        }
+      } else if(action==='roots') {b.listing=null;b.selection=null;}
+      else if(action==='root'||action==='folder') {b.selection=null;b.listing=null;b.listing=await fetchJson(base+'/contents?'+new URLSearchParams({line,rootId:button.dataset.root,relativePath:button.dataset.relative||''}));}
+      else if(action==='save'&&b.mode==='change'&&b.listing&&b.view.review.canChange){
+        const link=await fetchJson(base,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({lineNumber:line,expectedToken:b.view.review.token,rootId:b.listing.rootId,relativePath:b.listing.relativePath})});
+        // Do not replace the review envelope or any unsaved working data.
+        if(state.selected?.record===r){r.drawingFolders=[...(r.drawingFolders||[]).filter(f=>f.lineNumber!==line),link];
+          drawingFolderBrowser=null;const panel=mount?.querySelector('[data-drawing-folder-panel="'+line+'"]');
+          if(panel){const temp=document.createElement('div');temp.innerHTML=renderDrawingFolders(r);panel.replaceWith(temp.querySelector('[data-drawing-folder-panel="'+line+'"]'));}}
+      }
+    } catch(error){b.error=error.message||'Folder access is unavailable.';}
+    finally {if(action==='save-file')state.saving=false;b.busy=false;if(drawingFolderBrowser===b){refreshDrawingFolderPanel();if(action==='pick-drawing'||action==='pick-bom')fileBrowserHost(b)?.scrollIntoView?.({block:'nearest'});}}
+  }
+
 
   function completedReview(record) {
     return record?.status === 'READY_FOR_RFQ_WORKING_QUEUE' || !!record?.technicalReview?.workflow?.outputs;
@@ -1363,7 +1993,7 @@
     return '<dl>' + Object.entries(value).map(([key,v]) => '<dt>' + escapeHtml(key.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase())) + '</dt><dd>' + savedFacts(v) + '</dd>').join('') + '</dl>';
   }
   function renderSubmittedReview(record) {
-    return '<section class="technical-review-entry-card"><h2 id="technicalReviewDetailTitle" tabindex="-1">Technical Review Submitted</h2><p class="technical-review-entry-customer">'+escapeHtml(record.intakeId)+' · '+escapeHtml(record.customer?.customerName || '')+'</p><p role="status">The technical package and accepted BOM have been submitted for Materials and Labor quotation.</p><div class="technical-review-entry-actions"><button type="button" class="technical-review-primary" data-technical-review-action="back">Done</button></div></section>';
+    return '<section class="technical-review-entry-card"><h2 id="technicalReviewDetailTitle" tabindex="-1">Technical Review Submitted</h2><p class="technical-review-entry-customer">'+escapeHtml(record.intakeId)+' · '+escapeHtml(record.customer?.customerName || '')+'</p><p role="status">Submitted for Materials and Labor quotation.</p><div class="technical-review-entry-actions"><button type="button" class="technical-review-primary" data-technical-review-action="submitted-done">Done</button></div></section>';
   }
     function renderCustomerAmendmentEntry(record) {
     return '<section class="technical-review-question" id="customerIdentityAmendment"><h3>Customer / internal part numbers</h3><p>Correct customer identities through a reviewed amendment. Original BOM versions stay available.</p><button type="button" data-customer-identity="open">Review customer numbers</button> <button type="button" data-customer-identity="new">Correct a customer number</button><p role="status" data-identity-message></p></section>';
@@ -1373,7 +2003,7 @@
     if(!action)return;
     const panel=document.getElementById('customerIdentityAmendment');
     if(!panel || panel.dataset.busy==='true')return;
-    if(action==='back'){window.DleWorkspaceShell.navigate({workspaceId:'rfqs',requestedState:{intakeId:state.selected.record.intakeId}});return;}
+    if(action==='back'){returnToQueue();return;}
     const record=state.selected?.record;
     const url='/api/sim/technical-reviews/'+encodeURIComponent(record.intakeId)+'/customer-identities';
     const message=panel.querySelector('[data-identity-message]');
@@ -1416,12 +2046,12 @@
     const completed=!editing && !pending && view.history.some(d=>d.acceptedVersion===view.accepted.version);
     const current=r=>r.customerIdentity?.partNumber||(r.identityBasis==='CUSTOMER_PN'?r.primaryIdentity?.partNumber:'')||'Not recorded';
     const sourceLink=proof=>'<a target="_blank" rel="noopener" href="/api/sim/rfq-intakes/'+encodeURIComponent(state.selected.record.intakeId)+'/documents/'+encodeURIComponent(proof.documentId)+'">'+e(view.sources.find(s=>s.documentId===proof.documentId)?.name||proof.documentId)+'</a> - '+e(proof.location);
-    let body=completed?'<div class="customer-identity-success"><h3 tabindex="-1">Customer numbers updated</h3><p><strong>BOM v'+view.accepted.version+' is accepted.</strong> No further action is required here. Return to the RFQ to continue with Materials.</p><button type="button" class="technical-review-primary" data-customer-identity="back">Back to RFQ</button></div>':'<h3 tabindex="-1">Customer / internal part numbers - BOM v'+view.accepted.version+'</h3>';
+    let body=completed?'<div class="customer-identity-success"><h3 tabindex="-1">Customer numbers updated</h3><p><strong>BOM v'+view.accepted.version+' is accepted.</strong> No further action is required here.</p><button type="button" class="technical-review-primary" data-customer-identity="back">Back to reviews</button></div>':'<h3 tabindex="-1">Customer / internal part numbers - BOM v'+view.accepted.version+'</h3>';
     if(completed) {
       const accepted=view.history.find(d=>d.acceptedVersion===view.accepted.version);
       body+='<p class="customer-identity-updated">'+accepted.changes.map(c=>{const r=view.accepted.candidate.rows.find(r=>r.index===c.index);return 'Find '+e(r.values.lineNumber)+': <strong>'+e(c.customerPartNumber)+'</strong>';}).join(' &middot; ')+'</p>';
       panel.innerHTML=body;return;
-    } else if(!pending)body+='<p>No customer-number correction is waiting for review. Start a correction only if a customer number needs changing.</p><button type="button" class="technical-review-primary" data-customer-identity="back">Back to RFQ</button>';
+    } else if(!pending)body+='<p>No customer-number correction is waiting for review. Start a correction only if a customer number needs changing.</p><button type="button" class="technical-review-primary" data-customer-identity="back">Back to reviews</button>';
     if(pending) {
       body+='<h4>Review these customer-number changes</h4><p>This draft has not been applied. Compare the proposed numbers with the source documents, then accept when ready.</p><p>'+e(draft.reason)+'</p><div style="overflow:auto"><table><thead><tr><th>Find</th><th>Current customer number</th><th>Proposed customer number</th><th>Source</th></tr></thead><tbody>'+draft.changes.map(c=>{
         const r=view.accepted.candidate.rows.find(r=>r.index===c.index);
@@ -1442,15 +2072,16 @@
   function renderCompletedReview(record) {
     const review = record.technicalReview, w = review.workflow || {}, pack = review.technicalPackage || {documents:[]};
     const section = state.step || 'package';
+    const slides = w.outputs?.productionSlides && review.presentationDraft && window.DleOsCapabilities?.can?.('technical_review.view') === true ? '<p><button data-technical-review-action="draft-slides" '+(state.saving?'disabled':'')+'>View accepted production slides</button></p>' : '';
     let body = '';
-    if (section === 'package') body = '<h3>Package Review</h3><p>Package confirmed: ' + (w.packageConfirmed ? 'Yes' : 'Not recorded') + ' · Sufficient to continue: ' + (w.sufficient ? 'Yes' : 'Not recorded') + '</p>' + (pack.documents || []).map(d => '<details open><summary>' + escapeHtml(d.name) + '</summary>' + savedFacts(d) + ((record.technicalFiles || []).some(f => f.documentId === d.documentId && f.binaryStatus === 'VERIFIED') ? '<a target="_blank" rel="noopener" href="/api/sim/rfq-intakes/' + encodeURIComponent(record.intakeId) + '/documents/' + encodeURIComponent(d.documentId) + '">View File</a>' : '') + '</details>').join('');
+    if (section === 'package') body = '<h3>Package Review</h3>' + (w.rfqPackageAcceptance?'<p>Package accepted for RFQ · '+escapeHtml(w.rfqPackageAcceptance.reviewer)+' · '+escapeHtml(formatDateTime(w.rfqPackageAcceptance.atUtc))+'</p>':'<p>Package confirmed: ' + (w.packageConfirmed ? 'Yes' : 'Not recorded') + ' · Sufficient to continue: ' + (w.sufficient ? 'Yes' : 'Not recorded') + '</p>') + (pack.documents || []).map(d => '<details open><summary>' + escapeHtml(d.name) + '</summary>' + savedFacts(d) + ((record.technicalFiles || []).some(f => f.documentId === d.documentId && f.binaryStatus === 'VERIFIED') ? '<a target="_blank" rel="noopener" href="/api/sim/rfq-intakes/' + encodeURIComponent(record.intakeId) + '/documents/' + encodeURIComponent(d.documentId) + '">View File</a>' : '') + '</details>').join('');
     if (section === 'history') body = '<h3>Assembly history / context</h3>' + savedFacts(review.assemblyHistory);
-    if (section === 'manufacturing') body = '<h3>Manufacturing Definition</h3>' + savedFacts(w.manufacturing);
+    if (section === 'manufacturing') body = w.rfqPackageAcceptance&&!w.manufacturing?'<h3>Engineering reference for RFQ</h3><p>'+escapeHtml((record.technicalFiles||[]).find(f=>f.documentId===w.rfqPackageAcceptance.referenceDocumentId)?.name||'Saved reference')+' · Engineering / Test / Prototype</p>':'<h3>Manufacturing Definition</h3>' + savedFacts(w.manufacturing);
     if (section === 'materials') body = '<h3>Materials Definition</h3>' + savedFacts({status:review.materialsReviewStatus,governingBomDocumentId:pack.governingBomDocumentId,materialsTarget:w.outputs?.materialsTarget}) + acceptedLinks(record);
     if (section === 'completion') body = '<h3>Completion / review history</h3>' + savedFacts({status:record.status,reviewer:w.outputs?.reviewer,atUtc:w.outputs?.atUtc,events:w.events});
     if (section === 'candidate') body = review.candidateBom ? renderCandidate(record) : '<p>No Candidate BOM recorded.</p>';
     if (section === 'accepted-bom') body = renderAcceptedBom(record);
-    return '<section class="technical-review-completed"><button class="technical-review-back" data-technical-review-action="rfq-back">← Back to RFQ</button><h2 id="technicalReviewDetailTitle" tabindex="-1">Completed Technical Review — Read-only</h2><p>' + escapeHtml(record.intakeId) + ' · ' + escapeHtml(record.customer?.customerName) + '</p><p>Technical Review complete — released for quotation.</p><p>Inspection only. The completed review and accepted BOM remain unchanged.</p><nav aria-label="Completed review sections">' + [['package','Package Review'],['history','History Context'],['manufacturing','Manufacturing Definition'],['materials','Materials Definition / Governing BOM'],['candidate','Candidate / Reviewed BOM'],['completion','Completion History']].map(([key,label]) => '<button data-technical-review-action="view-' + key + '" aria-pressed="' + (section === key) + '">' + label + '</button>').join(' ') + '</nav>' + acceptedLinks(record) + '<section class="technical-review-question">' + body + '</section></section>';
+    return '<section class="technical-review-completed"><button class="technical-review-back" data-technical-review-action="review-queue">← Back to reviews</button><h2 id="technicalReviewDetailTitle" tabindex="-1">Completed Technical Review — Read-only</h2><p>' + escapeHtml(record.intakeId) + ' · ' + escapeHtml(record.customer?.customerName) + '</p><p>Technical Review complete — released for quotation.</p><p>Inspection only. The completed review and accepted BOM remain unchanged.</p><nav aria-label="Completed review sections">' + [['package','Package Review'],['history','History Context'],['manufacturing',w.rfqPackageAcceptance&&!w.manufacturing?'Engineering Reference':'Manufacturing Definition'],['materials','Materials Definition / Governing BOM'],['candidate','Candidate / Reviewed BOM'],['completion','Completion History']].map(([key,label]) => '<button data-technical-review-action="view-' + key + '" aria-pressed="' + (section === key) + '">' + label + '</button>').join(' ') + '</nav>' + acceptedLinks(record) + slides + '<section class="technical-review-question">' + body + '</section></section>';
   }
 
   function renderEntryConfirmation(record, canDisposition) {
@@ -1459,6 +2090,7 @@
     const disabled = !canDisposition || state.saving ? 'disabled' : '';
     return '<section class="technical-review-entry-card"><h2 id="technicalReviewDetailTitle" tabindex="-1">Technical Review — ' + escapeHtml(record.intakeId) + '</h2>' +
       '<p class="technical-review-entry-customer">' + escapeHtml(record.customer?.customerName || 'Customer') + '</p>' + renderIntakeSummary(record, true) +
+      renderDrawingFolders(record) +
       (record.status === 'ON_HOLD' ? '<p class="technical-review-source">On Hold</p>' : '') +
       '<div class="technical-review-entry-actions"><button type="button" class="technical-review-primary" data-technical-review-action="' + action + '" ' + disabled + '>' + (started ? 'Continue Technical Review' : 'Start Technical Review') + '</button>' +
       '<button type="button" class="technical-review-back" data-technical-review-action="back" ' + (state.saving ? 'disabled' : '') + '>Back to Queue</button></div>' +
@@ -1497,6 +2129,10 @@
   async function workflowAction(action) {
     if (state.saving) return;
     const body = {action};
+    if(action==='COMPLETE'||action==='CONFIRM_RFQ_PACKAGE'){
+      if(pendingSubmissionEdits()||!releaseReadiness?.submissionToken||(action==='COMPLETE'&&!releaseReadiness.ready)||(action==='CONFIRM_RFQ_PACKAGE'&&!releaseReadiness.packageAcceptanceRequired)){state.message='Finish the items shown before continuing.';renderDetail();return;}
+      body.expectedSubmissionToken=releaseReadiness.submissionToken;
+    }
     if (action === 'HOLD') body.needed = document.getElementById('flowNeeded')?.value;
     if (action === 'SELECT_MANUFACTURING_DRAWING') body.governingDocumentId = document.getElementById('flowDrawing')?.value;
     if (action === 'MANUFACTURING') { body.governingDocumentId = document.getElementById('flowDrawing')?.value; body.nothingMissing = document.getElementById('flowNothingMissing')?.checked === true; }
@@ -1507,8 +2143,9 @@
       // Workflow responses omit verified scanned-source context. Resume from the persisted full review.
       state.selected = await fetchJson('/api/sim/technical-reviews/' + encodeURIComponent(state.selected.record.intakeId));
       await refreshQueueModel();
+      releaseReadiness=null;
       if (action === 'COMPLETE') { state.guided = false; state.step = 'submitted'; renderDetail(); } else resumeWorkflow();
-    } catch (error) { state.message = error.message; state.messageState = 'error'; if(action === 'COMPLETE') { state.step = 'inventory'; if(releaseReadiness)releaseReadiness={...releaseReadiness,ready:false,message:error.message}; } }
+    } catch (error) { state.message = error.message; state.messageState = 'error'; if(action==='COMPLETE'||action==='CONFIRM_RFQ_PACKAGE'){state.step='inventory';releaseReadiness=null;} }
     finally { state.saving = false; renderDetail(); }
   }
   function renderWorkflowLanding(record, canDisposition) {
@@ -1675,25 +2312,26 @@
     if(bom?.vproImport)return '<section class="scanned-bom-notice"><h4>VPRO5 BOM draft</h4><p>Imported legacy data requires customer-document, source freshness, alternate and UOM review.</p><button type="button" data-technical-review-action="vpro-open">Open VPRO5 BOM draft</button></section>';
     if(bom)return '';
     const files=record.technicalFiles.filter(f=>f.binaryStatus==='VERIFIED'&&/\.txt$/i.test(f.name));
-    return files.length?'<section class="scanned-bom-notice"><h4>VPRO5 BOM Export</h4><p>Build a working draft from a tab-delimited VPRO5 export. This classifies only the selected file; customer documents and their authority stay separate. Save or cancel pending package edits first.</p>'+files.map(f=>'<button type="button" data-technical-review-action="vpro-build" data-document-id="'+escapeHtml(f.documentId)+'" '+(state.saving?'disabled':'')+'>Generate draft from '+escapeHtml(f.name)+'</button>').join('')+'</section>':'';
+    return files.length?'<section class="scanned-bom-notice" data-vpro-generation><h4>Generate Candidate from VPRO5 TXT</h4>'+(state.messageState==='error'?'<p role="alert">'+escapeHtml(state.message)+'</p>':'')+'<p>The export must identify '+escapeHtml(record.assemblies?.[0]?.assemblyNumber+' REV '+record.assemblies?.[0]?.revision)+' exactly. Combined assembly names or other revision markings require review; classification choices cannot override an identity mismatch.</p>'+'<h4>VPRO5 BOM Export</h4><p>Build a working draft from a tab-delimited VPRO5 export. This classifies only the selected file; customer documents and their authority stay separate. Save or cancel pending package edits first.</p>'+files.map(f=>'<button type="button" data-technical-review-action="vpro-build" data-document-id="'+escapeHtml(f.documentId)+'" '+(state.saving?'disabled':'')+'>Generate draft from '+escapeHtml(f.name)+'</button>').join('')+'</section>':'';
   }
   async function buildVproDraft(documentId) {
     if(state.saving)return;
-    if(Object.keys(identityChanges).length||reviewUploads.length||JSON.stringify(unifiedPackageDraft())!==JSON.stringify(unifiedPackageDraft(JSON.parse(JSON.stringify(state.selected.record.technicalReview.technicalPackage))))){state.message='Save or cancel pending package changes before importing.';state.messageState='error';renderDetail();return;}
+    if(Object.keys(identityChanges).length||reviewUploads.length||JSON.stringify(unifiedPackageDraft())!==JSON.stringify(unifiedPackageDraft(JSON.parse(JSON.stringify(state.selected.record.technicalReview.technicalPackage))))){state.message='Save or cancel pending package changes before generating. Incomplete setup can be placed On Hold; generation then requires resuming the review. No P/N guesses are needed to save a hold.';state.messageState='error';renderDetail();focusReviewStep('BOM_REFERENCE');return;}
     state.saving=true;state.message='Reading VPRO5 export.';renderDetail();
     try {
       state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/vpro-bom-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({documentId,expectedReviewToken:state.selected.packageReviewToken})});
       state.packageDraft=null;state.guided=true;state.step='candidate';state.candidateIndex=null;state.message='Working draft saved. No BOM acceptance or review advancement occurred.';state.messageState='';
     }catch(e){state.message=e.message;state.messageState='error';}
-    finally{state.saving=false;renderDetail();}
+    finally{state.saving=false;renderDetail();if(state.messageState==='error')focusReviewStep('BOM_REFERENCE');}
   }
   function renderVproEvidence(bom) {
     if(!bom.vproImport)return '';
     const source=bom.vproImport;
-    return '<section class="scanned-bom-notice vpro-import-evidence"><h4>Legacy export — working draft only</h4><ul>'+source.concerns.map(c=>'<li>'+escapeHtml(c)+'</li>').join('')+'</ul><p>'+bom.rows.flatMap(r=>(r.alternates||[]).map(a=>'Find '+r.values.lineNumber+': proposed alternate '+a.partNumber+' (requires review)')).map(escapeHtml).join('; ')+'</p><details><summary>Original VPRO5 rows, aliases and numeric evidence</summary><div class="vpro-source-scroll"><table><thead><tr>'+source.headers.map(h=>'<th>'+escapeHtml(h)+'</th>').join('')+'</tr></thead><tbody>'+source.rawRows.map(r=>'<tr>'+r.map(v=>'<td>'+escapeHtml(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></details></section>';
+    return '<section class="scanned-bom-notice vpro-import-evidence"><h4>VPRO5 source notes — candidate only</h4>'+(source.identityConfirmation?'<p>Source applicability confirmed by '+escapeHtml(source.identityConfirmation.reviewer)+': '+escapeHtml(source.identityConfirmation.sourceDrawing)+'; job '+escapeHtml(source.identityConfirmation.assembly+' REV '+source.identityConfirmation.revision)+'. Reason: '+escapeHtml(source.identityConfirmation.reason)+'</p>':'')+((source.sourceNotes||[]).length?'<details open><summary>Drawing, Find and installation notes</summary><ul>'+source.sourceNotes.filter(n=>n.text.trim()).map(n=>'<li>'+escapeHtml(n.sequence+' · '+n.kind+': '+n.text)+'</li>').join('')+'</ul></details>':'')+'<ul>'+source.concerns.map(c=>'<li>'+escapeHtml(c)+'</li>').join('')+'</ul><p>'+bom.rows.flatMap(r=>(r.alternates||[]).map(a=>'Find '+r.values.lineNumber+': proposed alternate '+a.partNumber+' (requires review)')).map(escapeHtml).join('; ')+'</p><details><summary>Original VPRO5 rows, aliases and numeric evidence</summary><div class="vpro-source-scroll"><table><thead><tr>'+source.headers.map(h=>'<th>'+escapeHtml(h)+'</th>').join('')+'</tr></thead><tbody>'+source.rawRows.map(r=>'<tr>'+r.map(v=>'<td>'+escapeHtml(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></details></section>';
   }
 
   async function buildCandidate() {
+    if(state.selected?.record?.technicalReview?.candidateBom?.manualDraft){await reopenCandidate();return;}
     if (scannedMainBom()) { await openScannedSetup(false); return; }
     if (state.saving || ['QUEUED','RUNNING','VALIDATING'].includes(state.analysisJob?.status) || (state.selected.record.technicalReview?.workflow && state.selected.record.technicalReview.candidateBom)) return;
     const intakeId = state.selected.record.intakeId;
@@ -1720,6 +2358,7 @@
       elapsed: String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0') };
   }
   function renderCandidateCard() {
+    if(state.selected?.record?.technicalReview?.candidateBom?.manualDraft)return '';
     const c=packageCandidateState(), scanned=scannedMainBom();
     const scan=state.selected?.scannedCandidate;
     const building=scanned?!!state.scanCandidateBuilding:c.active;
@@ -1828,7 +2467,111 @@
     const uncertain = Object.values(row.analysisFields || {}).some(field => field.uncertainty?.trim() && !/^none[.!]?$/i.test(field.uncertainty.trim()));
     return comparisons.every(value => value === 'MATCH') && !uncertain ? 'Match' : 'Uncertain';
   }
+
+  function candidateBulkEnabled(bom,readOnly=false) {
+    const record=state.selected?.record;
+    return ['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)&&!!bom?.manualDraft&&!readOnly&&
+      !state.acceptedVersion&&!completedReview(record)&&['TECHNICAL_REVIEW_IN_PROGRESS','ON_HOLD'].includes(record?.status)&&
+      !(record.technicalReview?.bomAcceptances||[]).some(a=>a.candidate.id===bom.id)&&
+      window.DleOsCapabilities?.can?.('technical_review.disposition')===true;
+  }
+  function candidateBulkState(bom) {
+    const key=state.selected.record.intakeId+':'+bom.id;
+    if(state.candidateBulk?.key!==key)state.candidateBulk={key,selected:new Set(),results:new Map()};
+    const ids=new Set(bom.rows.map(r=>r.rowId));
+    for(const id of state.candidateBulk.selected)if(!ids.has(id))state.candidateBulk.selected.delete(id);
+    return state.candidateBulk;
+  }
+  function candidateBulkPendingIssue(bom) {
+    if(candidateProgressRows().length)return 'Save Progress or cancel pending row edits before using bulk actions.';
+    if(reviewUploads.length||addingDocuments)return 'Save or cancel pending file changes before using bulk actions.';
+    if(bom.rows.some(r=>{const ui=rowReviewUi(r);return ui.alternateDraft||ui.approvedPartDraft||ui.identityBasisDraft;}))
+      return 'Save or cancel open P/N or alternate edits before using bulk actions.';
+    return '';
+  }
+  function candidateRowCheckbox(bom,row,index) {
+    const bulk=candidateBulkState(bom);
+    return '<input type="checkbox" aria-label="Select BOM row '+(index+1)+'" data-candidate-select-row="'+escapeHtml(row.rowId||'')+'" '+(bulk.selected.has(row.rowId)?'checked ':'')+(state.saving||!row.rowId?'disabled':'')+'>';
+  }
+  function candidateBulkRowResult(bom,row) {
+    if(!candidateBulkEnabled(bom))return '';
+    const result=candidateBulkState(bom).results.get(row.rowId);
+    if(!result||result.token!==row.reviewState?.token)return '';
+    return '<small class="candidate-bulk-row-result" data-bulk-row-status="'+escapeHtml(result.status)+'">'+escapeHtml(result.message)+'</small>';
+  }
+  function candidateBulkControls(bom) {
+    const bulk=candidateBulkState(bom),rows=bom.rows.filter(r=>r.rowId),selected=rows.filter(r=>bulk.selected.has(r.rowId));
+    const issue=candidateBulkPendingIssue(bom),disabled=state.saving||!selected.length||!!issue;
+    const exceptions=selected.filter(r=>['DNP','SUBASSEMBLY'].includes(r.componentType)||r.identityBasis==='ASSEMBLY_PN');
+    const eligible=selected.filter(r=>!exceptions.includes(r));
+    const changed=eligible.filter(r=>r.identityBasis==='CUSTOMER_PN');
+    const labels={CUSTOMER_PN:'Customer P/N',ASSEMBLY_PN:'Assembly P/N'};
+    const changes=changed.slice(0,8).map(r=>'Row '+r.values.lineNumber+': '+labels[r.identityBasis]+' → Manufacturer P/N').join('; ')+(changed.length>8?'; '+(changed.length-8)+' more':'');
+    const resets=eligible.filter(r=>r.reviewState?.reviewed&&!(r.sourcePartNumberReview?.current?.status==='CONFIRMED'&&r.sourcePartNumberReview.current.basis==='MFG')).length;
+    return '<div class="candidate-bulk-actions"><label><input type="checkbox" data-candidate-select-all aria-label="Select all BOM rows" '+(rows.length&&selected.length===rows.length?'checked ':'')+(state.saving||!rows.length?'disabled':'')+'> Select All</label><span data-bulk-selected-count>'+selected.length+' selected</span>'+
+      '<button type="button" data-technical-review-action="bulk-entered-mpn" '+(disabled?'disabled':'')+'>Use entered numbers as Manufacturer P/N</button>'+
+      '<button type="button" data-technical-review-action="bulk-accept" '+(disabled?'disabled':'')+'>Accept selected</button></div>'+
+      (selected.length?'<p class="candidate-bulk-notice" data-bulk-classification-notice>'+escapeHtml([changes,exceptions.length?'Rows '+exceptions.slice(0,8).map(r=>r.values.lineNumber).join(', ')+(exceptions.length>8?' and '+(exceptions.length-8)+' more':'')+': DNP / assembly identity requires individual classification review.':'',resets?resets+' accepted row'+(resets===1?' will':'s will')+' require acceptance again after classification.':'','Identity confirmation does not verify a catalog or accept the row.'].filter(Boolean).join(' '))+'</p>':'')+
+      (issue?'<p class="candidate-bulk-notice" role="status">'+escapeHtml(issue)+'</p>':'');
+  }
+  function candidateBulkToolbar(bom,readOnly) {
+    return candidateBulkEnabled(bom,readOnly)?'<div class="candidate-bulk-toolbar" data-candidate-bulk>'+candidateBulkControls(bom)+'</div>':'';
+  }
+  function updateCandidateBulkControls() {
+    const toolbar=mount?.querySelector?.('[data-candidate-bulk]'),bom=state.selected?.record?.technicalReview?.candidateBom;
+    if(!toolbar||!candidateBulkEnabled(bom))return;
+    toolbar.innerHTML=candidateBulkControls(bom);
+    const selected=candidateBulkState(bom).selected,rows=bom.rows.filter(r=>r.rowId);
+    const all=toolbar.querySelector('[data-candidate-select-all]');
+    if(all)all.indeterminate=selected.size>0&&selected.size<rows.length;
+    for(const box of mount.querySelectorAll('[data-candidate-select-row]'))box.checked=selected.has(box.dataset.candidateSelectRow);
+    sizeCandidateWorkbench();
+  }
+  function selectCandidateRows(control) {
+    const bom=state.selected?.record?.technicalReview?.candidateBom;
+    if(state.saving||!candidateBulkEnabled(bom))return;
+    const bulk=candidateBulkState(bom),all=control.matches('[data-candidate-select-all]');
+    const rows=all?bom.rows:bom.rows.filter(r=>r.rowId===control.dataset.candidateSelectRow);
+    for(const row of rows)if(row.rowId){if(control.checked)bulk.selected.add(row.rowId);else bulk.selected.delete(row.rowId);}
+    updateCandidateBulkControls();
+  }
+  async function reviewSelectedCandidateRows(action) {
+    const bom=state.selected?.record?.technicalReview?.candidateBom;
+    if(state.saving||!candidateBulkEnabled(bom)||!['USE_ENTERED_MPN','ACCEPT_SELECTED'].includes(action))return;
+    const issue=candidateBulkPendingIssue(bom);
+    if(issue){state.message=issue;state.messageState='error';renderDetail();return;}
+    const bulk=candidateBulkState(bom),rows=bom.rows.filter(r=>bulk.selected.has(r.rowId));
+    if(!rows.length)return;
+    state.saving=true;state.message='';state.messageState='';renderDetail();
+    try {
+      const selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{
+        method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:-1,values:null,
+          bulkReview:{action,rows:rows.map(r=>({rowId:r.rowId,expectedToken:r.reviewState.token}))}})});
+      state.selected=selected;
+      const result=selected.bulkResult,updated=selected.record.technicalReview.candidateBom;
+      if(!result?.results)throw new Error('The server did not return bulk review results. Reopen the BOM to check its saved state.');
+      // The preflight rejected all unsaved edits; discard clean caches after refreshing saved rows.
+      clearCandidateDrafts();
+      for(const outcome of result.results){
+        const row=updated.rows.find(r=>r.rowId===outcome.rowId);
+        bulk.results.set(outcome.rowId,{...outcome,token:row?.reviewState?.token});
+        if(outcome.status!=='BLOCKED'){
+          if(action==='ACCEPT_SELECTED')bulk.selected.delete(outcome.rowId);
+          if(row)delete state.rowReviewUi[updated.id+':'+row.index];
+        }
+      }
+      state.completionReadiness=null;
+      const count=status=>result.results.filter(r=>r.status===status).length;
+      state.message=(action==='USE_ENTERED_MPN'?count('UPDATED')+' classified as Manufacturer P/N':count('ACCEPTED')+' accepted')+
+        ' · '+count('ALREADY')+' already '+(action==='USE_ENTERED_MPN'?'confirmed':'accepted')+' · '+count('BLOCKED')+' blocked.';
+      state.messageState=count('BLOCKED')?'error':'';
+    }catch(error){state.message=error.message;state.messageState='error';}
+    finally{state.saving=false;renderDetail();}
+  }
+
   function candidateReviewHint(bom) {
+    if(bom.preparationStatus)return bom.preparationStatus;
+    if(bom.manualDraft)return 'Save edits and accept the rows, then Complete BOM Review to accept this DLE-authored BOM for RFQ.';
     const remaining=bom.rows.filter(r=>!r.reviewState?.reviewed||rowReviewUi(r).editing).length;
     const conflicts=bom.rows.filter(r=>Object.values(r.comparison||{}).includes('CONFLICT')).length;
     if(candidateProgressRows().length)return 'Save your pending row edits before final review.';
@@ -1840,14 +2583,15 @@
     const a=record.assemblies?.[0]||{},readOnly=!!accepted||completedReview(record);
     const file=record.technicalFiles?.find(f=>f.documentId===bom.governingDocumentId);
     return '<div class="candidate-workbench-toolbar candidate-compact-toolbar">'+
-      '<div class="candidate-heading"><h2 id="technicalReviewDetailTitle" tabindex="-1">'+(accepted?'BOM Review Complete':'Candidate BOM')+'</h2><span>'+escapeHtml(record.intakeId)+' · '+escapeHtml(record.customer?.customerName||'')+'</span></div>'+
-      '<div class="candidate-identity"><strong>'+escapeHtml(a.assemblyNumber)+' · Rev '+escapeHtml(a.revision)+' · Qty '+escapeHtml(a.quantity)+'</strong><a target="_blank" rel="noopener" href="'+fileUrl+'">'+escapeHtml(file?.name||'View source')+'</a></div>'+
+      '<div class="candidate-heading"><h2 id="technicalReviewDetailTitle" tabindex="-1">'+(accepted?'BOM Review Complete':bom.manualDraft?'DLE-authored working BOM':'Candidate BOM')+'</h2><span>'+escapeHtml(record.intakeId)+' · '+escapeHtml(record.customer?.customerName||'')+'</span></div>'+
+      '<div class="candidate-identity"><strong>'+escapeHtml(a.assemblyNumber)+' · Rev '+escapeHtml(a.revision)+' · Qty '+escapeHtml(a.quantity)+'</strong>'+(bom.manualDraft?'<span>'+(accepted?'DLE-authored · accepted for RFQ':'Manual entry - working draft, not released')+'</span>':'<a target="_blank" rel="noopener" href="'+fileUrl+'">'+escapeHtml(file?.name||'View source')+'</a>')+'</div>'+
       '<div class="candidate-compact-actions"><button data-technical-review-action="governing-back" '+(state.saving?'disabled':'')+'>Back to package</button><button data-technical-review-action="back" '+(state.saving?'disabled':'')+'>Close</button>'+
+      (!readOnly&&bom.manualDraft?'<button data-technical-review-action="manual-bom-add-row" '+(state.saving?'disabled':'')+'>Add Row</button>':'')+
       (readOnly?'': '<button class="technical-review-secondary" data-technical-review-action="candidate-save-progress" '+(state.saving?'disabled':'')+'>Save Progress</button><button class="technical-review-primary" data-technical-review-action="complete-bom" '+((usesFinalBomReview()?finalBomEntryEnabled():candidateCompletionEnabled())?'':'disabled')+'>Complete BOM Review</button>')+'</div>'+
-      '<div class="candidate-review-line"><span data-candidate-review-hint role="status">'+escapeHtml(readOnly?'Accepted BOM — read-only.':candidateReviewHint(bom))+'</span>'+
+      '<div class="candidate-review-line"><span data-candidate-review-hint role="status">'+escapeHtml(readOnly?(bom.manualDraft&&accepted?'Accepted for RFQ — read-only.':'Accepted BOM — read-only.'):candidateReviewHint(bom))+'</span>'+
       (readOnly?'':'<span class="candidate-progress-status" data-candidate-progress-status>'+candidateProgressStatus()+'</span>')+'</div>'+
       '<div class="candidate-view-tools"><details><summary>Table options</summary><button data-technical-review-action="candidate-reset-widths">Reset Widths</button>'+(readOnly?'':'<label><input type="checkbox" data-candidate-show-dnps '+(showCandidateDnps?'checked':'')+'> Show DNPs</label>')+'</details><span class="technical-review-mobile-hint">Scroll sideways for all columns.</span></div>'+
-      candidateLeavePrompt()+'</div>';
+      candidateBulkToolbar(bom,readOnly)+candidateLeavePrompt()+'</div>';
   }
 
   function renderCandidate(record) {
@@ -1859,7 +2603,11 @@
     for(const source of sourceOnly)entries.push({source});
     const sourcePositions=new Map((bom.reviewedScanSource?.worksheet?.rows||[]).map(r=>['scan-'+bom.reviewedScanSource.worksheet.id+'-'+r.position,r.position]));
     if(sourceOnly.length)entries.sort((a,b)=>(a.source?.position??sourcePositions.get(a.row.rowId)??a.index)-(b.source?.position??sourcePositions.get(b.row.rowId)??b.index));
-    const rows = entries.map(({row,index,source}) => {
+    const pieceGroups=new Map((bom.preparationGroups||[]).flatMap(g=>g.pieces.map(p=>[p.rowId,g])));
+    const groupedEntries=entries.filter(e=>!e.row||!pieceGroups.has(e.row.rowId)).flatMap(e=>{const g=e.row&&preparationGroup(bom,e.row);return g?[e,...g.pieces.map(p=>entries.find(x=>x.row?.rowId===p.rowId)).filter(Boolean)]:[e];});
+    const rows = groupedEntries.map(({row,index,source}) => {
+      if(row&&pieceGroups.has(row.rowId)&&!state.preparationExpanded?.[pieceGroups.get(row.rowId).id])return '';
+      if(bom.manualDraft)return manualRow(row,index,!!accepted||completedReview(record),bom);
       if(source)return '<tr data-candidate-dnp'+(showCandidateDnps?'':' hidden')+'><td class="candidate-line">'+escapeHtml(source.cells?.FIND_NUMBER?.value||'—')+'</td><td colspan="8">Resolved continuation · Source evidence only · <a target="_blank" rel="noopener" href="'+fileUrl.split('#')[0]+'#page='+source.page+'">View source · Page '+source.page+'</a></td></tr>';
       const unusedSource=['NOT_USED','BLANK'].includes(row.sourcePositionKind)||(row.sourcePositionKind==='OTHER'&&!row.manufacturerIdentity?.proposals?.some(p=>p.partNumber?.trim()&&p.partNumber.trim()!=='-')&&!row.values.partNumber?.trim());
       const dnpVisibility=!accepted&&!completedReview(record)&&(row.componentType==='DNP'||unusedSource&&!row.reviewState?.reviewed)?' data-candidate-dnp'+(showCandidateDnps?'':' hidden'):'';
@@ -1870,10 +2618,12 @@
       const type=ui.componentType||row.componentType||'STANDARD_COTS';
       const sectionSelector=(panel,label)=>'<button type="button" class="candidate-section-selector" aria-label="'+label+'" aria-expanded="'+(expanded&&(state.rowOption||'edit')===panel)+'" aria-controls="candidate-detail-'+index+'" data-technical-review-action="worksheet-options" data-candidate-row="'+index+'" data-panel="'+panel+'">'+label+'</button>';
       const pendingAlternates=(row.alternates||[]).filter(a=>!a.removedAtUtc&&!['CONFIRMED','APPROVED','NOT_APPROVED'].includes(a.reviewStatus));
-      const alternateAction=!locked&&(row.alternates||[]).some(a=>!a.removedAtUtc)?sectionSelector('alternates',pendingAlternates.length?'Review alternate':'Alternates reviewed').replace('candidate-section-selector','candidate-alternate-shortcut')+'<small>'+escapeHtml(pendingAlternates.length?pendingAlternates.length+' awaiting decision':'Decisions saved')+'</small>':'';
-      const options='<details class="candidate-options"><summary>Options</summary>'+['edit','approved-pns','files','history'].map((panel,i)=>sectionSelector(panel,['BOM Fields','Approved P/Ns','Technical Files','Source / Evidence'][i])).join('')+'<details class="candidate-advanced"><summary>Advanced</summary>'+sectionSelector('alternates','Technical Alternates')+'</details></details>';
-      return '<tr'+dnpVisibility+' data-worksheet-row="'+index+'" class="'+(locked?'candidate-row-locked':'')+'"><td class="candidate-line">'+escapeHtml(row.values.lineNumber||'—')+'</td><td class="candidate-row-controls"><span class="candidate-status" data-status="'+status+'">'+(locked?'Accepted':'Needs Review')+'</span>'+(!readOnly?'<button data-technical-review-action="'+(locked?'candidate-row-edit':'worksheet-accept')+'" data-panel="edit" data-candidate-row="'+index+'" '+(state.saving?'disabled':'')+'>'+(locked?'Edit':'Accept')+'</button>':'')+alternateAction+'</td><td class="candidate-part">'+escapeHtml(row.values.partNumber||'—')+renderSourcePartNumber(row,index,locked,record)+'</td><td tabindex="0" data-candidate-copy="'+index+'" aria-label="Approved P/N for row '+(index+1)+'; Ctrl+C to copy">'+worksheetIdentity(row,index,locked,type)+'</td>'+candidateDescriptionCell(row,index,locked)+'<td>'+escapeHtml(row.values.quantity||'—')+'</td><td>'+(locked?escapeHtml(componentTypes[type]):'<select aria-label="FAIR Component Type for row '+(index+1)+'" data-worksheet-field="componentType" data-worksheet-row="'+index+'">'+Object.entries(componentTypes).map(([key,label])=>'<option value="'+key+'" '+(key===type?'selected':'')+'>'+label+'</option>').join('')+'</select>')+'</td>'+candidateDescriptionCell(row,index,locked,'designators')+'<td>'+options+'</td></tr>'+
-        (expanded?'<tr'+dnpVisibility+' class="candidate-detail-row"><td colspan="9"><section id="candidate-detail-'+index+'" aria-label="Row '+(index+1)+' details">'+renderCandidateInspector(bom,row,index,readOnly)+'</section></td></tr>':'');
+      const alternateAction=!locked&&(row.alternates||[]).some(a=>!a.removedAtUtc)?sectionSelector('alternates',pendingAlternates.length?'Review alternates':'Alternates reviewed').replace('candidate-section-selector','candidate-alternate-shortcut')+'<small>'+escapeHtml(pendingAlternates.length?pendingAlternates.length+' awaiting decision':'Decisions saved')+'</small>':'';
+      const preparationOption=bom.preparationAvailable&&!readOnly&&row.rowId&&!pieceGroups.has(row.rowId)?sectionSelector('preparation','Preparation / cut pieces'):'';
+      const options='<details class="candidate-options"><summary>Options</summary>'+preparationOption+['edit','approved-pns','files','history'].map((panel,i)=>sectionSelector(panel,['BOM Fields','Approved P/Ns','Technical Files','Source / Evidence'][i])).join('')+'<details class="candidate-advanced"><summary>Advanced</summary>'+sectionSelector('alternates','Technical Alternates')+'</details></details>';
+      return '<tr'+dnpVisibility+' data-worksheet-row="'+index+'" class="'+(locked?'candidate-row-locked':'')+'"><td class="candidate-line">'+escapeHtml(row.values.lineNumber||'—')+'</td><td class="candidate-row-controls"><span class="candidate-status" data-status="'+status+'">'+(locked?'Accepted':'Needs Review')+'</span>'+(!readOnly?'<button data-technical-review-action="'+(locked?'candidate-row-edit':'worksheet-accept')+'" data-panel="edit" data-candidate-row="'+index+'" '+(state.saving?'disabled':'')+'>'+(locked?'Edit':'Accept')+'</button>':'')+alternateAction+'</td><td class="candidate-part">'+escapeHtml(row.values.partNumber||'—')+preparationBadge(bom,row,index)+(pieceGroups.has(row.rowId)?'<small class="preparation-piece-label">'+escapeHtml('Piece of customer Find '+pieceGroups.get(row.rowId).customerFind+' · '+(pieceGroups.get(row.rowId).pieces.find(p=>p.rowId===row.rowId).method==='MAKE_FROM_STOCK'?'Make from stock':'Buy precut'))+'</small>':'')+renderSourcePartNumber(row,index,locked,record)+((row.alternates||[]).some(a=>!a.removedAtUtc)?'<div class="candidate-alternate-numbers" aria-label="Alternate part numbers"><small>Alternates</small>'+row.alternates.filter(a=>!a.removedAtUtc).map(a=>'<div>'+escapeHtml(a.partNumber)+' <small>'+escapeHtml(a.reviewStatus==='NOT_APPROVED'?'Not Approved':['APPROVED','CONFIRMED'].includes(a.reviewStatus)?'Approved':'Awaiting review')+'</small></div>').join('')+'</div>':'')+'</td><td tabindex="0" data-candidate-copy="'+index+'" aria-label="Approved P/N for row '+(index+1)+'; Ctrl+C to copy">'+worksheetIdentity(row,index,locked,type)+'</td>'+candidateDescriptionCell(row,index,locked)+'<td>'+escapeHtml(row.values.quantity||'—')+'</td><td>'+(locked?escapeHtml(componentTypes[type]):'<select aria-label="FAIR Component Type for row '+(index+1)+'" data-worksheet-field="componentType" data-worksheet-row="'+index+'">'+Object.entries(componentTypes).map(([key,label])=>'<option value="'+key+'" '+(key===type?'selected':'')+'>'+label+'</option>').join('')+'</select>')+'</td>'+candidateDescriptionCell(row,index,locked,'designators')+'<td>'+options+'</td></tr>'+
+        (candidateLeavePrompt(index)?'<tr class="candidate-detail-row candidate-inline-guard"><td colspan="9">'+candidateLeavePrompt(index)+'</td></tr>':'')+
+        (expanded?'<tr'+dnpVisibility+' class="candidate-detail-row'+(state.rowOption==='alternates'?' candidate-alternate-detail':'')+'"><td colspan="9"><section id="candidate-detail-'+index+'" aria-label="Row '+(index+1)+' details">'+renderCandidateInspector(bom,row,index,readOnly)+'</section></td></tr>':'');
     }).join('');
     if(['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)){
     return '<section class="technical-review-question technical-review-candidate candidate-workbench">'+candidateCompactHeader(record,bom,accepted,fileUrl)+
@@ -1928,7 +2678,7 @@
     const bom=state.selected?.record?.technicalReview?.candidateBom;if(!bom||state.acceptedVersion||completedReview(state.selected.record))return [];
     return bom.rows.flatMap((row,index)=>{
       const ui=rowReviewUi(row),working=row.workingState||{};
-      let values=state.candidateIndex===index&&state.candidateDraft?state.candidateDraft:row.values;
+      let values=ui.manualValues||(state.candidateIndex===index&&state.candidateDraft?state.candidateDraft:row.values);
       const input=mount?.querySelector?.('[data-inline-description="'+index+'"]');if(input)values={...values,[input.dataset.candidateField||'description']:input.value};
       const type=ui.componentType||row.componentType||'STANDARD_COTS';
       if(type==='DNP'&&row.componentType!=='DNP')values={...values,description:'DO NOT POPULATE'};
@@ -1950,10 +2700,15 @@
   function updateCandidateProgressStatus() {
     const label=mount?.querySelector?.('[data-candidate-progress-status]');if(label)label.innerHTML=candidateProgressStatus();
     updateCandidateCompletionButton();
+    updateCandidateBulkControls();
   }
   function clearCandidateDrafts() {state.candidateDraft=null;state.candidateInlineRow=null;state.inlineDescriptionDirty=false;state.rowReviewUi={};}
-  function candidateLeavePrompt() {
-    return state.candidateLeaveIntent?'<div class="scan-leave-prompt candidate-leave-prompt" role="group" aria-label="Unsaved Candidate changes"><p>You have unsaved Candidate changes.</p><button data-technical-review-action="candidate-leave-save">Save &amp; Leave</button> <button data-technical-review-action="candidate-leave-discard">Leave Without Saving</button> <button data-technical-review-action="candidate-leave-cancel">Cancel</button></div>':'';
+  function candidateLeavePrompt(inlineRow=null) {
+    const intent=state.candidateLeaveIntent;if(!intent)return '';
+    const inline=intent.technicalReviewAction==='worksheet-options';if(inline?(inlineRow!==Number(intent.candidateRow)):inlineRow!==null)return ''; 
+    const switching=intent.technicalReviewAction==='worksheet-options',alternates=switching&&intent.panel==='alternates';
+    const row=state.selected?.record?.technicalReview?.candidateBom?.rows[state.candidateIndex];
+    return '<div class="scan-leave-prompt candidate-leave-prompt" data-candidate-leave-prompt tabindex="-1" role="group" aria-label="Unsaved candidate edits"><p>You have unsaved edits'+(row?' on Line '+escapeHtml(row.values.lineNumber):'')+'. '+(alternates?'Save those edits before opening the alternate review. Saving progress does not accept the row.':'Choose whether to save before continuing.')+'</p><button data-technical-review-action="candidate-leave-save">'+(alternates?'Save Progress &amp; Review Alternates':switching?'Save Progress &amp; Continue':'Save &amp; Leave')+'</button> <button data-technical-review-action="candidate-leave-discard">'+(switching?'Discard unsaved edits &amp; Continue':'Leave Without Saving')+'</button> <button data-technical-review-action="candidate-leave-cancel">Keep Editing</button></div>';
   }
   function continueCandidateAction(intent) {
     if(!intent)return;
@@ -2185,16 +2940,28 @@
     const current=currentCandidateIdentities(row),confirmed=current.filter(p=>manufacturerDecision(identity,p.id)==='CONFIRMED');
     const assembly=row.assemblyIdentity?.partNumber||(row.alternates||[]).find(a=>!a.removedAtUtc&&a.origin==='MANUAL'&&a.reviewStatus==='CONFIRMED')?.partNumber||'';
     if(locked && assemblyIdentityRoute(row,type))return '<span data-approved-part>'+escapeHtml(assembly||'—')+'</span>';
+    if(locked&&row.approvedAlternateSelectionCurrent)return '<span data-approved-part>'+escapeHtml(row.selectedApprovedAlternate.partNumber)+'</span>';
     if(locked){const choices=confirmed;return candidateIdentityChoice((preferredCandidateDisplay(row,confirmed)||confirmed[0])?.partNumber,choices.length,choices.map(p=>'<div>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+' — '+escapeHtml(manufacturerDecision(identity,p.id)==='CONFIRMED'?'Approved':manufacturerDecision(identity,p.id))+'</div>').join(''));}
     const attr=' data-worksheet-row="'+index+'" '+(state.saving?'disabled':'');
     if(assemblyIdentityRoute(row,type))return candidateIdentityChoice(ui.assemblyNumber??assembly,1,'<input aria-label="Assembly P/N for row '+(index+1)+'" id="assembly-number-'+index+'" maxlength="200" data-worksheet-field="assemblyNumber" '+attr+' value="'+escapeHtml(ui.assemblyNumber??assembly)+'"><small>Assembly P/N</small>');
+    const alternatives=row.approvedAlternates||[];
+    if(locked&&row.approvedAlternateSelectionCurrent)return '<span data-approved-part>'+escapeHtml(row.selectedApprovedAlternate.partNumber)+'</span>';
     const proposals=current;
-    const selected=ui.primaryChoice==='MANUAL'||proposals.some(p=>p.id===ui.primaryChoice)?ui.primaryChoice:preferredCandidateDisplay(row,proposals)?.id??confirmed[0]?.id??proposals[0]?.id??'';
-    const number=selected==='MANUAL'?ui.manualNumber:proposals.find(p=>p.id===selected)?.partNumber;
-    const controls='<select aria-label="Approved P/N for row '+(index+1)+'" id="approved-choice-'+index+'" data-worksheet-field="primaryChoice" '+attr+'><option value="">Not resolved</option>'+proposals.map(p=>'<option value="'+escapeHtml(p.id)+'" '+(p.id===selected?'selected':'')+'>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</option>').join('')+'<option value="MANUAL" '+(selected==='MANUAL'?'selected':'')+'>Manual Entry…</option></select>'+(selected&&selected!=='MANUAL'?'<button data-technical-review-action="worksheet-reject" data-candidate-row="'+index+'" data-proposal-id="'+escapeHtml(selected)+'" '+(state.saving?'disabled':'')+'>Reject this candidate</button>':'')+(selected==='MANUAL'?'<input aria-label="Manual MFG P/N for row '+(index+1)+'" id="approved-manual-'+index+'" data-worksheet-field="manualNumber" '+attr+' maxlength="200" value="'+escapeHtml(ui.manualNumber||'')+'">':'');
-    return candidateIdentityChoice(number,confirmed.length,controls,selected==='MANUAL'&&!ui.manualNumber);
+    const selected=ui.primaryChoice?.startsWith('ALT:')&&alternatives.some(a=>'ALT:'+a.id===ui.primaryChoice)?ui.primaryChoice:row.approvedAlternateSelectionCurrent?'ALT:'+row.selectedApprovedAlternate.alternateId:ui.primaryChoice==='MANUAL'||proposals.some(p=>p.id===ui.primaryChoice)?ui.primaryChoice:preferredCandidateDisplay(row,proposals)?.id??confirmed[0]?.id??proposals[0]?.id??'';
+    const number=selected?.startsWith('ALT:')?alternatives.find(a=>'ALT:'+a.id===selected)?.partNumber:selected==='MANUAL'?ui.manualNumber:proposals.find(p=>p.id===selected)?.partNumber;
+    const controls='<select aria-label="Approved P/N for row '+(index+1)+'" id="approved-choice-'+index+'" data-worksheet-field="primaryChoice" '+attr+'><option value="">Not resolved</option>'+proposals.map(p=>'<option value="'+escapeHtml(p.id)+'" '+(p.id===selected?'selected':'')+'>'+escapeHtml(p.partNumber+(p.manufacturerName?' — '+p.manufacturerName:''))+'</option>').join('')+alternatives.map(a=>'<option value="ALT:'+escapeHtml(a.id)+'" '+(selected==='ALT:'+a.id?'selected':'')+'>'+escapeHtml(a.partNumber+(a.manufacturerName?' - '+a.manufacturerName:'')+' (approved alternate)')+'</option>').join('')+'<option value="MANUAL" '+(selected==='MANUAL'?'selected':'')+'>Manual Entry…</option></select>'+(selected&&selected!=='MANUAL'&&!selected.startsWith('ALT:')?'<button data-technical-review-action="worksheet-reject" data-candidate-row="'+index+'" data-proposal-id="'+escapeHtml(selected)+'" '+(state.saving?'disabled':'')+'>Reject this candidate</button>':'')+(selected==='MANUAL'?'<input aria-label="Manual MFG P/N for row '+(index+1)+'" id="approved-manual-'+index+'" data-worksheet-field="manualNumber" '+attr+' maxlength="200" value="'+escapeHtml(ui.manualNumber||'')+'">':'');
+    return candidateIdentityChoice(number,confirmed.length+alternatives.length,controls,selected==='MANUAL'&&!ui.manualNumber)+(row.selectedApprovedAlternate&&!row.approvedAlternateSelectionCurrent?'<small>Previous alternate selection is no longer current. Select an approved P/N again.</small>':'');
+  }
+  async function chooseApprovedAlternate(index,value){
+    if(state.saving)return;
+    const bom=state.selected.record.technicalReview.candidateBom,row=bom.rows[index];
+    if(candidateProgressRows().length){state.message='Save Progress before changing the Approved P/N selection. Your edits are retained.';renderDetail();return;}
+    state.saving=true;renderDetail();
+    try{state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:index,values:null,approvedAlternateSelection:{alternateId:value.startsWith('ALT:')?value.slice(4):null,expectedToken:row.reviewState.token}})});rowReviewUi(state.selected.record.technicalReview.candidateBom.rows[index]).primaryChoice=value;state.message='Approved P/N selection saved. Review the row, then Accept.';state.messageState='';}
+    catch(error){state.message=error.message;state.messageState='error';}finally{state.saving=false;renderDetail();}
   }
   async function acceptWorksheetRow(index){
+    if(state.selected?.record?.technicalReview?.candidateBom?.manualDraft && candidateProgressRows().length){state.message='Save Progress before accepting a manually authored row.';renderDetail();return;}
     if(state.saving||completedReview(state.selected.record))return;
     const bom=state.selected.record.technicalReview.candidateBom,row=bom.rows[index],ui=rowReviewUi(row);
     if(approvedPartDirty(row)||ui.identityBasisDraft){state.message='Save or cancel the Approved P/N changes before accepting this row.';state.messageState='error';renderDetail();return;}
@@ -2342,10 +3109,49 @@
     return '<section class="candidate-description-provenance" aria-label="Description provenance"><dl><dt>Customer Description</dt><dd>'+escapeHtml(customer??'Not recorded')+'</dd><dt>Reviewed Description</dt><dd>'+escapeHtml(reviewed??'Not recorded')+'</dd></dl>'+
       (customer!==reviewed&&correction?'<small>Updated by '+escapeHtml(correction.reviewer)+' · '+escapeHtml(formatDateTime(correction.atUtc))+'</small>':'')+analysisEvidence(row.analysisFields?.description)+'</section>';
   }
+    function preparationGroup(bom,row) {return (bom.preparationGroups||[]).find(g=>g.parentRowId===row.rowId);}
+  function preparationBadge(bom,row,index) {
+    const g=preparationGroup(bom,row);if(!g)return '';
+    const expanded=!!state.preparationExpanded?.[g.id];
+    return '<div class="preparation-mark"><span>Preparation required</span><button data-technical-review-action="preparation-toggle" data-group="'+escapeHtml(g.id)+'" aria-expanded="'+expanded+'">'+(g.pieces.some(p=>p.method==='MAKE_FROM_STOCK')?'Cut from stock':'Precut sourcing')+' · '+g.pieces.length+' pieces</button><small>Preparation details pending</small></div>';
+  }
+  function preparationInput(event) {
+    if(!event.target.closest?.('[data-preparation-editor]'))return false;
+    state.preparationDraft=readPreparationForm();return true;
+  }
+  function readPreparationForm() {
+    const form=mount.querySelector('[data-preparation-editor]');if(!form)return state.preparationDraft;
+    return {parentRowId:form.dataset.parent,groupId:form.dataset.group||null,expectedToken:form.dataset.token,
+      customerFind:form.querySelector('[data-prep-find]').value,stockIdentityBasis:form.querySelector('[data-prep-basis]').value,
+      instructionReference:form.querySelector('[data-prep-instructions]').value,
+      pieces:Array.from(form.querySelectorAll('[data-prep-row]')).filter(e=>e.querySelector('[data-prep-include]').checked).map(e=>({rowId:e.dataset.prepRow,method:e.querySelector('[data-prep-method]').value,positions:e.querySelector('[data-prep-positions]').value?Number(e.querySelector('[data-prep-positions]').value):null}))};
+  }
+  function renderPreparation(bom,row,readOnly) {
+    const g=preparationGroup(bom,row),draft=state.preparationDraft?.parentRowId===row.rowId?state.preparationDraft:null;
+    const value=draft||g||{customerFind:'',stockIdentityBasis:'INTERNAL_UNKNOWN',pieces:[],instructionReference:''};
+    const disabled=readOnly||state.saving||window.DleOsCapabilities?.can?.('technical_review.disposition')!==true?'disabled':'';
+    const others=new Set((bom.preparationGroups||[]).filter(x=>x.id!==g?.id).flatMap(x=>[x.parentRowId,...x.pieces.map(p=>p.rowId)]));
+    return '<section class="preparation-editor" data-preparation-editor data-parent="'+escapeHtml(row.rowId)+'" data-group="'+escapeHtml(g?.id||'')+'" data-token="'+escapeHtml(draft?.expectedToken||bom.preparationToken)+'"><p>Explicitly link this stock row to its finished pieces. No relationship is inferred from Find numbers.</p><div class="preparation-fields"><label>Customer Find<input data-prep-find maxlength="9" value="'+escapeHtml(value.customerFind)+'" '+disabled+'></label><label>Stock identifier<select data-prep-basis '+disabled+'><option value="INTERNAL_UNKNOWN" '+(value.stockIdentityBasis==='INTERNAL_UNKNOWN'?'selected':'')+'>Internal — owner unknown</option><option value="CUSTOMER" '+(value.stockIdentityBasis==='CUSTOMER'?'selected':'')+'>Customer P/N</option></select></label></div><p>Piece identifiers remain provisional internal references, owner/origin unknown. Existing identity decisions and historical precut evidence are retained separately.</p><div class="preparation-piece-list">'+bom.rows.filter(r=>r.rowId&&r.rowId!==row.rowId&&!others.has(r.rowId)&&!['DNP','SUBASSEMBLY','REFERENCE_ONLY'].includes(r.componentType)).map(r=>{
+      const piece=value.pieces.find(p=>p.rowId===r.rowId),label='Find '+r.values.lineNumber+' · '+r.values.partNumber+' · '+(r.values.designators||'no refdes');
+      return '<div data-prep-row="'+escapeHtml(r.rowId)+'"><label><input type="checkbox" data-prep-include '+(piece?'checked':'')+' '+disabled+'> '+escapeHtml(label)+'</label><span>'+escapeHtml(r.values.quantity+' '+(r.values.unit||'')+' / assembly')+'</span><label class="candidate-sr-only" for="prep-method-'+r.index+'">Sourcing for '+escapeHtml(label)+'</label><select id="prep-method-'+r.index+'" data-prep-method '+disabled+'><option value="MAKE_FROM_STOCK" '+(piece?.method==='MAKE_FROM_STOCK'?'selected':'')+'>Make from stock</option><option value="BUY_PRECUT" '+(piece?.method==='BUY_PRECUT'?'selected':'')+'>Buy precut</option></select><input aria-label="Positions for '+escapeHtml(label)+'" type="number" min="1" max="10000" placeholder="Positions pending" data-prep-positions value="'+escapeHtml(piece?.positions??'')+'" '+disabled+'></div>';
+    }).join('')+'</div><label>Preparation instruction reference (optional)<input data-prep-instructions maxlength="2000" value="'+escapeHtml(value.instructionReference)+'" '+disabled+'></label><p>Preparation details pending. Stock consumption is not calculated from position totals or source quantities. Grouped BOM acceptance and downstream material export remain blocked.</p><p role="status" data-preparation-message>'+escapeHtml(state.preparationMessage||'')+'</p><button data-technical-review-action="preparation-save" '+disabled+'>Save preparation draft</button> <button data-technical-review-action="preparation-cancel" '+disabled+'>Cancel edits</button>'+(g?'<details><summary>Saved sourcing summary &amp; history</summary><p>Draft only — not purchasing requirements.</p><ul>'+bom.preparationDemand.filter(d=>[g.parentRowId,...g.pieces.map(p=>p.rowId)].includes(d.rowId)).map(d=>{const r=bom.rows.find(r=>r.rowId===d.rowId);return '<li>'+escapeHtml('Find '+r?.values.lineNumber+': '+d.kind+' · '+(d.quantity??'quantity pending')+' '+(d.unit||'')+' · '+d.status)+'</li>';}).join('')+'</ul><p>Source version: '+escapeHtml(g.sourceHash)+'</p><p>'+escapeHtml((bom.preparationHistory||[]).filter(h=>h.group.id===g.id).map(h=>h.action+' by '+h.reviewer+' at '+formatDateTime(h.atUtc)).join('; '))+'</p></details>':'')+'</section>';
+  }
+  async function preparationAction(action,button) {
+    if(state.saving)return;
+    if(action==='preparation-toggle'){state.preparationExpanded||={};state.preparationExpanded[button.dataset.group]=!state.preparationExpanded[button.dataset.group];renderDetail();return;}
+    if(action==='preparation-cancel'){state.preparationDraft=null;state.preparationMessage='';renderDetail();return;}
+    const bom=state.selected.record.technicalReview.candidateBom;
+    if(candidateProgressRows().length){state.preparationMessage='Save Progress for pending row edits before saving preparation.';state.preparationDraft=readPreparationForm();renderDetail();return;}
+    state.preparationDraft=readPreparationForm();state.saving=true;
+    try{state.selected=await fetchJson('/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId)+'/candidate-bom',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({candidateId:bom.id,rowIndex:state.candidateIndex,values:null,preparationChange:state.preparationDraft})});state.preparationDraft=null;state.preparationMessage='Preparation draft saved. No part identity, row acceptance or stock quantity was changed.';}
+    catch(error){state.preparationMessage=error.message;}
+    finally{state.saving=false;renderDetail();}
+  }
+
   function renderCandidateInspector(bom,row,index,readOnly) {
-    const titles={'approved-pns':'Approved P/Ns',edit:'BOM Fields',files:'Technical Files',history:'Source / Evidence',alternates:'Technical Alternates'};
+    const titles={preparation:'Preparation / cut pieces','approved-pns':'Approved P/Ns',edit:'BOM Fields',files:'Technical Files',history:'Source / Evidence',alternates:'Technical Alternates'};
     const panel=state.rowOption||'edit';
-    const body=panel==='approved-pns'?renderApprovedPartManager(row,index,readOnly):panel==='alternates'?renderAlternates(row,readOnly):panel==='files'?renderRowTechnicalFiles(bom,row,readOnly):panel==='history'?renderCandidateEvidence(bom,row):renderCandidateRow(bom,row,index,readOnly);
+    const body=panel==='preparation'?renderPreparation(bom,row,readOnly):panel==='approved-pns'?renderApprovedPartManager(row,index,readOnly):panel==='alternates'?renderAlternates(row,readOnly):panel==='files'?renderRowTechnicalFiles(bom,row,readOnly):panel==='history'?renderCandidateEvidence(bom,row):renderCandidateRow(bom,row,index,readOnly);
     return '<div class="candidate-row-inspector"><div class="candidate-inspector-heading"><h4 tabindex="-1">Line '+escapeHtml(row.values.lineNumber)+' · '+escapeHtml(titles[panel]||titles.edit)+'</h4><button data-technical-review-action="candidate-panel-close" '+(state.saving?'disabled':'')+'>Close</button></div>'+body+'</div>';
   }
   function renderCandidateEvidence(bom,row) {
@@ -2390,10 +3196,10 @@
   }
 
   function acceptedLinks(record) {
-    return (record.technicalReview?.bomAcceptances || []).map(a => '<p><button data-technical-review-action="accepted-bom" data-accepted-version="' + a.version + '">View accepted BOM · version ' + a.version + '</button><small> Accepted by ' + escapeHtml(a.reviewedBy) + ' · ' + escapeHtml(new Date(a.reviewedAtUtc).toLocaleString()) + '</small></p>').join('');
+    return (record.technicalReview?.bomAcceptances || []).map(a => '<p><button data-technical-review-action="accepted-bom" data-accepted-version="' + a.version + '">View accepted BOM · version ' + a.version + '</button><small> Accepted by ' + escapeHtml(a.reviewedBy) + ' · ' + escapeHtml((window.DleDateFormat?.dateTime(a.reviewedAtUtc,{seconds:true,empty:'Invalid Date'}) ?? new Date(a.reviewedAtUtc).toLocaleString())) + '</small></p>').join('');
   }
   function usesFinalBomReview() {
-    return ['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)&&!!state.selected?.record?.technicalReview?.candidateBom?.vproImport;
+    return ['SIM','SIMULATION'].includes(window.DleOsRuntimeConfig?.environment)&&!!(state.selected?.record?.technicalReview?.candidateBom?.vproImport||state.selected?.record?.technicalReview?.candidateBom?.manualDraft);
   }
   function finalBomEntryEnabled() {
     const bom=state.selected?.record?.technicalReview?.candidateBom;
@@ -2401,13 +3207,18 @@
   }
   function finalBomCanSubmit() {
     const f=state.finalBomReview,s=f?.info;
+    if(state.selected?.record?.technicalReview?.candidateBom?.manualDraft)return !!s&&!f.busy&&!f.blocked&&!s.accepted&&!s.blockers?.length&&!s.rowBlockers?.length&&finalBomEntryEnabled()&&(f.reviewNotes||'').length<=4000;
     return !!s&&!f.busy&&!f.blocked&&s.rowsReviewed&&
       (s.baselineCurrent||(f.sourceConfirmed&&f.sourceReason.trim()))&&
       (s.discrepanciesCurrent||(f.documentsConfirmed&&f.documentNotes.trim()));
   }
   function finalBomAccepted(record,id) { return (record.technicalReview?.bomAcceptances||[]).some(a=>a.candidate?.id===id); }
+  function cancelFinalBomReview() {
+    if(state.saving)return;
+    state.finalBomDraft=state.finalBomReview;state.finalBomReview=null;renderDetail();mount.querySelector('[data-technical-review-action="complete-bom"]')?.focus();
+  }
   function finishFinalBomReview() {
-    state.finalBomReview=null;state.message='BOM accepted. Review the package, then submit to RFQs.';
+    state.finalBomReview=null;state.message=state.selected.record.technicalReview.candidateBom?.manualDraft?'BOM accepted for RFQ. Review the package, then submit to RFQs.':'BOM accepted. Review the package, then submit to RFQs.';
     state.candidateIndex=null;state.completionReadiness=null;
     if(state.selected.record.technicalReview?.workflow){state.step='inventory';state.packageDraft=null;state.packageAnswers=null;releaseReadiness=null;}
   }
@@ -2417,11 +3228,12 @@
     try {
       const base='/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId);
       const latest=await fetchJson(base);
-      if(finalBomAccepted(latest.record,f.candidateId)){state.selected=latest;finishFinalBomReview();return;}
+      if(!latest.record.technicalReview?.candidateBom?.manualDraft&&finalBomAccepted(latest.record,f.candidateId)){state.selected=latest;finishFinalBomReview();return;}
       if(latest.record.technicalReview?.candidateBom?.id!==f.candidateId)throw new Error('The BOM changed. Return to the worksheet and reopen the current BOM.');
-      const info=await fetchJson(base+'/vpro-source-decisions');
-      if(f.info&&(info.evidenceFingerprint!==f.info.evidenceFingerprint||info.candidateFingerprint!==f.info.candidateFingerprint)){
-        f.sourceConfirmed=false;f.documentsConfirmed=false;f.error='The source package or rows changed. Review the current information and confirm again.';
+      const info=await fetchJson(base+(latest.record.technicalReview.candidateBom.manualDraft?'/manual-bom/completion-info':'/vpro-source-decisions'));
+      if(f.info&&(info.evidenceFingerprint!==f.info.evidenceFingerprint||info.candidateFingerprint!==f.info.candidateFingerprint||info.revision!==f.info.revision)){
+        if(latest.record.technicalReview.candidateBom.manualDraft)f.error='The saved review changed. Check the current information before accepting.';
+        else {f.sourceConfirmed=false;f.documentsConfirmed=false;f.error='The source package or rows changed. Review the current information and confirm again.';}
       }
       state.selected=latest;f.info=info;f.blocked=false;
     } catch(e){f.error=e.message;f.blocked=true;}
@@ -2432,10 +3244,11 @@
     const id=state.selected.record.technicalReview.candidateBom.id;
     state.candidateIndex=null;state.candidateInlineRow=null;
     if(state.finalBomDraft?.candidateId===id)state.finalBomReview=state.finalBomDraft;
-    else state.finalBomReview={candidateId:id,sourceConfirmed:false,documentsConfirmed:false,sourceReason:'',documentNotes:'',info:null,busy:false,blocked:false,error:''};
+    else state.finalBomReview={candidateId:id,...(state.selected.record.technicalReview.candidateBom.manualDraft?{reviewNotes:''}:{sourceConfirmed:false,documentsConfirmed:false,sourceReason:'',documentNotes:''}),info:null,busy:false,blocked:false,error:''};
     await loadFinalBomReview();
   }
   function renderFinalBomReview(record,bom) {
+    if(bom.manualDraft)return renderManualFinalBomReview(record,bom);
     const f=state.finalBomReview,s=f.info,a=record.assemblies?.[0]||{},v=bom.vproImport;
     const source=(s?.documents||record.technicalFiles||[]).find(d=>d.documentId===v.documentId);
     const link=d=>'<a href="/api/sim/rfq-intakes/'+encodeURIComponent(record.intakeId)+'/documents/'+encodeURIComponent(d.documentId)+'" target="_blank" rel="noopener">'+escapeHtml(d.name||'Open file')+'</a>';
@@ -2461,7 +3274,35 @@
       '<footer><button class="technical-review-primary" data-technical-review-action="final-bom-submit" '+(finalBomCanSubmit()?'':'disabled')+'>Accept BOM</button><button data-technical-review-action="final-bom-back" '+busy+'>Cancel</button></footer></section>';
   }
 
+  function renderManualFinalBomReview(record,bom){
+    const f=state.finalBomReview,info=f.info,busy=f.busy?'disabled':'';
+    const blockers=[...(info?.blockers||[]),...(info?.rowBlockers||[]).map(x=>'Row '+x.lineNumber+': '+x.message)];
+    if(info?.accepted)blockers.push(info.currentAcceptance?'This BOM is already accepted for RFQ.':'The accepted BOM or its sources changed. Start a new BOM revision from Technical Review.');
+    return '<section class="final-bom-review final-bom-plain" aria-labelledby="finalBomTitle"><header><div><h2 id="finalBomTitle" tabindex="-1">Accept this BOM for RFQ?</h2><p>'+escapeHtml(info?.assemblyNumber||record.assemblies?.[0]?.assemblyNumber)+' · Rev '+escapeHtml(info?.assemblyRevision||record.assemblies?.[0]?.revision)+' · '+bom.rows.filter(r=>r.reviewState?.reviewed).length+' of '+bom.rows.length+' rows reviewed</p></div></header>'+
+      (f.busy?'<p role="status">'+(f.submitting?'Recording BOM acceptance…':'Checking saved BOM…')+'</p>':'')+
+      (f.error?'<p role="alert">'+escapeHtml(f.error)+'</p><button data-technical-review-action="final-bom-retry" '+busy+'>Reload checks</button>':'')+
+      (blockers.length?'<ul role="alert">'+blockers.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul>':'')+
+      '<label>Review notes (optional)<textarea data-final-bom-field="reviewNotes" maxlength="4000" '+busy+'>'+escapeHtml(f.reviewNotes||'')+'</textarea></label>'+
+      '<footer><button class="technical-review-primary" data-technical-review-action="final-bom-submit" '+(finalBomCanSubmit()?'':'disabled')+'>Accept BOM</button><button data-technical-review-action="final-bom-back" '+busy+'>Cancel</button></footer></section>';
+  }
+  async function submitManualFinalBomReview(){
+    if(!finalBomCanSubmit()||state.saving)return;
+    const f=state.finalBomReview,expected=f.info,base='/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId);
+    f.busy=true;f.submitting=true;f.error='';state.saving=true;renderDetail();
+    try{
+      const latest=await fetchJson(base),info=await fetchJson(base+'/manual-bom/completion-info');
+      if(info.candidateId!==expected.candidateId||info.revision!==expected.revision||info.evidenceFingerprint!==expected.evidenceFingerprint||info.expectedReviewToken!==expected.expectedReviewToken)throw new Error('The saved review changed. Reload checks and confirm the current information again.');
+      const payload={candidate:latest.record.technicalReview.candidateBom,manualSource:{confirm:true,expectedReviewToken:info.expectedReviewToken,evidenceFingerprint:info.evidenceFingerprint,reviewNotes:f.reviewNotes||''}};
+      const ready=await fetchJson(base+'/bom-completion-readiness',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(!ready.ready)throw new Error(ready.message||'Resolve the remaining BOM checks.');
+      await fetchJson(base+'/complete-bom-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      state.selected=await fetchJson(base);finishFinalBomReview();state.finalBomDraft=null;
+    }catch(e){f.error=e.message;f.blocked=true;}
+    finally{f.busy=false;f.submitting=false;state.saving=false;renderDetail();}
+  }
+
   async function submitFinalBomReview() {
+    if(state.selected.record.technicalReview.candidateBom?.manualDraft){await submitManualFinalBomReview();return;}
     if(!finalBomCanSubmit()||state.saving)return;
     const f=state.finalBomReview,expected=f.info,base='/api/sim/technical-reviews/'+encodeURIComponent(state.selected.record.intakeId);
     f.busy=true;f.submitting=true;f.error='';state.saving=true;renderDetail();
@@ -2528,18 +3369,10 @@
     const link=(id,label)=>'<a target="_blank" rel="noopener" href="/api/sim/rfq-intakes/'+encodeURIComponent(record.intakeId)+'/documents/'+encodeURIComponent(id)+'">'+escapeHtml(label)+'</a>';
     const evidence=e=>e?link(e.documentId,files.find(f=>f.documentId===e.documentId)?.name||'Open source')+' <span>'+escapeHtml([e.page?'page '+e.page:'',e.sheet,e.location].filter(Boolean).join(' / '))+'</span>':'No evidence supplied';
     const index=state.candidateIndex;
-    const decisionButtons='<p>Approve permits this exact alternate; Not Approved excludes it and keeps its evidence. Each button saves immediately. The primary part stays unchanged.</p><div class="alternate-review-actions"><button data-technical-review-action="alternate-approve" '+disabled+'>Approve Alternate</button>'+(saved?'<button data-technical-review-action="alternate-not-approved" '+disabled+'>Not Approved</button>':'')+'<button data-technical-review-action="alternate-draft-cancel" '+disabled+'>Cancel edits</button></div>';
-    return '<section class="candidate-alternates alternate-review-focus" aria-label="Alternate decision review">'+
-      '<div class="alternate-review-primary"><strong>Primary part: '+escapeHtml(row.primaryIdentity?.partNumber||row.values.partNumber)+'</strong><span>'+escapeHtml(row.values.description||'')+'</span><span>'+escapeHtml(row.identityBasis==='CUSTOMER_PN'?'Customer P/N':'Primary identity')+' · Qty '+escapeHtml(row.values.quantity)+' '+escapeHtml(row.values.unit||'')+' per assembly</span></div>'+
-      '<p class="alternate-review-progress" role="status">'+(pending.length?pending.length+' of '+entries.length+' alternate decisions remaining.':'All alternate decisions saved. Review the row fields, then Accept the row; other checks still apply.')+'</p>'+
-      '<label>Choose alternate to review<select id="alternateChoice" '+disabled+'><option value="">Select an alternate</option>'+entries.map(a=>'<option value="'+escapeHtml(a.id)+'" '+(selected===a.id?'selected':'')+'>'+escapeHtml(a.partNumber+' — '+status(a))+'</option>').join('')+'<option value="ADD" '+(selected==='ADD'?'selected':'')+'>Add alternate</option></select></label>'+
-      (entries.length>1?'<ul class="alternate-decision-list">'+entries.map(a=>'<li>'+escapeHtml(a.partNumber)+' — <strong>'+escapeHtml(status(a))+'</strong></li>').join('')+'</ul>':'')+
-      (selected?'<div class="alternate-review-card"><h5>'+(saved?'Proposed alternate: '+escapeHtml(saved.partNumber):'New alternate')+'</h5>'+decisionButtons+
-      (saved?'<p class="alternate-saved-status" role="status">'+(resolved(saved)?'Saved decision: ':'Status: ')+escapeHtml(status(saved))+'</p><div class="alternate-review-evidence"><strong>Evidence for this alternate</strong><p>'+evidence(saved.sourceEvidence)+'</p>'+(saved.sourceContext?'<p>'+escapeHtml(saved.sourceContext)+'</p>':'')+(saved.supportingEvidence?'<p>Supporting: '+evidence(saved.supportingEvidence)+'</p>':'')+(saved.approvalEvidence?'<p>Approval evidence: '+evidence(saved.approvalEvidence)+'</p>':'')+(saved.uncertainty&&!resolved(saved)?'<p>'+escapeHtml(saved.uncertainty)+'</p>':'')+'</div>':'')+
-      '<div class="alternate-review-sources"><strong>Compare customer sources</strong> '+files.filter(f=>f.documentId!==saved?.sourceEvidence?.documentId).map(f=>link(f.documentId,f.name||'Open document')).join(' · ')+'</div>'+
-      '<div class="alternate-review-fields"><label>Alternate P/N<input id="compactAlternateNumber" maxlength="200" value="'+escapeHtml(current?.partNumber||'')+'" '+disabled+'></label><label>Manufacturer (optional)<input id="compactAlternateManufacturer" maxlength="200" value="'+escapeHtml(current?.manufacturerName||'')+'" '+disabled+'></label><label>Decision note / evidence<input id="compactAlternateNote" maxlength="2000" value="'+escapeHtml(current?.note||'')+'" '+disabled+'></label></div>'+
-      '<p>Neither decision accepts the row. Edited fields above are included when you save a decision.</p></div>':'')+
-      '<div class="alternate-review-actions"><button data-technical-review-action="worksheet-options" data-candidate-row="'+index+'" data-panel="edit" '+(state.saving||pending.length?'disabled':'')+'>Review row fields</button><button data-technical-review-action="candidate-panel-close" '+disabled+'>Back to row</button></div></section>';
+    return '<section class="candidate-alternates alternate-review-compact" aria-label="Alternate decision review">'+
+      '<label>Alternate<select id="alternateChoice" title="'+escapeHtml(current?.partNumber||'Choose alternate')+'" '+disabled+'><option value="">Choose alternate</option>'+entries.map(a=>'<option value="'+escapeHtml(a.id)+'" '+(selected===a.id?'selected':'')+'>'+escapeHtml(a.partNumber)+'</option>').join('')+'<option value="ADD" '+(selected==='ADD'?'selected':'')+'>Add alternate</option></select></label>'+
+      (selected?'<div class="alternate-inline-actions"><button data-technical-review-action="alternate-approve" '+disabled+'>Approve</button>'+(saved?'<button data-technical-review-action="alternate-not-approved" '+disabled+'>Not Approved</button>':'')+'<button data-technical-review-action="alternate-draft-cancel" '+disabled+'>Cancel edits</button></div><small class="alternate-saved-status" role="status">'+(saved?.reviewStatus==='APPROVED'?'Approved — choose it separately in Approved P/N. Row acceptance remains separate.':'Approval makes this exact part available in Approved P/N; it does not select or accept it.')+'</small>'+
+      '<details '+(!saved?'open':'')+'><summary>Part details &amp; evidence</summary><label>Alternate P/N<input id="compactAlternateNumber" maxlength="200" value="'+escapeHtml(current?.partNumber||'')+'" '+disabled+'></label><label>Manufacturer (optional)<input id="compactAlternateManufacturer" maxlength="200" value="'+escapeHtml(current?.manufacturerName||'')+'" '+disabled+'></label><label>Decision note<input id="compactAlternateNote" maxlength="2000" value="'+escapeHtml(current?.note||'')+'" '+disabled+'></label>'+(saved?'<p>'+evidence(saved.sourceEvidence)+'</p><p>'+escapeHtml(saved.sourceContext||'')+'</p><p>'+escapeHtml(saved.uncertainty||'')+'</p>'+ (saved.supportingEvidence?'<p>Supporting: '+evidence(saved.supportingEvidence)+'</p>':'')+(saved.approvalEvidence?'<p>Approval evidence: '+evidence(saved.approvalEvidence)+'</p>':''):'')+'</details>':'')+'</section>';
   }
 
   async function saveCompactAlternate(approve=true) {
@@ -2752,6 +3585,10 @@
     try {
       const payload = await fetchJson("/api/sim/technical-reviews");
       state.items = Array.isArray(payload.items) ? payload.items : [];
+      state.finalReviewRoundtrip = payload.finalReviewRoundtrip===true;
+      state.rfqProjectHandoff = payload.rfqProjectHandoff===true;
+      state.completedItems = state.rfqProjectHandoff && Array.isArray(payload.completedItems) ? payload.completedItems : [];
+      if(!state.rfqProjectHandoff)state.queueBucket='ACTIVE';
       renderQueue();
     } catch (_) { /* saved detail remains authoritative for this view */ }
   }
@@ -2762,6 +3599,7 @@
     let body = null;
     try { body = await response.json(); } catch (_) { /* handled below */ }
     if (!response.ok) throw new Error(body?.message || "SIM returned HTTP " + response.status + ".");
+    if(body?.record?.intakeId===state.selected?.record?.intakeId&&body.sourceSetupAvailable===undefined&&state.selected?.sourceSetupAvailable){body.sourceSetupAvailable=true;body.sourceSetupToken=state.selected.sourceSetupToken;}
     return body;
   }
 
@@ -2773,11 +3611,13 @@
   }
 
   function documentStateLabel(value) { if (value === "BINARIES_VERIFIED_SIM") return "Verified SIM files"; return value === "METADATA_PRESERVED_SOURCE_PLACEMENT_REQUIRED" ? "Metadata preserved · source placement required" : value === "NOT_PROVIDED" ? "Not provided" : value || "Unknown"; }
-  function formatDateTime(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? value || "—" : date.toLocaleString([], { dateStyle: "short", timeStyle: "short" }); }
+  function formatDateTime(value) { const date = new Date(value); return (window.DleDateFormat?.dateTime(value,{empty:value || "—"}) ?? (Number.isNaN(date.getTime()) ? value || "—" : date.toLocaleString([], { dateStyle: "short", timeStyle: "short" }))); }
   function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character])); }
 
+  window.addEventListener?.('focus',()=>{void refreshSubmissionState();});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void refreshSubmissionState();});
   window.addEventListener?.('beforeunload', event => {
-    if(state.scanSheetDirty||(state.scanEdit&&state.scanEdit.input.value!==state.scanEdit.before)){event.preventDefault();event.returnValue='';}
+    if(partRequestReview?.dirty||partRequestReview?.busy||sourceChoicesDirty()||state.scanSheetDirty||(state.scanEdit&&state.scanEdit.input.value!==state.scanEdit.before)){event.preventDefault();event.returnValue='';}
   });
   document.addEventListener('click', event => {
     if(!state.scanSheetDirty||state.step!=='scanned-review')return;
@@ -2792,5 +3632,5 @@
     void openReview(event.detail.requestedState.intakeId);
   });
   window.DleWorkspaces = window.DleWorkspaces || {};
-  window.DleWorkspaces[WORKSPACE_ID] = Object.freeze({ id: WORKSPACE_ID, render: renderWorkspace, refresh: loadQueue, openReview });
+  window.DleWorkspaces[WORKSPACE_ID] = Object.freeze({ id: WORKSPACE_ID, render: renderWorkspace, refresh: loadQueue, openReview, canReturnToQueue, returnToQueue });
 })(window, document);

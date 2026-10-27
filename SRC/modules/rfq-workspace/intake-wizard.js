@@ -47,6 +47,7 @@
       '<section id="intakeConversation" class="intake-conversation-card" aria-live="polite"></section></div></main>';
     root.addEventListener("click", handleClick);
     root.addEventListener("input", handleInput);
+    root.addEventListener("keydown", customerKeys);
     root.addEventListener("change", handleChange);
     root.addEventListener("dragenter", handleFileDragOver);
     root.addEventListener("dragover", handleFileDragOver);
@@ -54,6 +55,7 @@
     root.addEventListener("drop", handleFileDrop);
     root.addEventListener("submit", handleSubmit);
     render();
+    void readQuoteDraft();
   }
 
   function render() {
@@ -62,6 +64,8 @@
     root.querySelector("#intakeAnswers").innerHTML = renderAnswers();
     root.querySelector("#intakeConversation").innerHTML = renderStep();
     if (state.intakeType === 'NEW_ORDER' && state.status !== 'COMPLETE' && !state.order.entry) root.querySelector('#intakeConversation').insertAdjacentHTML('beforeend', '<div class="intake-order-save"><button type="button" class="intake-back" data-order-action="save">Save draft</button><span role="status">' + escapeHtml(state.order.message) + '</span></div>');
+    if(state.intakeType==='NEW_QUOTE_REQUEST'&&state.status!=='COMPLETE')root.querySelector('#intakeConversation').insertAdjacentHTML('beforeend','<p><button type="button" data-save-quote-draft>Save draft in this browser</button></p>');
+    if(state.currentStep===0&&quoteDraftCandidate)root.querySelector('#intakeConversation').insertAdjacentHTML('beforeend','<p><button type="button" data-resume-quote-draft>Resume saved quote draft</button></p>');
     syncProgressPlacement();
     const stage=state.currentStep<=1?0:state.currentStep<=7?1:state.currentStep===8?2:state.currentStep<24?3:4;
     const progressMaximum = Math.max(1, steps().length - 1);
@@ -108,11 +112,13 @@
       choice("New Order", "NEW_ORDER", "intake-type"), "Choose the business event that came into DLE.");
     if (step === "customer") return question("Who did you get it from?",
       '<label class="intake-search"><span class="sr-only">Search customers</span><input data-intake-customer-search data-intake-autofocus autocomplete="off" value="' +
-      escapeHtml(state.customerSearch.query) + '" placeholder="Search customer name or number"></label>' + renderCustomerResults(),
-      "Select a governed customer identity from the SIM directory.");
+      escapeHtml(state.customerSearch.query) + '" placeholder="Customer number or name" aria-controls="intakeCustomerMatches"></label>' +
+      '<div id="intakeCustomerMatches" class="intake-customer-matches">' + renderCustomerResults() + '</div>' +
+      '<button type="button" class="intake-open-customers" data-open-customers>Open customer list</button>', "");
     if (state.intakeType === "NEW_ORDER") return renderNewOrderStep(step);
     if (step === "assembly-count") return question("How many different assemblies are they asking us to quote?",
       numberInput("assembly-count", state.assemblyCount), "Count distinct assemblies or part numbers here. Piece quantity is captured separately for each assembly.");
+    if(projectMode()&&["assembly-number","revision","quantity","assembly-type","scope"].includes(step))return renderProjects();
     if (step === "assembly-number") return question("What is the assembly number?",
       textInput("assembly-number", state.assemblies[0].assemblyNumber, "B11283-17"), "Capture the requested identity exactly as received.");
     if (step === "revision") return question("What revision are they asking for?",
@@ -317,22 +323,92 @@
       (includeContinue ? '<button type="button" data-intake-action="continue" class="intake-primary">' + escapeHtml(label) + '</button>' : "") + '</div>';
   }
 
+  function customerRow(customer, directory = false) {
+    const selected = state.customer?.customerId === customer.customerId;
+    return '<button type="button" class="intake-customer-result' + (selected ? ' is-selected' : '') +
+      '" aria-pressed="' + selected + '" ' + (directory ? 'data-directory-customer' : 'data-intake-customer') +
+      '="' + escapeHtml(customer.customerNumber) + '"><span class="intake-customer-number">' +
+      escapeHtml(customer.customerNumber) + '</span><span class="intake-customer-name">' +
+      escapeHtml(customer.customerName) + '</span></button>';
+  }
   function renderCustomerResults() {
     const search = state.customerSearch;
-    if (search.status === "loading") return '<p class="intake-search-status">Searching…</p>';
-    if (search.status === "error" || search.status === "empty") return '<p class="intake-search-status">' + escapeHtml(search.message) + '</p>';
-    return search.results.map(customer => '<button type="button" class="intake-customer-result" data-intake-customer="' +
-      escapeHtml(customer.customerNumber) + '"><span><strong>' + escapeHtml(customer.customerName) + '</strong><small>Customer ' +
-      escapeHtml(customer.customerNumber) + ' · SIM fixture</small></span><b>Choose</b></button>').join("");
+    if (!search.query.trim()) return '';
+    if (search.status === "loading") return '<p class="intake-search-status" role="status">Searching.</p>';
+    if (search.status === "error" || search.status === "empty")
+      return '<p class="intake-search-status" role="status">' + escapeHtml(search.message) + '</p>';
+    return search.results.map(c => customerRow(c)).join('') +
+      (search.hasMore ? '<p class="intake-search-status">More matches in the customer list.</p>' : '');
+  }
+  function customerKeys(event) {
+    const container = event.currentTarget;
+    const rows = [...container.querySelectorAll('.intake-customer-result')];
+    const index = rows.indexOf(event.target.closest('.intake-customer-result'));
+    if (event.key === 'ArrowDown' && (index >= 0 || event.target.matches('[data-intake-customer-search], [data-directory-search]'))) {
+      if (rows.length) { event.preventDefault(); rows[Math.min(index + 1, rows.length - 1)].focus(); }
+    } else if (event.key === 'ArrowUp' && index >= 0) {
+      event.preventDefault();
+      if (index > 0) rows[index - 1].focus();
+      else container.querySelector('[data-intake-customer-search], [data-directory-search]')?.focus();
+    }
+  }
+  function openCustomerDirectory() {
+    const opener = root.querySelector('[data-open-customers]');
+    const dialog = document.createElement('dialog');
+    dialog.className = 'intake-customer-directory';
+    dialog.setAttribute('aria-labelledby', 'customerDirectoryTitle');
+    dialog.innerHTML = '<header><h2 id="customerDirectoryTitle">Customer list</h2><button type="button" data-directory-close aria-label="Close customer list">Close</button></header>' +
+      '<label>Search customers<input data-directory-search type="search" autocomplete="off" placeholder="Customer number or name"></label>' +
+      '<p data-directory-status role="status"></p><div class="intake-directory-heading"><span>Customer no.</span><span>Name</span></div>' +
+      '<div data-directory-results></div><nav aria-label="Customer list pages"><button data-directory-page="-1">Previous</button><span data-directory-count></span><button data-directory-page="1">Next</button></nav>';
+    document.body.append(dialog);
+    let sequence = 0, timer, page = 1, items = [], pages = 1;
+    const search = dialog.querySelector('[data-directory-search]');
+    const results = dialog.querySelector('[data-directory-results]');
+    const status = dialog.querySelector('[data-directory-status]');
+    const previous = dialog.querySelector('[data-directory-page="-1"]');
+    const next = dialog.querySelector('[data-directory-page="1"]');
+    async function load(target = 1) {
+      const request = ++sequence; previous.disabled = next.disabled = true;
+      results.replaceChildren(); items = []; status.textContent = 'Searching.';
+      try {
+        const response = await window.DleApiClient.searchCanonicalCustomers(search.value, {page: target, pageSize: 25});
+        if (request !== sequence || !dialog.open) return;
+        page = response.page || target; pages = response.totalPages || 1;
+        items = Array.isArray(response.items) ? response.items : [];
+        results.innerHTML = items.map(c => customerRow(c, true)).join('');
+        status.textContent = items.length ? '' : 'No matching customers.';
+        dialog.querySelector('[data-directory-count]').textContent = (response.totalItems ?? items.length) + ' customers | Page ' + page + ' of ' + pages;
+        previous.disabled = page <= 1; next.disabled = !response.hasMore;
+      } catch {
+        if (request !== sequence || !dialog.open) return;
+        status.textContent = 'Customer list unavailable. Change the search or reopen to retry.';
+      }
+    }
+    search.addEventListener('input', () => {
+      ++sequence; clearTimeout(timer); items = []; results.replaceChildren();
+      previous.disabled = next.disabled = true; status.textContent = 'Searching.';
+      timer = setTimeout(() => load(1), 250);
+    });
+    dialog.addEventListener('keydown', customerKeys);
+    dialog.addEventListener('click', event => {
+      if (event.target.closest('[data-directory-close]')) { dialog.close(); return; }
+      const direction = event.target.closest('[data-directory-page]');
+      if (direction) { void load(page + Number(direction.dataset.directoryPage)); search.focus(); return; }
+      const button = event.target.closest('[data-directory-customer]');
+      if (!button) return;
+      const customer = items.find(c => c.customerNumber === button.dataset.directoryCustomer);
+      if (customer) { dialog.close(); selectCustomerRecord(customer); }
+    });
+    dialog.addEventListener('close', () => { ++sequence; clearTimeout(timer); dialog.remove(); opener?.focus(); }, {once:true});
+    dialog.showModal(); search.focus(); void load();
   }
 
-  const initialDocumentTypes = {DRAWING:'Drawing', DRAWING_AND_BOM:'Drawing + BOM', BOM_ONLY:'BOM Only', UNKNOWN:'Unknown / Not Determined', OTHER:'Other'};
+  const initialDocumentTypes = {DRAWING:'Drawing', DRAWING_AND_BOM:'Drawing + BOM', BOM_ONLY:'BOM Only', ENGINEERING_TEST_PROTOTYPE:'Engineering / Test / Prototype', UNKNOWN:'Unknown / Not Determined', OTHER:'Other'};
   function renderFiles() {
     if (!state.technicalFiles.length) return '<p class="intake-search-status">No files selected yet.</p>';
     if (state.intakeType === 'NEW_ORDER') return '<ul class="intake-file-list">' + state.technicalFiles.map((file,index) => '<li><span><strong>' + escapeHtml(file.name) + '</strong><small>Customer PO · Owned by Intake</small><small>' + (file.binaryStatus === 'VERIFIED' ? 'Verified copy' : 'Copy verified when saved') + '</small><span data-intake-readability="'+index+'">' + renderReadability(file,index) + '</span></span><button type="button" data-intake-remove-file="'+index+'">Remove</button></li>').join('') + '</ul>';
-    return '<ul class="intake-file-list">' + state.technicalFiles.map((file, index) => '<li><span><strong>' +
-      escapeHtml(file.name) + '</strong><small>' + formatBytes(file.size) + '</small><label class="intake-file-identification">Initial identification<select data-intake-identification="' + index + '" aria-label="Initial identification for ' + escapeHtml(file.name) + '">' + Object.entries(initialDocumentTypes).map(([value,label]) => '<option value="' + value + '" ' + (value === (file.initialIdentification?.type || 'UNKNOWN') ? 'selected' : '') + '>' + label + '</option>').join('') + '</select></label>' + (file.initialIdentification?.type === 'OTHER' ? '<label class="intake-file-identification">Describe this file<input data-intake-identification-description="' + index + '" value="' + escapeHtml(file.initialIdentification.otherDescription || '') + '" maxlength="200"></label>' : '') + '<small>Preliminary — Technical Review will validate.</small><span data-intake-readability="' + index + '">' + renderReadability(file, index) + '</span></span><button type="button" data-intake-remove-file="' +
-      index + '">Remove</button></li>').join("") + '</ul>';
+    return '<ul class="intake-file-list intake-file-list-compact">' + state.technicalFiles.map((file, index) => '<li><div class="intake-file-main"><div class="intake-file-heading"><strong title="'+escapeHtml(file.name)+'">'+escapeHtml(file.name)+'</strong><small>'+formatBytes(file.size)+'</small><button type="button" data-intake-remove-file="'+index+'" aria-label="Remove '+escapeHtml(file.name)+'">Remove</button></div><div class="intake-file-fields"><label class="intake-file-identification">Initial identification<select data-intake-identification="'+index+'" aria-label="Initial identification for '+escapeHtml(file.name)+'">'+Object.entries(initialDocumentTypes).map(([value,label])=>'<option value="'+value+'" '+(value===(file.initialIdentification?.type==='OTHER'&&file.initialIdentification.otherDescription==='Engineering / Test / Prototype'?'ENGINEERING_TEST_PROTOTYPE':(file.initialIdentification?.type||'UNKNOWN'))?'selected':'')+'>'+label+'</option>').join('')+'</select></label>'+renderProjectFile(file,index)+'</div>'+(file.initialIdentification?.type==='OTHER'&&file.initialIdentification.otherDescription!=='Engineering / Test / Prototype'?'<label class="intake-file-identification">Describe this file<input data-intake-identification-description="'+index+'" value="'+escapeHtml(file.initialIdentification.otherDescription||'')+'" maxlength="200"></label>':'')+'<span data-intake-readability="'+index+'">'+renderReadability(file,index)+'</span></div></li>').join('')+'</ul><small class="intake-file-preliminary">Identification is preliminary; Technical Review validates it.</small>';
   }
 
   function isPdf(file) { return /\.pdf$/i.test(file.name) || file.type === "application/pdf"; }
@@ -343,8 +419,9 @@
     const labels = { TEXT_READABLE: '✓ Text-readable', IMAGE_ONLY: '⚠ Scanned / image-only', MIXED: '⚠ Mixed', UNKNOWN: 'Unable to determine — Readability check unavailable' };
     const status = file.readability.status;
     const warning = status === 'IMAGE_ONLY' ? (state.intakeType === 'NEW_ORDER' ? 'This PO is image-only. Confirm its contents during Contract Review.' : 'This PDF appears to be image-only. Technical Review may have difficulty automatically reading BOM data.') : status === 'MIXED' ? 'Some pages may require image/OCR processing.' : '';
+    if(warning && file.readabilityAcknowledged===status)return '<details class="intake-readability-ack"><summary>Readability warning acknowledged</summary><small>'+escapeHtml(warning)+' Acknowledged for intake only; not document approval or successful extraction.</small><label>Replace File<input type="file" accept=".pdf,application/pdf" data-intake-replace-file="'+index+'" aria-label="Replace '+escapeHtml(file.name)+'"></label></details>';
     return '<small role="status">' + escapeHtml(labels[status] || labels.UNKNOWN) + '</small>' +
-      (warning ? '<small class="intake-readability-warning">' + warning + '</small><span class="intake-readability-actions"><button type="button" data-intake-action="continue">Continue Anyway</button><label>Replace File<input type="file" accept=".pdf,application/pdf" data-intake-replace-file="' + index + '" aria-label="Replace ' + escapeHtml(file.name) + '"></label></span>' : '');
+      (warning ? '<small class="intake-readability-warning">' + warning + '</small><span class="intake-readability-actions"><button type="button" data-intake-ack-readability="' + index + '">Continue Anyway</button><label>Replace File<input type="file" accept=".pdf,application/pdf" data-intake-replace-file="' + index + '" aria-label="Replace ' + escapeHtml(file.name) + '"></label></span>' : '');
   }
 
   async function checkReadability(file) {
@@ -371,6 +448,7 @@
 
   function renderAnswers() {
     if (state.intakeType === "NEW_ORDER") return renderNewOrderAnswers();
+    if(projectMode())return '<p class="intake-answers-title">Assembly projects</p>'+state.assemblies.map(a=>'<button type="button" data-intake-edit="3"><span>Assembly .'+a.lineNumber+'</span><strong>'+escapeHtml(a.assemblyNumber||'Not entered')+'</strong></button>').join('')+'<button type="button" data-intake-edit="9">Review files</button>';
     const items = [];
     if (state.intakeType) items.push([0, "Intake", "New Quote Request"]);
     if (state.customer) items.push([1, "Customer", state.customer.customerName]);
@@ -398,6 +476,7 @@
   }
 
   function renderReview() {
+    if(projectMode())return renderProjectReview();
     const assembly = state.assemblies[0];
     return '<div class="intake-step-label">Final review</div><h2>RFQ Intake</h2>' +
       '<p class="intake-question-hint">Check the request before sending it to Technical Review.</p><dl class="intake-review">' +
@@ -458,6 +537,7 @@
     return '<div class="intake-complete-mark">✓</div><p class="intake-kicker">INTAKE PRESERVED</p><h2>Submitted for Technical Review</h2>' +
       '<p class="intake-question-hint">' + escapeHtml(committed?.intakeId || (state.intakeType === "NEW_ORDER" ? "New Order" : "RFQ Intake")) +
       ' is preserved in SIM structured state and is waiting for a trained reviewer. Review has not started.</p>' +
+      (committed?.assemblies?.length?'<ul>'+committed.assemblies.map(a=>'<li>'+escapeHtml((a.projectId?committed.intakeId+'.'+a.lineNumber:committed.intakeId)+' - '+a.assemblyNumber)+' <button type="button" class="intake-back" data-incoming-intake="'+escapeHtml(committed.intakeId)+'" data-incoming-line="'+a.lineNumber+'">Incoming package</button></li>').join('')+'</ul>':'') +
       (committed?.documentPreservationState === 'BINARIES_VERIFIED_SIM' ? '<p class="intake-question-hint">Your technical files are saved and verified in SIM. Technical Review can reopen these copies without access to the original files or folders.</p>' : '') + '<div class="intake-handoff"><strong>Next step</strong><span>Technical Review — RFQ Review</span></div>' +
       '<div class="intake-complete-actions"><button type="button" data-intake-action="done" class="intake-primary">Done</button>' +
       '<button type="button" data-intake-action="restart" class="intake-back">Start Another Intake</button></div>';
@@ -498,6 +578,7 @@
   }
 
   function goBack() {
+    if(projectMode()){const current=steps()[state.currentStep];state.currentStep=current==='technical-files'?3:current==='requirements'&&!state.technicalFilesProvided?8:Math.max(0,state.currentStep-1);render();return;}
     if (state.intakeType === 'NEW_ORDER') {
       const step=steps()[state.currentStep],form=root.querySelector('[data-order-form="facts"]');
       if(form) {try{captureOrderFacts(form);}catch(e){showInlineError(e.message);return;}}
@@ -534,10 +615,20 @@
 
   function handleClick(event) {
     if (state.submit.status === "saving") return;
+    const incoming=event.target.closest('[data-incoming-intake]');if(incoming){void (async()=>{try{if(!window.DleIncomingPackage){if(!window.DleIncomingPackageLoading)window.DleIncomingPackageLoading=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='SRC/workspaces/assembly-library/incoming-package.js';script.onload=resolve;script.onerror=()=>{window.DleIncomingPackageLoading=null;reject(Error('Incoming package could not load.'));};document.head.append(script);});await window.DleIncomingPackageLoading;}await window.DleIncomingPackage.open({module:'intake',intakeId:incoming.dataset.incomingIntake,lineNumber:Number(incoming.dataset.incomingLine),host:root},incoming);}catch(e){const p=document.createElement('p');p.textContent=e.message;root.querySelector('#intakeConversation').append(p);}})();return;}
+
+    const ack=event.target.closest('[data-intake-ack-readability]');
+    if(ack){event.preventDefault();event.stopPropagation();const index=Number(ack.dataset.intakeAckReadability),file=state.technicalFiles[index];if(file&&['IMAGE_ONLY','MIXED'].includes(file.readability?.status)){file.readabilityAcknowledged=file.readability.status;const region=root.querySelector('[data-intake-readability="'+index+'"]');if(region){region.innerHTML=renderReadability(file,index);region.querySelector('summary')?.focus({preventScroll:true});}}return;}
+    if(event.target.closest('[data-save-quote-draft]')){void saveQuoteDraft();return;}
+    if(event.target.closest('[data-resume-quote-draft]')){resumeQuoteDraft();return;}
+    if(projectClick(event))return;
     const orderAction = event.target.closest('[data-order-action]');
     if (orderAction) { void orderActionClick(orderAction); return; }
     const selected = event.target.closest("[data-intake-choice]");
     if (selected) return selectChoice(selected.dataset.intakeChoice, selected.dataset.intakeValue);
+    if (event.target.closest("[data-open-customers]")) { openCustomerDirectory(); return; }
+    const customerPage = event.target.closest("[data-customer-page]");
+    if (customerPage) { void searchCustomers(Number(customerPage.dataset.customerPage)); return; }
     const customer = event.target.closest("[data-intake-customer]");
     if (customer) return selectCustomer(customer.dataset.intakeCustomer);
     const edit = event.target.closest("[data-intake-edit]");
@@ -553,6 +644,7 @@
   }
 
   function handleInput(event) {
+    if(projectInput(event))return;
     const factForm=event.target.closest?.('[data-order-form="facts"]');
     if(factForm){state.order.poFactsConfirmed=false;const difference=root.querySelector('[data-quote-differences]');if(difference)difference.textContent=quoteDifferenceText(factForm);}
 
@@ -573,6 +665,7 @@
       return;
     }
     if (!event.target.matches("[data-intake-customer-search]")) return;
+    ++customerSearchSequence;
     state.customerSearch.query = event.target.value;
     state.customerSearch.status = "loading";
     updateCustomerResults();
@@ -581,6 +674,7 @@
   }
 
   function handleChange(event) {
+    if(projectInput(event)||projectFilesChange(event))return;
     if(event.target.matches('[data-intake-due-picker]')) {
       const input=root.querySelector('[data-intake-due-date]');
       if(input) { input.value=displayIntakeDueDate(event.target.value); input.setCustomValidity(''); input.focus(); }
@@ -610,7 +704,9 @@
     if (event.target.matches('[data-intake-identification]')) {
       const file = state.technicalFiles[Number(event.target.dataset.intakeIdentification)];
       if (file && initialDocumentTypes[event.target.value]) {
-        file.initialIdentification = {type:event.target.value, otherDescription:null};
+        file.initialIdentification = event.target.value === 'ENGINEERING_TEST_PROTOTYPE'
+          ? {type:'OTHER', otherDescription:'Engineering / Test / Prototype'}
+          : {type:event.target.value, otherDescription:null};
         render();
       }
       return;
@@ -703,6 +799,7 @@
       next();
       return;
     }
+    if(event.target.matches('[data-project-form]')){event.preventDefault();const error=projectError();if(error)return showInlineError(error);state.deLeonScope='MATERIAL_AND_LABOR';state.currentStep=QUOTE_STEPS.indexOf('technical-files');render();return;}
     const form = event.target.closest("[data-intake-form]");
     if (!form) return;
     event.preventDefault();
@@ -710,7 +807,8 @@
     const field = form.dataset.intakeForm;
     if (field === "assembly-count") {
       const count = Number(value);
-      if (!Number.isInteger(count) || count !== 1) return showInlineError("Phase 1 supports one assembly per intake.");
+      if (!Number.isInteger(count) || count < 1 || count>100) return showInlineError("Enter 1 to 100 distinct assemblies.");
+      if(count>1||projectMode()){try{ensureProjects(count);}catch(e){return showInlineError(e.message);}}
       state.assemblyCount = count;
     }
     if (field === "assembly-number") {
@@ -772,6 +870,7 @@
     }
     if (field === "scope") state.deLeonScope = value;
     if (field === "technical-files") {
+      if(projectMode()&&value!=="yes"&&state.technicalFiles.length)return showInlineError("Remove files explicitly before choosing No. Your files and associations are retained.");
       state.technicalFilesProvided = value === "yes";
       if (!state.technicalFilesProvided && state.technicalFiles.some(file => file.documentId)) { state.technicalFilesProvided = true; return showInlineError("Remove staged files individually before changing this answer."); }
       if (!state.technicalFilesProvided) state.technicalFiles = [];
@@ -803,15 +902,24 @@
     if (steps()[state.currentStep] === "customer" && !state.order.entry) searchCustomers();
   }
 
-  async function searchCustomers() {
+  let customerSearchSequence = 0;
+  async function searchCustomers(page = 1) {
+    const sequence = ++customerSearchSequence;
+    if (!state.customerSearch.query.trim()) {
+      state.customerSearch.results = []; state.customerSearch.status = "idle";
+      updateCustomerResults(); return;
+    }
     state.customerSearch.status = "loading";
     updateCustomerResults();
     try {
-      const response = await window.DleApiClient.searchCanonicalCustomers(state.customerSearch.query, { page: 1, pageSize: 25 });
+      const response = await window.DleApiClient.searchCanonicalCustomers(state.customerSearch.query, { page, pageSize: 25 });
+      if (sequence !== customerSearchSequence) return;
+      Object.assign(state.customerSearch, {page: response.page || page, totalPages: response.totalPages, totalItems: response.totalItems, hasMore: response.hasMore});
       state.customerSearch.results = Array.isArray(response.items) ? response.items : [];
       state.customerSearch.status = state.customerSearch.results.length ? "ready" : "empty";
       state.customerSearch.message = state.customerSearch.results.length ? "" : "No matching existing customer found.";
     } catch (error) {
+      if (sequence !== customerSearchSequence) return;
       state.customerSearch.status = "error";
       state.customerSearch.message = "Customer search could not be completed in SIM.";
     }
@@ -820,19 +928,26 @@
 
   function updateCustomerResults() {
     if (steps()[state.currentStep] !== "customer" || state.order.entry) return;
-    root.querySelectorAll(".intake-search-status, .intake-customer-result").forEach(item => item.remove());
-    root.querySelector(".intake-answer-control")?.insertAdjacentHTML("beforeend", renderCustomerResults());
+    const matches = root.querySelector('#intakeCustomerMatches');
+    if (matches) matches.innerHTML = renderCustomerResults();
   }
 
   function selectCustomer(customerNumber) {
     const customer = state.customerSearch.results.find(item => item.customerNumber === customerNumber);
     if (!customer) return;
+    selectCustomerRecord(customer);
+  }
+  function selectCustomerRecord(customer) {
+    ++customerSearchSequence;
+    window.clearTimeout(searchTimer);
     state.customer = { customerId: customer.customerId, customerNumber: customer.customerNumber,
-      customerName: customer.customerName, resolutionSource: "sim-canonical-customer-directory" };
+      customerName: customer.customerName, resolutionSource: "sim-canonical-customer-directory",
+      ...(customer.synthetic === false ? {referenceVersion:customer.referenceVersion,sourcePackageId:customer.sourcePackageId} : {}) };
     next();
   }
 
   async function continueFromFiles() {
+    if(projectFileError())return showInlineError(projectFileError());
     if (!state.technicalFiles.length) return showInlineError(state.intakeType === "NEW_ORDER" ?
       "Attach the customer PO before continuing." : "Choose at least one customer technical file.");
     if (state.intakeType === "NEW_ORDER") {
@@ -863,6 +978,7 @@
 
   async function submitIntake() {
     if (state.intakeType === "NEW_ORDER") return saveOrder(true);
+    if(projectMode()&&(projectError()||projectFileError()))return showInlineError(projectError()||projectFileError());
     state.submit = { status: "saving", message: "" };
     render();
     const requestCorrelationId = state.requestCorrelationId ||= window.crypto?.randomUUID?.() || "00000000-0000-4000-8000-" + String(Date.now()).padStart(12, "0").slice(-12);
@@ -892,6 +1008,7 @@
       if (!response.ok) throw new Error(body?.message || "SIM could not preserve this intake.");
       committed = body.record;
       state.status = "COMPLETE";
+      await clearSubmittedDraft();
       state.submit = { status: "complete", message: "" };
       document.dispatchEvent(new CustomEvent("dle:rfq-intake-handoff", { detail: { intake: snapshot() } }));
     } catch (error) {
@@ -923,7 +1040,7 @@
       '<button type="button" class="intake-choice" data-order-action="list-drafts"><span>Resume Order in Progress</span></button>', 'Start a new order or continue a saved draft.');
     return question('Resume Order in Progress', '<p role="status">'+escapeHtml(o.message)+'</p>' +
       (o.drafts || []).map(d => '<article class="intake-order-draft"><strong>'+escapeHtml(d.customer.customerName)+'</strong><dl class="intake-review">' +
-        [['Intake',d.intakeId],['Customer PO',d.poNumber],['Quote',d.quoteNumber || 'Not selected'],['Assembly / Rev',[d.assembly,d.revision].filter(Boolean).join(' / ') || 'Not entered'],['Last saved',d.lastSavedAt ? new Date(d.lastSavedAt).toLocaleString() : 'Not recorded'],['Progress',orderStepLabel(savedOrderStep(d)) + (d.poAttached ? ' · PO attached' : '')]].map(([k,v])=>'<div><dt>'+escapeHtml(k)+'</dt><dd>'+escapeHtml(v)+'</dd></div>').join('') +
+        [['Intake',d.intakeId],['Customer PO',d.poNumber],['Quote',d.quoteNumber || 'Not selected'],['Assembly / Rev',[d.assembly,d.revision].filter(Boolean).join(' / ') || 'Not entered'],['Last saved',d.lastSavedAt ? (window.DleDateFormat?.dateTime(d.lastSavedAt,{seconds:true})??new Date(d.lastSavedAt).toLocaleString()) : 'Not recorded'],['Progress',orderStepLabel(savedOrderStep(d)) + (d.poAttached ? ' · PO attached' : '')]].map(([k,v])=>'<div><dt>'+escapeHtml(k)+'</dt><dd>'+escapeHtml(v)+'</dd></div>').join('') +
         '</dl><button type="button" class="intake-primary" data-order-action="resume-draft" data-id="'+escapeHtml(d.intakeId)+'">Resume</button></article>').join('') +
       '<button type="button" class="intake-back" data-order-action="list-drafts">Refresh drafts</button><button type="button" class="intake-back" data-order-action="entry-choice">Back to Start / Resume</button>', 'Saved drafts are stored in SIM. Resuming does not submit the order.');
   }
@@ -999,15 +1116,14 @@
     return match ? match[2] + '/' + match[3] + '/' + match[1] : (value || '');
   }
   function displayIntakeDueDate(iso) {
-    const full=displayOrderDate(iso);
-    return /^20\d{2}-\d{2}-\d{2}$/.test(iso || '') ? full.slice(0,6)+full.slice(8) : full;
+    return displayOrderDate(iso);
   }
   function parseIntakeDueDate(value) {
     const text=(value || '').trim();
     if (!text) return null;
     const short=/^(\d{2}\/\d{2}\/)(\d{2})$/.exec(text);
     try { return parseManualDate(short ? short[1]+'20'+short[2] : text); }
-    catch { throw new Error('Enter a valid due date as MM/DD/YY, or choose a date from the calendar.'); }
+    catch { throw new Error('Enter a valid due date as MM/DD/YYYY, or choose a date from the calendar.'); }
   }
   function setOrderDueDate(date) {
     const o=state.order, previous=o.facts.lines[0].customerDueDate || null;
@@ -1020,10 +1136,10 @@
     const f=state.order.facts, date=f.lines[0].customerDueDate || '';
     const retained=f.requestedDelivery && f.requestedDelivery!==date;
     return '<div class="intake-po-delivery-group"><label for="intakeDueDate">Due date</label><div class="intake-due-entry">'+
-      '<input id="intakeDueDate" name="customerDueDate" data-intake-due-date value="'+escapeHtml(displayIntakeDueDate(date))+'" placeholder="MM/DD/YY" inputmode="numeric" aria-describedby="poDueFormat" required>'+
+      '<input id="intakeDueDate" name="customerDueDate" data-intake-due-date value="'+escapeHtml(displayIntakeDueDate(date))+'" placeholder="MM/DD/YYYY" inputmode="numeric" aria-describedby="poDueFormat" required>'+
       '<button type="button" class="intake-back" data-order-action="pick-due-date" aria-label="Choose due date from calendar">Calendar</button>'+
       '<input type="date" class="intake-due-picker" data-intake-due-picker aria-label="Due date calendar" tabindex="-1" value="'+escapeHtml(date)+'"></div>'+
-      '<small class="intake-po-help" id="poDueFormat">MM/DD/YY (20YY), or choose from the calendar.</small>'+
+      '<small class="intake-po-help" id="poDueFormat">MM/DD/YYYY, or choose from the calendar.</small>'+
       (retained?'<details class="intake-retained-delivery"><summary>Retained delivery text</summary><p>'+escapeHtml(f.requestedDelivery)+'</p><small>This text is preserved. It has not been converted into a due date.</small></details>':'')+'</div>';
   }
   function validManualPoDate(value) {
@@ -1426,9 +1542,65 @@
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character]));
   }
+  function projectMode(){return state.intakeType==='NEW_QUOTE_REQUEST'&&state.assemblies.some(a=>a.projectId);}
+  function ensureProjects(count){
+    if(count<state.assemblies.length)throw Error('Use Remove assembly on the assembly list. Existing entries and file links were retained.');
+    for(const a of state.assemblies){a.projectId ||= crypto.randomUUID();a.scope ??= state.deLeonScope||'';}
+    while(state.assemblies.length<count){const n=state.nextProjectSequence||Math.max(0,...state.assemblies.map(a=>a.lineNumber))+1;state.nextProjectSequence=n+1;state.assemblies.push({projectId:crypto.randomUUID(),lineNumber:n,assemblyNumber:'',revision:'',quantity:null,scope:''});}
+    state.assemblyCount=state.assemblies.length;
+  }
+  function renderProjects(){
+    const input=(a,name,label,type='text')=>'<label>'+label+'<input data-project-field="'+name+'" data-project-id="'+a.projectId+'" type="'+type+'" value="'+escapeHtml(a[name]??'')+'" '+(type==='number'?'min="1" step="1"':'maxlength="120"')+'></label>';
+    return question('Enter each assembly project', '<form data-project-form>'+state.assemblies.map((a,i)=>'<fieldset style="margin:.75rem 0;padding:.7rem;border:1px solid #8798a8"><legend>Assembly .'+a.lineNumber+'</legend><div style="display:flex;flex-wrap:wrap;gap:.6rem">'+input(a,'assemblyNumber','Assembly number')+input(a,'revision','Revision')+input(a,'quantity','Quantity','number')+'<label>Scope<select data-project-field="scope" data-project-id="'+a.projectId+'"><option value="">Select scope</option>'+['MATERIAL_AND_LABOR','MATERIAL_ONLY','LABOR_ONLY'].map(s=>'<option value="'+s+'" '+(a.scope===s?'selected':'')+'>'+scopeLabel(s)+'</option>').join('')+'</select></label></div><div style="display:flex;gap:.5rem;margin-top:.5rem"><button type="button" data-project-move="'+a.projectId+'" data-direction="-1" '+(!i?'disabled':'')+'>Move up</button><button type="button" data-project-move="'+a.projectId+'" data-direction="1" '+(i===state.assemblies.length-1?'disabled':'')+'>Move down</button><button type="button" data-project-remove="'+a.projectId+'">Remove assembly</button></div></fieldset>').join('')+'<button type="button" data-project-add>Add assembly</button><button class="intake-primary" type="submit">Continue</button></form>', 'Projects keep their suffix when reordered. Each has separate review and preparation; the customer request keeps them correlated.');
+  }
+  function projectFileSummary(f){return f.sharedAcrossProjects===true?'All assemblies (shared)':state.assemblies.filter(a=>f.assemblyProjectIds?.includes(a.projectId)).map(a=>'.'+a.lineNumber+' '+a.assemblyNumber).join(', ')||'Select assemblies';}
+  function renderProjectFile(f,i){
+    if(!projectMode())return '';
+    return '<div class="intake-file-assignment"><span>Applies to</span><details data-project-picker="'+i+'"><summary title="'+escapeHtml(projectFileSummary(f))+'" aria-label="Applies to assemblies for '+escapeHtml(f.name)+'">'+escapeHtml(projectFileSummary(f))+'</summary><div class="intake-project-options"><label><input type="checkbox" data-project-file="'+i+'" data-project-shared '+(f.sharedAcrossProjects===true?'checked':'')+'>All assemblies (shared)</label>'+state.assemblies.map(a=>'<label><input type="checkbox" data-project-file="'+i+'" data-project-target="'+a.projectId+'" '+(f.assemblyProjectIds?.includes(a.projectId)?'checked':'')+' '+(f.sharedAcrossProjects===true?'disabled':'')+'><span>.'+a.lineNumber+' '+escapeHtml(a.assemblyNumber)+'</span></label>').join('')+'</div></details></div>';
+  }
+  function projectFileError(){return projectMode()&&state.technicalFiles.some(f=>f.sharedAcrossProjects!==true&&(!f.assemblyProjectIds?.length||f.assemblyProjectIds.some(id=>!state.assemblies.some(a=>a.projectId===id))))?'Choose all assemblies or specific assemblies for every file.':'';}
+  function projectError(){return state.assemblies.some(a=>!a.assemblyNumber.trim()||!a.revision.trim()||!Number.isInteger(a.quantity)||a.quantity<1||!['MATERIAL_AND_LABOR','MATERIAL_ONLY','LABOR_ONLY'].includes(a.scope))?'Complete number, revision, quantity and scope for every assembly.':'';}
+  function projectClick(event){
+    const add=event.target.closest('[data-project-add]'),move=event.target.closest('[data-project-move]'),remove=event.target.closest('[data-project-remove]');
+    if(!add&&!move&&!remove)return false;
+    if(add){if(state.assemblies.length>=100){showInlineError('Up to 100 assemblies per request.');return true;}ensureProjects(state.assemblies.length+1);}
+    if(move){const i=state.assemblies.findIndex(a=>a.projectId===move.dataset.projectMove),j=i+Number(move.dataset.direction);if(i>=0&&j>=0&&j<state.assemblies.length)[state.assemblies[i],state.assemblies[j]]=[state.assemblies[j],state.assemblies[i]];}
+    if(remove){const id=remove.dataset.projectRemove;if(state.assemblies.length===1){showInlineError('Keep at least one assembly.');return true;}if(state.technicalFiles.some(f=>f.assemblyProjectIds?.includes(id))){showInlineError('Reassign this assembly’s files before removing it. Nothing removed.');return true;}if(!confirm('Remove this assembly entry? Other assemblies and shared files are retained.'))return true;state.assemblies=state.assemblies.filter(a=>a.projectId!==id);state.assemblyCount=state.assemblies.length;}
+    render();return true;
+  }
+  function projectInput(event){const node=event.target.closest('[data-project-field]');if(!node)return false;const a=state.assemblies.find(a=>a.projectId===node.dataset.projectId);if(a)a[node.dataset.projectField]=node.dataset.projectField==='quantity'?(node.value===''?null:Number(node.value)):node.value;return true;}
+  function projectFilesChange(event){const node=event.target.closest('[data-project-file]');if(!node)return false;const file=state.technicalFiles[Number(node.dataset.projectFile)];if(!file)return true;if(node.hasAttribute('data-project-shared')){file.sharedAcrossProjects=node.checked;file.assemblyProjectIds=[];}else{file.sharedAcrossProjects=false;const ids=new Set(file.assemblyProjectIds||[]);node.checked?ids.add(node.dataset.projectTarget):ids.delete(node.dataset.projectTarget);file.assemblyProjectIds=[...ids];}const picker=node.closest('[data-project-picker]');if(picker){const summary=picker.querySelector('summary');summary.textContent=projectFileSummary(file);summary.title=summary.textContent;picker.querySelector('[data-project-shared]').checked=file.sharedAcrossProjects===true;picker.querySelectorAll('[data-project-target]').forEach(n=>{n.disabled=file.sharedAcrossProjects===true;n.checked=file.assemblyProjectIds.includes(n.dataset.projectTarget);});}return true;}
+  function renderProjectReview(){
+    const identification=f=>{const v=f.initialIdentification;return v?.type==='OTHER'?(v.otherDescription||'Other'):(initialDocumentTypes[v?.type]||'Unknown / Not Determined');};
+    const groups=state.assemblies.map(a=>{const files=state.technicalFiles.filter(f=>f.sharedAcrossProjects===true||f.assemblyProjectIds?.includes(a.projectId));return '<tbody>'+ (files.length?files:[null]).map((f,i)=>'<tr>'+(i===0?'<th scope="rowgroup" rowspan="'+Math.max(1,files.length)+'">'+escapeHtml(a.assemblyNumber)+'</th><td rowspan="'+Math.max(1,files.length)+'">'+escapeHtml(a.revision)+'</td><td rowspan="'+Math.max(1,files.length)+'">'+escapeHtml(a.quantity)+'</td>':'')+'<td class="intake-review-filename">'+(f?escapeHtml(f.name)+(f.sharedAcrossProjects===true?'<small>Shared with all assemblies</small>':''):'<strong class="intake-review-missing">No files assigned</strong>')+'</td><td>'+ (f?escapeHtml(identification(f)):'—')+'</td></tr>').join('')+'</tbody>';}).join('');
+    const unassigned=state.technicalFiles.filter(f=>f.sharedAcrossProjects!==true&&!f.assemblyProjectIds?.length);
+    return '<h2>Review assembly projects</h2><p>'+escapeHtml(state.customer?.customerName)+'</p><div class="intake-review-table-wrap" role="region" aria-label="Assembly and file review" tabindex="0"><table class="intake-review-table"><caption>Check each assembly and its files before submitting.</caption><thead><tr><th scope="col">Assembly No.</th><th scope="col">Revision</th><th scope="col">Qty</th><th scope="col">Linked files</th><th scope="col">File identification</th></tr></thead>'+groups+'</table></div>'+(unassigned.length?'<p class="intake-review-missing" role="alert">Assign these files before submitting: '+unassigned.map(f=>escapeHtml(f.name)).join(', ')+'</p>':'')+'<p class="intake-review-help">File identification is preliminary. Technical Review will validate it.</p><div class="intake-review-edit"><button type="button" data-intake-edit="3">Edit assemblies</button><button type="button" data-intake-edit="9">Edit files / assignments</button></div>'+(state.submit.message?'<p role="alert">'+escapeHtml(state.submit.message)+'</p>':'')+'<button type="button" class="intake-primary" data-intake-action="submit" '+(state.submit.status==='saving'?'disabled':'')+'>Submit for Technical Review</button>';
+  }
+
+  let quoteDraftCandidate=null, quoteDraftRevision=0, quoteDraftBusy=false;
+  function quoteDraftKey(){const name=window.DleOsSession?.user?.userName;if(!name)throw Error('Sign in before saving a browser draft.');return 'quote:'+name;}
+  async function draftDb(){return new Promise((resolve,reject)=>{const q=indexedDB.open('dle-sim-intake-drafts-v1',1);q.onupgradeneeded=()=>q.result.createObjectStore('drafts');q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(Error('Browser draft storage unavailable. Keep this tab open.'));});}
+  async function readQuoteDraft(){let db;try{db=await draftDb();const record=await new Promise((resolve,reject)=>{const q=db.transaction('drafts').objectStore('drafts').get(quoteDraftKey());q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});quoteDraftCandidate=record||null;if(root?.isConnected&&state.currentStep===0)render();}catch{}finally{db?.close();}}
+  async function saveQuoteDraft(){
+    if(quoteDraftBusy||state.submit.status==='saving')return;quoteDraftBusy=true;
+    let db;try{
+      state.requestCorrelationId ||= crypto.randomUUID();const copy=structuredClone(state);copy.submit={status:'idle',message:''};
+      const form=root.querySelector('[data-intake-form]');copy.pendingForm=form?{field:form.dataset.intakeForm,value:form.querySelector('[data-intake-value-input]')?.value}:null;
+      db=await draftDb();const key=quoteDraftKey();let saved;
+      await new Promise((resolve,reject)=>{const tx=db.transaction('drafts','readwrite'),store=tx.objectStore('drafts'),get=store.get(key);get.onsuccess=()=>{const old=get.result;if(old&&(old.state.requestCorrelationId!==state.requestCorrelationId||old.revision!==quoteDraftRevision)){tx.abort();return;}saved={state:copy,revision:quoteDraftRevision+1,savedAt:new Date().toISOString()};store.put(saved,key);};tx.oncomplete=resolve;tx.onerror=()=>reject(Error('Browser draft could not save. Keep this tab open.'));tx.onabort=()=>reject(Error('Another saved draft exists or changed. Resume it before overwriting. Your open edits remain here.'));});
+      quoteDraftRevision=saved.revision;quoteDraftCandidate=saved;showInlineError('Draft saved in this browser, including selected files. It has not been submitted.');
+    }catch(e){showInlineError(e.message);}finally{db?.close();quoteDraftBusy=false;}
+  }
+  function resumeQuoteDraft(){if(!quoteDraftCandidate)return;state=structuredClone(quoteDraftCandidate.state);quoteDraftRevision=quoteDraftCandidate.revision;state.submit={status:'idle',message:''};render();const pending=state.pendingForm;if(pending){const f=root.querySelector('[data-intake-form="'+pending.field+'"] [data-intake-value-input]');if(f)f.value=pending.value;} }
+  async function clearSubmittedDraft(){let db;try{db=await draftDb();await new Promise((resolve,reject)=>{const tx=db.transaction('drafts','readwrite'),store=tx.objectStore('drafts'),q=store.get(quoteDraftKey());q.onsuccess=()=>{if(q.result?.state.requestCorrelationId===state.requestCorrelationId)store.delete(quoteDraftKey());};tx.oncomplete=resolve;tx.onerror=reject;});quoteDraftCandidate=null;quoteDraftRevision=0;}catch{}finally{db?.close();}}
+
   function snapshot() { return committed ? JSON.parse(JSON.stringify(committed)) : null; }
 
   document.addEventListener?.("dle:view-mode-change", syncProgressPlacement);
+  function closeAssemblyPickersOutside(target){root?.querySelectorAll('[data-project-picker][open]').forEach(p=>{if(!p.contains(target))p.open=false;});}
+  document.addEventListener('click',event=>closeAssemblyPickersOutside(event.target));
+  document.addEventListener('keyup',event=>{if(event.key==='Tab')closeAssemblyPickersOutside(document.activeElement);});
+  document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;const picker=event.target.closest?.('[data-project-picker][open]');if(picker){picker.open=false;picker.querySelector('summary')?.focus({preventScroll:true});event.preventDefault();}});
   window.DleIntakeWizard = Object.freeze({ mount, getCommittedIntake: snapshot });
 })(window, document);
 

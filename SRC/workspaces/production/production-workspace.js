@@ -24,15 +24,17 @@
     model: null,
     rowsByKey: new Map(),
     loadError: "",
-    selectedQueue: "ALL",
+    selectedQueue: "ALL", directSlides: false,
     packages: new Map(), packageErrors: new Map(), selectedWo: "", package: null,
     panel: "overview", editing: false, dirty: false, busy: false, detailRequest: 0, message: "",
     woEditing: false, revisionReview: false, revisionOrder: [], revisionReason: "", clarifications: [], substeps: [], travelerVisuals: [], operationContent: [], inputPanel: null, inspectedRevision: null, drag: null
   };
 
+  const canViewProduction = () => !window.DleOsCapabilities || window.DleOsCapabilities.can?.("kitting.view") === true;
   async function renderProductionWorkspace() {
     const mount = ensureMount();
     if (!mount) return;
+    if (!canViewProduction()) { mount.textContent="Your role cannot view Production jobs."; return; }
     if (mount.dataset.workspaceLoaded !== "true") {
       mount.innerHTML = '<div class="workspace-dashboard-card"><h3>Loading Production Workspace</h3><p>Preparing governed job queues...</p></div>';
       try {
@@ -135,6 +137,7 @@
   }
 
   async function refreshProductionWorkspace(options = {}) {
+    if (!canViewProduction()) return null;
     if (state.loading) return state.model;
     state.loading = true;
     state.loadError = "";
@@ -149,9 +152,9 @@
       if (!state.model?.queues) throw new Error("The governed Kitting read model returned no queues.");
       // Enrich existing canonical queue rows. Missing governed lineage remains visible and cannot imply readiness.
       state.packages.clear(); state.packageErrors.clear();
-      const workOrders = [...new Set([...(state.model.queues.kitComplete || []), ...(state.model.queues.kitShort || [])].map(row => row.workOrderNumber).filter(Boolean))];
+      const workOrders = [...new Set(["needsKitting","kittingInProgress","needsRekit","kitComplete","kitShort"].flatMap(key=>list(state.model.queues[key])).map(row => row.workOrderNumber).filter(Boolean))];
       await Promise.all(workOrders.map(async wo => {
-        try { state.packages.set(wo, await request(wo)); }
+        try { const packet=await request(wo);if(packet.workOrderNumber!==wo)throw Error("The returned packet does not match this Work Order.");state.packages.set(wo, packet); }
         catch (error) { state.packageErrors.set(wo, error.message); }
       }));
       renderQueues();
@@ -171,11 +174,8 @@
 
   function buildViewModel(model, searchTerm = "") {
     const queues = model?.queues || {};
-    return Object.freeze({
-      all: Object.freeze(filterRows([...new Map([...(queues.kitComplete || []), ...(queues.kitShort || [])].map(row => [row.workOrderNumber, row])).values()], searchTerm)),
-      kitComplete: Object.freeze(filterRows(queues.kitComplete, searchTerm)),
-      kitShort: Object.freeze(filterRows(queues.kitShort, searchTerm))
-    });
+    const rows=[...new Map(["needsKitting","kittingInProgress","needsRekit","kitComplete","kitShort"].flatMap(key=>list(queues[key]).map(row=>({...row,materialStatus:row.materialStatus||({needsKitting:"NEEDS_KITTING",kittingInProgress:"KITTING_IN_PROGRESS",needsRekit:"NEEDS_REKIT",kitComplete:"KIT_COMPLETE",kitShort:"KIT_SHORT"})[key]}))).filter(row=>row.workOrderNumber&&row.canonicalWorkOrder).map(row=>[row.workOrderNumber,{...row,materialStatus:state.packages.get(row.workOrderNumber)?.materialStatus||row.materialStatus}])).values()].sort((a,b)=>cleanText(a.earliestDueDate).localeCompare(cleanText(b.earliestDueDate))||cleanText(a.workOrderNumber).localeCompare(cleanText(b.workOrderNumber)));
+    return Object.freeze({all:Object.freeze(filterRows(rows,searchTerm)),kitComplete:Object.freeze(filterRows(rows.filter(r=>r.materialStatus==='KIT_COMPLETE'),searchTerm)),kitShort:Object.freeze(filterRows(rows.filter(r=>r.materialStatus==='KIT_SHORT'),searchTerm))});
   }
 
   function filterRows(rows, searchTerm) {
@@ -202,7 +202,7 @@
     if (!state.model) return;
     const search = document.getElementById("productionWorkspaceSearch")?.value || "";
     const view = buildViewModel(state.model, search);
-    state.rowsByKey = new Map([...view.kitComplete, ...view.kitShort]
+    state.rowsByKey = new Map(view.all
       .map(row => [cleanText(row.queueKey), row]));
     setText("productionKitCompleteCount", view.kitComplete.length);
     setText("productionKitShortCount", view.kitShort.length);
@@ -260,14 +260,42 @@
   }
 
   async function openWorkOrder(row) {
-    if (!row?.actionable || !row.workOrderNumber || !row.canonicalWorkOrder) return false;
+    if (!canViewProduction() || !row?.actionable || !row.workOrderNumber || !row.canonicalWorkOrder) return false;
+    if(state.directSlides&&state.selectedWo===row.workOrderNumber)return false;
     if (!discardEdits()) return false;
+    state.directSlides=true;
     state.selectedWo = row.workOrderNumber; state.package = null; state.editing = false; state.woEditing = false; state.inspectedRevision = null; state.panel = "overview";
     window.DleWorkspaceShell?.setWorkspaceView?.(WORKSPACE_ID);
     await refreshDetail();
+    if(state.directSlides&&state.selectedWo===row.workOrderNumber&&state.package)await openReleasedSlides();
     return true;
   }
 
+  async function openReleasedSlides(){
+    const data=state.package,wo=state.selectedWo,token=state.detailRequest;
+    const current=()=>canViewProduction()&&state.directSlides&&state.selectedWo===wo&&state.detailRequest===token&&document.body.dataset.workspaceView==='production';
+    if(!data||!current())return false;
+    state.message='Opening released instructions…';renderManagement();
+    try{
+      const source=data.source||{};if(!source.acceptedIntakeId)throw Error('No accepted instruction source is available for this job.');
+      const response=await fetch('/api/sim/order-entry/'+encodeURIComponent(source.acceptedIntakeId),{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw Error('The accepted instruction source is unavailable.');const order=await response.json();
+      if(order.orderEntry?.acceptance?.id!==source.acceptanceId||order.orderEntry.acceptance.packageRevision!==source.acceptedRevision)throw Error('The accepted source changed. Return to jobs and refresh before opening slides.');
+      if(!current())return false;
+      if(!window.DleJobInstructions)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/SRC/workspaces/kitting/production-instruction-editor.js';script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('The slide viewer could not load.'));};document.head.append(script);});
+      if(!current())return false;
+      const opened=await window.DleJobInstructions.open({wo,job:{context:data.context},order,readOnly:true,productionView:true,startSmt:true,backLabel:'Back to jobs',isCurrent:current,onExit:()=>{
+        if(!current())return;state.directSlides=false;state.selectedWo='';state.package=null;state.message='';++state.detailRequest;renderManagement();renderQueues();
+        [...document.querySelectorAll('[data-production-queue-key]')].find(b=>state.rowsByKey.get(b.dataset.productionQueueKey)?.workOrderNumber===wo)?.focus();
+      },onViewerMount:(dialog,heading)=>{
+        const context=document.createElement('div');context.className='job-viewer-context';context.innerHTML=materialBadge(data.materialStatus)+'<span>Production: '+escapeHtml(humanStatus(data.productionStatus))+'</span>';heading.after(context);
+        dialog.addEventListener('cancel',event=>{event.preventDefault();dialog.querySelector('[data-back]')?.click();});
+      }});
+      if(opened===false)throw Error('Released slides are unavailable for this job.');
+      return true;
+    }catch(error){if(current()){state.message=error.message;renderManagement();}return false;}
+  }
+  document.addEventListener('dle:workspace-change',event=>{if(event.detail?.workspace?.id!=='production'&&state.directSlides){++state.detailRequest;state.directSlides=false;state.selectedWo='';state.package=null;}});
   const list = value => Array.isArray(value) ? value : [];
   const readableQuantity = value => value === null || value === undefined || value === "" ? "Not recorded" :
     Number.isFinite(Number(value)) ? Number(value).toLocaleString("en-US", { maximumFractionDigits: 20 }) : "Not recorded";
@@ -323,6 +351,7 @@
     try {
       const data = await request(state.selectedWo);
       if (token !== state.detailRequest) return;
+      if(data.workOrderNumber!==state.selectedWo)throw Error("The returned packet does not match this Work Order.");
       state.package = data; state.packages.set(state.selectedWo, data);
       state.message = ""; state.editing = false; state.woEditing = false; state.inspectedRevision = null; renderManagement(); renderQueues();
     } catch (error) { if (token === state.detailRequest) { state.message = error.message; renderManagement(); } }
@@ -338,6 +367,7 @@
     if (!state.selectedWo) return;
     const expanded = new Set(Array.from(target.querySelectorAll('details[data-wo-operation][open]')).map(el => el.dataset.woOperation));
     const disclosures = new Set(Array.from(target.querySelectorAll('details[data-operation-disclosure][open]')).map(el => el.dataset.operationDisclosure));
+    if(state.directSlides){target.innerHTML='<div class="production-detail-top">'+button('back','Back to jobs')+'<h2>WO '+escapeHtml(state.selectedWo)+'</h2></div><p role="status">'+escapeHtml(state.message||'Opening released instructions…')+'</p>'+(state.message&&state.package?button('released-slides','Retry released slides'):'');return;}
     target.innerHTML = renderManagementHtml(state.package);
     target.querySelectorAll('details[data-wo-operation]').forEach(el => { el.open = expanded.has(el.dataset.woOperation); });
     target.querySelectorAll('details[data-operation-disclosure]').forEach(el => { el.open = disclosures.has(el.dataset.operationDisclosure); });
@@ -964,7 +994,8 @@
     if (state.busy) return;
     if (action === "operation-preview") return openOperationPreview(element.dataset.operationId, element);
     if (action === "review-traveler") { state.panel="traveler"; renderManagement(); return; }
-    if (action === "back") { if (!discardEdits()) return; state.selectedWo = ""; state.editing = false; state.woEditing = false; state.inspectedRevision = null; ++state.detailRequest; renderManagement(); renderQueues(); return; }
+    if (action === "released-slides") return openReleasedSlides();
+    if (action === "back") { state.directSlides=false; if (!discardEdits()) return; state.selectedWo = ""; state.editing = false; state.woEditing = false; state.inspectedRevision = null; ++state.detailRequest; renderManagement(); renderQueues(); return; }
     if (action === "refresh-detail") return refreshDetail();
     if (action === "show-bom") { state.panel = "bom"; renderManagement(); return; }
     if (action === "cancel-edit") { if (!discardEdits()) return; state.editing = false; renderManagement(); return; }

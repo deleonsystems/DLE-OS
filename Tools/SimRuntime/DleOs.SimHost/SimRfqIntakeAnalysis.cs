@@ -62,6 +62,8 @@ internal sealed partial class SimRfqIntakeStore
             var dataset = await ReadDatasetAsync();
             var record = dataset.Records.SingleOrDefault(r => r.IntakeId == intakeId && IsTechnicalReviewRecord(r))
                 ?? throw SimRfqIntakeProblem.NotFound("ANALYSIS_REVIEW_MISSING", "Review not found.");
+            if (record.TechnicalReview?.CandidateBom?.ManualDraft is not null)
+                throw SimRfqIntakeProblem.Conflict("SIM_MANUAL_BOM_NO_ANALYSIS", "This BOM is manually authored. Automatic extraction cannot replace it.");
             var sources = await AnalysisDocuments(record, DleAnalysisContract.SourceSelectionVersion);
             await RequireTextBom(record);
             var standalone = sources.Any(s => s.Source.Profile?.DerivedAnalysisPurpose == "GOVERNING_BOM" && s.Source.DocumentType == "BOM");
