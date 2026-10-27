@@ -12,7 +12,7 @@
     },
     {
       "Path": "IdentityProbe.csproj",
-      "Sha256": "8E25EED5BF253533F3314C93C9CBD0E5465E6AA997652B047E11EB1E753BB946"
+      "Sha256": "0D53BAD67A7DA2AAFA7EA944C248195C47F7DC1ED563D279C9A4D90600A1F739"
     },
     {
       "Path": "NuGet.Config",
@@ -101,52 +101,12 @@
       "Sha256": "5E01894CBC0661BACB8CA8F485A40D5EE4E02F28FEF58007668A0276431B4693"
     },
     {
-      "Path": "NuGet.Config",
-      "Sha256": "3EB413F39FB8791745D58C6769618F9ADA15A480CACA042D72838817C4B7C359"
-    },
-    {
-      "Path": "package\\NuGet.Config",
-      "Sha256": "3EB413F39FB8791745D58C6769618F9ADA15A480CACA042D72838817C4B7C359"
-    },
-    {
-      "Path": "package\\package\\NuGet.Config",
-      "Sha256": "3EB413F39FB8791745D58C6769618F9ADA15A480CACA042D72838817C4B7C359"
-    },
-    {
-      "Path": "package\\package\\QuotingIdentityProbe.deps.json",
-      "Sha256": "173313B2B478CBF5F647FFE885B8DC6F8D7D7812913A8156766CDAE6F97201A8"
-    },
-    {
-      "Path": "package\\package\\QuotingIdentityProbe.runtimeconfig.json",
-      "Sha256": "2927E7D9A65748A82C4F265A0C9C1876A5EE233D9F5283881E0966E81CA94E14"
-    },
-    {
-      "Path": "package\\package\\web.config",
-      "Sha256": "15A5BBCB551B366A340E0F5C482FD4E367C9247B241BB7BB93B679045CDCC70B"
-    },
-    {
-      "Path": "package\\QuotingIdentityProbe.deps.json",
-      "Sha256": "173313B2B478CBF5F647FFE885B8DC6F8D7D7812913A8156766CDAE6F97201A8"
-    },
-    {
-      "Path": "package\\QuotingIdentityProbe.runtimeconfig.json",
-      "Sha256": "2927E7D9A65748A82C4F265A0C9C1876A5EE233D9F5283881E0966E81CA94E14"
-    },
-    {
-      "Path": "package\\web.config",
-      "Sha256": "15A5BBCB551B366A340E0F5C482FD4E367C9247B241BB7BB93B679045CDCC70B"
-    },
-    {
-      "Path": "probe-manifest.json",
-      "Sha256": "EFC8FBE0B132F337621454AD2AEBDE0D5BB67707E822CC40C651496EE4211F2F"
-    },
-    {
       "Path": "QuotingIdentityProbe.deps.json",
       "Sha256": "173313B2B478CBF5F647FFE885B8DC6F8D7D7812913A8156766CDAE6F97201A8"
     },
     {
       "Path": "QuotingIdentityProbe.dll",
-      "Sha256": "C812266B99340BCC1BA844588B358E53CACF2D9C35C838CB87728728EDCFEA05"
+      "Sha256": "882C568F2DA991A14726F0A807F371B830BF61F91EB11B58FF0CF23AE37D90BC"
     },
     {
       "Path": "QuotingIdentityProbe.exe",
@@ -154,7 +114,7 @@
     },
     {
       "Path": "QuotingIdentityProbe.pdb",
-      "Sha256": "154F07705F3D236C771A04F5BBD634241ABD4C7FEC8600B6FC1A11045B5A270E"
+      "Sha256": "153F4F845B7B21BA41CD991C0C4AB0F4242542EF86B13D5818AEAA44A70480A3"
     },
     {
       "Path": "QuotingIdentityProbe.runtimeconfig.json",

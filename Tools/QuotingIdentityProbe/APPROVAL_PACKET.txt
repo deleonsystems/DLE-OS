@@ -11,8 +11,8 @@ Source folder: C:\Users\Miguel\Documents\Codex\2026-10-26\task\scm-identity-prob
 SDK: 8.0.427; cached Microsoft.Extensions.Hosting.WindowsServices 8.0.1; no downloaded dependency. Build-Probe.ps1 builds only, with empty remote feeds. Source paths mapped for reproducible compilation. No self-installation or policy-changing code.
 Program.cs SHA256: A601D33336B662C69594AC75FF19EB0B13E98912807281351C99785EFCBA57FB
 QuotingIdentityProbe.exe SHA256: DDFDED39E028C5360BD5353CEEA5EA07B29D82F3B4408F1F3A22D9250F2E40A8
-QuotingIdentityProbe.dll SHA256: C812266B99340BCC1BA844588B358E53CACF2D9C35C838CB87728728EDCFEA05
-Full probe-manifest.json SHA256: 5A6AD6D8BA35E41F8FE347170C81614454BD2C6AD336654F8CC030914A2FF197
+QuotingIdentityProbe.dll SHA256: 882C568F2DA991A14726F0A807F371B830BF61F91EB11B58FF0CF23AE37D90BC
+Full probe-manifest.json SHA256: 790D097EA012A918A8AC8A8AFC7CA776C0EA180B04B733CBCF0FDF39B731961E
 Both EXE and DLL/full package must match; the EXE alone does not identify managed logic.
 Run UUID: d797b134-9d4f-4bef-a291-3973f97a1f5f (correlation only, not a secret).
 
@@ -33,7 +33,7 @@ Run/caller: probe service Modify; Miguel ReadAndExecute; SYSTEM/Administrators F
 No permissions outside this new root change. No password, logon-right policy edit or real account is created. Service identity resolution is recorded after registration and before start.
 
 Execution checklist (one approved attempt, supervisor try/finally)
-1. Review and locally checkpoint Path B and probe source (proposed Tools/QuotingIdentityProbe), excluding outputs. No push. Rebuild with existing dependencies and compare the frozen package; stop for unexpected hash changes or any Git ownership denial, without a trust exception. Keep Path B's existing manifest unchanged.
+1. Review and locally checkpoint only probe source; preserve Path B edits separately (proposed Tools/QuotingIdentityProbe), excluding outputs. No push. Rebuild with existing dependencies and compare the frozen package; stop for unexpected hash changes or any Git ownership denial, without a trust exception. Keep Path B's existing manifest unchanged.
 2. Verify HOST/operator, absent service/root, exact URLACL absence and no TCP listener on 51328. Use permitted exact-prefix netsh reads and a bounded TCP check, not denied protected listener/PID inspections. Availability is not yet verified. Any conflict/uncertain result stops; no replacement or automatic alternate port.
 3. Stage hash-verified files; create the manual service without starting; resolve its SID; apply only the listed new-root ACLs; create the one exact URLACL. Record each mutation and result immediately.
 4. Start --observer <run UUID> in Miguel's existing unelevated context. It rejects elevated execution. If the supported launcher cannot do that, stop for user-controlled launch; do not create another task/credential. Confirm started.json before starting the service once.
@@ -56,3 +56,5 @@ Proposed single approval wording
 Sources
 https://learn.microsoft.com/en-us/sql/database-engine/configure-windows/configure-windows-service-accounts-and-permissions#service-account-types
 https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/httpsys?view=aspnetcore-8.0
+
+Qualified rebuild correction: disabled Web SDK default content glob (which included earlier build outputs) and Git revision informational-version injection. C# caller/observer logic unchanged. Package has 29 files. Canonical source is integration-review\Tools\QuotingIdentityProbe; qualified-package and qualified-manifest.json remain in scm-identity-probe-preparation. Invoke-ApprovedProbe.ps1 pins this manifest. Supported executor lacks an enabled administrator token; user must launch the script from NORMAL Miguel PowerShell 7 and accept its single UAC request. No script has been executed. Source/build review is not SCM acceptance.
