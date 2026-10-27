@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Invoke-ApprovedProbe.ps1'),[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors.Message -join '; ')}
-foreach($name in @('ConvertFrom-UrlResult','Assert-PortOutcome')){
+foreach($name in @('ConvertFrom-UrlResult','Assert-PortOutcome','Start-OneShotCaller','Assert-CallerReceipt')){
  $fn=$ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$false)|Where-Object Name -eq $name
  if(@($fn).Count -ne 1){throw "Missing unique pure function: $name"}
  . ([scriptblock]::Create($fn.Extent.Text))
@@ -35,4 +35,19 @@ Check ($text.Contains('$task.Wait(6000)')) 'bounded six-second wait'
 Check ($text.Contains("'-AdminWorker','-RunId',`$run")) 'same run passed through UAC'
 Check ($text.Contains('if($rootMade -or $serviceMade -or $urlMade){Assert-PortFree}')) 'no-resource cleanup does not probe unrelated state'
 Check ($text.Contains('if((Url-State).Text -cne $urlSnapshot)')) 'exact ownership snapshot retained'
+$controller=[pscustomobject]@{Calls=0}
+$controller|Add-Member ScriptMethod Start {$this.Calls++}
+Start-OneShotCaller $controller
+Check ($controller.Calls -eq 1) 'single asynchronous start request'
+$denied=[pscustomobject]@{Calls=0}
+$denied|Add-Member ScriptMethod Start {$this.Calls++;throw 'synthetic access denial'}
+Reject {Start-OneShotCaller $denied} 'native start errors propagate'
+Check ($denied.Calls -eq 1) 'failed start is not retried'
+$record=[pscustomobject]@{Run='synthetic';Scm=$true;Pid=123;Result=[pscustomobject]@{ProcessIdentity='NT SERVICE\Synthetic'}}
+Assert-CallerReceipt $record 'synthetic' 'NT SERVICE\Synthetic';$passed++
+Reject {Assert-CallerReceipt $record 'stale' 'NT SERVICE\Synthetic'} 'stale receipt denied'
+Reject {Assert-CallerReceipt $record 'synthetic' 'NT SERVICE\Other'} 'wrong identity denied'
+$record.Scm=$false
+Reject {Assert-CallerReceipt $record 'synthetic' 'NT SERVICE\Synthetic'} 'non-SCM receipt denied'
+Check (!$text.Contains('Start-Service -Name $name')) 'no persistent-running poll for one-shot service'
 "PASS: $passed pure preflight/static checks; no system operations executed"

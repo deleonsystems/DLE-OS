@@ -96,6 +96,14 @@ function Live-State {
   return @{Operations=$o.currentImportRunId;Readiness=$o.readinessState;Invoice=$i.invoiceHistoryImportRunId;Headers=$i.customerInvoiceCount;Lines=$i.customerInvoiceLineCount}
  }catch{return @{Error=$_.Exception.Message}}
 }
+function Start-OneShotCaller($Controller){
+ # A one-shot service may finish before Start-Service observes Running.
+ # Start() submits exactly once; errors propagate, never retry or ignore them.
+ $Controller.Start()
+}
+function Assert-CallerReceipt($Caller,[string]$ExpectedRun,[string]$ExpectedIdentity){
+ if($Caller.Run -cne $ExpectedRun -or $Caller.Scm -isnot [bool] -or !$Caller.Scm -or $Caller.Pid -le 0 -or $Caller.Result.ProcessIdentity -ine $ExpectedIdentity){throw 'Caller completion receipt identity/run mismatch'}
+}
 if(!$AdminWorker){
  if($admin){throw 'Start this launcher in a NORMAL Miguel PowerShell window; it requests UAC once itself'}
  Assert-NoLinks $receipt
@@ -155,9 +163,13 @@ try{
  $observed=Get-Content "$runRoot\observer\started.json" -Raw|ConvertFrom-Json
  if($observed.Identity -ine $operator -or $observed.Run -ne $run){throw 'Observer receipt mismatch'}
  $process=Get-Process -Id $observed.Pid;if($process.Path -ine $exe){throw 'Observer executable mismatch'}
- $null=Definition;Start-Service -Name $name
+ $null=Definition
+ $controller=[ServiceProcess.ServiceController]::new($name)
+ try{Start-OneShotCaller $controller}finally{$controller.Dispose()}
  Wait-File "$runRoot\caller\result.json" 25
- Record 'caller-done.json' @{At=[DateTimeOffset]::UtcNow;Result=(Get-Content "$runRoot\caller\result.json" -Raw|ConvertFrom-Json)}
+ $caller=Get-Content "$runRoot\caller\result.json" -Raw|ConvertFrom-Json
+ Assert-CallerReceipt $caller $run $identity
+ Record 'caller-done.json' @{At=[DateTimeOffset]::UtcNow;Result=$caller}
  Wait-File "$receipt\launcher-done.json" 120
 }catch{$failure=$_.Exception.Message}
 finally{
