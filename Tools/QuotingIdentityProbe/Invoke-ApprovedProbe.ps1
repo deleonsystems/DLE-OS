@@ -1,5 +1,5 @@
 #requires -Version 7.0
-param([switch]$AdminWorker)
+param([switch]$AdminWorker,[Guid]$RunId='d797b134-9d4f-4bef-a291-3973f97a1f5f')
 $ErrorActionPreference='Stop'
 $prep='C:\Users\Miguel\Documents\Codex\2026-10-26\task\scm-identity-probe-preparation'
 $manifestPath=Join-Path $prep 'qualified-manifest.json'
@@ -7,7 +7,8 @@ $manifestHash='A5796DA79C543C10568F76829001641535B09BF52482F990DF790B6BA4E5168B'
 $name='DleOsQuotingIdentityProbe'
 $identity='NT SERVICE\DleOsQuotingIdentityProbe'
 $operator='DLE-OS-HOST\Miguel'
-$run='d797b134-9d4f-4bef-a291-3973f97a1f5f'
+if($RunId -eq [Guid]::Empty){throw 'Nonempty run ID required'}
+$run=$RunId.ToString('D')
 $prefix='http://127.0.0.1:51328/quoting-identity-probe/'
 $root='C:\ProgramData\DLE-OS\QuotingIdentityProbe'
 $release=Join-Path $root 'release\probe-20261027-v1'
@@ -42,24 +43,44 @@ function Assert-NoLinks($path){
  $p=[IO.Path]::GetFullPath($path)
  while($p){if(Test-Path -LiteralPath $p){if((Get-Item -LiteralPath $p -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw "Linked path is not allowed: $p"}};$p=[IO.Path]::GetDirectoryName($p)}
 }
+function Assert-PortOutcome([bool]$Done,[string]$SocketError){
+ if($SocketError -eq 'ConnectionRefused'){return}
+ if($SocketError){throw "Port check failed: $SocketError"}
+ if(!$Done){throw 'Port availability is uncertain (six-second deadline)'}
+ throw 'Port 51328 is occupied'
+}
 function Assert-PortFree {
  $tcp=[Net.Sockets.TcpClient]::new()
  try{
   $task=$tcp.ConnectAsync('127.0.0.1',51328)
-  try{$done=$task.Wait(1000)}catch{
+  try{$done=$task.Wait(6000)}catch{
    $e=$_.Exception;while($e.InnerException){$e=$e.InnerException}
-   if($e -is [Net.Sockets.SocketException] -and $e.SocketErrorCode -eq [Net.Sockets.SocketError]::ConnectionRefused){return}
+   if($e -is [Net.Sockets.SocketException]){Assert-PortOutcome $false $e.SocketErrorCode.ToString();return}
    throw
   }
-  if(!$done){throw 'Port availability is uncertain'}
-  throw 'Port 51328 is occupied'
+  Assert-PortOutcome $done ''
  }finally{$tcp.Dispose()}
 }
+function ConvertFrom-UrlResult([int]$Code,[string]$Output,[string]$ErrorText,[string]$ExpectedPrefix){
+ if($Code -ne 0 -or ![string]::IsNullOrWhiteSpace($ErrorText)){throw "URL query failed: exit=$Code stdout=[$Output] stderr=[$ErrorText]"}
+ # Observed HOST empty-list form, accepted only with success and no stderr.
+ if($Output -match '\A\s*URL Reservations:\s*-{3,}\s*\z'){return @{Exists=$false;Text=$Output.Trim();Exit=$Code}}
+ $entry=[regex]::Match($Output,'\A\s*URL Reservations:\s*-{3,}\s*Reserved URL\s*:\s*(\S+)\s*User:\s*[^\r\n]+\r?\n\s*Listen:\s*(?:Yes|No)\s*Delegate:\s*(?:Yes|No)\s*SDDL:\s*\S+\s*\z')
+ if($entry.Success -and $entry.Groups[1].Value -ceq $ExpectedPrefix){
+  return @{Exists=$true;Text=$Output.Trim();Exit=$Code}
+ }
+ throw "Unrecognized URL reservation result: exit=$Code stdout=[$Output] stderr=[$ErrorText]"
+}
 function Url-State {
- $output=(& netsh.exe http show urlacl "url=$prefix" 2>&1|Out-String).Trim();$code=$LASTEXITCODE
- if($output -match [regex]::Escape($prefix)){return @{Exists=$true;Text=$output;Exit=$code}}
- if($output -match '(?i)Error\s*:\s*2\b|cannot find the file'){return @{Exists=$false;Text=$output;Exit=$code}}
- throw "Unrecognized URL reservation result; no change made: $output"
+ $info=[Diagnostics.ProcessStartInfo]::new('netsh.exe')
+ foreach($arg in @('http','show','urlacl',"url=$prefix")){$info.ArgumentList.Add($arg)}
+ $info.UseShellExecute=$false;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true;$info.CreateNoWindow=$true
+ $process=[Diagnostics.Process]::Start($info)
+ try{
+  $outTask=$process.StandardOutput.ReadToEndAsync();$errTask=$process.StandardError.ReadToEndAsync()
+  if(!$process.WaitForExit(10000)){throw 'Read-only URL query timed out; no automatic retry'}
+  ConvertFrom-UrlResult $process.ExitCode $outTask.GetAwaiter().GetResult() $errTask.GetAwaiter().GetResult() $prefix
+ }finally{$process.Dispose()}
 }
 function Definition {
  $key="HKLM:\SYSTEM\CurrentControlSet\Services\$name"
@@ -84,7 +105,7 @@ if(!$AdminWorker){
  $observer=$null;$worker=$null;$failure=$null
  try{
   $shell=(Get-Process -Id $PID).Path
-  $worker=Start-Process -FilePath $shell -ArgumentList @('-NoProfile','-File',('"'+$PSCommandPath+'"'),'-AdminWorker') -Verb RunAs -WindowStyle Hidden -PassThru
+  $worker=Start-Process -FilePath $shell -ArgumentList @('-NoProfile','-File',('"'+$PSCommandPath+'"'),'-AdminWorker','-RunId',$run) -Verb RunAs -WindowStyle Hidden -PassThru
   Wait-File "$receipt\ready.json" 60
   $observer=Start-Process -FilePath $exe -ArgumentList @('--observer',$run) -WindowStyle Hidden -PassThru
   Wait-File "$runRoot\observer\started.json" 15
@@ -144,7 +165,7 @@ finally{
   if($uncertain){throw "A mutation outcome is uncertain; retain resources for inspection without retry"}
   if($serviceMade){$null=Definition;$s=Get-Service $name;if($s.Status -ne 'Stopped'){Stop-Service $name;$s.WaitForStatus('Stopped',[TimeSpan]::FromSeconds(15))};$s.Dispose();$s=$null;$cleanup+='Service stopped'}
   if(Test-Path "$runRoot\observer\started.json"){$o=Get-Content "$runRoot\observer\started.json" -Raw|ConvertFrom-Json;$p=Get-Process -Id $o.Pid -ErrorAction SilentlyContinue;if($p){if($p.Path -ine $exe){throw 'Observer PID reused; refusing cleanup'};if(!$p.WaitForExit(100000)){throw 'Observer still active; no forced termination'}}}
-  Assert-PortFree
+  if($rootMade -or $serviceMade -or $urlMade){Assert-PortFree}else{$cleanup+='No test resources created; nothing to remove'}
   if($uncertain){throw "A mutation outcome is uncertain; retain resources for inspection without retry"}
   if($serviceMade){$null=Definition;$deleted=(& sc.exe delete $name 2>&1|Out-String);if($LASTEXITCODE -ne 0){throw "Service removal uncertain: $deleted"};$s=$null;$query=(& sc.exe query $name 2>&1|Out-String);if($LASTEXITCODE -ne 1060){throw 'Service removal not yet verified'};$cleanup+='Service absent'}
   if($urlMade){if((Url-State).Text -cne $urlSnapshot){throw 'URL reservation changed; refusing removal'};$deleted=(& netsh.exe http delete urlacl "url=$prefix" 2>&1|Out-String);if($LASTEXITCODE -ne 0 -or (Url-State).Exists){throw 'URL removal not verified'};$cleanup+='URL absent'}
