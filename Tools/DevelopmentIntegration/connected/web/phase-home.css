@@ -1,0 +1,5 @@
+.phase-home-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.phase-home-grid button{display:flex;flex-direction:column;gap:8px;padding:18px;text-align:left;border:1px solid #718096;border-radius:8px;background:#16334a;color:#fff;min-height:110px}
+.phase-home-grid button:disabled{background:#e2e5e8;color:#505a65;border-color:#9aa4af;cursor:not-allowed}
+.phase-home-grid button span:first-child{font-weight:700;font-size:17px}
+.phase-home-grid button:focus-visible{outline:3px solid #117abb;outline-offset:3px}

@@ -1,0 +1,783 @@
+(function(window,document){
+  'use strict';
+  const dateTimeUtc=v=>window.DleDateFormat?.dateTime(v,{timeZone:'UTC',timeZoneName:'short',seconds:true})??v;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const money=v=>v==null?'—':Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // Presentation-only dismissal; capture also sees clicks stopped by workspace handlers.
+  document.addEventListener?.('click',event=>{
+    for(const menu of document.querySelectorAll('.material-mfg-menu[open]')){
+      if(!menu.contains(event.target))menu.open=false;
+    }
+  },true);
+  const columns=['Find #','Customer / BOM P/N','MFG / Approved P/N','Description','Ref Des','Qty / Unit','UoM','Unit Cost','Ext Cost','Order Qty','Total Cost','Vendor','Vendor P/N','Lead Time','Status / Options'];
+  // Decimal coefficients avoid binary floating-point multiplication and match
+  // the server's positive-value MidpointRounding.AwayFromZero cent rounding.
+  function decimalCostPreview(quantity,price,excluded,maxQuantity=1000000){
+    if(price===null||price===undefined||price==='')return '';
+    function decimal(value){
+      const match=String(value).trim().replace(/^\./,'0.').match(/^(\d+)(?:\.(\d*))?(?:e([+-]?\d+))?$/i);
+      if(!match)return null;
+      let coefficient=BigInt(match[1]+(match[2]||'')),scale=(match[2]||'').length-Number(match[3]||0);
+      if(scale<0){coefficient*=10n**BigInt(-scale);scale=0;}
+      return {coefficient,scale};
+    }
+    const q=decimal(quantity),p=decimal(price);
+    if(!q||!p||q.coefficient===0n||q.coefficient>BigInt(maxQuantity)*10n**BigInt(q.scale))return '';
+    const denominator=10n**BigInt(q.scale+p.scale);
+    const numerator=excluded?0n:q.coefficient*p.coefficient*100n;
+    const cents=numerator/denominator+(numerator%denominator*2n>=denominator?1n:0n);
+    return '$'+(cents/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+(cents%100n).toString().padStart(2,'0');
+  }
+  const chargeDecimal=v=>{const m=String(v??'').trim().replace(/^\./,'0.').match(/^(\d+)(?:\.(\d{0,28}))?$/);return m?BigInt(m[1])*10n**28n+BigInt((m[2]||'').padEnd(28,'0')):null;};
+  const roundPositive=(n,d)=>n/d+(n%d*2n>=d?1n:0n);
+  const chargeMoney=c=>c==null?'—':'$'+(c/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+(c%100n).toString().padStart(2,'0');
+  function chargeSell(c,markup){const raw=chargeDecimal(c.rawCost),qty=chargeDecimal(c.quantity??1),rate=chargeDecimal(c.markupTreatment==='MATERIAL'?markup:c.markupTreatment==='CUSTOM'?c.customMarkupPercent:0);return raw==null||qty==null||rate==null?null:roundPositive(raw*qty*((100n*10n**28n)+rate),(10n**84n));}
+  // Browser-local, per-user presentation only; never part of a quotation payload.
+  // Browser-local presentation preference; never part of a Materials save.
+  // Index is the persisted row identity within an immutable Candidate/BOM snapshot,
+  // not the visual position of either the parent or its supplemental children.
+  function materialFeeDisclosure(rfq,plan){
+    const user=window.DleOsSession?.user?.userName;
+    const key=user&&rfq.intakeId&&plan.candidateId&&plan.bomVersion!=null
+      ?'DLE_OS_MATERIAL_FEE_DISCLOSURE_V1:'+encodeURIComponent(JSON.stringify([user,rfq.intakeId,plan.candidateId,plan.bomVersion])):null;
+    const valid=new Set(plan.rows.map(r=>r.index));let collapsed=new Set();
+    try{const saved=JSON.parse(key?window.localStorage.getItem(key):'null');if(Array.isArray(saved))collapsed=new Set(saved.filter(i=>Number.isInteger(i)&&valid.has(i)));}catch{}
+    function persist(){try{if(key)window.localStorage.setItem(key,JSON.stringify([...collapsed]));}catch{}}
+    return {has:index=>collapsed.has(index),add(index){if(valid.has(index)&&!collapsed.has(index)){collapsed.add(index);persist();}},delete(index){if(collapsed.delete(index))persist();}};
+  }
+  function materialColumnWidths(root,onLayout=()=>{}){
+    const table=root.querySelector('.material-grid'),cols=[...(root.querySelectorAll?.('.material-grid col')||[])],headers=[...(root.querySelectorAll?.('.material-grid th')||[])];
+    if(!cols.length)return {view(){},reset(){}};
+    const user=window.DleOsSession?.user?.userName;
+    const legacyKey=user?'DLE_OS_MATERIAL_SOURCE_WIDTHS_V1:'+encodeURIComponent(user):null;
+    const key=user?'DLE_OS_MATERIAL_SOURCE_LAYOUT_V2:'+encodeURIComponent(user):null;
+    const minimum=[50,100,140,140,80,75,65,85,85,85,95,120,100,145,100];
+    let widths=null,active=false,gesture=null,hidden=new Set();
+    const validWidths=value=>Array.isArray(value)&&value.length===cols.length&&value.every((w,i)=>Number.isFinite(w)&&w>=minimum[i]&&w<=2000);
+    try{const saved=JSON.parse(key?window.localStorage.getItem(key):'null');const prior=JSON.parse(legacyKey?window.localStorage.getItem(legacyKey):'null');
+      if(validWidths(saved?.widths))widths=saved.widths;else if(!saved&&validWidths(prior))widths=prior;
+      if(Array.isArray(saved?.hidden))hidden=new Set(saved.hidden.filter(i=>Number.isInteger(i)&&i>0&&i<cols.length));
+    }catch{}
+    const rowCells=[...(root.querySelectorAll?.('.material-grid tbody tr')||[])].map(row=>{let start=0;return [...row.cells].map(cell=>{const span=cell.colSpan||1,entry={cell,start,span};start+=span;return entry;});});
+    function persist(){try{if(key){if(widths||hidden.size)window.localStorage.setItem(key,JSON.stringify({widths,hidden:[...hidden]}));else window.localStorage.removeItem(key);window.localStorage.removeItem(legacyKey);}}catch{}}
+    function apply(){
+      cols.forEach(c=>{c.style.width='';c.hidden=false;});headers.forEach(h=>{h.hidden=false;});table.style.width='';table.style.minWidth='';
+      rowCells.flat().forEach(({cell,span})=>{cell.hidden=false;cell.colSpan=span;});
+      const effective=widths||headers.map(h=>h.getBoundingClientRect().width);
+      if(active&&(widths||hidden.size)){
+        cols.forEach((c,i)=>{c.style.width=effective[i]+'px';c.hidden=hidden.has(i);headers[i].hidden=hidden.has(i);});
+        rowCells.forEach(row=>row.forEach(({cell,start,span})=>{let visible=0;for(let i=start;i<start+span;i++)if(!hidden.has(i))visible++;cell.hidden=visible===0;cell.colSpan=Math.max(1,visible);}));
+        table.style.width=effective.reduce((sum,w,i)=>sum+(hidden.has(i)?0:w),0)+'px';table.style.minWidth='0';
+      }
+      checks.forEach((check,i)=>{check.checked=!hidden.has(i);});
+    }
+    function changeVisibility(i,visible){if(!active||i===0)return;onLayout();if(!widths)widths=headers.map(h=>h.getBoundingClientRect().width);if(visible)hidden.delete(i);else hidden.add(i);apply();persist();}
+    function view(on){active=on;apply();root.querySelector('[data-material-action="reset-layout"]').hidden=!on;menu.hidden=!on;if(!on)menu.open=false;handles.forEach(h=>{h.hidden=!on;});hideButtons.forEach(h=>{h.hidden=!on;});}
+    const menu=document.createElement('details');menu.className='material-columns-menu';const summary=document.createElement('summary');summary.textContent='Columns';menu.appendChild(summary);
+    const checklist=document.createElement('div');checklist.className='material-columns-checklist';menu.appendChild(checklist);
+    const checks=columns.map((name,i)=>{const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.disabled=i===0;check.setAttribute('aria-label',name+' column');check.oninput=event=>event.stopPropagation();check.onchange=event=>{event.stopPropagation();changeVisibility(i,check.checked);};label.appendChild(check);const text=document.createElement('span');text.textContent=name;label.appendChild(text);checklist.appendChild(label);return check;});
+    root.querySelector('.material-toolbar').appendChild(menu);
+    menu.onkeydown=event=>{if(event.key==='Escape'){menu.open=false;summary.focus();}};
+    const hideButtons=headers.slice(1).map((header,j)=>{const i=j+1,button=document.createElement('button');button.type='button';button.className='material-column-hide';button.textContent='−';button.title='Hide column';button.setAttribute('aria-label','Hide column: '+columns[i]);button.onclick=event=>{event.preventDefault();event.stopPropagation();changeVisibility(i,false);};header.appendChild(button);return button;});
+    function currentWidths(){return headers.map((h,i)=>hidden.has(i)?widths[i]:h.getBoundingClientRect().width);}
+    function finish(cancel){if(!gesture)return;const g=gesture;gesture=null;if(cancel){widths=g.before;apply();}else persist();root.classList.remove('material-column-resizing');if(g.handle.hasPointerCapture(g.id))g.handle.releasePointerCapture(g.id);}
+    const handles=headers.map((header,i)=>{
+      const handle=document.createElement('button');handle.type='button';handle.className='material-column-resize';handle.setAttribute('aria-label','Resize '+columns[i]+' column');handle.title='Drag to resize column';
+      handle.onpointerdown=event=>{if(!active||event.button!==0)return;event.preventDefault();event.stopPropagation();const initial=currentWidths();gesture={id:event.pointerId,x:event.clientX,initial,before:widths?.slice()||null,handle};root.classList.add('material-column-resizing');handle.setPointerCapture(event.pointerId);};
+      handle.onpointermove=event=>{if(!gesture||gesture.id!==event.pointerId)return;event.preventDefault();event.stopPropagation();widths=gesture.initial.slice();widths[i]=Math.max(minimum[i],Math.min(2000,gesture.initial[i]+event.clientX-gesture.x));apply();};
+      handle.onpointerup=event=>{event.stopPropagation();finish(false);};handle.onpointercancel=()=>finish(true);handle.onlostpointercapture=()=>finish(true);handle.onclick=event=>{event.preventDefault();event.stopPropagation();};
+      handle.onkeydown=event=>{if(event.key==='Escape'){finish(true);return;}if(!active||!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();event.stopPropagation();widths=currentWidths();widths[i]=Math.max(minimum[i],Math.min(2000,widths[i]+(event.key==='ArrowRight'?10:-10)));apply();persist();};
+      header.appendChild(handle);return handle;
+    });
+    return {view,reset(){onLayout();widths=null;hidden.clear();persist();apply();menu.open=false;}};
+  }
+  // Presentation-only selection. Never writes quote state or intercepts editor copy.
+  function materialTableSelection(root,commitEdit=()=>{}){
+    let edit=null,feeControl=null,feeReady=false,feePicker=null;
+    const feeFields=cell=>[...(cell?.querySelectorAll?.('[data-charge-field]')||[])].filter(e=>!e.disabled&&!e.readOnly&&!e.hidden&&window.getComputedStyle(e).display!=='none');
+    function selectFee(field,ready=false){
+      click({target:field.closest('td'),dragRange:true,preventDefault(){}});
+      feeControl?.classList.remove('material-fee-control-selected');feeControl=field;feeReady=ready;
+      field.classList.add('material-fee-control-selected');
+    }
+    function closeFeePicker(){if(feePicker){feePicker.remove();feePicker=null;}}
+    function openFeePicker(field){
+      if(field.disabled||!finish(true))return;
+      selectFee(field);closeFeePicker();
+      for(const menu of root.querySelectorAll?.('.material-mfg-menu[open]')||[])menu.open=false;
+      const panel=document.createElement('div');panel.className='material-fee-picker';panel.setAttribute('popover','auto');panel.setAttribute('role','listbox');panel.setAttribute('aria-label',field.getAttribute('aria-label'));
+      const options=[...field.options].filter(o=>!o.disabled&&!o.hidden);let active=Math.max(0,options.findIndex(o=>o.value===field.value));
+      const paint=()=>[...panel.children].forEach((b,i)=>{b.setAttribute('aria-selected',String(i===active));if(i===active)b.focus({preventScroll:true});});
+      const choose=()=>{const value=options[active].value;closeFeePicker();selectFee(field,true);if(value!==field.value){field.value=value;commitEdit(field);}};
+      for(const [i,o] of options.entries()){const b=document.createElement('button');b.type='button';b.setAttribute('role','option');b.textContent=o.textContent;b.onclick=e=>{e.stopPropagation();active=i;choose();};panel.appendChild(b);}
+      panel.onkeydown=e=>{if(!['ArrowUp','ArrowDown','Enter','Escape','Tab'].includes(e.key))return;e.preventDefault();e.stopPropagation();if(e.key==='Escape'||e.key==='Tab'){closeFeePicker();selectFee(field);return;}if(e.key==='Enter'){choose();return;}active=(active+(e.key==='ArrowDown'?1:-1)+options.length)%options.length;paint();};
+      root.appendChild(panel);feePicker=panel;const rect=field.getBoundingClientRect();panel.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-250))+'px';panel.style.top=Math.max(4,Math.min(rect.bottom,window.innerHeight-options.length*30-12))+'px';panel.showPopover();paint();
+      panel.addEventListener('toggle',()=>{if(!panel.matches(':popover-open')){panel.remove();if(feePicker===panel)feePicker=null;}});
+    }
+
+    function parseLead(text){
+      const value=text.trim().toLowerCase();
+      if(['s','st','stock'].includes(value))return {mode:'STOCK',value:null,label:'Stock'};
+      const match=value.match(/^(\d+)([dw])$/);
+      if(!match||Number(match[1])<1||Number(match[1])>36500)return null;
+      const n=Number(match[1]),days=match[2]==='d';
+      return {mode:days?'DAYS':'WEEKS',value:n,label:n+' '+(days?'Day':'Week')+(n===1?'':'s')};
+    }
+    function preview(){
+      if(!edit?.lead)return;
+      const result=parseLead(edit.input.value);
+      edit.preview.textContent=result?result.label:'Use s, 10d or 3w';
+      edit.preview.dataset.valid=String(!!result);edit.input.setCustomValidity('');
+    }
+    const editable=cell=>[...(cell?.querySelectorAll?.('input[data-field],input[data-charge-field]')||[])].find(e=>!e.disabled&&!e.readOnly&&!e.hidden&&['text','number'].includes(e.type)&&window.getComputedStyle(e).display!=='none'&&!e.closest('[popover]'));
+    function finish(commit){
+      if(!edit)return true;
+      const {input,before,type,cell,initial}=edit;
+      if(edit.lead){
+        const current=edit,result=parseLead(input.value);
+        if(commit&&!result){input.setCustomValidity('Enter Stock, or a positive whole number followed by d or w (maximum 36500).');input.reportValidity();input.focus({preventScroll:true});return false;}
+        edit=null;current.panel.remove();current.lead.hidden=false;
+        if(commit){
+          const selector=current.lead.querySelector('select'),number=current.lead.querySelector('input');
+          if(selector.value!==result.mode||String(number.value)!==String(result.value??'')){
+            selector.value=result.mode;number.value=result.value??'';commitEdit(number);
+          }
+        }
+        return true;
+      }
+      if(commit){
+        const key=input.dataset.chargeField||input.dataset.field,v=input.value;
+        let valid=true;
+        if(['unitPrice','orderQuantity','rawCost','quantity','customMarkupPercent'].includes(key)){
+          const positive=['orderQuantity','quantity'].includes(key),fee=input.dataset.chargeField!==undefined;
+          valid=v===''?key!=='quantity':/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(v)&&Number.isFinite(Number(v))&&Number(v)<=(key==='quantity'?1000000:key==='customMarkupPercent'?10000:1000000000)&&(!positive||Number(v)>0)&&(!fee||/^(?:\d+(?:\.\d{0,6})?|\.\d{1,6})$/.test(v));
+        }
+        if(key==='leadTimeValue')valid=/^\d+$/.test(v)&&Number(v)>0&&Number(v)<=36500;
+        input.setCustomValidity(valid?'':'Enter a valid value before leaving this cell.');
+        if(!valid||!input.checkValidity()){input.reportValidity();input.focus({preventScroll:true});return false;}
+      }
+      edit=null;input.classList.remove('material-cell-editing');
+      if(!commit)input.value=before;
+      input.setCustomValidity('');input.type=type;
+      if(commit&&input.value!==initial)commitEdit(input);
+      return true;
+    }
+    function begin(cell,mode,character){
+      const lead=cell?.querySelector?.('.material-lead');
+      if(lead&&!lead.querySelector('select').disabled&&character!==undefined){
+        if(!finish(true))return true;
+        const panel=document.createElement('div'),input=document.createElement('input'),hint=document.createElement('span');
+        panel.className='material-lead-smart';input.type='text';input.className='material-cell-editing';input.setAttribute('aria-label','Lead Time shorthand');hint.setAttribute('role','status');
+        panel.append(input,hint);lead.hidden=true;cell.appendChild(panel);
+        edit={input,cell,lead,panel,preview:hint,mode:'replace'};input.value=character;preview();input.focus({preventScroll:true});return true;
+      }
+      if(feeControl?.tagName==='SELECT')return false;
+      const input=feeControl?.closest('td')===cell&&feeControl.tagName==='INPUT'?feeControl:editable(cell);if(!input)return false;
+      if(edit?.input===input)return true;
+      if(!finish(true))return true;
+      edit={input,cell,before:input.value,type:input.type,mode};input.type='text';input.classList.add('material-cell-editing');input.focus({preventScroll:true});edit.initial=input.value;
+      if(character!==undefined)input.value=character;
+      input.setSelectionRange?.(input.value.length,input.value.length);return true;
+    }
+    function draft(target){return edit?.input===target;}
+    function doubleClick(event){if(event.target.closest('.material-lead'))return;const cell=event.target.closest('td')||focused;if(begin(cell,'inplace'))event.preventDefault();}
+    const selected=new Set();let anchor=null,focused=null,drag=null,ignoreClick=false,feedbackTimer=null,navigationColumn=null;
+    const control='input,select,textarea,button,a,summary,label,[contenteditable]:not([contenteditable="false"]),[role="button"]';
+    const cells=()=>{
+      const result=[];
+      for(const [r,row] of [...(root.querySelectorAll?.('.material-grid-row,.material-charge-row')||[])].entries()){
+        if(row.hidden||window.getComputedStyle(row).display==='none')continue;
+        let c=0;for(const cell of row.cells){if(window.getComputedStyle(cell).display==='none')continue;const span=cell.colSpan||1;result.push({cell,r,c,end:c+span-1});c+=span;}
+      }return result;
+    };
+    function clear(){closeFeePicker();feeControl?.classList.remove('material-fee-control-selected');feeControl=null;feeReady=false;for(const cell of selected){cell.classList.remove('material-cell-selected');cell.removeAttribute('aria-selected');}selected.clear();anchor=null;focused=null;navigationColumn=null;}
+    function feedback(count){
+      const status=root.querySelector('[data-material-copy-status]');if(!status)return;
+      window.clearTimeout(feedbackTimer);status.textContent=count===1?'Copied':'Copied '+count+' cells';
+      feedbackTimer=window.setTimeout(()=>{status.textContent='';},1600);
+    }
+    function value(cell){
+      const first=selector=>cell.querySelector(selector);
+      if(first('.material-mfg-value'))return first('.material-mfg-value').textContent.trim();
+      if(first('.material-vendor-trigger'))return first('.material-vendor-trigger').textContent.trim();
+      if(first('.material-lead summary'))return first('.material-lead summary').textContent.trim();
+      if(first('[data-total-cost]'))return first('[data-total-cost]').textContent.trim();
+      if(first('[data-charge-sell]'))return first('[data-charge-sell]').textContent.trim();
+      if(first('.material-evidence-options'))return ''; // Options/counts are not business values.
+      const inputs=[...cell.querySelectorAll('input:not([type="hidden"]),select')].filter(e=>!e.hidden);
+      if(inputs.length)return inputs.map(e=>e.tagName==='SELECT'?e.selectedOptions[0]?.textContent||'':e.value).join(' | ');
+      const copy=cell.cloneNode(true);for(const e of copy.querySelectorAll('button,small,[popover]'))e.remove();return copy.textContent.trim();
+    }
+    function text(){const grid=cells(),active=grid.filter(x=>selected.has(x.cell));if(!active.length)return '';
+      const top=Math.min(...active.map(x=>x.r)),bottom=Math.max(...active.map(x=>x.r)),left=Math.min(...active.map(x=>x.c)),right=Math.max(...active.map(x=>x.end));
+      const rows=[];for(let r=top;r<=bottom;r++){const columns=[];for(let c=left;c<=right;c++){const x=active.find(x=>x.r===r&&x.c===c);columns.push(x?value(x.cell).replace(/[\t\r\n]+/g,' '):'');}rows.push(columns.join('\t'));}return rows.join('\n');
+    }
+    function click(event){
+      if(ignoreClick){ignoreClick=false;return true;}
+      if(event.target.closest('.material-lead'))return false;
+      if(edit?.input===event.target)return false;
+      if(!finish(true))return true;
+      const fee=event.target.matches?.('[data-charge-field]')?event.target:null;
+      if(fee&&!fee.disabled){event.preventDefault();selectFee(fee);if(fee.tagName==='SELECT')openFeePicker(fee);return true;}
+      const field=editable(event.target.closest('td'));
+      if(event.target.closest(control)&&event.target!==field)return false;
+      const cell=event.target.closest('td'),grid=cells(),hit=grid.find(x=>x.cell===cell);if(!hit){clear();return false;}
+      event.preventDefault();
+      const rowMode=!event.dragRange&&hit.c===0,toggle=event.ctrlKey||event.metaKey,from=grid.find(x=>x.cell===anchor)||hit;
+      let targets;
+      if(event.shiftKey){const lo=Math.min(from.r,hit.r),hi=Math.max(from.r,hit.r),left=Math.min(from.c,hit.c),right=Math.max(from.end,hit.end);targets=grid.filter(x=>x.r>=lo&&x.r<=hi&&(rowMode||x.end>=left&&x.c<=right));}
+      else targets=rowMode?grid.filter(x=>x.r===hit.r):[hit];
+      const remove=toggle&&targets.every(x=>selected.has(x.cell));
+      if(!toggle){for(const x of selected){x.classList.remove('material-cell-selected');x.removeAttribute('aria-selected');}selected.clear();}
+      for(const x of targets){if(remove){selected.delete(x.cell);x.cell.classList.remove('material-cell-selected');x.cell.removeAttribute('aria-selected');}else{selected.add(x.cell);x.cell.classList.add('material-cell-selected');x.cell.setAttribute('aria-selected','true');}}
+      feeControl?.classList.remove('material-fee-control-selected');feeControl=null;feeReady=false;
+      if(selected.size===1&&selected.has(cell)){feeControl=feeFields(cell)[0]||null;feeControl?.classList.add('material-fee-control-selected');}
+      if(!event.shiftKey)anchor=cell;focused=cell;navigationColumn=hit.c;cell.tabIndex=-1;cell.focus({preventScroll:true});return true;
+    }
+    function endDrag(){const previous=drag;drag=null;root.classList.remove('material-grid-dragging');if(previous&&root.hasPointerCapture?.(previous.id))root.releasePointerCapture(previous.id);}
+    function down(event){
+      ignoreClick=false;
+      if(event.target.matches?.('select[data-charge-field]')&&!event.target.disabled){event.preventDefault();return;}
+      if(event.target.closest('.material-lead'))return;
+      if(edit?.input===event.target)return;
+      if(!finish(true)){event.preventDefault();return;}
+      const field=editable(event.target.closest('td'));
+      if(event.button!==0||event.isPrimary===false||(event.target.closest(control)&&event.target!==field))return;
+      // Native input double-click needs both clicks to retain their input target.
+      if(field===event.target){event.preventDefault();click(event);return;}
+      const cell=event.target.closest('td');if(!cells().some(x=>x.cell===cell))return;
+      event.preventDefault(); // Only background gestures suppress native selection.
+      drag={id:event.pointerId,start:cell,last:cell,moved:false,shiftKey:event.shiftKey,ctrlKey:event.ctrlKey,metaKey:event.metaKey};
+      root.classList.add('material-grid-dragging');root.setPointerCapture(event.pointerId);
+    }
+    function move(event){
+      if(!drag||event.pointerId!==drag.id)return;
+      event.preventDefault();const cell=document.elementFromPoint(event.clientX,event.clientY)?.closest('td');
+      if(!cells().some(x=>x.cell===cell)||cell===drag.last)return;
+      drag.last=cell;drag.moved=true;anchor=drag.start;
+      click({target:cell,shiftKey:true,dragRange:true,preventDefault(){}});
+    }
+    function up(event){
+      if(!drag||event.pointerId!==drag.id)return;
+      move(event);const finished=drag;
+      if(!finished.moved)click({target:finished.start,shiftKey:finished.shiftKey,ctrlKey:finished.ctrlKey,metaKey:finished.metaKey,preventDefault(){}});
+      endDrag();ignoreClick=true; // The browser's trailing click must not collapse the range.
+    }
+    function cancel(event){if(drag&&event.pointerId===drag.id)endDrag();}
+    function key(event){
+      if(event.isComposing)return false;
+      if(edit){
+        if(event.key==='Escape'){event.preventDefault();const cell=edit.cell,field=feeControl;finish(false);if(field)selectFee(field);else click({target:cell,dragRange:true,preventDefault(){}});return true;}
+        const arrow=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key);
+        if(event.key==='Enter'||(arrow&&edit.mode==='replace')){
+          event.preventDefault();const cell=edit.cell,field=feeControl;if(!finish(true))return true;
+          if(field)selectFee(field);else click({target:cell,dragRange:true,preventDefault(){}});
+          return key({target:cell,key:event.key,shiftKey:event.shiftKey,preventDefault(){}});
+        }
+        return false;
+      }
+      // Space activates only the selected cell's primary control. Native focused
+      // controls and active text editors retain their own keyboard semantics.
+      if(event.key===' '&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&event.target===focused&&document.activeElement===focused){
+        if(feeControl?.tagName==='SELECT'){event.preventDefault();openFeePicker(feeControl);return true;}
+        if(!feeControl){
+          const action=focused.querySelector('summary:not([aria-disabled="true"]),button[data-material-action="add-charge"]:not(:disabled),button[data-material-action="vendor-open"]:not(:disabled),button[data-material-action="toggle-fees"]:not(:disabled),button[data-material-action="evidence-options"]:not(:disabled),input[data-material-complete]:not(:disabled)');
+          if(action){event.preventDefault();closeFeePicker();action.click();return true;}
+        }
+      }
+      if(event.key==='Enter'&&!event.shiftKey&&feeControl?.tagName==='SELECT'&&!feeReady){event.preventDefault();openFeePicker(feeControl);return true;}
+      if(event.target===focused&&event.key.length===1&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&begin(focused,'replace',event.key)){event.preventDefault();return true;}
+      if(event.key==='Escape'&&feeControl){event.preventDefault();selectFee(feeControl);return true;}
+      if(event.key==='Escape'&&selected.size){clear();if(event.target.closest(control))return false;event.preventDefault();return true;}
+      const enter=event.key==='Enter'&&!event.ctrlKey&&!event.metaKey&&!event.altKey;
+      const input=enter&&event.target.matches?.('input[data-field],input[data-charge-field]')&&!event.target.disabled&&!event.target.readOnly;
+      if(!input&&(event.target.closest(control)||!selected.size||event.target!==focused||document.activeElement!==event.target))return false;
+      if(input&&event.target.checkValidity&&!event.target.checkValidity()){event.preventDefault();event.target.reportValidity();return true;}
+      if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='c'){
+        event.preventDefault();const count=selected.size;window.navigator.clipboard.writeText(text()).then(()=>feedback(count)).catch(()=>{root.querySelector('.materials-message').textContent='Clipboard unavailable. Allow clipboard access and try again.';});return true;
+      }
+      const moves={ArrowUp:-1,ArrowDown:1,ArrowLeft:-1,ArrowRight:1};
+      if(!enter&&(!(event.key in moves)||event.ctrlKey||event.metaKey||event.altKey))return false;
+      const grid=cells(),current=grid.find(x=>x.cell===(input?event.target.closest('td'):focused));if(!current)return false;
+      event.preventDefault();
+      const vertical=event.key==='ArrowUp'||event.key==='ArrowDown',direction=moves[event.key];
+      const column=navigationColumn??current.c;
+      let next;
+      if(enter){
+        const usable=grid.filter(x=>x.c!==0&&(!x.cell.parentElement?.dataset?.sourcingState||x.cell.parentElement.dataset.sourcingState==='OPEN'||x.cell.querySelector('[data-material-complete]'))&&(!x.cell.querySelector('.material-evidence-options')||x.cell.querySelector('[data-material-complete]'))&&
+          (value(x.cell)!==''||x.cell.querySelector('input:not(:disabled):not([readonly]),select:not(:disabled),.material-lead,.material-vendor-trigger')));
+        // Enter follows each visible material group, inserting fees at the + fee boundary.
+        // Arrow movement continues to use physical grid order.
+        const sequence=[];let parent=[],children=[];
+        function flushGroup(){
+          const row=parent[0]?.cell.parentElement;
+          const boundary=row?.querySelector?.('[data-material-action="add-charge"]')?.closest('td');
+          const split=boundary&&row?Array.from(row.cells).indexOf(boundary):-1;
+          if(split<0)sequence.push(...parent,...children);
+          else sequence.push(...parent.filter(x=>Array.from(row.cells).indexOf(x.cell)<=split),...children,...parent.filter(x=>Array.from(row.cells).indexOf(x.cell)>split));
+          parent=[];children=[];
+        }
+        for(const r of [...new Set(grid.map(x=>x.r))]){
+          const entries=grid.filter(x=>x.r===r);
+          if(entries[0]?.cell.parentElement?.classList?.contains('material-charge-row'))children.push(...entries);
+          else {flushGroup();parent=entries;}
+        }
+        flushGroup();
+        const logical=sequence.flatMap(x=>x.cell.parentElement?.classList?.contains('material-charge-row')?feeFields(x.cell).map(field=>({...x,field})):usable.includes(x)?[x]:[]);
+        let index=logical.findIndex(x=>x.cell===current.cell&&(!feeControl||x.field===feeControl));
+        const direction=event.shiftKey?-1:1;
+        if(index<0){const physical=sequence.indexOf(current);next=direction>0?logical.find(x=>sequence.indexOf(grid.find(g=>g.cell===x.cell))>physical):logical.findLast(x=>sequence.indexOf(grid.find(g=>g.cell===x.cell))<physical);}
+        else next=logical[index+direction];
+      }else if(vertical){
+        const rows=[...new Set(grid.map(x=>x.r))],r=rows[rows.indexOf(current.r)+direction];
+        next=grid.find(x=>x.r===r&&x.c<=column&&x.end>=column);
+      }else{
+        const row=grid.filter(x=>x.r===current.r);next=row[row.indexOf(current)+direction];
+      }
+      if(!next){if(input){click({target:current.cell,dragRange:true,preventDefault(){}});}return true;}
+      // Reuse range selection; arrows into Find # select a cell, not the whole row.
+      click({target:next.cell,shiftKey:!enter&&event.shiftKey,dragRange:true,preventDefault(){}});
+      if(next.field)selectFee(next.field);
+      navigationColumn=vertical?column:next.c;
+      next.cell.querySelector('[data-material-complete]:not(:disabled)')?.focus({preventScroll:true});
+      const scroll=root.querySelector('.material-grid-scroll');
+      if(scroll){
+        const rect=next.cell.getBoundingClientRect(),area=scroll.getBoundingClientRect();
+        const header=scroll.querySelector('thead')?.getBoundingClientRect().height||0;
+        const frozen=next.c===0?0:(scroll.querySelector('.material-find')?.getBoundingClientRect().width||0);
+        const left=area.left+scroll.clientLeft+frozen,top=area.top+scroll.clientTop+header;
+        const right=area.left+scroll.clientLeft+scroll.clientWidth,bottom=area.top+scroll.clientTop+scroll.clientHeight;
+        if(rect.left<left)scroll.scrollLeft-=left-rect.left;
+        else if(rect.right>right)scroll.scrollLeft+=Math.min(rect.right-right,rect.left-left);
+        if(rect.top<top)scroll.scrollTop-=top-rect.top;
+        else if(rect.bottom>bottom)scroll.scrollTop+=Math.min(rect.bottom-bottom,rect.top-top);
+      }
+      return true;
+    }
+    function copy(event){const active=document.activeElement;if(!selected.size||active!==focused||active.closest(control)||!event.clipboardData)return;event.clipboardData.setData('text/plain',text());event.preventDefault();feedback(selected.size);}
+    function unitCostClipboard(text){
+      // Dollar-prefixed US notation only. Keep all fractional digits; malformed
+      // grouping, signs, other currencies and decimal-comma notation stay invalid.
+      const match=text.match(/^\$[ \u00a0\u202f]*(\d+|\d{1,3}(?:,\d{3})+)(\.\d+)?$/);
+      return match?match[1].replace(/,/g,'')+(match[2]||''):text;
+    }
+    function paste(event){
+      // A selected cell owns no native text caret. Enter the same replace-edit
+      // mode as typing, then let the normal validation/commit path handle it.
+      // Active native editors, ranges, dropdowns and noneditable cells are untouched.
+      if(edit||selected.size!==1||!selected.has(focused)||event.target!==focused||document.activeElement!==focused||!event.clipboardData||!editable(focused)||feeControl?.tagName==='SELECT')return false;
+      const text=event.clipboardData.getData('text/plain').replace(/[\t\r\n]+$/,'');
+      if(!text.trim()||/[\t\r\n]/.test(text))return false;
+      if(!begin(focused,'replace')||!edit)return false;
+      event.preventDefault();
+      const inserted=edit.input.dataset.field==='unitPrice'?unitCostClipboard(text.trim()):text.trim();
+      edit.input.select();
+      // Native insertion retains browser undo. Unsupported formatted numbers
+      // remain visible text until existing validation accepts or rejects them.
+      if(!document.execCommand?.('insertText',false,inserted)){
+        edit.input.value=inserted;edit.input.setSelectionRange?.(edit.input.value.length,edit.input.value.length);
+      }
+      return true;
+    }
+    return {click,key,copy,paste,clear,text,down,move,up,cancel,draft,finish,doubleClick,preview,parseLead,selectFee};
+  }
+  let sourcingView=false; // Page-session preference; quotation state is shared between views.
+  async function open(mount,rfq,back,options={}){
+    let view,dirty=false,busy=false,message='',evidencePanel=null,vendorAdvance=null,completionFocus=null,mfgFocus=null,feeFocus=null,completionIssues=[],focusValidation=false;
+
+
+    let collapsedFees;
+    const newCharges=new Set(), pricingOverrides=new Set();
+    const chargeCategories=[['TARIFF','Tariff / Duty'],['FREIGHT','Freight / Handling'],['COD','COD / Processing'],['SETUP','Vendor NRE / Setup'],['TOOLING','Tooling'],['OTHER','Other']];
+    const manualRows=new Set(),partRequestDraft={};
+    const simVendors=['Digi-Key','Mouser','Newark','Arrow','Avnet'];
+    const invalidInputs=new Set();
+    const leadBefore=new Map();
+    let readOnly=!(window.DleOsCapabilities?.can?.('rfq.materials.edit')===true||window.DleOsCapabilities?.can?.('technical_review.disposition')===true);
+    const url='/api/quoting/v1/rfqs/'+encodeURIComponent(rfq.intakeId)+'/materials';
+    async function fetchView(options){const response=await window.DleIntegration.request(url,{credentials:'include',cache:'no-store',...options});const body=await response.json();if(!response.ok){const error=new Error(body.message||'Material Quotation Workspace unavailable');error.code=body.code;throw error;}return body;}
+    view=await fetchView();readOnly=readOnly||view.canEditBeforeIssue===false&&view.editContractVersion===1;
+
+    const holdControl=window.DleRfqHolds?.create({section:'materials',getRfq:()=>({...view.rfq,intakeId:rfq.intakeId}),isBlocked:()=>busy,apply:workspace=>{view.rfq.lanes={...view.rfq.lanes,...window.DleRfqHolds.merge(view.rfq.lanes,workspace.lanes)};},onUpdate:syncHoldButtons});
+    function syncHoldButtons(){const root=mount.querySelector('.materials-workbench'),save=root?.querySelector('[data-material-action="save"]'),complete=root?.querySelector('[data-material-action="complete"]');if(save)save.disabled=busy||readOnly||holdControl.isBusy();if(complete)complete.disabled=busy||readOnly||holdControl.isBusy()||!!view.rfq.lanes.materialsHold?.active;}
+    collapsedFees=materialFeeDisclosure(view.rfq,view.plan);
+    let reviewTarget=options.target||null;
+    if(view.editBlocker)message=view.editBlocker;
+    const sourcingLabels={OPEN:'OPEN',SOURCED:'Complete',UNABLE_TO_SOURCE:'Unable to Source',NEEDS_ALTERNATE:'Needs Alternate',CUSTOMER_SUPPLIED:'Customer Supplied'};
+    const locked=row=>(row.sourcingStatus||'OPEN')!=='OPEN';
+    async function setSourcing(index,status){if(readOnly||busy)return;const row=view.plan.rows.find(r=>r.index===index);if(!row||!sourcingLabels[status])return;if(invalidInputs.size){message='Correct invalid values before changing sourcing status.';draw();return;}const previous=row.sourcingStatus||'OPEN',previousSupply=row.customerSupplied,previousPrice=row.unitPrice,previousQuantity=row.orderQuantity,previousMode=row.orderQuantityMode;row.sourcingStatus=status;if(status==='CUSTOMER_SUPPLIED'){row.customerSupplied=true;row.unitPrice=null;row.orderQuantity=view.rows.find(r=>r.quote.index===index).requiredQuantity;row.orderQuantityMode='AUTO';}else if(previous==='CUSTOMER_SUPPLIED'&&status==='OPEN')row.customerSupplied=false;dirty=true;const root=mount.querySelector('.materials-workbench');await root.onclick({stopPropagation(){},target:{closest:selector=>selector==='button'?{dataset:{materialAction:'save'}}:null}});if(dirty){row.sourcingStatus=previous;row.customerSupplied=previousSupply;row.unitPrice=previousPrice;row.orderQuantity=previousQuantity;row.orderQuantityMode=previousMode;draw();}}
+    function sourcingControl(row){
+      const status=row.sourcingStatus||'OPEN';
+      if(status==='UNABLE_TO_SOURCE'||status==='NEEDS_ALTERNATE'||status==='CUSTOMER_SUPPLIED')return '<span class="material-sourcing-status">'+sourcingLabels[status]+'</span>';
+      return '<span class="material-sourcing-status"><input type="checkbox" class="material-complete-checkbox" data-material-complete="'+row.index+'" aria-label="Complete sourcing for line '+(row.index+1)+'" title="Check to complete; uncheck to edit" '+(status==='SOURCED'?'checked ':'')+(busy||readOnly?'disabled':'')+'></span>';
+    }
+    function missingSourcing(row){
+      const source=view.rfq.inputs.materials.candidate.rows.find(r=>r.index===row.index),required=view.rows.find(r=>r.quote.index===row.index)?.requiredQuantity,missing=[];
+      if(source.componentType==='REFERENCE_ONLY')return missing;
+      if(required==null||required<=0)missing.push('BOM quantity');
+      if(row.customerSupplied)return missing;
+      if(!row.vendor?.trim())missing.push('Vendor');if(row.unitPrice==null||row.unitPrice===''||Number(row.unitPrice)<0)missing.push('Unit Cost');
+      if(row.orderQuantity==null||row.orderQuantity===''||Number(row.orderQuantity)<=0||Number(row.orderQuantity)<required)missing.push('Order Qty covering required quantity');
+      if(!(row.leadTimeMode==='STOCK'||(['DAYS','WEEKS'].includes(row.leadTimeMode)&&Number(row.leadTimeValue)>0)||(!row.leadTimeMode&&row.leadDays!=null)))missing.push('Lead Time');
+      return missing;
+    }
+    function updateSourcing(root,row){const cell=root.querySelector('[data-material-action="vendor-open"][data-index="'+row.index+'"]')?.closest?.('tr')?.cells[14],status=cell?.querySelector('.material-sourcing-status');if(status)status.outerHTML=sourcingControl(row);}
+    const completionFields={
+      'Lead time required':['leadTimeMode','Choose lead time.'],
+      'Vendor required':['vendor','Choose a vendor.'],
+      'Unit price required':['unitPrice','Enter unit cost.'],
+      'Order quantity must cover required quantity':['orderQuantity','Order qty must cover the requirement.'],
+      'Unit of measure required':['uom','Choose a unit of measure.'],
+      'Qty / Assy needs review':['bomQuantity','Review the BOM quantity.']
+    };
+    function completionTarget(root,issue){
+      if(issue.field==='vendor')return root.querySelector('[data-material-action="vendor-open"][data-index="'+issue.index+'"]');
+      if(issue.field==='bomQuantity')return root.querySelector('[data-material-mfg-cell="'+issue.index+'"]')?.parentElement?.cells[5];
+      return root.querySelector('[data-row="'+issue.index+'"][data-field="'+issue.field+'"]');
+    }
+    function parseCompletionIssues(error){
+      if(error.code!=='MATERIALS_INCOMPLETE')return [];
+      const issues=[];
+      for(const section of error.message.split('; ')){
+        const match=section.match(/^Line (\d+): (.+)$/);if(!match)return [];
+        for(const text of match[2].split(', ')){const item=completionFields[text];if(!item)return [];issues.push({index:Number(match[1])-1,field:item[0],text:item[1]});}
+      }
+      return issues;
+    }
+    function completionStillMissing(issue){
+      const row=view.plan.rows.find(r=>r.index===issue.index);if(!row)return false;
+      if(issue.field==='leadTimeMode')return !(row.leadTimeMode==='STOCK'||(['DAYS','WEEKS'].includes(row.leadTimeMode)&&Number(row.leadTimeValue)>0)||(!row.leadTimeMode&&row.leadDays!=null));
+      if(issue.field==='vendor')return !row.vendor?.trim();
+      if(issue.field==='unitPrice')return row.unitPrice==null||row.unitPrice==='';
+      if(issue.field==='orderQuantity'){const required=view.rows.find(r=>r.quote.index===row.index)?.requiredQuantity;return row.orderQuantity==null||row.orderQuantity===''||Number(row.orderQuantity)<Number(required);}
+      if(issue.field==='uom')return !row.uom?.trim();
+      return true;
+    }
+    function showCompletionIssues(root){
+      root.querySelectorAll('[data-completion-invalid]').forEach(n=>{const id=n.dataset.completionInvalid;const rest=(n.getAttribute('aria-describedby')||'').split(' ').filter(x=>x&&x!==id);rest.length?n.setAttribute('aria-describedby',rest.join(' ')):n.removeAttribute('aria-describedby');delete n.dataset.completionInvalid;const key=n.dataset.row+':'+(n.dataset.field==='leadTimeMode'?'leadTime':n.dataset.field);if(!invalidInputs.has(key))n.removeAttribute('aria-invalid');});
+      root.querySelectorAll('.material-validation-hint').forEach(n=>n.remove());
+      const hadIssues=completionIssues.length>0;completionIssues=completionIssues.filter(completionStillMissing);
+      const targets=[];
+      for(const issue of completionIssues){
+        const target=completionTarget(root,issue),cell=target?.closest('td');if(!target||!cell)continue;
+        const hint=document.createElement('span');hint.id='material-required-'+issue.index+'-'+issue.field;hint.className='material-validation-hint';hint.textContent=issue.text;cell.append(hint);
+        const nodes=[target];if(issue.field==='leadTimeMode'){const summary=cell.querySelector('summary');if(summary)nodes.push(summary);}
+        for(const node of nodes){node.dataset.completionInvalid=hint.id;node.setAttribute('aria-invalid','true');node.setAttribute('aria-describedby',((node.getAttribute('aria-describedby')||'')+' '+hint.id).trim());}
+        if(issue.field==='bomQuantity')target.tabIndex=-1;
+        targets.push({target,hint,issue});
+      }
+      if(!targets.length){focusValidation=false;if(hadIssues&&message==='Complete the highlighted fields.'){message='Required fields filled. Complete Materials when ready.';root.querySelector('.materials-message').textContent=message;}return;}
+      const active=targets.find(x=>x.target===document.activeElement)||targets[0];active.hint.classList.add('is-current');
+      if(focusValidation){focusValidation=false;const first=targets[0];if(first.issue.field==='leadTimeMode'){const lead=first.target.closest('details');const row=view.plan.rows.find(r=>r.index===first.issue.index);leadBefore.set(first.issue.index,{leadTimeMode:row.leadTimeMode,leadTimeValue:row.leadTimeValue,leadDays:row.leadDays});lead.open=true;}first.target.closest('td').scrollIntoView({block:'nearest',inline:'nearest'});first.target.focus({preventScroll:true});}
+    }
+    function unitCostText(value){
+      if(value==null||value==='')return '';
+      const text=String(value),parts=text.split('.');
+      // Unit costs can be fractions of a cent. Pad short decimals, never round.
+      return /^\d+(?:\.\d*)?$/.test(text)?parts[0]+'.'+(parts[1]||'').padEnd(4,'0'):text;
+    }
+    function input(row,key,label,type='text'){
+      const html='<input '+(key==='orderQuantity'?'title="Required Qty: '+esc(view.rows.find(r=>r.quote.index===row.index)?.requiredQuantity??'Review Qty / Unit')+'" ':'')+'aria-label="'+label+' for line '+(row.index+1)+'" data-row="'+row.index+'" data-field="'+key+'" type="'+type+'" '+(type==='number'?'min="0" step="'+(key==='leadDays'?'1':'any')+'"':'')+' value="'+esc(key==='unitPrice'&&row[key]!=null?unitCostText(row[key]):row[key])+'" '+(invalidInputs.has(row.index+':'+key)?'aria-invalid="true" ':'')+(busy||readOnly?'disabled':'')+'>';
+      return key==='unitPrice'?'<span class="material-money-input"><span>$</span>'+html+'</span>':html;
+    }
+    function orderWarning(row,calculated){return !row.customerSupplied&&calculated.required!==false&&row.orderQuantity!=null&&calculated.requiredQuantity!=null&&Number(row.orderQuantity)<calculated.requiredQuantity?'Below required qty · Minimum '+calculated.requiredQuantity:'';}
+    function liveSummary(){
+      let cents=0n,longest=null;
+      for(const row of view.plan.rows){const calculated=view.rows.find(r=>r.quote.index===row.index);if(calculated.required===false||row.customerSupplied)continue;
+        const cost=decimalCostPreview(row.orderQuantity,row.unitPrice,false,1000000000);if(cost)cents+=BigInt(cost.replace(/[^0-9]/g,''));
+        const mode=row.leadTimeMode||(row.leadDays===0?'STOCK':row.leadDays>0?'DAYS':null),value=row.leadTimeMode?row.leadTimeValue:row.leadDays;
+        if(mode&&(mode==='STOCK'||value>0)){const days=mode==='STOCK'?0:value*(mode==='WEEKS'?7:1);if(!longest||days>longest.days)longest={days,label:mode==='STOCK'?'Stock':value+(mode==='WEEKS'?' Weeks':' Days')};}
+      }
+      const currency=c=>'$'+(c/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+(c%100n).toString().padStart(2,'0');
+      let sale='—';const mark=String(view.plan.markupPercent??0),match=mark.match(/^(\d+)(?:\.(\d*))?$/);
+      if(match&&!invalidInputs.has('markup')){const scale=10n**BigInt((match[2]||'').length),rate=BigInt(match[1]+(match[2]||'')),den=100n*scale*BigInt(view.rfq.assemblies[0].quantity),num=cents*(100n*scale+rate);sale=currency(num/den+(num%den*2n>=den?1n:0n));}
+      let blendRaw=0n,blendSell=0n,separate=0n,nre=0n;
+      for(const row of view.plan.rows)for(const c of row.charges||[]){const sell=chargeSell(c,view.plan.markupPercent??0);if(c.treatment==='BLEND'){blendRaw+=(chargeDecimal(c.rawCost)||0n)*(chargeDecimal(c.quantity??1)||0n)/10n**28n;blendSell+=sell||0n;}else if(c.treatment==='SEPARATE')separate+=sell||0n;else if(c.treatment==='NRE')nre+=sell||0n;}
+      const rate=chargeDecimal(view.plan.markupPercent??0);if(rate!=null&&!invalidInputs.has('markup'))sale=chargeMoney(roundPositive(cents*((100n*10n**28n)+rate)+blendSell*(100n*10n**28n),(100n*10n**28n)*BigInt(view.rfq.assemblies[0].quantity)));
+      return {total:currency(cents),sale,lead:longest?.label||'—',blended:chargeMoney(roundPositive(blendRaw,10n**26n)),basis:chargeMoney(cents+roundPositive(blendRaw,10n**26n)),separate:chargeMoney(separate),nre:chargeMoney(nre)};
+    }
+    function updateSummary(root){showCompletionIssues(root);const values=liveSummary();for(const key of ['total','sale','lead','blended','basis','separate','nre']){const target=root.querySelector('[data-live-'+key+']');if(target)target.textContent=values[key];}for(const row of view.plan.rows)for(const c of row.charges||[]){const target=root.querySelector('[data-charge-sell="'+c.id+'"]');if(target)target.textContent=chargeMoney(chargeSell(c,view.plan.markupPercent??0));const ext=root.querySelector('[data-charge-ext="'+c.id+'"]');if(ext)ext.textContent=decimalCostPreview(c.quantity??1,c.rawCost,false);const standard=root.querySelector('[data-charge="'+c.id+'"][data-charge-field="markupTreatment"] option[value="MATERIAL"]');if(standard)standard.textContent='Std '+(view.plan.markupPercent??0)+'%';}}
+    function vendorControl(row){
+      const value=row.customerSupplied?'Customer Supplied':row.vendor||'—';
+      return '<button class="material-vendor-trigger" data-material-action="vendor-open" data-index="'+row.index+'" '+(readOnly||busy?'disabled':'')+'>'+esc(value)+'</button><small data-vendor-status="'+row.index+'">'+(!row.customerSupplied&&row.vendor==='DLE-STK'?'DLE stock planned; availability not checked':!row.customerSupplied&&row.vendor&&!['SIM_LIST','CANONICAL_REFERENCE'].includes(row.vendorSource)?'Not Approved · Quote Only':'')+'</small><div class="material-vendor" popover="auto" data-vendor-panel="'+row.index+'">'+vendorList(row)+'</div>';
+    }
+    function filterVendors(panel){
+      if(view.vendorReferenceContractVersion===1){searchCanonicalVendors(panel);return;}
+      const query=panel.querySelector('[data-vendor-search]').value.trim().toLowerCase();
+      const options=[...panel.querySelectorAll('[data-vendor-option]')];
+      const prefix=options.filter(o=>o.dataset.vendorOption.startsWith(query));
+      const matches=prefix.length?prefix:options.filter(o=>o.dataset.vendorOption.includes(query));
+      for(const option of options){option.hidden=!matches.includes(option);option.classList.toggle('material-vendor-active',option===matches[0]);}
+      for(const option of panel.querySelectorAll('[data-vendor-choice-extra]'))option.hidden=!!query;
+    }
+    function vendorList(row){
+      if(view.vendorReferenceContractVersion===1)return canonicalVendorList(row);
+      return '<input aria-label="Search SIM vendors for line '+(row.index+1)+'" data-vendor-search placeholder="Search vendors…"><small>Quotation sources</small>'+[['','—'],['customer','Customer Supplied'],['manual','New Vendor…'],['DLE-STK','DLE-STK - Internal stock (quotation)'],...simVendors.map(v=>[v,v])].map(([v,l])=>'<button data-material-action="vendor-choice" data-index="'+row.index+'" data-vendor="'+esc(v)+'" '+(simVendors.includes(v)||v==='DLE-STK'?'data-vendor-option="'+esc(v.toLowerCase())+'"':'data-vendor-choice-extra')+'>'+esc(l)+'</button>').join('');
+    }
+    function canonicalVendorList(row){
+      const option=(value,label)=>'<button type="button" data-material-action="vendor-choice" data-index="'+row.index+'" data-vendor="'+value+'">'+label+'</button>';
+      return '<input maxlength="120" aria-label="Search vendors for line '+(row.index+1)+'" data-vendor-search placeholder="Name or vendor number"><div class="material-vendor-results" data-vendor-results aria-live="polite"><small>Type a name or number.</small></div><div class="material-vendor-extras">'+option('customer','Customer Supplied')+option('manual','Manual Entry')+option('DLE-STK','DLE stock')+option('','Clear vendor')+'<button type="button" data-material-action="vendor-cancel">Cancel</button></div>';
+    }
+    function searchCanonicalVendors(panel){
+      clearTimeout(panel.vendorTimer);panel.vendorController?.abort();const seq=(panel.vendorSequence||0)+1;panel.vendorSequence=seq;
+      const search=panel.querySelector('[data-vendor-search]'),query=search.value.trim(),results=panel.querySelector('[data-vendor-results]');panel.vendorResults=[];
+      if(!query){results.innerHTML='<small>Type a name or number.</small>';return;}
+      results.innerHTML='<small>Searching…</small>';
+      panel.vendorTimer=setTimeout(async()=>{
+        if(!panel.isConnected||!panel.matches(':popover-open')||seq!==panel.vendorSequence)return;
+        const controller=new AbortController();panel.vendorController=controller;
+        try{
+          const response=await window.DleIntegration.request('/api/quoting/v1/rfqs/'+encodeURIComponent(view.rfq.intakeId)+'/materials/vendors?q='+encodeURIComponent(query),{credentials:'same-origin',cache:'no-store',signal:controller.signal});
+          const data=await response.json();if(!response.ok)throw Error(data.message||'Vendor search unavailable.');
+          if(!panel.isConnected||!panel.matches(':popover-open')||seq!==panel.vendorSequence)return;
+          if(!Array.isArray(data.items)||data.items.length>8||!data.snapshotSha256)throw Error('Vendor search returned an invalid result.');
+          panel.vendorResults=data.items;panel.vendorSnapshot=data.snapshotSha256;
+          results.innerHTML=data.items.length?data.items.map((v,i)=>'<button type="button" data-material-action="vendor-canonical" data-index="'+panel.dataset.vendorPanel+'" data-choice="'+i+'" data-vendor-option="'+esc(v.vendorMasterId)+'" class="'+(i===0?'material-vendor-active':'')+'">'+esc(v.vendorName||'Vendor '+v.vendorNumber)+'<small>'+esc(v.firmId)+' / '+esc(v.vendorNumber)+'</small></button>').join(''):'<small>No matching vendors.</small>';
+        }catch(error){if(error.name!=='AbortError'&&panel.isConnected&&panel.matches(':popover-open')&&seq===panel.vendorSequence)results.textContent=error.message;}
+        if(panel.isConnected&&panel.matches(':popover-open'))positionVendor(panel,mount.querySelector('[data-material-action="vendor-open"][data-index="'+panel.dataset.vendorPanel+'"]'));
+      },160);
+    }
+    function positionVendor(panel,button){
+      const r=button.getBoundingClientRect(),width=panel.offsetWidth,height=panel.offsetHeight;
+      panel.style.left=panel.querySelector('[data-vendor-results]')?'clamp(8px,'+Math.max(8,r.right-width)+'px,calc(100vw - '+width+'px - 8px))':Math.max(8,Math.min(r.right-width,window.innerWidth-width-8))+'px';
+      panel.style.top=Math.max(8,r.bottom+height+8<=window.innerHeight?r.bottom+3:r.top-height-3)+'px';
+    }
+    function uomControl(row){
+      const value=row.uom||'EA',disabled=busy||readOnly?'disabled':'';
+      return (value!=='EA'&&value!=='FT'?'<small>Saved: '+esc(value)+'</small>':'')+'<select aria-label="UoM for line '+(row.index+1)+'" data-row="'+row.index+'" data-field="uom" '+disabled+'>'+(value!=='EA'&&value!=='FT'?'<option disabled hidden selected>'+esc(value)+'</option>':'')+['EA','FT'].map(v=>'<option '+(v===value?'selected':'')+'>'+v+'</option>').join('')+'</select>';
+    }
+    function leadControl(row){
+      const mode=row.leadTimeMode||(row.leadDays===0?'STOCK':row.leadDays>0?'DAYS':''),value=row.leadTimeMode?row.leadTimeValue:row.leadDays;
+      return '<details class="material-lead"><summary>'+esc(mode==='STOCK'?'Stock':mode&&value?value+(mode==='DAYS'?' Days':' Weeks'):'—')+'</summary><div><select aria-label="Lead Time mode for line '+(row.index+1)+'" data-row="'+row.index+'" data-field="leadTimeMode" '+(busy||readOnly?'disabled':'')+'><option value="" '+(!mode?'selected':'')+'>—</option>'+[['STOCK','Stock'],['DAYS','Days'],['WEEKS','Weeks']].map(([v,l])=>'<option value="'+v+'" '+(v===mode?'selected':'')+'>'+l+'</option>').join('')+'</select><input aria-label="Lead Time value for line '+(row.index+1)+'" data-row="'+row.index+'" data-field="leadTimeValue" type="text" inputmode="numeric" pattern="[0-9]+" value="'+esc(mode==='STOCK'?'':value)+'" '+(mode==='DAYS'||mode==='WEEKS'?'':'hidden ')+(busy||readOnly?'disabled':'')+'><small data-lead-label="'+row.index+'">'+esc(mode==='STOCK'?'Stock':mode&&value?value+(mode==='DAYS'?' Days':' Weeks'):'')+'</small></div></details>';
+    }
+    function closeLead(editor,cancel=false){
+      const index=Number(editor.querySelector('select').dataset.row),row=view.plan.rows.find(r=>r.index===index);
+      if(cancel||invalidInputs.has(index+':leadTime')){
+        const before=leadBefore.get(index);if(before)Object.assign(row,before);
+        invalidInputs.delete(index+':leadTime');
+        editor.outerHTML=leadControl(row);
+      }else editor.open=false;
+      leadBefore.delete(index);
+      updateSourcing(mount.querySelector('.materials-workbench'),row);
+    }
+    function confirmedParts(source){
+      const identity=source.manufacturerIdentity;
+      return [...new Set((identity?.proposals||[]).filter(p=>(identity.history||[]).filter(h=>h.proposalId===p.id).at(-1)?.decision==='CONFIRMED'&&p.partNumber?.trim()).map(p=>p.partNumber).concat((source.alternates||[]).filter(a=>!a.removedAtUtc&&a.reviewStatus==='APPROVED').map(a=>a.partNumber)))];
+    }
+    function manufacturerSelectLegacy(row,source){
+      const parts=confirmedParts(source),disabled=busy||readOnly?'disabled':'';
+      const approved=row.mfgPartNumberSource==='CONFIRMED_ACCEPTED_BOM';
+      const identity=source.manufacturerIdentity;
+      const count=source.componentType==='SUBASSEMBLY'||source.primaryIdentity?.basis==='CUSTOMER_PN'?0:new Set((identity?.proposals||[]).filter(p=>p.partNumber?.trim()&&(identity.history||[]).filter(h=>h.proposalId===p.id).at(-1)?.decision==='CONFIRMED').map(p=>JSON.stringify([p.partNumber.trim(),(p.manufacturerName||'').trim()]))).size;
+      const number='<span class="material-mfg-value" data-mfg-value="'+row.index+'">'+esc(row.mfgPartNumber||row.assemblyPartNumber||'Not resolved')+'</span>';
+      return '<div class="material-mfg">'+(!readOnly?'<details class="material-mfg-menu"><summary title="Choose quotation P/N" aria-label="Choose quotation P/N for line '+(row.index+1)+'">'+number+(count>1?'<span class="material-mfg-count">+'+(count-1)+'</span>':'')+'<span class="material-mfg-chevron" aria-hidden="true">▾</span>'+'</summary><div>'+parts.map((part,i)=>'<button data-material-action="confirmed-mfg" data-index="'+row.index+'" data-choice="'+i+'" '+disabled+'>'+ (approved&&part===row.mfgPartNumber?'✓ ':'')+esc(part)+' <small>Approved</small></button>').join('')+'<button data-material-action="manual-mfg" data-index="'+row.index+'" '+disabled+'>Manual Entry…</button></div></details>':number)+'</div><small class="material-mfg-status" data-mfg-status="'+row.index+'">'+(row.mfgPartNumber&&!approved?'Not Approved · Quote Only':'')+'</small>'+(manualRows.has(row.index)?'<div class="material-mfg-entry">'+input(row,'mfgPartNumber','Manual MFG / Approved P/N')+'<button data-material-action="done-mfg" data-index="'+row.index+'">Done</button></div>':'');
+    }
+    function partReviewEligible(row,source){return !!source&&!['DNP','REFERENCE_ONLY'].includes(source.componentType)&&String(source.values?.lineNumber||'').toUpperCase()!=='NOB';}
+    function partReviewRequired(row,source){return partReviewEligible(row,source)&&(row.partReviewMode==='REQUEST_ALTERNATE'||row.partReviewMode==='PROPOSED_PART'||row.mfgPartNumberSource!=='CONFIRMED_ACCEPTED_BOM'&&!!row.mfgPartNumber?.trim());}
+    function partReviewCount(){return view.plan.rows.filter(row=>partReviewRequired(row,view.rfq.inputs.materials.candidate.rows.find(s=>s.index===row.index))).length;}
+    function syncPartReview(){const root=mount.querySelector('.materials-workbench'),button=root?.querySelector('[data-material-action="review-parts"]');if(button)button.textContent='Review flagged items ('+partReviewCount()+')'+(partRequestDraft.value?' · draft':'');}
+    function manufacturerSelect(row,source){
+      if(view.partRequestsContractVersion!==1)return manufacturerSelectLegacy(row,source);
+      const parts=confirmedParts(source),readonly=busy||readOnly||locked(row),disabled=readonly?'disabled':'',allowed=partReviewEligible(row,source),flagged=partReviewRequired(row,source),review=row.partReviewMode==='REQUEST_ALTERNATE';
+      const number='<span class="material-mfg-value" data-mfg-value="'+row.index+'">'+esc(row.mfgPartNumber||row.assemblyPartNumber||'Not entered')+'</span>';
+      return '<div class="material-mfg">'+(!readOnly?'<details class="material-mfg-menu"><summary title="Choose manufacturer P/N" aria-label="Choose manufacturer P/N for line '+(row.index+1)+'" '+(readonly?'aria-disabled="true"':'')+'>'+number+'<span class="material-mfg-chevron" aria-hidden="true">▾</span></summary><div>'+parts.map((part,i)=>'<button data-material-action="confirmed-mfg" data-index="'+row.index+'" data-choice="'+i+'" '+disabled+'>'+esc(part)+' <small>Approved</small></button>').join('')+'<button data-material-action="manual-mfg" data-index="'+row.index+'" '+disabled+'>Manual Entry</button>'+(allowed?'<button data-material-action="flag-alternate" data-index="'+row.index+'" '+disabled+'>Request alternate</button>':'')+'</div></details>':number)+'</div><div class="material-part-flag"><small class="material-mfg-status" data-mfg-status="'+row.index+'">'+(flagged?'Approval required'+(review?' · Alternate requested':''):'')+'</small>'+(review&&!readOnly?'<button type="button" data-material-action="clear-part-flag" data-index="'+row.index+'" '+disabled+' aria-label="Clear alternate request for line '+(row.index+1)+'">Clear request</button>':'')+'</div>'+(manualRows.has(row.index)?'<div class="material-mfg-entry">'+input(row,'mfgPartNumber','Manual manufacturer P/N')+'<button data-material-action="done-mfg" data-index="'+row.index+'">Done</button></div>':'');
+    }
+    function chargeRows(row,find){return (row.charges||[]).map((c,i)=>{
+      const disabled=busy||readOnly||row.sourcingStatus==='SOURCED'?'disabled':'';
+      const select=(key,label,options)=>'<label>'+label+'<select aria-label="'+label+' charge '+(i+1)+' line '+(row.index+1)+'" data-charge="'+c.id+'" data-charge-field="'+key+'" '+disabled+'>'+options.map(([v,l])=>'<option value="'+v+'" '+(c[key]===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label>';
+      const field=(key,label,numeric=false)=>'<label>'+label+'<input placeholder="'+label+'" title="'+label+'" aria-label="'+label+' charge '+(i+1)+' line '+(row.index+1)+'" data-charge="'+c.id+'" data-charge-field="'+key+'" value="'+esc(key==='quantity'?(c.quantity??1):c[key])+'" '+(numeric?'inputmode="decimal" ':'maxlength="'+(key==='notes'?2000:200)+'" ')+disabled+'></label>';
+      return '<tr class="material-charge-row" data-sourcing-state="'+(row.sourcingStatus==='SOURCED'?'SOURCED':'OPEN')+'"><td class="material-fee-sequence" title="Charge sequence only; not a BOM Find number">↳ '+esc(find)+'.'+(i+1)+'</td><td colspan="'+4+'" class="material-fee-category"><div class="material-charge-fields">'+select('category','Category',chargeCategories)+(c.category==='OTHER'?field('description','Description'):'')+select('treatment','Customer Pricing',[['BLEND','Include in Unit Price'],['SEPARATE','Show Separately'],['NRE','Show as NRE']])+select('markupTreatment','Markup',[['MATERIAL','Std '+esc(view.plan.markupPercent??0)+'%'],['CUSTOM','Custom'],['NONE','None']])+(c.markupTreatment==='CUSTOM'?field('customMarkupPercent','Custom Markup %',true):'')+'</div></td><td class="material-number material-fee-qty"><div class="material-charge-fields">'+field('quantity','Fee Qty',true)+'</div></td><td class="material-fee-uom">EA</td><td class="material-fee-cost"><div class="material-charge-fields">'+field('rawCost','Cost',true)+'</div></td><td class="material-number material-fee-ext" data-charge-ext="'+c.id+'">'+decimalCostPreview(c.quantity??1,c.rawCost,false)+'</td><td></td><td class="material-number material-fee-sell">Sell <b data-charge-sell="'+c.id+'">'+chargeMoney(chargeSell(c,view.plan.markupPercent??0))+'</b></td><td colspan="4" class="material-fee-notes"><div class="material-charge-fields">'+evidenceOptions(row,c)+'<button data-material-action="remove-charge" data-index="'+row.index+'" data-charge-id="'+c.id+'" '+disabled+' aria-label="Remove charge '+(i+1)+' line '+(row.index+1)+'">×</button></div></td></tr>';
+    }).join('');}
+    function editCharge(t,root){if(t.dataset.chargeField===undefined)return false;const c=view.plan.rows.flatMap(r=>r.charges||[]).find(c=>c.id===t.dataset.charge);if(!c||view.plan.rows.some(r=>r.sourcingStatus==='SOURCED'&&r.charges?.includes(c)))return true;const key=t.dataset.chargeField,numeric=['rawCost','customMarkupPercent','quantity'].includes(key),amount=chargeDecimal(t.value),valid=!numeric||(t.value===''&&key!=='quantity')||(amount!=null&&/^(?:\d+(?:\.\d{0,6})?|\.\d{1,6})$/.test(t.value)&&amount<=(key==='rawCost'?1000000000n:key==='quantity'?1000000n:10000n)*10n**28n&&(key!=='quantity'||amount>0n));const id=c.id+':'+key;valid?invalidInputs.delete(id):invalidInputs.add(id);t.setCustomValidity(valid?'':'Enter a nonnegative decimal with at most six decimal places.');const previous=c[key];c[key]=numeric?(t.value===''?(key==='quantity'?'':null):t.value.replace(/^\./,'0.')):t.value;if(key==='treatment')pricingOverrides.add(c.id);if(key==='category'&&previous!==c.category){c.description=c.category==='OTHER'?'':chargeCategories.find(([v])=>v===c.category)[1];if(newCharges.has(c.id)&&!pricingOverrides.has(c.id))c.treatment=['SETUP','TOOLING'].includes(c.category)?'NRE':'BLEND';}if(key==='markupTreatment'&&c.markupTreatment!=='CUSTOM'){c.customMarkupPercent=null;invalidInputs.delete(c.id+':customMarkupPercent');}dirty=true;root.querySelector('.materials-message').textContent=valid?'Unsaved supplemental charge.':'Correct invalid charge amount.';updateSummary(root);return true;}
+    function rowHtml(row,source){
+      if(row.orderQuantityMode==='AUTO'&&row.sourcingStatus!=='CUSTOMER_SUPPLIED'){const result=view.rows.find(r=>r.quote.index===row.index);row.orderQuantity=row.customerSupplied||result.required===false?null:result.requiredQuantity;}
+      const s=source.candidate.rows.find(s=>s.index===row.index),c=view.rows.find(r=>r.quote.index===row.index);
+      const status=c.issues.length?'Needs attention':c.required===false?'Reference only':row.customerSupplied?'Customer supplied':'Quoted';
+      const cell=(v,cls='')=>'<td class="'+cls+'" title="'+esc(v)+'">'+esc(v)+'</td>';
+      let html='<tr class="material-grid-row" data-sourcing-state="'+(row.sourcingStatus||'OPEN')+'">'+'<td class="material-find">'+(row.charges?.length?'<button class="material-fee-toggle" data-material-action="toggle-fees" data-index="'+row.index+'" aria-label="'+(collapsedFees.has(row.index)?'Expand':'Collapse')+' supplemental fees for line '+(row.index+1)+'" aria-expanded="'+!collapsedFees.has(row.index)+'">'+(collapsedFees.has(row.index)?'▸':'▾')+'</button>':'')+esc(s.values.lineNumber??row.index+1)+'</td>'+cell((view.rfq.libraryRfq?s.values.customerPartNumber:null) || s.customerIdentity?.partNumber || (s.identityBasis==='CUSTOMER_PN' ? s.primaryIdentity?.partNumber : '') || 'Not recorded','material-customer-part')+'<td data-material-mfg-cell="'+row.index+'">'+manufacturerSelect(row,s)+'</td>'+cell(s.values.description,'material-description')+cell(s.values.designators)+cell(s.values.quantity,'material-number')+'<td>'+uomControl(row)+'</td><td>'+input(row,'unitPrice','Unit Cost','number')+'</td>'+'<td class="material-number" data-assembly-cost="'+row.index+'">'+decimalCostPreview(s.values.quantity,row.unitPrice,c.required===false||row.customerSupplied)+'</td>'+'<td>'+input(row,'orderQuantity','Order Qty','number')+'<small class="material-order-warning" data-order-warning="'+row.index+'">'+orderWarning(row,c)+'</small></td>'+'<td class="material-number material-total-with-charge"><span data-total-cost="'+row.index+'">'+decimalCostPreview(row.orderQuantity,row.unitPrice,c.required===false||row.customerSupplied,1000000000)+'</span>'+'<button class="material-add-charge" data-material-action="add-charge" data-index="'+row.index+'" aria-label="Add supplemental fee" title="Add supplemental fee" '+(busy||readOnly?'disabled':'')+'>+</button>'+(row.charges?.length?'<small>'+row.charges.length+(row.charges.length===1?' charge':' charges')+'</small>':'')+'</td>'+'<td>'+vendorControl(row)+'</td><td>'+input(row,'vendorPartNumber','Vendor P/N')+'</td><td>'+leadControl(row)+'</td><td class="material-notes-cell">'+sourcingControl(row)+evidenceOptions(row)+'</td></tr>';
+      return html+(collapsedFees.has(row.index)?'':chargeRows(row,s.values.lineNumber??row.index+1));
+    }
+    const evidenceCategories=[['VENDOR_QUOTE','Vendor Quote'],['DATASHEET','Datasheet'],['SPECIFICATION','Specification'],['SUPPORTING_DOCUMENT','Supporting Document'],['OTHER','Other']];
+    const evidenceOwner=(row,fee)=>view.plan.candidateId+':'+view.plan.bomVersion+':'+row.index+':'+(fee?.id||'parent');
+    function evidenceTarget(){const row=view.plan.rows.find(r=>r.index===evidencePanel?.index);return row&&(evidencePanel.feeId?row.charges?.find(c=>c.id===evidencePanel.feeId):row);}
+    function evidenceOptions(row,fee){
+      const target=fee||row,e=target.evidence,notes=(e?.notes?.length||0)+(target.notes?1:0),files=(e?.attachments||[]).filter(a=>!a.removed).length;
+      const attrs=' data-index="'+row.index+'" data-fee-id="'+esc(fee?.id||'')+'"',id='material-options-'+row.index+'-'+(fee?.id||'parent');
+      return '<span class="material-evidence-options"><small>'+(notes?notes+'n ':'')+(files?files+'a':'')+'</small><button data-material-action="evidence-options"'+attrs+' aria-label="Options for line '+(row.index+1)+(fee?' fee '+esc(fee.description):'')+'" aria-haspopup="menu" title="Notes, visuals and files">⋯</button><div class="material-options-menu" popover="auto" id="'+id+'" role="menu">'+[['add-note','Add Note'],['view-notes','View Notes'],['add-visual','Add Visual'],['view-visuals','View Visuals'],['add-file','Add File'],['view-files','View Files']].map(([action,label])=>'<button role="menuitem" data-material-action="evidence-'+action+'"'+attrs+' '+((readOnly||(fee&&row.sourcingStatus==='SOURCED'))&&action.startsWith('add')?'disabled':'')+'>'+label+'</button>').join('')+(!fee?'<hr><details class="material-sourcing-issue"><summary>Sourcing Issue ▸</summary>'+['UNABLE_TO_SOURCE','NEEDS_ALTERNATE','CUSTOMER_SUPPLIED'].map(value=>'<button role="menuitem" data-material-action="sourcing-issue" data-sourcing-value="'+value+'"'+attrs+' '+(busy||readOnly||locked(row)?'disabled':'')+'>'+sourcingLabels[value]+'</button>').join('')+'</details>'+(['UNABLE_TO_SOURCE','NEEDS_ALTERNATE','CUSTOMER_SUPPLIED'].includes(row.sourcingStatus)?'<button role="menuitem" data-material-action="sourcing-reopen"'+attrs+' '+(busy||readOnly?'disabled':'')+'>Clear sourcing issue</button>':''):'')+'</div></span>';
+    }
+    function renderEvidencePanel(){
+      if(!evidencePanel)return '';
+      const target=evidenceTarget();if(!target){evidencePanel=null;return '';}
+      const e=target.evidence||{notes:[],attachments:[]},kind=evidencePanel.kind,panelReadOnly=readOnly||(!evidencePanel.feeId&&locked(target))||(evidencePanel.feeId&&view.plan.rows.find(r=>r.index===evidencePanel.index)?.sourcingStatus==='SOURCED'),disabled=busy||panelReadOnly?'disabled':'';
+      const title=kind==='NOTE'?'Notes':kind==='VISUAL'?'Visuals':'Files';
+      let body='';
+      if(kind==='NOTE'){
+        body=(target.notes?'<article><small>Existing Material note</small><p>'+esc(target.notes)+'</p></article>':'')+e.notes.map(n=>'<article><small>'+esc(n.purpose==='SOURCING_PURCHASING'?'Sourcing / Purchasing':'Internal Quote')+' · '+esc(n.author||'Pending save')+' · '+esc(n.createdAt?dateTimeUtc(n.createdAt):'')+'</small><p>'+esc(n.text)+'</p></article>').join('');
+        if(!e.notes.length&&!target.notes)body='<p>No notes yet.</p>';
+        if(evidencePanel.add&&!panelReadOnly)body+='<label>Purpose<select data-evidence-purpose><option value="SOURCING_PURCHASING">Sourcing / Purchasing</option><option value="INTERNAL_QUOTE">Internal Quote</option></select></label><label>Note<textarea data-evidence-text maxlength="2000" aria-label="Material note" '+disabled+'></textarea></label><button data-material-action="evidence-note-apply" '+disabled+'>Add Note</button>';
+      }else{
+        const attachments=e.attachments.filter(a=>a.kind===kind&&!a.removed);
+        body=attachments.length?attachments.map(a=>{const href=url+'/attachments/'+encodeURIComponent(a.documentId);return '<article class="material-evidence-attachment">'+(kind==='VISUAL'?'<a href="'+href+'" target="_blank" rel="noopener"><img src="'+href+'" alt="'+esc(a.name)+'"></a>':'')+'<div><a href="'+href+'" target="_blank" rel="noopener">View '+esc(a.name)+'</a><small>'+esc(a.category.replaceAll('_',' '))+' · '+esc(a.addedBy)+' · '+esc(dateTimeUtc(a.addedAt))+'</small><small title="SHA-256 '+esc(a.sha256)+'">Verified · '+esc(a.size)+' bytes</small></div>'+(!panelReadOnly?'<button data-material-action="evidence-remove" data-document-id="'+esc(a.documentId)+'" '+disabled+'>Remove</button>':'')+'</article>';}).join(''):'<p>No '+title.toLowerCase()+' yet.</p>';
+        if(evidencePanel.add&&!panelReadOnly)body+=(kind==='FILE'?'<label>File type<select data-evidence-category>'+evidenceCategories.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('')+'</select></label>':'<p>Paste a screenshot here or choose PNG / JPEG (up to 5 MB in this candidate).</p>')+'<label>Choose '+(kind==='VISUAL'?'visuals':'files')+'<input type="file" data-evidence-upload multiple accept="'+(kind==='VISUAL'?'image/png,image/jpeg':'.pdf,.xls,.xlsx,.doc,.docx,.txt,.csv,.png,.jpg,.jpeg')+'" '+disabled+'></label>';
+      }
+      return '<aside class="material-evidence-panel" tabindex="-1" aria-label="Material '+title+'"><div class="material-evidence-heading"><h2>'+title+' · Line '+(evidencePanel.index+1)+(evidencePanel.feeId?' · '+esc(target.description):'')+'</h2><button data-material-action="evidence-close" '+(busy?'disabled':'')+'>Close</button></div><p class="material-evidence-boundary">Internal sourcing / quotation evidence. Save Materials to persist references. Not included in customer quotations.</p>'+body+'</aside>';
+    }
+    async function uploadEvidence(files){
+      if(busy||readOnly||!evidencePanel||evidencePanel.kind==='NOTE')return;
+      const selection={...evidencePanel},target=evidenceTarget();if(!target)return;
+      const category=mount.querySelector('[data-evidence-category]')?.value||'OTHER';
+      busy=true;message='Verifying evidence upload…';draw();
+      try{for(const file of files){const form=new window.FormData();form.append('file',file,file.name||'pasted-visual.png');form.append('metadata',JSON.stringify({expectedRevision:view.plan.revision,candidateId:view.plan.candidateId,bomVersion:view.plan.bomVersion,expectedAcceptedBomVersion:view.rfq.inputs.materials.version,index:selection.index,feeId:selection.feeId||null,kind:selection.kind,category}));
+          const response=await window.DleIntegration.request(url+'/attachments',{method:'POST',credentials:'same-origin',headers:{'X-SIM-Document-Upload':'1'},body:form});const data=await response.json();if(!response.ok)throw new Error(data.message||'Upload failed.');
+          (target.evidence??={notes:[],attachments:[]}).attachments.push(data);dirty=true;
+        }message='Evidence verified. Save Materials to persist references.';
+      }catch(e){message=e.message;}finally{busy=false;draw();}
+    }
+    async function evidenceAction(action,button,root){
+      if(!action.startsWith('evidence-'))return false;
+      if(action==='evidence-options'){const panel=root.querySelector('#material-options-'+button.dataset.index+'-'+(button.dataset.feeId||'parent'));panel.showPopover();positionVendor(panel,button);return true;}
+      if(action==='evidence-close'){evidencePanel=null;draw();return true;}
+      if(action==='evidence-note-apply'&&!readOnly){const text=root.querySelector('[data-evidence-text]').value.trim(),purpose=root.querySelector('[data-evidence-purpose]').value;if(!text){root.querySelector('[data-evidence-text]').focus();return true;}
+        const row=view.plan.rows.find(r=>r.index===evidencePanel.index),target=evidenceTarget();(target.evidence??={notes:[],attachments:[]}).notes.push({id:window.crypto.randomUUID(),owner:evidenceOwner(row,evidencePanel.feeId?target:null),purpose,text});dirty=true;message='Unsaved note. Save Materials to persist.';draw();return true;}
+      if(action==='evidence-remove'&&!readOnly){const a=evidenceTarget()?.evidence?.attachments.find(a=>a.documentId===button.dataset.documentId);if(a){a.removed=true;dirty=true;message='Attachment removed from working view. Save Materials to persist; completed versions retain their references.';draw();}return true;}
+      const kind=action.endsWith('note')||action.endsWith('notes')?'NOTE':action.endsWith('visual')||action.endsWith('visuals')?'VISUAL':'FILE';
+      evidencePanel={index:Number(button.dataset.index),feeId:button.dataset.feeId||null,kind,add:action.includes('-add-')&&!readOnly};draw();mount.querySelector('.material-evidence-panel')?.focus();return true;
+    }
+    function draw(){
+      if(!busy&&!dirty&&completionFocus!==null&&view.plan.rows.find(r=>r.index===completionFocus)?.sourcingStatus==='SOURCED')collapsedFees.add(completionFocus);
+      const previousGrid=mount.querySelector('.material-grid-scroll'),left=previousGrid?.scrollLeft||0,top=previousGrid?.scrollTop||0;
+      const source=view.rfq.inputs.materials,a=view.rfq.assemblies[0];
+      mount.innerHTML='<section class="rfqs-workspace materials-workbench'+(sourcingView?' materials-sourcing':'')+'"><div class="material-toolbar"><button data-material-action="back">← Back to RFQs</button><div class="material-workspace-title"><h1>Materials<span class="material-copy-status" data-material-copy-status role="status" aria-live="polite"></span></h1><p class="material-context" title="'+esc(view.rfq.customer.customerName)+'">'+esc(view.rfq.libraryRfq?.displayId||view.rfq.intakeId)+' · '+esc(a.assemblyNumber)+' · Rev '+esc(a.revision)+' · Qty '+a.quantity+'</p></div><div class="material-view-toggle" role="group" aria-label="Materials view"><button data-material-action="full-view" aria-pressed="'+!sourcingView+'">Full View</button><button data-material-action="sourcing-view" aria-pressed="'+sourcingView+'">Sourcing View</button></div><button data-material-action="reset-layout" hidden>Reset Layout</button>'+(view.previousQuotesContractVersion===1?'<button type="button" data-material-action="previous-quotes">Previous Quotes</button>':'')+(view.partRequestsContractVersion===1?'<button type="button" data-material-action="review-parts">Review flagged items ('+partReviewCount()+')</button>':'')+'<button data-material-action="save" '+(busy||readOnly?'disabled':'')+'>Save Materials</button><button data-material-action="complete" '+(busy||readOnly||view.rfq.lanes.materialsHold?.active?'disabled':'')+'>Complete Materials Quote</button>'+'<span class="materials-message" role="status">'+esc(message||(view.plan.revision?'Saved':'Not saved yet'))+'</span>'+'</div>'+(holdControl?.html()||'')+'<div class="material-grid-scroll"><table class="material-grid"><colgroup>'+columns.map((_,i)=>'<col class="material-col-'+i+'">').join('')+'</colgroup><thead><tr>'+columns.map((h,i)=>'<th scope="col"'+(i===14?' data-status-heading':'')+'>'+ h+(i===10?'<small class="material-fee-legend">+ fee</small>':'')+'</th>').join('')+'</tr></thead><tbody>'+view.plan.rows.map(r=>rowHtml(r,source)).join('')+'</tbody></table></div><div class="material-commercial-footer"><span>BOM Material Cost <b data-live-total>'+liveSummary().total+'</b></span><label>Markup <input aria-label="Markup percent" data-markup type="text" inputmode="decimal" value="'+esc(view.plan.markupPercent??0)+'" '+(readOnly||busy?'disabled':'')+'> %</label><span>Material NRE / One-Time <b data-live-nre>'+liveSummary().nre+'</b></span><span>Longest Lead <b data-live-lead>'+liveSummary().lead+'</b></span><span class="material-unit-price">Material Unit Price <b data-live-sale>'+liveSummary().sale+'</b></span></div><div class="material-footer"><small>'+(view.plan.revision?'Saved by '+esc(view.plan.updatedBy)+' · '+esc(dateTimeUtc(view.plan.atUtc)):'No saved quotation work yet.')+'</small><details><summary>Quantity / cost basis · USD</summary><div class="material-cost-breakdown"><span>Blended Supplemental Cost <b data-live-blended>'+liveSummary().blended+'</b></span><span>Recurring Material Cost Basis <b data-live-basis>'+liveSummary().basis+'</b></span><span>Separate Flow-Down Charges <b data-live-separate>'+liveSummary().separate+'</b></span></div><p>Qty / Unit is the accepted BOM quantity per assembly. Required Qty = Qty / Unit × RFQ quantity (available on the Order Qty tooltip). Ext Cost = Qty / Unit × Unit Cost. Total Cost = Order Qty × Unit Cost. Costs round to cents per line. Customer-supplied and reference-only lines contribute zero.</p><p>Lead Time preserves Stock, Days or Weeks. Longest lead compares calendar days. UoM defaults to EA; no unit conversion is performed. Pricing quantities must use the BOM unit.</p></details><details><summary>Completed versions ('+view.plan.versions.length+')</summary>'+view.plan.versions.map(v=>'<p>v'+v.version+' · $'+money(v.totalCost)+' · '+esc(v.updatedBy)+' · '+esc(dateTimeUtc(v.atUtc))+'</p>').join('')+'</details></div>'+renderEvidencePanel()+'</section>';
+      const root=mount.querySelector('.materials-workbench');
+      if(view.rfq.libraryRfq&&window.DleRfqPackageDocuments){const docs=document.createElement('div');root.querySelector('.material-toolbar').after(docs);window.DleRfqPackageDocuments.mount(docs,view.rfq,'materials');}
+      holdControl?.bind(root);if(holdControl)syncHoldButtons();
+      const evidenceDrawer=root.querySelector('.material-evidence-panel');if(evidencePanel&&evidenceDrawer?.style)evidenceDrawer.style.top=Math.max(80,(document.querySelector('.dle-app-header')?.getBoundingClientRect().bottom||0)+8)+'px';
+      for(const row of root.querySelectorAll?.('.material-grid-row[data-sourcing-state]:not([data-sourcing-state="OPEN"])')||[]){for(const control of row.querySelectorAll('input,select,button')){if(!control.matches('[data-material-complete],[data-material-action="sourcing-reopen"],[data-material-action="toggle-fees"],[data-material-action="details"],[data-material-action="evidence-options"],[data-material-action^="evidence-view"]'))control.disabled=true;}for(const summary of row.querySelectorAll('summary')){summary.tabIndex=-1;summary.setAttribute('aria-disabled','true');}}
+      for(const control of root.querySelectorAll?.('[data-row][data-field]')||[]){if(locked(view.plan.rows.find(r=>r.index===Number(control.dataset.row))||{}))control.disabled=true;}
+      const grid=root.querySelector('.material-grid-scroll');if(grid){grid.scrollLeft=left;grid.scrollTop=top;grid.onscroll=()=>{for(const panel of root.querySelectorAll('.material-vendor:popover-open,.material-note-panel:popover-open,.material-options-menu:popover-open')){const trigger=panel.matches('.material-vendor')?root.querySelector('[data-material-action="vendor-open"][data-index="'+panel.dataset.vendorPanel+'"]'):null;if(trigger&&panel.contains(document.activeElement)){const r=trigger.getBoundingClientRect(),g=grid.getBoundingClientRect();if(r.bottom>g.top&&r.top<g.bottom&&r.right>g.left&&r.left<g.right){positionVendor(panel,trigger);continue;}}panel.hidePopover();}};}
+      root.onfocusin=event=>{const t=event.target;if(t.dataset?.completionInvalid){root.querySelectorAll('.material-validation-hint').forEach(n=>n.classList.toggle('is-current',n.id===t.dataset.completionInvalid));}if(t.dataset?.field==='unitPrice'){const row=view.plan.rows.find(r=>r.index===Number(t.dataset.row));t.value=row.unitPrice??'';}};
+      root.onfocusout=event=>{const t=event.target;if(tableSelection.draft(t)&&!tableSelection.finish(true))return;if(t.dataset?.field==='unitPrice'&&!invalidInputs.has(t.dataset.row+':unitPrice')&&t.value!=='')t.value=unitCostText(t.value);const editor=event.target.closest?.('.material-lead');if(editor&&!editor.contains(event.relatedTarget))closeLead(editor);updateSummary(root);};
+      root.addEventListener?.('focusin',root.onfocusin);root.addEventListener?.('focusout',root.onfocusout);
+      const tableSelection=materialTableSelection(root,t=>{if(t.tagName==='SELECT'&&t.dataset.chargeField!==undefined)root.onchange({target:t});else root.oninput({target:t});});
+      if(vendorAdvance!==null){const trigger=root.querySelector('[data-material-action="vendor-open"][data-index="'+vendorAdvance+'"]');vendorAdvance=null;if(trigger){const cell=trigger.closest('td');tableSelection.click({target:cell,dragRange:true,preventDefault(){}});tableSelection.key({target:cell,key:'Enter',preventDefault(){}});const next=document.activeElement;if(next?.querySelector('input[data-field="vendorPartNumber"]')?.value==='')tableSelection.key({target:next,key:'Enter',preventDefault(){}});}}
+
+      root.ondblclick=event=>tableSelection.doubleClick(event);
+      const columnWidths=materialColumnWidths(root,()=>tableSelection.clear());columnWidths.view(sourcingView);
+      if(reviewTarget){const target=reviewTarget;reviewTarget=null;const source=view.rfq.inputs.materials.candidate.rows.find(r=>String(r.values?.lineNumber??r.index+1)===String(target.find));if(source&&view.plan.bomVersion===target.bomVersion&&view.plan.candidateId===target.candidateId){const cell=root.querySelector('[data-material-mfg-cell="'+source.index+'"]');if(cell){cell.classList.add('material-review-target');cell.tabIndex=-1;cell.focus({preventScroll:true});cell.scrollIntoView({block:'center',inline:'nearest'});}}else{message='Current Materials opened. The saved line belongs to a different BOM.';root.querySelector('.materials-message').textContent=message;}}
+      if(!busy&&completionFocus!==null){const checkbox=root.querySelector('[data-material-complete="'+completionFocus+'"]');if(checkbox){const cell=checkbox.closest('td');if(cell)tableSelection.click({target:cell,dragRange:true,preventDefault(){}});checkbox.focus({preventScroll:true});}completionFocus=null;}
+      if(mfgFocus!==null){const cell=root.querySelector('[data-material-mfg-cell="'+mfgFocus+'"]');if(cell?.closest?.('td'))tableSelection.click({target:cell,dragRange:true,preventDefault(){}});mfgFocus=null;}
+      if(feeFocus){const field=root.querySelector('[data-charge="'+feeFocus.id+'"][data-charge-field="'+feeFocus.key+'"]');if(field?.closest?.('td'))tableSelection.selectFee(field,true);feeFocus=null;}
+      root.oncopy=event=>tableSelection.copy(event);
+      root.onpointerdown=event=>tableSelection.down(event);root.onpointermove=event=>tableSelection.move(event);root.onpointerup=event=>tableSelection.up(event);root.onpointercancel=event=>tableSelection.cancel(event);root.onlostpointercapture=event=>tableSelection.cancel(event);
+      root.onkeydown=event=>{
+        const checkbox=event.target.matches?.('[data-material-complete]')?event.target:event.target.tagName==='TD'?event.target.querySelector('[data-material-complete]'):null;
+        if(checkbox&&event.key===' '&&event.target!==checkbox){event.preventDefault();checkbox.focus();checkbox.click();return;}
+        if(checkbox&&['Enter','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)){event.preventDefault();const cell=checkbox.closest('td');tableSelection.click({target:cell,dragRange:true,preventDefault(){}});tableSelection.key({target:cell,key:event.key,shiftKey:event.shiftKey,preventDefault(){}});return;}
+        const vendorPanel=event.target.closest?.('.material-vendor');
+        if(vendorPanel?.dataset?.vendorPanel!==undefined&&vendorPanel.querySelector('[data-vendor-search]')){
+          const options=[...vendorPanel.querySelectorAll('[data-vendor-option]')].filter(o=>!o.hidden),active=options.findIndex(o=>o.classList.contains('material-vendor-active'));
+          if(event.key==='Escape'){event.preventDefault();event.stopPropagation();const trigger=root.querySelector('[data-material-action="vendor-open"][data-index="'+vendorPanel.dataset.vendorPanel+'"]');vendorPanel.hidePopover();tableSelection.click({target:trigger.closest('td'),dragRange:true,preventDefault(){}});}
+          else if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const next=options.length?(active+(event.key==='ArrowDown'?1:-1)+options.length)%options.length:-1;options.forEach((o,i)=>o.classList.toggle('material-vendor-active',i===next));options[next]?.scrollIntoView({block:'nearest'});}
+          else if(event.key==='Enter'&&event.target.matches('[data-vendor-search]')){event.preventDefault();if(active>=0){vendorAdvance=Number(vendorPanel.dataset.vendorPanel);options[active].click();}}
+          return;
+        }
+        const vendorTrigger=event.target.tagName==='TD'&&event.target.querySelector('.material-vendor-trigger');
+        if(vendorTrigger&&!vendorTrigger.disabled&&event.key!==' '&&event.key.length===1&&!event.ctrlKey&&!event.metaKey&&!event.altKey){event.preventDefault();vendorTrigger.click();const panel=root.querySelector('[data-vendor-panel="'+vendorTrigger.dataset.index+'"]'),search=panel.querySelector('[data-vendor-search]');search.value=event.key;filterVendors(panel);return;}
+        const chooser=root.querySelector?.('.material-mfg-menu[open]');if(chooser?.open&&chooser.contains(event.target)){
+          const choices=[...chooser.querySelectorAll('button:not(:disabled)')];
+          if(event.key==='Escape'){event.preventDefault();event.stopPropagation();chooser.open=false;tableSelection.click({target:chooser.closest('td'),dragRange:true,preventDefault(){}});}
+          else if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const i=choices.indexOf(document.activeElement),step=event.key==='ArrowDown'?1:-1;choices[(i+step+choices.length)%choices.length]?.focus({preventScroll:true});}
+          else if(event.key==='Enter'&&event.target.tagName!=='BUTTON'){event.preventDefault();choices[0]?.click();}
+          return;
+        }if(tableSelection.key(event))return;const editor=event.target.closest?.('.material-lead');if(!editor)return;if(event.key==='Escape'){event.preventDefault();closeLead(editor,true);updateSummary(root);}else if(event.key==='Enter'&&event.target.tagName!=='SELECT'){event.preventDefault();if(!invalidInputs.has(Number(editor.querySelector('select').dataset.row)+':leadTime'))closeLead(editor);else editor.querySelector('input').reportValidity();}};
+      root.onpaste=event=>{if(!busy&&!readOnly&&tableSelection.paste(event))return;if(evidencePanel?.kind==='VISUAL'&&!busy&&!readOnly&&event.target.closest?.('.material-evidence-panel')){const files=[...(event.clipboardData?.items||[])].filter(i=>i.kind==='file'&&i.type.startsWith('image/')).map(i=>i.getAsFile()).filter(Boolean);if(files.length){event.preventDefault();uploadEvidence(files);}}};
+      root.onchange=async event=>{
+        if(event.target.dataset.materialComplete!==undefined){const index=Number(event.target.dataset.materialComplete),row=view.plan.rows.find(r=>r.index===index);completionFocus=index;if(event.target.checked){const missing=missingSourcing(row);if(missing.length||invalidInputs.size){event.target.checked=false;message=missing.length?'Missing: '+missing.join(', ')+'.':'Correct invalid sourcing values before completing.';root.querySelector('.materials-message').textContent=message;completionFocus=null;return;}}await setSourcing(index,event.target.checked?'SOURCED':'OPEN');return;}
+        if(tableSelection.draft(event.target)){tableSelection.preview();return;}
+        if(event.target.dataset.evidenceUpload!==undefined){uploadEvidence([...event.target.files]);return;}
+        const t=event.target;if(t.dataset.chargeField!==undefined){if(!readOnly){editCharge(t,root);if(['markupTreatment','category'].includes(t.dataset.chargeField)){feeFocus={id:t.dataset.charge,key:t.dataset.chargeField};draw();}}return;}if(t.dataset.mfgSelection===undefined||readOnly)return;
+        const index=Number(t.dataset.mfgSelection),row=view.plan.rows.find(r=>r.index===index),source=view.rfq.inputs.materials.candidate.rows.find(r=>r.index===index);
+        if(t.value==='manual'){manualRows.add(index);draw();return;}
+        if(t.value==='saved')return;
+        manualRows.delete(index);
+        const alternatives=confirmedParts(source);
+        if(t.value==='')row.mfgPartNumber=null;
+        else {const alternative=alternatives[Number(t.value.split(':')[1])];if(!alternative)return;row.mfgPartNumber=alternative;row.mfgPartNumberSource='CONFIRMED_ACCEPTED_BOM';}
+        dirty=true;message='Unsaved quotation-basis selection. Customer / BOM P/N is unchanged.';draw();
+      };
+      root.oninput=event=>{
+        if(tableSelection.draft(event.target)){tableSelection.preview();return;}
+        const t=event.target;if(readOnly)return;if(editCharge(t,root))return;if(t.dataset.markup!==undefined){const valid=/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(t.value)&&Number(t.value)<=10000;valid?invalidInputs.delete('markup'):invalidInputs.add('markup');t.setCustomValidity(valid?'':'Enter a markup from 0 to 10000 percent.');if(valid)view.plan.markupPercent=t.value.startsWith('.')?'0'+t.value:t.value;dirty=true;root.querySelector('.materials-message').textContent=valid?'Unsaved markup.':'Correct markup before saving.';updateSummary(root);return;}if(t.dataset.newVendor!==undefined){t.setCustomValidity('');return;}if(t.dataset.vendorSearch!==undefined){filterVendors(t.closest('.material-vendor'));return;}if(!t.dataset.field)return;
+        const row=view.plan.rows.find(r=>r.index===Number(t.dataset.row));
+        if(t.dataset.field==='leadTimeMode'||t.dataset.field==='leadTimeValue'){
+          const container=t.closest('.material-lead'),modeInput=container.querySelector('select'),valueInput=container.querySelector('input');
+          row.leadTimeMode=modeInput.value||null;row.leadDays=null;
+          if(!row.leadTimeMode||row.leadTimeMode==='STOCK')valueInput.value='';
+          valueInput.hidden=row.leadTimeMode==='STOCK'||!row.leadTimeMode;
+          const invalid=!!row.leadTimeMode&&row.leadTimeMode!=='STOCK'&&(!/^[0-9]+$/.test(valueInput.value)||Number(valueInput.value)<=0||Number(valueInput.value)>36500||valueInput.validity?.badInput);
+          row.leadTimeValue=!row.leadTimeMode||row.leadTimeMode==='STOCK'?null:invalid?null:Number(valueInput.value);
+          const key=row.index+':leadTime';invalid?invalidInputs.add(key):invalidInputs.delete(key);
+          valueInput.setCustomValidity(invalid?'Enter a positive whole number up to 36500.':'');
+          container.querySelector('summary').textContent=container.querySelector('small').textContent=!row.leadTimeMode?'—':row.leadTimeMode==='STOCK'?'Stock':invalid?'':row.leadTimeValue+(row.leadTimeMode==='DAYS'?' Days':' Weeks');
+          dirty=true;root.querySelector('.materials-message').textContent=invalid?'Enter a positive whole-number lead time.':'Unsaved changes.';if(!row.leadTimeMode||row.leadTimeMode==='STOCK'){container.open=false;leadBefore.delete(row.index);}updateSummary(root);updateSourcing(root,row);return;
+        }
+        let invalid=false;
+        if(t.dataset?.field==='unitPrice'||t.dataset.field==='orderQuantity'){
+          invalid=t.validity?.badInput||(t.value!==''&&(!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(t.value)||!Number.isFinite(Number(t.value))||Number(t.value)>1000000000||(t.dataset.field==='orderQuantity'&&Number(t.value)<=0)));
+          const key=row.index+':'+t.dataset.field;
+          invalid?invalidInputs.add(key):invalidInputs.delete(key);
+          t.setCustomValidity?.(invalid?'Enter a valid decimal: Unit Price must be nonnegative and Order Qty positive, up to 1,000,000,000.':'');
+        }
+        row[t.dataset.field]=invalid?null:t.type==='checkbox'?t.checked:t.type==='number'?(t.value===''?null:Number(t.value)):t.value;
+        const source=view.rfq.inputs.materials.candidate.rows.find(s=>s.index===row.index),computed=view.rows.find(r=>r.quote.index===row.index);
+        if(t.dataset.field==='orderQuantity')row.orderQuantityMode='MANUAL';
+        if(t.dataset.field==='customerSupplied'&&row.orderQuantityMode==='AUTO'){row.orderQuantity=row.customerSupplied||computed.required===false?null:computed.requiredQuantity;const qty=root.querySelector('[data-row="'+row.index+'"][data-field="orderQuantity"]');if(qty)qty.value=row.orderQuantity??'';}
+        const warning=root.querySelector('[data-order-warning="'+row.index+'"]');if(warning)warning.textContent=orderWarning(row,computed);
+        const excluded=computed.required===false||row.customerSupplied;
+        root.querySelector('[data-assembly-cost="'+row.index+'"]').textContent=decimalCostPreview(source.values.quantity,row.unitPrice,excluded);
+        root.querySelector('[data-total-cost="'+row.index+'"]').textContent=decimalCostPreview(row.orderQuantity,row.unitPrice,excluded,1000000000);
+        if(t.dataset.field==='mfgPartNumber'){row.mfgPartNumberSource='MANUAL_QUOTE_ONLY';if(view.partRequestsContractVersion===1)row.partReviewMode=row.mfgPartNumber?.trim()?'PROPOSED_PART':null;const status=root.querySelector('[data-mfg-status="'+row.index+'"]');if(status)status.textContent=row.mfgPartNumber?(view.partRequestsContractVersion===1?'Approval required':'Not Approved · Quote Only'):'';syncPartReview();const label=root.querySelector('[data-mfg-value="'+row.index+'"]');if(label)label.textContent=row.mfgPartNumber||'Not resolved';}
+        if(t.dataset.field==='vendor'){row.vendorIdentity=null;row.vendorSource='MANUAL_QUOTE_ONLY';row.customerSupplied=false;const status=root.querySelector('[data-vendor-status="'+row.index+'"]');if(status)status.textContent=row.vendor?'Not Approved · Quote Only':'';}
+        if(t.dataset.field==='notes'){const icon=root.querySelector('[data-material-action="note-open"][data-index="'+row.index+'"]');if(icon){icon.textContent=row.notes?'▣':'+';icon.setAttribute?.('aria-label',(row.notes?'Edit':'Add')+' note for line '+(row.index+1));icon.title=row.notes?'Edit note':'Add note';}}
+        for(const peer of root.querySelectorAll?.('[data-row="'+row.index+'"][data-field="'+t.dataset.field+'"]')||[])if(peer!==t)peer.value=t.value;
+        dirty=true;message=invalidInputs.size?'Correct invalid price, quantity, lead time or markup before saving.':'Unsaved changes. Quote totals update live; save to validate and persist.';root.querySelector('.materials-message').textContent=message;updateSummary(root);updateSourcing(root,row);
+      };
+      root.onclick=async event=>{event.stopPropagation();if(event.target.closest?.('summary')?.getAttribute?.('aria-disabled')==='true'){event.preventDefault();return;}const mfgSummary=event.target.closest?.('.material-mfg-menu summary')||(event.target.tagName==='TD'?event.target.querySelector('.material-mfg-menu summary'):null);if(mfgSummary?.matches?.('summary')&&mfgSummary.getAttribute('aria-disabled')!=='true'){event.preventDefault();const menu=mfgSummary.closest('details'),opening=!menu.open;tableSelection.click({target:mfgSummary.closest('td'),dragRange:true,preventDefault(){}});menu.open=opening;if(opening)menu.querySelector('button:not(:disabled)')?.focus({preventScroll:true});return;}if(tableSelection.click(event))return;const cell=event.target.closest?.('td'),opening=cell?.querySelector?.('.material-lead');if(opening&&!opening.open&&event.target.closest?.('summary')){event.preventDefault();const index=Number(opening.querySelector('select').dataset.row),row=view.plan.rows.find(r=>r.index===index);leadBefore.set(index,{leadTimeMode:row.leadTimeMode,leadTimeValue:row.leadTimeValue,leadDays:row.leadDays});opening.open=true;opening.querySelector('select').focus();}for(const editor of root.querySelectorAll?.('.material-lead[open]')||[]){if(!editor.contains(event.target))closeLead(editor);}const button=event.target.closest('button'),action=button?.dataset.materialAction;if(!action||busy||holdControl?.isBusy())return;
+        if(action==='review-parts'){
+          if(view.partRequestsContractVersion!==1||!tableSelection.finish(true))return;
+          button.disabled=true;
+          try{
+            if(!window.DleMaterialPartRequests){window.DleMaterialPartRequestsLoading??=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/incoming/SRC/workspaces/rfqs/material-part-requests.js';script.onload=resolve;script.onerror=()=>{script.remove();window.DleMaterialPartRequestsLoading=null;reject(Error('Part review could not load. Retry.'));};document.head.append(script);});await window.DleMaterialPartRequestsLoading;}
+            await window.DleMaterialPartRequests.open({workbench:root,getView:()=>view,isDirty:()=>dirty,readOnly,trigger:button,draftState:partRequestDraft,onClose:()=>{if(partRequestDraft.value)message='Unsubmitted part request retained in this Materials session. Reopen Review flagged items to continue.';draw();},saveWorksheet:async()=>{
+              if(readOnly||invalidInputs.size)throw Error('Correct invalid worksheet values before saving.');busy=true;
+              try{view=await fetchView({method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({chargeContractVersion:2,evidenceContractVersion:1,partReviewContractVersion:1,vendorReferenceContractVersion:view.vendorReferenceContractVersion===1?1:0,expectedRevision:view.plan.revision,expectedAcceptedBomVersion:view.rfq.inputs.materials.version,rows:view.plan.rows,markupPercent:Number(view.plan.markupPercent??0),complete:false})});dirty=false;message='Material quotation saved.';return view;}
+              finally{busy=false;}
+            }});
+          }catch(error){root.querySelector('.materials-message').textContent=error.message;}finally{if(button.isConnected)button.disabled=false;}return;
+        }
+        if(action==='flag-alternate'&&!readOnly){const index=Number(button.dataset.index),row=view.plan.rows.find(r=>r.index===index),source=view.rfq.inputs.materials.candidate.rows.find(s=>s.index===index);if(view.partRequestsContractVersion!==1||!partReviewEligible(row,source)||locked(row))return;row.partReviewMode='REQUEST_ALTERNATE';manualRows.delete(index);mfgFocus=index;dirty=true;message='Alternate request flagged. Review flagged items when ready.';draw();return;}
+        if(action==='clear-part-flag'&&!readOnly){const index=Number(button.dataset.index),row=view.plan.rows.find(r=>r.index===index);if(view.partRequestsContractVersion!==1||locked(row))return;row.partReviewMode=null;mfgFocus=index;dirty=true;message='Alternate request cleared. Manual quoted parts still require approval.';draw();return;}
+        if(action==='previous-quotes'){if(view.previousQuotesContractVersion!==1)return;button.disabled=true;try{if(!window.DleRfqPreviousQuotes){window.DleRfqPreviousQuotesLoading??=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/incoming/SRC/workspaces/rfqs/rfq-previous-quotes.js';script.onload=resolve;script.onerror=()=>{script.remove();window.DleRfqPreviousQuotesLoading=null;reject(Error('Previous Quotes could not load. Retry.'));};document.head.append(script);});await window.DleRfqPreviousQuotesLoading;}const opening=window.DleRfqPreviousQuotes.open({workbench:root,rfq:view.rfq,department:'materials',trigger:button});button.disabled=false;await opening;}catch(error){root.querySelector('.materials-message').textContent=error.message;}finally{button.disabled=false;}return;}
+        if(action.startsWith('evidence-')){await evidenceAction(action,button,root);return;}
+        if(action==='reset-layout'){columnWidths.reset();return;}
+        if(action==='sourcing-issue'){await setSourcing(Number(button.dataset.index),button.dataset.sourcingValue);return;}if(action==='sourcing-reopen'){await setSourcing(Number(button.dataset.index),'OPEN');return;}if(action==='full-view'||action==='sourcing-view'){tableSelection.clear();for(const panel of root.querySelectorAll?.('.material-vendor:popover-open')||[])panel.hidePopover();sourcingView=action==='sourcing-view';root.classList.toggle('materials-sourcing',sourcingView);columnWidths.view(sourcingView);root.querySelector('[data-material-action="full-view"]').setAttribute('aria-pressed',String(!sourcingView));root.querySelector('[data-material-action="sourcing-view"]').setAttribute('aria-pressed',String(sourcingView));return;}
+        if(action==='toggle-fees'){const index=Number(button.dataset.index);collapsedFees.has(index)?collapsedFees.delete(index):collapsedFees.add(index);draw();return;}
+        if(action==='add-charge'&&!readOnly){const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index));const id=window.crypto.randomUUID();newCharges.add(id);(row.charges??=[]).push({id,description:'Tariff / Duty',category:'TARIFF',quantity:1,rawCost:null,treatment:'BLEND',markupTreatment:'MATERIAL',customMarkupPercent:null,notes:''});collapsedFees.delete(row.index);dirty=true;feeFocus={id,key:'category'};draw();return;}
+        if(action==='remove-charge'&&!readOnly){const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index));if(row.sourcingStatus==='SOURCED')return;row.charges=row.charges.filter(c=>c.id!==button.dataset.chargeId);for(const key of [...invalidInputs])if(key.startsWith(button.dataset.chargeId+':'))invalidInputs.delete(key);dirty=true;draw();return;}
+        if(action==='vendor-open'&&!readOnly){const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index)),panel=root.querySelector('[data-vendor-panel="'+row.index+'"]');panel.innerHTML=vendorList(row);filterVendors(panel);panel.showPopover();positionVendor(panel,button);panel.querySelector('input').focus({preventScroll:true});return;}
+        if(action==='vendor-cancel'){const panel=button.closest('.material-vendor');clearTimeout(panel.vendorTimer);panel.vendorController?.abort();panel.hidePopover();return;}
+        if(action==='vendor-canonical'&&!readOnly){const panel=button.closest('.material-vendor'),row=view.plan.rows.find(r=>r.index===Number(button.dataset.index)),vendor=panel.vendorResults?.[Number(button.dataset.choice)];if(!vendor||locked(row))return;row.vendor=vendor.vendorName?.trim()?vendor.vendorName:'Vendor '+vendor.vendorNumber;row.vendorSource='CANONICAL_REFERENCE';row.vendorIdentity={firmId:vendor.firmId,vendorNumber:vendor.vendorNumber,snapshotSha256:panel.vendorSnapshot};row.customerSupplied=false;dirty=true;message='Unsaved vendor selection.';draw();return;}
+        if(action==='vendor-choice'&&!readOnly){const index=Number(button.dataset.index),row=view.plan.rows.find(r=>r.index===index),choice=button.dataset.vendor;if(choice==='manual'){const panel=button.closest('.material-vendor');panel.innerHTML='<label>Vendor name<input maxlength="200" aria-label="New Vendor for line '+(index+1)+'" data-new-vendor></label><button data-material-action="vendor-use" data-index="'+index+'">Use for Quote</button><button data-material-action="vendor-cancel">Cancel</button>';positionVendor(panel,root.querySelector('[data-material-action="vendor-open"][data-index="'+index+'"]'));panel.querySelector('input').focus({preventScroll:true});return;}row.vendorIdentity=null;row.customerSupplied=choice==='customer';row.vendor=row.customerSupplied?'':choice;row.vendorSource=choice==='DLE-STK'?'MANUAL_QUOTE_ONLY':simVendors.includes(choice)?'SIM_LIST':null;dirty=true;message='Unsaved vendor selection.';draw();return;}
+        if(action==='vendor-use'&&!readOnly){const panel=button.closest('.material-vendor'),field=panel.querySelector('[data-new-vendor]'),name=field.value.trim();if(!name){field.setCustomValidity('Enter a vendor name.');field.reportValidity();return;}const row=view.plan.rows.find(r=>r.index===Number(button.dataset.index));row.vendorIdentity=null;row.vendor=name;row.vendorSource='MANUAL_QUOTE_ONLY';row.customerSupplied=false;dirty=true;message='Unsaved quote-only vendor.';draw();return;}
+        if(action==='confirmed-mfg'&&!readOnly){const i=Number(button.dataset.index),row=view.plan.rows.find(r=>r.index===i),part=confirmedParts(view.rfq.inputs.materials.candidate.rows.find(r=>r.index===i))[Number(button.dataset.choice)];if(!part)return;row.mfgPartNumber=part;row.mfgPartNumberSource='CONFIRMED_ACCEPTED_BOM';if(view.partRequestsContractVersion===1)row.partReviewMode=null;manualRows.delete(i);mfgFocus=i;dirty=true;draw();return;}
+        if(action==='done-mfg'){mfgFocus=Number(button.dataset.index);const row=view.plan.rows.find(r=>r.index===mfgFocus),source=view.rfq.inputs.materials.candidate.rows.find(r=>r.index===mfgFocus);if(!readOnly&&view.partRequestsContractVersion===1&&row.mfgPartNumber?.trim()){const exact=confirmedParts(source).includes(row.mfgPartNumber);const mode=exact?null:'PROPOSED_PART',basis=exact?'CONFIRMED_ACCEPTED_BOM':'MANUAL_QUOTE_ONLY';if(row.partReviewMode!==mode||row.mfgPartNumberSource!==basis){row.partReviewMode=mode;row.mfgPartNumberSource=basis;dirty=true;message=exact?'Approved P/N selected. Save Materials.':'Proposed P/N flagged for review. Save Materials, then Review flagged items.';}}manualRows.delete(mfgFocus);draw();return;}
+        if(action==='manual-mfg'&&!readOnly){const i=Number(button.dataset.index);manualRows.add(i);mfgFocus=i;draw();return;}
+        if(action==='back'){if(partRequestDraft.value&&!window.confirm('An unsubmitted part request is retained only in this Materials session. Leave Materials and discard its local draft? Uploaded source evidence is not deleted.'))return;if(dirty&&!window.confirm('Leave without saving these quotation edits?'))return;await back();return;}
+        if((action==='save'||action==='complete')&&!readOnly){if(action==='complete'&&view.rfq.lanes.materialsHold?.active){message='Release the Materials hold before completing this quote.';root.querySelector('.materials-message').textContent=message;return;}if(invalidInputs.size){message='Correct invalid price, quantity or lead time values before saving.';root.querySelector('.materials-message').textContent=message;return;}const completedBefore=view.plan.versions.length;busy=true;message='Saving…';draw();try{view=await fetchView({method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({chargeContractVersion:2,evidenceContractVersion:1,expectedRevision:view.plan.revision,expectedAcceptedBomVersion:view.rfq.inputs.materials.version,rows:view.plan.rows,markupPercent:Number(view.plan.markupPercent??0),partReviewContractVersion:view.partRequestsContractVersion===1?1:0,vendorReferenceContractVersion:view.vendorReferenceContractVersion===1?1:0,complete:action==='complete'})});dirty=false;completionIssues=[];message=action==='complete'?'Materials quotation complete for review.':'Material quotation saved.';}catch(e){const issues=action==='complete'?parseCompletionIssues(e):[];if(issues.length&&issues.every(i=>{const target=completionTarget(root,i);return target&&!target.disabled;})){completionIssues=issues;focusValidation=true;message='Complete the highlighted fields.';}else{completionIssues=[];message=e.message;}}finally{busy=false;draw();}}
+      };
+      showCompletionIssues(root);
+    }
+    draw();
+  }
+  window.DleMaterialsWorkbench=Object.freeze({open});
+})(window,document);

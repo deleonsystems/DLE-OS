@@ -1,0 +1,35 @@
+<div class="kitting-workspace" data-workspace-layout="kitting">
+  <header class="kitting-workspace-header">
+    <div>
+      <h1>Kitting</h1>
+      <p>Start a new kit or resume work that still needs attention.</p>
+    </div>
+    <div id="kittingWorkspaceStatus" class="kitting-workspace-status" role="status" aria-live="polite">Loading jobs</div>
+  </header>
+
+  <section class="kitting-workspace-controls" aria-label="Kitting queue controls">
+    <label class="kitting-search-control">
+      <span class="sr-only">Search Kitting jobs</span>
+      <input id="kittingSearch" type="search" placeholder="Search Work Order, Part, Customer, PO..." oninput="filterKittingWorkspace()">
+    </label>
+    <button type="button" class="secondary-btn kitting-refresh" onclick="refreshKittingQueue()">↻ Refresh Queue</button>
+  </section>
+
+  <nav class="kitting-lifecycle-tabs" aria-label="Kitting lifecycle">
+    <button type="button" data-kitting-lifecycle-tab="NEEDS_KITTING" onclick="selectKittingQueue('NEEDS_KITTING')" aria-pressed="true">
+      <span>Needs Kitting</span><strong id="kittingNeedsKittingTabCount">0</strong>
+    </button>
+    <button type="button" data-kitting-lifecycle-tab="KIT_SHORT" onclick="selectKittingQueue('KIT_SHORT')" aria-pressed="false">
+      <span>Kit Short / Awaiting Parts</span><strong id="kittingKitShortTabCount">0</strong>
+    </button>
+    <button type="button" data-kitting-lifecycle-tab="KIT_COMPLETE" onclick="selectKittingQueue('KIT_COMPLETE')" aria-pressed="false">
+      <span>Kit Complete</span><strong id="kittingKitCompleteTabCount">0</strong>
+    </button>
+  </nav>
+
+  <section class="kitting-operator-queue" aria-labelledby="kittingSelectedQueueTitle">
+    <h2 id="kittingSelectedQueueTitle">Needs Kitting</h2>
+    <p id="kittingSelectedQueueDescription">New and in-progress jobs that have not been established as Kit Short or Kit Complete.</p>
+    <div id="kittingSelectedJobs" class="kitting-kit-queue"></div>
+  </section>
+</div>

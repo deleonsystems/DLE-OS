@@ -1,0 +1,62 @@
+[
+  {
+    "Name": "DleOs.DevelopmentFrontend.dll",
+    "Identity": "DleOs.DevelopmentFrontend, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+    "Sha256": "E27513B39DB03C2CA2693D7E3573024FA95BE99F25013105C39E5FF8131175E4"
+  },
+  {
+    "Name": "DleOs.Security.dll",
+    "Identity": "DleOs.Security, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+    "Sha256": "793D2EB1359A8279D11462092B517AA55A8EBC103EA5BB19B47E8B9569636CD3"
+  },
+  {
+    "Name": "DleOs.TrustedIdentity.dll",
+    "Identity": "DleOs.TrustedIdentity, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+    "Sha256": "CC6496C82B7A76FEF9F2DCB690E7F6CF249113F85619FEDBA1B63A2ACCA3C378"
+  },
+  {
+    "Name": "Microsoft.AspNetCore.Authentication.OpenIdConnect.dll",
+    "Identity": "Microsoft.AspNetCore.Authentication.OpenIdConnect, Version=8.0.29.0, Culture=neutral, PublicKeyToken=adb9793829ddae60",
+    "Sha256": "6059DC8ED108B2C64F7D85A97ED145A6D89DEA0C5E76C2B0AE194BA66E9D81A0"
+  },
+  {
+    "Name": "Microsoft.Data.SqlClient.dll",
+    "Identity": "Microsoft.Data.SqlClient, Version=6.0.0.0, Culture=neutral, PublicKeyToken=23ec7fc2d6eaa4a5",
+    "Sha256": "79CF4B935AC342BAC4FDA5CABC568C50891CC20CDA32B0622DDC2F70BB0A14CA"
+  },
+  {
+    "Name": "Microsoft.IdentityModel.Abstractions.dll",
+    "Identity": "Microsoft.IdentityModel.Abstractions, Version=7.7.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35",
+    "Sha256": "CD157762B9849308AE707BEB4DDF6C07F6FEB336CAD997907EA9B95E78EB7A0A"
+  },
+  {
+    "Name": "Microsoft.IdentityModel.JsonWebTokens.dll",
+    "Identity": "Microsoft.IdentityModel.JsonWebTokens, Version=7.7.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35",
+    "Sha256": "BC3B9779DDE1F9BD739167A0145E58077765A4349B387AEA759F3B5144301658"
+  },
+  {
+    "Name": "Microsoft.IdentityModel.Logging.dll",
+    "Identity": "Microsoft.IdentityModel.Logging, Version=7.7.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35",
+    "Sha256": "0866E063F4D278156122E05D7E3A60EE22D8DBA8595AEBFE4DEDDCC818366D40"
+  },
+  {
+    "Name": "Microsoft.IdentityModel.Protocols.dll",
+    "Identity": "Microsoft.IdentityModel.Protocols, Version=7.7.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35",
+    "Sha256": "97C78CF6C8C219C317C1F63F0630BC71336E9BDC0E3AA1761E9B0481435BCD2E"
+  },
+  {
+    "Name": "Microsoft.IdentityModel.Protocols.OpenIdConnect.dll",
+    "Identity": "Microsoft.IdentityModel.Protocols.OpenIdConnect, Version=7.7.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35",
+    "Sha256": "FA0C01205F8B1AE20735D5CDCEB4E37A6B575006300F3E43693B114E6066CDDC"
+  },
+  {
+    "Name": "Microsoft.IdentityModel.Tokens.dll",
+    "Identity": "Microsoft.IdentityModel.Tokens, Version=7.7.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35",
+    "Sha256": "240321C4DEAB041C20ED316FC0A2D69E5449771CA60FC3DE3E2E7BB44BFB4874"
+  },
+  {
+    "Name": "System.IdentityModel.Tokens.Jwt.dll",
+    "Identity": "System.IdentityModel.Tokens.Jwt, Version=7.7.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35",
+    "Sha256": "6A046FDCC71F6310E1DFA6FD1D5412BCBB9BD5839C29C1E1E3FA83522CBD2362"
+  }
+]

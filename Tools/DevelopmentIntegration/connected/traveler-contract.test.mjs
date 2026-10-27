@@ -1,0 +1,20 @@
+import vm from 'node:vm';
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const window={DleIntegration:{enabled:true}};
+const context=vm.createContext({window,document:{},structuredClone,Intl,Date,console});
+for(const name of ['labor-workbench.js','labor-traveler-print.js'])vm.runInContext(fs.readFileSync(new URL('./web/incoming/SRC/workspaces/rfqs/'+name,import.meta.url),'utf8'),context);
+const plan={quantity:50,revision:1,operations:[{id:'assembly',name:'Assembly',instructions:'Synthetic <tag> instruction',operationQuantity:1,runSeconds:60}]};
+const rfq={assemblies:[{assemblyNumber:'SYNTHETIC-49-2',revision:'N'}],customer:{customerName:'Synthetic customer'}};
+const before=JSON.stringify({plan,rfq});const out=window.DleLaborTravelerPrint.build(plan,rfq);
+const checks=[];function check(label,fn){fn();checks.push(label);}
+check('actual traveler builder labels quote as preliminary',()=>assert.match(out.html,/PRELIMINARY TRAVELER/));
+check('actual traveler builder explicitly denies production release',()=>assert.match(out.html,/Not a production release/));
+check('quantity and assembly retained',()=>{assert.match(out.html,/SYNTHETIC-49-2/);assert.match(out.html,/>50</);});
+check('instructions escape HTML',()=>assert.match(out.html,/Synthetic &lt;tag&gt; instruction/));
+check('execution fields remain blank',()=>assert.match(out.html,/Execution fields intentionally blank/));
+check('builder does not mutate source',()=>assert.equal(JSON.stringify({plan,rfq}),before));
+check('portrait letter print contract',()=>{assert.equal(out.paperSize,'letter');assert.equal(out.orientation,'portrait');});
+check('candidate display dates do not require SIM mode',()=>assert.equal(window.DleLaborTravelerPrint.formatDate('2026-10-27'),'10-27-26'));
+fs.writeFileSync(new URL('./traveler-contract-results.json',import.meta.url),JSON.stringify({passed:checks.length,checks,browser:false,paginationAndNativePrintTested:false},null,2));
+console.log('PASS '+checks.length+' actual traveler/workbench pure contract checks');

@@ -1,0 +1,95 @@
+<!-- =====================================================
+   460 - HTML: OPERATIONS CENTER MODULE
+===================================================== -->
+
+<section id="operationsCenter" class="screen" data-module-loaded="true">
+  <div class="operations-center-panel">
+    <div class="operations-center-header">
+      <div class="operations-center-title">
+        <span class="small-icon">OC</span>
+        <h2>Operations Center</h2>
+      </div>
+
+      <div class="operations-center-toolbar">
+        <button id="operationsCenterProjectionToggle" type="button" onclick="toggleOperationsCenterProjectionMode()">Projection Mode</button>
+        <button
+          id="operationsCenterRmaVisibilityToggle"
+          type="button"
+          aria-label="Hide active RMA/Rework records"
+          aria-pressed="false"
+          onclick="toggleOperationsCenterRmaVisibility()">Hide RMA/Rework</button>
+        <span class="operations-center-toolbar-group">
+          <button type="button" onclick="refreshOperationsCenterCanonicalData()">Reload View</button>
+          <span id="operationsCenterSourceStatus" class="operations-center-source-status" aria-live="polite">Not updated</span>
+        </span>
+        <button id="operationsCenterMobileViewToggle" type="button" onclick="toggleOperationsCenterMobileView()">Mobile View</button>
+      </div>
+    </div>
+
+    <div id="operationsCenterServiceAvailability" class="operations-center-service-availability" role="status" aria-live="polite" hidden></div>
+
+    <div class="operations-center-search-row">
+      <input
+        type="text"
+        id="operationsCenterSearch"
+        class="operations-center-search"
+        placeholder="Search customer, PO, sales order, work order, item, notes..."
+        onkeyup="filterOperationsCenter()">
+      <span id="operationsCenterStatus" class="operations-center-status" aria-live="polite">Operations Center initializing.</span>
+    </div>
+
+    <div id="operationsCenterProjectionSummary" class="operations-center-projection-summary" hidden>
+      <div>
+        <span>Selected Jobs</span>
+        <strong id="operationsCenterProjectionJobs">0</strong>
+      </div>
+      <div>
+        <span>Projected Revenue</span>
+        <strong id="operationsCenterProjectionRevenue">$0.00</strong>
+      </div>
+      <button id="operationsCenterProductionProjectionPrintButton" type="button" onclick="printProductionProjectionReport()">Print Production Projection Report</button>
+    </div>
+
+    <div id="operationsCenterMobileView" class="operations-center-mobile-view" hidden>
+      <div class="operations-center-mobile-search-row">
+        <input type="text" id="operationsCenterMobileSearch" class="operations-center-mobile-search" placeholder="Search job..." oninput="filterOperationsCenterMobileView()">
+        <button type="button" onclick="toggleOperationsCenterMobileView(false)">Table</button>
+      </div>
+      <div id="operationsCenterMobileStatusFeedback" class="operations-center-mobile-feedback" role="status" hidden></div>
+      <div id="operationsCenterMobileResults" class="operations-center-mobile-results"></div>
+      <div id="operationsCenterMobileDetail" class="operations-center-mobile-detail" hidden></div>
+    </div>
+
+    <div id="operationsCenterTable" class="operations-center-table-wrap">
+      <div class="operations-center-empty">Loading governed canonical Sales Orders...</div>
+    </div>
+
+    <div id="operationsCenterVerifiedStatusDialog" class="operations-center-status-dialog" hidden>
+      <form class="operations-center-status-dialog-box" onsubmit="submitOperationsCenterVerifiedStatus(event)">
+        <div class="operations-center-status-dialog-header">
+          <strong>Log Verified Status</strong>
+          <button type="button" aria-label="Close" onclick="closeOperationsCenterVerifiedStatusLogger()">×</button>
+        </div>
+        <div id="operationsCenterVerifiedStatusContext" class="operations-center-status-dialog-context"></div>
+        <label class="operations-center-status-dialog-field">
+          <span>Status to log</span>
+          <small>Prefilled from the latest logged status. Changes are not logged until you tap Log Status.</small>
+          <textarea id="operationsCenterVerifiedStatusText" maxlength="1000" required oninput="updateOperationsCenterVerifiedStatusDirtyState()"></textarea>
+        </label>
+        <div id="operationsCenterVerifiedStatusDirty" class="operations-center-status-dialog-dirty" role="status" hidden>Not logged</div>
+        <div id="operationsCenterVerifiedStatusMessage" class="operations-center-status-dialog-message" aria-live="polite"></div>
+        <div id="operationsCenterVerifiedStatusDiscardPrompt" class="operations-center-status-discard-prompt" role="alertdialog" aria-label="Discard unlogged status changes" hidden>
+          <span>Discard unlogged status changes?</span>
+          <div>
+            <button type="button" onclick="discardOperationsCenterVerifiedStatusChanges()">Discard</button>
+            <button type="button" onclick="keepEditingOperationsCenterVerifiedStatus()">Keep Editing</button>
+          </div>
+        </div>
+        <div class="operations-center-status-dialog-actions">
+          <button type="button" onclick="closeOperationsCenterVerifiedStatusLogger()">Cancel</button>
+          <button id="operationsCenterVerifiedStatusSave" type="submit">Log Status</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

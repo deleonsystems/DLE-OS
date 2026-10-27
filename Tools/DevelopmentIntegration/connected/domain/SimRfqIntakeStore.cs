@@ -1,0 +1,995 @@
+using System.Text.Json;
+
+internal sealed record SimRfqIntakeDocument(
+    string Name,
+    long Size,
+    string Type,
+    long LastModified, string? DocumentId = null, string? BinaryStatus = null, string? DocumentReference = null, DateTimeOffset? StagedAtUtc = null,
+    SimIntakeDocumentIdentification? InitialIdentification = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimReviewDocumentOrigin? ReviewOrigin = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimPdfReadabilityResult? Readability = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string[]? AssemblyProjectIds = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] bool? SharedAcrossProjects = null);
+
+internal sealed record SimIntakeDocumentIdentification(string Type, string? OtherDescription = null,
+    string? IdentifiedBy = null, DateTimeOffset? IdentifiedAtUtc = null);
+
+internal sealed record SimIntakeAssemblyIdentification(string Type, string? OtherDescription = null,
+    string? IdentifiedBy = null, DateTimeOffset? IdentifiedAtUtc = null);
+
+internal sealed record SimRfqIntakeCustomer(
+    string CustomerId,
+    string CustomerNumber,
+    string CustomerName,
+    string ResolutionSource,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ReferenceVersion = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? SourcePackageId = null);
+
+internal sealed record SimRfqIntakeAssembly(
+    int LineNumber,
+    string AssemblyNumber,
+    string Revision,
+    int Quantity,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProjectId = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Scope = null);
+
+internal sealed record SimContractReviewRequest(
+    string? CustomerPoNumber,
+    string? CustomerPoType,
+    bool? PaymentTermsMatch,
+    string? PaymentTermsActionNote,
+    bool? BillingMatchesShipTo,
+    string? ShippingActionNote,
+    string? ShippingMethod,
+    string? UpsAccountNumber,
+    string? OrderClassification,
+    bool? DeliveryDateAchievable,
+    string? DeliveryDateActionNote,
+    bool? PriceMatchesQuote,
+    string? PriceActionNote,
+    bool? TraceabilityRequired,
+    string[]? TraceabilityDeliverables,
+    string[]? AerospaceRequirements,
+    string? PoFlowdowns,
+    string? AdditionalContractQualityRequirements,
+    string? SpecialRequirements,
+    bool RequirementsIdentifiedOnAttachedDocument,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? OtherCustomerRequirements = null);
+
+internal sealed record SimContractReview(
+    string CustomerPoNumber,
+    string CustomerPoType,
+    bool PaymentTermsMatch,
+    string PaymentTermsActionNote,
+    bool BillingMatchesShipTo,
+    string ShippingActionNote,
+    string ShippingMethod,
+    string UpsAccountNumber,
+    string OrderClassification,
+    bool DeliveryDateAchievable,
+    string DeliveryDateActionNote,
+    bool PriceMatchesQuote,
+    string PriceActionNote,
+    bool TraceabilityRequired,
+    string[] TraceabilityDeliverables,
+    string[] AerospaceRequirements,
+    string PoFlowdowns,
+    string AdditionalContractQualityRequirements,
+    string SpecialRequirements,
+    bool RequirementsIdentifiedOnAttachedDocument,
+    string ReviewedBy,
+    DateOnly ReviewDate);
+
+internal sealed record SimRfqIntakeCreateRequest(
+    string? IntakeType,
+    SimRfqIntakeCustomer? Customer,
+    int AssemblyCount,
+    SimRfqIntakeAssembly[]? Assemblies,
+    string? DeLeonScope,
+    bool TechnicalFilesProvided,
+    SimRfqIntakeDocument[]? TechnicalFiles,
+    string[]? CustomerRequirements,
+    string? CreatedBy,
+    string? RequestCorrelationId,
+    SimContractReviewRequest? ContractReview = null,
+    SimIntakeAssemblyIdentification? PreliminaryAssemblyType = null);
+
+internal sealed record SimAssemblyTypeRequest(string? AssemblyType);
+
+internal sealed record SimTechnicalReviewDispositionRequest(
+    string? AssemblyType,
+    string? AssemblyDrawingFile,
+    string? BomFile,
+    bool GerbersRequired,
+    string[]? GerberFiles,
+    string[]? SubAssemblyDocuments,
+    string? MaterialResponsibility,
+    string[]? CustomerSuppliedItems,
+    bool TechnicalPackageSufficient,
+    string? Disposition,
+    string? ReviewerNotes);
+
+internal sealed record SimTechnicalReviewResult(
+    string ReviewType,
+    string AssemblyType,
+    string AssemblyDrawingFile,
+    string BomFile,
+    bool GerbersRequired,
+    string[] GerberFiles,
+    string[] SubAssemblyDocuments,
+    string MaterialResponsibility,
+    string[] CustomerSuppliedItems,
+    bool TechnicalPackageSufficient,
+    string Disposition,
+    string ReviewStatus,
+    string? DownstreamHandoffTarget,
+    string? DownstreamHandoffState,
+    string ReviewedBy,
+    DateTimeOffset ReviewedAtUtc,
+    string ReviewerNotes,
+    SimAssemblyHistoryQuestion? AssemblyHistory = null,
+    SimMaterialsDefinition? MaterialsDefinition = null,
+    SimTechnicalPackage? TechnicalPackage = null,
+    SimSubassemblyCoverage[]? SubassemblyCoverage = null,
+    SimCandidateBom? CandidateBom = null,
+    SimCandidateBom[]? CandidateBomVersions = null,
+    SimBomAcceptance[]? BomAcceptances = null,
+    string? MaterialsReviewStatus = null,
+    string? NextReviewPhase = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string[]? ReviewPhaseOrder = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? ManufacturingReviewStatus = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    SimReviewWorkflow? Workflow = null,
+    SimScannedBomSetup? ScannedBomSetup = null,
+    SimScannedBomReview? ScannedBomReview = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerIdentityAmendment[]? CustomerIdentityAmendments = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimReviewPresentation? PresentationDraft = null);
+
+internal sealed class SimRfqIntakeProblem : Exception
+{
+    internal int StatusCode { get; }
+    internal string Code { get; }
+
+    private SimRfqIntakeProblem(int statusCode, string code, string message) : base(message)
+    {
+        StatusCode = statusCode;
+        Code = code;
+    }
+
+    internal static SimRfqIntakeProblem BadRequest(string code, string message) =>
+        new(StatusCodes.Status400BadRequest, code, message);
+
+    internal static SimRfqIntakeProblem NotFound(string code, string message) =>
+        new(StatusCodes.Status404NotFound, code, message);
+
+    internal static SimRfqIntakeProblem Conflict(string code, string message) =>
+        new(StatusCodes.Status409Conflict, code, message);
+}
+
+internal sealed partial class SimRfqIntakeStore
+{
+    private const string DatasetSchema = "DLE_RFQ_INTAKE_DATASET_V1";
+    private readonly string dataPath;
+    private readonly SimIntakeDocuments documents;
+    private readonly SemaphoreSlim gate = new(1, 1);
+    private readonly JsonSerializerOptions jsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+
+    private readonly string runtimeEnvironment; private readonly string intakePrefix; private readonly string customerDirectory;
+    internal SimRfqIntakeStore(string stateRoot, string environment = "SIM")
+    {
+        if(environment is not ("SIM" or "ISOLATED_DEVELOPMENT_REHEARSAL" or "DEVELOPMENT")) throw new ArgumentException("Unsupported store environment");
+        runtimeEnvironment=environment; intakePrefix=environment=="SIM"?"RFQI-SIM-":environment=="DEVELOPMENT"?"RFQI-DEV-":"RFQI-REHEARSAL-"; customerDirectory=environment=="SIM"?"sim-canonical-customer-directory":environment=="DEVELOPMENT"?"canonical-customer-directory":"isolated-fixture-directory";
+        documents = new SimIntakeDocuments(stateRoot);
+        dataPath = SimRuntimeOptions.ResolveStatePath(stateRoot, "data", "rfq-intakes.json");
+    }
+
+    internal async Task<object> CreateAsync(
+        SimRfqIntakeCreateRequest request,
+        SimPersona persona,
+        SimStateMetadata metadata)
+    {
+        if (request.IntakeType == "NEW_ORDER")
+            throw SimRfqIntakeProblem.BadRequest("ORDER_CANONICAL_FLOW", "Use the New Order start/resume flow and submit its structured package for Contract Review.");
+        if(metadata.Environment!=runtimeEnvironment) throw new InvalidOperationException("Runtime metadata mismatch");
+        Validate(request);
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var correlationId = request.RequestCorrelationId!.Trim();
+            var duplicate = dataset.Records.FirstOrDefault(record =>
+                string.Equals(record.RequestCorrelationId, correlationId, StringComparison.Ordinal));
+            var commandHash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new{request=request with{CreatedBy=null},actorId=persona.Id},jsonOptions)));
+            if (duplicate is not null) { if(runtimeEnvironment!="SIM" && duplicate.RehearsalCommandHash!=commandHash) throw SimRfqIntakeProblem.Conflict("INTAKE_RETRY_MISMATCH","The intake request identity belongs to different content or another user."); return new { duplicate = true, record = duplicate }; }
+
+            SimAssemblyProjects.CheckGlobalIds(request.Assemblies!,dataset.Records);
+            var verifiedFiles = new List<SimRfqIntakeDocument>();
+            foreach (var file in request.TechnicalFiles ?? [])
+            {
+                var identification = file.InitialIdentification;
+                var initialType = identification?.Type ?? "UNKNOWN";
+                if (initialType is not ("DRAWING" or "DRAWING_AND_BOM" or "BOM_ONLY" or "UNKNOWN" or "OTHER") ||
+                    (identification?.OtherDescription?.Length ?? 0) > 200)
+                    throw SimRfqIntakeProblem.BadRequest("SIM_INITIAL_IDENTIFICATION_INVALID", "Choose a supported initial file identification and keep its description within 200 characters.");
+                SimRfqIntakeDocument verified;
+                if (file.DocumentId is not null) verified = await documents.Verify(correlationId, file, persona.Id);
+                else if (file.BinaryStatus is not null || file.DocumentReference is not null || file.StagedAtUtc is not null)
+                    throw SimRfqIntakeProblem.BadRequest("SIM_DOCUMENT_REFERENCE_INVALID", "Verified binary state requires a governed staged document.");
+                else verified = file with { Readability = null };
+                // Preliminary intake context only. Classification remains owned by Technical Review.
+                verifiedFiles.Add(verified with { AssemblyProjectIds=file.AssemblyProjectIds, SharedAcrossProjects=file.SharedAcrossProjects, InitialIdentification = new(initialType,
+                    initialType == "OTHER" ? identification?.OtherDescription?.Trim() : null,
+                    persona.DisplayName, DateTimeOffset.UtcNow) });
+            }
+            if (verifiedFiles.Where(file => file.DocumentId is not null).Select(file => file.DocumentId).Distinct().Count() != verifiedFiles.Count(file => file.DocumentId is not null))
+                throw SimRfqIntakeProblem.BadRequest("SIM_DOCUMENT_REFERENCE_INVALID", "A staged document cannot be attached twice.");
+            var preliminary = request.PreliminaryAssemblyType;
+            var preliminaryType = preliminary?.Type ?? "UNKNOWN";
+            if (preliminaryType is not ("PCB_ASSEMBLY" or "CABLE_AND_HARNESS_ASSEMBLY" or "CHASSIS_BOX_BUILD_ASSEMBLY" or "OTHER" or "UNKNOWN") || preliminary?.OtherDescription?.Length > 200)
+                throw SimRfqIntakeProblem.BadRequest("SIM_INTAKE_ASSEMBLY_IDENTIFICATION_INVALID", "Select a supported preliminary assembly type and keep its description within 200 characters.");
+            var sequence = checked(++dataset.LastIntakeSequence);
+            var intakeId = $"{intakePrefix}{sequence:0000}";
+            var now = DateTimeOffset.UtcNow;
+            var contractReview = request.ContractReview is null ? null : new SimContractReview(
+                request.ContractReview.CustomerPoNumber!.Trim(),
+                request.ContractReview.CustomerPoType!.Trim(),
+                request.ContractReview.PaymentTermsMatch!.Value,
+                request.ContractReview.PaymentTermsActionNote?.Trim() ?? "",
+                request.ContractReview.BillingMatchesShipTo!.Value,
+                request.ContractReview.ShippingActionNote?.Trim() ?? "",
+                request.ContractReview.ShippingMethod!.Trim(),
+                request.ContractReview.UpsAccountNumber?.Trim() ?? "",
+                request.ContractReview.OrderClassification!.Trim(),
+                request.ContractReview.DeliveryDateAchievable!.Value,
+                request.ContractReview.DeliveryDateActionNote?.Trim() ?? "",
+                request.ContractReview.PriceMatchesQuote!.Value,
+                request.ContractReview.PriceActionNote?.Trim() ?? "",
+                request.ContractReview.TraceabilityRequired!.Value,
+                NormalizeContractSelections(request.ContractReview.TraceabilityDeliverables),
+                NormalizeContractSelections(request.ContractReview.AerospaceRequirements),
+                request.ContractReview.PoFlowdowns?.Trim() ?? "",
+                request.ContractReview.AdditionalContractQualityRequirements?.Trim() ?? "",
+                request.ContractReview.SpecialRequirements?.Trim() ?? "",
+                request.ContractReview.RequirementsIdentifiedOnAttachedDocument,
+                persona.DisplayName,
+                DateOnly.FromDateTime(now.LocalDateTime));
+            var record = new SimRfqIntakeRecord(
+                intakeId,
+                correlationId,
+                "DLE_RFQ_INTAKE_V1",
+                "Technical Review",
+                "READY_FOR_RFQ_QUALIFICATION",
+                request.IntakeType!.Trim(),
+                request.Customer!,
+                request.AssemblyCount,
+                request.Assemblies!,
+                request.DeLeonScope!.Trim(),
+                request.TechnicalFilesProvided,
+                verifiedFiles.ToArray(),
+                request.TechnicalFilesProvided ? verifiedFiles.All(file => file.BinaryStatus == "VERIFIED") ? "BINARIES_VERIFIED" : "METADATA_PRESERVED_SOURCE_PLACEMENT_REQUIRED" : "NOT_PROVIDED",
+                request.CustomerRequirements!,
+                persona.DisplayName,
+                now,
+                metadata.ScenarioId,
+                metadata.Generation,
+                runtimeEnvironment,
+                null,
+                contractReview,
+                request.IntakeType == "NEW_QUOTE_REQUEST" ? new SimIntakeAssemblyIdentification(preliminaryType,
+                    preliminaryType == "OTHER" ? preliminary?.OtherDescription?.Trim() : null, persona.DisplayName, now) : null);
+            if (SimAssemblyProjects.Enabled(record.Assemblies)) record=record with{QuoteComposition="COMBINED_DEFAULT_EXPLICIT_PARTIAL"};
+            if (record.IntakeType == "NEW_QUOTE_REQUEST" && record.QuoteComposition is null)
+                record = record with { TechnicalReview = new SimTechnicalReviewResult(
+                    "RFQ_REVIEW", "", "", "", false, [], [], "", [], false,
+                    "READY_FOR_RFQ_QUALIFICATION", "READY_FOR_RFQ_QUALIFICATION", null, null, "", now, "",
+                    MaterialsReviewStatus: "NOT_STARTED", NextReviewPhase: "MANUFACTURING_LABOR_REVIEW",
+                    ReviewPhaseOrder: ["MANUFACTURING_LABOR_REVIEW", "MATERIAL_BOM_REVIEW"], ManufacturingReviewStatus: "NOT_STARTED") };
+            if(runtimeEnvironment!="SIM") record=record with{RehearsalCommandHash=commandHash};
+            dataset.Records.Add(record);
+            dataset.UpdatedAtUtc = now;
+            await WriteVerifiedAsync(dataset);
+            return new { duplicate = false, record };
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    internal async Task<SimRfqIntakeDocument> StageDocument(string draft, string name, long modified, Stream stream, SimPersona persona)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            if ((await ReadDatasetAsync()).Records.Any(r => r.RequestCorrelationId == draft && r.OrderIntake?.ReviewStatus != "DRAFT")) throw SimRfqIntakeProblem.Conflict("SIM_INTAKE_ALREADY_SUBMITTED", "This intake has already been submitted.");
+            return await documents.Stage(draft, name, modified, stream, persona.Id);
+        }
+        finally { gate.Release(); }
+    }
+    internal async Task RemoveStagedDocument(string draft, string id, SimPersona persona)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            if ((await ReadDatasetAsync()).Records.Any(r => r.RequestCorrelationId == draft)) throw SimRfqIntakeProblem.Conflict("SIM_INTAKE_ALREADY_SUBMITTED", "Submitted intake documents cannot be removed as drafts.");
+            await documents.Remove(draft,id,persona.Id);
+        }
+        finally { gate.Release(); }
+    }
+    internal async Task<(SimRfqIntakeDocument Document, byte[] Bytes)> OpenDocument(string intakeId, string id)
+    {
+        var record = (await ReadDatasetAsync()).Records.SingleOrDefault(r => r.IntakeId == intakeId);
+        var doc = record?.TechnicalFiles.Concat(record.OrderIntake?.PoEvidence.Select(e => e.Document) ?? []).Concat(record.OrderIntake?.TechnicalSource?.Documents.Select(e => e.Document) ?? []).SingleOrDefault(d => d.DocumentId == id && d.BinaryStatus == "VERIFIED");
+        if (doc is null) throw SimRfqIntakeProblem.NotFound("SIM_DOCUMENT_NOT_FOUND", "No staged document with this ID belongs to the intake.");
+        return (doc, await documents.Bytes(record!.RequestCorrelationId,id));
+    }
+
+    internal async Task<object?> ReadAsync(string intakeId)
+    {
+        var dataset = await ReadDatasetAsync();
+        return dataset.Records.FirstOrDefault(record =>
+            string.Equals(record.IntakeId, intakeId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    internal async Task<object> ListTechnicalReviewsAsync()
+    {
+        var dataset = await ReadDatasetAsync();
+        var list=new List<object>();var completed=new List<object>();
+        foreach(var record in dataset.Records.Where(r=>IsTechnicalReviewRecord(r)||(r.QuoteComposition is not null&&r.Environment==runtimeEnvironment&&r.IntakeType=="NEW_QUOTE_REQUEST")).Where(r=>r.Status is not ("NO_LONGER_REQUIRED" or "READY_FOR_RFQ_WORKING_QUEUE")).OrderByDescending(r=>r.CreatedAtUtc)){
+            if(record.QuoteComposition is null)list.Add(BuildTechnicalReviewQueueItem(record));
+            else foreach(var assembly in record.Assemblies){
+                var preparation=PreparationLookup is null?null:await PreparationLookup(record.IntakeId,assembly.LineNumber);
+                var finalReview=preparation is null||PreparationFinalReviewLookup is null?null:await PreparationFinalReviewLookup(preparation);
+                SimLibraryRfqReceipt? receipt=null;string? handoffIssue=null;
+                try{receipt=assembly.ProjectId is null?null:await ReadRfqReceipt(assembly.ProjectId);}
+                catch(Exception e)when(e is IOException or UnauthorizedAccessException or JsonException or SimRfqIntakeProblem){handoffIssue="The saved RFQ receipt needs checking. No review history was removed.";}
+                var received=ReceiptMatchesFinal(receipt,finalReview);
+                var item=new{reviewType="ASSEMBLY_PROJECT",reviewTypeLabel="Assembly assessment",intakeId=record.IntakeId,projectId=assembly.ProjectId,displayId=SimAssemblyProjects.Label(record.IntakeId,assembly),record.Customer,assembly,record.CreatedAtUtc,record.DocumentPreservationState,
+                    status=received?"RFQ_RECEIVED":finalReview?.Status??preparation?.Status??"AWAITING_ASSESSMENT",reviewStatusLabel=received?"Sent to RFQs":finalReview?.StatusLabel??preparation?.Status.Replace('_',' ')??"Awaiting assessment",finalReview,rfqReceipt=receipt?.Binding,
+                    canSendToRfqs=handoffIssue is null&&LibraryRfqSource is not null&&finalReview?.Status=="APPROVED"&&!received,rfqHandoffIssue=handoffIssue,technicalReview=(object?)null};
+                if(received)completed.Add(item);else list.Add(item);
+            }
+        }
+        var items=list.ToArray();
+        return new
+        {
+            items,
+            completedItems=completed.ToArray(),
+            rfqProjectHandoff=LibraryRfqSource is not null&&LibraryRfqPackageRead is not null,
+            returnedCount = items.Length,
+            reviewType = "RFQ_REVIEW",
+            finalReviewRoundtrip = PreparationFinalReviewLookup is not null,
+            environment = runtimeEnvironment,
+            synthetic = true
+        };
+    }
+
+    internal async Task<object?> ReadTechnicalReviewAsync(string intakeId)
+    {
+        var dataset = await ReadDatasetAsync();
+        var record = dataset.Records.FirstOrDefault(item =>
+            string.Equals(item.IntakeId, intakeId, StringComparison.OrdinalIgnoreCase) &&
+            IsTechnicalReviewRecord(item));
+        return record is null ? null : new
+        {
+            reviewType = "RFQ_REVIEW",
+            reviewTypeLabel = "RFQ Review",
+            reviewStatusLabel = ReviewStatusLabel(record.Status),
+            deletionEligibility = new { allowed = DeletionBlockReason(record) is null, reason = DeletionBlockReason(record) },
+            manufacturingDrawingIds = ManufacturingDrawingIds(record),
+            packageReviewToken = PackageReviewToken(record),
+            manualBomAvailable = true,
+            drawingFoldersAvailable = true,
+            linkedDrawingFilesAvailable = true,
+            documentRemovalAvailable = true,
+            sourceSetupAvailable = true,
+            sourceSetupToken = SourceSetupToken(dataset,record),
+            presentationAvailable = true,
+            scannedBomSource = await ScannedBomSource(record),
+            scannedCandidate = ScanCandidateState(record),
+            assemblyHistoryContext = record.TechnicalReview?.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record),
+            record
+        };
+    }
+
+    internal async Task<object> SaveAssemblyTypeAsync(string intakeId, string? assemblyType, SimPersona persona)
+    {
+        if (assemblyType != "PCB_ASSEMBLY")
+            throw SimRfqIntakeProblem.BadRequest("SIM_ASSEMBLY_TYPE_UNSUPPORTED", "Select PCB Assembly to continue.");
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var index = dataset.Records.FindIndex(r => r.IntakeId == intakeId && IsTechnicalReviewRecord(r));
+            if (index < 0) throw SimRfqIntakeProblem.NotFound("SIM_REVIEW_NOT_FOUND", "Technical Review was not found.");
+            var record = dataset.Records[index];
+            var review = record.TechnicalReview;
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || review?.ReviewPhaseOrder?.FirstOrDefault() != "MANUFACTURING_LABOR_REVIEW")
+                throw SimRfqIntakeProblem.Conflict("SIM_ASSEMBLY_TYPE_GATE_UNAVAILABLE", "Start an active labor-first Technical Review before selecting assembly type.");
+            if (string.IsNullOrEmpty(review.AssemblyType))
+            {
+                // Passing this first gate does not complete manufacturing or qualify the RFQ.
+                record = record with { TechnicalReview = review with {
+                    AssemblyType = assemblyType, NextReviewPhase = "MATERIAL_BOM_REVIEW",
+                    MaterialsReviewStatus = "IN_PROGRESS", ReviewedBy = persona.DisplayName,
+                    ReviewedAtUtc = DateTimeOffset.UtcNow } };
+                dataset.Records[index] = record;
+                dataset.UpdatedAtUtc = record.TechnicalReview.ReviewedAtUtc;
+                await WriteVerifiedAsync(dataset);
+            }
+            else if (review.AssemblyType != assemblyType)
+                throw SimRfqIntakeProblem.Conflict("SIM_ASSEMBLY_TYPE_ALREADY_SAVED", "The saved assembly type cannot be replaced by this entry gate.");
+            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+        }
+        finally { gate.Release(); }
+    }
+
+    internal async Task<object> SaveTechnicalReviewAsync(
+        string intakeId,
+        SimTechnicalReviewDispositionRequest request,
+        SimPersona persona)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var index = dataset.Records.FindIndex(item =>
+                string.Equals(item.IntakeId, intakeId, StringComparison.OrdinalIgnoreCase) &&
+                IsTechnicalReviewRecord(item));
+            if (index < 0)
+                throw SimRfqIntakeProblem.NotFound("DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND",
+                    "The SIM Technical Review item does not exist.");
+
+            var record = dataset.Records[index];
+            // Closed reviews remain readable, but stale clients cannot reopen or overwrite them.
+            if (record.Status == "NO_LONGER_REQUIRED" && request.Disposition != "NO_LONGER_REQUIRED")
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_CLOSED",
+                    "This Technical Review is closed as No Longer Required.");
+            var result = ValidateTechnicalReview(request, record, persona);
+            var status = result.DownstreamHandoffState ?? result.ReviewStatus;
+            var updated = record with { Status = status, TechnicalReview = result };
+            dataset.Records[index] = updated;
+            dataset.UpdatedAtUtc = result.ReviewedAtUtc;
+            await WriteVerifiedAsync(dataset);
+            return new
+            {
+                reviewType = "RFQ_REVIEW",
+                reviewTypeLabel = "RFQ Review",
+                reviewStatusLabel = ReviewStatusLabel(updated.Status),
+                record = updated
+            };
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    internal async Task<object> UpdateAssemblyHistoryAsync(string intakeId, string? classification, SimPersona persona)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var index = dataset.Records.FindIndex(item => item.IntakeId.Equals(intakeId, StringComparison.OrdinalIgnoreCase) && IsTechnicalReviewRecord(item));
+            if (index < 0) throw SimRfqIntakeProblem.NotFound("DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND", "The SIM Technical Review item does not exist.");
+            var record = dataset.Records[index];
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || record.TechnicalReview is null)
+                throw SimRfqIntakeProblem.Conflict("DLE_OS_SIM_REVIEW_NOT_STARTED", "Start an active Technical Review before answering the history question.");
+            var history = record.TechnicalReview.AssemblyHistory ?? SimAssemblyHistoryProvider.Lookup(record);
+            if (classification is not null)
+            {
+                var expected = history.HistoryFound ? "EXISTING_ASSEMBLY" : "NEW_ASSEMBLY";
+                if (classification != expected)
+                    throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_ASSEMBLY_CLASSIFICATION_INVALID", "The assembly decision must match the history lookup result.");
+                if (history.AssemblyClassification != classification)
+                    history = history with { AssemblyClassification = classification, ConfirmedBy = persona.DisplayName, ConfirmedAtUtc = DateTimeOffset.UtcNow };
+            }
+            if (history != record.TechnicalReview.AssemblyHistory)
+            {
+                record = record with { TechnicalReview = record.TechnicalReview with { AssemblyHistory = history } };
+                dataset.Records[index] = record;
+                dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                await WriteVerifiedAsync(dataset);
+            }
+            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+        }
+        finally { gate.Release(); }
+    }
+
+    internal async Task<object> ReviewMaterialsAsync(string intakeId, SimPersona persona, SimPackageRequest? packageRequest = null, bool inventoryOnly = false)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var index = dataset.Records.FindIndex(item => item.IntakeId.Equals(intakeId, StringComparison.OrdinalIgnoreCase) && IsTechnicalReviewRecord(item));
+            if (index < 0) throw SimRfqIntakeProblem.NotFound("DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND", "The SIM Technical Review item does not exist.");
+            var record = dataset.Records[index];
+            var history = record.TechnicalReview?.AssemblyHistory;
+            if (record.TechnicalReview?.Workflow?.Version == UnifiedPackageVersion)
+                throw SimRfqIntakeProblem.Conflict("SIM_COMBINED_PACKAGE_REQUIRED", "Use the combined Technical Package Review to update this package.");
+            var revision = record.Assemblies.OrderBy(item => item.LineNumber).First().Revision.Trim();
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || (record.TechnicalReview?.Workflow is null && (history?.AssemblyClassification != "EXISTING_ASSEMBLY" ||
+                !history.RevisionsFound.Contains(revision, StringComparer.OrdinalIgnoreCase))))
+                throw SimRfqIntakeProblem.Conflict("DLE_OS_SIM_BOM_HISTORY_REQUIRED", "Confirm existing assembly history for the requested revision before reviewing materials.");
+            if (record.TechnicalReview?.Workflow is not null && !inventoryOnly)
+                throw SimRfqIntakeProblem.Conflict("SIM_LEGACY_COMPARISON", "Use Candidate BOM for this review.");
+            if (inventoryOnly || record.TechnicalReview!.MaterialsDefinition is null || record.TechnicalReview.TechnicalPackage?.GoverningBomDocumentId is null)
+            {
+                var package = packageRequest is null ? record.TechnicalReview!.TechnicalPackage ?? SimTechnicalPackageProvider.Inventory(record) : SimTechnicalPackageProvider.Validate(record, packageRequest, persona);
+                var definition = inventoryOnly ? null : SimMaterialsDefinitionProvider.Compare(record with { TechnicalReview = record.TechnicalReview! with { TechnicalPackage = package } }, persona);
+                var sameSources = JsonSerializer.Serialize(package.Documents, jsonOptions) == JsonSerializer.Serialize(record.TechnicalReview!.TechnicalPackage?.Documents, jsonOptions) && package.GoverningBomDocumentId == record.TechnicalReview.TechnicalPackage?.GoverningBomDocumentId;
+                var wf = record.TechnicalReview!.Workflow;
+                var sameDocuments = JsonSerializer.Serialize(package.Documents, jsonOptions) == JsonSerializer.Serialize(record.TechnicalReview.TechnicalPackage?.Documents, jsonOptions);
+                if (wf is not null) wf = wf with { PackageConfirmed = true,
+                    Sufficient = sameDocuments && wf.Sufficient, Manufacturing = sameDocuments ? wf.Manufacturing : null };
+                record = record with { TechnicalReview = record.TechnicalReview! with { Workflow = wf, TechnicalPackage = package, MaterialsDefinition = definition, MaterialsReviewStatus = sameSources ? record.TechnicalReview.MaterialsReviewStatus : null, NextReviewPhase = sameSources ? record.TechnicalReview.NextReviewPhase : null, CandidateBom = sameSources || record.TechnicalReview.CandidateBom?.ManualDraft is not null ? record.TechnicalReview.CandidateBom : null,
+                    CandidateBomVersions = !sameSources && record.TechnicalReview.CandidateBom is not null && record.TechnicalReview.CandidateBom.ManualDraft is null ? (record.TechnicalReview.CandidateBomVersions ?? []).Append(record.TechnicalReview.CandidateBom).ToArray() : record.TechnicalReview.CandidateBomVersions,
+                    SubassemblyCoverage = definition is null ? null : SimTechnicalPackageProvider.Coverage(package, definition) } };
+                dataset.Records[index] = record;
+                dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                await WriteVerifiedAsync(dataset);
+            }
+            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+        }
+        finally { gate.Release(); }
+    }
+
+    internal async Task<object> CandidateBomAsync(string intakeId, SimPersona persona, SimCandidateReviewRequest? request = null)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var index = dataset.Records.FindIndex(r => r.IntakeId == intakeId && IsTechnicalReviewRecord(r));
+            if (index < 0) throw SimRfqIntakeProblem.NotFound("SIM_REVIEW_NOT_FOUND", "Technical Review was not found.");
+            var record = dataset.Records[index];
+            var review = record.TechnicalReview;
+            var package = review?.TechnicalPackage;
+            if (review?.CandidateBom?.ManualDraft is not null)
+            {
+                if (request is null) return WorkflowEnvelope(record);
+                RequireManualWork(record, dataset);
+                var manual = review.CandidateBom;
+                if(request.BulkReview is not null)
+                {
+                    var bulk=SimCandidateBomProvider.ReviewBulk(manual,request,persona);
+                    if(bulk.Result.ChangedCount>0)
+                    {
+                        var changed=bulk.Bom with{ManualDraft=manual.ManualDraft with{Revision=manual.ManualDraft.Revision+1}};
+                        record=record with{TechnicalReview=review with{CandidateBom=changed}};
+                        dataset.Records[index]=record;dataset.UpdatedAtUtc=DateTimeOffset.UtcNow;
+                        await WriteVerifiedAsync(dataset);
+                    }
+                    return BulkWorkflowEnvelope(record,bulk.Result);
+                }
+                var updated = SimCandidateBomProvider.Review(manual, request, persona);
+                updated = updated with { ManualDraft = manual.ManualDraft with { Revision = manual.ManualDraft.Revision + 1 } };
+                record = record with { TechnicalReview = review with { CandidateBom = updated } };
+                dataset.Records[index] = record; dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                await WriteVerifiedAsync(dataset);
+                return WorkflowEnvelope(record);
+            }
+            if (review?.CandidateBom?.VproImport is not null && request is not null)
+            {
+                await RequireVproDraft(record);
+                var updated = SimCandidateBomProvider.Review(review.CandidateBom, request, persona, "MIXED");
+                dataset.Records[index] = record with { TechnicalReview = review with { CandidateBom = updated } };
+                dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                await WriteVerifiedAsync(dataset);
+                return new { reviewType = "RFQ_REVIEW", record = dataset.Records[index] };
+            }
+            var governing = package?.Documents.SingleOrDefault(d => d.DocumentId == package.GoverningBomDocumentId);
+            if (record.Status != "TECHNICAL_REVIEW_IN_PROGRESS" || EffectiveAssemblyClassification(record) is not ("EXISTING_ASSEMBLY" or "NEW_ASSEMBLY") ||
+                !SimTechnicalPackageProvider.IsGoverningCandidateSource(governing))
+                throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_REQUIRED", "Start review, confirm assembly history, and select a governing parent BOM PDF, standalone or embedded in an assembly drawing.");
+            var file = record.TechnicalFiles.SingleOrDefault(d => d.DocumentId == governing!.DocumentId && d.BinaryStatus == "VERIFIED" && d.Type == "application/pdf");
+            if (file is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_BINARY_REQUIRED", "The governing PDF must have a verified SIM staged binary.");
+            var bytes = await documents.Bytes(record.RequestCorrelationId, file.DocumentId!);
+            RequireWorkflowMaterials(record);
+            if (request is null) await RequireTextBom(record);
+            var candidate = review!.CandidateBom;
+            if (request is null && candidate is null && governing!.DocumentType == "BOM")
+                throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_ANALYSIS_REQUIRED", "Build a standalone BOM through the Technical Review analysis job for full-table extraction.");
+            if (candidate is not null && (candidate.GoverningDocumentId != file.DocumentId || candidate.GoverningSha256 != Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant()))
+                throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_SOURCE_CHANGED", "The governing source changed. Reconfirm the package before building a new candidate.");
+            if (request is not null)
+            {
+                if (candidate is null) throw SimRfqIntakeProblem.Conflict("SIM_CANDIDATE_REQUIRED", "Build the candidate before reviewing rows.");
+                RequireCurrentScanCandidate(record, candidate);
+                if ((review.BomAcceptances ?? []).Any(a => a.Candidate.Id == candidate.Id))
+                    throw SimRfqIntakeProblem.Conflict("SIM_BOM_ACCEPTED", "This accepted BOM is read-only. Build a new candidate version before making changes.");
+                if (request.WholeRowApproval is not null || request.SourcePartNumberChange is not null)
+                {
+                    if (dataset.AnalysisJobs.Any(j => j.Input.IntakeId == intakeId && DleAnalysisContract.Active(j.Status)))
+                        throw SimRfqIntakeProblem.Conflict("SIM_BOM_ANALYZING", "Wait for analysis to finish before approving rows.");
+                    var sources = await AnalysisDocuments(record, candidate.Analysis?.SourceSnapshot.SourceSelectionVersion);
+                    if (candidate.Analysis is not null && !SameAnalysisSources(candidate.Analysis.SourceSnapshot,record,sources))
+                        throw SimRfqIntakeProblem.Conflict("SIM_BOM_SOURCE_CHANGED", "Source package changed. Rebuild/review before approving rows.");
+                }
+                candidate = SimCandidateBomProvider.Review(candidate, request, persona, governing?.PartNumberReview?.Basis);
+            }
+            else candidate ??= await SimCandidateBomProvider.Extract(bytes, package!, persona);
+            record = record with { TechnicalReview = review with { CandidateBom = candidate } };
+            dataset.Records[index] = record;
+            dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await WriteVerifiedAsync(dataset);
+            return new { reviewType = "RFQ_REVIEW", reviewTypeLabel = "RFQ Review", reviewStatusLabel = ReviewStatusLabel(record.Status), record };
+        }
+        finally { gate.Release(); }
+    }
+
+    internal async Task<object> DeleteTechnicalReviewAsync(string intakeId)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            var dataset = await ReadDatasetAsync();
+            var record = dataset.Records.FirstOrDefault(item =>
+                string.Equals(item.IntakeId, intakeId, StringComparison.OrdinalIgnoreCase) && IsTechnicalReviewRecord(item));
+            if (record is null)
+                throw SimRfqIntakeProblem.NotFound("DLE_OS_SIM_TECHNICAL_REVIEW_NOT_FOUND",
+                    "The SIM Technical Review item does not exist.");
+
+            var blockedReason = DeletionBlockReason(record);
+            if (blockedReason is not null)
+                throw SimRfqIntakeProblem.Conflict("DLE_OS_SIM_TECHNICAL_REVIEW_DELETE_UNSAFE",
+                    blockedReason + " Nothing was deleted.");
+
+            foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Verify(record.RequestCorrelationId, file, file.ReviewOrigin?.AddedBy ?? record.CreatedBy);
+            foreach (var request in record.CustomerRequestDocuments ?? []) await documents.Verify(record.RequestCorrelationId, request.Document, request.AddedBy);
+            // Own only this record, embedded review, and verified SIM copies.
+            // Never interpret source filenames as paths or delete source/master data.
+            dataset.Records.Remove(record);
+            dataset.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await WriteVerifiedAsync(dataset);
+            foreach (var file in record.TechnicalFiles.Where(file => file.DocumentId is not null)) await documents.Remove(record.RequestCorrelationId,file.DocumentId!,file.ReviewOrigin?.AddedBy ?? record.CreatedBy);
+            foreach (var request in record.CustomerRequestDocuments ?? []) await documents.Remove(record.RequestCorrelationId,request.Document.DocumentId!,request.AddedBy);
+            return new { deleted = true, intakeId = record.IntakeId, environment = "SIM" };
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private static string? DeletionBlockReason(SimRfqIntakeRecord record)
+    {
+        if (record.Environment != "SIM") return "Deletion is limited to SIM intake records.";
+        // RFQ Qualification is the original name for this same early intake destination.
+        if (record.HandoffTarget is not ("Technical Review" or "RFQ Qualification"))
+            return "The intake handoff target is outside the supported intake/review boundary.";
+        if (record.DocumentPreservationState is not ("NOT_PROVIDED" or "METADATA_PRESERVED_SOURCE_PLACEMENT_REQUIRED" or "BINARIES_VERIFIED"))
+            return "The document storage state requires a governed ownership check before deletion.";
+        var review = record.TechnicalReview;
+        if (review is not null)
+        {
+            // ValidateTechnicalReview writes this exact pair without creating an RFQ work record.
+            // Only that known placeholder is exempt; any other link/state remains protected.
+            var futureRfqPlaceholder = review.DownstreamHandoffTarget == "RFQs" &&
+                review.DownstreamHandoffState == "READY_FOR_RFQ_WORKING_QUEUE" &&
+                review.Disposition == "QUALIFIED_READY_FOR_RFQ" && review.ReviewStatus == "QUALIFIED_READY_FOR_RFQ";
+            if (!futureRfqPlaceholder && (!string.IsNullOrWhiteSpace(review.DownstreamHandoffTarget) ||
+                !string.IsNullOrWhiteSpace(review.DownstreamHandoffState)))
+                return "The review contains a downstream handoff reference that requires preservation or relationship verification.";
+            if (!IsEarlyReviewState(review.ReviewStatus) || !IsEarlyReviewState(review.Disposition))
+                return "The review status or disposition is outside the recognized early review states.";
+        }
+        return IsEarlyReviewState(record.Status) ? null : "The intake status is outside the recognized early review states.";
+    }
+
+    private static bool IsEarlyReviewState(string value) => value is
+        "READY_FOR_RFQ_QUALIFICATION" or "TECHNICAL_REVIEW_IN_PROGRESS" or "START_TECHNICAL_REVIEW" or
+        "QUALIFIED_READY_FOR_RFQ" or "READY_FOR_RFQ_WORKING_QUEUE" or
+        "ON_HOLD" or "NO_LONGER_REQUIRED" or "NEEDS_CUSTOMER_CLARIFICATION" or "MISSING_TECHNICAL_DOCUMENTS" or
+        "REVISION_DOCUMENT_CONFLICT" or "BLOCKED_NEEDS_ESCALATION";
+
+    private static bool IsTechnicalReviewRecord(SimRfqIntakeRecord record) =>
+        string.Equals(record.Schema, "DLE_RFQ_INTAKE_V1", StringComparison.Ordinal) &&
+        record.QuoteComposition is null && record.Assemblies.Length<=1 && record.OrderIntake is null && record.IntakeType is "NEW_QUOTE_REQUEST" or "NEW_ORDER";
+
+    private static object BuildTechnicalReviewQueueItem(SimRfqIntakeRecord record)
+    {
+        var assembly = record.Assemblies.OrderBy(item => item.LineNumber).FirstOrDefault();
+        return new
+        {
+            reviewType = record.IntakeType == "NEW_ORDER" ? "CONTRACT_REVIEW" : "RFQ_REVIEW",
+            reviewTypeLabel = record.IntakeType == "NEW_ORDER" ? "New Order Contract Review" : "RFQ Review",
+            record.IntakeId,
+            record.Customer,
+            assembly,
+            record.CreatedAtUtc,
+            record.DocumentPreservationState,
+            record.Status,
+            reviewStatusLabel = ReviewStatusLabel(record.Status),
+            record.TechnicalReview
+        };
+    }
+
+    private static string ReviewStatusLabel(string status) => status switch
+    {
+        "ON_HOLD" => "On Hold — information needed",
+        "READY_FOR_RFQ_QUALIFICATION" => "Needs Technical Review",
+        "TECHNICAL_REVIEW_IN_PROGRESS" => "Technical Review in progress",
+        "NO_LONGER_REQUIRED" => "No Longer Required",
+        "READY_FOR_RFQ_WORKING_QUEUE" => "Qualified — Ready for RFQ",
+        "NEEDS_CUSTOMER_CLARIFICATION" => "Needs Customer Clarification",
+        "MISSING_TECHNICAL_DOCUMENTS" => "Missing Technical Documents",
+        "REVISION_DOCUMENT_CONFLICT" => "Revision / Document Conflict",
+        "BLOCKED_NEEDS_ESCALATION" => "Blocked / Needs Escalation",
+        _ => status.Replace('_', ' ')
+    };
+
+    private static SimTechnicalReviewResult ValidateTechnicalReview(
+        SimTechnicalReviewDispositionRequest request,
+        SimRfqIntakeRecord record,
+        SimPersona persona)
+    {
+        var entryDisposition = request.Disposition?.Trim();
+        if (record.TechnicalReview?.Workflow is not null && (entryDisposition != "NO_LONGER_REQUIRED" && entryDisposition != "START_TECHNICAL_REVIEW" || record.Status == "ON_HOLD" && entryDisposition == "START_TECHNICAL_REVIEW"))
+            throw SimRfqIntakeProblem.Conflict("SIM_UNIFIED_REVIEW", "Use the package review workflow to resume or complete this review.");
+        if (entryDisposition is "START_TECHNICAL_REVIEW" or "NO_LONGER_REQUIRED")
+        {
+            if (record.Status == "READY_FOR_RFQ_WORKING_QUEUE" ||
+                !string.IsNullOrWhiteSpace(record.TechnicalReview?.DownstreamHandoffTarget) ||
+                !string.IsNullOrWhiteSpace(record.TechnicalReview?.DownstreamHandoffState))
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_ALREADY_HANDED_OFF",
+                    "This review has already been handed off to RFQ.");
+            var entryStatus = entryDisposition == "NO_LONGER_REQUIRED"
+                ? "NO_LONGER_REQUIRED" : "TECHNICAL_REVIEW_IN_PROGRESS";
+            var previous = record.TechnicalReview;
+            if (previous?.Disposition == entryDisposition) return previous;
+            var result = previous ?? new SimTechnicalReviewResult(
+                "RFQ_REVIEW", "", "", "", false, [], [], "", [], false,
+                "", "", null, null, "", default, "");
+            return result with
+            {
+                Disposition = entryDisposition, ReviewStatus = entryStatus,
+                DownstreamHandoffTarget = null, DownstreamHandoffState = null,
+                ReviewedBy = persona.DisplayName, ReviewedAtUtc = DateTimeOffset.UtcNow,
+                ManufacturingReviewStatus = entryDisposition == "START_TECHNICAL_REVIEW" &&
+                    result.ReviewPhaseOrder?.FirstOrDefault() == "MANUFACTURING_LABOR_REVIEW" &&
+                    result.NextReviewPhase == "MANUFACTURING_LABOR_REVIEW"
+                    ? "IN_PROGRESS" : result.ManufacturingReviewStatus
+            };
+        }
+
+        var assemblyType = request.AssemblyType?.Trim() ?? "";
+        if (assemblyType != "PCB_ASSEMBLY")
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_ASSEMBLY_TYPE_INVALID",
+                "PCB Assembly is the only supported assembly type in Phase 1.");
+
+        var disposition = request.Disposition?.Trim() ?? "";
+        var statuses = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["QUALIFIED_READY_FOR_RFQ"] = "QUALIFIED_READY_FOR_RFQ",
+            ["NEEDS_CUSTOMER_CLARIFICATION"] = "NEEDS_CUSTOMER_CLARIFICATION",
+            ["MISSING_TECHNICAL_DOCUMENTS"] = "MISSING_TECHNICAL_DOCUMENTS",
+            ["REVISION_DOCUMENT_CONFLICT"] = "REVISION_DOCUMENT_CONFLICT",
+            ["BLOCKED_NEEDS_ESCALATION"] = "BLOCKED_NEEDS_ESCALATION"
+        };
+        if (!statuses.TryGetValue(disposition, out var reviewStatus))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_DISPOSITION_INVALID",
+                "Select a supported Technical Review disposition.");
+
+        var knownFiles = record.TechnicalFiles.Select(file => file.Name).ToHashSet(StringComparer.Ordinal);
+        var drawing = request.AssemblyDrawingFile?.Trim() ?? "";
+        var bom = request.BomFile?.Trim() ?? "";
+        var gerbers = NormalizeFileSelection(request.GerberFiles, knownFiles, "Gerber");
+        var subAssemblies = NormalizeFileSelection(request.SubAssemblyDocuments, knownFiles, "sub-assembly");
+        if (!string.IsNullOrWhiteSpace(drawing) && !knownFiles.Contains(drawing))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_DOCUMENT_INVALID",
+                "The selected Assembly Drawing is not present in the intake metadata.");
+        if (!string.IsNullOrWhiteSpace(bom) && !knownFiles.Contains(bom))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_DOCUMENT_INVALID",
+                "The selected BOM is not present in the intake metadata.");
+        if (!string.IsNullOrWhiteSpace(drawing) && drawing == bom)
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_DOCUMENT_CONFLICT",
+                "Assembly Drawing and BOM must identify different files.");
+
+        var responsibility = request.MaterialResponsibility?.Trim() ?? "";
+        if (responsibility is not ("FULL_TURNKEY" or "CUSTOMER_SUPPLIED" or "HYBRID"))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_RESPONSIBILITY_INVALID",
+                "Select Full turnkey, Customer-supplied material, or Hybrid responsibility.");
+        var customerSupplied = (request.CustomerSuppliedItems ?? [])
+            .Select(value => value.Trim()).Where(value => value.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (responsibility is "CUSTOMER_SUPPLIED" or "HYBRID" && customerSupplied.Length == 0)
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_CUSTOMER_SUPPLY_REQUIRED",
+                "Identify the customer-supplied material or components.");
+        if (responsibility == "FULL_TURNKEY") customerSupplied = [];
+
+        if (disposition == "QUALIFIED_READY_FOR_RFQ")
+        {
+            if (string.IsNullOrWhiteSpace(drawing) || string.IsNullOrWhiteSpace(bom))
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_MINIMUM_PACKAGE_REQUIRED",
+                    "PCB Assembly qualification requires an Assembly Drawing and BOM.");
+            if (responsibility == "FULL_TURNKEY" && request.GerbersRequired && gerbers.Length == 0)
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_GERBERS_REQUIRED",
+                    "Gerbers are required for this full-turnkey PCB package before qualification.");
+            if (!request.TechnicalPackageSufficient)
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_PACKAGE_INSUFFICIENT",
+                    "A technically insufficient package cannot be qualified for RFQ.");
+        }
+
+        var qualified = disposition == "QUALIFIED_READY_FOR_RFQ";
+        return new SimTechnicalReviewResult(
+            "RFQ_REVIEW", assemblyType, drawing, bom, request.GerbersRequired, gerbers,
+            subAssemblies, responsibility, customerSupplied, request.TechnicalPackageSufficient,
+            disposition, reviewStatus, qualified ? "RFQs" : null,
+            qualified ? "READY_FOR_RFQ_WORKING_QUEUE" : null,
+            persona.DisplayName, DateTimeOffset.UtcNow, request.ReviewerNotes?.Trim() ?? "", record.TechnicalReview?.AssemblyHistory, record.TechnicalReview?.MaterialsDefinition, record.TechnicalReview?.TechnicalPackage, record.TechnicalReview?.SubassemblyCoverage, record.TechnicalReview?.CandidateBom, record.TechnicalReview?.CandidateBomVersions, record.TechnicalReview?.BomAcceptances, record.TechnicalReview?.MaterialsReviewStatus, record.TechnicalReview?.NextReviewPhase, record.TechnicalReview?.ReviewPhaseOrder, record.TechnicalReview?.ManufacturingReviewStatus);
+    }
+
+    private static string[] NormalizeFileSelection(string[]? selected, HashSet<string> knownFiles, string label)
+    {
+        var values = (selected ?? []).Select(value => value.Trim()).Where(value => value.Length > 0)
+            .Distinct(StringComparer.Ordinal).ToArray();
+        if (values.Any(value => !knownFiles.Contains(value)))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_TECHNICAL_REVIEW_DOCUMENT_INVALID",
+                $"A selected {label} document is not present in the intake metadata.");
+        return values;
+    }
+
+    private void Validate(SimRfqIntakeCreateRequest request)
+    {
+        if (request.IntakeType is not ("NEW_QUOTE_REQUEST" or "NEW_ORDER"))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_INTAKE_TYPE_INVALID", "Select a supported Intake Wizard scenario.");
+        if (request.Customer is null || request.Customer.ResolutionSource != customerDirectory ||
+            string.IsNullOrWhiteSpace(request.Customer.CustomerId) || string.IsNullOrWhiteSpace(request.Customer.CustomerName))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_CUSTOMER_INVALID", "Select a customer from the configured Canonical Customer Directory.");
+        if (request.IntakeType == "NEW_ORDER")
+        {
+            ValidateContractReview(request);
+            if (!request.TechnicalFilesProvided || request.TechnicalFiles is null || request.TechnicalFiles.Length == 0)
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_CUSTOMER_PO_REQUIRED", "Attach the customer PO before submitting this New Order.");
+            if (!Guid.TryParse(request.RequestCorrelationId, out _))
+                throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_CORRELATION_INVALID", "Request correlation ID must be a UUID.");
+            return;
+        }
+        if (request.AssemblyCount < 1 || request.Assemblies is null || request.Assemblies.Length != request.AssemblyCount)
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_ASSEMBLY_COUNT_INVALID", "Assembly count must match the supplied assembly records.");
+        SimAssemblyProjects.Validate(request);
+        if (request.Assemblies.Any(item => string.IsNullOrWhiteSpace(item.AssemblyNumber) ||
+            string.IsNullOrWhiteSpace(item.Revision) || item.Quantity < 1))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_ASSEMBLY_INVALID", "Every assembly requires a number, explicit revision, and positive quantity.");
+        if (request.DeLeonScope is not ("MATERIAL_AND_LABOR" or "LABOR_ONLY" or "MATERIAL_ONLY"))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_SCOPE_INVALID", "Select a supported De Leon scope.");
+        if (request.TechnicalFilesProvided && (request.TechnicalFiles is null || request.TechnicalFiles.Length == 0))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_FILES_REQUIRED", "Associate at least one source file when technical files were provided.");
+        if (request.CustomerRequirements is null || !request.CustomerRequirements.Contains("PRICE") ||
+            !request.CustomerRequirements.Contains("LEAD_TIME"))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_REQUIREMENTS_INVALID", "Price and Lead Time must be captured for this RFQ intake.");
+        if (!Guid.TryParse(request.RequestCorrelationId, out _))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_RFQ_CORRELATION_INVALID", "Request correlation ID must be a UUID.");
+    }
+
+    private static void ValidateContractReview(SimRfqIntakeCreateRequest request)
+    {
+        var review = request.ContractReview ?? throw SimRfqIntakeProblem.BadRequest(
+            "DLE_OS_SIM_NEW_ORDER_REVIEW_REQUIRED", "Complete the Contract Review before submitting this New Order.");
+        if (string.IsNullOrWhiteSpace(review.CustomerPoNumber))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_PO_NUMBER_REQUIRED", "Enter the customer PO number.");
+        if (review.CustomerPoType != "CUSTOMER_PO")
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_CUSTOMER_PO_REQUIRED", "Customer PO is required. Verbal PO is planned for a future release.");
+        if (review.PaymentTermsMatch is null || review.BillingMatchesShipTo is null ||
+            review.DeliveryDateAchievable is null || review.PriceMatchesQuote is null || review.TraceabilityRequired is null)
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_ANSWER_REQUIRED", "Answer every required Contract Review question.");
+        if (!review.PaymentTermsMatch.Value && string.IsNullOrWhiteSpace(review.PaymentTermsActionNote))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_PAYMENT_NOTE_REQUIRED", "Record the resolution/action note for the payment-terms mismatch.");
+        if (!review.BillingMatchesShipTo.Value && string.IsNullOrWhiteSpace(review.ShippingActionNote))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_SHIPPING_NOTE_REQUIRED", "Confirm how the Ship To address was verified and highlighted.");
+        if (review.ShippingMethod is not ("WILL_CALL" or "DLE_DELIVERY" or "UPS_CHARGE" or "UPS_COLLECT"))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_SHIPPING_METHOD_REQUIRED", "Select a supported shipping method.");
+        if (review.ShippingMethod == "UPS_COLLECT" && string.IsNullOrWhiteSpace(review.UpsAccountNumber))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_UPS_ACCOUNT_REQUIRED", "Enter the UPS account number for UPS Collect.");
+        if (review.OrderClassification is not ("REPEAT_ORDER" or "NEW_ASSEMBLY" or "NEW_REVISION"))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_CLASSIFICATION_REQUIRED", "Select the order classification.");
+        if (!review.DeliveryDateAchievable.Value && string.IsNullOrWhiteSpace(review.DeliveryDateActionNote))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_DELIVERY_NOTE_REQUIRED", "Record the delivery-date customer action note.");
+        if (!review.PriceMatchesQuote.Value && string.IsNullOrWhiteSpace(review.PriceActionNote))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_PRICE_NOTE_REQUIRED", "Record the quote/price customer action note.");
+        var traceability = NormalizeContractSelections(review.TraceabilityDeliverables);
+        if (traceability.Any(value => value is not ("TRAVELER" or "MATERIAL_CERTS")))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_TRACEABILITY_INVALID", "Select only supported traceability records.");
+        if (!review.TraceabilityRequired.Value && traceability.Length > 0)
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_TRACEABILITY_INVALID", "Traceability records cannot be selected when traceability is not required.");
+        var aerospace = NormalizeContractSelections(review.AerospaceRequirements);
+        var supported = new HashSet<string>(["CERTIFICATE_OF_CONFORMANCE", "MATERIAL_CERTS", "FAIR", "ITAR", "DPAS_RATED"], StringComparer.Ordinal);
+        if (aerospace.Any(value => !supported.Contains(value)))
+            throw SimRfqIntakeProblem.BadRequest("DLE_OS_SIM_NEW_ORDER_AEROSPACE_REQUIREMENT_INVALID", "Select only supported aerospace requirements.");
+    }
+
+    private static string[] NormalizeContractSelections(string[]? values) =>
+        (values ?? []).Select(value => value.Trim()).Where(value => value.Length > 0)
+            .Distinct(StringComparer.Ordinal).ToArray();
+
+    private async Task<SimRfqIntakeDataset> ReadDatasetAsync()
+    {
+        if (!File.Exists(dataPath)) return new SimRfqIntakeDataset();
+        await using var stream = File.OpenRead(dataPath);
+        var dataset = await JsonSerializer.DeserializeAsync<SimRfqIntakeDataset>(stream, jsonOptions);
+        if (dataset?.Schema != DatasetSchema)
+            throw new InvalidOperationException("SIM RFQ Intake data schema is invalid.");
+        if(runtimeEnvironment!="SIM" && dataset.Records.Any(r=>r.Environment!=runtimeEnvironment)) throw new InvalidOperationException("Cross-environment dataset rejected");
+        // Upgrade legacy datasets before any mutation. Deletion must never recycle IDs.
+        foreach (var record in dataset.Records)
+        {
+            if (record.IntakeId.StartsWith("RFQI-SIM-", StringComparison.Ordinal) &&
+                long.TryParse(record.IntakeId[9..], out var sequence))
+                dataset.LastIntakeSequence = Math.Max(dataset.LastIntakeSequence, sequence);
+        }
+        return dataset;
+    }
+
+    private async Task WriteVerifiedAsync(SimRfqIntakeDataset dataset)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(dataPath)!);
+        var temporaryPath = dataPath + ".write-" + Guid.NewGuid().ToString("N");
+        SimRuntimeOptions.EnsureDescendant(Path.GetDirectoryName(dataPath)!, temporaryPath);
+        try
+        {
+            await File.WriteAllTextAsync(temporaryPath, JsonSerializer.Serialize(dataset, jsonOptions));
+            await using (var verify = File.OpenRead(temporaryPath))
+            {
+                var roundTrip = await JsonSerializer.DeserializeAsync<SimRfqIntakeDataset>(verify, jsonOptions);
+                if (roundTrip?.Schema != DatasetSchema || roundTrip.Records.Count != dataset.Records.Count)
+                    throw new IOException("SIM RFQ Intake write verification failed.");
+            }
+            File.Move(temporaryPath, dataPath, true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
+    }
+
+    private sealed class SimRfqIntakeDataset
+    {
+        public string Schema { get; set; } = DatasetSchema;
+        public int Version { get; set; } = 1;
+        public long LastIntakeSequence { get; set; }
+        public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+        public List<SimRfqIntakeRecord> Records { get; set; } = [];
+        public List<DleAnalysisJob> AnalysisJobs { get; set; } = [];
+    }
+}
+
+internal sealed record SimRfqIntakeRecord(
+    string IntakeId,
+    string RequestCorrelationId,
+    string Schema,
+    string HandoffTarget,
+    string Status,
+    string IntakeType,
+    SimRfqIntakeCustomer Customer,
+    int AssemblyCount,
+    SimRfqIntakeAssembly[] Assemblies,
+    string DeLeonScope,
+    bool TechnicalFilesProvided,
+    SimRfqIntakeDocument[] TechnicalFiles,
+    string DocumentPreservationState,
+    string[] CustomerRequirements,
+    string CreatedBy,
+    DateTimeOffset CreatedAtUtc,
+    string ScenarioId,
+    long Generation,
+    string Environment,
+    SimTechnicalReviewResult? TechnicalReview = null,
+    SimContractReview? ContractReview = null,
+    SimIntakeAssemblyIdentification? PreliminaryAssemblyType = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimDrawingFolderAssociation[]? DrawingFolders = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimReviewSourceSetup? ReviewSourceSetup = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimReviewDocumentRemoval[]? ReviewDocumentRemovals = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimCustomerRequestDocument[]? CustomerRequestDocuments = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimNewOrderPackage? OrderIntake = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimOrderEntry? OrderEntry = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? QuoteComposition = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] SimLibraryRfqBinding? LibraryRfq = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? RehearsalCommandHash = null);

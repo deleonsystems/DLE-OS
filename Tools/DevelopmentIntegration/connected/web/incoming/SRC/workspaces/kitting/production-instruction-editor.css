@@ -1,0 +1,150 @@
+/* Work-order presentation only; the Kitting controller and form nodes are shared. */
+.job-instruction-viewer .labor-drawing-heading { min-height:0;padding:4px 8px;gap:6px; }
+.job-instruction-viewer .labor-drawing-heading button,
+.job-instruction-viewer #kittingJobPrintLabelsAction .kitting-label-menu summary { min-height:34px;padding:6px 10px;font-size:12px; }
+.job-instruction-viewer #kittingJobPrintLabelsAction { min-width:110px!important; }
+.job-instruction-viewer .labor-slide-context-bar { min-height:0; }
+.job-instruction-viewer [data-operation-tab] { min-height:34px;padding:6px 10px;font-size:12px; }
+.job-instruction-viewer .labor-slide-draft-notice { margin:0 8px;padding:4px 8px;font-size:11px;line-height:1.35;background:#eef2f5;color:#415363; }
+.job-kitting-active .labor-slide-caption { display:none; }
+.job-instruction-viewer .job-kitting-sheet { padding:10px 12px;box-sizing:border-box;color-scheme:light; }
+.job-kitting-sheet .active-kitting-trial { --text:#182c3c;--muted:#526776;--border:#c7d1d9;--panel:#fff;background:#fff;color:#182c3c;border:0;border-radius:0;box-shadow:none;padding:0; }
+.job-kitting-sheet .active-kitting-sticky-context { position:static;background:#fff; }
+.job-kitting-sheet .active-kitting-trial-header { min-height:0;height:auto;position:static;margin:0; background:#fff!important;padding:0 0 8px!important;gap:8px;align-items:center;border-bottom:2px solid #216b9d; }
+.job-kitting-sheet .active-kitting-trial-header h3 { color:#163d58;font-size:18px;margin:0; }
+.job-kitting-sheet .active-kitting-trial-eyebrow,
+.job-kitting-sheet .active-kitting-trial-description,
+.job-kitting-sheet .active-kitting-focused-identity { display:none; }
+.job-kitting-sheet .active-kitting-header-actions { gap:6px;align-items:center; }
+.job-kitting-sheet .active-kitting-header-actions button,
+.job-kitting-sheet .active-kitting-recovery button,
+.job-kitting-sheet .active-kitting-trial-footer button { background:#f3f7fa;color:#153f5e;border:1px solid #9bb2c4;border-radius:4px;min-height:36px;padding:7px 10px;font-size:12px; }
+.job-kitting-sheet button:disabled { opacity:.5;cursor:not-allowed; }
+.job-kitting-sheet button:focus-visible { outline:3px solid #147fc2;outline-offset:2px; }
+.job-kitting-sheet .active-kitting-traceability-control { color:#4a6172;display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:0; }
+.job-kitting-sheet .active-kitting-traceability-control>strong { min-height:0;padding:4px 6px;background:#fff6dc;color:#6e500e;border-color:#d9c58f;border-radius:3px; }
+.job-kitting-sheet #activeKittingAmendPoTraceability { width:135px;max-width:135px;min-width:0;white-space:normal;overflow-wrap:break-word;flex:none;line-height:1.25;padding:5px 7px;font-size:10px;background:#f3f7fa;color:#153f5e;border-color:#9bb2c4; }
+.job-kitting-sheet [hidden] { display:none!important; }
+.job-kitting-sheet .active-kitting-trial-status { background:#fff;color:#4a6172;border:0;border-radius:0;margin:4px 0;padding:4px 0;font-size:11px; }
+.job-kitting-sheet .active-kitting-trial-context { display:flex;flex-wrap:wrap;gap:4px 18px;margin:0 0 8px;padding-bottom:7px;border-bottom:1px solid #c7d1d9; }
+.job-kitting-sheet .active-kitting-trial-context>div { background:none;border:0;border-radius:0;padding:0;display:flex;align-items:baseline;gap:6px; }
+.job-kitting-sheet .active-kitting-trial-context span { color:#587082;font-size:10px;letter-spacing:0; }
+.job-kitting-sheet .active-kitting-trial-context strong { color:#182c3c;font-size:12px;margin:0; }
+.job-kitting-sheet .active-kitting-trial-table-wrap { max-height:none;min-height:0;border:1px solid #c7d1d9;border-radius:0;overflow:auto; }
+.job-kitting-sheet .active-kitting-trial-table { background:#fff;color:#182c3c;min-width:660px;font-size:12px; }
+.job-kitting-sheet .active-kitting-trial-table th { background:#eaf2f8;color:#174d71;font-size:10px;border-bottom:1px solid #aac0d0;padding:7px 6px;letter-spacing:.02em; }
+.job-kitting-sheet .active-kitting-trial-table td { border-bottom:1px solid #d8e0e7;padding:7px 6px; }
+.job-kitting-sheet .active-kitting-trial-table td:nth-child(1) { width:40px; }
+.job-kitting-sheet .active-kitting-trial-table td:nth-child(2) { width:32px; }
+.job-kitting-sheet .active-kitting-trial-table td:nth-child(3) { width:170px;overflow-wrap:anywhere; }
+.job-kitting-sheet .active-kitting-trial-table td:nth-child(4) { min-width:145px;overflow-wrap:anywhere; }
+.job-kitting-sheet .active-kitting-trial-table td:nth-child(5) { width:85px; }
+.job-kitting-sheet .active-kitting-trial-table td:nth-child(6) { width:104px; }
+.job-kitting-sheet .active-kitting-trial-table td>strong,
+.job-kitting-sheet .active-kitting-required strong { color:#132f44; }
+.job-kitting-sheet .active-kitting-trial-table td>small,
+.job-kitting-sheet .active-kitting-required small { color:#526b7c; }
+.job-kitting-sheet .active-kitting-trial-table tr:nth-child(even) { background:#f7fafc; }
+.job-kitting-sheet .active-kitting-trial-table tr.result-counted-short { background:#fff7e7; }
+.job-kitting-sheet .active-kitting-trial-table tr.result-complete,
+.job-kitting-sheet .active-kitting-trial-table tr.result-counted-exact,
+.job-kitting-sheet .active-kitting-trial-table tr.result-counted-extra,
+.job-kitting-sheet .active-kitting-trial-table tr.result-complete-min-extra { background:#eff8f3; }
+.job-kitting-sheet .active-kitting-trial-table tr.active-kitting-next-row { background:#e8f3fc;outline:1px solid #8bb8d6;outline-offset:-1px; }
+.job-kitting-sheet .active-kitting-result-trigger { background:#f4f8fb;color:#163f5d;border:1px solid #a8bccb;border-radius:5px;min-height:44px;padding:4px; }
+.job-kitting-sheet .active-kitting-result-trigger .active-kitting-result { background:transparent;color:#163f5d;border-color:#a8bccb; }
+.job-kitting-sheet .active-kitting-recovery { background:#fff7e7;color:#654c19;border-color:#dcc793;border-radius:4px;padding:8px 10px;margin:7px 0;gap:12px; }
+.job-kitting-sheet .active-kitting-recovery.is-resume { background:#f0f6fa;color:#254f6c;border-color:#c5d8e5; }
+.job-kitting-sheet .active-kitting-recovery strong,
+.job-kitting-sheet .active-kitting-recovery span,
+.job-kitting-sheet .active-kitting-recovery small { color:inherit; }
+.job-kitting-sheet .active-kitting-recovery small { font-size:11px; }
+.job-kitting-sheet .active-kitting-trial-instructions { background:#f7fafc;border-color:#ccd8e1; }
+.job-kitting-sheet .active-kitting-trial-instructions summary,
+.job-kitting-sheet .active-kitting-trial-instructions p { color:#244457; }
+.job-kitting-sheet .active-kitting-trial-footer { padding:12px 0;color:#27495e; }
+.job-kitting-sheet .active-kitting-trial-footer span,
+.job-kitting-sheet .active-kitting-trial-footer small { color:#526b7c; }
+@media(max-width:900px) {
+ .job-instruction-viewer .labor-drawing-heading button,
+ .job-instruction-viewer #kittingJobPrintLabelsAction .kitting-label-menu summary,
+ .job-instruction-viewer [data-operation-tab] { min-height:42px;padding:6px 8px; }
+ .job-kitting-sheet .active-kitting-trial-header { flex-wrap:wrap; }
+ .job-kitting-sheet .active-kitting-header-actions { justify-content:flex-start; }
+ .job-kitting-sheet .active-kitting-header-actions button { min-height:42px; }
+ .job-kitting-sheet .active-kitting-trial-context { gap:5px 12px; }
+ .job-kitting-sheet .active-kitting-trial-table td:nth-child(3) { width:145px; }
+}
+
+.job-instruction-viewer.labor-slide-reading.drawing-first .labor-drawing-heading>button { min-height:34px; }
+.job-instruction-viewer .labor-slide-context-bar .labor-operation-tabs button { min-height:34px; }
+@media(max-width:900px) { .job-instruction-viewer.labor-slide-reading.drawing-first .labor-drawing-heading>button,.job-instruction-viewer .labor-slide-context-bar .labor-operation-tabs button { min-height:42px; } }
+
+/* Fill the screen host without changing the traveler document or print rules. */
+.job-instruction-viewer .job-traveler-sheet { overflow:hidden!important; }
+.job-instruction-viewer .job-traveler-sheet #kittingAcceptedTraveler { width:100%;height:100%;min-height:0;display:block; }
+
+.job-packet-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;background:#152b40;color:#e2e8f0}
+.job-packet-tools button,.job-packet-release button{min-height:44px;padding:8px 12px}
+.job-packet-tools [role=alert]{width:100%;color:#fecaca}
+.job-packet-release{width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;background:#152333;color:#f1f5f9;border:1px solid #64748b;border-radius:12px;padding:20px}
+.job-packet-release label{display:grid;gap:8px;margin:16px 0}.job-packet-release select,.job-packet-release textarea{width:100%;min-height:44px;font:inherit;padding:8px;box-sizing:border-box}.job-packet-release [role=alert]{color:#fecaca}
+
+/* Main work-order viewer only; document composition and the annotation editor stay separate. */
+.job-compact-viewer.labor-slide-reading.drawing-first .labor-drawing-heading {
+ display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 8px;position:relative;z-index:5;overflow:visible;
+}
+.job-compact-viewer .job-viewer-identity { min-width:0;font-size:12px;line-height:1.4; }
+.job-compact-viewer .job-viewer-identity>strong { display:block;font-size:13px;overflow-wrap:anywhere; }
+.job-compact-viewer .job-viewer-statuses { display:flex;align-items:center;flex-wrap:wrap;gap:3px 8px;font-size:11px; }
+.job-compact-viewer .job-viewer-state { color:#ffdda0; }
+.job-compact-viewer .job-viewer-state[data-dirty="true"] { font-weight:700;color:#ffe1a8; }
+.job-compact-viewer .job-viewer-actions { display:flex;gap:5px;align-items:center;flex-wrap:wrap; }
+.job-compact-viewer .job-viewer-actions button,.job-compact-viewer .job-viewer-more summary,
+.job-compact-viewer.labor-slide-reading.drawing-first .labor-drawing-heading>[data-back] { min-height:44px;min-width:44px;padding:6px 9px;font-size:12px; }
+.job-compact-viewer [data-packet-save] { background:#146a9f;color:white; }
+.job-compact-viewer .job-viewer-more { position:relative; }
+.job-compact-viewer .job-viewer-more summary { box-sizing:border-box;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid #64748b;border-radius:5px;background:#1b3448;color:#eef6fc;list-style:none; }
+.job-compact-viewer .job-viewer-more summary::-webkit-details-marker { display:none; }
+.job-compact-viewer .job-viewer-menu { position:absolute;right:0;top:calc(100% + 5px);width:min(330px,calc(100vw - 32px));max-height:calc(100dvh - 180px);overflow:auto;box-sizing:border-box;padding:10px;display:grid;gap:7px;background:#172b3c;color:#edf5fc;border:1px solid #748da0;border-radius:8px;box-shadow:0 6px 24px #0008; }
+.job-compact-viewer .job-viewer-menu button { text-align:left;width:100%; }
+.job-compact-viewer .job-viewer-menu .labor-preview-materials { display:flex;align-items:center;min-height:44px;white-space:normal; }
+.job-compact-viewer .job-viewer-menu .labor-slide-caption,.job-compact-viewer .job-viewer-menu .labor-slide-draft-notice { position:static;display:block;margin:0;padding:6px;font-size:12px;max-height:none;max-width:none;white-space:normal;overflow-wrap:anywhere; }
+.job-compact-viewer .job-viewer-operation { font-size:12px; }
+.job-compact-viewer .job-viewer-error:empty { display:none; }
+.job-compact-viewer .job-viewer-error,.job-compact-viewer .job-viewer-warning { margin:0;padding:5px 10px;background:#54282a;color:#fff0ef;font-size:12px;flex:none; }
+.job-compact-viewer .labor-slide-context-bar { flex-wrap:nowrap;gap:8px;padding-right:10px; }
+.job-compact-viewer .labor-slide-context-bar .labor-operation-tabs { flex:1 1 auto; }
+.job-compact-viewer .labor-slide-context-bar .labor-operation-tabs button { min-height:44px;font-size:12px; }
+.job-compact-viewer .job-viewer-progress { flex:none;font-size:11px;color:#e4eef5;white-space:nowrap; }
+.job-compact-viewer button:focus-visible,.job-compact-viewer summary:focus-visible { outline:3px solid #75cfff;outline-offset:2px; }
+@media(max-width:950px) {
+ .job-compact-viewer.labor-slide-reading.drawing-first .labor-drawing-heading { grid-template-columns:auto minmax(0,1fr);gap:4px 8px; }
+ .job-compact-viewer .job-viewer-actions { grid-column:1 / -1;justify-content:flex-end; }
+}
+@media(max-width:550px) {
+ .job-compact-viewer .job-viewer-actions { gap:4px; }
+ .job-compact-viewer .job-viewer-actions button { padding:5px 7px; }
+ .job-compact-viewer .job-viewer-progress { max-width:105px;white-space:normal; }
+}
+
+.job-compact-viewer .job-viewer-state[data-released="true"] { color:#96e2c0; }
+
+@media(max-width:950px) {
+ .job-compact-viewer.job-viewer-readonly.labor-slide-reading.drawing-first .labor-drawing-heading { grid-template-columns:auto minmax(0,1fr) auto; }
+ .job-compact-viewer.job-viewer-readonly .job-viewer-actions { grid-column:auto; }
+}
+
+.job-compact-viewer [data-slide-jump-trigger]{min-height:44px;padding:4px 8px;background:#203b50;color:#eef6fc;border:1px solid #64839a;border-radius:5px;font:inherit;white-space:nowrap;cursor:pointer}
+.job-compact-viewer .job-slide-jump-popup{position:fixed;z-index:30;overflow:auto;overscroll-behavior:contain;padding:6px;box-sizing:border-box;background:#142a3c;border:1px solid #718a9e;border-radius:8px;box-shadow:0 6px 24px #0009;color:#eff7ff}
+.job-compact-viewer .job-slide-jump-popup[hidden]{display:none}
+.job-compact-viewer [data-slide-choice]{display:flex;align-items:center;gap:12px;width:100%;min-height:110px;padding:6px;text-align:left;background:#1d3548;border:2px solid transparent;border-radius:5px;color:#eff7ff;margin:3px 0;cursor:pointer;white-space:normal;font:13px Arial,sans-serif}
+.job-compact-viewer [data-slide-choice][aria-selected=true]{border-color:#80d8f1;background:#224d65}
+.job-compact-viewer [data-slide-choice]:focus-visible{outline:2px solid white;outline-offset:-4px}
+.job-compact-viewer [data-jump-preview]{display:block;flex:none;width:128px;height:96px;overflow:hidden;background:#dfe5eb;border-radius:3px}
+.job-compact-viewer [data-jump-preview] iframe{display:block;width:400px;height:300px;border:0;transform:scale(.32);transform-origin:0 0;pointer-events:none}
+.job-compact-viewer .job-slide-jump-label{display:grid;gap:6px;min-width:0;overflow-wrap:anywhere}
+.job-compact-viewer [data-jump-status]{font-size:11px;color:#c5d5e0}
+
+/* Review state accompanies the existing viewer/editor; no separate contribution form. */
+.production-pending-stamp{flex:none;margin:0;padding:5px 10px;background:#fff2cc;color:#493900;font:600 13px/1.3 Arial,sans-serif;border-block:1px solid #c2a447}

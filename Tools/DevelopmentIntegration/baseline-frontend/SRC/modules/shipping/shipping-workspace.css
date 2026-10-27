@@ -1,0 +1,523 @@
+.workspace-home[data-workspace-home="shipping"] {
+  width: calc(100vw - 32px);
+  max-width: none;
+  min-height: calc(100vh - 220px);
+  margin-left: 50%;
+  transform: translateX(-50%);
+}
+
+body[data-view-mode="desktop"][data-workspace-view="shipping"] > main {
+  max-width: none;
+}
+
+body[data-view-mode="desktop"][data-workspace-view="shipping"]
+  .workspace-home[data-workspace-home="shipping"] {
+  width: 100%;
+  margin-left: 0;
+  transform: none;
+}
+
+.shipping-workspace {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+  max-width: none;
+  min-height: calc(100vh - 220px);
+}
+
+.shipping-workspace-header,
+.shipping-workspace-region,
+.shipping-action-panel {
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(22, 31, 42, .94), rgba(14, 20, 29, .98));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .28);
+  border-radius: 8px;
+}
+
+.shipping-workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px;
+}
+
+.shipping-workspace-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.shipping-workspace-header h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  letter-spacing: 0;
+}
+
+.shipping-workspace-header p,
+.shipping-workspace-region p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.shipping-workspace-status,
+.shipping-queue-count {
+  flex: 0 0 auto;
+  border: 1px solid rgba(47, 140, 255, .28);
+  background: rgba(47, 140, 255, .10);
+  color: #d9e9ff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+
+.shipping-workspace-status[data-state="unavailable"] {
+  border-color: rgba(248, 113, 113, .48);
+  background: rgba(127, 29, 29, .28);
+  color: #fecaca;
+}
+
+.shipping-workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.shipping-workspace-main {
+  position: static;
+  display: grid;
+  gap: 18px;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.shipping-workspace-region,
+.shipping-action-panel {
+  padding: 20px;
+}
+
+.shipping-workspace-region {
+  width: 100%;
+  min-width: 0;
+  min-height: 310px;
+  box-sizing: border-box;
+}
+
+.shipping-workspace-region-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.shipping-queue-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.shipping-queue-heading-actions button {
+  white-space: nowrap;
+}
+
+.shipping-workspace-region h2,
+.shipping-action-panel h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.shipping-queue {
+  margin-top: 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+.shipping-shipment-staging {
+  min-height: 330px;
+}
+
+.shipping-shipment-staging-heading {
+  align-items: center;
+}
+
+.shipping-shipment-staging-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.shipping-shipment-staging-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.shipping-shipment-staging-controls input,
+.shipping-shipment-staging-controls select {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.shipping-shipment-staging-status {
+  min-height: 20px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shipping-shipment-staging-status[data-state="error"] {
+  color: #fca5a5;
+}
+
+.shipping-shipment-staging-table-wrap {
+  width: 100%;
+  min-width: 0;
+  max-height: 430px;
+  margin-top: 12px;
+}
+
+.shipping-shipment-staging-table {
+  min-width: 1120px;
+}
+
+.shipping-shipment-staging-row {
+  cursor: pointer;
+}
+
+.shipping-shipment-staging-row:focus-visible {
+  outline: 2px solid rgba(47, 140, 255, .85);
+  outline-offset: -2px;
+}
+
+.shipping-shipment-staging-empty {
+  border: 1px dashed rgba(255, 255, 255, .18);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 18px;
+}
+
+.shipping-queue-table-wrap {
+  width: 100%;
+  min-width: 0;
+  min-height: 180px;
+  max-height: 420px;
+  box-sizing: border-box;
+}
+
+.shipping-queue .operations-center-table {
+  width: 100%;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.shipping-request-queue-table {
+  min-width: 760px !important;
+}
+
+.shipping-queue-empty {
+  border: 1px dashed rgba(255, 255, 255, .18);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 16px;
+}
+
+@media (max-width: 760px) {
+  .shipping-shipment-staging-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+.shipping-queue-row,
+.packing-queue-row {
+  cursor: pointer;
+  transition: background-color .15s ease, box-shadow .15s ease;
+}
+
+.shipping-request-id-cell {
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.shipping-request-id-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.shipping-request-expand-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 82px;
+  margin: 0;
+  padding: 4px 7px;
+  border: 1px solid rgba(139, 188, 255, .36);
+  border-radius: 5px;
+  background: rgba(47, 140, 255, .10);
+  color: #dbeafe;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.shipping-request-expand-button:hover,
+.shipping-request-expand-button:focus-visible {
+  border-color: rgba(139, 188, 255, .72);
+  background: rgba(47, 140, 255, .20);
+  outline: none;
+}
+
+.shipping-request-expand-icon {
+  width: 10px;
+  color: #8bbcff;
+  font-size: 12px;
+  text-align: center;
+}
+
+.shipping-request-detail-row[hidden] {
+  display: none;
+}
+
+.shipping-request-detail-row > td {
+  padding: 0;
+  border-right: 0;
+  background: rgba(3, 9, 17, .72);
+}
+
+.shipping-request-detail-panel {
+  padding: 12px 18px 16px 44px;
+  border-left: 3px solid rgba(139, 188, 255, .48);
+}
+
+.shipping-request-detail-table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  background: rgba(10, 20, 33, .78);
+  font-size: 12px;
+}
+
+.shipping-request-queue-table .shipping-request-detail-table th,
+.shipping-request-queue-table .shipping-request-detail-table td {
+  position: static;
+  padding: 7px 9px;
+  border: 1px solid rgba(130, 170, 210, .13);
+}
+
+.shipping-request-queue-table .shipping-request-detail-table th {
+  background: rgba(19, 38, 61, .96);
+  color: #a9ceff;
+}
+
+.shipping-request-detail-table tbody tr:hover {
+  background: rgba(47, 140, 255, .08);
+}
+
+.shipping-queue-row:hover,
+.shipping-queue-row:focus,
+.packing-queue-row:hover,
+.packing-queue-row:focus {
+  background: rgba(47, 140, 255, .10);
+  outline: none;
+}
+
+.shipping-queue-row-selected,
+.shipping-queue-row-selected:hover,
+.shipping-queue-row-selected:focus,
+.packing-queue-row-selected,
+.packing-queue-row-selected:hover,
+.packing-queue-row-selected:focus {
+  background: rgba(47, 140, 255, .16) !important;
+  box-shadow: inset 3px 0 0 rgba(47, 140, 255, .85);
+}
+
+.shipping-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid rgba(47, 140, 255, .38);
+  border-radius: 999px;
+  background: rgba(47, 140, 255, .14);
+  color: #dbeafe;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.shipping-current-request {
+  border: 1px solid rgba(130, 170, 210, .16);
+  border-radius: 8px;
+  background: rgba(11, 22, 36, .74);
+  padding: 12px;
+  margin: 14px 0;
+}
+
+.shipping-current-request strong {
+  display: block;
+  color: #8bbcff;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.shipping-current-request span {
+  display: block;
+  color: #f4f7fb;
+  font-size: 16px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shipping-action-buttons {
+  display: grid;
+  gap: 9px;
+}
+
+.shipping-action-buttons button {
+  width: 100%;
+  text-align: left;
+}
+
+.shipping-dialog[hidden] {
+  display: none;
+}
+
+.shipping-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.shipping-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 7, 13, .78);
+  backdrop-filter: blur(5px);
+}
+
+.shipping-dialog-card {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid rgba(130, 170, 210, .32);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(18, 31, 47, .99), rgba(7, 15, 25, .99));
+  padding: 20px;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, .55);
+}
+
+.shipping-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.shipping-dialog-header h2 {
+  margin: 5px 0 6px;
+  font-size: 22px;
+}
+
+.shipping-dialog-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.shipping-dialog-field {
+  display: block;
+  margin-top: 12px;
+}
+
+.shipping-dialog-field strong {
+  display: block;
+  color: #8bbcff;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.shipping-dialog-field select,
+.shipping-dialog-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.shipping-dialog-field textarea {
+  resize: vertical;
+  min-height: 110px;
+}
+
+.shipping-dialog-validation {
+  min-height: 20px;
+  margin-top: 8px;
+  color: #ffb4b4;
+  font-size: 13px;
+}
+
+.shipping-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+@media (max-width: 900px) {
+  .workspace-home[data-workspace-home="shipping"] {
+    width: calc(100vw - 20px);
+    min-height: calc(100vh - 190px);
+  }
+
+  .shipping-workspace {
+    min-height: calc(100vh - 190px);
+  }
+
+  .shipping-workspace-header,
+  .shipping-workspace-region-heading,
+  .shipping-dialog-header {
+    display: grid;
+  }
+
+  .shipping-queue-heading-actions {
+    justify-content: flex-start;
+  }
+
+  .shipping-workspace-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .shipping-workspace-status,
+  .shipping-queue-count {
+    white-space: normal;
+  }
+}

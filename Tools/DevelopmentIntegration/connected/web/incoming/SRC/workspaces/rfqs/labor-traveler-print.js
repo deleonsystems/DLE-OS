@@ -1,0 +1,139 @@
+(function(window,document){
+ 'use strict';
+ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function formatDate(value){
+  const text=String(value??'').trim();if(!text)return '';
+  const only=/^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  let iso;
+  if(only){
+   const date=new Date(text+'T00:00:00Z');
+   if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==text)return text;
+   iso=text; // Calendar dates never pass through the browser's local timezone.
+  }else{
+   const date=new Date(text);if(!Number.isFinite(date.getTime()))return text;
+   // Completion instants use the factory day, independent of the viewing computer.
+   const parts=new Intl.DateTimeFormat('en-US',{timeZone:window.DleOperatorHeader?.factoryTimeZone||'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+   const part=type=>parts.find(p=>p.type===type).value;
+   iso=part('year')+'-'+part('month')+'-'+part('day');
+  }
+  return window.DleIntegration.enabled?iso.slice(5,7)+'-'+iso.slice(8,10)+'-'+iso.slice(2,4):iso;
+ }
+ const notes=op=>[op.instructions,...(op.notes||[]).filter(n=>!n.removed&&n.purpose==='PRODUCTION').map(n=>n.text)].filter(v=>typeof v==='string'&&v.trim()).join('\n\n');
+ // Bound continuation rows so a long note can paginate without shrinking type.
+ // Slices retain every character and never create additional operation numbers.
+ function chunks(value){const result=[];let rest=value;while(rest.length){let end=Math.min(500,rest.length);const lines=[...rest.slice(0,end).matchAll(/\n/g)];if(lines.length>8)end=lines[7].index+1;if(end<rest.length){const space=rest.lastIndexOf(' ',end);if(space>=0&&space>end-90)end=space+1;}if(end<rest.length&&/[\uD800-\uDBFF]/.test(rest[end-1]))end--;result.push(rest.slice(0,end));rest=rest.slice(end);}return result.length?result:[''];}
+ const css=`
+ @page{size:letter portrait;margin:.35in}
+ body{font:10.5pt/1.3 Arial,Helvetica,sans-serif;color:#111;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ .quote-header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:12px}.quote-header img{width:1.65in;height:.7in;object-fit:contain}.quote-header h1{font-size:21pt;margin:0;text-align:right}.quote-header p{margin:4px 0 0;text-align:right;font-size:12pt;font-weight:bold;color:#145fae}
+ .quote-identities{display:grid;grid-template-columns:1fr 1fr;gap:4px 25px;margin:10px 0}.quote-field{display:flex;gap:10px;min-height:23px}.quote-field span{min-width:110px}.quote-field strong{flex:1;border-bottom:1px solid #777;overflow-wrap:anywhere}
+ table{width:100%;border-collapse:collapse;table-layout:fixed;margin:10px 0}th,td{border:1px solid #566778;padding:5px;vertical-align:top;overflow-wrap:anywhere}th{font-size:9pt;background:#1269a8;color:white;text-align:left;line-height:1.2}
+ .quote-facts td{height:28px}.quote-splits td{height:24px}.quote-caption{font-size:9pt;color:#34495e;margin:5px 0}
+ .quote-operations thead{display:table-header-group}.quote-operations tfoot{display:table-footer-group}.quote-repeat{background:#fff;color:#145fae;font-weight:bold;border:0;border-bottom:2px solid #1269a8;padding:7px 0;font-size:10pt}.quote-repeat span{float:right;color:#34495e;font-weight:normal}
+ .quote-operations tbody{break-inside:avoid;page-break-inside:avoid}.quote-operations tr{break-inside:avoid;page-break-inside:avoid}.quote-operations .quote-main{background:#e6eef6}.quote-op-name{font-weight:normal;font-size:12pt;line-height:1.25}.quote-sub .quote-op-name{font-size:10.5pt;font-weight:normal;padding-left:12px}.quote-note{white-space:pre-wrap;font-size:10.5pt;line-height:1.35;margin-top:5px}.quote-sub .quote-note{padding-left:12px}.quote-continuation{font-size:9pt;font-weight:normal}.quote-qty{text-align:center;font-size:10pt}.quote-qty small{display:block;font-size:8pt}.quote-execution{background:white;min-width:0}.quote-number{font-size:10pt}
+ .quote-covered{background:white;border-top:0;border-bottom:0}.quote-execution time{white-space:nowrap;font-size:8pt}.quote-note-label{display:block;margin-bottom:4px;font-size:10pt}
+ .quote-operations [data-depth="2"] .quote-op-name{padding-left:24px}.quote-operations [data-depth="3"] .quote-op-name{padding-left:36px}.quote-records{break-inside:avoid;page-break-inside:avoid;margin-top:15px}.quote-records h2{font-size:12pt;margin:0 0 5px}.quote-records td{height:27px}.quote-signoffs{display:grid;grid-template-columns:1fr 1fr;gap:12px 25px;margin-top:12px}.quote-line{border-bottom:1px solid #777;min-height:25px}.quote-footer{font-size:8.5pt;color:#34495e;margin:10px 0 0}
+ @media screen{body{background:#dbe3eb}.dle-print-page{max-width:7.8in;margin:20px auto;padding:24px;background:white;box-sizing:content-box;box-shadow:0 2px 8px #7896a5}}
+ `;
+ // Read-only evidence projection: viewing or editing instructions never records work.
+ function materialEvidence(review,history){
+  const labels={NEEDS_KITTING:'Needs Kitting',KITTING_IN_PROGRESS:'Kitting in Progress',KIT_SHORT:'Kit Short',KIT_COMPLETE:'Kit Complete'};
+  const kit=review?.kittingCase,state=kit?.state||review?.legacyMaterialStatus?.machineValue;
+  const result={status:labels[state]||'',completedBy:'',completedAtUtc:''};
+  if(state!=='KIT_COMPLETE'||!kit?.caseId||!kit.releasedBomIdentity)return result;
+  const matches=(history?.submissions||[]).filter(s=>{
+   if(s.caseId!==kit.caseId||s.submissionType!=='KIT_COMPLETE'||!s.submissionId||!s.submittedBy||!Number.isFinite(Date.parse(s.submittedAtUtc)))return false;
+   try{const snapshot=JSON.parse(s.snapshotJson);return snapshot.caseId===kit.caseId&&snapshot.workOrderNumber===kit.workOrderNumber&&snapshot.releasedBomIdentity===kit.releasedBomIdentity&&snapshot.submissionId===s.submissionId&&snapshot.submissionType==='KIT_COMPLETE'&&snapshot.submittedBy===s.submittedBy&&snapshot.submittedAtUtc===s.submittedAtUtc;}catch(_){return false;}
+  }).sort((a,b)=>Date.parse(b.submittedAtUtc)-Date.parse(a.submittedAtUtc));
+  if(matches[0])Object.assign(result,{completedBy:matches[0].submittedBy,completedAtUtc:matches[0].submittedAtUtc});
+  return result;
+ }
+ async function loadMaterialEvidence(wo,expected=null){
+  if(!/^\d{7}$/.test(wo))throw Error('Select a canonical work order.');
+  const url='/api/kitting-cases/v1/work-orders/'+wo;
+  const read=async suffix=>{const r=await window.DleIntegration.request(url+suffix,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Kitting status unavailable ('+r.status+').');return r.json();};
+  const validate=review=>{
+   if(!expected)return;
+   const kit=review?.kittingCase;
+   if(review?.workOrderNumber!==wo||kit&&(kit.workOrderNumber!==wo||kit.caseId!==expected.caseId||kit.releasedBomIdentity!==expected.releasedBomIdentity||kit.workingVersion!==expected.workingVersion||kit.state!==expected.state))throw Error('Material evidence no longer matches this job. Reopen to refresh.');
+   if(!kit&&expected.caseId)throw Error('Material case is unavailable. Reopen to refresh.');
+  };
+  const before=await read('');validate(before);
+  if(before.kittingCase?.state!=='KIT_COMPLETE')return materialEvidence(before);
+  const history=await read('/submissions'),after=await read('');
+  if(before.kittingCase.caseId!==after.kittingCase?.caseId||before.kittingCase.workingVersion!==after.kittingCase.workingVersion)throw Error('Kitting changed while loading the traveler. Reopen to refresh.');
+  validate(after);
+  if(expected&&history.workOrderNumber!==wo)throw Error('Material submission belongs to a different job.');
+  const evidence=materialEvidence(after,expected?{submissions:(history.submissions||[]).filter(s=>s.submissionId===expected.submissionId)}:history);
+  if(expected&&!evidence.completedAtUtc)throw Error('Verified final material submission is unavailable.');
+  return evidence;
+ }
+ function build(plan,rfq,api=window.DleLaborWorkbench,presentation={}){
+  const operationLabel=api.operationLabel||(o=>!o?.parentId&&String(o?.name||'').trim().toLowerCase()==='inspection'?'Quality-Inspection':o?.name||'');
+  const assembly=rfq.assemblies?.[0]||{},excluded=api.materialPreparationIds(plan.operations||[]),allRows=api.displayRows(plan.operations||[]);
+  const metadata={assembly:assembly.assemblyNumber||'',revision:assembly.revision||'',quantity:plan.quantity??'',customer:rfq.customer?.customerName||'',description:assembly.description||''};
+  const job=presentation.job?.released?presentation.job:null;
+  const technicalDraft=presentation.technicalDraft===true;
+  if(job)Object.assign(metadata,{assembly:job.assembly||'',revision:job.revision||'',quantity:job.quantity??'',customer:job.customer||'',description:job.description||''});
+  const typeOf=o=>{const root=api.sectionRoot(plan.operations,o),side=api.smtSide(root);return side?'SMT-'+side:(api.workAreaLabel?.(api.workArea(root))||api.workArea(root)||root.name);};
+  const focused=o=>presentation.focusType&&typeOf(o)===presentation.focusType;
+  const rowNotes=o=>presentation.focusType&&!o.parentId&&!focused(o)?'':notes(api.resolvedInstruction(plan.operations,o));
+  function row(item,part,index){
+   const {o,seq}=item,material=excluded.has(o.id),count=material?4:5;
+   let execution='<td colspan="'+count+'" class="quote-covered"></td>';
+   if(!o.parentId&&!index){
+    const evidence=material?presentation.material:null;
+    const timestamp=evidence?.completedAtUtc;
+    const date=timestamp&&Number.isFinite(Date.parse(timestamp))?'<time datetime="'+esc(timestamp)+'" title="'+esc(timestamp)+'">'+esc(formatDate(timestamp))+'</time>':'';
+    const values=material?[esc(metadata.quantity),esc(evidence?.status||''),esc(evidence?.completedBy||''),date]:['','','','',''];
+    execution=values.map(value=>'<td class="quote-execution">'+value+'</td>').join('');
+   }
+   return `<tr class="${o.parentId?'quote-sub':'quote-main'}" data-focus="${!!focused(o)}" data-depth="${item.depth||0}" data-operation="${esc(o.id)}" data-continuation="${index>0}"><td class="quote-number">${index?'':esc(seq)}</td><td><div class="quote-op-name">${esc(operationLabel(o))}${index?' <span class="quote-continuation">(continued)</span>':''}</div>${part?`<div class="quote-note">${!o.parentId?`<strong class="quote-note-label">Operation Notes${index?' (continued)':''}</strong>`:''}${esc(part)}</div>`:''}</td>${execution}</tr>`;
+  }
+  function sectionRows(ordered){const groups=[];
+  for(let at=0;at<ordered.length;){const main=ordered[at++],subs=[];while(at<ordered.length&&ordered[at].o.parentId===main.o.id)subs.push(ordered[at++]);const mainRows=chunks(rowNotes(main.o)).map((text,i)=>row(main,text,i));groups.push(...mainRows.slice(0,-1).map(r=>'<tbody>'+r+'</tbody>'));let pair=mainRows.at(-1);if(subs.length){const child=subs.shift(),parts=chunks(rowNotes(child.o));pair+=row(child,parts.shift(),0);groups.push('<tbody class="quote-keep-pair">'+pair+'</tbody>');groups.push(...parts.map((part,i)=>'<tbody>'+row(child,part,i+1)+'</tbody>'));}else groups.push('<tbody>'+pair+'</tbody>');for(const child of subs)groups.push(...chunks(rowNotes(child.o)).map((part,i)=>'<tbody>'+row(child,part,i)+'</tbody>'));}
+  return groups.join('');}
+  const phases=api.firstPiecePhases(plan);
+  function phaseRows(section){const columns=section==='Materials'?6:7;return phases.filter(p=>excluded.has(p.owner.id)===(section==='Materials')).map(p=>{
+    if(p.kind==='normal'){const root=p.owner,advanced=root.executionQuantity!=null||root.handoff||root.department||root.instructionSourceId||root.captureSerial;const heading=advanced?'<tbody data-focus="'+!!focused(root)+'" data-execution-section="'+esc(root.id)+'"><tr><td colspan="'+columns+'"><strong>'+esc(operationLabel(root))+'</strong><div>'+esc(api.sectionContext(root,plan.operations,plan.quantity))+'</div><div>Labor revision '+esc(plan.revision||'draft')+'</div></td></tr>'+(root.captureSerial?'<tr><td colspan="'+columns+'">First-piece serial / identification (if used): ____________________</td></tr>':'')+'</tbody>':'';return heading+sectionRows(p.rows);}
+    const settings=p.owner.firstPiece,version='Labor revision '+(plan.revision||'draft'),label=p.kind==='first'?'First-piece build — 1 of '+plan.quantity:p.kind==='inspection'?'First-piece inspection / acceptance':'Remaining-batch build — '+p.quantity;
+    const last=plan.operations.filter(o=>o.parentId===p.owner.id).at(-1),setup=(settings.setupOperationIds||[]).map(id=>plan.operations.find(o=>o.id===id)?.name).filter(Boolean);
+    let text=p.kind==='first'?'Complete through '+(last?.name||'all work steps')+'. One-time setup: '+(setup.join(', ')||'none selected')+'. Accepted first piece is included in total quantity.':p.kind==='remaining'?'HOLD until first-piece acceptance. Reuse the same '+version+' instructions. Do not repeat one-time setup.':'Inspect after '+(last?.name||'all work steps')+'. Hold the remaining batch pending acceptance. If inspection fails, keep remaining work on hold for disposition. This record is not formal process qualification or an enforced release.';
+    if(p.kind==='inspection'){const o=p.rows[0]?.o;const estimated=o&&o.operationQuantity!=null&&o.runSeconds!=null;text+=' Inspection labor: '+(estimated?o.operationQuantity+' × '+o.runSeconds+' seconds, once per lot; costed in the linked '+o.name+' row.':'NOT ESTIMATED — separate inspection labor must be entered.');}
+    const header='<tbody data-first-piece-phase="'+p.kind+'" data-instruction-owner="'+esc(p.owner.id)+'"><tr><td colspan="'+columns+'"><strong>'+esc(operationLabel(p.owner)+' — '+label)+'</strong><div>'+esc(version+' — shared instruction set. '+text)+'</div></td></tr>'+(p.kind==='first'&&settings.captureSerial?'<tr><td colspan="'+columns+'">First-piece serial / identification (if used): ____________________</td></tr>':'')+'</tbody>';
+    const acceptance=p.kind==='inspection'?'<tbody><tr data-first-piece-acceptance><td colspan="'+columns+'">Disposition: __________ &nbsp; Inspector: __________ &nbsp; Date: __________ &nbsp; Accepted quantity: __________</td></tr></tbody>':'';
+    return header+sectionRows(p.rows)+acceptance;
+  }).join('');}
+  const blankRow=(columns)=>'<tr>'+Array.from({length:columns},()=>'<td></td>').join('')+'</tr>';
+  const html=`<header class="quote-header"><img src="ASSETS/LOGOS/DLE_Logo.JPG" alt="De Leon Enterprises"><div><h1>${job?'Traveler'+(job.travelerRevision?' — Rev '+esc(job.travelerRevision):''):technicalDraft?'DRAFT TRAVELER':'PRELIMINARY TRAVELER'}</h1><p>${job?(job.packetDraft?'DRAFT — not released':'Released work-order instructions'):technicalDraft?'DRAFT - NOT FOR PRODUCTION':'QUOTE - Not a production release'}</p></div></header>
+   <div class="quote-identities">${[['Sales Order #',job?job.salesOrder||'':technicalDraft?'':'QUOTE'],['Work Order #',job?job.workOrder||'':technicalDraft?'':'QUOTE'],[job?'Customer PO #':'Purchase Order #',job?job.purchaseOrder||'':technicalDraft?'':'QUOTE'],['Customer',metadata.customer]].map(([label,value])=>`<div class="quote-field"><span>${label}</span><strong>${esc(value)}</strong></div>`).join('')}</div>
+   <table class="quote-facts"><colgroup><col style="width:12%"><col style="width:24%"><col style="width:9%"><col><col style="width:15%"></colgroup><thead><tr>${[job?'Order Qty':technicalDraft?'Requested Qty':'Quote Qty','Part Number','Rev','Description',job?'Instruction Release Date':'Release Date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody><tr><td>${esc(metadata.quantity)}</td><td>${esc(metadata.assembly)}</td><td>${esc(metadata.revision)}</td><td>${esc(metadata.description)}</td><td>${job?.releasedAt?esc(formatDate(job.releasedAt)):''}</td></tr></tbody></table>
+   <table class="quote-splits"><caption>Split order details</caption><thead><tr>${['Stockroom split qty','Production split qty','Employee #','Reason','Split date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${blankRow(5)}</tbody></table>
+   ${['Materials','Production'].map(section=>{const rows=allRows.filter(({o})=>excluded.has(o.id)===(section==='Materials'));if(!rows.length&&section==='Materials')return '';const columns=section==='Materials'?['Step','Operation / Instructions','Kit Qty','Status','Completed By','Date Completed']:['Step','Operation / Instructions','Status','Completed By','Date Completed','Acc Qty','Rej Qty'];const widths=section==='Materials'?[7,43,8,14,15,13]:[7,43,12,12,12,7,7];return `<table class="quote-operations quote-${section.toLowerCase()}"><colgroup>${widths.map(n=>'<col style="width:'+n+'%">').join('')}</colgroup><thead><tr><th colspan="${columns.length}" class="quote-repeat">${section}</th></tr><tr>${columns.map(h=>'<th>'+h+'</th>').join('')}</tr></thead>${phaseRows(section)||'<tbody><tr><td colspan="'+columns.length+'">No production operations in this draft.</td></tr></tbody>'}</table>`;}).join('')}
+   <section class="quote-records"><h2>Discrepancy / Rework Record</h2><table><colgroup><col style="width:7%"><col style="width:30%"><col><col><col><col><col><col></colgroup><thead><tr>${['Op #','Discrepancy','S/N','Insp.','Disp.','Rework by','Insp.','Date'].map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${blankRow(8).repeat(2)}</tbody></table><div class="quote-line">Corrective action:</div><div class="quote-signoffs">${['Approved by:','Date:','Production:','Q.A. / M.R.B.:'].map(label=>'<div class="quote-line">'+label+'</div>').join('')}</div></section>
+   <p class="quote-footer">${job?'Released instructions. Viewing does not record production or inspection completion.':technicalDraft?'DRAFT - NOT FOR PRODUCTION.':'PRELIMINARY / QUOTE - Not a production release.'} ${presentation.material?'Completion fields are populated only from recorded completion.':'Execution fields intentionally blank.'}</p>`;
+  return {documentName:(job?'Traveler - '+(job.workOrder||'')+' - ':'Preliminary Quote Traveler - ')+metadata.assembly,paperSize:'letter',orientation:'portrait',margins:'.35in',html:(presentation.focusType?'<p class="quote-focus-key">Current focus: '+esc(presentation.focusType)+' - gray highlighting indicates focus, not completion.</p>':'')+html,css:css+(presentation.focusType?' .quote-operations .quote-main{background:white}.quote-operations [data-focus="true"]{background:#e8eaec}.quote-focus-key{font:10.5pt/1.3 Arial;margin:0 0 10px;color:#34495e}':'')};
+ }
+ async function open({plan,rfq,trigger,dirty=false,engine}){
+  engine=engine||(typeof DlePrintEngine==='undefined'?window.DlePrintEngine:DlePrintEngine);
+  if(!engine?.buildPrintDocument)throw Error('Save or preserve your Labor edits, then refresh SIM to load the shared print preview.');
+  const snapshot=structuredClone({plan,rfq});
+  if(!window.DleLaborDrawingNotes)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/incoming/SRC/workspaces/rfqs/labor-drawing-notes.js';script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('Traveler pagination unavailable. Retry.'));};document.head.append(script);});
+  const forms=await window.DleLaborDrawingNotes.letterPages(),result=await forms.compose({kind:'START',summary:{travelerPlan:snapshot.plan,travelerRfq:snapshot.rfq},caption:''}),definition=engine.normalizePrintDefinition({...result,documentName:build(snapshot.plan,snapshot.rfq).documentName});
+  document.getElementById('laborPreliminaryPrint')?.close();
+  const dialog=document.createElement('dialog');dialog.id='laborPreliminaryPrint';dialog.setAttribute('aria-label','Preliminary Quote Traveler');dialog.style.cssText='width:min(1100px,96vw);max-width:96vw;height:92vh;padding:16px;border:1px solid #7896a5;background:#f3f7fb;color:#071b33';
+  dialog.innerHTML='<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><strong style="margin-right:auto">Preliminary / Quote Traveler</strong><button type="button" data-print>Print / Save PDF</button><button type="button" data-close>Back to Labor</button></div><p style="font:14px Arial;margin:8px 0">'+(dirty?'Includes unsaved Labor edits. ':'')+'Preview snapshot of the current Materials/Kit and production rows. Close and reopen to include later edits.</p><p data-error role="status"></p><iframe title="Preliminary traveler preview" style="width:100%;height:calc(100% - 100px);border:1px solid #a5b6c6;background:white"></iframe>';
+  const button=dialog.querySelector('[data-print]');button.disabled=true;const frame=dialog.querySelector('iframe');frame.onload=()=>{button.disabled=false;};frame.srcdoc=engine.buildPrintDocument(definition);
+  dialog.querySelector('[data-close]').onclick=()=>dialog.close();button.onclick=async()=>{button.disabled=true;try{await engine.print(definition);}catch(e){dialog.querySelector('[data-error]').textContent=e.message;}finally{button.disabled=false;}};
+  dialog.addEventListener('close',()=>{dialog.remove();if(trigger?.isConnected)trigger.focus({preventScroll:true});},{once:true});document.body.append(dialog);dialog.showModal();
+ }
+ function mount(parent,definition){
+  const outer=document.createElement('div');outer.className='labor-traveler-base';outer.style.cssText='width:800px;box-sizing:border-box;background:white;color:#111;font:10.5pt/1.3 Arial,Helvetica,sans-serif';
+  const prefix='.labor-traveler-base';
+  const sheet=new CSSStyleSheet();sheet.replaceSync(definition.css);
+  const scope=rules=>Array.from(rules).map(rule=>rule.selectorText?rule.selectorText.split(',').map(s=>s.trim()==='body'?prefix:prefix+' '+s.trim()).join(',')+'{'+rule.style.cssText+'}':rule.cssRules&&rule.conditionText?'@media '+rule.conditionText+'{'+scope(rule.cssRules)+'}':'').join('');
+  const style=document.createElement('style');style.textContent=scope(sheet.cssRules)+prefix+' .quote-header{background:transparent;padding:0;border:0;color:#111}'+prefix+' .quote-header h1{color:inherit}'+'.labor-traveler-base .dle-print-page{margin:0;padding:24px;max-width:none;box-shadow:none;box-sizing:border-box}';outer.append(style);
+  const page=document.createElement('div');page.className='dle-print-page';page.innerHTML=definition.html;outer.append(page);parent.append(outer);return outer;
+ }
+ window.DleLaborTravelerPrint=Object.freeze({build,open,chunks,mount,materialEvidence,loadMaterialEvidence,formatDate});
+})(window,document);

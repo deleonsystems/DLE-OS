@@ -1,0 +1,10 @@
+@import url("../production/production-workspace.css");
+@import url("purchasing-job-workspace.css");
+
+body[data-workspace-view="purchasing"] main{margin-top:12px}
+.purchasing-lifecycle-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.purchasing-lifecycle-tabs button:disabled{cursor:not-allowed;opacity:.48;border-color:#334155;background:#111827;color:#64748b;box-shadow:none}
+.purchasing-lifecycle-tabs button:disabled:hover,.purchasing-lifecycle-tabs button:disabled:focus-visible{border-color:#334155;outline:none}
+@media(min-width:1281px){body[data-view-mode="desktop"][data-workspace-view="purchasing"]>main{padding-inline:clamp(22px,2vw,32px)}body[data-view-mode="desktop"][data-workspace-view="purchasing"] .production-workspace{width:100%;max-width:none;margin-inline:0;padding-inline:0}}
+@media(max-width:760px){.purchasing-lifecycle-tabs{grid-template-columns:1fr}}
+@media(max-width:620px){body[data-workspace-view="purchasing"] main{margin-top:8px}}

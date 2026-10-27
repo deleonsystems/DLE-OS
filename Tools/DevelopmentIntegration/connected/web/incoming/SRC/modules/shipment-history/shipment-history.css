@@ -1,0 +1,12 @@
+/* -----------------------------------------------------
+   410 - CSS: SHIPMENT HISTORY MODULE
+----------------------------------------------------- */
+
+#shipmentHistory {
+  width: calc(100vw - 44px);
+  margin-left: calc(50% - 50vw + 22px);
+}
+
+.shipment-history-toolbar {
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 420px);
+}

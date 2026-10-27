@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';
+import {createQuotingTransport} from '../connected/web/quoting-transport.mjs';
+const checks=[];let captured;
+const t=createQuotingTransport({origin:'https://fixture.invalid',csrf:()=> 'synthetic-csrf',fetcher:async(url,o)=>{captured=o;return{status:200}}});
+await t.request('/api/quoting/v1/rfqs',{method:'POST',headers:{'X-Fixture-Session':'junior','X-DLE-OS-Identity-Assertion':'forged',Authorization:'forged'}});
+assert.equal(captured.headers.get('RequestVerificationToken'),'synthetic-csrf');assert.equal(captured.credentials,'same-origin');for(const h of ['Authorization','X-Fixture-Session','X-DLE-OS-Identity-Assertion'])assert.equal(captured.headers.get(h),null);checks.push('server-session request and forged identity header stripping');
+await assert.rejects(t.request('https://other.invalid/api/quoting/v1/rfqs'));await assert.rejects(t.request('/api/sync/operations'));checks.push('external and protected route scope denied');
+const missing=createQuotingTransport({origin:'https://fixture.invalid',csrf:()=>null,fetcher:()=>{throw Error('must not send')}});await assert.rejects(missing.request('/api/quoting/v1/rfqs',{method:'POST'}),/integrity/);checks.push('missing CSRF fails before sending');
+let finish,signal;const pending=createQuotingTransport({origin:'https://fixture.invalid',csrf:()=>null,fetcher:(_u,o)=>{signal=o.signal;return new Promise(r=>finish=r)}});const work=pending.request('/api/quoting/v1/session');pending.cancel();finish({status:200});await assert.rejects(work,{name:'AbortError'});assert(signal.aborted);checks.push('navigation rejects late response');
+pending.close();await assert.rejects(pending.request('/api/quoting/v1/session'),/Session/);checks.push('page exit/logout closes transport');
+const expired=createQuotingTransport({origin:'https://fixture.invalid',csrf:()=>null,fetcher:async()=>({status:401})});await assert.rejects(expired.request('/api/quoting/v1/session'),/Session/);await assert.rejects(expired.request('/api/quoting/v1/session'),/Session/);checks.push('expired session permanently closes this page transport');
+fs.writeFileSync(new URL('./transport-results.json',import.meta.url),JSON.stringify({Passed:true,Count:checks.length,Checks:checks,BrowserExecuted:false},null,2));console.log('PASS '+checks.length+' transport checks');

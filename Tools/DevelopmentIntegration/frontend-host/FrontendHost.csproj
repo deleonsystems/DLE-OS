@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+<PropertyGroup><TargetFramework>net8.0-windows</TargetFramework><AssemblyName>DleOs.DevelopmentFrontend</AssemblyName><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems><EnableDefaultContentItems>false</EnableDefaultContentItems><NuGetAudit>false</NuGetAudit><Deterministic>true</Deterministic></PropertyGroup>
+<ItemGroup>
+<Compile Include="../baseline-source/*.cs" Exclude="../baseline-source/Program.cs"/>
+<Compile Include="*.cs"/><Compile Include="../auth/*.cs"/><Compile Include="../connected/CandidateRoles.cs"/><Compile Include="../connected/CandidateIdentityUi.cs"/>
+<Content Include="../connected/roles.json" Link="roles.json" CopyToOutputDirectory="PreserveNewest"/>
+<Reference Include="DleOs.Security"><HintPath>../shared-assemblies/DleOs.Security.dll</HintPath></Reference>
+<Reference Include="DleOs.TrustedIdentity"><HintPath>../shared-assemblies/DleOs.TrustedIdentity.dll</HintPath></Reference>
+<Reference Include="Microsoft.Data.SqlClient"><HintPath>../shared-assemblies/Microsoft.Data.SqlClient.dll</HintPath></Reference>
+<PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.29"/>
+<PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0"/><PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1"/>
+</ItemGroup></Project>

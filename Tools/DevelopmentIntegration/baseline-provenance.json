@@ -1,0 +1,500 @@
+{
+  "FrontendRelease": "20260904T230955Z",
+  "SourceRevision": "1742528024598b3bc25acc47fa5c4a98e9548782",
+  "WorkflowCheckpoint": "66251559a3b062020101956971b02b0adbf05829",
+  "BinarySourceEquivalenceQualified": false,
+  "Files": [
+    {
+      "Path": "baseline-source/CurrentUserContext.cs",
+      "Sha256": "745BCB775DB990E34583C4365E7628D14482B9903CBAE43305BE46149EBA9F5B"
+    },
+    {
+      "Path": "baseline-source/DevelopmentCompatibilityProxy.cs",
+      "Sha256": "BAE36A514C34B75A936783C0A368C415D49CDB3C79C06FE3BC244C32A6B5E96F"
+    },
+    {
+      "Path": "baseline-source/DevelopmentIdentityUi.cs",
+      "Sha256": "28C8F843F3FF8558E1CED624DF7EDBA66E5BBEBC94BEF153ED26A2F018AF4F48"
+    },
+    {
+      "Path": "baseline-source/DevRuntimeBuildInfo.cs",
+      "Sha256": "ECD764CEEC8F13526C2428CB72DF4E3DAA9EDA70E19104253058B58F3FED6FB9"
+    },
+    {
+      "Path": "baseline-source/DleOsRuntimeConfiguration.cs",
+      "Sha256": "873CEBB913DA6E7BCC7B0CBFFE0289BC9BA68F99EF434F70D3934BBB0588A2F3"
+    },
+    {
+      "Path": "baseline-source/DleOsWindowsServiceBootstrap.cs",
+      "Sha256": "5B934356B66D91971CA0203BBE467FA3174357CB94A216E910DE79088A0C8575"
+    },
+    {
+      "Path": "baseline-source/DrawingPrintsResolver.cs",
+      "Sha256": "EDA6929478E11733E0599462C6114AA481A1B2D30ED8801365005483710E5128"
+    },
+    {
+      "Path": "baseline-source/EmployeeDirectoryService.cs",
+      "Sha256": "D3C2AD5CB510AC8923570933D6EC84EA17C629E913BCEDBB3944BF0338BDEA5C"
+    },
+    {
+      "Path": "baseline-source/EmployeeDirectoryUi.cs",
+      "Sha256": "AB26C905656A5E144AA4A27180916645050DA1AFE2464925034E00670A4BF299"
+    },
+    {
+      "Path": "baseline-source/FrontendReleaseManifestValidator.cs",
+      "Sha256": "4626AF272F7076EE8A5428FACD015B3ABE62BDF8D6DBE3614FE5E59BEBC00868"
+    },
+    {
+      "Path": "baseline-source/GovernedDesktopCapabilities.cs",
+      "Sha256": "5EAB3531AFECB9D1EFE64CF2783B550F07F958B1C5CA4069F255DD82174708F1"
+    },
+    {
+      "Path": "baseline-source/KeycloakGatewayMiddleware.cs",
+      "Sha256": "DDADA06A8B1A7DA1AB24CFD458CBCD236A556EFB5D1C5998C4C5ED9D75A82EF6"
+    },
+    {
+      "Path": "baseline-source/KittingDocumentService.cs",
+      "Sha256": "02845DCA134536023467AC743053A9B3A0D5F680EA205066733E8DD59448D5C4"
+    },
+    {
+      "Path": "baseline-source/OidcAuthentication.cs",
+      "Sha256": "6A7199C58857FE2AAB68B63A3FAC23FA7F1891F8DA062BC6E388A6BC9B68A827"
+    },
+    {
+      "Path": "baseline-source/Program.cs",
+      "Sha256": "990D8B8928DEA10EB4EA92F952A3AA4439BFBD71F6C6DEAB2DC4D11FB5FA579C"
+    },
+    {
+      "Path": "baseline-source/RuntimeIdentityUi.cs",
+      "Sha256": "F07867A4FB855A2C04EDE7E2A77E3AE22FF6726A7F43EA816109624C077C02BF"
+    },
+    {
+      "Path": "baseline-source/SharedDeviceSessionUi.cs",
+      "Sha256": "F7E3A3538E90444C5EE989B6F772052C075FCB152E305C3106E05841CC667B9B"
+    },
+    {
+      "Path": "baseline-source/SharedDeviceWelcomeUi.cs",
+      "Sha256": "2D706872B59709E07C78FC84EBBCB0645A9E536A393AC074C266E3D6F54EB246"
+    },
+    {
+      "Path": "baseline-source/TestIdentitiesUi.cs",
+      "Sha256": "0873F11F6205EE265DD6F0EF1E33838296CD7B57A1CD041EA2A7A9529544DC65"
+    },
+    {
+      "Path": "baseline-source/UserProvisioningService.cs",
+      "Sha256": "A289C228EBC52D85262FF9F4CA1BA71260162B7AA720362452311BF4C7EF336C"
+    },
+    {
+      "Path": "baseline-frontend/ASSETS/ICONS/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/ASSETS/ICONS/apple-touch-icon.png",
+      "Sha256": "610F696B9D3F8DEFADA0EFBFA19F5B19B01DA804EF8AA198397FD74DD90C03E3"
+    },
+    {
+      "Path": "baseline-frontend/ASSETS/ICONS/dle-os-icon-192.png",
+      "Sha256": "371A02383312F99EB3EF4DD17C7FF9CB39F8DA18E7C59DB21B1493E508316DD2"
+    },
+    {
+      "Path": "baseline-frontend/ASSETS/ICONS/dle-os-icon-512.png",
+      "Sha256": "183D4954BD9AD4E0AD99C702B8D1D133514F36A65D297E8F40850D3D48D6446D"
+    },
+    {
+      "Path": "baseline-frontend/ASSETS/ICONS/favicon-32x32.png",
+      "Sha256": "EFC02CA720E2A3EF8274AC24A04284B33A9CFB384EFEE09D9795223F54973E74"
+    },
+    {
+      "Path": "baseline-frontend/ASSETS/ICONS/site.webmanifest",
+      "Sha256": "A6842E549FD0ECA0DDCAC2E6F25C7B21AEA3A2B6891090741745C505253993F4"
+    },
+    {
+      "Path": "baseline-frontend/ASSETS/IMAGES/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/ASSETS/LOGOS/DLE_Logo.JPG",
+      "Sha256": "B42E280A2CC9ED3C5C9F407EEAAC44E0E9DDF4AB17C44131D79CB683D2AF26BE"
+    },
+    {
+      "Path": "baseline-frontend/DLE_Work_Center_v4.0.0.html",
+      "Sha256": "7FF39CC096788FD4B9050C0503F1A817CB9C9CBE893549FD4BBAB67D172FB8FC"
+    },
+    {
+      "Path": "baseline-frontend/SRC/api/dle-api-client.js",
+      "Sha256": "BDDEFEF886B4D85A0DE063FC3436E011C66BBA1AD7E4E23922382A1C3E4DFB5E"
+    },
+    {
+      "Path": "baseline-frontend/SRC/home/work-area-home.css",
+      "Sha256": "708F2804AAA30BE599131A596843D73E54E25BB8527B73AF362FCB0BD251D9B7"
+    },
+    {
+      "Path": "baseline-frontend/SRC/home/work-area-home.js",
+      "Sha256": "EBDCA1E526A80ABE1297EE8A5AA446B92462A7E0C681A8C49612F0B6DA0ABBA2"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/bom-extraction/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/bom-viewer/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/canonical-data-viewer/canonical-data-viewer.css",
+      "Sha256": "E4292C666836F0A782E0C9301EF7DE7F552580CAFB56DAB024A3835CE17E9DBB"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/canonical-data-viewer/canonical-data-viewer.html",
+      "Sha256": "DD7AADEC17779B094813AD02818560DEE9E4B038D02999AA120EE3783A8A7670"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/canonical-data-viewer/canonical-data-viewer.js",
+      "Sha256": "CB72FF51E293B3CABD12ABB14CC9D5EE8BE7C022FA978A617C5A3630EDFC5FD2"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/capture/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/dle-bom/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/document-intake/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/invoice-history/invoice-history.css",
+      "Sha256": "02A8E217F8614B6959A178E458102E77442D6252C32CCE7E677DA954C5AA2EDA"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/invoice-history/invoice-history.html",
+      "Sha256": "0887BEE90019C48D66EC5919AEB140C62C291C2664DAFACE245B4B446F012392"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/invoice-history/invoice-history.js",
+      "Sha256": "87F62CBFFD731A357CEBF1521302FC88919488A0E152D0F296D2C95AF7DF5007"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/open-orders/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-center-data-service.js",
+      "Sha256": "5185EF06AAD4EE7F3287D72BCE3F2CF8B98801145CFE0207244AEFEBD5FF376B"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-center-fields.js",
+      "Sha256": "3166CBF1225793ABAB80415C7D887C9DF5C32FC0D5B2E5EC8F3EFA63FE2FDFFE"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-center-state.js",
+      "Sha256": "CEB074BE5C8CEA52B4B1BF7D80AEA8DB681DF87DA375D9F7A480F9C8DAD16473"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-center-table.js",
+      "Sha256": "4437A393EB40A940A1C2E5F71552439B5B6A9D6D42C7803E9558AFCBB82FD5C5"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-center-view-model.js",
+      "Sha256": "3CCCC075FF12A5A05F90BBE29DD95B1384B1E689FFD16D2F1419FDE619EA439F"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-center.css",
+      "Sha256": "9BDA8B053764677867EDFEF792967AFF644750A74665611F020E0BF3FB77EBEC"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-center.html",
+      "Sha256": "44BE7CCA05B19AC535C64BD45D5DD201EED2C502989B6B42C880CF67D2DB8E5C"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-center.js",
+      "Sha256": "CFB27D95923ED5CB09D25646B0894857F00E4B68CC7AFDF0FE442429869A7A65"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-projection-reports.js",
+      "Sha256": "5FDF307017B14D48E8CE1013E33A952F8053C452E9175E46805E8BEDAC418BB9"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-projection-service.js",
+      "Sha256": "A8A4005C8F306DF542AB2B710FB281C09554CE4380F6F6418D087AB5C2CCD748"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/operations-center/operations-verified-status-service.js",
+      "Sha256": "B2532CF7201802AF666C4DE69E789DE53EF2EE2EC4FFA3BA504C33B835CBD499"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/reports-communications/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/rfq-workspace/rfq-assembly-history.js",
+      "Sha256": "85CAFD77613027560B4A4734378BAF1A7AEA0F19500CE233965B351D9BA9458A"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/rfq-workspace/rfq-workspace.css",
+      "Sha256": "A8B7E07359CD8C7537938BB09E7A1947362C9C8FCC0CF234A5E5BDCCCEC0B58A"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/rfq-workspace/rfq-workspace.html",
+      "Sha256": "216E0846FA7DD7B889F92A407D281678EC11C64215B6602C276DA722A76E0B72"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/rfq-workspace/rfq-workspace.js",
+      "Sha256": "FDD51E62324EB799BD4BC1496B2817D79BE9A9C6ACB84AB6186C866A9048572C"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/sales-order-dashboard/sales-order-dashboard.css",
+      "Sha256": "E5FA2C02BD460E19F24081CD93F8BA1281EE744FC6F05EC9D5704C999C13ABFA"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/sales-order-dashboard/sales-order-dashboard.html",
+      "Sha256": "596F0650BD3738AF119F264B59A4418F224A0F713F7199D07459551C83CA62D6"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/sales-order-dashboard/sales-order-dashboard.js",
+      "Sha256": "A622DB5C920BB9FC028AD29B0E235AB09D89B749865518C2BB822C7EE5D62ED5"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipment-history/shipment-history.css",
+      "Sha256": "2ACDCF948C8C0F6FFD045FAE0AC7FC80F2E4BD4E476A3C2D36BF03464AF070AD"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipment-history/shipment-history.html",
+      "Sha256": "883500AB50786D53DACDF3C7047948B0C344329FFC1A080769F31191D9D9D0FC"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipment-history/shipment-history.js",
+      "Sha256": "0A0BA24CFC69656053E5B362E34D5EA618FC7E5CDDEB9684A8EA55BDF3AAEECD"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipment-staging/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipment-staging/shipment-operational-projection.js",
+      "Sha256": "6B069D16120E98B0DA19A16B5D60799C8A80E876F6434A28D92BE800BD92C434"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipment-staging/shipment-staging-service.js",
+      "Sha256": "A30C606074D420DB5B29E3F289F20D6EC3B5959582E18FE4873388E9B96B80FA"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipment-staging/shipment-staging.css",
+      "Sha256": "38716E4FEF2DC50235D6077F04497DD697715A767F43193569FBBEC599ECEA4F"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipment-staging/shipment-staging.html",
+      "Sha256": "4ADFED7345E69AC1148245575EB5C277F62C0E242A867027D77028CE0D3F0339"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipment-staging/shipment-staging.js",
+      "Sha256": "77E9727193A070731178DD556B0775614BC0028193AB9EED4BA8115D8146058C"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipping/shipping-workspace.css",
+      "Sha256": "0752992646AEA136664F0D2B8BA8E67087300BA85E642F0C87D8A14D4E5B1D62"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipping/shipping-workspace.html",
+      "Sha256": "0008BD6A1BB1B063B3970EA0AB10649B8C0B3BC41FD30158763CE2D41B07DD95"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/shipping/shipping-workspace.js",
+      "Sha256": "78B534E6CEC1EAB6B86F6A28E21E239F24674DCD9E048C4DBBFF04D3884C1CB6"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/developer-console/developer-console.css",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/developer-console/developer-console.html",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/developer-console/developer-console.js",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/master-data/master-data.css",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/master-data/master-data.html",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/master-data/master-data.js",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/reconciliation/reconciliation.css",
+      "Sha256": "26138E42A25BF3CCDB0057DCC97E176574A789C796496048A751E285CB9AB14E"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/reconciliation/reconciliation.html",
+      "Sha256": "4FD316AC1DE45B2EC4B05DDF83F4C3AB6CCDEA90F495FBF83C9EF7D46CC70B04"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/reconciliation/reconciliation.js",
+      "Sha256": "B4722507A058F23CF78EA36EB8955859B162B7F0F3ECC814A7ED1FEA82EA8722"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/system-center.css",
+      "Sha256": "AC4F46B1B5874EFCD597DB0E428D1E95983173C72F62E215603511C50329C7A0"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/system-center.html",
+      "Sha256": "0F760C97525830420874D8AF31BD71BC00B1DB8DDD4C7AB3A4F9BCD75D9738D2"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/system-center/system-center.js",
+      "Sha256": "067797937800702DD63E492593DB5E8E63BAEE02B8B065E3593F34269C0D3E19"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/work-order-dashboard/accepted-material-label.js",
+      "Sha256": "CBF20AA32C4928F9DA8691BF20EEB3E3CE6EAD129B0DDD8F0F79C534A6539290"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/work-order-dashboard/active-kitting-trial.js",
+      "Sha256": "B6B51667BA11754A86F3E678AF4407269CE534C8742B1F424A7D99024DF679DC"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/work-order-dashboard/kitting-bag-label.js",
+      "Sha256": "C05B915D526ED4FB1CCDD2808B8C7259E12978A66FD70C3A6E7650DB086515EA"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/work-order-dashboard/kitting-kit-id-label.js",
+      "Sha256": "2F8F035BBCF513180E7DEA695B28EAED3B44F34B317E5A65D0C3B2470C889E3E"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/work-order-dashboard/work-order-dashboard.css",
+      "Sha256": "7A80E6349B9118C207C0C3BE3C6EA99C24BDAD27CADB796A17975795DCAEB1E0"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/work-order-dashboard/work-order-dashboard.html",
+      "Sha256": "C25E37B44452F5CBF3DB07CDA6A52161E71551E18D20797D22D7D0756EE741C1"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/work-order-dashboard/work-order-dashboard.js",
+      "Sha256": "0A1AF88EC230FD943226A8577323C1A5B2299B52C97AC7F35CFB2560FF4AE714"
+    },
+    {
+      "Path": "baseline-frontend/SRC/modules/workbench/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/services/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/shared/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/shared/material-status.js",
+      "Sha256": "4D3D564CA8366B56155A729F35470E9F639701610032B10795B1F5D546DECD22"
+    },
+    {
+      "Path": "baseline-frontend/SRC/shell/operator-header.css",
+      "Sha256": "F3AC1B973F623CAFC457631C2F3288A922689796C3F13583216F61F313503A47"
+    },
+    {
+      "Path": "baseline-frontend/SRC/shell/operator-header.js",
+      "Sha256": "15ABC348AFCC5D91A2C6B6D881FC8A0B42948081F5E012CBBE2365C124C6FD79"
+    },
+    {
+      "Path": "baseline-frontend/SRC/shell/workbench-shell.js",
+      "Sha256": "D72D89EE238E0E95E200E8C0E119272BBB4F2C1AA9A8E01987864B9557DD4A6E"
+    },
+    {
+      "Path": "baseline-frontend/SRC/shell/workspace-registry.js",
+      "Sha256": "E0560644250592EA8E37B903386E31808615211CA0EB473ADF4A58ADC025B68A"
+    },
+    {
+      "Path": "baseline-frontend/SRC/shell/workspace-shell.js",
+      "Sha256": "89E22EBDAAB165AD8C15A50DDB66C7572DFA82ECA8733B4F64E3D7BC7519DD3A"
+    },
+    {
+      "Path": "baseline-frontend/SRC/styles/.gitkeep",
+      "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workbenches/kitting/kitting-workbench.css",
+      "Sha256": "2E58FE463A5895F54BCBA023E15722AD75FCC73C9D0A6CF851944B0A98F0E2C1"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workbenches/kitting/kitting-workbench.html",
+      "Sha256": "490CF9360288FE4BB4807D5F756AEA03CC7D7B54D9E8EB5220C4E2DABB1D839D"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workbenches/kitting/kitting-workbench.js",
+      "Sha256": "A23BB251FE8DBA1A135F4978E0081F429DA2F35184449E1C224076EA1CB05EC9"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/kitting/kitting-job-workspace.css",
+      "Sha256": "A28FCD714D2564434D9C8A9E98D26EE96C9FD3D9D3CA860183CB641BFE3542A8"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/kitting/kitting-job-workspace.html",
+      "Sha256": "A3A07A56FB36E14DEF9C151B8ABEE703D8E9160D2E5ABC64552CC06C4467F6FD"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/kitting/kitting-job-workspace.js",
+      "Sha256": "D5A97734ADCC4C3156AEF77F3B161F5ECB0926DFB674B4D125DDB4E265E64DB2"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/kitting/kitting-read-model.js",
+      "Sha256": "6F0492D3E7140370DCC82060178C5EE32A2460BAC7853E2B5F51DB6961262C20"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/kitting/kitting-workspace.css",
+      "Sha256": "5FAF50B64E0F2216240A248E8EEF31FB56C51C3B249395012960F8EE6B4B30B2"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/kitting/kitting-workspace.html",
+      "Sha256": "43900057D8B67BD8C6F2851941ABD0B526FE1D6382F23E4A1D43A646F60BE01B"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/kitting/kitting-workspace.js",
+      "Sha256": "81A4D15D4FCEB827D37244F0E09636725AA5CEC900D9AE5F8143EB60679C41CE"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/production/production-workspace.css",
+      "Sha256": "8D60707A8A145EE71574DB1D5948AE315D71006C9618FE7397702FE0D2C7AB27"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/production/production-workspace.html",
+      "Sha256": "F776547BAA5A58E8082D076928B922DF4AF08E4A4AD0B7299091E5A9BD3F7B14"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/production/production-workspace.js",
+      "Sha256": "3DC32A34208292108B012AFF8B2611760D7C6A17C826D21F8011DEEE5C13E230"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/purchasing/purchasing-job-workspace.css",
+      "Sha256": "CAD5B214048C33E0BBF78DAC4A4F54DE775F32186B89A1D643CD3AE9DA36ECB2"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/purchasing/purchasing-job-workspace.html",
+      "Sha256": "9B079AEC28FC03BD03C417224ABD75F7438B9B2BBD61F642D647B6425F87BC0A"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/purchasing/purchasing-job-workspace.js",
+      "Sha256": "75EF836658B918657F09F549EB0BB7E6811295EC6DC6474E6811470DF99A904E"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/purchasing/purchasing-workspace.css",
+      "Sha256": "4C88D65EBE48839E1BFE22D2301C192351FEC5E4B20742A33ED6812E10319CF2"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/purchasing/purchasing-workspace.html",
+      "Sha256": "A47716050E7359D42FC81132BA31197F4D9A9594D11C87702AF5791BB5DDB96C"
+    },
+    {
+      "Path": "baseline-frontend/SRC/workspaces/purchasing/purchasing-workspace.js",
+      "Sha256": "A817638AC8DA16F184952D34EF2C49F8AF45DA24406AC77FC0F0AFC04052F177"
+    }
+  ]
+}

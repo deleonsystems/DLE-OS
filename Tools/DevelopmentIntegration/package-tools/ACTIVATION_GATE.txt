@@ -1,0 +1,7 @@
+Activation metadata deliberately absent: this source is uncommitted.
+The retained DevRuntimeBuildInfo validator requires SourceDirty=false and a real
+clean source identity. Do not fabricate it or reuse the old deployed build identity.
+After authorized review/commit, generate runtime-build-info.json and matching
+frontend-manifest.json for that exact release using the established release process.
+The package-wide manifest here is offline provenance, not activation authority.
+No production service configuration, secret, signing key or ticket is packaged.

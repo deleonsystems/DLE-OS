@@ -1,0 +1,116 @@
+<section id="kittingJobWorkspace" class="screen kitting-job-workspace" data-module-loaded="true">
+  <div class="kitting-job-shell">
+    <header class="kitting-job-header">
+      <div class="kitting-job-heading">
+        <span class="kitting-job-eyebrow">Kitting Job Workspace</span>
+        <div class="kitting-job-identity-line">
+          <h2><span id="kittingJobWorkOrder">Work Order</span> <small id="kittingJobAssembly">Assembly not selected</small></h2>
+        </div>
+      </div>
+    </header>
+
+    <section class="kitting-job-context" aria-label="Kitting job context">
+      <dl>
+        <div><dt>Quantity</dt><dd id="kittingJobQuantity">0</dd></div>
+        <div><dt>Due</dt><dd id="kittingJobDueDate">N/A</dd></div>
+        <div><dt>Customer</dt><dd id="kittingJobCustomer">N/A</dd></div>
+        <div><dt>Sales Order</dt><dd id="kittingJobSalesOrder">N/A</dd></div>
+        <div><dt>Customer PO</dt><dd id="kittingJobCustomerPo">N/A</dd></div>
+      </dl>
+    </section>
+
+    <div class="kitting-job-state-context" aria-label="Current Kitting job state">
+      <div>
+        <span>Kitting Status</span>
+        <strong id="kittingJobMaterialStatus" class="kitting-job-status">NEW</strong>
+      </div>
+      <div>
+        <span>P.O. Traceability</span>
+        <strong id="kittingJobPoTraceability" class="kitting-job-traceability" data-policy="NOT_SET">NOT SET</strong>
+      </div>
+    </div>
+
+    <details class="kitting-job-releases">
+      <summary>Scheduled Releases <span id="kittingJobReleaseCount">0</span></summary>
+      <div class="kitting-job-table-wrap">
+        <table>
+          <thead><tr><th>Work Order</th><th>Assembly</th><th>Revision</th><th>Quantity</th><th>Due Date</th><th>Status</th></tr></thead>
+          <tbody id="kittingJobRelatedRows"><tr><td colspan="6">No scheduled releases loaded.</td></tr></tbody>
+        </table>
+      </div>
+    </details>
+
+    <main class="kitting-job-main">
+      <section class="kitting-job-actions" aria-label="Kitting job actions">
+        <div id="kittingJobPrimaryActions" class="kitting-job-action-grid">
+          <div id="kittingJobPrintLabelsAction" class="kitting-job-action-slot"></div>
+          <button id="kittingJobReportsToggle" class="kitting-job-reports-toggle" type="button"
+            aria-expanded="false" aria-controls="kittingJobReports" onclick="toggleKittingJobReports()">
+            <strong>Reports</strong>
+            <span>Released BOM and submission history</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="kittingJobReports" class="kitting-job-reports" aria-labelledby="kittingJobReportsTitle" hidden>
+        <header class="kitting-job-reports-header">
+          <h3 id="kittingJobReportsTitle">Reports</h3>
+          <button type="button" onclick="toggleKittingJobReports(false)">Close Reports</button>
+        </header>
+        <div class="kitting-job-report-menu">
+          <article class="kitting-job-report-entry kitting-job-released-bom-entry">
+            <div id="kittingJobReleasedBomReport"></div>
+          </article>
+
+          <details class="kitting-job-report-entry kitting-job-report-disclosure">
+            <summary>
+              <span><strong>Submission History</strong><small>Historical Kitting submission snapshots</small></span>
+              <span aria-hidden="true">&#8250;</span>
+            </summary>
+            <div id="kittingJobSubmissionHistory" class="kitting-job-history-content"></div>
+          </details>
+
+          <details class="kitting-job-report-entry kitting-job-report-disclosure">
+            <summary>
+              <span><strong>Legacy Kitted BOM</strong><small id="kittingJobLegacyKittedBomStatus" role="status">Checking legacy evidence...</small></span>
+              <span aria-hidden="true">&#8250;</span>
+            </summary>
+            <div id="kittingJobDocumentHistory" class="kitting-job-history-content"></div>
+          </details>
+
+          <details id="kittingJobDevelopmentReports" class="kitting-job-report-entry kitting-job-report-disclosure kitting-job-development-reports" hidden>
+            <summary>
+              <span><strong>DEV report diagnostics</strong><small>Alternate PDF layouts and legacy supervisory evidence</small></span>
+              <span aria-hidden="true">&#8250;</span>
+            </summary>
+            <div class="kitting-job-development-report-body">
+              <section aria-label="Development submission PDF variants">
+                <h4>Submission PDF variants</h4>
+                <div id="kittingJobDevelopmentHistory" class="kitting-job-history-content"></div>
+              </section>
+              <section aria-label="Legacy manual disposition diagnostics">
+                <h4>Legacy manual disposition</h4>
+                <div id="kittingJobDispositionHistory" class="kitting-job-history-content"></div>
+              </section>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <div id="kittingJobActiveCase"></div>
+    </main>
+  </div>
+  <dialog id="kittingNavigationGuard" class="kitting-navigation-guard"
+    aria-labelledby="kittingNavigationGuardTitle" aria-describedby="kittingNavigationGuardMessage">
+    <div class="kitting-navigation-guard-panel">
+      <h2 id="kittingNavigationGuardTitle">Kitting is still active</h2>
+      <p id="kittingNavigationGuardMessage">Choose how you want to leave this job.</p>
+      <p id="kittingNavigationGuardError" class="kitting-navigation-guard-error" role="alert" hidden></p>
+      <div class="kitting-navigation-guard-actions">
+        <button type="button" class="primary" data-kitting-navigation-choice="save">Save &amp; Exit</button>
+        <button type="button" class="leave" data-kitting-navigation-choice="leave">Leave Without Saving</button>
+        <button type="button" data-kitting-navigation-choice="cancel">Cancel</button>
+      </div>
+    </div>
+  </dialog>
+</section>

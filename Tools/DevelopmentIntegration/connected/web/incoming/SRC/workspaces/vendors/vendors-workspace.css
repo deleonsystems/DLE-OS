@@ -1,0 +1,26 @@
+.vendors-view{max-width:1040px;margin:0 auto;padding:24px;color:#e7eef8;font:14px/1.45 system-ui,sans-serif}
+.vendors-view *{box-sizing:border-box}
+.vendors-view h2{font-size:28px;line-height:1.2;margin:18px 0 5px}
+.vendors-source{color:#a7b8cc;font-size:13px;margin:0 0 22px}
+.vendors-view button{font:inherit;min-height:36px;padding:7px 12px;background:#172b43;border:1px solid #425c7c;color:#e7eef8;border-radius:7px;cursor:pointer;touch-action:manipulation}
+.vendors-view button:disabled{opacity:.45;cursor:default}
+.vendors-view button:focus-visible,.vendors-view input:focus-visible,.vendors-results:focus-visible{outline:2px solid #93c5fd;outline-offset:3px}
+.vendors-search{display:grid;gap:6px;max-width:560px}
+.vendors-search label{font-size:13px;font-weight:600;color:#c4d2e4}
+.vendors-search input{width:100%;min-height:40px;font:inherit;color:#f2f6fc;background:#101e30;border:1px solid #526c8e;border-radius:7px;padding:8px 11px;box-shadow:none}
+.vendors-search input::placeholder{color:#9bacbf;opacity:1}
+.vendors-count{font-size:12px;color:#adbed2;margin:12px 0 8px;min-height:18px}
+.vendors-results{border:1px solid #334b68;border-radius:9px;background:#101d2d;max-height:520px;overflow:auto;min-height:110px;scrollbar-color:#526b88 #101d2d}
+.vendors-results[aria-busy="true"]{opacity:.65}
+.vendors-results table{width:100%;border-collapse:collapse;table-layout:fixed;text-align:left}
+.vendors-results th{background:#1b2c42;color:#c6d4e6;font-size:12px;position:sticky;top:0;z-index:1;padding:9px 12px;font-weight:600}
+.vendors-results th:last-child{width:172px}
+.vendors-results td{padding:8px 12px;border-top:1px solid #263b53;overflow-wrap:anywhere;vertical-align:middle}
+.vendors-results tr:hover{background:#16283d}
+.vendors-number{font-variant-numeric:tabular-nums;white-space:nowrap}
+.vendors-number small{color:#a4b6ca;font-size:11px;margin-left:12px}
+.vendors-unnamed{color:#a7b8cc;font-style:italic}
+.vendors-empty{margin:0;padding:22px 12px;color:#b7c8da}
+.vendors-pager{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:12px}
+.vendors-pager span{font-size:12px;color:#b7c8da;min-width:80px;text-align:center}
+@media(max-width:600px){.vendors-view{padding:16px 12px}.vendors-view h2{font-size:25px}.vendors-view button{min-height:44px}.vendors-source{margin-bottom:16px}.vendors-search{max-width:none}.vendors-results th:last-child{width:125px}.vendors-results td,.vendors-results th{padding:9px}.vendors-number small{display:block;margin:0}.vendors-pager{justify-content:space-between;gap:6px}.vendors-results{max-height:56vh}}

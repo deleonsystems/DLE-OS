@@ -1,0 +1,611 @@
+/* -----------------------------------------------------
+   470 - CSS: SALES ORDER DASHBOARD
+----------------------------------------------------- */
+
+#salesOrderDashboard {
+  width: calc(100vw - 44px);
+  max-width: none;
+  min-height: calc(100vh - 220px);
+  margin-left: calc(50% - 50vw + 22px);
+}
+
+.sales-order-dashboard-panel {
+  min-height: calc(100vh - 220px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: linear-gradient(145deg, rgba(14, 27, 43, .92), rgba(8, 15, 25, .90));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(8px);
+}
+
+.sales-order-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.sales-order-dashboard-title {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.sales-order-dashboard-title h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.sales-order-dashboard-title p {
+  margin: 4px 0 0;
+  color: #d7dee8;
+  font-size: 13px;
+}
+
+.sales-order-dashboard-status,
+.sales-order-dashboard-summary-card,
+.sales-order-dashboard-card,
+.sales-order-dashboard-actions-panel {
+  border: 1px solid rgba(130, 170, 210, .22);
+  border-radius: 14px;
+  background: rgba(4, 10, 18, .48);
+}
+
+.sales-order-dashboard-status {
+  color: #d7dee8;
+  padding: 9px 11px;
+  font-size: 13px;
+}
+
+.sales-order-dashboard-summary-card,
+.sales-order-dashboard-card,
+.sales-order-dashboard-actions-panel {
+  padding: 14px;
+}
+
+.sales-order-dashboard-summary-card h3,
+.sales-order-dashboard-card h3,
+.sales-order-dashboard-actions-panel h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: #e7edf6;
+}
+
+.sales-order-dashboard-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.sales-order-dashboard-summary-item,
+.sales-order-dashboard-current-order,
+.sales-order-dashboard-management-field,
+.sales-order-dashboard-history-item {
+  border: 1px solid rgba(130, 170, 210, .16);
+  border-radius: 10px;
+  background: rgba(11, 22, 36, .74);
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.sales-order-dashboard-summary-item strong,
+.sales-order-dashboard-current-order strong,
+.sales-order-dashboard-management-field strong,
+.sales-order-dashboard-history-item strong {
+  display: block;
+  color: #8bbcff;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.sales-order-dashboard-summary-item span,
+.sales-order-dashboard-current-order span,
+.sales-order-dashboard-management-field span,
+.sales-order-dashboard-history-item span {
+  display: block;
+  color: #f4f7fb;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sales-order-dashboard-current-order,
+.sales-order-dashboard-management-field {
+  margin-bottom: 12px;
+}
+
+.sales-order-dashboard-current-order span,
+.sales-order-dashboard-management-field span {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sales-order-dashboard-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.sales-order-dashboard-main {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.sales-order-dashboard-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-height: calc(100vh - 520px);
+  min-height: 220px;
+}
+
+.sales-order-dashboard-table-guidance {
+  margin: -2px 0 12px;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sales-order-dashboard-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: rgba(4, 10, 18, .55);
+}
+
+.sales-order-dashboard-table th,
+.sales-order-dashboard-table td {
+  padding: 10px 11px;
+  border-bottom: 1px solid rgba(130, 170, 210, .16);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.sales-order-dashboard-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #8bbcff;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  background: rgba(6, 13, 22, .98);
+  white-space: nowrap;
+}
+
+.sales-order-dashboard-work-order-row {
+  cursor: pointer;
+  transition: background-color .15s ease, box-shadow .15s ease;
+}
+
+.sales-order-dashboard-work-order-row:hover,
+.sales-order-dashboard-work-order-row:focus {
+  background: rgba(47, 140, 255, .10);
+  outline: none;
+}
+
+.sales-order-dashboard-work-order-row-selected,
+.sales-order-dashboard-work-order-row-selected:hover,
+.sales-order-dashboard-work-order-row-selected:focus {
+  background: rgba(47, 140, 255, .16) !important;
+  box-shadow: inset 3px 0 0 rgba(47, 140, 255, .85);
+}
+
+.sales-order-dashboard-empty {
+  color: #9ba8b8;
+  text-align: center;
+  padding: 28px 12px;
+}
+
+.sales-order-dashboard-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid rgba(47, 140, 255, .38);
+  border-radius: 999px;
+  background: rgba(47, 140, 255, .14);
+  color: #dbeafe;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sales-order-dashboard-work-order-link {
+  color: #93c5fd;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.sales-order-dashboard-work-order-link:hover,
+.sales-order-dashboard-work-order-link:focus {
+  color: #dbeafe;
+  outline: none;
+}
+
+.sales-order-dashboard-work-order-presentation {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 92px;
+  line-height: 1.15;
+}
+
+.sales-order-dashboard-work-order-primary {
+  color: #f3f7fc;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sales-order-dashboard-work-order-secondary {
+  display: inline-flex;
+  padding: 2px 6px;
+  border: 1px solid rgba(155, 168, 184, .36);
+  border-radius: 999px;
+  color: #c5d0dc;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sales-order-dashboard-work-order-review {
+  border: 0;
+  background: transparent;
+  color: #315b7d;
+  padding: 0;
+  font-size: 0.7rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sales-order-dashboard-work-order-approved .sales-order-dashboard-work-order-secondary {
+  color: #12613b;
+  font-weight: 700;
+}
+
+.sales-order-dashboard-work-order-conflict .sales-order-dashboard-work-order-secondary {
+  color: #9a2e21;
+  font-weight: 700;
+}
+
+.sales-order-dashboard-approval-card {
+  width: min(820px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+
+.sales-order-dashboard-approval-candidates,
+.sales-order-dashboard-approval-history {
+  margin: 1rem 0;
+  border: 1px solid #ccd7e0;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.sales-order-dashboard-approval-candidates ul,
+.sales-order-dashboard-approval-history ol {
+  margin: 0.5rem 0 0;
+  padding-left: 1.4rem;
+}
+
+.sales-order-dashboard-approval-candidates li,
+.sales-order-dashboard-approval-history li {
+  margin: 0.35rem 0;
+}
+
+.sales-order-dashboard-approval-reason {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sales-order-dashboard-approval-reason[hidden] {
+  display: none;
+}
+
+.sales-order-dashboard-approval-reason select,
+.sales-order-dashboard-approval-reason textarea {
+  width: 100%;
+}
+
+.sales-order-dashboard-approval-reason textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.sales-order-dashboard-approval-reason label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sales-order-dashboard-approval-reason label[hidden] {
+  display: none;
+}
+
+.sales-order-dashboard-work-order-confirmed .sales-order-dashboard-work-order-secondary {
+  border-color: rgba(96, 165, 250, .58);
+  color: #bfdbfe;
+}
+
+.sales-order-dashboard-work-order-candidate .sales-order-dashboard-work-order-secondary {
+  border-style: dashed;
+  border-color: rgba(250, 204, 21, .52);
+  color: #fde68a;
+}
+
+.sales-order-dashboard-work-order-conflict .sales-order-dashboard-work-order-primary,
+.sales-order-dashboard-work-order-conflict .sales-order-dashboard-work-order-secondary {
+  color: #fecaca;
+}
+
+.sales-order-dashboard-work-order-unresolved,
+.sales-order-dashboard-work-order-unknown {
+  opacity: .72;
+}
+
+.sales-order-dashboard-document-grid,
+.sales-order-dashboard-action-buttons {
+  display: grid;
+  gap: 9px;
+}
+
+.sales-order-dashboard-document-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.sales-order-dashboard-document-grid button,
+.sales-order-dashboard-action-buttons button {
+  width: 100%;
+  text-align: left;
+}
+
+.sales-order-dashboard-document-grid button span {
+  display: block;
+  margin-top: 4px;
+  color: #9ba8b8;
+  font-size: 11px;
+}
+
+.sales-order-dashboard-actions-panel.disabled {
+  opacity: .68;
+}
+
+.sales-order-dashboard-dialog[hidden] {
+  display: none;
+}
+
+.sales-order-dashboard-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.sales-order-dashboard-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 7, 13, .78);
+  backdrop-filter: blur(5px);
+}
+
+.sales-order-dashboard-dialog-card {
+  position: relative;
+  width: min(980px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid rgba(130, 170, 210, .32);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(18, 31, 47, .99), rgba(7, 15, 25, .99));
+  padding: 20px;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, .55);
+}
+
+.sales-order-dashboard-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.sales-order-dashboard-dialog-header h3 {
+  margin: 5px 0 6px;
+  font-size: 22px;
+}
+
+.sales-order-dashboard-dialog-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.sales-order-dashboard-dialog-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sales-order-dashboard-dialog-field,
+.sales-order-dashboard-quantity-field {
+  border: 1px solid rgba(130, 170, 210, .16);
+  border-radius: 10px;
+  background: rgba(11, 22, 36, .74);
+  padding: 11px 12px;
+  min-width: 0;
+}
+
+.sales-order-dashboard-dialog-field strong,
+.sales-order-dashboard-quantity-field strong {
+  display: block;
+  color: #8bbcff;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.sales-order-dashboard-dialog-field span {
+  display: block;
+  color: #f4f7fb;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.sales-order-dashboard-dialog-field select {
+  width: 100%;
+  margin: 0;
+}
+
+.sales-order-dashboard-quantity-field {
+  display: block;
+  margin-top: 14px;
+}
+
+.sales-order-dashboard-quantity-field input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sales-order-dashboard-request-lines-wrap {
+  margin-top: 14px;
+  overflow: auto;
+  border: 1px solid rgba(130, 170, 210, .22);
+  border-radius: 10px;
+  background: rgba(4, 10, 18, .5);
+}
+
+.sales-order-dashboard-request-lines-table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sales-order-dashboard-rma-case-link { border: 0; background: transparent; color: #93c5fd; padding: 0; text-decoration: underline; cursor: pointer; }
+.sales-order-dashboard-rma-badge { display: inline-flex; margin-top: 4px; padding: 2px 7px; border-radius: 999px; background: rgba(37,99,235,.2); color: #bfdbfe; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.sales-order-dashboard-shipment-pending { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.sales-order-dashboard-inline-warning { color: #fcd34d; font-size: 12px; line-height: 1.4; min-height: 1.2em; }
+.sales-order-dashboard-rma-card { width: min(1500px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); overflow: auto; }
+.sales-order-dashboard-rma-summaries { display: grid; gap: 8px; margin-top: 12px; }
+.sales-order-dashboard-rma-summary { border: 1px solid rgba(96,165,250,.35); border-radius: 10px; padding: 10px 12px; background: rgba(30,64,175,.09); }
+.sales-order-dashboard-rma-summary strong { color: #bfdbfe; }
+.sales-order-dashboard-rma-summary small { display: block; margin-top: 4px; color: #cbd5e1; }
+
+.sales-order-dashboard-request-lines-table th,
+.sales-order-dashboard-request-lines-table td {
+  padding: 10px 11px;
+  border-bottom: 1px solid rgba(130, 170, 210, .16);
+  text-align: left;
+  vertical-align: top;
+}
+
+.sales-order-dashboard-request-lines-table th {
+  color: #8bbcff;
+  background: rgba(6, 13, 22, .98);
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sales-order-dashboard-request-quantity {
+  width: 130px;
+  margin: 0;
+}
+
+.sales-order-dashboard-request-line-validation {
+  min-height: 16px;
+  margin-top: 4px;
+  color: #ffb4b4;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.sales-order-dashboard-dialog-validation {
+  min-height: 20px;
+  margin-top: 8px;
+  color: #ffb4b4;
+  font-size: 13px;
+}
+
+.sales-order-dashboard-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.sales-order-dashboard-management-section {
+  border-top: 1px solid rgba(130, 170, 210, .18);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.sales-order-dashboard-management-section h4 {
+  margin: 0 0 10px;
+  color: #8bbcff;
+  font-size: 12px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.sales-order-dashboard-history-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  #salesOrderDashboard {
+    width: calc(100vw - 20px);
+    margin-left: calc(50% - 50vw + 10px);
+    min-height: calc(100vh - 190px);
+  }
+
+  .sales-order-dashboard-panel {
+    min-height: calc(100vh - 190px);
+    padding: 10px;
+  }
+
+  .sales-order-dashboard-header {
+    display: block;
+  }
+
+  .sales-order-dashboard-summary-grid,
+  .sales-order-dashboard-layout,
+  .sales-order-dashboard-history-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sales-order-dashboard-document-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sales-order-dashboard-dialog-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sales-order-dashboard-dialog-header {
+    display: grid;
+  }
+}

@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+.build-home/
+packages/
+disposable/
+connected/fixtures/
+*-results/
+**/*-results.json
+**/*results.json
+**/*.log
+shared-assemblies/*.dll
+shared-assemblies/*.pdb
+*.local.json
+**/*-closed.json

@@ -1,0 +1,276 @@
+<!-- =====================================================
+   480 - HTML: WORK ORDER DASHBOARD MODULE
+===================================================== -->
+
+<section id="workOrderDashboardModule" class="screen" data-module-loaded="true">
+  <div class="work-order-dashboard-module-panel">
+    <div class="work-order-dashboard-module-header">
+      <div class="work-order-dashboard-module-title">
+        <span class="small-icon">WO</span>
+        <div>
+          <h2>Work Order Dashboard</h2>
+          <p>Future digital replacement for the physical Work Order packet.</p>
+        </div>
+      </div>
+      <div id="workOrderDashboardHeaderActions" class="work-order-dashboard-module-header-actions">
+        <button id="workOrderDashboardReturnToProduction" type="button" onclick="returnToProductionWorkspace()" hidden>Return to Production Workspace</button>
+        <button id="workOrderDashboardReturnToKitting" type="button" onclick="returnToKittingWorkspace()" hidden>Return to Kitting Workspace</button>
+        <button type="button" onclick="go('salesOrderDashboard')">Back to Sales Order Dashboard</button>
+      </div>
+    </div>
+
+    <div id="workOrderDashboardModuleStatus" class="work-order-dashboard-module-status" role="status" aria-live="polite">
+      Work Order Dashboard module initialized. Future packet workflows will be migrated here.
+    </div>
+
+    <div class="work-order-dashboard-module-view-selector" aria-label="Dashboard View Selector">
+      <label for="workOrderDashboardView">Dashboard View</label>
+      <select id="workOrderDashboardView" onchange="setWorkOrderDashboardModuleView(event.target.value)">
+        <option value="standard">Standard View</option>
+        <option value="production">Production View</option>
+      </select>
+    </div>
+
+    <section class="work-order-dashboard-module-summary-card" data-work-order-dashboard-section="overview" aria-label="Selected Work Order">
+      <h3>Selected Work Order</h3>
+      <div class="work-order-dashboard-module-summary-grid">
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="work-order">
+          <strong>Work Order</strong>
+          <span id="workOrderDashboardSummaryWorkOrder">None selected</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="assembly">
+          <strong>Assembly</strong>
+          <span id="workOrderDashboardSummaryAssembly">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="revision">
+          <strong class="work-order-dashboard-standard-only">Revision</strong>
+          <strong class="work-order-dashboard-production-only">Rev</strong>
+          <span id="workOrderDashboardSummaryRevision">Unknown</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="quantity">
+          <strong class="work-order-dashboard-standard-only">Work Order Quantity</strong>
+          <strong class="work-order-dashboard-production-only">WO Qty</strong>
+          <span id="workOrderDashboardSummaryQuantity">0</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="due-date">
+          <strong class="work-order-dashboard-standard-only">Next Due Date</strong>
+          <strong class="work-order-dashboard-production-only">Due Date</strong>
+          <span id="workOrderDashboardSummaryDueDate">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-hidden="true">
+          <strong>Status</strong>
+          <span id="workOrderDashboardSummaryStatus">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="material-status">
+          <strong>Material Status</strong>
+          <span id="workOrderDashboardMaterialStatus" class="work-order-dashboard-material-status">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-hidden="true">
+          <strong>Canonical Anchor</strong>
+          <span id="workOrderDashboardCanonicalAnchor">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-field="sales-order">
+          <strong class="work-order-dashboard-standard-only">Opened From</strong>
+          <strong class="work-order-dashboard-production-only">Sales Order</strong>
+          <span id="workOrderDashboardOpenedFrom" class="work-order-dashboard-standard-only">N/A</span>
+          <span id="workOrderDashboardProductionSalesOrder" class="work-order-dashboard-production-only">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-summary-item" data-production-summary-hidden="true">
+          <strong>Governing Source</strong>
+          <span id="workOrderDashboardGoverningSource">N/A</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="work-order-dashboard-module-table-card" data-work-order-dashboard-section="scheduled-releases" aria-label="Scheduled Releases">
+      <button type="button" class="work-order-dashboard-module-collapse-toggle" onclick="toggleWorkOrderDashboardScheduledReleases()">
+        <span id="workOrderDashboardScheduledReleasesIndicator">▶</span>
+        <strong>Scheduled Releases</strong>
+      </button>
+      <div id="workOrderDashboardScheduledReleasesBody" class="work-order-dashboard-module-table-wrap" hidden>
+        <table class="work-order-dashboard-module-table">
+          <thead>
+            <tr>
+              <th>Work Order</th>
+              <th>Assembly</th>
+              <th>Revision</th>
+              <th>Quantity</th>
+              <th>Due Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="workOrderDashboardRelatedRows">
+            <tr>
+              <td class="work-order-dashboard-module-empty" colspan="6">Select a Work Order from Sales Order Dashboard.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="work-order-dashboard-module-documents-card" data-work-order-dashboard-section="manufacturing-documents" aria-label="Manufacturing Documents">
+      <h3>Manufacturing Documents</h3>
+      <div class="work-order-dashboard-module-document-grid">
+        <button id="workOrderDashboardKittedBomPlaceholder" type="button" onclick="openWorkOrderDashboardProductionKittedBom()" disabled>
+          <strong id="workOrderDashboardKittedBomPlaceholderLabel">Kitted BOM</strong>
+          <span id="workOrderDashboardKittedBomPlaceholderMessage">Open from Kitting Workspace to inspect filesystem evidence</span>
+        </button>
+        <button id="workOrderDashboardReleasedBom" type="button" onclick="openWorkOrderDashboardReleasedBom()" hidden disabled>
+          <strong id="workOrderDashboardReleasedBomLabel">View Released BOM</strong>
+          <span id="workOrderDashboardReleasedBomMessage">Released BOM prototype not yet available.</span>
+        </button>
+        <button id="workOrderDashboardKitReleasedBom" type="button" onclick="startOrResumeWorkOrderDashboardKitting()" hidden disabled>
+          <strong id="workOrderDashboardKitReleasedBomLabel">Start Kitting</strong>
+          <span id="workOrderDashboardKitReleasedBomMessage">Governed Kitting Case status is loading.</span>
+        </button>
+        <div id="workOrderDashboardKittingCaseSummary" class="work-order-dashboard-kitting-case-summary" hidden></div>
+        <div id="workOrderDashboardKittedBomEvidence" class="work-order-dashboard-module-kitted-bom" hidden>
+          <strong id="workOrderDashboardKittedBomStatus">Checking Kitted BOM evidence...</strong>
+          <dl>
+            <div><dt>Located file</dt><dd id="workOrderDashboardKittedBomFilename">Checking...</dd></div>
+            <div><dt>Governing folder</dt><dd id="workOrderDashboardKittedBomFolder">Checking...</dd></div>
+            <div><dt>Prior shortage evidence</dt><dd id="workOrderDashboardKittedBomPriorShortage">Checking...</dd></div>
+          </dl>
+          <div class="work-order-dashboard-module-kitted-bom-actions">
+            <button id="workOrderDashboardKittedBomOpenPrimary" type="button" onclick="openWorkOrderDashboardKittedBom('primary')" disabled>Open Kitted BOM</button>
+            <button id="workOrderDashboardKittedBomOpenPrior" type="button" onclick="openWorkOrderDashboardKittedBom('prior-shortage')" hidden disabled>Open Prior Shortage</button>
+          </div>
+          <span id="workOrderDashboardKittedBomMessage" role="status">Read-only evidence from approved Kitting folders.</span>
+        </div>
+        <button type="button" disabled>
+          Traveler
+          <span>Coming Soon</span>
+        </button>
+        <a id="workOrderDashboardAssemblyDrawing" aria-disabled="true" tabindex="-1">
+          <strong>Assembly Drawing</strong>
+          <span id="workOrderDashboardAssemblyDrawingMessage">Coming Soon</span>
+        </a>
+      </div>
+    </section>
+
+    <dialog id="workOrderDashboardAssemblyDrawingDialog" class="work-order-dashboard-assembly-drawing-dialog" aria-labelledby="workOrderDashboardAssemblyDrawingDialogTitle">
+      <header>
+        <div>
+          <h3 id="workOrderDashboardAssemblyDrawingDialogTitle">Assembly Drawing</h3>
+          <p id="workOrderDashboardAssemblyDrawingIdentity"></p>
+        </div>
+        <button type="button" onclick="closeWorkOrderDashboardAssemblyDrawing()" aria-label="Close Assembly Drawing selection">Close</button>
+      </header>
+      <p id="workOrderDashboardAssemblyDrawingStatus" role="status"></p>
+      <div id="workOrderDashboardAssemblyDrawingChoices" class="work-order-dashboard-assembly-drawing-choices"></div>
+      <a id="workOrderDashboardAssemblyDrawingDeepest" hidden>Open Confirmed Folder</a>
+    </dialog>
+
+    <section id="workOrderDashboardActiveKitting" class="active-kitting-trial" aria-label="Kit Released BOM" hidden>
+      <div class="active-kitting-sticky-context">
+        <header class="active-kitting-trial-header">
+          <div>
+            <span class="active-kitting-trial-eyebrow">Governed Kitting Case</span>
+            <h3>Kit Released BOM</h3>
+            <p class="active-kitting-trial-description">Persistent requirement and allocation evidence against the unchanged released BOM.</p>
+            <p id="activeKittingFocusedIdentity" class="active-kitting-focused-identity">Preparing focused Kitting context...</p>
+          </div>
+          <div class="active-kitting-header-actions">
+            <label class="active-kitting-traceability-control">P.O. Traceability
+              <select id="activeKittingPoTraceability" onchange="setWorkOrderDashboardKittingPoTraceability(this.value)">
+                <option value="required">REQUIRED</option>
+                <option value="optional">OPTIONAL</option>
+              </select>
+            </label>
+            <button id="activeKittingSaveExit" type="button" onclick="saveAndExitWorkOrderDashboardKitting()">Save &amp; Exit</button>
+          </div>
+        </header>
+        <div id="activeKittingTrialStatus" class="active-kitting-trial-status" role="status" aria-live="polite">Ready to load.</div>
+      </div>
+      <div id="activeKittingTrialBody"></div>
+    </section>
+
+    <section class="work-order-dashboard-module-workspace-card" data-work-order-dashboard-section="kitting-workspace" aria-label="Kitting Workspace" hidden>
+      <h3>Legacy Manual Kitting Disposition History</h3>
+      <div class="work-order-dashboard-module-workspace-grid">
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Kitting Disposition</strong>
+          <span id="workOrderDashboardDispositionStatus">Not Dispositioned</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Dispositioned by</strong>
+          <span id="workOrderDashboardDispositionBy">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Dispositioned on</strong>
+          <span id="workOrderDashboardDispositionAt">N/A</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Latest reason or note</strong>
+          <span id="workOrderDashboardDispositionNote">N/A</span>
+        </div>
+      </div>
+      <div class="work-order-dashboard-module-disposition-actions">
+        <button id="workOrderDashboardSetDisposition" type="button" onclick="openWorkOrderDashboardDispositionDialog()" hidden disabled>Set Kitting Disposition</button>
+        <span id="workOrderDashboardDispositionMessage" role="status">Material Status is system-derived from the persistent Kitting Case. Legacy events remain read-only.</span>
+      </div>
+      <details class="work-order-dashboard-module-disposition-history">
+        <summary>Disposition history</summary>
+        <ol id="workOrderDashboardDispositionHistory"><li>No manual disposition events.</li></ol>
+      </details>
+    </section>
+
+    <section class="work-order-dashboard-module-workspace-card" data-work-order-dashboard-section="production-workspace" aria-label="Production Workspace" hidden>
+      <h3>Production Workspace</h3>
+      <div class="work-order-dashboard-module-workspace-grid">
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Production Status</strong>
+          <span>Coming Soon</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Traveler Progress</strong>
+          <span>Coming Soon</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Production Notes</strong>
+          <span>Coming Soon</span>
+        </div>
+        <div class="work-order-dashboard-module-workspace-item">
+          <strong>Production Actions</strong>
+          <span>Coming Soon</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="work-order-dashboard-module-placeholder" data-work-order-dashboard-section="module-placeholder">
+      <h3>Module Ready</h3>
+      <p>This module is intentionally a navigation and data-passing foundation. Production, quality, BOM, labor, and shipping workflows will be added in future phases.</p>
+    </section>
+  </div>
+  <dialog id="workOrderDashboardDispositionDialog" class="work-order-dashboard-module-disposition-dialog">
+    <form method="dialog" onsubmit="submitWorkOrderDashboardDisposition(event)">
+      <h3>Set Kitting Disposition</h3>
+      <dl>
+        <div><dt>Work Order</dt><dd id="workOrderDispositionDialogWorkOrder">N/A</dd></div>
+        <div><dt>Customer</dt><dd id="workOrderDispositionDialogCustomer">N/A</dd></div>
+        <div><dt>Assembly / Revision</dt><dd id="workOrderDispositionDialogAssembly">N/A</dd></div>
+        <div><dt>Open quantity</dt><dd id="workOrderDispositionDialogOpenQuantity">0</dd></div>
+        <div><dt>Current disposition</dt><dd id="workOrderDispositionDialogCurrent">Not Dispositioned</dd></div>
+        <div><dt>Complete-document evidence</dt><dd id="workOrderDispositionDialogCompleteEvidence">Not found</dd></div>
+        <div><dt>Shortage-document evidence</dt><dd id="workOrderDispositionDialogShortageEvidence">Not found</dd></div>
+      </dl>
+      <fieldset>
+        <legend>Selected new disposition</legend>
+        <label><input type="radio" name="kittingDisposition" value="NEEDS_KITTING" onchange="updateWorkOrderDashboardDispositionDialog()" required> Needs Kitting<br><small>Active Work Order requiring kitting.</small></label>
+        <label><input type="radio" name="kittingDisposition" value="KIT_SHORT" onchange="updateWorkOrderDashboardDispositionDialog()" required> Kit Short<br><small>Kitting reviewed; material or documentation prevents completion.</small></label>
+        <label><input type="radio" name="kittingDisposition" value="KIT_COMPLETE" onchange="updateWorkOrderDashboardDispositionDialog()" required> Kit Complete<br><small>Kitting completed and released for the next operation.</small></label>
+      </fieldset>
+      <label>Reason
+        <select id="workOrderDispositionReason"><option value="">Select when required</option></select>
+      </label>
+      <label>Optional note
+        <textarea id="workOrderDispositionNote" maxlength="500"></textarea>
+      </label>
+      <p id="workOrderDispositionDialogError" role="alert"></p>
+      <div class="work-order-dashboard-module-disposition-dialog-actions">
+        <button type="button" onclick="closeWorkOrderDashboardDispositionDialog()">Cancel</button>
+        <button id="workOrderDispositionConfirm" type="submit">Confirm Disposition</button>
+      </div>
+    </form>
+  </dialog>
+</section>

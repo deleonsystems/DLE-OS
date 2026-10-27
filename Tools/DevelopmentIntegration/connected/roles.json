@@ -1,0 +1,51 @@
+[
+  {
+    "code": "QUOTING_MATERIALS_ESTIMATOR",
+    "displayName": "Quoting Materials Estimator",
+    "persona": "ray",
+    "permissions": [
+      "rfq.intake.create",
+      "rfq.view",
+      "rfq.materials.edit",
+      "rfq.readiness.view",
+      "rfq.part_requests.create",
+      "rfq.quote.prepare",
+      "assembly_library.view"
+    ],
+    "workspaces": [
+      "dle-home",
+      "rfq-quoting",
+      "rfqs",
+      "assembly-library"
+    ]
+  },
+  {
+    "code": "QUOTING_MATERIALS_LIBRARY_CLERK",
+    "displayName": "Quoting Materials and Library Clerk",
+    "persona": "michelle",
+    "permissions": [
+      "rfq.view",
+      "rfq.materials.edit",
+      "assembly_library.view",
+      "assembly_library.edit"
+    ],
+    "workspaces": [
+      "dle-home",
+      "rfqs",
+      "assembly-library"
+    ]
+  },
+  {
+    "code": "QUOTING_LIBRARY_CLERK",
+    "displayName": "Quoting Library Clerk",
+    "persona": "adan",
+    "permissions": [
+      "assembly_library.view",
+      "assembly_library.edit"
+    ],
+    "workspaces": [
+      "dle-home",
+      "assembly-library"
+    ]
+  }
+]
