@@ -1,0 +1,58 @@
+BOUNDED SCM / HTTP.SYS IDENTITY PROBE — APPROVAL PACKET
+Prepared only; executable compiled, never run. No service, URLACL, ACL or live change performed.
+
+Purpose and interpretation
+Use one distinct temporary service, DleOsQuotingIdentityProbe, running as NT SERVICE\DleOsQuotingIdentityProbe. It makes one Windows-authenticated request to an isolated HTTP.sys observer running as unelevated DLE-OS-HOST\Miguel. The observer permits only that exact virtual identity. It records authenticated name/SID/scheme, not credentials or authentication headers. Negative controls use Miguel's ordinary Windows identity and no credentials. Neither may receive 200.
+
+This tests the same virtual-account class and loopback Windows-authentication mechanism, without occupying DleOsDevelopmentQuoting or port 5060. It does not certify the final service SID, final endpoint or application authorization. Microsoft documents that virtual accounts use computer credentials for network access; the exact same-host behavior is the observation needed here. Observed machine identity => reject and redesign service-specific transport/identity. A 401 or timeout without an observer identity is inconclusive about substitution, not proof of the expected name. Never grant the machine account broadly to make the test pass.
+
+Frozen preparation
+Source folder: C:\Users\Miguel\Documents\Codex\2026-10-26\task\scm-identity-probe-preparation
+SDK: 8.0.427; cached Microsoft.Extensions.Hosting.WindowsServices 8.0.1; no downloaded dependency. Build-Probe.ps1 builds only, with empty remote feeds. Source paths mapped for reproducible compilation. No self-installation or policy-changing code.
+Program.cs SHA256: A601D33336B662C69594AC75FF19EB0B13E98912807281351C99785EFCBA57FB
+QuotingIdentityProbe.exe SHA256: DDFDED39E028C5360BD5353CEEA5EA07B29D82F3B4408F1F3A22D9250F2E40A8
+QuotingIdentityProbe.dll SHA256: C812266B99340BCC1BA844588B358E53CACF2D9C35C838CB87728728EDCFEA05
+Full probe-manifest.json SHA256: 5A6AD6D8BA35E41F8FE347170C81614454BD2C6AD336654F8CC030914A2FF197
+Both EXE and DLL/full package must match; the EXE alone does not identify managed logic.
+Run UUID: d797b134-9d4f-4bef-a291-3973f97a1f5f (correlation only, not a secret).
+
+Exact temporary targets
+Service: DleOsQuotingIdentityProbe, Manual, own process, NT SERVICE\DleOsQuotingIdentityProbe, no supplied password. Use SCM defaults; no recovery/restart policy, added privilege or custom service DACL.
+Release: C:\ProgramData\DLE-OS\QuotingIdentityProbe\release\probe-20261027-v1
+Service command: "C:\ProgramData\DLE-OS\QuotingIdentityProbe\release\probe-20261027-v1\QuotingIdentityProbe.exe" --service d797b134-9d4f-4bef-a291-3973f97a1f5f
+Run directory: C:\ProgramData\DLE-OS\QuotingIdentityProbe\runs\d797b134-9d4f-4bef-a291-3973f97a1f5f
+URL reservation: http://127.0.0.1:51328/quoting-identity-probe/ ; user DLE-OS-HOST\Miguel ; listen=yes ; delegate=no.
+Observed endpoint: POST http://127.0.0.1:51328/quoting-identity-probe/observe
+No wildcard, HTTPS certificate, firewall rule, SQL, real application ticket, ES256 key or business fixture is needed. The synthetic JSON is transport-only. UseProxy=false guarantees no proxy route; this is an explicit direct-loopback test and does not certify the candidate's current default proxy configuration.
+
+New-directory permissions only
+Require the root absent; stop if anything unknown already exists or any ancestor is a reparse point.
+Root/release: SYSTEM and Administrators FullControl; Miguel and the probe service ReadAndExecute/traverse. No broad inherited write access on these newly created directories.
+Run/observer: Miguel Modify; service no write access.
+Run/caller: probe service Modify; Miguel ReadAndExecute; SYSTEM/Administrators FullControl throughout.
+No permissions outside this new root change. No password, logon-right policy edit or real account is created. Service identity resolution is recorded after registration and before start.
+
+Execution checklist (one approved attempt, supervisor try/finally)
+1. Review and locally checkpoint Path B and probe source (proposed Tools/QuotingIdentityProbe), excluding outputs. No push. Rebuild with existing dependencies and compare the frozen package; stop for unexpected hash changes or any Git ownership denial, without a trust exception. Keep Path B's existing manifest unchanged.
+2. Verify HOST/operator, absent service/root, exact URLACL absence and no TCP listener on 51328. Use permitted exact-prefix netsh reads and a bounded TCP check, not denied protected listener/PID inspections. Availability is not yet verified. Any conflict/uncertain result stops; no replacement or automatic alternate port.
+3. Stage hash-verified files; create the manual service without starting; resolve its SID; apply only the listed new-root ACLs; create the one exact URLACL. Record each mutation and result immediately.
+4. Start --observer <run UUID> in Miguel's existing unelevated context. It rejects elevated execution. If the supported launcher cannot do that, stop for user-controlled launch; do not create another task/credential. Confirm started.json before starting the service once.
+5. Read the service result and observer record, then run --negative <run UUID> as unelevated Miguel. The service request timeout is 10 seconds and it stops itself afterward. Negative controls take at most 25 seconds. Observer stops after 90 seconds with a 5-second graceful shutdown limit. The supervisor budget is 3 minutes for the active probe, excluding review/setup/cleanup.
+6. Finally stop only this service/observer if still active. Verify stopped state, matching PID/image and listener closure before removal. Remove only this run's service and exact URLACL, after confirming they still match the receipt. If stop/removal is denied or uncertain, inspect status once and report; no blind retry, forced kill or deletion of an active service.
+7. Copy receipts/manifests to the preparation folder's receipts/<run UUID> and verify hashes. Remove only the known staged probe files and now-empty directories from the new ProgramData root; stop if unknown files/reparse points exist. Preserve source/build package and copied evidence. Verify service/URLACL absence and live DEV status/import identifiers.
+
+Receipt requirements
+Before/after timestamps, current identity/elevation, root absence and resolved paths, exact service definition/SID/status/PID, URLACL and its owner, directory SDDL, package hashes, each action's exit/result, observer and caller JSON hashes, negative-control statuses, cleanup verification and remaining resources. Never capture authentication tokens/cookies/private keys. Exit code zero or a started service alone is not success.
+
+Acceptance
+Virtual caller: own process identity must be expected NT SERVICE identity and SCM=true; receiver must independently report the exact expected name and authenticated=true, return 200. Miguel control must return 403 (401 is rejected but means its transport did not authenticate); anonymous must return 401. Unknown/other names always denied. Afterward, no probe service, URL reservation, running probe process or listener may remain. Caller identity failure is a useful negative finding, not permission to weaken trust.
+
+Why not avoid the URLACL?
+Microsoft documents localhost HTTP >1024 development binding without administrator execution. Changing 127.0.0.1 to localhost changes authentication name behavior, so it would not faithfully qualify this path. An elevated observer is also possible in some configurations but increases process privilege. Neither alternative removes the need for a real SCM virtual-account caller. The recommended test keeps the numeric loopback target and a narrow temporary reservation; it is not an access-denial workaround.
+
+Proposed single approval wording
+"Approve review and a local source checkpoint (no push), followed by one synthetic identity probe using temporary service DleOsQuotingIdentityProbe under its own virtual account, the exact 127.0.0.1:51328 URL reservation for Miguel, and only the listed new probe-folder permissions. Include starting/stopping the probe and negative controls, removing that service/reservation and known staged files, and retaining receipts. Stop on conflicts, denied access or unexpected identity; do not broaden trust. No production service, account, SQL, certificate, firewall or DEV configuration changes."
+
+Sources
+https://learn.microsoft.com/en-us/sql/database-engine/configure-windows/configure-windows-service-accounts-and-permissions#service-account-types
+https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/httpsys?view=aspnetcore-8.0

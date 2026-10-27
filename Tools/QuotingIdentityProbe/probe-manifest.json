@@ -1,0 +1,184 @@
+{
+  "Status": "COMPILE_ONLY_NOT_EXECUTED",
+  "Sdk": "8.0.427",
+  "Service": "DleOsQuotingIdentityProbe",
+  "Identity": "NT SERVICE\\DleOsQuotingIdentityProbe",
+  "Prefix": "http://127.0.0.1:51328/quoting-identity-probe/",
+  "RunId": "d797b134-9d4f-4bef-a291-3973f97a1f5f",
+  "Source": [
+    {
+      "Path": "Program.cs",
+      "Sha256": "A601D33336B662C69594AC75FF19EB0B13E98912807281351C99785EFCBA57FB"
+    },
+    {
+      "Path": "IdentityProbe.csproj",
+      "Sha256": "8E25EED5BF253533F3314C93C9CBD0E5465E6AA997652B047E11EB1E753BB946"
+    },
+    {
+      "Path": "NuGet.Config",
+      "Sha256": "3EB413F39FB8791745D58C6769618F9ADA15A480CACA042D72838817C4B7C359"
+    },
+    {
+      "Path": "Build-Probe.ps1",
+      "Sha256": "D94203D3F65E190F526C34A5A31E4278D2BFE1D7242B30C6D32CA06B1B017FE9"
+    }
+  ],
+  "Files": [
+    {
+      "Path": "Microsoft.Extensions.Configuration.Binder.dll",
+      "Sha256": "BEAC12F7BBA4E22CDA2ACD9DDFE944A4ED56ABEC414E084EDD147BD5DAD3C032"
+    },
+    {
+      "Path": "Microsoft.Extensions.Configuration.FileExtensions.dll",
+      "Sha256": "ACF5896D0F34FA1A43295797584B3805C24743CE25EE87538EEEC83B012BBF4F"
+    },
+    {
+      "Path": "Microsoft.Extensions.Configuration.Json.dll",
+      "Sha256": "15E1262880F263806A2808D750688739662323B20CCD9835222FFF8C30899A4A"
+    },
+    {
+      "Path": "Microsoft.Extensions.Configuration.UserSecrets.dll",
+      "Sha256": "206CAD6A76676E1FE74E12CEA23D92AA7AE3EB06217315617F6F267AF1383E58"
+    },
+    {
+      "Path": "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+      "Sha256": "67FA4325000DB017DC0C35829B416F024F042D24EFB868BCF17A895EE6500A93"
+    },
+    {
+      "Path": "Microsoft.Extensions.DependencyInjection.dll",
+      "Sha256": "158761CE778E799949F3A3060C461B1055BB35F1F5A65EFF0E42397849F09ECD"
+    },
+    {
+      "Path": "Microsoft.Extensions.Diagnostics.Abstractions.dll",
+      "Sha256": "9864DBCFDBFE395BBD64DEEC7568FDAF0CBC3850F0CD8F53E7359189BD158082"
+    },
+    {
+      "Path": "Microsoft.Extensions.Diagnostics.dll",
+      "Sha256": "31E08B4E0018EE136D65DFCCA8F655A1A74CF8841E6029044C99B2E75D5F59F0"
+    },
+    {
+      "Path": "Microsoft.Extensions.Hosting.Abstractions.dll",
+      "Sha256": "27F074952005F74BA37FC62756690255E5F743FF3F7426FCDEB65A0D6EC9FF77"
+    },
+    {
+      "Path": "Microsoft.Extensions.Hosting.dll",
+      "Sha256": "22CE5576ADEC386F12CC92DE15B38C85405995B4B0E6F610A00C918A72433F62"
+    },
+    {
+      "Path": "Microsoft.Extensions.Hosting.WindowsServices.dll",
+      "Sha256": "FF86F44F29D91DF5A23CED211F19D20833E689EAE30B2CFE023DAD191494FBA2"
+    },
+    {
+      "Path": "Microsoft.Extensions.Logging.Abstractions.dll",
+      "Sha256": "45C22524218541717E4A0ADE36847C1CDA4921F5945B4975A1C78DDFE023D0B1"
+    },
+    {
+      "Path": "Microsoft.Extensions.Logging.Configuration.dll",
+      "Sha256": "372DCB44F6F9243346CB82DB99BB01F27A0F3C8019902481BD45D65C311A732D"
+    },
+    {
+      "Path": "Microsoft.Extensions.Logging.Console.dll",
+      "Sha256": "D42DA097BB5EF92A3EB9889726E5C231BB5D0D4CA7CA7132ED944514D52BEC01"
+    },
+    {
+      "Path": "Microsoft.Extensions.Logging.Debug.dll",
+      "Sha256": "3B1DC1ADA5BFEB19FE4BA5225DB9C9950DCA250FB2DAAAC259B537C5D0894A65"
+    },
+    {
+      "Path": "Microsoft.Extensions.Logging.dll",
+      "Sha256": "B2CFBA2E05EE89A91E9BC9CF112468A5F4FA05D1A77EA81C131EA656F3D133C2"
+    },
+    {
+      "Path": "Microsoft.Extensions.Logging.EventLog.dll",
+      "Sha256": "4913C4D4D3837176BCB830A8A76402873ADA8C35050A3A93B29BE092EFDDB335"
+    },
+    {
+      "Path": "Microsoft.Extensions.Logging.EventSource.dll",
+      "Sha256": "2C043EA968ECAEFD7B935255A8DB84D5666FB28A791C67D3555A611BC0C8B83C"
+    },
+    {
+      "Path": "Microsoft.Extensions.Options.dll",
+      "Sha256": "5E01894CBC0661BACB8CA8F485A40D5EE4E02F28FEF58007668A0276431B4693"
+    },
+    {
+      "Path": "NuGet.Config",
+      "Sha256": "3EB413F39FB8791745D58C6769618F9ADA15A480CACA042D72838817C4B7C359"
+    },
+    {
+      "Path": "package\\NuGet.Config",
+      "Sha256": "3EB413F39FB8791745D58C6769618F9ADA15A480CACA042D72838817C4B7C359"
+    },
+    {
+      "Path": "package\\package\\NuGet.Config",
+      "Sha256": "3EB413F39FB8791745D58C6769618F9ADA15A480CACA042D72838817C4B7C359"
+    },
+    {
+      "Path": "package\\package\\QuotingIdentityProbe.deps.json",
+      "Sha256": "173313B2B478CBF5F647FFE885B8DC6F8D7D7812913A8156766CDAE6F97201A8"
+    },
+    {
+      "Path": "package\\package\\QuotingIdentityProbe.runtimeconfig.json",
+      "Sha256": "2927E7D9A65748A82C4F265A0C9C1876A5EE233D9F5283881E0966E81CA94E14"
+    },
+    {
+      "Path": "package\\package\\web.config",
+      "Sha256": "15A5BBCB551B366A340E0F5C482FD4E367C9247B241BB7BB93B679045CDCC70B"
+    },
+    {
+      "Path": "package\\QuotingIdentityProbe.deps.json",
+      "Sha256": "173313B2B478CBF5F647FFE885B8DC6F8D7D7812913A8156766CDAE6F97201A8"
+    },
+    {
+      "Path": "package\\QuotingIdentityProbe.runtimeconfig.json",
+      "Sha256": "2927E7D9A65748A82C4F265A0C9C1876A5EE233D9F5283881E0966E81CA94E14"
+    },
+    {
+      "Path": "package\\web.config",
+      "Sha256": "15A5BBCB551B366A340E0F5C482FD4E367C9247B241BB7BB93B679045CDCC70B"
+    },
+    {
+      "Path": "probe-manifest.json",
+      "Sha256": "EFC8FBE0B132F337621454AD2AEBDE0D5BB67707E822CC40C651496EE4211F2F"
+    },
+    {
+      "Path": "QuotingIdentityProbe.deps.json",
+      "Sha256": "173313B2B478CBF5F647FFE885B8DC6F8D7D7812913A8156766CDAE6F97201A8"
+    },
+    {
+      "Path": "QuotingIdentityProbe.dll",
+      "Sha256": "C812266B99340BCC1BA844588B358E53CACF2D9C35C838CB87728728EDCFEA05"
+    },
+    {
+      "Path": "QuotingIdentityProbe.exe",
+      "Sha256": "DDFDED39E028C5360BD5353CEEA5EA07B29D82F3B4408F1F3A22D9250F2E40A8"
+    },
+    {
+      "Path": "QuotingIdentityProbe.pdb",
+      "Sha256": "154F07705F3D236C771A04F5BBD634241ABD4C7FEC8600B6FC1A11045B5A270E"
+    },
+    {
+      "Path": "QuotingIdentityProbe.runtimeconfig.json",
+      "Sha256": "2927E7D9A65748A82C4F265A0C9C1876A5EE233D9F5283881E0966E81CA94E14"
+    },
+    {
+      "Path": "runtimes\\win\\lib\\net8.0\\System.Diagnostics.EventLog.dll",
+      "Sha256": "8343020E3752DC8FAE7598816570AA30B041F835412A76DAC7F65B229ED9532B"
+    },
+    {
+      "Path": "runtimes\\win\\lib\\net8.0\\System.ServiceProcess.ServiceController.dll",
+      "Sha256": "46328AD334942A6F2B0FD331EE632F06C51EEFB2A7BA18FFE264513847E9C3BD"
+    },
+    {
+      "Path": "System.Diagnostics.EventLog.dll",
+      "Sha256": "3F8064E2499F13A8948AD2DA0C6040D12683A9A90AAAB786DBD6B653F17AC9CC"
+    },
+    {
+      "Path": "System.ServiceProcess.ServiceController.dll",
+      "Sha256": "F6F48669A0138EEF60D87B7653CD281932034368A28928BCDB080C4AA20C9617"
+    },
+    {
+      "Path": "web.config",
+      "Sha256": "15A5BBCB551B366A340E0F5C482FD4E367C9247B241BB7BB93B679045CDCC70B"
+    }
+  ]
+}
