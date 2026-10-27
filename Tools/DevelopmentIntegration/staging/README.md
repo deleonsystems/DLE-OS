@@ -87,3 +87,27 @@ projection before/after, without credential responses. Current Miguel SUPER_ADMI
 stays unchanged; second Miguel Jr. is deferred. No accounts are created by this package.
 
 Path B transport: direct numeric loopback, proxies/cookies/redirects disabled; HTTP.sys callback requires exact DleOsDevelopmentQuoting name AND PrimarySid documented in PATH_B_TRUST.md. Probe success does not authorize registration. Quoting has no SQL grants or fallback. Rollback removes no business records or accounts.
+
+## Source and activation metadata
+
+Build-OfflinePackage.ps1 defaults to a dirty working-checkout build. It writes
+schema-2 runtime-build-info.json and schema-1 frontend-manifest.json, but the
+unchanged runtime validator rejects SourceDirty=true. Templates stay inactive.
+For a clean build, first commit/review the packaging code, export that exact commit
+with git archive outside its new extraction directory, and supply SourceArchive,
+VerificationRepository, ExpectedCommit and ExpectedTree. The verification repository
+is read through normal Git ownership checks; no trust exception is added. The archive
+must match a fresh export of that commit/tree, and every extracted file must match.
+Only the 12 hash-pinned external assemblies may be added before the build. Cached
+NuGet dependencies are pinned separately; nothing is installed or downloaded.
+Source and dependencies are checked again after compilation. New generated output
+directories are explicitly enumerated; source overlays are never accepted as clean.
+
+Runtime metadata binds the actual baseline frontend content, service identity,
+commit and source digest. The package-wide manifest also covers quoting-assets,
+dependency evidence and both runtime/frontend manifests. Publishing disables default
+content globbing so old test result JSON cannot enter the payload. Test results belong
+under fixtures after qualification, not in distributable executable directories.
+Clean provenance does not authorize installation, change service bindings or imply
+browser acceptance. While these packaging edits remain uncommitted, only dirty
+candidate packages and isolated clean-provenance function tests are valid outcomes.

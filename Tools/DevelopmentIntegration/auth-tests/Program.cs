@@ -85,6 +85,7 @@ await FreshAuthorizationChecks.Run(Check);
 await ReferenceChecks.Run(Check);
 await FileTickets.Qualify(Check);
 PackagedFrontend.Check(Check);
+PackageMetadataChecks.Run(Check);
 await PackagedAssets.Check(Check);
 await ComposedChecks.Run(Check);
 await File.WriteAllTextAsync(Path.GetFullPath(Path.Combine(TestPaths.Root,"auth-tests/identity-results.json")),JsonSerializer.Serialize(new{Passed=true,Count=checks.Count,Checks=checks,Port=port,Closed=true,ProductionSecretsUsed=false},new JsonSerializerOptions{WriteIndented=true}));

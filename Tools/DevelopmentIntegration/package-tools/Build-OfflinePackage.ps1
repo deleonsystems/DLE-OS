@@ -1,8 +1,11 @@
-param([Parameter(Mandatory)][string]$OutputDirectory,[Parameter(Mandatory)][string]$PythonExecutable,[Parameter(Mandatory)][string]$NuGetPackages)
+param([Parameter(Mandatory)][string]$OutputDirectory,[Parameter(Mandatory)][string]$PythonExecutable,[Parameter(Mandatory)][string]$NuGetPackages,[string]$SourceArchive,[string]$VerificationRepository,[string]$ExpectedCommit,[string]$ExpectedTree)
 $ErrorActionPreference='Stop'
 $candidate=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $output=[IO.Path]::GetFullPath($OutputDirectory)
 if(!$output.StartsWith((Join-Path $candidate 'packages')+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase) -or (Test-Path -LiteralPath $output)){throw 'Use a new package directory beneath candidate/packages'}
+Import-Module (Join-Path $PSScriptRoot 'Package-Provenance.psm1') -Force
+$source=Get-PackageSourceIdentity -Root ([IO.Path]::GetFullPath((Join-Path $candidate '../..'))) -Archive $SourceArchive -VerificationRepository $VerificationRepository -ExpectedCommit $ExpectedCommit -ExpectedTree $ExpectedTree
+$dependencies=Assert-PackageDependencies $candidate $NuGetPackages $PythonExecutable
 New-Item -ItemType Directory -Path $output | Out-Null
 $env:DOTNET_CLI_HOME=Join-Path $candidate '.build-home'
 $env:NUGET_PACKAGES=$NuGetPackages
@@ -15,7 +18,7 @@ if($LASTEXITCODE -ne 0){throw 'Synthetic fixture generation failed'}
 foreach($entry in @(@('runtime\QuotingRuntime.csproj','backend'),@('frontend-host\FrontendHost.csproj','frontend'),@('auth-tests\IdentityChecks.csproj','qualification'),@('service-tests\ServiceChecks.csproj','service-qualification'))){
  & dotnet restore (Join-Path $candidate $entry[0]) --configfile (Join-Path $candidate 'NuGet.Config')
  if($LASTEXITCODE -ne 0){throw 'Required cached dependencies unavailable'}
- & dotnet publish (Join-Path $candidate $entry[0]) -c Release --no-restore -o (Join-Path $output $entry[1])
+ & dotnet publish (Join-Path $candidate $entry[0]) -c Release --no-restore -p:EnableDefaultContentItems=false -o (Join-Path $output $entry[1])
  if($LASTEXITCODE -ne 0){throw "Publish failed: $($entry[0])"}
 }
 # Shared legacy security/frontend assemblies retain their SqlClient binary dependency.
@@ -41,11 +44,25 @@ $sourceFiles=@(foreach($folder in @('auth','auth-tests','service-tests','staging
 $sourceEntries=@($sourceFiles|Sort-Object FullName|ForEach-Object{[ordered]@{Path=[IO.Path]::GetRelativePath($candidate,$_.FullName).Replace('\','/');Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}})
 $sourceEntries|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $output 'source-manifest.json') -Encoding utf8
 $sourceDigest=(Get-FileHash -LiteralPath (Join-Path $output 'source-manifest.json') -Algorithm SHA256).Hash
-# No timestamps, absolute package path or random run identifiers in the manifest.
+if(!$source.SourceDirty){
+ $generated=@($output,(Join-Path $candidate '.build-home'),(Join-Path $candidate 'connected/fixtures'))
+ foreach($project in @('auth','runtime','frontend-host','auth-tests','service-tests')){foreach($directory in @('bin','obj')){$generated+=Join-Path $candidate "$project/$directory"}}
+ $after=Get-PackageSourceIdentity -Root ([IO.Path]::GetFullPath((Join-Path $candidate '../..'))) -Archive $SourceArchive -VerificationRepository $VerificationRepository -ExpectedCommit $ExpectedCommit -ExpectedTree $ExpectedTree -GeneratedRoots $generated
+ if($after.VerifiedSourceDigest -cne $source.VerifiedSourceDigest){throw 'Source changed during build'}
+ $null=Assert-PackageDependencies $candidate $NuGetPackages $PythonExecutable
+}
+$source|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $output 'source-provenance.json') -Encoding utf8
+$dependencies|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $output 'dependency-manifest.json') -Encoding utf8
+$runtimeDigest=$sourceDigest;$runtimeCount=$sourceEntries.Count
+if(!$source.SourceDirty){$runtimeDigest=$source.VerifiedSourceDigest;$runtimeCount=$source.VerifiedFileCount}
+$runtimeInfo=Write-PackageRuntimeMetadata $output $source $runtimeDigest $runtimeCount
+if(@(Get-ChildItem -LiteralPath $output -Recurse -File|Where-Object {$_.Name -like '*results.json' -or $_.Name -eq 'listener-closed.json'}).Count){throw 'Generated result receipt leaked into package'}
+# Build timestamps are truthful metadata; this manifest records exact artifacts,
+# rather than claiming bit-for-bit reproducibility across builds.
 $files=@(Get-ChildItem -LiteralPath $output -File -Recurse | Sort-Object FullName | ForEach-Object {
  [ordered]@{Path=[IO.Path]::GetRelativePath($output,$_.FullName).Replace('\','/');Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}
 })
-$manifest=[ordered]@{Schema=1;SourceCheckpoint='66251559a3b062020101956971b02b0adbf05829';IntegrationBase='f018f92eb68f39803406e78cefa541dea2467802';FrontendBaseline='20260904T230955Z';SourceDirty=$true;SourceDigestSha256=$sourceDigest;State='OFFLINE_NOT_DEPLOYMENT_APPROVED';Files=$files}
+$manifest=[ordered]@{Schema=2;SourceCheckpoint='66251559a3b062020101956971b02b0adbf05829';GitHead=$source.GitHead;GitTree=$source.GitTree;SourceMode=$source.Mode;ArchiveSha256=$source.ArchiveSha256;FrontendBaseline='20260904T230955Z';SourceDirty=$source.SourceDirty;SourceDigestSha256=$sourceDigest;ReleaseId=$runtimeInfo.ReleaseId;State='OFFLINE_NOT_DEPLOYMENT_APPROVED';Files=$files}
 $manifest|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $output 'manifest.json') -Encoding utf8
 (Get-FileHash -LiteralPath (Join-Path $output 'manifest.json') -Algorithm SHA256).Hash|Set-Content -LiteralPath (Join-Path $output 'manifest.sha256')
 Write-Output $output

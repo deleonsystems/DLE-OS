@@ -1,8 +1,8 @@
-Activation metadata deliberately absent: this candidate has uncommitted Path B authorization changes
-on top of published integration commit f018f92eb68f39803406e78cefa541dea2467802.
-The retained DevRuntimeBuildInfo validator requires SourceDirty=false and a real
-clean source identity. Do not fabricate it or reuse the old deployed build identity.
-After authorized review/commit, generate runtime-build-info.json and matching
-frontend-manifest.json for that exact release using the established release process.
-The package-wide manifest here is offline provenance, not activation authority.
+Runtime and frontend manifests are generated from the actual packaged bytes.
+Working-checkout builds remain SourceDirty=true and fail the existing runtime gate.
+Only an exact Git archive verified against an explicit repository/commit/tree can
+produce SourceDirty=false. Overlaid files and unarchived inputs are rejected.
+An uncommitted packager cannot be overlaid into an old archive and called clean.
+Clean metadata establishes provenance, not deployment approval or real binding qualification.
+Service/account/key/reference setup and cutover remain separate approvals.
 No production service configuration, secret, signing key or ticket is packaged.
