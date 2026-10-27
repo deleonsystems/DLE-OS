@@ -106,7 +106,7 @@
     },
     {
       "Path": "QuotingIdentityProbe.dll",
-      "Sha256": "882C568F2DA991A14726F0A807F371B830BF61F91EB11B58FF0CF23AE37D90BC"
+      "Sha256": "C812266B99340BCC1BA844588B358E53CACF2D9C35C838CB87728728EDCFEA05"
     },
     {
       "Path": "QuotingIdentityProbe.exe",
@@ -114,7 +114,7 @@
     },
     {
       "Path": "QuotingIdentityProbe.pdb",
-      "Sha256": "153F4F845B7B21BA41CD991C0C4AB0F4242542EF86B13D5818AEAA44A70480A3"
+      "Sha256": "154F07705F3D236C771A04F5BBD634241ABD4C7FEC8600B6FC1A11045B5A270E"
     },
     {
       "Path": "QuotingIdentityProbe.runtimeconfig.json",

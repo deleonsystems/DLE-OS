@@ -3,7 +3,7 @@ param([switch]$AdminWorker)
 $ErrorActionPreference='Stop'
 $prep='C:\Users\Miguel\Documents\Codex\2026-10-26\task\scm-identity-probe-preparation'
 $manifestPath=Join-Path $prep 'qualified-manifest.json'
-$manifestHash='790D097EA012A918A8AC8A8AFC7CA776C0EA180B04B733CBCF0FDF39B731961E'
+$manifestHash='A5796DA79C543C10568F76829001641535B09BF52482F990DF790B6BA4E5168B'
 $name='DleOsQuotingIdentityProbe'
 $identity='NT SERVICE\DleOsQuotingIdentityProbe'
 $operator='DLE-OS-HOST\Miguel'
